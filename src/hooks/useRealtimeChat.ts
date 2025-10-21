@@ -40,7 +40,7 @@ export const useRealtimeChat = () => {
 
       // Connect WebSocket
       const ws = new WebSocket(
-        'wss://qrmteadsrsdddbwuboly.supabase.co/realtime-chat'
+        'wss://qrmteadsrsdddbwuboly.supabase.co/functions/v1/realtime-chat'
       );
 
       ws.onopen = () => {
