@@ -6,7 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import Transactions from "./pages/Transactions";
-import Goals from "./pages/Goals";
+import History from "./pages/History";
 import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
@@ -24,7 +24,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/transactions" element={<Transactions />} />
-            <Route path="/goals" element={<Goals />} />
+            <Route path="/history" element={<History />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/profile" element={<Profile />} />

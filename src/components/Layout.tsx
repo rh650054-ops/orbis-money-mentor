@@ -8,11 +8,10 @@ interface LayoutProps {
 }
 
 const navigation = [
-  { name: "Início", href: "/", icon: Home },
-  { name: "Lançamentos", href: "/transactions", icon: TrendingUp },
-  { name: "Metas", href: "/goals", icon: Target },
-  { name: "Insights", href: "/insights", icon: Sparkles },
-  { name: "Chat", href: "/chat", icon: MessageSquare },
+  { name: "Dashboard", href: "/", icon: Home },
+  { name: "Nova Venda", href: "/transactions", icon: TrendingUp },
+  { name: "Histórico", href: "/history", icon: Target },
+  { name: "IA Orbis", href: "/chat", icon: MessageSquare },
   { name: "Perfil", href: "/profile", icon: User },
 ];
 
