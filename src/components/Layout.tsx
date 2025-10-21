@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Home, TrendingUp, Target, Sparkles, User } from "lucide-react";
+import { Home, TrendingUp, Target, Sparkles, MessageSquare, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -12,6 +12,7 @@ const navigation = [
   { name: "Lançamentos", href: "/transactions", icon: TrendingUp },
   { name: "Metas", href: "/goals", icon: Target },
   { name: "Insights", href: "/insights", icon: Sparkles },
+  { name: "Chat", href: "/chat", icon: MessageSquare },
   { name: "Perfil", href: "/profile", icon: User },
 ];
 
