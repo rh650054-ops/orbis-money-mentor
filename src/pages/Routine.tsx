@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon } from "lucide-react";
+import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -20,7 +20,9 @@ export default function Routine() {
     lunchTime: "",
     workEnd: "",
     sleepTime: "",
-    notes: ""
+    notes: "",
+    dailyProfit: "",
+    dailyDebt: ""
   });
 
   // 🧮 Função para calcular horas
@@ -57,8 +59,10 @@ export default function Routine() {
       - Paro de vender às ${formData.workEnd}
       - Durmo às ${formData.sleepTime}.
       Total de sono: ${stats.sleepHours}, tempo de trabalho: ${stats.workHours}.
+      Lucro do dia: R$ ${formData.dailyProfit || "0"}
+      Calote do dia: R$ ${formData.dailyDebt || "0"}
       Observações: ${formData.notes || "nenhuma"}.
-      Analise e sugira melhorias para produtividade, energia e equilíbrio de vida.`;
+      Analise e sugira melhorias para produtividade, energia, equilíbrio de vida e aumento de lucro considerando o lucro e calote informados.`;
 
       const { data, error } = await supabase.functions.invoke("realtime-chat", {
         body: { message: routineMessage }
@@ -122,9 +126,41 @@ export default function Routine() {
                     value={formData[key as keyof typeof formData] as string}
                     onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
                     required
+                    className="relative z-10 cursor-pointer"
                   />
                 </div>
               ))}
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 mt-4">
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-success" />
+                  Lucro do dia (R$)
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.dailyProfit}
+                  onChange={(e) => setFormData({ ...formData, dailyProfit: e.target.value })}
+                  className="relative z-10"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  Calote do dia (R$)
+                </Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.dailyDebt}
+                  onChange={(e) => setFormData({ ...formData, dailyDebt: e.target.value })}
+                  className="relative z-10"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -134,6 +170,7 @@ export default function Routine() {
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
                 rows={4}
+                className="relative z-10"
               />
             </div>
 
