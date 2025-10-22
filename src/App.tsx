@@ -10,6 +10,7 @@ import History from "./pages/History";
 import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
+import Routine from "./pages/Routine";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/history" element={<History />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/routine" element={<Routine />} />
             <Route path="/profile" element={<Profile />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

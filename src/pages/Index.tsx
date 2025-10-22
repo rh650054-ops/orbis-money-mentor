@@ -23,12 +23,9 @@ export default function Index() {
     <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Hero Section */}
       <div className="text-center space-y-3 mb-6">
-        <h1 className="text-3xl md:text-5xl font-bold gradient-text">
-          Domine seus números
+        <h1 className="text-3xl md:text-5xl font-bold text-foreground">
+          Domine seus números. Domine seu futuro.
         </h1>
-        <p className="text-lg md:text-xl text-muted-foreground">
-          Domine seu futuro
-        </p>
       </div>
 
       {/* Financial Overview Cards */}
