@@ -7,6 +7,13 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogIn, UserPlus } from "lucide-react";
+import { z } from "zod";
+import orbisLogo from "@/assets/orbis-logo.png";
+
+const authSchema = z.object({
+  email: z.string().trim().email({ message: "Email inválido" }).max(255),
+  password: z.string().min(6, { message: "Senha deve ter no mínimo 6 caracteres" }).max(100)
+});
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -37,10 +44,13 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
+      // Validar dados
+      const validated = authSchema.parse({ email: email.trim(), password });
+      
       if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+          email: validated.email,
+          password: validated.password,
         });
         if (error) throw error;
         
@@ -50,8 +60,8 @@ export default function Auth() {
         });
       } else {
         const { error } = await supabase.auth.signUp({
-          email,
-          password,
+          email: validated.email,
+          password: validated.password,
           options: {
             emailRedirectTo: `${window.location.origin}/`
           }
@@ -64,11 +74,19 @@ export default function Auth() {
         });
       }
     } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Ocorreu um erro. Tente novamente.",
-        variant: "destructive"
-      });
+      if (error instanceof z.ZodError) {
+        toast({
+          title: "Erro de validação",
+          description: error.errors[0].message,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Erro",
+          description: error.message || "Ocorreu um erro. Tente novamente.",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +95,14 @@ export default function Auth() {
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background via-background/95 to-background/80">
       <Card className="w-full max-w-md card-gradient-border shadow-xl">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img 
+              src={orbisLogo} 
+              alt="Orbis Logo" 
+              className="w-24 h-24 object-contain"
+            />
+          </div>
           <CardTitle className="text-3xl font-bold text-primary">Orbis</CardTitle>
           <CardDescription>
             {isLogin ? "Entre na sua conta" : "Crie sua conta gratuita"}
