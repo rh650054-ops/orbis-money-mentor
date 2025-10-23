@@ -14,7 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      routines: {
+        Row: {
+          created_at: string
+          daily_debt: number | null
+          daily_profit: number | null
+          id: string
+          lunch_time: string
+          notes: string | null
+          sleep_time: string
+          updated_at: string
+          user_id: string
+          wake_time: string
+          work_end: string
+          work_start: string
+        }
+        Insert: {
+          created_at?: string
+          daily_debt?: number | null
+          daily_profit?: number | null
+          id?: string
+          lunch_time: string
+          notes?: string | null
+          sleep_time: string
+          updated_at?: string
+          user_id: string
+          wake_time: string
+          work_end: string
+          work_start: string
+        }
+        Update: {
+          created_at?: string
+          daily_debt?: number | null
+          daily_profit?: number | null
+          id?: string
+          lunch_time?: string
+          notes?: string | null
+          sleep_time?: string
+          updated_at?: string
+          user_id?: string
+          wake_time?: string
+          work_end?: string
+          work_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

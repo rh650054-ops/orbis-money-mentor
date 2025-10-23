@@ -11,6 +11,7 @@ import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -21,19 +22,24 @@ const App = () => (
       <Toaster />
       <Sonner position="top-center" />
       <BrowserRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/transactions" element={<Transactions />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/insights" element={<Insights />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/routine" element={<Routine />} />
-            <Route path="/profile" element={<Profile />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/*" element={
+            <Layout>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/transactions" element={<Transactions />} />
+                <Route path="/history" element={<History />} />
+                <Route path="/insights" element={<Insights />} />
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/routine" element={<Routine />} />
+                <Route path="/profile" element={<Profile />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Layout>
+          } />
+        </Routes>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

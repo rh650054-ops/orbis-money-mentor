@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +8,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Routine() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [aiResponse, setAiResponse] = useState("");
   const [stats, setStats] = useState({ sleepHours: "", workHours: "" });
+  const [routineId, setRoutineId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     wakeTime: "",
@@ -37,6 +42,44 @@ export default function Routine() {
     return `${hours}h ${minutes.toString().padStart(2, "0")}min`;
   };
 
+  // 🔐 Verificar autenticação
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  // 📥 Carregar rotina salva
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadRoutine = async () => {
+      const { data, error } = await supabase
+        .from("routines")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data && !error) {
+        setRoutineId(data.id);
+        setFormData({
+          wakeTime: data.wake_time,
+          workStart: data.work_start,
+          lunchTime: data.lunch_time,
+          workEnd: data.work_end,
+          sleepTime: data.sleep_time,
+          notes: data.notes || "",
+          dailyProfit: data.daily_profit?.toString() || "",
+          dailyDebt: data.daily_debt?.toString() || ""
+        });
+      }
+    };
+
+    loadRoutine();
+  }, [user]);
+
   // 🔄 Atualiza estatísticas sempre que mudar os horários
   useEffect(() => {
     const sleepHours = calculateHours(formData.sleepTime, formData.wakeTime);
@@ -47,10 +90,46 @@ export default function Routine() {
   // 🚀 Enviar rotina para IA
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+    
     setIsLoading(true);
     setAiResponse("");
 
     try {
+      // 💾 Salvar no banco de dados
+      const routineData = {
+        user_id: user.id,
+        wake_time: formData.wakeTime,
+        work_start: formData.workStart,
+        lunch_time: formData.lunchTime,
+        work_end: formData.workEnd,
+        sleep_time: formData.sleepTime,
+        daily_profit: formData.dailyProfit ? parseFloat(formData.dailyProfit) : 0,
+        daily_debt: formData.dailyDebt ? parseFloat(formData.dailyDebt) : 0,
+        notes: formData.notes
+      };
+
+      if (routineId) {
+        // Atualizar rotina existente
+        const { error: updateError } = await supabase
+          .from("routines")
+          .update(routineData)
+          .eq("id", routineId);
+        
+        if (updateError) throw updateError;
+      } else {
+        // Criar nova rotina
+        const { data: newRoutine, error: insertError } = await supabase
+          .from("routines")
+          .insert(routineData)
+          .select()
+          .single();
+        
+        if (insertError) throw insertError;
+        if (newRoutine) setRoutineId(newRoutine.id);
+      }
+
+      // 🤖 Enviar para análise da IA
       const routineMessage = `
       Minha rotina atual:
       - Acordo às ${formData.wakeTime}
@@ -72,8 +151,8 @@ export default function Routine() {
       setAiResponse(data?.response || "Rotina salva com sucesso!");
 
       toast({
-        title: "Rotina enviada!",
-        description: "O Orbis está analisando seus horários e energia.",
+        title: "Rotina salva!",
+        description: "Sua rotina foi salva e o Orbis está analisando.",
       });
     } catch (error) {
       console.error("Error:", error);
