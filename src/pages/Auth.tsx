@@ -119,6 +119,8 @@ export default function Auth() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
+                className="relative z-10"
               />
             </div>
             <div className="space-y-2">
@@ -131,6 +133,8 @@ export default function Auth() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
+                autoComplete="current-password"
+                className="relative z-10"
               />
             </div>
             <Button
