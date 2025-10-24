@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, DollarSign, TrendingDown, Target } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
-import DailySalesForm from "@/components/DailySalesForm";
 
 const data = [
   { name: "Seg", value: 320 },
@@ -19,7 +18,6 @@ const data = [
 export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const [showSalesForm, setShowSalesForm] = useState(false);
   
   const totalBalance = 3250.00;
   const income = 4180.00;
@@ -41,15 +39,12 @@ export default function Index() {
     <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Hero Section */}
       <div className="text-center space-y-3 mb-6">
-        <h1 className="text-3xl md:text-5xl font-bold text-foreground">
-          Domine seus números. Domine seu futuro.
-        </h1>
-      </div>
+      <h1 className="text-3xl md:text-5xl font-bold text-foreground">
+        Domine seus números. Domine seu futuro.
+      </h1>
+    </div>
 
-      {/* Formulário de Registro de Vendas */}
-      <DailySalesForm userId={user.id} onSaved={() => setShowSalesForm(false)} />
-
-      {/* Financial Overview Cards */}
+    {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

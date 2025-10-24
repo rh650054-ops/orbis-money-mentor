@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import DailySalesForm from "@/components/DailySalesForm";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -36,6 +39,8 @@ const categories = {
 };
 
 export default function Transactions() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([
     {
       id: "1",
@@ -63,6 +68,16 @@ export default function Transactions() {
     description: "",
   });
 
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -89,6 +104,9 @@ export default function Transactions() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
+      {/* Formulário de Registro de Vendas */}
+      <DailySalesForm userId={user.id} />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold gradient-text">Lançamentos</h1>
