@@ -51,6 +51,11 @@ export default function Routine() {
     }
   }, [user, loading, navigate]);
 
+  // Retornar null enquanto carrega ou se não houver usuário
+  if (loading || !user) {
+    return null;
+  }
+
   // 📥 Carregar rotina salva e atividades personalizadas
   const loadData = async () => {
     if (!user) return;
