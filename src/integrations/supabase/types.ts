@@ -14,6 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_sales: {
+        Row: {
+          card_sales: number | null
+          cash_sales: number | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          pix_sales: number | null
+          total_debt: number | null
+          total_profit: number | null
+          unpaid_sales: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_sales?: number | null
+          cash_sales?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          pix_sales?: number | null
+          total_debt?: number | null
+          total_profit?: number | null
+          unpaid_sales?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_sales?: number | null
+          cash_sales?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          pix_sales?: number | null
+          total_debt?: number | null
+          total_profit?: number | null
+          unpaid_sales?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      routine_activities: {
+        Row: {
+          category: string | null
+          created_at: string
+          display_order: number | null
+          end_time: string
+          id: string
+          name: string
+          notes: string | null
+          start_time: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          display_order?: number | null
+          end_time: string
+          id?: string
+          name: string
+          notes?: string | null
+          start_time: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          display_order?: number | null
+          end_time?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          start_time?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       routines: {
         Row: {
           created_at: string

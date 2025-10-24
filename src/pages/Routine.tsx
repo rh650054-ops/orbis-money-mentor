@@ -9,6 +9,7 @@ import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign, AlertTri
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import CustomActivityForm from "@/components/CustomActivityForm";
 
 export default function Routine() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function Routine() {
   const [aiResponse, setAiResponse] = useState("");
   const [stats, setStats] = useState({ sleepHours: "", workHours: "" });
   const [routineId, setRoutineId] = useState<string | null>(null);
+  const [customActivities, setCustomActivities] = useState<any[]>([]);
 
   const [formData, setFormData] = useState({
     wakeTime: "",
@@ -49,35 +51,47 @@ export default function Routine() {
     }
   }, [user, loading, navigate]);
 
-  // 📥 Carregar rotina salva
-  useEffect(() => {
+  // 📥 Carregar rotina salva e atividades personalizadas
+  const loadData = async () => {
     if (!user) return;
     
-    const loadRoutine = async () => {
-      const { data, error } = await supabase
-        .from("routines")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+    // Carregar rotina
+    const { data, error } = await supabase
+      .from("routines")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
 
-      if (data && !error) {
-        setRoutineId(data.id);
-        setFormData({
-          wakeTime: data.wake_time,
-          workStart: data.work_start,
-          lunchTime: data.lunch_time,
-          workEnd: data.work_end,
-          sleepTime: data.sleep_time,
-          notes: data.notes || "",
-          dailyProfit: data.daily_profit?.toString() || "",
-          dailyDebt: data.daily_debt?.toString() || ""
-        });
-      }
-    };
+    if (data && !error) {
+      setRoutineId(data.id);
+      setFormData({
+        wakeTime: data.wake_time,
+        workStart: data.work_start,
+        lunchTime: data.lunch_time,
+        workEnd: data.work_end,
+        sleepTime: data.sleep_time,
+        notes: data.notes || "",
+        dailyProfit: data.daily_profit?.toString() || "",
+        dailyDebt: data.daily_debt?.toString() || ""
+      });
+    }
 
-    loadRoutine();
+    // Carregar atividades personalizadas
+    const { data: activities } = await supabase
+      .from("routine_activities")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("display_order", { ascending: true });
+
+    if (activities) {
+      setCustomActivities(activities);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, [user]);
 
   // 🔄 Atualiza estatísticas sempre que mudar os horários
@@ -205,7 +219,7 @@ export default function Routine() {
                     value={formData[key as keyof typeof formData] as string}
                     onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
                     required
-                    className="relative z-10 cursor-pointer"
+                    className="relative z-10 cursor-pointer bg-background hover:border-primary/50 focus:border-primary transition-colors"
                   />
                 </div>
               ))}
@@ -223,7 +237,7 @@ export default function Routine() {
                   placeholder="0,00"
                   value={formData.dailyProfit}
                   onChange={(e) => setFormData({ ...formData, dailyProfit: e.target.value })}
-                  className="relative z-10"
+                  className="relative z-10 cursor-text bg-background hover:border-primary/50 focus:border-primary transition-colors"
                 />
               </div>
               <div className="space-y-2">
@@ -237,7 +251,7 @@ export default function Routine() {
                   placeholder="0,00"
                   value={formData.dailyDebt}
                   onChange={(e) => setFormData({ ...formData, dailyDebt: e.target.value })}
-                  className="relative z-10"
+                  className="relative z-10 cursor-text bg-background hover:border-primary/50 focus:border-primary transition-colors"
                 />
               </div>
             </div>
@@ -249,13 +263,13 @@ export default function Routine() {
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
                 rows={4}
-                className="relative z-10"
+                className="relative z-10 cursor-text bg-background hover:border-primary/50 focus:border-primary transition-colors"
               />
             </div>
 
             <Button 
               type="submit"
-              className="w-full bg-primary text-primary-foreground hover:opacity-90 transition-all duration-300"
+              className="w-full bg-primary text-primary-foreground hover:opacity-90 transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95"
               disabled={isLoading}
             >
               {isLoading ? "Analisando rotina..." : "Salvar e Analisar"}
@@ -263,6 +277,13 @@ export default function Routine() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Atividades Personalizadas */}
+      <CustomActivityForm 
+        userId={user.id} 
+        activities={customActivities} 
+        onActivitiesChange={loadData}
+      />
 
       {/* 🧭 Linha do Tempo */}
       {(formData.wakeTime || formData.workStart || formData.workEnd || formData.sleepTime) && (

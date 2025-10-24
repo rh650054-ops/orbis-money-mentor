@@ -1,6 +1,10 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, DollarSign, TrendingDown, Target } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useAuth } from "@/hooks/useAuth";
+import DailySalesForm from "@/components/DailySalesForm";
 
 const data = [
   { name: "Seg", value: 320 },
@@ -13,11 +17,25 @@ const data = [
 ];
 
 export default function Index() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  const [showSalesForm, setShowSalesForm] = useState(false);
+  
   const totalBalance = 3250.00;
   const income = 4180.00;
   const expenses = 930.00;
   const dailyProfit = 520.00;
   const monthVariation = "+18.5%";
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  if (loading || !user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
@@ -27,6 +45,9 @@ export default function Index() {
           Domine seus números. Domine seu futuro.
         </h1>
       </div>
+
+      {/* Formulário de Registro de Vendas */}
+      <DailySalesForm userId={user.id} onSaved={() => setShowSalesForm(false)} />
 
       {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -106,7 +106,7 @@ export default function Auth() {
       <Card className="w-full max-w-md card-gradient-border shadow-xl">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
-            
+            <img src={orbisLogo} alt="Orbis Logo" className="w-24 h-24 object-contain" />
           </div>
           <CardTitle className="text-3xl font-bold text-primary">Orbis</CardTitle>
           <CardDescription>
@@ -117,13 +117,36 @@ export default function Auth() {
           <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" className="relative z-10" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="seu@email.com" 
+                value={email} 
+                onChange={e => setEmail(e.target.value)} 
+                required 
+                autoComplete="email" 
+                className="relative z-10 cursor-text bg-background border-input hover:border-primary/50 focus:border-primary transition-colors" 
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>
-              <Input id="password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoComplete="current-password" className="relative z-10" />
+              <Input 
+                id="password" 
+                type="password" 
+                placeholder="••••••••" 
+                value={password} 
+                onChange={e => setPassword(e.target.value)} 
+                required 
+                minLength={6} 
+                autoComplete="current-password" 
+                className="relative z-10 cursor-text bg-background border-input hover:border-primary/50 focus:border-primary transition-colors" 
+              />
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full cursor-pointer hover:scale-105 transition-transform active:scale-95" 
+              disabled={isLoading}
+            >
               {isLoading ? "Carregando..." : isLogin ? <>
                   <LogIn className="mr-2 h-4 w-4" />
                   Entrar
@@ -135,7 +158,11 @@ export default function Auth() {
           </form>
 
           <div className="mt-6 text-center">
-            <button onClick={() => setIsLogin(!isLogin)} className="text-sm text-muted-foreground hover:text-primary transition-colors">
+            <button 
+              type="button"
+              onClick={() => setIsLogin(!isLogin)} 
+              className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline"
+            >
               {isLogin ? "Não tem conta? Cadastre-se" : "Já tem conta? Entre"}
             </button>
           </div>
