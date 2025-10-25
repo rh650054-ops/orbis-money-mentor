@@ -1,255 +1,189 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, TrendingUp, TrendingDown } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import DailySalesForm from "@/components/DailySalesForm";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { toast } from "sonner";
-
-interface Transaction {
-  id: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  description: string;
-  date: string;
-}
-
-const categories = {
-  income: ["Vendas", "Serviços", "Comissão", "Outros"],
-  expense: ["Transporte", "Alimentação", "Estoque", "Marketing", "Outros"],
-};
+import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
 
 export default function Transactions() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: "1",
-      type: "income",
-      amount: 1500,
-      category: "Vendas",
-      description: "Venda de produtos",
-      date: new Date().toISOString(),
-    },
-    {
-      id: "2",
-      type: "expense",
-      amount: 350,
-      category: "Estoque",
-      description: "Reposição de mercadorias",
-      date: new Date().toISOString(),
-    },
-  ]);
-
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    type: "income" as "income" | "expense",
-    amount: "",
-    category: "",
-    description: "",
-  });
+  const [salesHistory, setSalesHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
+      return;
+    }
+
+    if (user) {
+      loadSalesHistory();
     }
   }, [user, loading, navigate]);
+
+  const loadSalesHistory = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("daily_sales")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("date", { ascending: false })
+      .limit(30);
+
+    if (data && !error) {
+      setSalesHistory(data);
+    }
+  };
+
+  const calculateGoalPercentage = (profit: number, goal: number = 200) => {
+    return Math.min((profit / goal) * 100, 100);
+  };
 
   if (loading || !user) {
     return null;
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const newTransaction: Transaction = {
-      id: Date.now().toString(),
-      type: formData.type,
-      amount: parseFloat(formData.amount),
-      category: formData.category,
-      description: formData.description,
-      date: new Date().toISOString(),
-    };
-
-    setTransactions([newTransaction, ...transactions]);
-    setOpen(false);
-    setFormData({
-      type: "income",
-      amount: "",
-      category: "",
-      description: "",
-    });
-    
-    toast.success("Lançamento adicionado com sucesso!");
-  };
-
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       {/* Formulário de Registro de Vendas */}
-      <DailySalesForm userId={user.id} />
+      <DailySalesForm userId={user.id} onSaved={loadSalesHistory} />
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold gradient-text">Lançamentos</h1>
-          <p className="text-muted-foreground mt-1">
-            Gerencie suas receitas e despesas
-          </p>
-        </div>
-        
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-primary hover:opacity-90 transition-smooth shadow-glow-primary">
-              <Plus className="w-4 h-4 mr-2" />
-              Novo Lançamento
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="glass">
-            <DialogHeader>
-              <DialogTitle>Novo Lançamento</DialogTitle>
-              <DialogDescription>
-                Adicione uma receita ou despesa
-              </DialogDescription>
-            </DialogHeader>
-            
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Tipo</Label>
-                <Select
-                  value={formData.type}
-                  onValueChange={(value: "income" | "expense") =>
-                    setFormData({ ...formData, type: value, category: "" })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="income">Receita</SelectItem>
-                    <SelectItem value="expense">Despesa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Valor (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Categoria</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category: value })
-                  }
-                  required
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione uma categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories[formData.type].map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Descrição</Label>
-                <Input
-                  placeholder="Descrição do lançamento"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
-                  required
-                />
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full bg-gradient-primary hover:opacity-90 transition-smooth"
-              >
-                Adicionar Lançamento
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h1 className="text-3xl font-bold gradient-text">Histórico de Vendas</h1>
+        <p className="text-muted-foreground mt-1">
+          Acompanhe suas vendas diárias e progresso
+        </p>
       </div>
 
-      {/* Transactions List */}
+      {/* Sales History */}
       <div className="space-y-3">
-        {transactions.map((transaction) => (
-          <Card key={transaction.id} className="glass hover:bg-muted/5 transition-smooth">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      transaction.type === "income"
-                        ? "bg-success/10 text-success"
-                        : "bg-destructive/10 text-destructive"
-                    }`}
-                  >
-                    {transaction.type === "income" ? (
-                      <TrendingUp className="w-5 h-5" />
-                    ) : (
-                      <TrendingDown className="w-5 h-5" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="font-medium">{transaction.description}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {transaction.category} •{" "}
-                      {new Date(transaction.date).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                </div>
-                <div
-                  className={`text-lg font-bold ${
-                    transaction.type === "income"
-                      ? "text-success"
-                      : "text-destructive"
-                  }`}
-                >
-                  {transaction.type === "income" ? "+" : "-"} R${" "}
-                  {transaction.amount.toFixed(2)}
-                </div>
-              </div>
+        {salesHistory.length === 0 ? (
+          <Card className="glass">
+            <CardContent className="p-8 text-center">
+              <DollarSign className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">
+                Nenhuma venda registrada ainda. Comece registrando suas vendas acima!
+              </p>
             </CardContent>
           </Card>
-        ))}
+        ) : (
+          salesHistory.map((sale) => {
+            const profit = sale.total_profit || 0;
+            const debt = sale.total_debt || 0;
+            const goal = 200; // Meta diária padrão
+            const percentage = calculateGoalPercentage(profit, goal);
+            const isGoalReached = percentage >= 100;
+
+            return (
+              <Card key={sale.id} className="glass hover:shadow-glow-primary transition-smooth">
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    {/* Header com data e badge */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <span className="font-medium">
+                          {new Date(sale.date).toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "long",
+                            year: "numeric"
+                          })}
+                        </span>
+                      </div>
+                      {isGoalReached ? (
+                        <Badge className="bg-success/20 text-success border-success/30">
+                          🔥 Meta atingida!
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          {percentage.toFixed(0)}% da meta
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Valores principais */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-success/10 border border-success/20">
+                        <div className="flex items-center gap-2 mb-1">
+                          <TrendingUp className="w-4 h-4 text-success" />
+                          <span className="text-xs text-muted-foreground">Lucro</span>
+                        </div>
+                        <p className="text-lg font-bold text-success">
+                          R$ {profit.toFixed(2)}
+                        </p>
+                      </div>
+
+                      {debt > 0 && (
+                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                          <div className="flex items-center gap-2 mb-1">
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                            <span className="text-xs text-muted-foreground">Calotes</span>
+                          </div>
+                          <p className="text-lg font-bold text-destructive">
+                            R$ {debt.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Barra de progresso da meta */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Meta Diária</span>
+                        <span>R$ {goal.toFixed(2)}</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-primary to-secondary transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Métodos de pagamento */}
+                    {(sale.cash_sales > 0 || sale.pix_sales > 0 || sale.card_sales > 0) && (
+                      <div className="pt-2 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground mb-2">Métodos de Pagamento:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {sale.cash_sales > 0 && (
+                            <div className="text-center">
+                              <p className="text-muted-foreground">💵 Dinheiro</p>
+                              <p className="font-semibold">R$ {(sale.cash_sales || 0).toFixed(2)}</p>
+                            </div>
+                          )}
+                          {sale.pix_sales > 0 && (
+                            <div className="text-center">
+                              <p className="text-muted-foreground">📱 Pix</p>
+                              <p className="font-semibold">R$ {(sale.pix_sales || 0).toFixed(2)}</p>
+                            </div>
+                          )}
+                          {sale.card_sales > 0 && (
+                            <div className="text-center">
+                              <p className="text-muted-foreground">💳 Cartão</p>
+                              <p className="font-semibold">R$ {(sale.card_sales || 0).toFixed(2)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notas */}
+                    {sale.notes && (
+                      <div className="pt-2 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground">
+                          {sale.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
       </div>
     </div>
   );
