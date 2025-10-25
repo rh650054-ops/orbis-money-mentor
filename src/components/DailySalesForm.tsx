@@ -89,7 +89,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 placeholder="0,00"
                 value={formData.totalProfit}
                 onChange={(e) => setFormData({ ...formData, totalProfit: e.target.value })}
-                className="relative z-10 cursor-text"
               />
             </div>
             <div className="space-y-2">
@@ -103,7 +102,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 placeholder="0,00"
                 value={formData.totalDebt}
                 onChange={(e) => setFormData({ ...formData, totalDebt: e.target.value })}
-                className="relative z-10 cursor-text"
               />
             </div>
           </div>
@@ -118,7 +116,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
               placeholder="0"
               value={formData.unpaidSales}
               onChange={(e) => setFormData({ ...formData, unpaidSales: e.target.value })}
-              className="relative z-10 cursor-text"
             />
           </div>
 
@@ -136,7 +133,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   placeholder="0,00"
                   value={formData.cashSales}
                   onChange={(e) => setFormData({ ...formData, cashSales: e.target.value })}
-                  className="relative z-10 cursor-text"
                 />
               </div>
               <div className="space-y-2">
@@ -150,7 +146,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   placeholder="0,00"
                   value={formData.pixSales}
                   onChange={(e) => setFormData({ ...formData, pixSales: e.target.value })}
-                  className="relative z-10 cursor-text"
                 />
               </div>
               <div className="space-y-2">
@@ -164,7 +159,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   placeholder="0,00"
                   value={formData.cardSales}
                   onChange={(e) => setFormData({ ...formData, cardSales: e.target.value })}
-                  className="relative z-10 cursor-text"
                 />
               </div>
             </div>
@@ -177,16 +171,15 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
-              className="relative z-10 cursor-text"
             />
           </div>
 
           <Button 
             type="submit"
-            className="w-full cursor-pointer hover:scale-105 transition-transform active:scale-95"
+            className="w-full"
             disabled={isLoading}
           >
-            {isLoading ? "Salvando..." : "Registrar Vendas do Dia"}
+            {isLoading ? "Salvando..." : "💰 Registrar Vendas do Dia"}
           </Button>
         </form>
       </CardContent>

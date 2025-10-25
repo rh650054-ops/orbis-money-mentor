@@ -109,12 +109,12 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
           <CardTitle className="text-xl">Atividades Personalizadas</CardTitle>
           {!isAdding && (
             <Button 
+              type="button"
               onClick={() => setIsAdding(true)}
               size="sm"
-              className="cursor-pointer hover:scale-105 transition-transform"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Adicionar Atividade
+              ➕ Adicionar Atividade
             </Button>
           )}
         </div>
@@ -138,10 +138,11 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                   )}
                 </div>
                 <Button
+                  type="button"
                   variant="ghost"
                   size="icon"
                   onClick={() => handleDelete(activity.id)}
-                  className="cursor-pointer hover:bg-destructive/10 hover:text-destructive"
+                  className="hover:bg-destructive/10 hover:text-destructive"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -161,7 +162,6 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
-                className="relative z-10 cursor-text"
               />
             </div>
 
@@ -173,7 +173,6 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                   value={formData.startTime}
                   onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                   required
-                  className="relative z-10 cursor-pointer"
                 />
               </div>
               <div className="space-y-2">
@@ -183,7 +182,6 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                   value={formData.endTime}
                   onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                   required
-                  className="relative z-10 cursor-pointer"
                 />
               </div>
             </div>
@@ -194,15 +192,15 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                 value={formData.category} 
                 onValueChange={(value) => setFormData({ ...formData, category: value })}
               >
-                <SelectTrigger className="cursor-pointer">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="trabalho" className="cursor-pointer">Trabalho</SelectItem>
-                  <SelectItem value="saude" className="cursor-pointer">Saúde</SelectItem>
-                  <SelectItem value="lazer" className="cursor-pointer">Lazer</SelectItem>
-                  <SelectItem value="estudo" className="cursor-pointer">Estudo</SelectItem>
-                  <SelectItem value="outro" className="cursor-pointer">Outro</SelectItem>
+                  <SelectItem value="trabalho">Trabalho</SelectItem>
+                  <SelectItem value="saude">Saúde</SelectItem>
+                  <SelectItem value="lazer">Lazer</SelectItem>
+                  <SelectItem value="estudo">Estudo</SelectItem>
+                  <SelectItem value="outro">Outro</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -214,22 +212,20 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={2}
-                className="relative z-10 cursor-text"
               />
             </div>
 
             <div className="flex gap-2">
               <Button 
                 type="submit"
-                className="flex-1 cursor-pointer hover:scale-105 transition-transform"
+                className="flex-1"
               >
-                Salvar Atividade
+                ✅ Salvar Atividade
               </Button>
               <Button 
                 type="button"
                 variant="outline"
                 onClick={() => setIsAdding(false)}
-                className="cursor-pointer"
               >
                 Cancelar
               </Button>

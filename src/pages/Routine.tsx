@@ -239,7 +239,6 @@ export default function Routine() {
                     value={formData[key as keyof typeof formData] as string}
                     onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
                     required
-                    className="relative z-10 cursor-pointer bg-background hover:border-primary/50 focus:border-primary transition-colors"
                   />
                 </div>
               ))}
@@ -257,7 +256,6 @@ export default function Routine() {
                   placeholder="0,00"
                   value={formData.dailyProfit}
                   onChange={(e) => setFormData({ ...formData, dailyProfit: e.target.value })}
-                  className="relative z-10 cursor-text bg-background hover:border-primary/50 focus:border-primary transition-colors"
                 />
               </div>
               <div className="space-y-2">
@@ -271,28 +269,26 @@ export default function Routine() {
                   placeholder="0,00"
                   value={formData.dailyDebt}
                   onChange={(e) => setFormData({ ...formData, dailyDebt: e.target.value })}
-                  className="relative z-10 cursor-text bg-background hover:border-primary/50 focus:border-primary transition-colors"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Observações</Label>
-              <Textarea
+            <Textarea
                 placeholder="Adicione detalhes: deslocamento, treino, descanso..."
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
                 rows={4}
-                className="relative z-10 cursor-text bg-background hover:border-primary/50 focus:border-primary transition-colors"
               />
             </div>
 
             <Button 
               type="submit"
-              className="w-full bg-primary text-primary-foreground hover:opacity-90 transition-all duration-300 cursor-pointer hover:scale-105 active:scale-95"
+              className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? "Analisando rotina..." : "Salvar e Analisar"}
+              {isLoading ? "⏳ Salvando..." : "💾 Salvar Rotina"}
             </Button>
           </form>
         </CardContent>
