@@ -44,6 +44,56 @@ export default function Routine() {
     return `${hours}h ${minutes.toString().padStart(2, "0")}min`;
   };
 
+  // 📥 Carregar rotina salva e atividades personalizadas
+  useEffect(() => {
+    if (!user) return;
+    
+    const loadData = async () => {
+      // Carregar rotina
+      const { data, error } = await supabase
+        .from("routines")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data && !error) {
+        setRoutineId(data.id);
+        setFormData({
+          wakeTime: data.wake_time,
+          workStart: data.work_start,
+          lunchTime: data.lunch_time,
+          workEnd: data.work_end,
+          sleepTime: data.sleep_time,
+          notes: data.notes || "",
+          dailyProfit: data.daily_profit?.toString() || "",
+          dailyDebt: data.daily_debt?.toString() || ""
+        });
+      }
+
+      // Carregar atividades personalizadas
+      const { data: activities } = await supabase
+        .from("routine_activities")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("display_order", { ascending: true });
+
+      if (activities) {
+        setCustomActivities(activities);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  // 🔄 Atualiza estatísticas sempre que mudar os horários
+  useEffect(() => {
+    const sleepHours = calculateHours(formData.sleepTime, formData.wakeTime);
+    const workHours = calculateHours(formData.workStart, formData.workEnd);
+    setStats({ sleepHours, workHours });
+  }, [formData]);
+
   // 🔐 Verificar autenticação
   useEffect(() => {
     if (!loading && !user) {
@@ -56,34 +106,10 @@ export default function Routine() {
     return null;
   }
 
-  // 📥 Carregar rotina salva e atividades personalizadas
-  const loadData = async () => {
+  // Função para recarregar dados após mudanças
+  const reloadData = async () => {
     if (!user) return;
     
-    // Carregar rotina
-    const { data, error } = await supabase
-      .from("routines")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (data && !error) {
-      setRoutineId(data.id);
-      setFormData({
-        wakeTime: data.wake_time,
-        workStart: data.work_start,
-        lunchTime: data.lunch_time,
-        workEnd: data.work_end,
-        sleepTime: data.sleep_time,
-        notes: data.notes || "",
-        dailyProfit: data.daily_profit?.toString() || "",
-        dailyDebt: data.daily_debt?.toString() || ""
-      });
-    }
-
-    // Carregar atividades personalizadas
     const { data: activities } = await supabase
       .from("routine_activities")
       .select("*")
@@ -94,17 +120,6 @@ export default function Routine() {
       setCustomActivities(activities);
     }
   };
-
-  useEffect(() => {
-    loadData();
-  }, [user]);
-
-  // 🔄 Atualiza estatísticas sempre que mudar os horários
-  useEffect(() => {
-    const sleepHours = calculateHours(formData.sleepTime, formData.wakeTime);
-    const workHours = calculateHours(formData.workStart, formData.workEnd);
-    setStats({ sleepHours, workHours });
-  }, [formData]);
 
   // 🚀 Enviar rotina para IA
   const handleSubmit = async (e: React.FormEvent) => {
@@ -287,7 +302,7 @@ export default function Routine() {
       <CustomActivityForm 
         userId={user.id} 
         activities={customActivities} 
-        onActivitiesChange={loadData}
+        onActivitiesChange={reloadData}
       />
 
       {/* 🧭 Linha do Tempo */}
