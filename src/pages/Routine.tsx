@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign, AlertTriangle } from "lucide-react";
+import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,8 +28,7 @@ export default function Routine() {
     workEnd: "",
     sleepTime: "",
     notes: "",
-    dailyProfit: "",
-    dailyDebt: ""
+    dailyGoal: ""
   });
 
   // 🧮 Função para calcular horas
@@ -67,8 +66,7 @@ export default function Routine() {
           workEnd: data.work_end,
           sleepTime: data.sleep_time,
           notes: data.notes || "",
-          dailyProfit: data.daily_profit?.toString() || "",
-          dailyDebt: data.daily_debt?.toString() || ""
+          dailyGoal: data.daily_profit?.toString() || ""
         });
       }
 
@@ -138,8 +136,8 @@ export default function Routine() {
         lunch_time: formData.lunchTime,
         work_end: formData.workEnd,
         sleep_time: formData.sleepTime,
-        daily_profit: formData.dailyProfit ? parseFloat(formData.dailyProfit) : 0,
-        daily_debt: formData.dailyDebt ? parseFloat(formData.dailyDebt) : 0,
+        daily_profit: formData.dailyGoal ? parseFloat(formData.dailyGoal) : 0,
+        daily_debt: 0,
         notes: formData.notes
       };
 
@@ -172,10 +170,9 @@ export default function Routine() {
       - Paro de vender às ${formData.workEnd}
       - Durmo às ${formData.sleepTime}.
       Total de sono: ${stats.sleepHours}, tempo de trabalho: ${stats.workHours}.
-      Lucro do dia: R$ ${formData.dailyProfit || "0"}
-      Calote do dia: R$ ${formData.dailyDebt || "0"}
+      Meta de vendas do dia: R$ ${formData.dailyGoal || "0"}
       Observações: ${formData.notes || "nenhuma"}.
-      Analise e sugira melhorias para produtividade, energia, equilíbrio de vida e aumento de lucro considerando o lucro e calote informados.`;
+      Analise e sugira melhorias para produtividade, energia, equilíbrio de vida e aumento de lucro considerando a meta de vendas informada.`;
 
       const { data, error } = await supabase.functions.invoke("realtime-chat", {
         body: { message: routineMessage }
@@ -244,33 +241,18 @@ export default function Routine() {
               ))}
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 mt-4">
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-success" />
-                  Lucro do dia (R$)
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={formData.dailyProfit}
-                  onChange={(e) => setFormData({ ...formData, dailyProfit: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-destructive" />
-                  Calote do dia (R$)
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={formData.dailyDebt}
-                  onChange={(e) => setFormData({ ...formData, dailyDebt: e.target.value })}
-                />
-              </div>
+            <div className="space-y-2 mt-4">
+              <Label className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-success" />
+                Meta de vendas do dia (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="Ex: 200,00"
+                value={formData.dailyGoal}
+                onChange={(e) => setFormData({ ...formData, dailyGoal: e.target.value })}
+              />
             </div>
 
             <div className="space-y-2">
