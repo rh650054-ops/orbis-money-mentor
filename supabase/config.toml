@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.generate-insights]
 verify_jwt = true
+
+[functions.chat-with-ai]
+verify_jwt = true
