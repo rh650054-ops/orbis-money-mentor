@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Smartphone, Banknote, CreditCard, AlertCircle, Calendar, TrendingUp } from "lucide-react";
+import { Smartphone, Banknote, CreditCard, AlertCircle, Calendar, TrendingUp, ShoppingCart } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -12,7 +12,8 @@ interface DayRecord {
   pix_sales: number;
   cash_sales: number;
   card_sales: number;
-  unpaid_sales: number;
+  total_debt: number;
+  cost: number;
 }
 
 interface WeekData {
@@ -24,14 +25,16 @@ const paymentIcons = {
   pix: Smartphone,
   cash: Banknote,
   card: CreditCard,
-  unpaid: AlertCircle,
+  debt: AlertCircle,
+  cost: ShoppingCart,
 };
 
 const paymentColors = {
   pix: "text-secondary",
   cash: "text-success",
   card: "text-primary",
-  unpaid: "text-destructive",
+  debt: "text-destructive",
+  cost: "text-warning",
 };
 
 export default function History() {
@@ -57,7 +60,7 @@ export default function History() {
     // Carregar últimos 30 dias de vendas
     const { data: salesData, error } = await supabase
       .from("daily_sales")
-      .select("*")
+      .select("date, total_profit, pix_sales, cash_sales, card_sales, total_debt, cost")
       .eq("user_id", user.id)
       .order("date", { ascending: false })
       .limit(30);
@@ -68,15 +71,31 @@ export default function History() {
     }
 
     if (salesData) {
-      // Mapear dados para o formato correto
-      const formattedData: DayRecord[] = salesData.map((sale) => ({
-        date: sale.date,
-        total_profit: sale.total_profit || 0,
-        pix_sales: sale.pix_sales || 0,
-        cash_sales: sale.cash_sales || 0,
-        card_sales: sale.card_sales || 0,
-        unpaid_sales: sale.unpaid_sales || 0,
-      }));
+      // Agrupar por data (pode haver múltiplos registros por dia)
+      const groupedByDate: { [key: string]: DayRecord } = {};
+      
+      salesData.forEach((sale: any) => {
+        const date = sale.date;
+        if (!groupedByDate[date]) {
+          groupedByDate[date] = {
+            date,
+            total_profit: 0,
+            pix_sales: 0,
+            cash_sales: 0,
+            card_sales: 0,
+            total_debt: 0,
+            cost: 0,
+          };
+        }
+        groupedByDate[date].total_profit += sale.total_profit || 0;
+        groupedByDate[date].pix_sales += sale.pix_sales || 0;
+        groupedByDate[date].cash_sales += sale.cash_sales || 0;
+        groupedByDate[date].card_sales += sale.card_sales || 0;
+        groupedByDate[date].total_debt += sale.total_debt || 0;
+        groupedByDate[date].cost += sale.cost || 0;
+      });
+
+      const formattedData: DayRecord[] = Object.values(groupedByDate);
 
       setHistoryData(formattedData);
 
@@ -168,12 +187,13 @@ export default function History() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {[
                     { key: "pix", label: "PIX", value: day.pix_sales },
                     { key: "cash", label: "Dinheiro", value: day.cash_sales },
                     { key: "card", label: "Cartão", value: day.card_sales },
-                    { key: "unpaid", label: "Calote", value: day.unpaid_sales },
+                    { key: "debt", label: "Calote", value: day.total_debt },
+                    { key: "cost", label: "Gasto Merc.", value: day.cost },
                   ].map((payment) => {
                     const Icon = paymentIcons[payment.key as keyof typeof paymentIcons];
                     const colorClass = paymentColors[payment.key as keyof typeof paymentColors];

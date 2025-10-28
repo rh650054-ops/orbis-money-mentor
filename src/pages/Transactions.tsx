@@ -30,7 +30,7 @@ export default function Transactions() {
       .from("daily_sales")
       .select("*")
       .eq("user_id", user.id)
-      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(30);
 
     if (data && !error) {

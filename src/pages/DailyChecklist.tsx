@@ -103,25 +103,38 @@ export default function DailyChecklist() {
         .order("start_time", { ascending: true });
 
       const activities: { name: string; time: string }[] = [];
+      const activitySet = new Set<string>(); // Para evitar duplicatas
 
       // Add routine base activities
       if (routine) {
-        activities.push(
+        const baseActivities = [
           { name: "Acordar", time: routine.wake_time },
           { name: "Começar a trabalhar", time: routine.work_start },
           { name: "Almoçar", time: routine.lunch_time },
           { name: "Parar de vender", time: routine.work_end },
           { name: "Dormir", time: routine.sleep_time }
-        );
+        ];
+        
+        baseActivities.forEach(activity => {
+          const key = `${activity.name}-${activity.time}`;
+          if (!activitySet.has(key)) {
+            activitySet.add(key);
+            activities.push(activity);
+          }
+        });
       }
 
-      // Add custom activities
+      // Add custom activities (avoiding duplicates)
       if (customActivities) {
         customActivities.forEach((activity: RoutineActivity) => {
-          activities.push({
-            name: activity.name,
-            time: activity.start_time
-          });
+          const key = `${activity.name}-${activity.start_time}`;
+          if (!activitySet.has(key)) {
+            activitySet.add(key);
+            activities.push({
+              name: activity.name,
+              time: activity.start_time
+            });
+          }
         });
       }
 

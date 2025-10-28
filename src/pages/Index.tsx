@@ -1,24 +1,28 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap } from "lucide-react";
+import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, Check, X, ShoppingCart } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 export default function Index() {
   const navigate = useNavigate();
-  const {
-    user,
-    loading
-  } = useAuth();
+  const { user, loading } = useAuth();
+  const { toast } = useToast();
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({
     totalIncome: 0,
     totalExpenses: 0,
+    totalCost: 0,
     balance: 0,
     variation: 0
   });
+  const [monthlyGoal, setMonthlyGoal] = useState(4200);
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState("4200");
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -30,6 +34,18 @@ export default function Index() {
   }, [user, loading, navigate]);
   const loadDashboardData = async () => {
     if (!user) return;
+
+    // Carregar meta do perfil
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("monthly_goal")
+      .eq("user_id", user.id)
+      .single();
+    
+    if (profile?.monthly_goal) {
+      setMonthlyGoal(profile.monthly_goal);
+      setGoalInput(profile.monthly_goal.toString());
+    }
 
     // Carregar todas as vendas de hoje e agregar
     const today = new Date().toISOString().split('T')[0];
@@ -75,19 +91,53 @@ export default function Index() {
     if (monthData) {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
       const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
+      const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
       const balance = totalIncome - totalExpenses;
       setMonthlyStats({
         totalIncome,
         totalExpenses,
+        totalCost,
         balance,
         variation: totalIncome > 0 ? balance / totalIncome * 100 : 0
       });
     }
   };
   const calculateGoalProgress = () => {
-    const goal = 4200;
-    const progress = monthlyStats.balance / goal * 100;
+    const progress = monthlyStats.balance / monthlyGoal * 100;
     return Math.min(progress, 100);
+  };
+
+  const handleSaveGoal = async () => {
+    const newGoal = parseFloat(goalInput);
+    if (isNaN(newGoal) || newGoal <= 0) {
+      toast({
+        title: "Erro",
+        description: "Digite um valor válido para a meta.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ monthly_goal: newGoal })
+      .eq("user_id", user?.id);
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a meta.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setMonthlyGoal(newGoal);
+    setIsEditingGoal(false);
+    toast({
+      title: "✅ Meta atualizada!",
+      description: `Nova meta: R$ ${newGoal.toFixed(2)}`
+    });
   };
   const getMotivationMessage = () => {
     if (!todaySales) {
@@ -144,7 +194,7 @@ export default function Index() {
       </div>
 
     {/* Financial Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -212,6 +262,23 @@ export default function Index() {
             </p>
           </CardContent>
         </Card>
+
+        <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Gasto Mercadoria
+            </CardTitle>
+            <ShoppingCart className="h-5 w-5 text-warning" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl md:text-3xl font-bold text-warning">
+              R$ {monthlyStats.totalCost.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total no mês
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Weekly Evolution Chart */}
@@ -250,26 +317,68 @@ export default function Index() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="card-gradient-border bg-gradient-to-br from-card to-card/50">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Target className="h-5 w-5 text-secondary" />
-              Meta do Mês
+            <CardTitle className="flex items-center justify-between text-lg">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-secondary" />
+                Meta do Mês
+              </div>
+              {!isEditingGoal ? (
+                <button 
+                  onClick={() => setIsEditingGoal(true)}
+                  className="p-1.5 hover:bg-primary/10 rounded-md transition-colors"
+                >
+                  <Pencil className="h-4 w-4 text-primary" />
+                </button>
+              ) : (
+                <div className="flex gap-1">
+                  <button 
+                    onClick={handleSaveGoal}
+                    className="p-1.5 hover:bg-success/10 rounded-md transition-colors"
+                  >
+                    <Check className="h-4 w-4 text-success" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setIsEditingGoal(false);
+                      setGoalInput(monthlyGoal.toString());
+                    }}
+                    className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors"
+                  >
+                    <X className="h-4 w-4 text-destructive" />
+                  </button>
+                </div>
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Progresso</span>
-                <span className="font-semibold text-secondary">{calculateGoalProgress().toFixed(0)}%</span>
+            {isEditingGoal ? (
+              <div className="space-y-2">
+                <label className="text-sm text-muted-foreground">Nova Meta (R$)</label>
+                <Input
+                  type="number"
+                  value={goalInput}
+                  onChange={(e) => setGoalInput(e.target.value)}
+                  placeholder="Digite a meta"
+                  className="text-lg font-semibold"
+                  autoFocus
+                />
               </div>
-              <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
-                <div className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-smooth shadow-glow-primary" style={{
-                width: `${calculateGoalProgress()}%`
-              }} />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Progresso</span>
+                  <span className="font-semibold text-secondary">{calculateGoalProgress().toFixed(0)}%</span>
+                </div>
+                <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                  <div className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-smooth shadow-glow-primary" style={{
+                  width: `${calculateGoalProgress()}%`
+                }} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  R$ {monthlyStats.balance.toFixed(2)} de R$ {monthlyGoal.toFixed(2)}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                R$ {monthlyStats.balance.toFixed(2)} de R$ 4.200,00
-              </p>
-            </div>
+            )}
           </CardContent>
         </Card>
 

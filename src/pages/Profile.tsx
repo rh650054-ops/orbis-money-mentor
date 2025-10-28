@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X } from "lucide-react";
+import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,13 +35,17 @@ export default function Profile() {
     nickname: "",
     email: "",
     created_at: "",
-    monthly_goal: 0
+    monthly_goal: 0,
+    avatar_url: ""
   });
   const [editForm, setEditForm] = useState({
     nickname: "",
     email: "",
-    monthly_goal: 0
+    monthly_goal: 0,
+    avatar_url: ""
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [stats, setStats] = useState({
     transactions: 0,
     goals: 0,
@@ -83,13 +87,18 @@ export default function Profile() {
         nickname: data.nickname || "",
         email: data.email || "",
         created_at: data.created_at || "",
-        monthly_goal: data.monthly_goal || 0
+        monthly_goal: data.monthly_goal || 0,
+        avatar_url: data.avatar_url || ""
       });
       setEditForm({
         nickname: data.nickname || "",
         email: data.email || "",
-        monthly_goal: data.monthly_goal || 0
+        monthly_goal: data.monthly_goal || 0,
+        avatar_url: data.avatar_url || ""
       });
+      if (data.avatar_url) {
+        setAvatarPreview(data.avatar_url);
+      }
     } else {
       // Se não existe perfil, criar um
       const { data: newProfile } = await supabase
@@ -107,12 +116,14 @@ export default function Profile() {
           nickname: newProfile.nickname || "",
           email: newProfile.email || "",
           created_at: newProfile.created_at || "",
-          monthly_goal: newProfile.monthly_goal || 0
+          monthly_goal: newProfile.monthly_goal || 0,
+          avatar_url: newProfile.avatar_url || ""
         });
         setEditForm({
           nickname: newProfile.nickname || "",
           email: newProfile.email || "",
-          monthly_goal: newProfile.monthly_goal || 0
+          monthly_goal: newProfile.monthly_goal || 0,
+          avatar_url: newProfile.avatar_url || ""
         });
       }
     }
@@ -146,6 +157,27 @@ export default function Profile() {
     });
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "Erro",
+          description: "Arquivo muito grande. Máximo 2MB.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      setAvatarFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveProfile = async () => {
     if (!user) return;
     setIsSaving(true);
@@ -164,36 +196,81 @@ export default function Profile() {
         return;
       }
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          nickname: editForm.nickname.trim(),
-          email: editForm.email.trim(),
-          monthly_goal: editForm.monthly_goal
-        })
-        .eq("user_id", user.id);
+      let finalAvatarUrl = editForm.avatar_url;
 
-      if (error) throw error;
+      // Upload avatar se houver
+      if (avatarFile) {
+        const fileExt = avatarFile.name.split('.').pop();
+        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        
+        // Converter para base64 e salvar no perfil
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          finalAvatarUrl = reader.result as string;
+          
+          const { error: updateError } = await supabase
+            .from("profiles")
+            .update({
+              nickname: editForm.nickname.trim(),
+              email: editForm.email.trim(),
+              monthly_goal: editForm.monthly_goal,
+              avatar_url: finalAvatarUrl
+            })
+            .eq("user_id", user.id);
 
-      setProfile({
-        ...profile,
-        nickname: editForm.nickname,
-        email: editForm.email,
-        monthly_goal: editForm.monthly_goal
-      });
+          if (updateError) throw updateError;
 
-      setIsEditing(false);
-      toast({
-        title: "Perfil atualizado!",
-        description: "Suas informações foram salvas com sucesso.",
-      });
+          setProfile({
+            ...profile,
+            nickname: editForm.nickname,
+            email: editForm.email,
+            monthly_goal: editForm.monthly_goal,
+            avatar_url: finalAvatarUrl
+          });
+
+          setIsEditing(false);
+          setAvatarFile(null);
+          toast({
+            title: "Perfil atualizado!",
+            description: "Suas informações foram salvas com sucesso.",
+          });
+          setIsSaving(false);
+        };
+        reader.readAsDataURL(avatarFile);
+      } else {
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            nickname: editForm.nickname.trim(),
+            email: editForm.email.trim(),
+            monthly_goal: editForm.monthly_goal,
+            avatar_url: finalAvatarUrl
+          })
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        setProfile({
+          ...profile,
+          nickname: editForm.nickname,
+          email: editForm.email,
+          monthly_goal: editForm.monthly_goal,
+          avatar_url: finalAvatarUrl
+        });
+
+        setIsEditing(false);
+        toast({
+          title: "Perfil atualizado!",
+          description: "Suas informações foram salvas com sucesso.",
+        });
+        setIsSaving(false);
+      }
     } catch (error) {
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o perfil.",
         variant: "destructive"
       });
-    } finally {
       setIsSaving(false);
     }
   };
@@ -223,8 +300,29 @@ export default function Profile() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-bold shadow-glow-primary">
-                {profile.nickname ? profile.nickname.charAt(0).toUpperCase() : "U"}
+              <div className="relative">
+                {avatarPreview || profile.avatar_url ? (
+                  <img 
+                    src={avatarPreview || profile.avatar_url} 
+                    alt="Avatar" 
+                    className="w-16 h-16 rounded-full object-cover shadow-glow-primary border-2 border-primary/20"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-bold shadow-glow-primary">
+                    {profile.nickname ? profile.nickname.charAt(0).toUpperCase() : "U"}
+                  </div>
+                )}
+                {isEditing && (
+                  <label className="absolute bottom-0 right-0 bg-primary rounded-full p-1.5 cursor-pointer hover:bg-primary/80 transition-colors shadow-lg">
+                    <Camera className="h-3 w-3 text-primary-foreground" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                    />
+                  </label>
+                )}
               </div>
               <div>
                 <CardTitle>{profile.nickname || "Usuário"}</CardTitle>
@@ -310,8 +408,11 @@ export default function Profile() {
                     setEditForm({
                       nickname: profile.nickname,
                       email: profile.email,
-                      monthly_goal: profile.monthly_goal
+                      monthly_goal: profile.monthly_goal,
+                      avatar_url: profile.avatar_url
                     });
+                    setAvatarPreview(profile.avatar_url);
+                    setAvatarFile(null);
                   }}
                   disabled={isSaving}
                 >
