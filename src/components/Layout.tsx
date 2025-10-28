@@ -1,10 +1,11 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Target, Clock, CheckSquare, MessageSquare, User, LogOut } from "lucide-react";
+import { Home, TrendingUp, Target, Clock, CheckSquare, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import FloatingChatButton from "@/components/FloatingChatButton";
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,7 +17,6 @@ const navigation = [
   { name: "Histórico", href: "/history", icon: Target },
   { name: "Rotina", href: "/routine", icon: Clock },
   { name: "Checklist", href: "/checklist", icon: CheckSquare },
-  { name: "IA Orbis", href: "/chat", icon: MessageSquare },
   { name: "Perfil", href: "/profile", icon: User },
 ];
 
@@ -116,6 +116,9 @@ export default function Layout({ children }: LayoutProps) {
           })}
         </div>
       </nav>
+
+      {/* Floating Chat Button */}
+      <FloatingChatButton />
     </div>
   );
 }

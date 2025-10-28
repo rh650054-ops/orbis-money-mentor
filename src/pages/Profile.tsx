@@ -20,7 +20,9 @@ const profileSchema = z.object({
   email: z.string()
     .trim()
     .email({ message: "E-mail inválido" })
-    .max(255, { message: "E-mail deve ter no máximo 255 caracteres" })
+    .max(255, { message: "E-mail deve ter no máximo 255 caracteres" }),
+  monthly_goal: z.number()
+    .min(0, { message: "Meta deve ser positiva" })
 });
 
 export default function Profile() {
@@ -32,11 +34,13 @@ export default function Profile() {
   const [profile, setProfile] = useState({
     nickname: "",
     email: "",
-    created_at: ""
+    created_at: "",
+    monthly_goal: 0
   });
   const [editForm, setEditForm] = useState({
     nickname: "",
-    email: ""
+    email: "",
+    monthly_goal: 0
   });
   const [stats, setStats] = useState({
     transactions: 0,
@@ -78,11 +82,13 @@ export default function Profile() {
       setProfile({
         nickname: data.nickname || "",
         email: data.email || "",
-        created_at: data.created_at || ""
+        created_at: data.created_at || "",
+        monthly_goal: data.monthly_goal || 0
       });
       setEditForm({
         nickname: data.nickname || "",
-        email: data.email || ""
+        email: data.email || "",
+        monthly_goal: data.monthly_goal || 0
       });
     } else {
       // Se não existe perfil, criar um
@@ -100,11 +106,13 @@ export default function Profile() {
         setProfile({
           nickname: newProfile.nickname || "",
           email: newProfile.email || "",
-          created_at: newProfile.created_at || ""
+          created_at: newProfile.created_at || "",
+          monthly_goal: newProfile.monthly_goal || 0
         });
         setEditForm({
           nickname: newProfile.nickname || "",
-          email: newProfile.email || ""
+          email: newProfile.email || "",
+          monthly_goal: newProfile.monthly_goal || 0
         });
       }
     }
@@ -160,7 +168,8 @@ export default function Profile() {
         .from("profiles")
         .update({
           nickname: editForm.nickname.trim(),
-          email: editForm.email.trim()
+          email: editForm.email.trim(),
+          monthly_goal: editForm.monthly_goal
         })
         .eq("user_id", user.id);
 
@@ -169,7 +178,8 @@ export default function Profile() {
       setProfile({
         ...profile,
         nickname: editForm.nickname,
-        email: editForm.email
+        email: editForm.email,
+        monthly_goal: editForm.monthly_goal
       });
 
       setIsEditing(false);
@@ -244,6 +254,13 @@ export default function Profile() {
                 <Calendar className="w-4 h-4" />
                 <span>Membro desde {formatDate(profile.created_at)}</span>
               </div>
+              <Separator />
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Meta Mensal</Label>
+                <p className="text-2xl font-bold gradient-text">
+                  R$ {profile.monthly_goal.toFixed(2)}
+                </p>
+              </div>
             </>
           ) : (
             <div className="space-y-4">
@@ -266,6 +283,17 @@ export default function Profile() {
                   maxLength={255}
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Meta Mensal (R$)</Label>
+                <Input
+                  type="number"
+                  value={editForm.monthly_goal}
+                  onChange={(e) => setEditForm({ ...editForm, monthly_goal: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
               <div className="flex gap-2">
                 <Button 
                   onClick={handleSaveProfile}
@@ -281,7 +309,8 @@ export default function Profile() {
                     setIsEditing(false);
                     setEditForm({
                       nickname: profile.nickname,
-                      email: profile.email
+                      email: profile.email,
+                      monthly_goal: profile.monthly_goal
                     });
                   }}
                   disabled={isSaving}

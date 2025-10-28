@@ -97,6 +97,7 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          monthly_goal: number | null
           nickname: string | null
           updated_at: string
           user_id: string
@@ -105,6 +106,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          monthly_goal?: number | null
           nickname?: string | null
           updated_at?: string
           user_id: string
@@ -113,6 +115,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          monthly_goal?: number | null
           nickname?: string | null
           updated_at?: string
           user_id?: string
