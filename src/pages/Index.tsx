@@ -127,17 +127,19 @@ export default function Index() {
   const dailyProfit = todaySales?.total_profit || 0;
   return <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Hero Section */}
-      <div className="text-center space-y-2 mb-6">
-        <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-violet-600 text-center">
-          DOMINE SEUS NÚMEROS
+      <div className="text-center space-y-1 mb-6">
+        <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+          <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+            Domine seus números.
+          </span>
         </h1>
-        <p style={{
-        color: 'hsl(var(--secondary))'
-      }} className="text-xl font-light md:text-3xl text-violet-500">
-          domine seu futuro
-        </p>
-        <p className="text-muted-foreground text-sm md:text-base mt-2">
-          Acompanhe suas vendas, metas e evolução diária
+        <h2 className="text-4xl md:text-6xl font-bold tracking-tight">
+          <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+            Domine seu futuro.
+          </span>
+        </h2>
+        <p className="text-muted-foreground text-sm md:text-base mt-4">
+          Controle total das suas finanças com insights inteligentes e metas personalizadas
         </p>
       </div>
 
