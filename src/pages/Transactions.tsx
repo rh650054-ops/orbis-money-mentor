@@ -52,9 +52,9 @@ export default function Transactions() {
       <DailySalesForm userId={user.id} onSaved={loadSalesHistory} />
 
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Histórico de Vendas</h1>
+        <h1 className="text-3xl font-bold gradient-text">Histórico de Lançamentos</h1>
         <p className="text-muted-foreground mt-1">
-          Acompanhe suas vendas diárias e progresso
+          Todos os seus lançamentos registrados • {salesHistory.length} {salesHistory.length === 1 ? 'registro' : 'registros'}
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export default function Transactions() {
             <CardContent className="p-8 text-center">
               <DollarSign className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
-                Nenhuma venda registrada ainda. Comece registrando suas vendas acima!
+                Nenhum lançamento registrado ainda. Comece registrando seus lançamentos acima!
               </p>
             </CardContent>
           </Card>
@@ -79,30 +79,38 @@ export default function Transactions() {
 
             return (
               <Card key={sale.id} className="glass hover:shadow-glow-primary transition-smooth">
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    {/* Header com data e badge */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-primary" />
-                        <span className="font-medium">
-                          {new Date(sale.date).toLocaleDateString("pt-BR", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric"
-                          })}
-                        </span>
-                      </div>
-                      {isGoalReached ? (
-                        <Badge className="bg-success/20 text-success border-success/30">
-                          🔥 Meta atingida!
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {percentage.toFixed(0)}% da meta
-                        </Badge>
-                      )}
-                    </div>
+                 <CardContent className="p-4">
+                   <div className="space-y-3">
+                     {/* Header com data e hora */}
+                     <div className="flex items-center justify-between">
+                       <div className="flex items-center space-x-2">
+                         <Calendar className="w-4 h-4 text-primary" />
+                         <div>
+                           <span className="font-medium">
+                             {new Date(sale.date).toLocaleDateString("pt-BR", {
+                               day: "2-digit",
+                               month: "long",
+                               year: "numeric"
+                             })}
+                           </span>
+                           <span className="text-xs text-muted-foreground ml-2">
+                             {new Date(sale.created_at).toLocaleTimeString("pt-BR", {
+                               hour: "2-digit",
+                               minute: "2-digit"
+                             })}
+                           </span>
+                         </div>
+                       </div>
+                       {isGoalReached ? (
+                         <Badge className="bg-success/20 text-success border-success/30">
+                           🔥 Meta atingida!
+                         </Badge>
+                       ) : (
+                         <Badge variant="outline">
+                           {percentage.toFixed(0)}% da meta
+                         </Badge>
+                       )}
+                     </div>
 
                     {/* Valores principais */}
                     <div className="grid grid-cols-2 gap-3">

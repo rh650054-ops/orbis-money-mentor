@@ -32,16 +32,25 @@ export default function Index() {
   const loadDashboardData = async () => {
     if (!user) return;
 
-    // Carregar vendas de hoje
+    // Carregar todas as vendas de hoje e agregar
     const today = new Date().toISOString().split('T')[0];
     const { data: todayData } = await supabase
       .from("daily_sales")
       .select("*")
       .eq("user_id", user.id)
-      .eq("date", today)
-      .single();
+      .eq("date", today);
 
-    setTodaySales(todayData);
+    // Agregar múltiplos lançamentos do dia
+    const aggregatedToday = todayData && todayData.length > 0 ? {
+      total_profit: todayData.reduce((sum, entry) => sum + (entry.total_profit || 0), 0),
+      total_debt: todayData.reduce((sum, entry) => sum + (entry.total_debt || 0), 0),
+      cash_sales: todayData.reduce((sum, entry) => sum + (entry.cash_sales || 0), 0),
+      pix_sales: todayData.reduce((sum, entry) => sum + (entry.pix_sales || 0), 0),
+      card_sales: todayData.reduce((sum, entry) => sum + (entry.card_sales || 0), 0),
+      entry_count: todayData.length
+    } : null;
+
+    setTodaySales(aggregatedToday);
 
     // Carregar dados da última semana
     const sevenDaysAgo = new Date();
@@ -118,11 +127,14 @@ export default function Index() {
   return (
     <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Hero Section */}
-      <div className="text-center space-y-3 mb-6">
-        <h1 className="text-3xl md:text-5xl font-bold gradient-text">
-          Domine seu futuro
+      <div className="text-center space-y-2 mb-6">
+        <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-white">
+          DOMINE SEUS NÚMEROS
         </h1>
-        <p className="text-muted-foreground text-sm md:text-base">
+        <p className="text-xl md:text-2xl font-light" style={{ color: 'hsl(var(--secondary))' }}>
+          domine seu futuro
+        </p>
+        <p className="text-muted-foreground text-sm md:text-base mt-2">
           Acompanhe suas vendas, metas e evolução diária
         </p>
       </div>
@@ -284,14 +296,20 @@ export default function Index() {
               </p>
             </div>
             {todaySales && (
-              <div className="grid grid-cols-2 gap-2 mt-3">
-                <div className="p-2 rounded-lg bg-success/10 border border-success/20">
-                  <p className="text-xs text-muted-foreground">Lucro Hoje</p>
-                  <p className="text-sm font-bold text-success">R$ {dailyProfit.toFixed(2)}</p>
+              <div className="space-y-2 mt-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 rounded-lg bg-success/10 border border-success/20">
+                    <p className="text-xs text-muted-foreground">Lucro Hoje</p>
+                    <p className="text-sm font-bold text-success">R$ {dailyProfit.toFixed(2)}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20">
+                    <p className="text-xs text-muted-foreground">Calotes</p>
+                    <p className="text-sm font-bold text-destructive">R$ {(todaySales.total_debt || 0).toFixed(2)}</p>
+                  </div>
                 </div>
-                <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20">
-                  <p className="text-xs text-muted-foreground">Calotes</p>
-                  <p className="text-sm font-bold text-destructive">R$ {(todaySales.total_debt || 0).toFixed(2)}</p>
+                <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-center">
+                  <p className="text-xs text-muted-foreground">Lançamentos Hoje</p>
+                  <p className="text-sm font-bold text-primary">{todaySales.entry_count || 0}</p>
                 </div>
               </div>
             )}

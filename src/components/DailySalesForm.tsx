@@ -43,15 +43,27 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         notes: formData.notes
       };
 
+      // Insert new record (not upsert) to maintain transaction history
       const { error } = await supabase
         .from("daily_sales")
-        .upsert(salesData, { onConflict: 'user_id,date' });
+        .insert(salesData);
 
       if (error) throw error;
 
       toast({
-        title: "Vendas registradas!",
-        description: "Seus dados do dia foram salvos com sucesso.",
+        title: "Lançamento registrado!",
+        description: "Seu lançamento foi salvo no histórico.",
+      });
+
+      // Clear form after successful save
+      setFormData({
+        totalProfit: "",
+        totalDebt: "",
+        unpaidSales: "",
+        cashSales: "",
+        pixSales: "",
+        cardSales: "",
+        notes: ""
       });
 
       if (onSaved) onSaved();
@@ -74,8 +86,11 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <DollarSign className="h-5 w-5 text-primary" />
-          Registro de Vendas do Dia
+          Novo Lançamento
         </CardTitle>
+        <p className="text-sm text-muted-foreground mt-1">
+          Registre cada venda individualmente para manter histórico completo
+        </p>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -181,7 +196,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             className="w-full"
             disabled={isLoading}
           >
-            {isLoading ? "Salvando..." : "💰 Registrar Vendas do Dia"}
+            {isLoading ? "⏳ Salvando..." : "💰 Registrar Lançamento"}
           </Button>
         </form>
       </CardContent>
