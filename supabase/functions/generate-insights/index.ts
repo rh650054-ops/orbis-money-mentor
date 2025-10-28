@@ -129,20 +129,12 @@ Lembre-se: vendedor ambulante precisa de insights que considere a realidade da r
     });
 
     if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", aiResponse.status, errorText);
-      console.error("Request body:", JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt.substring(0, 100) + "..." },
-          { role: "user", content: userPrompt.substring(0, 100) + "..." }
-        ]
-      }));
+      console.error("AI API error:", aiResponse.status);
       throw new Error(`Erro ao conectar com IA: ${aiResponse.status}. Verifique a configuração do Lovable AI.`);
     }
 
     const aiData = await aiResponse.json();
-    console.log("AI Response received:", JSON.stringify(aiData).substring(0, 200));
+    console.log("AI Response received");
     
     const content = aiData.choices[0].message.content;
     let parsedInsights;
@@ -150,10 +142,9 @@ Lembre-se: vendedor ambulante precisa de insights que considere a realidade da r
     try {
       const jsonData = JSON.parse(content);
       parsedInsights = jsonData.insights || jsonData;
-      console.log("Parsed insights:", parsedInsights.length, "insights generated");
+      console.log("Insights generated:", parsedInsights.length);
     } catch (e) {
-      console.error("Failed to parse AI response:", content);
-      console.error("Parse error:", e);
+      console.error("Failed to parse AI response");
       throw new Error("Não foi possível processar a resposta da IA. Tente novamente.");
     }
 
@@ -163,7 +154,7 @@ Lembre-se: vendedor ambulante precisa de insights que considere a realidade da r
     );
 
   } catch (error) {
-    console.error("Error in generate-insights:", error);
+    console.error("Error in generate-insights");
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: errorMessage }),

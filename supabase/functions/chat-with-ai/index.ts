@@ -34,8 +34,8 @@ serve(async (req) => {
       throw new Error("Invalid messages format");
     }
 
-    console.log("Processing chat request for user:", user.id);
-    console.log("Messages received:", messages.length);
+    console.log("Processing chat request");
+    console.log("Messages count:", messages.length);
 
     // Buscar dados do usuário para contexto
     const today = new Date().toISOString().split('T')[0];
@@ -129,8 +129,7 @@ DIRETRIZES:
     });
 
     if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("AI API error:", aiResponse.status, errorText);
+      console.error("AI API error:", aiResponse.status);
       
       if (aiResponse.status === 429) {
         return new Response(
@@ -167,7 +166,7 @@ DIRETRIZES:
     );
 
   } catch (error) {
-    console.error("Error in chat-with-ai:", error);
+    console.error("Error in chat-with-ai");
     const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
     return new Response(
       JSON.stringify({ 

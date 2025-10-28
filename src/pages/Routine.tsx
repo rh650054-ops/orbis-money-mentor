@@ -186,9 +186,6 @@ export default function Routine() {
         description: "Sua rotina foi salva e o Orbis está analisando.",
       });
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error("Error:", error);
-      }
       toast({
         title: "Erro",
         description: "Não foi possível salvar a rotina.",

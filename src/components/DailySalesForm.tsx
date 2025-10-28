@@ -68,9 +68,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       if (onSaved) onSaved();
     } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error("Error:", error);
-      }
       toast({
         title: "Erro",
         description: "Não foi possível salvar os dados.",
