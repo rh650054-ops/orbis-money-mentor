@@ -102,15 +102,28 @@ export default function Auth() {
       setIsLoading(false);
     }
   };
-  return <div className="min-h-screen flex items-center justify-center p-6 bg-gradient-to-br from-background via-background/95 to-background/80">
-      <Card className="w-full max-w-md card-gradient-border shadow-xl relative z-0">
-        <CardHeader className="text-center space-y-4">
-          <div className="flex justify-center">
-            <img src={orbisLogo} alt="Orbis Logo" className="w-24 h-24 object-contain" />
-          </div>
-          <CardTitle className="text-3xl font-bold text-primary">Orbis</CardTitle>
-          <CardDescription>
+  return <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-black via-[#1A1A1A] to-black">
+      {/* Logo e Slogan */}
+      <div className="text-center mb-8 space-y-2">
+        <div className="flex justify-center mb-4">
+          <img src={orbisLogo} alt="Orbis Logo" className="w-32 h-32 object-contain" />
+        </div>
+        <h1 className="text-4xl font-bold tracking-wider text-white uppercase">
+          DOMINE SEUS NÚMEROS
+        </h1>
+        <p className="text-2xl font-light text-primary lowercase">
+          domine seu futuro
+        </p>
+      </div>
+
+      {/* Card de Login */}
+      <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-primary/20 shadow-2xl relative z-0">
+        <CardHeader className="text-center space-y-2">
+          <CardTitle className="text-2xl font-bold text-foreground">
             {isLogin ? "Entre na sua conta" : "Crie sua conta gratuita"}
+          </CardTitle>
+          <CardDescription>
+            {isLogin ? "Bem-vindo de volta ao Orbis" : "Comece sua jornada agora"}
           </CardDescription>
         </CardHeader>
         <CardContent className="relative z-10">
@@ -144,7 +157,7 @@ export default function Auth() {
             </div>
             <Button 
               type="submit" 
-              className="w-full cursor-pointer hover:scale-105 transition-transform active:scale-95 relative z-20" 
+              className="w-full bg-primary text-black font-semibold hover:bg-black hover:text-primary hover:border hover:border-primary transition-all cursor-pointer relative z-20" 
               disabled={isLoading}
             >
               {isLoading ? "Carregando..." : isLogin ? <>
@@ -161,7 +174,6 @@ export default function Auth() {
             <button 
               type="button"
               onClick={() => {
-                console.log("Alternando modo de login/cadastro");
                 setIsLogin(!isLogin);
               }} 
               className="text-sm text-muted-foreground hover:text-primary transition-colors cursor-pointer underline-offset-4 hover:underline relative z-20 bg-transparent border-none p-2"
