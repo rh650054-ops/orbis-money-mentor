@@ -11,6 +11,7 @@ import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
+import DailyChecklist from "./pages/DailyChecklist";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
@@ -29,11 +30,12 @@ const App = () => <QueryClientProvider client={queryClient}>
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/routine" element={<Routine />} />
+                <Route path="/checklist" element={<DailyChecklist />} />
                 <Route path="/profile" element={<Profile />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </Layout>} className="bg-gray-800" />
+            </Layout>} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
