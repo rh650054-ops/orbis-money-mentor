@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Calendar, TrendingUp, TrendingDown, DollarSign, AlertTriangle } from "lucide-react";
+import { Calendar, TrendingUp, TrendingDown, DollarSign, AlertTriangle, ShoppingCart } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import DailySalesForm from "@/components/DailySalesForm";
 import { Card, CardContent } from "@/components/ui/card";
@@ -71,10 +71,12 @@ export default function Transactions() {
           </Card>
         ) : (
           salesHistory.map((sale) => {
-            const profit = sale.total_profit || 0;
+            const totalSold = sale.total_profit || 0;
+            const cost = sale.cost || 0;
             const debt = sale.total_debt || 0;
+            const netProfit = totalSold - cost - debt;
             const goal = 200; // Meta diária padrão
-            const percentage = calculateGoalPercentage(profit, goal);
+            const percentage = calculateGoalPercentage(netProfit, goal);
             const isGoalReached = percentage >= 100;
 
             return (
@@ -112,30 +114,52 @@ export default function Transactions() {
                        )}
                      </div>
 
-                    {/* Valores principais */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 rounded-lg bg-success/10 border border-success/20">
-                        <div className="flex items-center gap-2 mb-1">
-                          <TrendingUp className="w-4 h-4 text-success" />
-                          <span className="text-xs text-muted-foreground">Lucro</span>
-                        </div>
-                        <p className="text-lg font-bold text-success">
-                          R$ {profit.toFixed(2)}
-                        </p>
-                      </div>
+                     {/* Valores principais */}
+                     <div className="grid grid-cols-2 gap-3">
+                       <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                         <div className="flex items-center gap-2 mb-1">
+                           <DollarSign className="w-4 h-4 text-primary" />
+                           <span className="text-xs text-muted-foreground">Total Vendido</span>
+                         </div>
+                         <p className="text-lg font-bold">
+                           R$ {totalSold.toFixed(2)}
+                         </p>
+                       </div>
 
-                      {debt > 0 && (
-                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
-                          <div className="flex items-center gap-2 mb-1">
-                            <AlertTriangle className="w-4 h-4 text-destructive" />
-                            <span className="text-xs text-muted-foreground">Calotes</span>
-                          </div>
-                          <p className="text-lg font-bold text-destructive">
-                            R$ {debt.toFixed(2)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                       <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                         <div className="flex items-center gap-2 mb-1">
+                           <ShoppingCart className="w-4 h-4 text-warning" />
+                           <span className="text-xs text-muted-foreground">Gasto</span>
+                         </div>
+                         <p className="text-lg font-bold text-warning">
+                           R$ {cost.toFixed(2)}
+                         </p>
+                       </div>
+                     </div>
+
+                     <div className="grid grid-cols-2 gap-3">
+                       {debt > 0 && (
+                         <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                           <div className="flex items-center gap-2 mb-1">
+                             <AlertTriangle className="w-4 h-4 text-destructive" />
+                             <span className="text-xs text-muted-foreground">Calotes</span>
+                           </div>
+                           <p className="text-lg font-bold text-destructive">
+                             R$ {debt.toFixed(2)}
+                           </p>
+                         </div>
+                       )}
+
+                       <div className={`p-3 rounded-lg ${netProfit >= 0 ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'} border`}>
+                         <div className="flex items-center gap-2 mb-1">
+                           <TrendingUp className={`w-4 h-4 ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`} />
+                           <span className="text-xs text-muted-foreground">Lucro Líquido</span>
+                         </div>
+                         <p className={`text-lg font-bold ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                           R$ {netProfit.toFixed(2)}
+                         </p>
+                       </div>
+                     </div>
 
                     {/* Barra de progresso da meta */}
                     <div className="space-y-1">

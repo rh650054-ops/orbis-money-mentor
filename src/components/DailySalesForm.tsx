@@ -15,16 +15,16 @@ const salesSchema = z.object({
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Lucro deve ser entre 0 e 999.999" }),
+  cost: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Custo deve ser entre 0 e 999.999" }),
   totalDebt: z.string().refine((val) => {
     if (!val) return true;
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Calotes devem ser entre 0 e 999.999" }),
-  unpaidSales: z.string().refine((val) => {
-    if (!val) return true;
-    const num = parseInt(val);
-    return !isNaN(num) && num >= 0 && num <= 9999;
-  }, { message: "Número de calotes deve ser entre 0 e 9.999" }),
   cashSales: z.string().refine((val) => {
     if (!val) return true;
     const num = parseFloat(val);
@@ -53,8 +53,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     totalProfit: "",
+    cost: "",
     totalDebt: "",
-    unpaidSales: "",
     cashSales: "",
     pixSales: "",
     cardSales: "",
@@ -83,8 +83,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         user_id: userId,
         date: new Date().toISOString().split('T')[0],
         total_profit: formData.totalProfit ? parseFloat(formData.totalProfit) : 0,
+        cost: formData.cost ? parseFloat(formData.cost) : 0,
         total_debt: formData.totalDebt ? parseFloat(formData.totalDebt) : 0,
-        unpaid_sales: formData.unpaidSales ? parseInt(formData.unpaidSales) : 0,
         cash_sales: formData.cashSales ? parseFloat(formData.cashSales) : 0,
         pix_sales: formData.pixSales ? parseFloat(formData.pixSales) : 0,
         card_sales: formData.cardSales ? parseFloat(formData.cardSales) : 0,
@@ -99,15 +99,15 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       if (error) throw error;
 
       toast({
-        title: "Lançamento registrado!",
-        description: "Seu lançamento foi salvo no histórico.",
+        title: "✅ Lançamento salvo com sucesso!",
+        description: "Seu lançamento foi registrado no histórico.",
       });
 
       // Clear form after successful save
       setFormData({
         totalProfit: "",
+        cost: "",
         totalDebt: "",
-        unpaidSales: "",
         cashSales: "",
         pixSales: "",
         cardSales: "",
@@ -139,11 +139,11 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <DollarSign className="h-4 w-4 text-success" />
-                Lucro Total do Dia (R$)
+                Total Vendido (R$)
               </Label>
               <Input
                 type="number"
@@ -155,8 +155,21 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             </div>
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-warning" />
+                Gasto em Mercadoria (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.cost}
+                onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-destructive" />
-                Calotes do Dia (R$)
+                Calotes (R$)
               </Label>
               <Input
                 type="number"
@@ -166,19 +179,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 onChange={(e) => setFormData({ ...formData, totalDebt: e.target.value })}
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-warning" />
-              Número de Calotes (Vendas Não Pagas)
-            </Label>
-            <Input
-              type="number"
-              placeholder="0"
-              value={formData.unpaidSales}
-              onChange={(e) => setFormData({ ...formData, unpaidSales: e.target.value })}
-            />
           </div>
 
           <div className="space-y-3">
