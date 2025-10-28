@@ -104,16 +104,20 @@ export default function Auth() {
   };
   return <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-black via-[#1A1A1A] to-black">
       {/* Logo e Slogan */}
-      <div className="text-center mb-8 space-y-2">
-        <div className="flex justify-center mb-4">
+      <div className="text-center mb-8 space-y-1">
+        <div className="flex justify-center mb-6">
           <img src={orbisLogo} alt="Orbis Logo" className="w-32 h-32 object-contain" />
         </div>
-        <h1 className="text-4xl font-bold tracking-wider text-white uppercase">
-          DOMINE SEUS NÚMEROS
+        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
+          <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+            Domine seus números.
+          </span>
         </h1>
-        <p className="text-2xl font-light text-primary lowercase">
-          domine seu futuro
-        </p>
+        <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
+          <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
+            Domine seu futuro.
+          </span>
+        </h2>
       </div>
 
       {/* Card de Login */}
