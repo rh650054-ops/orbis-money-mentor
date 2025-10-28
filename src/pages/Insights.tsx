@@ -1,52 +1,71 @@
-import { Sparkles, TrendingUp, AlertTriangle, Lightbulb, Target } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Sparkles, TrendingUp, AlertTriangle, Lightbulb, Target, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Insight {
-  id: string;
   type: "success" | "warning" | "info" | "goal";
-  icon: React.ElementType;
   title: string;
   description: string;
   impact: string;
 }
 
-const insights: Insight[] = [
-  {
-    id: "1",
-    type: "success",
-    icon: TrendingUp,
-    title: "Vendas em Alta",
-    description: "Suas vendas aumentaram 32% comparado à semana passada. Continue assim!",
-    impact: "+32%",
-  },
-  {
-    id: "2",
-    type: "warning",
-    icon: AlertTriangle,
-    title: "Gastos com Transporte",
-    description: "Você gastou 20% a mais com transporte este mês. Considere otimizar suas rotas.",
-    impact: "+20%",
-  },
-  {
-    id: "3",
-    type: "info",
-    icon: Lightbulb,
-    title: "Oportunidade de Economia",
-    description: "Reduzindo seus gastos com alimentação em 15%, você pode aumentar seu lucro mensal em R$ 450.",
-    impact: "R$ 450",
-  },
-  {
-    id: "4",
-    type: "goal",
-    icon: Target,
-    title: "Caminho para a Meta",
-    description: "Mantendo seu ritmo atual, você atingirá sua meta mensal em 3 dias. Está quase lá!",
-    impact: "3 dias",
-  },
-];
+interface InsightWithIcon extends Insight {
+  id: string;
+  icon: React.ElementType;
+}
 
 export default function Insights() {
+  const { toast } = useToast();
+  const [insights, setInsights] = useState<InsightWithIcon[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    loadInsights();
+  }, []);
+
+  const loadInsights = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke("generate-insights");
+
+      if (error) throw error;
+
+      if (data.message) {
+        setMessage(data.message);
+        setInsights([]);
+      } else if (data.insights) {
+        const insightsWithIcons = data.insights.map((insight: Insight, index: number) => ({
+          ...insight,
+          id: `insight-${index}`,
+          icon: getIconForType(insight.type)
+        }));
+        setInsights(insightsWithIcons);
+      }
+    } catch (error) {
+      console.error("Error loading insights:", error);
+      toast({
+        title: "Erro ao carregar insights",
+        description: "Não foi possível gerar insights. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getIconForType = (type: string): React.ElementType => {
+    switch (type) {
+      case "success": return TrendingUp;
+      case "warning": return AlertTriangle;
+      case "info": return Lightbulb;
+      case "goal": return Target;
+      default: return Sparkles;
+    }
+  };
   const getTypeColors = (type: Insight["type"]) => {
     switch (type) {
       case "success":
@@ -112,34 +131,47 @@ export default function Insights() {
       </Card>
 
       {/* Insights Grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {insights.map((insight) => {
-          const colors = getTypeColors(insight.type);
-          const Icon = insight.icon;
-          
-          return (
-            <Card
-              key={insight.id}
-              className={`glass border ${colors.border} hover:scale-[1.02] transition-smooth cursor-pointer`}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-10 h-10 rounded-full ${colors.bg} flex items-center justify-center`}>
-                      <Icon className={`w-5 h-5 ${colors.icon}`} />
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : message ? (
+        <Card className="glass border-primary/20">
+          <CardContent className="p-8 text-center">
+            <Sparkles className="w-12 h-12 text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">{message}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2">
+          {insights.map((insight) => {
+            const colors = getTypeColors(insight.type);
+            const Icon = insight.icon;
+            
+            return (
+              <Card
+                key={insight.id}
+                className={`glass border ${colors.border} hover:scale-[1.02] transition-smooth cursor-pointer`}
+              >
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-10 h-10 rounded-full ${colors.bg} flex items-center justify-center`}>
+                        <Icon className={`w-5 h-5 ${colors.icon}`} />
+                      </div>
+                      <CardTitle className="text-lg">{insight.title}</CardTitle>
                     </div>
-                    <CardTitle className="text-lg">{insight.title}</CardTitle>
+                    <Badge className={colors.badge}>{insight.impact}</Badge>
                   </div>
-                  <Badge className={colors.badge}>{insight.impact}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">{insight.description}</p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">{insight.description}</p>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Action Card */}
       <Card className="glass border-primary/20 bg-primary/5">
