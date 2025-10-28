@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Target, Clock, MessageSquare, User, LogOut } from "lucide-react";
+import { Home, TrendingUp, Target, Clock, CheckSquare, MessageSquare, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ const navigation = [
   { name: "Nova Venda", href: "/transactions", icon: TrendingUp },
   { name: "Histórico", href: "/history", icon: Target },
   { name: "Rotina", href: "/routine", icon: Clock },
+  { name: "Checklist", href: "/checklist", icon: CheckSquare },
   { name: "IA Orbis", href: "/chat", icon: MessageSquare },
   { name: "Perfil", href: "/profile", icon: User },
 ];

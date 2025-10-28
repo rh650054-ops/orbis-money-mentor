@@ -189,30 +189,15 @@ export default function Routine() {
         if (newRoutine) setRoutineId(newRoutine.id);
       }
 
-      // 🤖 Enviar para análise da IA
-      const routineMessage = `
-      Minha rotina atual:
-      - Acordo às ${formData.wakeTime}
-      - Começo a trabalhar às ${formData.workStart}
-      - Almoço às ${formData.lunchTime}
-      - Paro de vender às ${formData.workEnd}
-      - Durmo às ${formData.sleepTime}.
-      Total de sono: ${stats.sleepHours}, tempo de trabalho: ${stats.workHours}.
-      Meta de vendas do dia: R$ ${formData.dailyGoal || "0"}
-      Observações: ${formData.notes || "nenhuma"}.
-      Analise e sugira melhorias para produtividade, energia, equilíbrio de vida e aumento de lucro considerando a meta de vendas informada.`;
-
-      const { data, error } = await supabase.functions.invoke("realtime-chat", {
-        body: { message: routineMessage }
-      });
-
-      if (error) throw error;
-      setAiResponse(data?.response || "Rotina salva com sucesso!");
-
       toast({
-        title: "Rotina salva!",
-        description: "Sua rotina foi salva e o Orbis está analisando.",
+        title: "✅ Rotina salva com sucesso!",
+        description: "Redirecionando para o checklist diário...",
       });
+
+      // Redirect to daily checklist after saving
+      setTimeout(() => {
+        navigate("/checklist");
+      }, 1500);
     } catch (error) {
       toast({
         title: "Erro",

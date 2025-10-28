@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_checklist: {
+        Row: {
+          activity_name: string
+          activity_time: string | null
+          completed: boolean
+          created_at: string
+          date: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          activity_name: string
+          activity_time?: string | null
+          completed?: boolean
+          created_at?: string
+          date?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          activity_name?: string
+          activity_time?: string | null
+          completed?: boolean
+          created_at?: string
+          date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_sales: {
         Row: {
           card_sales: number | null
