@@ -10,6 +10,18 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+const profileSchema = z.object({
+  nickname: z.string()
+    .trim()
+    .min(1, { message: "Apelido não pode estar vazio" })
+    .max(100, { message: "Apelido deve ter no máximo 100 caracteres" }),
+  email: z.string()
+    .trim()
+    .email({ message: "E-mail inválido" })
+    .max(255, { message: "E-mail deve ter no máximo 255 caracteres" })
+});
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -131,11 +143,24 @@ export default function Profile() {
     setIsSaving(true);
 
     try {
+      // Validate form data
+      const validation = profileSchema.safeParse(editForm);
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
+        toast({
+          title: "Erro de validação",
+          description: firstError.message,
+          variant: "destructive"
+        });
+        setIsSaving(false);
+        return;
+      }
+
       const { error } = await supabase
         .from("profiles")
         .update({
-          nickname: editForm.nickname,
-          email: editForm.email
+          nickname: editForm.nickname.trim(),
+          email: editForm.email.trim()
         })
         .eq("user_id", user.id);
 
@@ -228,6 +253,7 @@ export default function Profile() {
                   value={editForm.nickname}
                   onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })}
                   placeholder="Como você quer ser chamado?"
+                  maxLength={100}
                 />
               </div>
               <div className="space-y-2">
@@ -237,6 +263,7 @@ export default function Profile() {
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
                   placeholder="seu@email.com"
+                  maxLength={255}
                 />
               </div>
               <div className="flex gap-2">

@@ -7,6 +7,41 @@ import { Textarea } from "@/components/ui/textarea";
 import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const salesSchema = z.object({
+  totalProfit: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Lucro deve ser entre 0 e 999.999" }),
+  totalDebt: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Calotes devem ser entre 0 e 999.999" }),
+  unpaidSales: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseInt(val);
+    return !isNaN(num) && num >= 0 && num <= 9999;
+  }, { message: "Número de calotes deve ser entre 0 e 9.999" }),
+  cashSales: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Vendas em dinheiro devem ser entre 0 e 999.999" }),
+  pixSales: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Vendas em Pix devem ser entre 0 e 999.999" }),
+  cardSales: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Vendas em cartão devem ser entre 0 e 999.999" }),
+  notes: z.string().max(1000, { message: "Observações devem ter no máximo 1000 caracteres" }).optional()
+});
 
 interface DailySalesFormProps {
   userId: string;
@@ -31,6 +66,19 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     setIsLoading(true);
 
     try {
+      // Validate form data
+      const validation = salesSchema.safeParse(formData);
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
+        toast({
+          title: "Erro de validação",
+          description: firstError.message,
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
       const salesData = {
         user_id: userId,
         date: new Date().toISOString().split('T')[0],
@@ -40,7 +88,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         cash_sales: formData.cashSales ? parseFloat(formData.cashSales) : 0,
         pix_sales: formData.pixSales ? parseFloat(formData.pixSales) : 0,
         card_sales: formData.cardSales ? parseFloat(formData.cardSales) : 0,
-        notes: formData.notes
+        notes: formData.notes.trim()
       };
 
       // Insert new record (not upsert) to maintain transaction history
@@ -185,6 +233,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={3}
+              maxLength={1000}
             />
           </div>
 

@@ -10,6 +10,21 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import CustomActivityForm from "@/components/CustomActivityForm";
+import { z } from "zod";
+
+const routineSchema = z.object({
+  wakeTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário inválido" }),
+  workStart: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário inválido" }),
+  lunchTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário inválido" }),
+  workEnd: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário inválido" }),
+  sleepTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário inválido" }),
+  notes: z.string().max(1000, { message: "Observações devem ter no máximo 1000 caracteres" }).optional(),
+  dailyGoal: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Meta deve ser entre 0 e 999.999" }).optional()
+});
 
 export default function Routine() {
   const navigate = useNavigate();
@@ -128,6 +143,19 @@ export default function Routine() {
     setAiResponse("");
 
     try {
+      // Validate form data
+      const validation = routineSchema.safeParse(formData);
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
+        toast({
+          title: "Erro de validação",
+          description: firstError.message,
+          variant: "destructive"
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // 💾 Salvar no banco de dados
       const routineData = {
         user_id: user.id,
@@ -138,7 +166,7 @@ export default function Routine() {
         sleep_time: formData.sleepTime,
         daily_profit: formData.dailyGoal ? parseFloat(formData.dailyGoal) : 0,
         daily_debt: 0,
-        notes: formData.notes
+        notes: formData.notes.trim()
       };
 
       if (routineId) {
@@ -261,6 +289,7 @@ export default function Routine() {
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
                 rows={4}
+                maxLength={1000}
               />
             </div>
 

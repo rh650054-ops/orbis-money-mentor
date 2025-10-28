@@ -8,6 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { z } from "zod";
+
+const activitySchema = z.object({
+  name: z.string()
+    .trim()
+    .min(1, { message: "Nome da atividade não pode estar vazio" })
+    .max(200, { message: "Nome deve ter no máximo 200 caracteres" }),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário de início inválido" }),
+  endTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário de fim inválido" }),
+  category: z.enum(["trabalho", "saude", "lazer", "estudo", "outro"]),
+  notes: z.string().max(500, { message: "Observações devem ter no máximo 500 caracteres" }).optional()
+});
 
 interface Activity {
   id: string;
@@ -39,15 +51,27 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
     e.preventDefault();
 
     try {
+      // Validate form data
+      const validation = activitySchema.safeParse(formData);
+      if (!validation.success) {
+        const firstError = validation.error.errors[0];
+        toast({
+          title: "Erro de validação",
+          description: firstError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from("routine_activities")
         .insert({
           user_id: userId,
-          name: formData.name,
+          name: formData.name.trim(),
           start_time: formData.startTime,
           end_time: formData.endTime,
           category: formData.category,
-          notes: formData.notes,
+          notes: formData.notes.trim(),
           display_order: activities.length
         });
 
@@ -166,6 +190,7 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 required
+                maxLength={200}
               />
             </div>
 
@@ -216,6 +241,7 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                 rows={2}
+                maxLength={500}
               />
             </div>
 

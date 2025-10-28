@@ -30,8 +30,33 @@ serve(async (req) => {
 
     const { messages } = await req.json();
     
+    // Validate messages array
     if (!messages || !Array.isArray(messages)) {
       throw new Error("Invalid messages format");
+    }
+
+    // Validate array length
+    if (messages.length === 0 || messages.length > 50) {
+      throw new Error("Messages array must contain between 1 and 50 messages");
+    }
+
+    // Validate each message
+    for (const msg of messages) {
+      if (!msg || typeof msg !== 'object') {
+        throw new Error("Invalid message format");
+      }
+      
+      if (!msg.role || !['user', 'assistant', 'system'].includes(msg.role)) {
+        throw new Error("Invalid message role");
+      }
+      
+      if (!msg.content || typeof msg.content !== 'string') {
+        throw new Error("Invalid message content");
+      }
+      
+      if (msg.content.length === 0 || msg.content.length > 4000) {
+        throw new Error("Message content must be between 1 and 4000 characters");
+      }
     }
 
     console.log("Processing chat request");
