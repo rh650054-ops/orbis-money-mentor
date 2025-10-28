@@ -13,6 +13,19 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Verify authentication
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    console.log("Unauthorized access attempt - no authorization header");
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized - Authentication required' }), 
+      { 
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+
   const upgradeHeader = req.headers.get("upgrade") || "";
   
   if (upgradeHeader.toLowerCase() !== "websocket") {
@@ -31,7 +44,7 @@ serve(async (req) => {
     let sessionReady = false;
 
     clientSocket.onopen = async () => {
-      console.log("Client connected, establishing OpenAI connection");
+      console.log("Authenticated client connected, establishing OpenAI connection");
       
       try {
         // Connect to OpenAI Realtime API
