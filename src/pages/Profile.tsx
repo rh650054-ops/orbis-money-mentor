@@ -153,7 +153,9 @@ export default function Profile() {
         description: "Suas informações foram salvas com sucesso.",
       });
     } catch (error) {
-      console.error("Error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error:", error);
+      }
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o perfil.",

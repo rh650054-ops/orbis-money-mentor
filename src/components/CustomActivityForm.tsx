@@ -68,7 +68,9 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
       setIsAdding(false);
       onActivitiesChange();
     } catch (error) {
-      console.error("Error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error:", error);
+      }
       toast({
         title: "Erro",
         description: "Não foi possível adicionar a atividade.",
@@ -93,7 +95,9 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
 
       onActivitiesChange();
     } catch (error) {
-      console.error("Error:", error);
+      if (import.meta.env.DEV) {
+        console.error("Error:", error);
+      }
       toast({
         title: "Erro",
         description: "Não foi possível remover a atividade.",
