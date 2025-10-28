@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Sparkles, TrendingUp, AlertTriangle, Lightbulb, Target, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 interface Insight {
   type: "success" | "warning" | "info" | "goal";
@@ -18,14 +20,23 @@ interface InsightWithIcon extends Insight {
 }
 
 export default function Insights() {
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [insights, setInsights] = useState<InsightWithIcon[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadInsights();
-  }, []);
+    if (!authLoading && !user) {
+      navigate("/auth");
+      return;
+    }
+
+    if (user) {
+      loadInsights();
+    }
+  }, [user, authLoading, navigate]);
 
   const loadInsights = async () => {
     try {
@@ -114,6 +125,10 @@ export default function Insights() {
         };
     }
   };
+
+  if (authLoading || !user) {
+    return null;
+  }
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
