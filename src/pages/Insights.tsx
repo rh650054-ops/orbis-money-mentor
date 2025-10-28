@@ -32,7 +32,21 @@ export default function Insights() {
       setLoading(true);
       const { data, error } = await supabase.functions.invoke("generate-insights");
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw error;
+      }
+
+      if (data.error) {
+        console.error("AI error response:", data.error);
+        toast({
+          title: "Erro ao gerar insights",
+          description: data.error,
+          variant: "destructive",
+        });
+        setInsights([]);
+        return;
+      }
 
       if (data.message) {
         setMessage(data.message);
@@ -44,14 +58,16 @@ export default function Insights() {
           icon: getIconForType(insight.type)
         }));
         setInsights(insightsWithIcons);
+        setMessage("");
       }
     } catch (error) {
       console.error("Error loading insights:", error);
       toast({
         title: "Erro ao carregar insights",
-        description: "Não foi possível gerar insights. Tente novamente.",
+        description: "Não foi possível gerar insights. Verifique sua conexão e tente novamente.",
         variant: "destructive",
       });
+      setInsights([]);
     } finally {
       setLoading(false);
     }

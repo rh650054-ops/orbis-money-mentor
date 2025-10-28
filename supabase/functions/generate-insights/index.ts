@@ -68,20 +68,49 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    const systemPrompt = `Você é o Orbis IA, assistente financeiro inteligente para vendedores ambulantes. 
-Analise os dados financeiros e gere EXATAMENTE 4 insights no formato JSON array.
-Cada insight deve ter: type (success/warning/info/goal), title (curto), description (1 frase), impact (número ou porcentagem).
-Seja motivacional, prático e direto. Foque em ações concretas.`;
+    const systemPrompt = `Você é o Orbis IA, um assistente financeiro especializado em vendas de rua e comércio ambulante.
+Você entende profundamente os desafios únicos dos vendedores ambulantes: variação de movimento, pontos de venda, horários de pico, gestão de calotes, controle de estoque, clima e concorrência.
 
-    const userPrompt = `Dados do mês:
-- Total de vendas: R$ ${totalIncome.toFixed(2)}
+Analise os dados financeiros fornecidos e gere EXATAMENTE 4 insights estratégicos em formato JSON.
+Estrutura obrigatória para cada insight:
+{
+  "type": "success" | "warning" | "info" | "goal",
+  "title": "Título curto e impactante (máximo 6 palavras)",
+  "description": "Uma frase prática e acionável sobre o que fazer",
+  "impact": "Valor numérico ou porcentagem que quantifica o impacto"
+}
+
+Diretrizes:
+- Seja EXTREMAMENTE prático e focado em ações específicas para vendedores de rua
+- Use linguagem motivacional mas realista
+- Identifique padrões de vendas (dias melhores, horários, formas de pagamento)
+- Sugira estratégias concretas para aumentar lucro e reduzir calotes
+- Celebre conquistas e incentive melhorias
+- Quantifique sempre que possível (ex: "R$ 50 a mais", "15% de crescimento")
+
+Retorne APENAS um JSON válido no formato: {"insights": [...]}`;
+
+    const userPrompt = `Contexto: Vendedor ambulante registrando vendas diárias
+
+Dados do período atual:
+📊 Financeiro:
+- Total de vendas no mês: R$ ${totalIncome.toFixed(2)}
 - Total de calotes: R$ ${totalExpenses.toFixed(2)}
-- Saldo: R$ ${balance.toFixed(2)}
-- Dias com vendas: ${daysWithSales}
-- Média diária: R$ ${avgDailyProfit.toFixed(2)}
-- Vendas hoje: R$ ${todayProfit.toFixed(2)}
+- Saldo líquido: R$ ${balance.toFixed(2)}
+- Margem: ${totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0}%
 
-Gere 4 insights práticos e motivacionais.`;
+📈 Atividade:
+- Dias trabalhados: ${daysWithSales}
+- Média de vendas por dia: R$ ${avgDailyProfit.toFixed(2)}
+- Performance hoje: R$ ${todayProfit.toFixed(2)}
+
+Com base nesses dados, gere 4 insights estratégicos focados em:
+1. Reconhecimento de conquistas ou alerta sobre problemas
+2. Oportunidade de crescimento identificada
+3. Dica prática para melhorar resultados
+4. Meta alcançável para os próximos dias
+
+Lembre-se: vendedor ambulante precisa de insights que considere a realidade da rua (movimento, clima, ponto de venda, etc.)`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -102,19 +131,30 @@ Gere 4 insights práticos e motivacionais.`;
     if (!aiResponse.ok) {
       const errorText = await aiResponse.text();
       console.error("AI API error:", aiResponse.status, errorText);
-      throw new Error(`AI API error: ${aiResponse.status}`);
+      console.error("Request body:", JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt.substring(0, 100) + "..." },
+          { role: "user", content: userPrompt.substring(0, 100) + "..." }
+        ]
+      }));
+      throw new Error(`Erro ao conectar com IA: ${aiResponse.status}. Verifique a configuração do Lovable AI.`);
     }
 
     const aiData = await aiResponse.json();
+    console.log("AI Response received:", JSON.stringify(aiData).substring(0, 200));
+    
     const content = aiData.choices[0].message.content;
     let parsedInsights;
     
     try {
       const jsonData = JSON.parse(content);
       parsedInsights = jsonData.insights || jsonData;
+      console.log("Parsed insights:", parsedInsights.length, "insights generated");
     } catch (e) {
       console.error("Failed to parse AI response:", content);
-      throw new Error("Failed to parse AI response");
+      console.error("Parse error:", e);
+      throw new Error("Não foi possível processar a resposta da IA. Tente novamente.");
     }
 
     return new Response(
