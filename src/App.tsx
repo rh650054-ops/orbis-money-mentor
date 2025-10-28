@@ -11,22 +11,17 @@ import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
-import DailyChecklist from "./pages/DailyChecklist";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-
 const queryClient = new QueryClient();
-
-const App = () => (
-  <QueryClientProvider client={queryClient}>
+const App = () => <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-center" />
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
-          <Route path="/*" element={
-            <Layout>
+          <Route path="/*" element={<Layout>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/transactions" element={<Transactions />} />
@@ -34,17 +29,13 @@ const App = () => (
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/routine" element={<Routine />} />
-                <Route path="/checklist" element={<DailyChecklist />} />
                 <Route path="/profile" element={<Profile />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </Layout>
-          } />
+            </Layout>} className="bg-gray-800" />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
-  </QueryClientProvider>
-);
-
+  </QueryClientProvider>;
 export default App;
