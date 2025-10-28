@@ -297,7 +297,7 @@ export default function Routine() {
       />
 
       {/* 🧭 Linha do Tempo */}
-      {(formData.wakeTime || formData.workStart || formData.workEnd || formData.sleepTime) && (
+      {(formData.wakeTime || formData.workStart || formData.workEnd || formData.sleepTime || customActivities.length > 0) && (
         <Card className="max-w-3xl mx-auto bg-gradient-to-br from-card/80 to-card/50 shadow-lg border border-primary/20 mt-10">
           <CardHeader>
             <CardTitle className="text-center text-primary font-semibold text-lg">
@@ -305,6 +305,7 @@ export default function Routine() {
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Atividades Base da Rotina */}
             <div className="relative flex items-center justify-between w-full mt-6">
               {[
                 { icon: <Sunrise className="text-primary" />, label: "Acorda", time: formData.wakeTime },
@@ -326,6 +327,28 @@ export default function Routine() {
                 </div>
               ))}
             </div>
+
+            {/* Atividades Personalizadas */}
+            {customActivities.length > 0 && (
+              <div className="mt-6 pt-6 border-t border-primary/20">
+                <h4 className="text-sm font-semibold text-primary mb-4 text-center">Atividades Personalizadas</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {customActivities.map((activity) => (
+                    <div key={activity.id} className="p-3 rounded-lg bg-secondary/10 border border-secondary/20">
+                      <p className="text-xs font-medium text-foreground">{activity.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {activity.start_time} - {activity.end_time}
+                      </p>
+                      {activity.category && (
+                        <p className="text-[10px] text-primary mt-1">
+                          {activity.category}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Estatísticas de horas */}
             <div className="flex flex-col md:flex-row justify-center gap-6 mt-8 text-center">
