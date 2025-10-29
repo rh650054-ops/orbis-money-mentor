@@ -5,6 +5,3 @@ verify_jwt = true
 
 [functions.chat-with-ai]
 verify_jwt = true
-
-[functions.stripe-webhook]
-verify_jwt = false
