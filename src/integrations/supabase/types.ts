@@ -101,8 +101,17 @@ export type Database = {
           created_at: string
           email: string | null
           id: string
+          is_trial_active: boolean | null
+          last_payment_date: string | null
           monthly_goal: number | null
+          next_payment_date: string | null
           nickname: string | null
+          payment_status: string | null
+          plan_status: string | null
+          plan_type: string | null
+          subscription_id: string | null
+          trial_end: string | null
+          trial_start: string | null
           updated_at: string
           user_id: string
         }
@@ -111,8 +120,17 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_trial_active?: boolean | null
+          last_payment_date?: string | null
           monthly_goal?: number | null
+          next_payment_date?: string | null
           nickname?: string | null
+          payment_status?: string | null
+          plan_status?: string | null
+          plan_type?: string | null
+          subscription_id?: string | null
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id: string
         }
@@ -121,8 +139,17 @@ export type Database = {
           created_at?: string
           email?: string | null
           id?: string
+          is_trial_active?: boolean | null
+          last_payment_date?: string | null
           monthly_goal?: number | null
+          next_payment_date?: string | null
           nickname?: string | null
+          payment_status?: string | null
+          plan_status?: string | null
+          plan_type?: string | null
+          subscription_id?: string | null
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -244,6 +271,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_trial_expired: { Args: { user_uuid: string }; Returns: boolean }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
     }
     Enums: {

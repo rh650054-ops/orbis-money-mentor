@@ -1,11 +1,13 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, TrendingUp, Target, Clock, CheckSquare, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import FloatingChatButton from "@/components/FloatingChatButton";
+import TrialExpiredModal from "@/components/TrialExpiredModal";
 
 interface LayoutProps {
   children: ReactNode;
@@ -23,8 +25,21 @@ const navigation = [
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user, signOut, loading } = useAuth();
+  const { trialStatus, loading: trialLoading } = useTrialStatus(user?.id);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+    }
+  }, [user, loading, navigate]);
+
+  const shouldShowTrialExpiredModal = 
+    !trialLoading && 
+    trialStatus.isExpired && 
+    trialStatus.planStatus === 'expired' &&
+    location.pathname !== '/payment';
 
   const handleSignOut = async () => {
     await signOut();
@@ -119,6 +134,12 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Floating Chat Button */}
       <FloatingChatButton />
+
+      {/* Trial Expired Modal */}
+      <TrialExpiredModal 
+        isOpen={shouldShowTrialExpiredModal}
+        onClose={() => navigate('/payment')}
+      />
     </div>
   );
 }

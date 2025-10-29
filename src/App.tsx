@@ -13,6 +13,7 @@ import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
 import DailyChecklist from "./pages/DailyChecklist";
 import Auth from "./pages/Auth";
+import Payment from "./pages/Payment";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 const App = () => <QueryClientProvider client={queryClient}>
@@ -22,6 +23,7 @@ const App = () => <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/payment" element={<Payment />} />
           <Route path="/*" element={<Layout>
               <Routes>
                 <Route path="/" element={<Index />} />
