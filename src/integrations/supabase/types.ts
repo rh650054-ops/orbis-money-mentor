@@ -187,6 +187,7 @@ export type Database = {
           category: string | null
           created_at: string
           display_order: number | null
+          emoji: string | null
           end_time: string
           id: string
           name: string
@@ -199,6 +200,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           display_order?: number | null
+          emoji?: string | null
           end_time: string
           id?: string
           name: string
@@ -211,6 +213,7 @@ export type Database = {
           category?: string | null
           created_at?: string
           display_order?: number | null
+          emoji?: string | null
           end_time?: string
           id?: string
           name?: string

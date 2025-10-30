@@ -25,12 +25,14 @@ interface ChecklistItem {
   activity_name: string;
   activity_time: string | null;
   completed: boolean;
+  emoji?: string;
 }
 
 interface RoutineActivity {
   name: string;
   start_time: string;
   end_time: string;
+  emoji: string;
 }
 
 export default function DailyChecklist() {
@@ -102,17 +104,17 @@ export default function DailyChecklist() {
         .eq("user_id", user.id)
         .order("start_time", { ascending: true });
 
-      const activities: { name: string; time: string }[] = [];
+      const activities: { name: string; time: string; emoji?: string }[] = [];
       const activitySet = new Set<string>(); // Para evitar duplicatas
 
       // Add routine base activities
       if (routine) {
         const baseActivities = [
-          { name: "Acordar", time: routine.wake_time },
-          { name: "Começar a trabalhar", time: routine.work_start },
-          { name: "Almoçar", time: routine.lunch_time },
-          { name: "Parar de vender", time: routine.work_end },
-          { name: "Dormir", time: routine.sleep_time }
+          { name: "Acordar", time: routine.wake_time, emoji: "☀️" },
+          { name: "Começar a trabalhar", time: routine.work_start, emoji: "💼" },
+          { name: "Almoçar", time: routine.lunch_time, emoji: "🍽️" },
+          { name: "Parar de vender", time: routine.work_end, emoji: "🏁" },
+          { name: "Dormir", time: routine.sleep_time, emoji: "🌙" }
         ];
         
         baseActivities.forEach(activity => {
@@ -132,7 +134,8 @@ export default function DailyChecklist() {
             activitySet.add(key);
             activities.push({
               name: activity.name,
-              time: activity.start_time
+              time: activity.start_time,
+              emoji: activity.emoji || "💪"
             });
           }
         });
@@ -147,6 +150,7 @@ export default function DailyChecklist() {
         date: selectedDate,
         activity_name: activity.name,
         activity_time: activity.time,
+        emoji: activity.emoji,
         completed: false
       }));
 
@@ -320,7 +324,11 @@ export default function DailyChecklist() {
                   />
                   
                   <div className="flex-1 flex items-center gap-3">
-                    {getActivityIcon(item.activity_name)}
+                    {item.emoji ? (
+                      <span className="text-2xl">{item.emoji}</span>
+                    ) : (
+                      getActivityIcon(item.activity_name)
+                    )}
                     <div className="flex-1">
                       <p className={`font-medium ${item.completed ? "line-through text-muted-foreground" : ""}`}>
                         {item.activity_name}

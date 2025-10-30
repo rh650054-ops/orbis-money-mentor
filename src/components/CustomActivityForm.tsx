@@ -18,8 +18,24 @@ const activitySchema = z.object({
   startTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário de início inválido" }),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário de fim inválido" }),
   category: z.enum(["trabalho", "saude", "lazer", "estudo", "outro"]),
+  emoji: z.string().min(1, { message: "Escolha um emoji" }),
   notes: z.string().max(500, { message: "Observações devem ter no máximo 500 caracteres" }).optional()
 });
+
+const EMOJI_OPTIONS = [
+  { emoji: "💪", label: "Disciplina" },
+  { emoji: "☀️", label: "Acordar" },
+  { emoji: "🍬", label: "Vendas" },
+  { emoji: "💸", label: "Meta batida" },
+  { emoji: "🔥", label: "Treino" },
+  { emoji: "☕", label: "Foco" },
+  { emoji: "🧠", label: "Estudo" },
+  { emoji: "🌙", label: "Descanso" },
+  { emoji: "💼", label: "Trabalho" },
+  { emoji: "🎯", label: "Meta" },
+  { emoji: "📚", label: "Leitura" },
+  { emoji: "🏃", label: "Exercício" },
+];
 
 interface Activity {
   id: string;
@@ -27,6 +43,7 @@ interface Activity {
   start_time: string;
   end_time: string;
   category: string;
+  emoji: string;
   notes: string;
 }
 
@@ -44,6 +61,7 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
     startTime: "",
     endTime: "",
     category: "trabalho",
+    emoji: "💪",
     notes: ""
   });
 
@@ -71,6 +89,7 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
           start_time: formData.startTime,
           end_time: formData.endTime,
           category: formData.category,
+          emoji: formData.emoji,
           notes: formData.notes.trim(),
           display_order: activities.length
         });
@@ -87,6 +106,7 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
         startTime: "",
         endTime: "",
         category: "trabalho",
+        emoji: "💪",
         notes: ""
       });
       setIsAdding(false);
@@ -157,7 +177,10 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                 className="flex items-center justify-between p-3 bg-card/50 rounded-lg border border-border"
               >
                 <div className="flex-1">
-                  <p className="font-medium">{activity.name}</p>
+                  <p className="font-medium flex items-center gap-2">
+                    <span className="text-2xl">{activity.emoji}</span>
+                    {activity.name}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {activity.start_time} - {activity.end_time} • {activity.category}
                   </p>
@@ -213,6 +236,35 @@ export default function CustomActivityForm({ userId, activities, onActivitiesCha
                   required
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Emoji Visionário</Label>
+              <div className="grid grid-cols-6 gap-2">
+                {EMOJI_OPTIONS.map((option) => (
+                  <button
+                    key={option.emoji}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, emoji: option.emoji })}
+                    className={`text-3xl p-2 rounded-lg border-2 transition-smooth hover:scale-110 ${
+                      formData.emoji === option.emoji 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    title={option.label}
+                  >
+                    {option.emoji}
+                  </button>
+                ))}
+              </div>
+              <Input
+                type="text"
+                placeholder="Ou digite seu próprio emoji..."
+                value={formData.emoji}
+                onChange={(e) => setFormData({ ...formData, emoji: e.target.value.substring(0, 2) })}
+                className="text-center text-2xl"
+                maxLength={2}
+              />
             </div>
 
             <div className="space-y-2">
