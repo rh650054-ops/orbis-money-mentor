@@ -89,28 +89,20 @@ export default function DailyChecklist() {
 
     try {
       // Load routine data
-      const { data: routine, error: routineError } = await supabase
+      const { data: routine } = await supabase
         .from("routines")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
-        .maybeSingle();
-
-      if (routineError) {
-        console.error("Erro ao carregar rotina:", routineError);
-      }
+        .single();
 
       // Load custom activities
-      const { data: customActivities, error: activitiesError } = await supabase
+      const { data: customActivities } = await supabase
         .from("routine_activities")
         .select("*")
         .eq("user_id", user.id)
         .order("start_time", { ascending: true });
-
-      if (activitiesError) {
-        console.error("Erro ao carregar atividades:", activitiesError);
-      }
 
       const activities: { name: string; time: string; emoji?: string }[] = [];
       const activitySet = new Set<string>(); // Para evitar duplicatas
@@ -135,7 +127,7 @@ export default function DailyChecklist() {
       }
 
       // Add custom activities (avoiding duplicates)
-      if (customActivities && customActivities.length > 0) {
+      if (customActivities) {
         customActivities.forEach((activity: RoutineActivity) => {
           const key = `${activity.name}-${activity.start_time}`;
           if (!activitySet.has(key)) {
@@ -168,17 +160,8 @@ export default function DailyChecklist() {
           .insert(checklistItems)
           .select();
 
-        if (error) {
-          console.error("Erro ao inserir checklist:", error);
-          throw error;
-        }
-        if (data) {
-          setChecklist(data);
-          toast({
-            title: "✅ Checklist criado!",
-            description: `${data.length} atividades adicionadas para hoje.`
-          });
-        }
+        if (error) throw error;
+        if (data) setChecklist(data);
       } else {
         toast({
           title: "Nenhuma rotina encontrada",
@@ -187,10 +170,9 @@ export default function DailyChecklist() {
         });
       }
     } catch (error) {
-      console.error("Erro completo:", error);
       toast({
         title: "Erro",
-        description: "Não foi possível gerar o checklist. Verifique o console para mais detalhes.",
+        description: "Não foi possível gerar o checklist.",
         variant: "destructive"
       });
     }
