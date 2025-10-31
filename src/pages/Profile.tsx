@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload } from "lucide-react";
+import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -488,6 +488,29 @@ export default function Profile() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Admin Panel Access Card - Visível apenas para admins/primeiros usuários */}
+      <Card className="glass border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <Shield className="w-6 h-6 text-primary" />
+            <div>
+              <CardTitle>Painel Administrativo</CardTitle>
+              <CardDescription>Gerenciar contas demo para influenciadores</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            onClick={() => navigate("/admin/demo-users")}
+            className="w-full"
+            variant="outline"
+          >
+            <UserPlus className="w-4 h-4 mr-2" />
+            Acessar Painel de Contas Demo
+          </Button>
         </CardContent>
       </Card>
 

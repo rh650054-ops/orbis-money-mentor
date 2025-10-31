@@ -88,16 +88,20 @@ export default function DailyChecklist() {
     if (!user) return;
 
     try {
-      // Verificar novamente se já existe checklist (evitar duplicação)
-      const { data: existingCheck } = await supabase
+      // Verificar se já existe checklist para esta data
+      const { data: existingCheck, error: checkError } = await supabase
         .from("daily_checklist")
         .select("id")
         .eq("user_id", user.id)
         .eq("date", selectedDate)
         .limit(1);
 
+      if (checkError) {
+        console.error("Erro ao verificar checklist existente:", checkError);
+      }
+
       if (existingCheck && existingCheck.length > 0) {
-        console.log("Checklist já existe para esta data");
+        console.log("Checklist já existe para esta data, carregando...");
         await loadChecklist();
         return;
       }
@@ -177,13 +181,23 @@ export default function DailyChecklist() {
       }));
 
       if (checklistItems.length > 0) {
+        // Usar upsert para evitar duplicatas caso haja erro de timing
         const { data, error } = await supabase
           .from("daily_checklist")
-          .insert(checklistItems)
+          .upsert(checklistItems, {
+            onConflict: 'user_id,date,activity_name,activity_time',
+            ignoreDuplicates: false
+          })
           .select();
 
         if (error) {
           console.error("Erro ao inserir checklist:", error);
+          // Se o erro for de duplicata, apenas recarrega o checklist
+          if (error.code === '23505') {
+            console.log("Atividades já existem, carregando checklist...");
+            await loadChecklist();
+            return;
+          }
           throw error;
         }
         if (data) {

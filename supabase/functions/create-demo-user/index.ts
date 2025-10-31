@@ -18,6 +18,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== Iniciando criação de conta demo ===');
+    
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -29,9 +31,12 @@ serve(async (req) => {
       }
     );
 
+    console.log('Supabase client criado');
+
     // Verificar se o usuário que está chamando é admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
+      console.error('Autorização não fornecida');
       throw new Error('Autorização necessária');
     }
 
@@ -39,8 +44,11 @@ serve(async (req) => {
     const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !requestingUser) {
+      console.error('Erro de autenticação:', authError);
       throw new Error('Usuário não autenticado');
     }
+
+    console.log('Usuário autenticado:', requestingUser.id);
 
     // Verificar se o usuário é admin (você pode adicionar uma tabela de admins)
     const { data: adminProfile } = await supabaseAdmin

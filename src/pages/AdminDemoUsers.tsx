@@ -111,17 +111,33 @@ export default function AdminDemoUsers() {
     setIsCreating(true);
 
     try {
+      console.log('Chamando função create-demo-user...');
+      
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session.session) {
+        throw new Error('Usuário não autenticado');
+      }
+
       const { data, error } = await supabase.functions.invoke('create-demo-user', {
         body: {
           email: formData.email,
           nickname: formData.nickname || formData.email.split('@')[0],
           note: formData.note || 'Conta de demonstração criada manualmente'
+        },
+        headers: {
+          Authorization: `Bearer ${session.session.access_token}`
         }
       });
 
-      if (error) throw error;
+      console.log('Resposta da função:', { data, error });
 
-      if (data.success) {
+      if (error) {
+        console.error('Erro da edge function:', error);
+        throw error;
+      }
+
+      if (data?.success) {
         setCreatedCredentials({
           email: data.user.email,
           password: data.user.password
@@ -135,7 +151,7 @@ export default function AdminDemoUsers() {
         setFormData({ email: "", nickname: "", note: "" });
         loadDemoUsers();
       } else {
-        throw new Error(data.error || 'Erro desconhecido');
+        throw new Error(data?.error || 'Erro desconhecido');
       }
     } catch (error: any) {
       console.error("Erro ao criar conta demo:", error);
