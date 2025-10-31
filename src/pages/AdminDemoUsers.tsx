@@ -45,6 +45,8 @@ export default function AdminDemoUsers() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
   const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -69,10 +71,16 @@ export default function AdminDemoUsers() {
       return;
     }
 
-    if (user) {
+    // Verificar senha armazenada
+    const storedAuth = localStorage.getItem("admin_demo_auth");
+    if (storedAuth === "authenticated") {
+      setIsAuthenticated(true);
+    }
+
+    if (user && isAuthenticated) {
       loadDemoUsers();
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, isAuthenticated]);
 
   const loadDemoUsers = async () => {
     try {
@@ -213,13 +221,67 @@ export default function AdminDemoUsers() {
     }
   };
 
-  if (loading || isLoadingUsers) {
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (passwordInput === "Barcelona10/") {
+      setIsAuthenticated(true);
+      localStorage.setItem("admin_demo_auth", "authenticated");
+      toast({
+        title: "✅ Acesso autorizado",
+        description: "Bem-vindo ao painel de administração."
+      });
+    } else {
+      toast({
+        title: "❌ Senha incorreta",
+        description: "A senha informada está incorreta.",
+        variant: "destructive"
+      });
+      setPasswordInput("");
+    }
+  };
+
+  if (loading || (isAuthenticated && isLoadingUsers)) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
           <p className="text-muted-foreground">Carregando...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="w-full max-w-md glass card-gradient-border shadow-glow-primary">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-center">
+              <Shield className="w-6 h-6 text-primary mx-auto" />
+              <span className="w-full">Acesso Restrito</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="admin-password">Senha de Desenvolvedor</Label>
+                <Input
+                  id="admin-password"
+                  type="password"
+                  placeholder="Digite a senha"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  required
+                  autoFocus
+                />
+              </div>
+              <Button type="submit" className="w-full">
+                Acessar Painel
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
