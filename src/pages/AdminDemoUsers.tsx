@@ -45,8 +45,7 @@ export default function AdminDemoUsers() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
 
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [passwordInput, setPasswordInput] = useState("");
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
@@ -71,16 +70,40 @@ export default function AdminDemoUsers() {
       return;
     }
 
-    // Verificar senha armazenada
-    const storedAuth = localStorage.getItem("admin_demo_auth");
-    if (storedAuth === "authenticated") {
-      setIsAuthenticated(true);
+    if (user) {
+      checkAdminRole();
     }
+  }, [user, loading, navigate]);
 
-    if (user && isAuthenticated) {
+  useEffect(() => {
+    if (isAdmin) {
       loadDemoUsers();
     }
-  }, [user, loading, navigate, isAuthenticated]);
+  }, [isAdmin]);
+
+  const checkAdminRole = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("role", "admin")
+        .single();
+
+      if (error) {
+        console.error("Erro ao verificar role:", error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(!!data);
+    } catch (error) {
+      console.error("Erro ao verificar admin:", error);
+      setIsAdmin(false);
+    }
+  };
 
   const loadDemoUsers = async () => {
     try {
@@ -221,67 +244,54 @@ export default function AdminDemoUsers() {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (passwordInput === "Barcelona10/") {
-      setIsAuthenticated(true);
-      localStorage.setItem("admin_demo_auth", "authenticated");
-      toast({
-        title: "✅ Acesso autorizado",
-        description: "Bem-vindo ao painel de administração."
-      });
-    } else {
-      toast({
-        title: "❌ Senha incorreta",
-        description: "A senha informada está incorreta.",
-        variant: "destructive"
-      });
-      setPasswordInput("");
-    }
-  };
-
-  if (loading || (isAuthenticated && isLoadingUsers)) {
+  if (loading || isAdmin === null) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="text-center">
           <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando...</p>
+          <p className="text-muted-foreground">Verificando permissões...</p>
         </div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md glass card-gradient-border shadow-glow-primary">
+        <Card className="w-full max-w-md glass border-destructive/30">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-center">
-              <Shield className="w-6 h-6 text-primary mx-auto" />
-              <span className="w-full">Acesso Restrito</span>
+            <CardTitle className="flex flex-col items-center gap-3 text-center">
+              <Shield className="w-12 h-12 text-destructive" />
+              <span className="text-destructive">Acesso Negado</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="admin-password">Senha de Desenvolvedor</Label>
-                <Input
-                  id="admin-password"
-                  type="password"
-                  placeholder="Digite a senha"
-                  value={passwordInput}
-                  onChange={(e) => setPasswordInput(e.target.value)}
-                  required
-                  autoFocus
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Acessar Painel
-              </Button>
-            </form>
+          <CardContent className="text-center space-y-4">
+            <p className="text-muted-foreground">
+              Você não tem permissão para acessar esta área.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Apenas administradores autorizados podem gerenciar contas demo.
+            </p>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/profile")}
+              className="w-full"
+            >
+              Voltar ao Perfil
+            </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (isLoadingUsers) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando usuários demo...</p>
+        </div>
       </div>
     );
   }
