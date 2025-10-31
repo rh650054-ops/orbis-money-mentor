@@ -1,13 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, Check, X, ShoppingCart, Calendar, Filter } from "lucide-react";
+import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, Check, X, ShoppingCart, Calendar, Filter, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -28,6 +33,7 @@ export default function Index() {
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterType, setFilterType] = useState<"day" | "week" | "month" | "all" | "custom">("month");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -293,96 +299,110 @@ export default function Index() {
         </p>
       </div>
 
-      {/* Filtros de Período */}
-      <Card className="card-gradient-border">
-        <CardContent className="p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Filtros de Período</h3>
-          </div>
+      {/* Filtros de Período - Colapsável */}
+      <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+        <Card className="card-gradient-border">
+          <CardContent className="p-4">
+            <CollapsibleTrigger className="w-full">
+              <div className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Filtros de Período</h3>
+                  {isFiltering && (
+                    <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded-full">
+                      Ativo
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform ${isFilterOpen ? "rotate-180" : ""}`} />
+              </div>
+            </CollapsibleTrigger>
 
-          {/* Botões de Filtro Rápido */}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              size="sm"
-              variant={filterType === "day" ? "default" : "outline"}
-              onClick={() => handleQuickFilter("day")}
-              className="flex-1 md:flex-none"
-            >
-              <Calendar className="h-4 w-4 mr-2" />
-              Hoje
-            </Button>
-            <Button
-              size="sm"
-              variant={filterType === "week" ? "default" : "outline"}
-              onClick={() => handleQuickFilter("week")}
-              className="flex-1 md:flex-none"
-            >
-              Semana
-            </Button>
-            <Button
-              size="sm"
-              variant={filterType === "month" ? "default" : "outline"}
-              onClick={() => handleQuickFilter("month")}
-              className="flex-1 md:flex-none"
-            >
-              Mês
-            </Button>
-            <Button
-              size="sm"
-              variant={filterType === "all" ? "default" : "outline"}
-              onClick={() => handleQuickFilter("all")}
-              className="flex-1 md:flex-none"
-            >
-              Todo Período
-            </Button>
-          </div>
-
-          {/* Filtro Personalizado */}
-          <div className="space-y-3 pt-3 border-t">
-            <p className="text-sm text-muted-foreground">Período Personalizado</p>
-            <div className="flex flex-col md:flex-row gap-3">
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setStartDate(e.target.value);
-                  setFilterType("custom");
-                }}
-                placeholder="Data início"
-                className="flex-1"
-              />
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setEndDate(e.target.value);
-                  setFilterType("custom");
-                }}
-                max={new Date().toISOString().split('T')[0]}
-                placeholder="Data fim"
-                className="flex-1"
-              />
-              <Button onClick={handleApplyFilter} size="sm" className="gap-2 md:w-auto w-full">
-                Aplicar
-              </Button>
-              {isFiltering && (
-                <Button onClick={handleClearFilter} size="sm" variant="outline" className="md:w-auto w-full">
-                  Limpar
+            <CollapsibleContent className="space-y-4 mt-4">
+              {/* Botões de Filtro Rápido */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant={filterType === "day" ? "default" : "outline"}
+                  onClick={() => handleQuickFilter("day")}
+                  className="flex-1 md:flex-none"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Hoje
                 </Button>
-              )}
-            </div>
-          </div>
+                <Button
+                  size="sm"
+                  variant={filterType === "week" ? "default" : "outline"}
+                  onClick={() => handleQuickFilter("week")}
+                  className="flex-1 md:flex-none"
+                >
+                  Semana
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filterType === "month" ? "default" : "outline"}
+                  onClick={() => handleQuickFilter("month")}
+                  className="flex-1 md:flex-none"
+                >
+                  Mês
+                </Button>
+                <Button
+                  size="sm"
+                  variant={filterType === "all" ? "default" : "outline"}
+                  onClick={() => handleQuickFilter("all")}
+                  className="flex-1 md:flex-none"
+                >
+                  Todo Período
+                </Button>
+              </div>
 
-          {filterType === "custom" && isFiltering && (
-            <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-center">
-              <p className="text-xs text-primary font-medium">
-                📊 Período personalizado: {new Date(startDate).toLocaleDateString('pt-BR')} até {new Date(endDate).toLocaleDateString('pt-BR')}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              {/* Filtro Personalizado */}
+              <div className="space-y-3 pt-3 border-t">
+                <p className="text-sm text-muted-foreground">Período Personalizado</p>
+                <div className="flex flex-col md:flex-row gap-3">
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      setFilterType("custom");
+                    }}
+                    placeholder="Data início"
+                    className="flex-1"
+                  />
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => {
+                      setEndDate(e.target.value);
+                      setFilterType("custom");
+                    }}
+                    max={new Date().toISOString().split('T')[0]}
+                    placeholder="Data fim"
+                    className="flex-1"
+                  />
+                  <Button onClick={handleApplyFilter} size="sm" className="gap-2 md:w-auto w-full">
+                    Aplicar
+                  </Button>
+                  {isFiltering && (
+                    <Button onClick={handleClearFilter} size="sm" variant="outline" className="md:w-auto w-full">
+                      Limpar
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {filterType === "custom" && isFiltering && (
+                <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-center">
+                  <p className="text-xs text-primary font-medium">
+                    📊 Período personalizado: {new Date(startDate).toLocaleDateString('pt-BR')} até {new Date(endDate).toLocaleDateString('pt-BR')}
+                  </p>
+                </div>
+              )}
+            </CollapsibleContent>
+          </CardContent>
+        </Card>
+      </Collapsible>
 
     {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
