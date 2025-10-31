@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Check, CreditCard, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -23,11 +24,10 @@ export default function Payment() {
       description: "Aguarde enquanto preparamos seu checkout seguro.",
     });
 
-    // This will be implemented with actual Stripe integration
-    // For now, showing a placeholder
+    // Temporary: Direct Stripe checkout link will be replaced with proper integration
     toast({
-      title: "Integração Stripe",
-      description: "Configure sua chave do Stripe para processar pagamentos.",
+      title: "Em desenvolvimento",
+      description: "A integração com Stripe está sendo configurada.",
       variant: "destructive",
     });
   };
