@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, Check, X, ShoppingCart } from "lucide-react";
+import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, Check, X, ShoppingCart, Calendar, Filter } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +24,9 @@ export default function Index() {
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState("4200");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [isFiltering, setIsFiltering] = useState(false);
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -32,7 +36,7 @@ export default function Index() {
       loadDashboardData();
     }
   }, [user, loading, navigate]);
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (customStartDate?: string, customEndDate?: string) => {
     if (!user) return;
 
     // Carregar meta do perfil
@@ -82,12 +86,26 @@ export default function Index() {
       setWeeklyData(formattedWeekData);
     }
 
-    // Calcular estatísticas mensais
-    const firstDayOfMonth = new Date();
-    firstDayOfMonth.setDate(1);
+    // Calcular estatísticas baseado no período
+    let dateStart: string;
+    let dateEnd: string;
+
+    if (customStartDate && customEndDate) {
+      // Período personalizado
+      dateStart = customStartDate;
+      dateEnd = customEndDate;
+    } else {
+      // Período padrão (mês atual)
+      const firstDayOfMonth = new Date();
+      firstDayOfMonth.setDate(1);
+      dateStart = firstDayOfMonth.toISOString().split('T')[0];
+      dateEnd = new Date().toISOString().split('T')[0];
+    }
+
     const {
       data: monthData
-    } = await supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", firstDayOfMonth.toISOString().split('T')[0]);
+    } = await supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd);
+    
     if (monthData) {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
       const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
@@ -101,6 +119,44 @@ export default function Index() {
         variation: totalIncome > 0 ? balance / totalIncome * 100 : 0
       });
     }
+  };
+
+  const handleApplyFilter = () => {
+    if (!startDate || !endDate) {
+      toast({
+        title: "Erro",
+        description: "Selecione as datas de início e fim.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (new Date(startDate) > new Date(endDate)) {
+      toast({
+        title: "Erro",
+        description: "A data de início deve ser anterior à data de fim.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsFiltering(true);
+    loadDashboardData(startDate, endDate);
+    toast({
+      title: "Filtro aplicado",
+      description: `Mostrando dados de ${new Date(startDate).toLocaleDateString('pt-BR')} até ${new Date(endDate).toLocaleDateString('pt-BR')}`
+    });
+  };
+
+  const handleClearFilter = () => {
+    setStartDate("");
+    setEndDate("");
+    setIsFiltering(false);
+    loadDashboardData();
+    toast({
+      title: "Filtro removido",
+      description: "Mostrando dados do mês atual"
+    });
   };
   const calculateGoalProgress = () => {
     const progress = monthlyStats.balance / monthlyGoal * 100;
@@ -192,6 +248,63 @@ export default function Index() {
           Controle total das suas finanças com insights inteligentes e metas personalizadas
         </p>
       </div>
+
+      {/* Filtros de Período */}
+      <Card className="card-gradient-border bg-gradient-to-br from-card to-card/50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Filter className="h-5 w-5 text-primary" />
+            Filtrar Período
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1 space-y-2">
+              <label className="text-xs text-muted-foreground">Data Início</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex-1 space-y-2">
+              <label className="text-xs text-muted-foreground">Data Fim</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 items-end">
+              <Button onClick={handleApplyFilter} className="gap-2">
+                <Filter className="h-4 w-4" />
+                Aplicar
+              </Button>
+              {isFiltering && (
+                <Button onClick={handleClearFilter} variant="outline">
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </div>
+          {isFiltering && (
+            <div className="mt-3 p-2 bg-primary/10 border border-primary/20 rounded-lg">
+              <p className="text-xs text-primary font-medium">
+                📊 Visualizando período personalizado
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
     {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
