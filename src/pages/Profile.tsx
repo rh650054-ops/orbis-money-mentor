@@ -36,7 +36,9 @@ export default function Profile() {
     email: "",
     created_at: "",
     monthly_goal: 0,
-    avatar_url: ""
+    avatar_url: "",
+    is_demo: false,
+    billing_exempt: false
   });
   const [editForm, setEditForm] = useState({
     nickname: "",
@@ -89,7 +91,9 @@ export default function Profile() {
         email: data.email || "",
         created_at: data.created_at || "",
         monthly_goal: data.monthly_goal || 0,
-        avatar_url: data.avatar_url || ""
+        avatar_url: data.avatar_url || "",
+        is_demo: data.is_demo || false,
+        billing_exempt: data.billing_exempt || false
       });
       setEditForm({
         nickname: data.nickname || "",
@@ -118,7 +122,9 @@ export default function Profile() {
           email: newProfile.email || "",
           created_at: newProfile.created_at || "",
           monthly_goal: newProfile.monthly_goal || 0,
-          avatar_url: newProfile.avatar_url || ""
+          avatar_url: newProfile.avatar_url || "",
+          is_demo: newProfile.is_demo || false,
+          billing_exempt: newProfile.billing_exempt || false
         });
         setEditForm({
           nickname: newProfile.nickname || "",
@@ -332,6 +338,28 @@ export default function Profile() {
         <h1 className="text-3xl font-bold gradient-text">Perfil</h1>
         <p className="text-muted-foreground mt-1">Gerencie sua conta e assinatura</p>
       </div>
+
+      {/* Faixa Demo */}
+      {profile.is_demo && profile.billing_exempt && (
+        <Card className="glass border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 animate-fade-in">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
+                <Crown className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-lg">🧪 Conta Demo Orbis</p>
+                <p className="text-sm text-muted-foreground">
+                  Acesso completo liberado • Sem limitações
+                </p>
+              </div>
+              <Badge className="bg-gradient-to-r from-primary to-secondary text-primary-foreground px-3 py-1 text-sm shadow-lg">
+                DEMO
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* User Info Card */}
       <Card className="glass">

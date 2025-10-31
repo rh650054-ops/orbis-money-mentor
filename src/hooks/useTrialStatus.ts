@@ -32,17 +32,30 @@ export function useTrialStatus(userId: string | undefined) {
 
   const checkTrialStatus = async () => {
     try {
-      // Check if trial expired
-      await supabase.rpc('check_trial_expired', { user_uuid: userId });
-
       // Get current profile data
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('trial_end, is_trial_active, plan_status')
+        .select('trial_end, is_trial_active, plan_status, is_demo, billing_exempt')
         .eq('user_id', userId)
         .single();
 
       if (error) throw error;
+
+      // Contas demo têm acesso ilimitado
+      if (profile.is_demo && profile.billing_exempt) {
+        setTrialStatus({
+          isTrialActive: true,
+          trialEnd: null,
+          planStatus: 'active',
+          daysRemaining: 999,
+          isExpired: false,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if trial expired for non-demo users
+      await supabase.rpc('check_trial_expired', { user_uuid: userId });
 
       const trialEndDate = profile.trial_end ? new Date(profile.trial_end) : null;
       const today = new Date();

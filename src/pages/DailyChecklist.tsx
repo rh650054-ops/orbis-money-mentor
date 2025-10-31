@@ -88,6 +88,20 @@ export default function DailyChecklist() {
     if (!user) return;
 
     try {
+      // Verificar novamente se já existe checklist (evitar duplicação)
+      const { data: existingCheck } = await supabase
+        .from("daily_checklist")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("date", selectedDate)
+        .limit(1);
+
+      if (existingCheck && existingCheck.length > 0) {
+        console.log("Checklist já existe para esta data");
+        await loadChecklist();
+        return;
+      }
+
       // Load routine data
       const { data: routine, error: routineError } = await supabase
         .from("routines")

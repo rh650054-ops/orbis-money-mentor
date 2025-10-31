@@ -101,9 +101,13 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          billing_exempt: boolean | null
           created_at: string
+          demo_created_by: string | null
+          demo_note: string | null
           email: string | null
           id: string
+          is_demo: boolean | null
           is_trial_active: boolean | null
           last_payment_date: string | null
           monthly_goal: number | null
@@ -120,9 +124,13 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          billing_exempt?: boolean | null
           created_at?: string
+          demo_created_by?: string | null
+          demo_note?: string | null
           email?: string | null
           id?: string
+          is_demo?: boolean | null
           is_trial_active?: boolean | null
           last_payment_date?: string | null
           monthly_goal?: number | null
@@ -139,9 +147,13 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          billing_exempt?: boolean | null
           created_at?: string
+          demo_created_by?: string | null
+          demo_note?: string | null
           email?: string | null
           id?: string
+          is_demo?: boolean | null
           is_trial_active?: boolean | null
           last_payment_date?: string | null
           monthly_goal?: number | null

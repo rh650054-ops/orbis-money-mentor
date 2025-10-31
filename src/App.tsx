@@ -14,6 +14,7 @@ import Routine from "./pages/Routine";
 import DailyChecklist from "./pages/DailyChecklist";
 import Auth from "./pages/Auth";
 import Payment from "./pages/Payment";
+import AdminDemoUsers from "./pages/AdminDemoUsers";
 import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 const App = () => <QueryClientProvider client={queryClient}>
@@ -34,6 +35,7 @@ const App = () => <QueryClientProvider client={queryClient}>
                 <Route path="/routine" element={<Routine />} />
                 <Route path="/checklist" element={<DailyChecklist />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
