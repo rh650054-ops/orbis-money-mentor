@@ -27,6 +27,7 @@ export default function Index() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
+  const [filterType, setFilterType] = useState<"day" | "week" | "month" | "all" | "custom">("month");
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -148,10 +149,53 @@ export default function Index() {
     });
   };
 
+  const handleQuickFilter = (type: "day" | "week" | "month" | "all") => {
+    const today = new Date();
+    let start: string;
+    let end: string = today.toISOString().split('T')[0];
+
+    switch (type) {
+      case "day":
+        start = end;
+        break;
+      case "week":
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        start = weekAgo.toISOString().split('T')[0];
+        break;
+      case "month":
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        start = firstDayOfMonth.toISOString().split('T')[0];
+        break;
+      case "all":
+        start = "2020-01-01"; // Data antiga para pegar todos os registros
+        break;
+    }
+
+    setFilterType(type);
+    setStartDate(start);
+    setEndDate(end);
+    setIsFiltering(type !== "month");
+    loadDashboardData(start, end);
+
+    const labels = {
+      day: "Hoje",
+      week: "Últimos 7 dias",
+      month: "Mês atual",
+      all: "Todo período"
+    };
+
+    toast({
+      title: "Filtro aplicado",
+      description: labels[type]
+    });
+  };
+
   const handleClearFilter = () => {
     setStartDate("");
     setEndDate("");
     setIsFiltering(false);
+    setFilterType("month");
     loadDashboardData();
     toast({
       title: "Filtro removido",
@@ -251,37 +295,89 @@ export default function Index() {
 
       {/* Filtros de Período */}
       <Card className="card-gradient-border">
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-3 items-center">
-            <Filter className="h-5 w-5 text-primary flex-shrink-0" />
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              placeholder="Data início"
-              className="flex-1"
-            />
-            <Input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              max={new Date().toISOString().split('T')[0]}
-              placeholder="Data fim"
-              className="flex-1"
-            />
-            <Button onClick={handleApplyFilter} size="sm" className="gap-2">
-              Aplicar
-            </Button>
-            {isFiltering && (
-              <Button onClick={handleClearFilter} size="sm" variant="outline">
-                Limpar
-              </Button>
-            )}
+        <CardContent className="p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <Filter className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Filtros de Período</h3>
           </div>
-          {isFiltering && (
-            <div className="mt-3 p-2 bg-primary/10 border border-primary/20 rounded-lg text-center">
+
+          {/* Botões de Filtro Rápido */}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={filterType === "day" ? "default" : "outline"}
+              onClick={() => handleQuickFilter("day")}
+              className="flex-1 md:flex-none"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Hoje
+            </Button>
+            <Button
+              size="sm"
+              variant={filterType === "week" ? "default" : "outline"}
+              onClick={() => handleQuickFilter("week")}
+              className="flex-1 md:flex-none"
+            >
+              Semana
+            </Button>
+            <Button
+              size="sm"
+              variant={filterType === "month" ? "default" : "outline"}
+              onClick={() => handleQuickFilter("month")}
+              className="flex-1 md:flex-none"
+            >
+              Mês
+            </Button>
+            <Button
+              size="sm"
+              variant={filterType === "all" ? "default" : "outline"}
+              onClick={() => handleQuickFilter("all")}
+              className="flex-1 md:flex-none"
+            >
+              Todo Período
+            </Button>
+          </div>
+
+          {/* Filtro Personalizado */}
+          <div className="space-y-3 pt-3 border-t">
+            <p className="text-sm text-muted-foreground">Período Personalizado</p>
+            <div className="flex flex-col md:flex-row gap-3">
+              <Input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setFilterType("custom");
+                }}
+                placeholder="Data início"
+                className="flex-1"
+              />
+              <Input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  setFilterType("custom");
+                }}
+                max={new Date().toISOString().split('T')[0]}
+                placeholder="Data fim"
+                className="flex-1"
+              />
+              <Button onClick={handleApplyFilter} size="sm" className="gap-2 md:w-auto w-full">
+                Aplicar
+              </Button>
+              {isFiltering && (
+                <Button onClick={handleClearFilter} size="sm" variant="outline" className="md:w-auto w-full">
+                  Limpar
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {filterType === "custom" && isFiltering && (
+            <div className="p-2 bg-primary/10 border border-primary/20 rounded-lg text-center">
               <p className="text-xs text-primary font-medium">
-                📊 Período personalizado ativo
+                📊 Período personalizado: {new Date(startDate).toLocaleDateString('pt-BR')} até {new Date(endDate).toLocaleDateString('pt-BR')}
               </p>
             </div>
           )}
