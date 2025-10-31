@@ -19,17 +19,31 @@ export default function Payment() {
   }, [user, loading, navigate]);
 
   const handleStripeCheckout = async () => {
-    toast({
-      title: "Redirecionando para pagamento...",
-      description: "Aguarde enquanto preparamos seu checkout seguro.",
-    });
+    try {
+      toast({
+        title: "Redirecionando para pagamento...",
+        description: "Aguarde enquanto preparamos seu checkout seguro.",
+      });
 
-    // Temporary: Direct Stripe checkout link will be replaced with proper integration
-    toast({
-      title: "Em desenvolvimento",
-      description: "A integração com Stripe está sendo configurada.",
-      variant: "destructive",
-    });
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (error) {
+      console.error("Erro ao criar checkout:", error);
+      toast({
+        title: "Erro ao processar pagamento",
+        description: "Não foi possível iniciar o checkout. Tente novamente.",
+        variant: "destructive",
+      });
+    }
   };
 
   if (loading || !user) {
