@@ -250,56 +250,38 @@ export default function Index() {
       </div>
 
       {/* Filtros de Período */}
-      <Card className="card-gradient-border bg-gradient-to-br from-card to-card/50">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-5 w-5 text-primary" />
-            Filtrar Período
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row gap-3">
-            <div className="flex-1 space-y-2">
-              <label className="text-xs text-muted-foreground">Data Início</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex-1 space-y-2">
-              <label className="text-xs text-muted-foreground">Data Fim</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 items-end">
-              <Button onClick={handleApplyFilter} className="gap-2">
-                <Filter className="h-4 w-4" />
-                Aplicar
+      <Card className="card-gradient-border">
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row gap-3 items-center">
+            <Filter className="h-5 w-5 text-primary flex-shrink-0" />
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              placeholder="Data início"
+              className="flex-1"
+            />
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
+              placeholder="Data fim"
+              className="flex-1"
+            />
+            <Button onClick={handleApplyFilter} size="sm" className="gap-2">
+              Aplicar
+            </Button>
+            {isFiltering && (
+              <Button onClick={handleClearFilter} size="sm" variant="outline">
+                Limpar
               </Button>
-              {isFiltering && (
-                <Button onClick={handleClearFilter} variant="outline">
-                  Limpar
-                </Button>
-              )}
-            </div>
+            )}
           </div>
           {isFiltering && (
-            <div className="mt-3 p-2 bg-primary/10 border border-primary/20 rounded-lg">
+            <div className="mt-3 p-2 bg-primary/10 border border-primary/20 rounded-lg text-center">
               <p className="text-xs text-primary font-medium">
-                📊 Visualizando período personalizado
+                📊 Período personalizado ativo
               </p>
             </div>
           )}

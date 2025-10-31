@@ -312,13 +312,12 @@ export default function DailyChecklist() {
           {checklist.map((item, index) => (
             <Card
               key={item.id}
-              className={`glass transition-all duration-300 cursor-pointer transform hover:scale-[1.02] hover:-translate-y-1 animate-fade-in ${
+              className={`glass transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 animate-fade-in ${
                 item.completed 
                   ? "bg-gradient-to-r from-success/10 to-success/5 border-success/30 shadow-glow-success" 
                   : "hover:shadow-glow-primary hover:border-primary/30"
               }`}
               style={{ animationDelay: `${index * 50}ms` }}
-              onClick={() => toggleComplete(item.id, item.completed)}
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-4">
