@@ -51,6 +51,7 @@ export default function Profile() {
     goals: 0,
     insights: 0
   });
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const subscriptionFeatures = [
     "Insights ilimitados da IA",
     "Análises avançadas de gastos",
@@ -284,6 +285,43 @@ export default function Profile() {
     });
   };
 
+  const handleUpgrade = async () => {
+    if (!user) return;
+    setIsUpgrading(true);
+
+    try {
+      toast({
+        title: "Redirecionando para pagamento...",
+        description: "Aguarde enquanto preparamos seu checkout.",
+      });
+
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        headers: {
+          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        window.open(data.url, "_blank");
+        toast({
+          title: "Checkout aberto!",
+          description: "Complete o pagamento na nova aba.",
+        });
+      }
+    } catch (error) {
+      console.error("Erro ao criar checkout:", error);
+      toast({
+        title: "Erro ao processar",
+        description: "Não foi possível iniciar o checkout. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpgrading(false);
+    }
+  };
+
   if (loading || !user) {
     return null;
   }
@@ -467,8 +505,13 @@ export default function Profile() {
             </div>
           </div>
 
-          <Button className="w-full bg-gradient-primary hover:opacity-90 transition-smooth shadow-glow-primary">
-            Iniciar Período Gratuito
+          <Button 
+            onClick={handleUpgrade}
+            disabled={isUpgrading}
+            className="w-full bg-gradient-primary hover:opacity-90 transition-smooth shadow-glow-primary"
+          >
+            <Crown className="w-4 h-4 mr-2" />
+            {isUpgrading ? "Processando..." : "Assinar por R$ 19,90/mês"}
           </Button>
 
           <p className="text-xs text-center text-muted-foreground">
