@@ -17,8 +17,10 @@ import {
   Utensils,
   Sunset,
   Moon,
-  Plus
+  Plus,
+  Clock
 } from "lucide-react";
+import { ActivityTimer } from "@/components/ActivityTimer";
 
 interface ChecklistItem {
   id: string;
@@ -26,6 +28,11 @@ interface ChecklistItem {
   activity_time: string | null;
   completed: boolean;
   emoji?: string;
+  duration_minutes?: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+  progress?: number;
+  status?: string;
 }
 
 interface RoutineActivity {
@@ -42,6 +49,7 @@ export default function DailyChecklist() {
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [totalFocusTime, setTotalFocusTime] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -69,6 +77,7 @@ export default function DailyChecklist() {
 
       if (existingChecklist && existingChecklist.length > 0) {
         setChecklist(existingChecklist);
+        calculateTotalFocusTime(existingChecklist);
       } else {
         // Create checklist from routine activities
         await generateChecklistFromRoutine();
@@ -224,6 +233,20 @@ export default function DailyChecklist() {
     }
   };
 
+  const calculateTotalFocusTime = (items: ChecklistItem[]) => {
+    const total = items.reduce((sum, item) => {
+      if (item.status === "completed" && item.duration_minutes) {
+        return sum + item.duration_minutes;
+      }
+      return sum;
+    }, 0);
+    setTotalFocusTime(total);
+  };
+
+  const handleTimerComplete = () => {
+    loadChecklist();
+  };
+
   const toggleComplete = async (itemId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
@@ -250,6 +273,15 @@ export default function DailyChecklist() {
         variant: "destructive"
       });
     }
+  };
+
+  const formatTotalTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h${mins > 0 ? ` ${mins}min` : ''}`;
+    }
+    return `${mins}min`;
   };
 
   const getCompletionPercentage = () => {
@@ -327,6 +359,16 @@ export default function DailyChecklist() {
               </div>
             </div>
 
+            {totalFocusTime > 0 && (
+              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-primary" />
+                  <span className="text-sm font-semibold">Tempo de foco hoje:</span>
+                </div>
+                <span className="text-lg font-bold text-primary">{formatTotalTime(totalFocusTime)}</span>
+              </div>
+            )}
+
             {completionPercentage === 100 && (
               <div className="flex items-center gap-2 p-4 bg-gradient-to-r from-success/20 to-success/10 border border-success/30 rounded-lg shadow-glow-success animate-fade-in">
                 <CheckCircle2 className="w-6 h-6 text-success animate-bounce" />
@@ -400,9 +442,17 @@ export default function DailyChecklist() {
                     </div>
                   </div>
 
-                  {item.completed && (
-                    <CheckCircle2 className="w-6 h-6 text-success animate-bounce" />
-                  )}
+                  <div className="ml-auto">
+                    <ActivityTimer
+                      taskId={item.id}
+                      taskName={item.activity_name}
+                      currentStatus={item.status || "pending"}
+                      currentProgress={item.progress || 0}
+                      durationMinutes={item.duration_minutes || 0}
+                      startedAt={item.started_at || null}
+                      onTimerComplete={handleTimerComplete}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>

@@ -19,10 +19,15 @@ export type Database = {
           activity_name: string
           activity_time: string | null
           completed: boolean
+          completed_at: string | null
           created_at: string
           date: string
+          duration_minutes: number | null
           emoji: string | null
           id: string
+          progress: number | null
+          started_at: string | null
+          status: string | null
           updated_at: string
           user_id: string
         }
@@ -30,10 +35,15 @@ export type Database = {
           activity_name: string
           activity_time?: string | null
           completed?: boolean
+          completed_at?: string | null
           created_at?: string
           date?: string
+          duration_minutes?: number | null
           emoji?: string | null
           id?: string
+          progress?: number | null
+          started_at?: string | null
+          status?: string | null
           updated_at?: string
           user_id: string
         }
@@ -41,10 +51,15 @@ export type Database = {
           activity_name?: string
           activity_time?: string | null
           completed?: boolean
+          completed_at?: string | null
           created_at?: string
           date?: string
+          duration_minutes?: number | null
           emoji?: string | null
           id?: string
+          progress?: number | null
+          started_at?: string | null
+          status?: string | null
           updated_at?: string
           user_id?: string
         }
