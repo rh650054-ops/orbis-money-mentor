@@ -4,20 +4,24 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Smartphone, Banknote, CreditCard, AlertCircle, Calendar, TrendingUp, ShoppingCart, Filter, X } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, TrendingUp, DollarSign, AlertTriangle, ShoppingCart, Filter, X } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
-interface DayRecord {
+interface SaleRecord {
+  id: string;
   date: string;
+  created_at: string;
   total_profit: number;
   pix_sales: number;
   cash_sales: number;
   card_sales: number;
   total_debt: number;
   cost: number;
+  notes: string | null;
 }
 
 interface WeekData {
@@ -25,31 +29,15 @@ interface WeekData {
   value: number;
 }
 
-const paymentIcons = {
-  pix: Smartphone,
-  cash: Banknote,
-  card: CreditCard,
-  debt: AlertCircle,
-  cost: ShoppingCart,
-};
-
-const paymentColors = {
-  pix: "text-secondary",
-  cash: "text-success",
-  card: "text-primary",
-  debt: "text-destructive",
-  cost: "text-warning",
-};
-
 export default function History() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
-  const [historyData, setHistoryData] = useState<DayRecord[]>([]);
+  const [salesHistory, setSalesHistory] = useState<SaleRecord[]>([]);
+  const [filteredHistory, setFilteredHistory] = useState<SaleRecord[]>([]);
   const [weekData, setWeekData] = useState<WeekData[]>([]);
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
-  const [filteredData, setFilteredData] = useState<DayRecord[]>([]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -58,70 +46,47 @@ export default function History() {
     }
 
     if (user) {
-      loadHistoryData();
+      loadSalesHistory();
     }
   }, [user, loading, navigate]);
 
-  const loadHistoryData = async () => {
+  const loadSalesHistory = async () => {
     if (!user) return;
 
-    // Carregar últimos 30 dias de vendas
-    const { data: salesData, error } = await supabase
+    const { data, error } = await supabase
       .from("daily_sales")
-      .select("date, total_profit, pix_sales, cash_sales, card_sales, total_debt, cost")
+      .select("*")
       .eq("user_id", user.id)
-      .order("date", { ascending: false })
-      .limit(30);
+      .order("created_at", { ascending: false })
+      .limit(50);
 
     if (error) {
       console.error("Error loading history:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível carregar o histórico.",
+        variant: "destructive"
+      });
       return;
     }
 
-    if (salesData) {
-      // Agrupar por data (pode haver múltiplos registros por dia)
-      const groupedByDate: { [key: string]: DayRecord } = {};
-      
-      salesData.forEach((sale: any) => {
-        const date = sale.date;
-        if (!groupedByDate[date]) {
-          groupedByDate[date] = {
-            date,
-            total_profit: 0,
-            pix_sales: 0,
-            cash_sales: 0,
-            card_sales: 0,
-            total_debt: 0,
-            cost: 0,
-          };
-        }
-        groupedByDate[date].total_profit += sale.total_profit || 0;
-        groupedByDate[date].pix_sales += sale.pix_sales || 0;
-        groupedByDate[date].cash_sales += sale.cash_sales || 0;
-        groupedByDate[date].card_sales += sale.card_sales || 0;
-        groupedByDate[date].total_debt += sale.total_debt || 0;
-        groupedByDate[date].cost += sale.cost || 0;
-      });
-
-      const formattedData: DayRecord[] = Object.values(groupedByDate);
-
-      setHistoryData(formattedData);
-      setFilteredData(formattedData);
-
-      // Calcular dados da semana (últimos 7 dias)
-      updateWeekData(formattedData);
+    if (data) {
+      setSalesHistory(data);
+      setFilteredHistory(data);
+      updateWeekData(data);
     }
   };
 
-  const updateWeekData = (data: DayRecord[]) => {
+  const updateWeekData = (data: SaleRecord[]) => {
+    // Get last 7 days
     const last7Days = data.slice(0, 7).reverse();
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     
-    const weekChartData: WeekData[] = last7Days.map((day) => {
-      const date = new Date(day.date + 'T00:00:00');
+    const weekChartData: WeekData[] = last7Days.map((sale) => {
+      const date = new Date(sale.date + 'T00:00:00');
       return {
         name: weekDays[date.getDay()],
-        value: day.total_profit,
+        value: sale.total_profit,
       };
     });
 
@@ -131,78 +96,59 @@ export default function History() {
   const applyFilter = () => {
     if (!filterStartDate && !filterEndDate) {
       toast({
-        title: "Escolha uma data",
-        description: "Selecione pelo menos uma data para filtrar.",
+        title: "Selecione as datas",
+        description: "Escolha pelo menos uma data para filtrar.",
         variant: "destructive"
       });
       return;
     }
 
-    let filtered = historyData;
+    let filtered = salesHistory;
 
     if (filterStartDate && filterEndDate) {
-      // Filtro por intervalo
-      filtered = historyData.filter(
-        (day) => day.date >= filterStartDate && day.date <= filterEndDate
+      filtered = salesHistory.filter(
+        (sale) => sale.date >= filterStartDate && sale.date <= filterEndDate
       );
     } else if (filterStartDate) {
-      // Filtro por data única
-      filtered = historyData.filter((day) => day.date === filterStartDate);
+      filtered = salesHistory.filter((sale) => sale.date >= filterStartDate);
     } else if (filterEndDate) {
-      // Filtro por data única (end date)
-      filtered = historyData.filter((day) => day.date === filterEndDate);
+      filtered = salesHistory.filter((sale) => sale.date <= filterEndDate);
     }
 
-    setFilteredData(filtered);
+    setFilteredHistory(filtered);
     updateWeekData(filtered);
 
-    // Persistir filtros no localStorage
-    localStorage.setItem('historyFilter', JSON.stringify({ filterStartDate, filterEndDate }));
-
     toast({
-      title: "Filtro aplicado!",
-      description: `${filtered.length} registro(s) encontrado(s).`
+      title: "✅ Filtro aplicado!",
+      description: `${filtered.length} lançamento(s) encontrado(s).`
     });
   };
 
   const clearFilter = () => {
     setFilterStartDate("");
     setFilterEndDate("");
-    setFilteredData(historyData);
-    updateWeekData(historyData);
-    localStorage.removeItem('historyFilter');
+    setFilteredHistory(salesHistory);
+    updateWeekData(salesHistory);
 
     toast({
-      title: "Filtros limpos",
-      description: "Mostrando todos os registros."
+      title: "🔄 Filtros limpos",
+      description: "Mostrando todos os lançamentos."
     });
   };
 
+  const calculateGoalPercentage = (profit: number, cost: number, debt: number, goal: number = 200) => {
+    const netProfit = profit - cost - debt;
+    return Math.min((netProfit / goal) * 100, 100);
+  };
+
   const calculateTotals = () => {
-    const totalSales = filteredData.reduce((sum, day) => sum + (day.pix_sales + day.cash_sales + day.card_sales), 0);
-    const totalCost = filteredData.reduce((sum, day) => sum + day.cost, 0);
-    const totalDebt = filteredData.reduce((sum, day) => sum + day.total_debt, 0);
+    const totalSales = filteredHistory.reduce((sum, sale) => sum + (sale.total_profit || 0), 0);
+    const totalCost = filteredHistory.reduce((sum, sale) => sum + (sale.cost || 0), 0);
+    const totalDebt = filteredHistory.reduce((sum, sale) => sum + (sale.total_debt || 0), 0);
     const netProfit = totalSales - totalCost - totalDebt;
 
     return { totalSales, totalCost, totalDebt, netProfit };
   };
-
-  // Carregar filtros persistidos ao montar o componente
-  useEffect(() => {
-    const savedFilter = localStorage.getItem('historyFilter');
-    if (savedFilter) {
-      const { filterStartDate: start, filterEndDate: end } = JSON.parse(savedFilter);
-      if (start) setFilterStartDate(start);
-      if (end) setFilterEndDate(end);
-    }
-  }, []);
-
-  // Aplicar filtro automaticamente quando os dados forem carregados e houver filtros salvos
-  useEffect(() => {
-    if (historyData.length > 0 && (filterStartDate || filterEndDate)) {
-      applyFilter();
-    }
-  }, [historyData]);
 
   if (loading || !user) {
     return null;
@@ -213,8 +159,10 @@ export default function History() {
   return (
     <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in pb-20 md:pb-8">
       <div className="text-center space-y-2 mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold gradient-text">Histórico</h1>
-        <p className="text-muted-foreground">Acompanhe sua evolução</p>
+        <h1 className="text-3xl md:text-4xl font-bold gradient-text">Histórico de Lançamentos</h1>
+        <p className="text-muted-foreground">
+          Todos os seus lançamentos registrados • {filteredHistory.length} {filteredHistory.length === 1 ? 'registro' : 'registros'}
+        </p>
       </div>
 
       {/* Filtros */}
@@ -251,12 +199,14 @@ export default function History() {
           <div className="flex gap-2">
             <Button onClick={applyFilter} className="flex-1">
               <Filter className="h-4 w-4 mr-2" />
-              🔎 Aplicar filtro
+              Aplicar filtro
             </Button>
-            <Button onClick={clearFilter} variant="outline">
-              <X className="h-4 w-4 mr-2" />
-              🔄 Limpar
-            </Button>
+            {(filterStartDate || filterEndDate) && (
+              <Button onClick={clearFilter} variant="outline">
+                <X className="h-4 w-4 mr-2" />
+                Limpar
+              </Button>
+            )}
           </div>
 
           {/* Totais */}
@@ -286,15 +236,15 @@ export default function History() {
       </Card>
 
       {/* Evolução Semanal */}
-      <Card className="card-gradient-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Evolução Semanal
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="h-[250px] md:h-[300px]">
-          {weekData.length > 0 ? (
+      {weekData.length > 0 && (
+        <Card className="card-gradient-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Evolução Semanal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="h-[250px] md:h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={weekData}>
                 <defs>
@@ -317,70 +267,167 @@ export default function History() {
                 <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
               </AreaChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <p>Nenhum dado disponível. Registre suas vendas para ver o gráfico.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Registros Diários */}
+      {/* Lançamentos */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Registros Diários</h2>
-        {filteredData.length > 0 ? (
-          filteredData.map((day) => (
-            <Card key={day.date} className="card-gradient-border hover:shadow-glow-primary transition-smooth">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Calendar className="h-5 w-5 text-secondary" />
-                    <CardTitle className="text-lg">
-                      {new Date(day.date + 'T00:00:00').toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
-                    </CardTitle>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Lucro</p>
-                    <p className="text-2xl font-bold gradient-text">R$ {day.total_profit.toFixed(2)}</p>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {[
-                    { key: "pix", label: "PIX", value: day.pix_sales },
-                    { key: "cash", label: "Dinheiro", value: day.cash_sales },
-                    { key: "card", label: "Cartão", value: day.card_sales },
-                    { key: "debt", label: "Calote", value: day.total_debt },
-                    { key: "cost", label: "Gasto Merc.", value: day.cost },
-                  ].map((payment) => {
-                    const Icon = paymentIcons[payment.key as keyof typeof paymentIcons];
-                    const colorClass = paymentColors[payment.key as keyof typeof paymentColors];
-                    
-                    return (
-                      <div key={payment.key} className="flex items-center gap-2 p-3 rounded-lg bg-muted/30">
-                        <Icon className={`h-5 w-5 ${colorClass}`} />
-                        <div>
-                          <p className="text-xs text-muted-foreground">{payment.label}</p>
-                          <p className={`text-sm font-semibold ${colorClass}`}>
-                            R$ {Number(payment.value).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          <Card className="card-gradient-border">
-            <CardContent className="py-12 text-center text-muted-foreground">
-              <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhum registro encontrado.</p>
-              <p className="text-sm mt-2">Comece a registrar suas vendas diárias!</p>
+        {filteredHistory.length === 0 ? (
+          <Card className="glass">
+            <CardContent className="p-8 text-center">
+              <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground">
+                Nenhum lançamento encontrado. Comece registrando suas vendas!
+              </p>
             </CardContent>
           </Card>
+        ) : (
+          filteredHistory.map((sale) => {
+            const totalSold = sale.total_profit || 0;
+            const cost = sale.cost || 0;
+            const debt = sale.total_debt || 0;
+            const netProfit = totalSold - cost - debt;
+            const goal = 200;
+            const percentage = calculateGoalPercentage(totalSold, cost, debt, goal);
+            const isGoalReached = percentage >= 100;
+
+            return (
+              <Card key={sale.id} className="glass hover:shadow-glow-primary transition-smooth">
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    {/* Header com data e hora */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-4 h-4 text-primary" />
+                        <div>
+                          <span className="font-medium">
+                            {new Date(sale.date).toLocaleDateString("pt-BR", {
+                              day: "2-digit",
+                              month: "long",
+                              year: "numeric"
+                            })}
+                          </span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            {new Date(sale.created_at).toLocaleTimeString("pt-BR", {
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      {isGoalReached ? (
+                        <Badge className="bg-success/20 text-success border-success/30">
+                          🔥 Meta atingida!
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          {percentage.toFixed(0)}% da meta
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* Valores principais */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+                        <div className="flex items-center gap-2 mb-1">
+                          <DollarSign className="w-4 h-4 text-primary" />
+                          <span className="text-xs text-muted-foreground">Total Vendido</span>
+                        </div>
+                        <p className="text-lg font-bold">
+                          R$ {totalSold.toFixed(2)}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-warning/10 border border-warning/20">
+                        <div className="flex items-center gap-2 mb-1">
+                          <ShoppingCart className="w-4 h-4 text-warning" />
+                          <span className="text-xs text-muted-foreground">Gasto</span>
+                        </div>
+                        <p className="text-lg font-bold text-warning">
+                          R$ {cost.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {debt > 0 && (
+                        <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20">
+                          <div className="flex items-center gap-2 mb-1">
+                            <AlertTriangle className="w-4 h-4 text-destructive" />
+                            <span className="text-xs text-muted-foreground">Calotes</span>
+                          </div>
+                          <p className="text-lg font-bold text-destructive">
+                            R$ {debt.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className={`p-3 rounded-lg ${netProfit >= 0 ? 'bg-success/10 border-success/20' : 'bg-destructive/10 border-destructive/20'} border`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <TrendingUp className={`w-4 h-4 ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`} />
+                          <span className="text-xs text-muted-foreground">Lucro Líquido</span>
+                        </div>
+                        <p className={`text-lg font-bold ${netProfit >= 0 ? 'text-success' : 'text-destructive'}`}>
+                          R$ {netProfit.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Barra de progresso da meta */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Meta Diária</span>
+                        <span>R$ {goal.toFixed(2)}</span>
+                      </div>
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-primary to-secondary transition-all"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Métodos de pagamento */}
+                    {(sale.cash_sales > 0 || sale.pix_sales > 0 || sale.card_sales > 0) && (
+                      <div className="pt-2 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground mb-2">Métodos de Pagamento:</p>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          {sale.cash_sales > 0 && (
+                            <div className="text-center">
+                              <p className="text-muted-foreground">💵 Dinheiro</p>
+                              <p className="font-semibold">R$ {sale.cash_sales.toFixed(2)}</p>
+                            </div>
+                          )}
+                          {sale.pix_sales > 0 && (
+                            <div className="text-center">
+                              <p className="text-muted-foreground">📱 Pix</p>
+                              <p className="font-semibold">R$ {sale.pix_sales.toFixed(2)}</p>
+                            </div>
+                          )}
+                          {sale.card_sales > 0 && (
+                            <div className="text-center">
+                              <p className="text-muted-foreground">💳 Cartão</p>
+                              <p className="font-semibold">R$ {sale.card_sales.toFixed(2)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Notas */}
+                    {sale.notes && (
+                      <div className="pt-2 border-t border-border/50">
+                        <p className="text-xs text-muted-foreground">
+                          {sale.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
         )}
       </div>
     </div>

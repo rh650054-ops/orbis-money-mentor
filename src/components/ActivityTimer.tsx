@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Play, Pause, CheckCircle2, Clock } from "lucide-react";
+import { Play, Pause, CheckCircle2, Clock, Minimize2, Maximize2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -34,6 +34,7 @@ export function ActivityTimer({
   const [duration, setDuration] = useState(durationMinutes || 25);
   const [customDuration, setCustomDuration] = useState(25);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const updateRef = useRef<NodeJS.Timeout | null>(null);
   const notificationRef = useRef({ halfway: false, lastFive: false });
@@ -240,63 +241,141 @@ export function ActivityTimer({
   if (status === "completed") {
     return (
       <div className="flex items-center gap-2">
-        <CheckCircle2 className="w-5 h-5 text-success animate-bounce" />
-        <span className="text-success font-semibold text-sm">Concluída!</span>
+        <CheckCircle2 className="w-6 h-6 text-success animate-bounce" />
+        <span className="text-success font-semibold">Concluída!</span>
       </div>
     );
   }
 
   if (status === "active") {
     return (
-      <div className="flex items-center gap-3">
-        <div className="relative w-12 h-12">
-          <svg className="w-12 h-12 transform -rotate-90">
-            <circle
-              cx="24"
-              cy="24"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="3"
-              fill="none"
-              className="text-muted"
-            />
-            <circle
-              cx="24"
-              cy="24"
-              r="20"
-              stroke="currentColor"
-              strokeWidth="3"
-              fill="none"
-              strokeDasharray={`${2 * Math.PI * 20}`}
-              strokeDashoffset={`${2 * Math.PI * 20 * (1 - progress / 100)}`}
-              className="text-primary transition-all duration-1000"
-              strokeLinecap="round"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Clock className="w-4 h-4 text-primary animate-pulse" />
+      <>
+        {/* Compact View */}
+        <div className="flex items-center gap-3">
+          <Dialog open={isExpanded} onOpenChange={setIsExpanded}>
+            <DialogTrigger asChild>
+              <button className="relative w-14 h-14 hover:scale-105 transition-transform">
+                <svg className="w-14 h-14 transform -rotate-90">
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                    className="text-muted"
+                  />
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r="24"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 24}`}
+                    strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress / 100)}`}
+                    className="text-primary transition-all duration-1000"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-primary animate-pulse" />
+                </div>
+              </button>
+            </DialogTrigger>
+
+            {/* Expanded Timer Dialog */}
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>{taskName}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setIsExpanded(false)}
+                  >
+                    <Minimize2 className="w-4 h-4" />
+                  </Button>
+                </DialogTitle>
+              </DialogHeader>
+              
+              <div className="flex flex-col items-center justify-center py-8 space-y-6">
+                {/* Large Circular Timer */}
+                <div className="relative w-48 h-48">
+                  <svg className="w-48 h-48 transform -rotate-90">
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="88"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      className="text-muted"
+                    />
+                    <circle
+                      cx="96"
+                      cy="96"
+                      r="88"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      fill="none"
+                      strokeDasharray={`${2 * Math.PI * 88}`}
+                      strokeDashoffset={`${2 * Math.PI * 88 * (1 - progress / 100)}`}
+                      className="text-primary transition-all duration-1000 drop-shadow-glow"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <Clock className="w-8 h-8 text-primary animate-pulse mb-2" />
+                    <span className="text-3xl font-bold text-primary">{remainingTime}</span>
+                    <span className="text-sm text-muted-foreground mt-1">{Math.floor(progress)}% concluído</span>
+                  </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={pauseTimer}
+                    className="gap-2"
+                  >
+                    <Pause className="w-4 h-4" />
+                    Pausar
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={completeTimer}
+                    className="gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Concluir Agora
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-primary">{remainingTime}</span>
+            <span className="text-xs text-muted-foreground">{Math.floor(progress)}%</span>
           </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setIsExpanded(true)}
+            className="ml-2"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </Button>
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-bold text-primary">{remainingTime}</span>
-          <span className="text-xs text-muted-foreground">{Math.floor(progress)}%</span>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={pauseTimer}
-          className="ml-2"
-        >
-          <Pause className="w-3 h-3" />
-        </Button>
-      </div>
+      </>
     );
   }
 
   return (
     <div className="flex items-center gap-2">
       <Select value={duration.toString()} onValueChange={(v) => setDuration(parseInt(v))}>
-        <SelectTrigger className="w-24 h-8 text-xs">
+        <SelectTrigger className="w-28 h-9 text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -312,7 +391,7 @@ export function ActivityTimer({
 
       <Dialog open={showCustomDialog} onOpenChange={setShowCustomDialog}>
         <DialogTrigger asChild>
-          <Button size="sm" variant="ghost" className="h-8 px-2 text-xs">
+          <Button size="sm" variant="ghost" className="h-9 px-3 text-sm">
             Custom
           </Button>
         </DialogTrigger>
@@ -342,9 +421,9 @@ export function ActivityTimer({
       <Button
         size="sm"
         onClick={startTimer}
-        className="gap-1"
+        className="gap-2 h-9"
       >
-        <Play className="w-3 h-3" />
+        <Play className="w-4 h-4" />
         Iniciar
       </Button>
     </div>
