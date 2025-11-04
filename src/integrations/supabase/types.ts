@@ -121,6 +121,9 @@ export type Database = {
           demo_created_by: string | null
           demo_note: string | null
           email: string | null
+          goal_hours: number | null
+          goal_timer_active: boolean | null
+          goal_timer_started_at: string | null
           id: string
           is_demo: boolean | null
           is_trial_active: boolean | null
@@ -144,6 +147,9 @@ export type Database = {
           demo_created_by?: string | null
           demo_note?: string | null
           email?: string | null
+          goal_hours?: number | null
+          goal_timer_active?: boolean | null
+          goal_timer_started_at?: string | null
           id?: string
           is_demo?: boolean | null
           is_trial_active?: boolean | null
@@ -167,6 +173,9 @@ export type Database = {
           demo_created_by?: string | null
           demo_note?: string | null
           email?: string | null
+          goal_hours?: number | null
+          goal_timer_active?: boolean | null
+          goal_timer_started_at?: string | null
           id?: string
           is_demo?: boolean | null
           is_trial_active?: boolean | null

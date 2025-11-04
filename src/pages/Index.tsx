@@ -8,6 +8,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/ui/skeleton";
+import { GoalTimer } from "@/components/GoalTimer";
 import {
   Collapsible,
   CollapsibleContent,
@@ -34,6 +36,24 @@ export default function Index() {
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterType, setFilterType] = useState<"day" | "week" | "month" | "all" | "custom">("month");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dailyAverage, setDailyAverage] = useState(0);
+  const [activeDaysCount, setActiveDaysCount] = useState(0);
+  // Load cached data on mount
+  useEffect(() => {
+    const cachedData = localStorage.getItem("orbis_dashboard_cache");
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        setMonthlyStats(parsed.monthlyStats || monthlyStats);
+        setDailyAverage(parsed.dailyAverage || 0);
+        setActiveDaysCount(parsed.activeDaysCount || 0);
+      } catch (e) {
+        console.error("Error parsing cache:", e);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -45,6 +65,8 @@ export default function Index() {
   }, [user, loading, navigate]);
   const loadDashboardData = async (customStartDate?: string, customEndDate?: string) => {
     if (!user) return;
+
+    setIsLoadingData(true);
 
     // Carregar meta do perfil
     const { data: profile } = await supabase
@@ -111,21 +133,41 @@ export default function Index() {
 
     const {
       data: monthData
-    } = await supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd);
+    } = await supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30);
     
     if (monthData) {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
       const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
       const balance = totalIncome - totalExpenses;
-      setMonthlyStats({
+      
+      // Calculate real daily average from active days
+      const activeDays = monthData.filter(day => day.total_profit > 0).length;
+      const avgProfit = activeDays > 0 ? totalIncome / activeDays : 0;
+      
+      setActiveDaysCount(activeDays);
+      setDailyAverage(avgProfit);
+      
+      const stats = {
         totalIncome,
         totalExpenses,
         totalCost,
         balance,
         variation: totalIncome > 0 ? balance / totalIncome * 100 : 0
-      });
+      };
+      
+      setMonthlyStats(stats);
+      
+      // Cache data
+      localStorage.setItem("orbis_dashboard_cache", JSON.stringify({
+        monthlyStats: stats,
+        dailyAverage: avgProfit,
+        activeDaysCount: activeDays,
+        lastUpdate: new Date().toISOString()
+      }));
     }
+    
+    setIsLoadingData(false);
   };
 
   const handleApplyFilter = () => {
@@ -460,17 +502,23 @@ export default function Index() {
         <Card className="card-gradient-border hover:shadow-glow-secondary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Lucro Diário
+              Lucro Diário Médio
             </CardTitle>
             <Target className="h-5 w-5 text-secondary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-secondary">
-              R$ {dailyProfit.toFixed(2)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Hoje
-            </p>
+            {isLoadingData ? (
+              <Skeleton className="h-9 w-32 mb-2" />
+            ) : (
+              <>
+                <div className="text-2xl md:text-3xl font-bold text-secondary">
+                  R$ {dailyAverage.toFixed(2)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Média dos últimos {activeDaysCount} dias ativos
+                </p>
+              </>
+            )}
           </CardContent>
         </Card>
 
@@ -525,7 +573,7 @@ export default function Index() {
       </Card>
 
       {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="card-gradient-border bg-gradient-to-br from-card to-card/50">
           <CardHeader>
             <CardTitle className="flex items-center justify-between text-lg">
@@ -592,6 +640,9 @@ export default function Index() {
             )}
           </CardContent>
         </Card>
+
+        {/* Goal Timer */}
+        {user && <GoalTimer userId={user.id} />}
 
         <Card className="card-gradient-border bg-gradient-to-br from-card to-card/50">
           <CardHeader>
