@@ -21,6 +21,7 @@ import {
   Clock
 } from "lucide-react";
 import { ActivityTimer } from "@/components/ActivityTimer";
+import { GoalTimer } from "@/components/GoalTimer";
 
 interface ChecklistItem {
   id: string;
@@ -323,6 +324,9 @@ export default function DailyChecklist() {
           Acompanhe suas atividades e mantenha a constância
         </p>
       </div>
+
+      {/* Goal Timer */}
+      <GoalTimer userId={user?.id || ""} />
 
       {/* Progress Card */}
       <Card className="glass card-gradient-border shadow-glow-primary animate-fade-in">

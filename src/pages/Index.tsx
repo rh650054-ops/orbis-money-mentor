@@ -9,7 +9,6 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { GoalTimer } from "@/components/GoalTimer";
 import {
   Collapsible,
   CollapsibleContent,
@@ -640,9 +639,6 @@ export default function Index() {
             )}
           </CardContent>
         </Card>
-
-        {/* Goal Timer */}
-        {user && <GoalTimer userId={user.id} />}
 
         <Card className="card-gradient-border bg-gradient-to-br from-card to-card/50">
           <CardHeader>

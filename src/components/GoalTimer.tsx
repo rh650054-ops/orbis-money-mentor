@@ -18,6 +18,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [selectedHours, setSelectedHours] = useState("4");
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hasAutoStarted, setHasAutoStarted] = useState(false);
   const { toast } = useToast();
 
   // Load timer state from database
@@ -48,6 +49,28 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
   useEffect(() => {
     loadTimerState();
   }, [loadTimerState]);
+
+  // Auto-start timer when any checklist activity starts
+  useEffect(() => {
+    if (!isActive && !hasAutoStarted) {
+      const checkActiveActivities = async () => {
+        const { data } = await supabase
+          .from("daily_checklist")
+          .select("status")
+          .eq("user_id", userId)
+          .eq("date", new Date().toISOString().split('T')[0])
+          .eq("status", "active")
+          .limit(1);
+
+        if (data && data.length > 0) {
+          setHasAutoStarted(true);
+          await startTimer();
+        }
+      };
+
+      checkActiveActivities();
+    }
+  }, [userId, isActive, hasAutoStarted]);
 
   // Timer countdown logic
   useEffect(() => {
