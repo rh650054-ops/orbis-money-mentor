@@ -1,0 +1,725 @@
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
+} from "recharts";
+import {
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  Plus,
+  Trash2,
+  Target,
+  AlertCircle,
+  DollarSign,
+  ShoppingCart,
+  Home as HomeIcon,
+  Utensils,
+  GraduationCap,
+  Car,
+  Heart,
+  Sparkles,
+  Calendar
+} from "lucide-react";
+
+interface Expense {
+  id: string;
+  category: string;
+  name: string;
+  amount: number;
+  type: "fixed" | "variable";
+  icon: string;
+  color: string;
+  date: string;
+  notes?: string;
+}
+
+interface Goal {
+  id: string;
+  name: string;
+  target_amount: number;
+  current_amount: number;
+  deadline?: string;
+  status: string;
+  icon: string;
+}
+
+interface FinancialSummary {
+  totalProfit: number;
+  totalExpenses: number;
+  totalReinvestment: number;
+  personalBalance: number;
+}
+
+const EXPENSE_CATEGORIES = [
+  { value: "food", label: "Alimentação", icon: "🍕", color: "#F59E0B" },
+  { value: "housing", label: "Moradia", icon: "🏠", color: "#3B82F6" },
+  { value: "transport", label: "Transporte", icon: "🚗", color: "#10B981" },
+  { value: "education", label: "Educação", icon: "🧠", color: "#8B5CF6" },
+  { value: "health", label: "Saúde", icon: "❤️", color: "#EF4444" },
+  { value: "leisure", label: "Lazer", icon: "🎮", color: "#EC4899" },
+  { value: "merchandise", label: "Mercadoria", icon: "🧃", color: "#6366F1" },
+  { value: "other", label: "Outros", icon: "💰", color: "#64748B" }
+];
+
+export default function Finances() {
+  const navigate = useNavigate();
+  const { user, loading } = useAuth();
+  const { toast } = useToast();
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [summary, setSummary] = useState<FinancialSummary>({
+    totalProfit: 0,
+    totalExpenses: 0,
+    totalReinvestment: 0,
+    personalBalance: 0
+  });
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
+
+  // Form states for new expense
+  const [newExpense, setNewExpense] = useState({
+    category: "food",
+    name: "",
+    amount: "",
+    type: "variable" as "fixed" | "variable",
+    notes: ""
+  });
+
+  // Form states for new goal
+  const [newGoal, setNewGoal] = useState({
+    name: "",
+    target_amount: "",
+    deadline: "",
+    icon: "🎯"
+  });
+
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate("/auth");
+      return;
+    }
+    if (user) {
+      loadFinancialData();
+    }
+  }, [user, loading, navigate]);
+
+  const loadFinancialData = async () => {
+    if (!user) return;
+    
+    setIsLoadingData(true);
+    
+    try {
+      // Load expenses
+      const { data: expensesData, error: expensesError } = await supabase
+        .from("personal_expenses")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("date", { ascending: false });
+
+      if (expensesError) throw expensesError;
+      setExpenses((expensesData || []) as Expense[]);
+
+      // Load goals
+      const { data: goalsData, error: goalsError } = await supabase
+        .from("financial_goals")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+
+      if (goalsError) throw goalsError;
+      setGoals(goalsData || []);
+
+      // Calculate financial summary
+      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      
+      const { data: salesData, error: salesError } = await supabase
+        .from("daily_sales")
+        .select("total_profit, cost, reinvestment")
+        .eq("user_id", user.id)
+        .gte("date", `${currentMonth}-01`)
+        .lte("date", `${currentMonth}-31`);
+
+      if (salesError) throw salesError;
+
+      const totalProfit = salesData?.reduce((sum, s) => sum + (Number(s.total_profit) || 0), 0) || 0;
+      const totalReinvestment = salesData?.reduce((sum, s) => sum + (Number(s.reinvestment) || 0), 0) || 0;
+      const totalExpenses = expensesData?.reduce((sum, e) => {
+        if (e.date.startsWith(currentMonth)) {
+          return sum + (Number(e.amount) || 0);
+        }
+        return sum;
+      }, 0) || 0;
+
+      setSummary({
+        totalProfit,
+        totalExpenses,
+        totalReinvestment,
+        personalBalance: totalProfit - totalExpenses - totalReinvestment
+      });
+
+    } catch (error) {
+      console.error("Error loading financial data:", error);
+      toast({
+        title: "Erro ao carregar dados",
+        description: "Não foi possível carregar suas informações financeiras",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
+
+  const handleAddExpense = async () => {
+    if (!user || !newExpense.name || !newExpense.amount) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha o nome e o valor da despesa",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const selectedCategory = EXPENSE_CATEGORIES.find(c => c.value === newExpense.category);
+
+    try {
+      const { error } = await supabase
+        .from("personal_expenses")
+        .insert({
+          user_id: user.id,
+          category: newExpense.category,
+          name: newExpense.name,
+          amount: parseFloat(newExpense.amount),
+          type: newExpense.type,
+          icon: selectedCategory?.icon || "💰",
+          color: selectedCategory?.color || "#3B82F6",
+          notes: newExpense.notes || null
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Despesa adicionada!",
+        description: `${selectedCategory?.icon} ${newExpense.name} registrada com sucesso`,
+      });
+
+      setNewExpense({ category: "food", name: "", amount: "", type: "variable", notes: "" });
+      setIsAddExpenseOpen(false);
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      toast({
+        title: "Erro ao adicionar despesa",
+        description: "Tente novamente mais tarde",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from("personal_expenses")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Despesa removida",
+        description: "A despesa foi excluída com sucesso",
+      });
+
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      toast({
+        title: "Erro ao remover despesa",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAddGoal = async () => {
+    if (!user || !newGoal.name || !newGoal.target_amount) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha o nome e o valor da meta",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("financial_goals")
+        .insert({
+          user_id: user.id,
+          name: newGoal.name,
+          target_amount: parseFloat(newGoal.target_amount),
+          current_amount: 0,
+          deadline: newGoal.deadline || null,
+          icon: newGoal.icon
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Meta criada!",
+        description: `${newGoal.icon} ${newGoal.name} adicionada com sucesso`,
+      });
+
+      setNewGoal({ name: "", target_amount: "", deadline: "", icon: "🎯" });
+      setIsAddGoalOpen(false);
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error adding goal:", error);
+      toast({
+        title: "Erro ao criar meta",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getCategoryData = () => {
+    const categoryTotals: { [key: string]: number } = {};
+    
+    expenses.forEach(expense => {
+      if (!categoryTotals[expense.category]) {
+        categoryTotals[expense.category] = 0;
+      }
+      categoryTotals[expense.category] += Number(expense.amount);
+    });
+
+    return Object.entries(categoryTotals).map(([category, amount]) => {
+      const cat = EXPENSE_CATEGORIES.find(c => c.value === category);
+      return {
+        name: cat?.label || category,
+        value: amount,
+        color: cat?.color || "#3B82F6"
+      };
+    });
+  };
+
+  if (loading || !user) {
+    return null;
+  }
+
+  const categoryData = getCategoryData();
+  const expensePercentage = summary.totalProfit > 0 
+    ? (summary.totalExpenses / summary.totalProfit) * 100 
+    : 0;
+
+  return (
+    <div className="space-y-6 pb-20 md:pb-8">
+      <div>
+        <h1 className="text-3xl font-bold gradient-text">💰 Minhas Finanças</h1>
+        <p className="text-muted-foreground mt-1">
+          Controle total do seu dinheiro — quanto ganhou, gastou e guardou
+        </p>
+      </div>
+
+      {/* Financial Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="card-gradient-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Lucro do Mês</p>
+                <p className="text-2xl font-bold text-green-500">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.totalProfit.toFixed(2)}`}
+                </p>
+              </div>
+              <TrendingUp className="w-8 h-8 text-green-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-gradient-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Despesas</p>
+                <p className="text-2xl font-bold text-red-500">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.totalExpenses.toFixed(2)}`}
+                </p>
+              </div>
+              <TrendingDown className="w-8 h-8 text-red-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-gradient-border">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Reinvestimento</p>
+                <p className="text-2xl font-bold text-blue-500">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.totalReinvestment.toFixed(2)}`}
+                </p>
+              </div>
+              <ShoppingCart className="w-8 h-8 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="card-gradient-border bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">💎 Saldo Visionário</p>
+                <p className="text-2xl font-bold text-primary">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.personalBalance.toFixed(2)}`}
+                </p>
+              </div>
+              <Wallet className="w-8 h-8 text-primary" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alert if expenses exceed 50% of profit */}
+      {expensePercentage > 50 && (
+        <Card className="border-yellow-500/50 bg-yellow-500/10">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
+              <div>
+                <p className="font-semibold text-yellow-500">⚠️ Cuidado, Visionário</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Seus gastos estão em {expensePercentage.toFixed(0)}% do seu lucro. 
+                  Considere reduzir despesas para aumentar seu saldo final.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <Tabs defaultValue="expenses" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="expenses">Despesas</TabsTrigger>
+          <TabsTrigger value="goals">Metas</TabsTrigger>
+          <TabsTrigger value="analytics">Análises</TabsTrigger>
+        </TabsList>
+
+        {/* Expenses Tab */}
+        <TabsContent value="expenses" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Despesas Pessoais</h2>
+            <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Despesa
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Adicionar Despesa</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div>
+                    <Label>Categoria</Label>
+                    <Select
+                      value={newExpense.category}
+                      onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {EXPENSE_CATEGORIES.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.icon} {cat.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Nome da Despesa</Label>
+                    <Input
+                      value={newExpense.name}
+                      onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
+                      placeholder="Ex: Aluguel, Mercado, Gasolina..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Valor (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newExpense.amount}
+                      onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Tipo</Label>
+                    <Select
+                      value={newExpense.type}
+                      onValueChange={(value: "fixed" | "variable") => setNewExpense({ ...newExpense, type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixa (todo mês)</SelectItem>
+                        <SelectItem value="variable">Variável (eventual)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Observações (opcional)</Label>
+                    <Input
+                      value={newExpense.notes}
+                      onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })}
+                      placeholder="Detalhes adicionais..."
+                    />
+                  </div>
+                  <Button onClick={handleAddExpense} className="w-full">
+                    Adicionar Despesa
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {isLoadingData ? (
+            <div className="space-y-2">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : expenses.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                Nenhuma despesa registrada ainda. Comece adicionando suas primeiras despesas!
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-2">
+              {expenses.map(expense => (
+                <Card key={expense.id} className="hover:shadow-lg transition-shadow">
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
+                          style={{ backgroundColor: `${expense.color}20` }}
+                        >
+                          {expense.icon}
+                        </div>
+                        <div>
+                          <p className="font-semibold">{expense.name}</p>
+                          <div className="flex gap-2 items-center mt-1">
+                            <Badge variant={expense.type === "fixed" ? "default" : "secondary"} className="text-xs">
+                              {expense.type === "fixed" ? "Fixa" : "Variável"}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {new Date(expense.date).toLocaleDateString('pt-BR')}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className="text-lg font-bold text-red-500">
+                          -R$ {Number(expense.amount).toFixed(2)}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteExpense(expense.id)}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                    {expense.notes && (
+                      <p className="text-sm text-muted-foreground mt-2 ml-13">
+                        {expense.notes}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Goals Tab */}
+        <TabsContent value="goals" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-semibold">Objetivos Financeiros</h2>
+            <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Meta
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Objetivo Financeiro</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div>
+                    <Label>Nome da Meta</Label>
+                    <Input
+                      value={newGoal.name}
+                      onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
+                      placeholder="Ex: Comprar moto, Juntar R$5.000..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Valor Alvo (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newGoal.target_amount}
+                      onChange={(e) => setNewGoal({ ...newGoal, target_amount: e.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Prazo (opcional)</Label>
+                    <Input
+                      type="date"
+                      value={newGoal.deadline}
+                      onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Ícone</Label>
+                    <Input
+                      value={newGoal.icon}
+                      onChange={(e) => setNewGoal({ ...newGoal, icon: e.target.value })}
+                      placeholder="🎯"
+                    />
+                  </div>
+                  <Button onClick={handleAddGoal} className="w-full">
+                    Criar Meta
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {isLoadingData ? (
+            <Skeleton className="h-40 w-full" />
+          ) : goals.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                Nenhuma meta financeira criada. Defina seus objetivos e acompanhe seu progresso!
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {goals.map(goal => {
+                const progress = (goal.current_amount / goal.target_amount) * 100;
+                const remaining = goal.target_amount - goal.current_amount;
+
+                return (
+                  <Card key={goal.id} className="card-gradient-border">
+                    <CardContent className="pt-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">{goal.icon}</div>
+                          <div>
+                            <p className="font-semibold text-lg">{goal.name}</p>
+                            {goal.deadline && (
+                              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                                <Calendar className="w-3 h-3" />
+                                Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-muted-foreground">Meta</p>
+                          <p className="text-lg font-bold text-primary">
+                            R$ {goal.target_amount.toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">
+                            R$ {goal.current_amount.toFixed(2)} economizado
+                          </span>
+                          <span className="font-semibold text-primary">
+                            {progress.toFixed(0)}%
+                          </span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Faltam R$ {remaining.toFixed(2)} para atingir sua meta 🔥
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics" className="space-y-4">
+          <h2 className="text-xl font-semibold">Análise Financeira</h2>
+          
+          {categoryData.length > 0 ? (
+            <Card className="card-gradient-border">
+              <CardHeader>
+                <CardTitle>Gastos por Categoria</CardTitle>
+                <CardDescription>Distribuição das suas despesas mensais</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                Adicione despesas para ver a análise dos seus gastos
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

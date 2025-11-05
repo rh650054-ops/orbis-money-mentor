@@ -1,6 +1,6 @@
 import { ReactNode, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Target, Clock, CheckSquare, User, LogOut } from "lucide-react";
+import { Home, TrendingUp, Target, Clock, CheckSquare, Wallet, User, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
@@ -19,6 +19,7 @@ const navigation = [
   { name: "Histórico", href: "/history", icon: Target },
   { name: "Rotina", href: "/routine", icon: Clock },
   { name: "Checklist", href: "/checklist", icon: CheckSquare },
+  { name: "Finanças", href: "/finances", icon: Wallet },
   { name: "Perfil", href: "/profile", icon: User },
 ];
 

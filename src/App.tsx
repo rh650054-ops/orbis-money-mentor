@@ -12,6 +12,7 @@ import Profile from "./pages/Profile";
 import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
 import DailyChecklist from "./pages/DailyChecklist";
+import Finances from "./pages/Finances";
 import Auth from "./pages/Auth";
 import Payment from "./pages/Payment";
 import AdminDemoUsers from "./pages/AdminDemoUsers";
@@ -34,6 +35,7 @@ const App = () => <QueryClientProvider client={queryClient}>
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/routine" element={<Routine />} />
                 <Route path="/checklist" element={<DailyChecklist />} />
+                <Route path="/finances" element={<Finances />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
