@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import NumericKeyboard from "@/components/NumericKeyboard";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from "recharts";
@@ -62,6 +63,8 @@ interface FinancialSummary {
   totalExpenses: number;
   totalReinvestment: number;
   personalBalance: number;
+  monthlyBudget: number;
+  budgetRemaining: number;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -85,11 +88,15 @@ export default function Finances() {
     totalProfit: 0,
     totalExpenses: 0,
     totalReinvestment: 0,
-    personalBalance: 0
+    personalBalance: 0,
+    monthlyBudget: 0,
+    budgetRemaining: 0
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
+  const [isEditBudgetOpen, setIsEditBudgetOpen] = useState(false);
+  const [budgetInput, setBudgetInput] = useState("");
 
   // Form states for new expense
   const [newExpense, setNewExpense] = useState({
@@ -161,6 +168,15 @@ export default function Finances() {
 
       if (salesError) throw salesError;
 
+      // Load monthly budget from profile
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("monthly_goal")
+        .eq("user_id", user.id)
+        .single();
+
+      const monthlyBudget = profileData?.monthly_goal || 0;
+
       const totalProfit = salesData?.reduce((sum, s) => sum + (Number(s.total_profit) || 0), 0) || 0;
       const totalReinvestment = salesData?.reduce((sum, s) => sum + (Number(s.reinvestment) || 0), 0) || 0;
       const totalExpenses = expensesData?.reduce((sum, e) => {
@@ -174,7 +190,9 @@ export default function Finances() {
         totalProfit,
         totalExpenses,
         totalReinvestment,
-        personalBalance: totalProfit - totalExpenses - totalReinvestment
+        personalBalance: totalProfit - totalExpenses - totalReinvestment,
+        monthlyBudget,
+        budgetRemaining: monthlyBudget - totalExpenses
       });
 
     } catch (error) {
@@ -300,6 +318,58 @@ export default function Finances() {
     }
   };
 
+  const handleUpdateBudget = async () => {
+    if (!user || !budgetInput) return;
+
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ monthly_goal: parseFloat(budgetInput) })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Orçamento atualizado!",
+        description: `Seu orçamento mensal agora é R$ ${parseFloat(budgetInput).toFixed(2)}`,
+      });
+
+      setBudgetInput("");
+      setIsEditBudgetOpen(false);
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error updating budget:", error);
+      toast({
+        title: "Erro ao atualizar orçamento",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleNumberClick = (num: string) => {
+    setNewExpense({ ...newExpense, amount: newExpense.amount + num });
+  };
+
+  const handleDelete = () => {
+    setNewExpense({ ...newExpense, amount: newExpense.amount.slice(0, -1) });
+  };
+
+  const handleClear = () => {
+    setNewExpense({ ...newExpense, amount: "" });
+  };
+
+  const handleBudgetNumberClick = (num: string) => {
+    setBudgetInput(budgetInput + num);
+  };
+
+  const handleBudgetDelete = () => {
+    setBudgetInput(budgetInput.slice(0, -1));
+  };
+
+  const handleBudgetClear = () => {
+    setBudgetInput("");
+  };
+
   const getCategoryData = () => {
     const categoryTotals: { [key: string]: number } = {};
     
@@ -328,6 +398,16 @@ export default function Finances() {
   const expensePercentage = summary.totalProfit > 0 
     ? (summary.totalExpenses / summary.totalProfit) * 100 
     : 0;
+  
+  const budgetPercentage = summary.monthlyBudget > 0
+    ? (summary.totalExpenses / summary.monthlyBudget) * 100
+    : 0;
+
+  const getBudgetColor = () => {
+    if (budgetPercentage < 60) return "text-green-500";
+    if (budgetPercentage < 90) return "text-yellow-500";
+    return "text-red-500";
+  };
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
@@ -396,6 +476,84 @@ export default function Finances() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Budget Card */}
+      <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-primary" />
+              Orçamento Mensal
+            </CardTitle>
+            <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  Editar
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Definir Orçamento Mensal</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div>
+                    <Label>Valor do Orçamento (R$)</Label>
+                    <div className="mt-2 p-4 bg-muted rounded-lg">
+                      <p className="text-3xl font-bold text-center">
+                        R$ {budgetInput || "0.00"}
+                      </p>
+                    </div>
+                  </div>
+                  <NumericKeyboard
+                    onNumberClick={handleBudgetNumberClick}
+                    onDelete={handleBudgetDelete}
+                    onClear={handleBudgetClear}
+                  />
+                  <Button onClick={handleUpdateBudget} className="w-full">
+                    Salvar Orçamento
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Orçamento Definido</p>
+                <p className="text-2xl font-bold">R$ {summary.monthlyBudget.toFixed(2)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Restante</p>
+                <p className={`text-2xl font-bold ${getBudgetColor()}`}>
+                  R$ {summary.budgetRemaining.toFixed(2)}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Uso do orçamento</span>
+                <span className={`font-bold ${getBudgetColor()}`}>
+                  {budgetPercentage.toFixed(0)}%
+                </span>
+              </div>
+              <Progress 
+                value={Math.min(budgetPercentage, 100)} 
+                className={`h-3 ${budgetPercentage >= 90 ? 'bg-red-500/20' : budgetPercentage >= 60 ? 'bg-yellow-500/20' : 'bg-green-500/20'}`}
+              />
+            </div>
+            {budgetPercentage >= 85 && (
+              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                  ⚠️ Atenção! Você está perto do limite do seu orçamento mensal.
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Alert if expenses exceed 50% of profit */}
       {expensePercentage > 50 && (
@@ -466,14 +624,17 @@ export default function Finances() {
                   </div>
                   <div>
                     <Label>Valor (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newExpense.amount}
-                      onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
-                      placeholder="0,00"
-                    />
+                    <div className="mt-2 p-4 bg-muted rounded-lg">
+                      <p className="text-3xl font-bold text-center">
+                        R$ {newExpense.amount || "0.00"}
+                      </p>
+                    </div>
                   </div>
+                  <NumericKeyboard
+                    onNumberClick={handleNumberClick}
+                    onDelete={handleDelete}
+                    onClear={handleClear}
+                  />
                   <div>
                     <Label>Tipo</Label>
                     <Select

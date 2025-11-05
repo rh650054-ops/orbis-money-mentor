@@ -26,7 +26,6 @@ const navigation = [
   { name: "Nova Venda", href: "/transactions", icon: TrendingUp },
   { name: "Histórico", href: "/history", icon: Target },
   { name: "Rotina", href: "/routine", icon: Clock },
-  { name: "Checklist", href: "/checklist", icon: CheckSquare },
   { name: "Finanças", href: "/finances", icon: Wallet },
 ];
 

@@ -5,12 +5,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, DollarSign, CheckCircle2, Circle, Calendar, Plus, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import CustomActivityForm from "@/components/CustomActivityForm";
+import { ActivityTimer } from "@/components/ActivityTimer";
+import { GoalTimer } from "@/components/GoalTimer";
 import { z } from "zod";
+
+interface ChecklistItem {
+  id: string;
+  activity_name: string;
+  activity_time: string | null;
+  completed: boolean;
+  emoji?: string;
+  duration_minutes?: number;
+  started_at?: string | null;
+  completed_at?: string | null;
+  progress?: number;
+  status?: string;
+}
 
 const routineSchema = z.object({
   wakeTime: z.string().regex(/^\d{2}:\d{2}$/, { message: "Horário inválido" }),
@@ -35,6 +53,10 @@ export default function Routine() {
   const [stats, setStats] = useState({ sleepHours: "", workHours: "" });
   const [routineId, setRoutineId] = useState<string | null>(null);
   const [customActivities, setCustomActivities] = useState<any[]>([]);
+  const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [totalFocusTime, setTotalFocusTime] = useState(0);
+  const [showChecklist, setShowChecklist] = useState(false);
 
   const [formData, setFormData] = useState({
     wakeTime: "",
@@ -74,6 +96,7 @@ export default function Routine() {
 
       if (data && !error) {
         setRoutineId(data.id);
+        setShowChecklist(true);
         setFormData({
           wakeTime: data.wake_time,
           workStart: data.work_start,
@@ -95,10 +118,15 @@ export default function Routine() {
       if (activities) {
         setCustomActivities(activities);
       }
+
+      // Carregar checklist se rotina existir
+      if (data && !error) {
+        loadChecklist();
+      }
     };
 
     loadData();
-  }, [user]);
+  }, [user, selectedDate]);
 
   // 🔄 Atualiza estatísticas sempre que mudar os horários
   useEffect(() => {
@@ -119,6 +147,158 @@ export default function Routine() {
     return null;
   }
 
+  const loadChecklist = async () => {
+    if (!user) return;
+
+    try {
+      const { data: existingChecklist } = await supabase
+        .from("daily_checklist")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("date", selectedDate)
+        .order("activity_time", { ascending: true });
+
+      if (existingChecklist && existingChecklist.length > 0) {
+        setChecklist(existingChecklist);
+        calculateTotalFocusTime(existingChecklist);
+      } else {
+        await generateChecklistFromRoutine();
+      }
+    } catch (error) {
+      console.error("Error loading checklist:", error);
+    }
+  };
+
+  const generateChecklistFromRoutine = async () => {
+    if (!user || !routineId) return;
+
+    try {
+      const { data: routine } = await supabase
+        .from("routines")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("id", routineId)
+        .single();
+
+      const { data: customActivities } = await supabase
+        .from("routine_activities")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("start_time", { ascending: true });
+
+      const activities: { name: string; time: string; emoji?: string }[] = [];
+
+      if (routine) {
+        activities.push(
+          { name: "Acordar", time: routine.wake_time, emoji: "☀️" },
+          { name: "Começar a trabalhar", time: routine.work_start, emoji: "💼" },
+          { name: "Almoçar", time: routine.lunch_time, emoji: "🍽️" },
+          { name: "Parar de vender", time: routine.work_end, emoji: "🏁" },
+          { name: "Dormir", time: routine.sleep_time, emoji: "🌙" }
+        );
+      }
+
+      if (customActivities && customActivities.length > 0) {
+        customActivities.forEach((activity: any) => {
+          activities.push({
+            name: activity.name,
+            time: activity.start_time,
+            emoji: activity.emoji || "💪"
+          });
+        });
+      }
+
+      activities.sort((a, b) => a.time.localeCompare(b.time));
+
+      const checklistItems = activities.map(activity => ({
+        user_id: user.id,
+        date: selectedDate,
+        activity_name: activity.name,
+        activity_time: activity.time,
+        emoji: activity.emoji,
+        completed: false
+      }));
+
+      if (checklistItems.length > 0) {
+        const { data } = await supabase
+          .from("daily_checklist")
+          .upsert(checklistItems, {
+            onConflict: 'user_id,date,activity_name,activity_time',
+            ignoreDuplicates: false
+          })
+          .select();
+
+        if (data) {
+          setChecklist(data);
+        }
+      }
+    } catch (error) {
+      console.error("Error generating checklist:", error);
+    }
+  };
+
+  const calculateTotalFocusTime = (items: ChecklistItem[]) => {
+    const total = items.reduce((sum, item) => {
+      if (item.status === "completed" && item.duration_minutes) {
+        return sum + item.duration_minutes;
+      }
+      return sum;
+    }, 0);
+    setTotalFocusTime(total);
+  };
+
+  const toggleComplete = async (itemId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("daily_checklist")
+        .update({ completed: !currentStatus })
+        .eq("id", itemId);
+
+      if (error) throw error;
+
+      setChecklist(prev =>
+        prev.map(item =>
+          item.id === itemId ? { ...item, completed: !currentStatus } : item
+        )
+      );
+
+      toast({
+        title: !currentStatus ? "✅ Tarefa concluída!" : "Tarefa desmarcada",
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar a tarefa.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const formatTotalTime = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h${mins > 0 ? ` ${mins}min` : ''}`;
+    }
+    return `${mins}min`;
+  };
+
+  const getCompletionPercentage = () => {
+    if (checklist.length === 0) return 0;
+    const completed = checklist.filter(item => item.completed).length;
+    return Math.round((completed / checklist.length) * 100);
+  };
+
+  const getActivityIcon = (activityName: string) => {
+    const name = activityName.toLowerCase();
+    if (name.includes("acordar")) return <Sunrise className="w-4 h-4 text-primary" />;
+    if (name.includes("trabalhar") || name.includes("vender")) return <Briefcase className="w-4 h-4 text-secondary" />;
+    if (name.includes("almoço") || name.includes("almoçar")) return <Utensils className="w-4 h-4 text-success" />;
+    if (name.includes("parar")) return <Sunset className="w-4 h-4 text-warning" />;
+    if (name.includes("dormir")) return <Moon className="w-4 h-4 text-primary" />;
+    return <Circle className="w-4 h-4 text-muted-foreground" />;
+  };
+
   // Função para recarregar dados após mudanças
   const reloadData = async () => {
     if (!user) return;
@@ -132,6 +312,8 @@ export default function Routine() {
     if (activities) {
       setCustomActivities(activities);
     }
+    
+    loadChecklist();
   };
 
   // 🚀 Enviar rotina para IA
@@ -191,13 +373,11 @@ export default function Routine() {
 
       toast({
         title: "✅ Rotina salva com sucesso!",
-        description: "Redirecionando para o checklist diário...",
+        description: "Checklist atualizado!",
       });
 
-      // Redirect to daily checklist after saving
-      setTimeout(() => {
-        navigate("/checklist");
-      }, 1500);
+      setShowChecklist(true);
+      await loadChecklist();
     } catch (error) {
       toast({
         title: "Erro",
@@ -209,18 +389,151 @@ export default function Routine() {
     }
   };
 
+  const completionPercentage = getCompletionPercentage();
+  const completedCount = checklist.filter(item => item.completed).length;
+
   return (
     <div className="min-h-screen p-6 bg-gradient-to-br from-background via-background/95 to-background/80 space-y-10 animate-fade-in">
       
       {/* 🔥 Título principal */}
       <div className="text-center space-y-3 mb-8">
         <h1 className="text-5xl font-bold text-primary tracking-tight drop-shadow-[0_0_20px_rgba(0,180,255,0.7)]">
-          Domine seu futuro
+          {showChecklist ? "Checklist Diário" : "Domine seu futuro"}
         </h1>
         <p className="text-muted-foreground text-base md:text-lg">
-          Crie, analise e otimize sua rotina com o poder da IA Orbis ⚡
+          {showChecklist ? "Acompanhe suas atividades e mantenha a constância" : "Crie, analise e otimize sua rotina com o poder da IA Orbis ⚡"}
         </p>
       </div>
+
+      {showChecklist && (
+        <>
+          {/* Goal Timer */}
+          <GoalTimer userId={user?.id || ""} />
+
+          {/* Progress Card */}
+          <Card className="glass card-gradient-border shadow-glow-primary animate-fade-in">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="w-5 h-5 text-primary animate-pulse" />
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      max={new Date().toISOString().split('T')[0]}
+                      className="bg-card border border-primary/30 rounded-lg px-3 py-1.5 text-sm hover:border-primary transition-smooth focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <Badge className="bg-gradient-to-r from-primary to-secondary text-primary-foreground shadow-lg animate-fade-in">
+                    {completedCount}/{checklist.length} concluídas
+                  </Badge>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Progresso do dia</span>
+                    <span className="font-bold text-primary text-lg animate-pulse">{completionPercentage}%</span>
+                  </div>
+                  <Progress value={completionPercentage} className="h-4" />
+                </div>
+
+                {totalFocusTime > 0 && (
+                  <div className="flex items-center justify-between p-3 bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-primary" />
+                      <span className="text-sm font-semibold">Tempo de foco hoje:</span>
+                    </div>
+                    <span className="text-lg font-bold text-primary">{formatTotalTime(totalFocusTime)}</span>
+                  </div>
+                )}
+
+                {completionPercentage === 100 && (
+                  <div className="flex items-center gap-2 p-4 bg-gradient-to-r from-success/20 to-success/10 border border-success/30 rounded-lg shadow-glow-success animate-fade-in">
+                    <CheckCircle2 className="w-6 h-6 text-success animate-bounce" />
+                    <p className="text-sm text-success font-bold">
+                      🎉 Parabéns! Você completou todas as atividades de hoje!
+                    </p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Checklist Items */}
+          {checklist.length > 0 && (
+            <div className="space-y-3">
+              {checklist.map((item, index) => (
+                <Card
+                  key={item.id}
+                  className={`glass transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 animate-fade-in ${
+                    item.completed 
+                      ? "bg-gradient-to-r from-success/10 to-success/5 border-success/30 shadow-glow-success" 
+                      : "hover:shadow-glow-primary hover:border-primary/30"
+                  }`}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      <Checkbox
+                        checked={item.completed}
+                        onCheckedChange={() => toggleComplete(item.id, item.completed)}
+                        className="h-6 w-6 border-2"
+                      />
+                      
+                      <div className="flex-1 flex items-center gap-3">
+                        {item.emoji ? (
+                          <span className={`text-3xl transition-transform duration-300 ${item.completed ? "grayscale" : "hover:scale-125"}`}>
+                            {item.emoji}
+                          </span>
+                        ) : (
+                          <div className={`transition-transform duration-300 ${item.completed ? "opacity-50" : "hover:scale-110"}`}>
+                            {getActivityIcon(item.activity_name)}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p className={`font-semibold text-base transition-all duration-300 ${
+                            item.completed ? "line-through text-muted-foreground" : "text-foreground"
+                          }`}>
+                            {item.activity_name}
+                          </p>
+                          {item.activity_time && (
+                            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                              <span className="text-primary">🕐</span>
+                              {item.activity_time}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <ActivityTimer
+                        taskId={item.id}
+                        taskName={item.activity_name}
+                        currentStatus={item.status || "pending"}
+                        currentProgress={item.progress || 0}
+                        durationMinutes={item.duration_minutes || 0}
+                        startedAt={item.started_at || null}
+                        onTimerComplete={reloadData}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <Button 
+            onClick={() => setShowChecklist(false)}
+            variant="outline"
+            className="w-full max-w-2xl mx-auto block"
+          >
+            Editar Rotina
+          </Button>
+        </>
+      )}
+
+      {!showChecklist && (
+        <>
 
       {/* 📋 Formulário */}
       <Card className="card-gradient-border max-w-2xl mx-auto shadow-xl backdrop-blur-md">
@@ -365,20 +678,7 @@ export default function Routine() {
         </Card>
       )}
 
-      {/* 🤖 Análise da IA */}
-      {aiResponse && (
-        <Card className="card-gradient-border max-w-2xl mx-auto mt-10 bg-gradient-to-br from-card to-card/70 shadow-xl animate-fade-in">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-primary text-xl font-semibold">
-              💭 Análise do Orbis
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground">
-              {aiResponse}
-            </p>
-          </CardContent>
-        </Card>
+        </>
       )}
     </div>
   );
