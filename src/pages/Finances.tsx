@@ -146,14 +146,18 @@ export default function Finances() {
       setGoals(goalsData || []);
 
       // Calculate financial summary
-      const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const lastDay = new Date(year, month, 0).getDate(); // Get last day of month
+      const currentMonth = `${year}-${String(month).padStart(2, '0')}`;
       
       const { data: salesData, error: salesError } = await supabase
         .from("daily_sales")
         .select("total_profit, cost, reinvestment")
         .eq("user_id", user.id)
         .gte("date", `${currentMonth}-01`)
-        .lte("date", `${currentMonth}-31`);
+        .lte("date", `${currentMonth}-${String(lastDay).padStart(2, '0')}`);
 
       if (salesError) throw salesError;
 

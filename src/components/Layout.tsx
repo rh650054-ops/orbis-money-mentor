@@ -1,6 +1,6 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Target, Clock, CheckSquare, Wallet, User, LogOut } from "lucide-react";
+import { Home, TrendingUp, Target, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
@@ -8,6 +8,14 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface LayoutProps {
   children: ReactNode;
@@ -20,7 +28,6 @@ const navigation = [
   { name: "Rotina", href: "/routine", icon: Clock },
   { name: "Checklist", href: "/checklist", icon: CheckSquare },
   { name: "Finanças", href: "/finances", icon: Wallet },
-  { name: "Perfil", href: "/profile", icon: User },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -29,6 +36,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, signOut, loading } = useAuth();
   const { trialStatus, loading: trialLoading } = useTrialStatus(user?.id);
   const { toast } = useToast();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -57,12 +65,41 @@ export default function Layout({ children }: LayoutProps) {
       <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/80">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                <span className="text-lg font-bold">O</span>
-              </div>
-              <span className="text-xl font-bold gradient-text">Orbis</span>
-            </Link>
+            <div className="flex items-center gap-4">
+              <Link to="/" className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+                  <span className="text-lg font-bold">O</span>
+                </div>
+                <span className="text-xl font-bold gradient-text">Orbis</span>
+              </Link>
+              
+              {/* User Profile Dropdown */}
+              {user && (
+                <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-2 h-9">
+                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/profile"); }}>
+                      <User className="w-4 h-4 mr-2" />
+                      Perfil
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sair
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
             
             {/* Desktop Navigation */}
             <div className="flex items-center gap-4">
@@ -87,17 +124,6 @@ export default function Layout({ children }: LayoutProps) {
                   );
                 })}
               </nav>
-              {user && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={handleSignOut}
-                  className="hidden md:flex items-center gap-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Sair
-                </Button>
-              )}
             </div>
           </div>
         </div>
