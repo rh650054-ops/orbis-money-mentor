@@ -7,13 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { NumericKeyboard } from "@/components/NumericKeyboard";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from "recharts";
@@ -33,8 +32,7 @@ import {
   Car,
   Heart,
   Sparkles,
-  Calendar,
-  Edit
+  Calendar
 } from "lucide-react";
 
 interface Expense {
@@ -64,8 +62,6 @@ interface FinancialSummary {
   totalExpenses: number;
   totalReinvestment: number;
   personalBalance: number;
-  monthlyBudget: number;
-  budgetRemaining: number;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -89,15 +85,11 @@ export default function Finances() {
     totalProfit: 0,
     totalExpenses: 0,
     totalReinvestment: 0,
-    personalBalance: 0,
-    monthlyBudget: 0,
-    budgetRemaining: 0
+    personalBalance: 0
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
-  const [isEditBudgetOpen, setIsEditBudgetOpen] = useState(false);
-  const [budgetInput, setBudgetInput] = useState("");
 
   // Form states for new expense
   const [newExpense, setNewExpense] = useState({
@@ -157,7 +149,7 @@ export default function Finances() {
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
-      const lastDay = new Date(year, month, 0).getDate();
+      const lastDay = new Date(year, month, 0).getDate(); // Get last day of month
       const currentMonth = `${year}-${String(month).padStart(2, '0')}`;
       
       const { data: salesData, error: salesError } = await supabase
@@ -178,23 +170,11 @@ export default function Finances() {
         return sum;
       }, 0) || 0;
 
-      // Load monthly budget from profile
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("monthly_goal")
-        .eq("user_id", user.id)
-        .single();
-
-      const monthlyBudget = Number(profile?.monthly_goal) || 0;
-      const budgetRemaining = monthlyBudget - totalExpenses;
-
       setSummary({
         totalProfit,
         totalExpenses,
         totalReinvestment,
-        personalBalance: totalProfit - totalExpenses - totalReinvestment,
-        monthlyBudget,
-        budgetRemaining
+        personalBalance: totalProfit - totalExpenses - totalReinvestment
       });
 
     } catch (error) {
@@ -320,74 +300,6 @@ export default function Finances() {
     }
   };
 
-  const handleUpdateBudget = async () => {
-    if (!user || !budgetInput) {
-      toast({
-        title: "Campo obrigatório",
-        description: "Digite o valor do orçamento mensal",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ monthly_goal: parseFloat(budgetInput) })
-        .eq("user_id", user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "✅ Orçamento atualizado!",
-        description: `Limite mensal definido em R$ ${parseFloat(budgetInput).toFixed(2)}`,
-      });
-
-      setBudgetInput("");
-      setIsEditBudgetOpen(false);
-      loadFinancialData();
-    } catch (error) {
-      console.error("Error updating budget:", error);
-      toast({
-        title: "Erro ao atualizar orçamento",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleNumberClick = (num: string) => {
-    setNewExpense(prev => ({
-      ...prev,
-      amount: prev.amount + num
-    }));
-  };
-
-  const handleDelete = () => {
-    setNewExpense(prev => ({
-      ...prev,
-      amount: prev.amount.slice(0, -1)
-    }));
-  };
-
-  const handleClear = () => {
-    setNewExpense(prev => ({
-      ...prev,
-      amount: ""
-    }));
-  };
-
-  const handleBudgetNumberClick = (num: string) => {
-    setBudgetInput(prev => prev + num);
-  };
-
-  const handleBudgetDelete = () => {
-    setBudgetInput(prev => prev.slice(0, -1));
-  };
-
-  const handleBudgetClear = () => {
-    setBudgetInput("");
-  };
-
   const getCategoryData = () => {
     const categoryTotals: { [key: string]: number } = {};
     
@@ -416,16 +328,6 @@ export default function Finances() {
   const expensePercentage = summary.totalProfit > 0 
     ? (summary.totalExpenses / summary.totalProfit) * 100 
     : 0;
-  
-  const budgetPercentage = summary.monthlyBudget > 0
-    ? (summary.totalExpenses / summary.monthlyBudget) * 100
-    : 0;
-
-  const getBudgetColor = () => {
-    if (budgetPercentage < 60) return "text-green-500";
-    if (budgetPercentage < 90) return "text-yellow-500";
-    return "text-red-500";
-  };
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
@@ -436,93 +338,8 @@ export default function Finances() {
         </p>
       </div>
 
-      {/* Orçamento Mensal Card */}
-      <Card className="card-gradient-border bg-gradient-to-br from-primary/10 to-primary/5">
-        <CardContent className="pt-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-sm text-muted-foreground">💎 Orçamento Mensal</p>
-              <p className="text-3xl font-bold text-primary mt-1">
-                {isLoadingData ? <Skeleton className="h-10 w-32" /> : `R$ ${summary.monthlyBudget.toFixed(2)}`}
-              </p>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsEditBudgetOpen(true)}>
-              <Edit className="w-4 h-4" />
-            </Button>
-          </div>
-
-          {summary.monthlyBudget > 0 && (
-            <>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Gasto</span>
-                  <span className={`font-bold ${getBudgetColor()}`}>
-                    {budgetPercentage.toFixed(0)}% utilizado
-                  </span>
-                </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className={`h-full transition-all duration-700 ${
-                      budgetPercentage < 60 ? "bg-green-500" :
-                      budgetPercentage < 90 ? "bg-yellow-500" : "bg-red-500"
-                    }`}
-                    style={{ width: `${Math.min(100, budgetPercentage)}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 p-3 bg-background/50 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Restante</span>
-                  <span className={`text-lg font-bold ${summary.budgetRemaining >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    R$ {summary.budgetRemaining.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {summary.monthlyBudget === 0 && (
-            <p className="text-sm text-muted-foreground mt-2">
-              Clique no ícone acima para definir seu orçamento mensal
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Budget Edit Dialog */}
-      <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Definir Orçamento Mensal</DialogTitle>
-            <DialogDescription>
-              Estabeleça um limite para suas despesas do mês
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 pt-4">
-            <div className="text-center">
-              <Label className="text-sm text-muted-foreground">Valor do Orçamento</Label>
-              <div className="text-4xl font-bold text-primary mt-2 mb-6">
-                R$ {budgetInput || "0.00"}
-              </div>
-            </div>
-
-            <NumericKeyboard
-              onNumberClick={handleBudgetNumberClick}
-              onDelete={handleBudgetDelete}
-              onClear={handleBudgetClear}
-            />
-
-            <Button onClick={handleUpdateBudget} className="w-full" size="lg">
-              Salvar Orçamento
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Financial Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="card-gradient-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
@@ -616,36 +433,11 @@ export default function Finances() {
                   Nova Despesa
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md">
+              <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Adicionar Despesa</DialogTitle>
-                  <DialogDescription>
-                    Registre suas despesas de forma rápida e fácil
-                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
-                  <div>
-                    <Label>Nome da Despesa</Label>
-                    <Input
-                      value={newExpense.name}
-                      onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
-                      placeholder="Ex: Aluguel, Mercado, Gasolina..."
-                    />
-                  </div>
-
-                  <div className="text-center space-y-2">
-                    <Label className="text-sm text-muted-foreground">Valor</Label>
-                    <div className="text-4xl font-bold text-primary">
-                      R$ {newExpense.amount || "0.00"}
-                    </div>
-                  </div>
-
-                  <NumericKeyboard
-                    onNumberClick={handleNumberClick}
-                    onDelete={handleDelete}
-                    onClear={handleClear}
-                  />
-
                   <div>
                     <Label>Categoria</Label>
                     <Select
@@ -664,9 +456,49 @@ export default function Finances() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  <Button onClick={handleAddExpense} className="w-full" size="lg">
-                    ✅ Adicionar Despesa
+                  <div>
+                    <Label>Nome da Despesa</Label>
+                    <Input
+                      value={newExpense.name}
+                      onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
+                      placeholder="Ex: Aluguel, Mercado, Gasolina..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Valor (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={newExpense.amount}
+                      onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Tipo</Label>
+                    <Select
+                      value={newExpense.type}
+                      onValueChange={(value: "fixed" | "variable") => setNewExpense({ ...newExpense, type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed">Fixa (todo mês)</SelectItem>
+                        <SelectItem value="variable">Variável (eventual)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Observações (opcional)</Label>
+                    <Input
+                      value={newExpense.notes}
+                      onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })}
+                      placeholder="Detalhes adicionais..."
+                    />
+                  </div>
+                  <Button onClick={handleAddExpense} className="w-full">
+                    Adicionar Despesa
                   </Button>
                 </div>
               </DialogContent>

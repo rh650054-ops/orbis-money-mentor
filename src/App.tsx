@@ -34,7 +34,7 @@ const App = () => <QueryClientProvider client={queryClient}>
                 <Route path="/insights" element={<Insights />} />
                 <Route path="/chat" element={<Chat />} />
                 <Route path="/routine" element={<Routine />} />
-                
+                <Route path="/checklist" element={<DailyChecklist />} />
                 <Route path="/finances" element={<Finances />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
