@@ -4,6 +4,7 @@ import { Home, TrendingUp, Target, Clock, CheckSquare, Wallet, User, LogOut, Che
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
+import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +36,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const { trialStatus, loading: trialLoading } = useTrialStatus(user?.id);
+  const { status: subscriptionStatus, loading: subscriptionLoading } = useSubscription(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -46,13 +48,14 @@ export default function Layout({ children }: LayoutProps) {
     }
 
     // Skip checks while loading
-    if (loading || trialLoading || !user) return;
+    if (loading || trialLoading || subscriptionLoading || !user) return;
 
     const currentPath = location.pathname;
     const allowedPaths = ['/payment', '/benefits', '/auth', '/check-in'];
     
-    // Fast redirect for expired trial
-    if (trialStatus.isExpired && !allowedPaths.includes(currentPath)) {
+    // Fast redirect for expired trial WITHOUT active subscription
+    const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed;
+    if (needsSubscription && !allowedPaths.includes(currentPath)) {
       navigate("/payment", { replace: true });
       return;
     }
@@ -61,7 +64,7 @@ export default function Layout({ children }: LayoutProps) {
     if (currentPath !== '/check-in' && !trialStatus.isExpired) {
       checkNeedsCheckIn();
     }
-  }, [user, loading, trialLoading, trialStatus.isExpired, location.pathname, navigate]);
+  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate]);
 
   const checkNeedsCheckIn = async () => {
     if (!user) return;
@@ -200,8 +203,8 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
-      {/* Trial Expired Modal - Only show briefly before redirect */}
-      {!trialLoading && trialStatus.isExpired && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
+      {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
+      {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
         <TrialExpiredModal 
           isOpen={true} 
           onClose={() => navigate('/payment', { replace: true })} 
