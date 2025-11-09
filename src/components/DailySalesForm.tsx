@@ -98,6 +98,53 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       if (error) throw error;
 
+      // Atualizar streak - só incrementa se for venda de hoje
+      const today = new Date().toISOString().split('T')[0];
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("streak_days, last_check_in_date, vision_points")
+        .eq("user_id", userId)
+        .single();
+
+      if (profile) {
+        const lastCheckIn = profile.last_check_in_date;
+        const currentStreak = profile.streak_days || 0;
+        let newStreak = currentStreak;
+        let pointsToAdd = 0;
+
+        // Se nunca registrou ou última venda não foi hoje
+        if (!lastCheckIn || lastCheckIn !== today) {
+          // Verificar se manteve a sequência (vendeu ontem)
+          const yesterday = new Date();
+          yesterday.setDate(yesterday.getDate() - 1);
+          const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+          if (lastCheckIn === yesterdayStr || currentStreak === 0) {
+            // Manteve a sequência ou está começando
+            newStreak = currentStreak + 1;
+            pointsToAdd = 10; // Base points
+            
+            // Bonus points por milestones
+            if (newStreak === 7) pointsToAdd += 50;
+            if (newStreak === 14) pointsToAdd += 100;
+            if (newStreak === 30) pointsToAdd += 200;
+          } else {
+            // Quebrou a sequência
+            newStreak = 1;
+            pointsToAdd = 10;
+          }
+
+          await supabase
+            .from("profiles")
+            .update({ 
+              streak_days: newStreak,
+              last_check_in_date: today,
+              vision_points: (profile.vision_points || 0) + pointsToAdd
+            })
+            .eq("user_id", userId);
+        }
+      }
+
       toast({
         title: "✅ Lançamento salvo com sucesso!",
         description: "Seu lançamento foi registrado no histórico.",

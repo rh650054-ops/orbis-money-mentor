@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
 import { ProgressBar } from "@/components/ProgressBar";
+import { DailyDashboard } from "@/components/DailyDashboard";
 import {
   Collapsible,
   CollapsibleContent,
@@ -342,8 +343,11 @@ export default function Index() {
         </p>
       </div>
 
-      {/* Streak e Vision Points */}
+      {/* Ofensiva Visionária */}
       <StreakDisplay userId={user.id} />
+
+      {/* Dashboard Diário */}
+      <DailyDashboard userId={user.id} />
 
       {/* Barra de Progresso do Dia */}
       <ProgressBar userId={user.id} />
