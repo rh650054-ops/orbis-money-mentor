@@ -204,7 +204,11 @@ export type Database = {
         Row: {
           avatar_url: string | null
           billing_exempt: boolean | null
+          check_in_focus: string | null
+          check_in_mood: string | null
+          check_in_start_time: string | null
           created_at: string
+          daily_sales_goal: number | null
           demo_created_by: string | null
           demo_note: string | null
           email: string | null
@@ -214,6 +218,7 @@ export type Database = {
           id: string
           is_demo: boolean | null
           is_trial_active: boolean | null
+          last_check_in_date: string | null
           last_payment_date: string | null
           monthly_goal: number | null
           next_payment_date: string | null
@@ -221,16 +226,22 @@ export type Database = {
           payment_status: string | null
           plan_status: string | null
           plan_type: string | null
+          streak_days: number | null
           subscription_id: string | null
           trial_end: string | null
           trial_start: string | null
           updated_at: string
           user_id: string
+          vision_points: number | null
         }
         Insert: {
           avatar_url?: string | null
           billing_exempt?: boolean | null
+          check_in_focus?: string | null
+          check_in_mood?: string | null
+          check_in_start_time?: string | null
           created_at?: string
+          daily_sales_goal?: number | null
           demo_created_by?: string | null
           demo_note?: string | null
           email?: string | null
@@ -240,6 +251,7 @@ export type Database = {
           id?: string
           is_demo?: boolean | null
           is_trial_active?: boolean | null
+          last_check_in_date?: string | null
           last_payment_date?: string | null
           monthly_goal?: number | null
           next_payment_date?: string | null
@@ -247,16 +259,22 @@ export type Database = {
           payment_status?: string | null
           plan_status?: string | null
           plan_type?: string | null
+          streak_days?: number | null
           subscription_id?: string | null
           trial_end?: string | null
           trial_start?: string | null
           updated_at?: string
           user_id: string
+          vision_points?: number | null
         }
         Update: {
           avatar_url?: string | null
           billing_exempt?: boolean | null
+          check_in_focus?: string | null
+          check_in_mood?: string | null
+          check_in_start_time?: string | null
           created_at?: string
+          daily_sales_goal?: number | null
           demo_created_by?: string | null
           demo_note?: string | null
           email?: string | null
@@ -266,6 +284,7 @@ export type Database = {
           id?: string
           is_demo?: boolean | null
           is_trial_active?: boolean | null
+          last_check_in_date?: string | null
           last_payment_date?: string | null
           monthly_goal?: number | null
           next_payment_date?: string | null
@@ -273,11 +292,13 @@ export type Database = {
           payment_status?: string | null
           plan_status?: string | null
           plan_type?: string | null
+          streak_days?: number | null
           subscription_id?: string | null
           trial_end?: string | null
           trial_start?: string | null
           updated_at?: string
           user_id?: string
+          vision_points?: number | null
         }
         Relationships: []
       }

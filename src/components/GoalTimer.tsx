@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, Play, Pause, CheckCircle2, Trophy, Maximize2 } from "lucide-react";
+import { Clock, Play, Pause, CheckCircle2, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -19,17 +19,23 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
   const [selectedHours, setSelectedHours] = useState("4");
   const [isExpanded, setIsExpanded] = useState(false);
   const [hasAutoStarted, setHasAutoStarted] = useState(false);
+  const [dailySalesGoal, setDailySalesGoal] = useState(0);
+  const [currentSales, setCurrentSales] = useState(0);
   const { toast } = useToast();
 
   // Load timer state from database
   const loadTimerState = useCallback(async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("goal_hours, goal_timer_started_at, goal_timer_active")
+      .select("goal_hours, goal_timer_started_at, goal_timer_active, daily_sales_goal")
       .eq("user_id", userId)
       .single();
 
     if (error || !data) return;
+
+    if (data.daily_sales_goal) {
+      setDailySalesGoal(data.daily_sales_goal);
+    }
 
     if (data.goal_timer_active && data.goal_timer_started_at) {
       const startTime = new Date(data.goal_timer_started_at).getTime();
@@ -49,6 +55,27 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
   useEffect(() => {
     loadTimerState();
   }, [loadTimerState]);
+
+  // Load current sales
+  useEffect(() => {
+    const loadSales = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: sales } = await supabase
+        .from("daily_sales")
+        .select("total_profit")
+        .eq("user_id", userId)
+        .eq("date", today);
+
+      const totalSales = sales?.reduce((sum, s) => sum + (s.total_profit || 0), 0) || 0;
+      setCurrentSales(totalSales);
+    };
+
+    loadSales();
+
+    // Atualizar vendas a cada 10 segundos
+    const interval = setInterval(loadSales, 10000);
+    return () => clearInterval(interval);
+  }, [userId]);
 
   // Auto-start timer when any checklist activity starts
   useEffect(() => {
@@ -108,6 +135,10 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const formatMoney = (remaining: number) => {
+    return `R$ ${remaining.toFixed(2)}`;
   };
 
   const getProgress = () => {
@@ -251,10 +282,10 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Compact View */}
+            {/* Tempo Restante */}
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Tempo Restante</p>
+                <p className="text-sm text-muted-foreground">⏱ Tempo Restante</p>
                 <p className="text-2xl font-bold text-primary">
                   {formatTime(remainingSeconds)}
                 </p>
@@ -358,6 +389,28 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
                 </DialogContent>
               </Dialog>
             </div>
+
+            {/* Meta Financeira */}
+            {dailySalesGoal > 0 && (
+              <div className="p-4 rounded-lg bg-gradient-to-r from-success/10 to-success/5 border border-success/30">
+                <p className="text-sm text-muted-foreground mb-2">💸 Meta Financeira</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-success">
+                    {formatMoney(Math.max(0, dailySalesGoal - currentSales))}
+                  </span>
+                  <span className="text-sm text-muted-foreground">faltantes</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  R$ {currentSales.toFixed(2)} de R$ {dailySalesGoal.toFixed(2)}
+                </p>
+                <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-success to-success/70 transition-all duration-500"
+                    style={{ width: `${Math.min((currentSales / dailySalesGoal) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Progress Bar */}
             <div className="space-y-2">
