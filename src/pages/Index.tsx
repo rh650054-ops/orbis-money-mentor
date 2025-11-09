@@ -342,9 +342,6 @@ export default function Index() {
         </p>
       </div>
 
-      {/* Streak e Vision Points */}
-      <StreakDisplay userId={user.id} />
-
       {/* Filtros de Período - Colapsável */}
       <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
         <Card className="card-gradient-border">
@@ -543,6 +540,9 @@ export default function Index() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Streak e Vision Points */}
+      <StreakDisplay userId={user.id} />
 
       {/* Weekly Evolution Chart */}
       <Card className="card-gradient-border">
