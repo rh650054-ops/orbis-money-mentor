@@ -96,7 +96,7 @@ export default function Routine() {
 
       if (data && !error) {
         setRoutineId(data.id);
-        setShowChecklist(true);
+        setShowChecklist(false);
         setFormData({
           wakeTime: data.wake_time,
           workStart: data.work_start,
@@ -398,11 +398,20 @@ export default function Routine() {
       {/* 🔥 Título principal */}
       <div className="text-center space-y-3 mb-8">
         <h1 className="text-5xl font-bold text-primary tracking-tight drop-shadow-[0_0_20px_rgba(0,180,255,0.7)]">
-          {showChecklist ? "Checklist Diário" : "Domine seu futuro"}
+          {showChecklist ? "Checklist Diário" : "Configure sua Rotina"}
         </h1>
         <p className="text-muted-foreground text-base md:text-lg">
-          {showChecklist ? "Acompanhe suas atividades e mantenha a constância" : "Crie, analise e otimize sua rotina com o poder da IA Orbis ⚡"}
+          {showChecklist ? "Acompanhe suas atividades e mantenha a constância" : "Defina seus horários e crie sua rotina ideal"}
         </p>
+        {!showChecklist && routineId && (
+          <Button 
+            variant="outline" 
+            onClick={() => setShowChecklist(true)}
+            className="mt-4"
+          >
+            Ver Checklist
+          </Button>
+        )}
       </div>
 
       {showChecklist && (

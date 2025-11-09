@@ -35,6 +35,7 @@ import {
   Sparkles,
   Calendar
 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 interface Expense {
   id: string;
@@ -331,7 +332,7 @@ export default function Finances() {
 
       toast({
         title: "Orçamento atualizado!",
-        description: `Seu orçamento mensal agora é R$ ${parseFloat(budgetInput).toFixed(2)}`,
+        description: `Seu orçamento mensal agora é ${formatCurrency(parseFloat(budgetInput))}`,
       });
 
       setBudgetInput("");
@@ -425,8 +426,8 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lucro do Mês</p>
-                <p className="text-2xl font-bold text-green-500">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.totalProfit.toFixed(2)}`}
+                <p className="text-2xl font-bold text-green-500 whitespace-nowrap">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalProfit)}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
@@ -439,8 +440,8 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Despesas</p>
-                <p className="text-2xl font-bold text-red-500">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.totalExpenses.toFixed(2)}`}
+                <p className="text-2xl font-bold text-red-500 whitespace-nowrap">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalExpenses)}
                 </p>
               </div>
               <TrendingDown className="w-8 h-8 text-red-500" />
@@ -453,8 +454,8 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Reinvestimento</p>
-                <p className="text-2xl font-bold text-blue-500">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.totalReinvestment.toFixed(2)}`}
+                <p className="text-2xl font-bold text-blue-500 whitespace-nowrap">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalReinvestment)}
                 </p>
               </div>
               <ShoppingCart className="w-8 h-8 text-blue-500" />
@@ -467,8 +468,8 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">💎 Saldo Visionário</p>
-                <p className="text-2xl font-bold text-primary">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `R$ ${summary.personalBalance.toFixed(2)}`}
+                <p className="text-2xl font-bold text-primary whitespace-nowrap">
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.personalBalance)}
                 </p>
               </div>
               <Wallet className="w-8 h-8 text-primary" />
@@ -522,12 +523,14 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Orçamento Definido</p>
-                <p className="text-2xl font-bold">R$ {summary.monthlyBudget.toFixed(2)}</p>
+                <p className="text-2xl font-bold whitespace-nowrap">
+                  {formatCurrency(summary.monthlyBudget)}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Restante</p>
-                <p className={`text-2xl font-bold ${getBudgetColor()}`}>
-                  R$ {summary.budgetRemaining.toFixed(2)}
+                <p className={`text-2xl font-bold whitespace-nowrap ${getBudgetColor()}`}>
+                  {formatCurrency(summary.budgetRemaining)}
                 </p>
               </div>
             </div>
@@ -703,8 +706,8 @@ export default function Finances() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="text-lg font-bold text-red-500">
-                          -R$ {Number(expense.amount).toFixed(2)}
+                        <p className="text-lg font-bold text-red-500 whitespace-nowrap">
+                          {formatCurrency(-Number(expense.amount))}
                         </p>
                         <Button
                           variant="ghost"
@@ -817,15 +820,15 @@ export default function Finances() {
                         </div>
                         <div className="text-right">
                           <p className="text-sm text-muted-foreground">Meta</p>
-                          <p className="text-lg font-bold text-primary">
-                            R$ {goal.target_amount.toFixed(2)}
+                          <p className="text-lg font-bold text-primary whitespace-nowrap">
+                            {formatCurrency(goal.target_amount)}
                           </p>
                         </div>
                       </div>
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">
-                            R$ {goal.current_amount.toFixed(2)} economizado
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {formatCurrency(goal.current_amount)} economizado
                           </span>
                           <span className="font-semibold text-primary">
                             {progress.toFixed(0)}%
@@ -833,7 +836,7 @@ export default function Finances() {
                         </div>
                         <Progress value={progress} className="h-2" />
                         <p className="text-sm text-muted-foreground">
-                          Faltam R$ {remaining.toFixed(2)} para atingir sua meta 🔥
+                          Faltam {formatCurrency(remaining)} para atingir sua meta 🔥
                         </p>
                       </div>
                     </CardContent>

@@ -156,8 +156,8 @@ export default function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 backdrop-blur-xl bg-background/95">
-        <div className="flex items-center justify-around px-2 py-3">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 backdrop-blur-xl bg-background/95 safe-area-bottom">
+        <div className="flex items-center justify-around px-2 py-3 pb-safe">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;

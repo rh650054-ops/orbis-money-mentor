@@ -63,7 +63,7 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Sequência Visionária</p>
               <div className="flex items-center gap-2">
-                <Flame className={`w-8 h-8 ${streak > 0 ? "text-orange-500 animate-pulse" : "text-muted-foreground"}`} />
+                <Flame className={`w-5 h-5 ${streak > 0 ? "text-orange-500 animate-pulse" : "text-muted-foreground"}`} />
                 <span className="text-4xl font-bold gradient-text">
                   {streak}
                 </span>
@@ -92,7 +92,7 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Vision Points</p>
               <div className="flex items-center gap-2">
-                <Trophy className="w-8 h-8 text-secondary animate-pulse" />
+                <Trophy className="w-5 h-5 text-secondary animate-pulse" />
                 <span className="text-4xl font-bold gradient-text">
                   {visionPoints}
                 </span>

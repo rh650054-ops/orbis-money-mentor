@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
-import { ProgressBar } from "@/components/ProgressBar";
+import { formatCurrency } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
@@ -285,7 +285,7 @@ export default function Index() {
     setIsEditingGoal(false);
     toast({
       title: "✅ Meta atualizada!",
-      description: `Nova meta: R$ ${newGoal.toFixed(2)}`
+      description: `Nova meta: ${formatCurrency(newGoal)}`
     });
   };
   const getMotivationMessage = () => {
@@ -344,9 +344,6 @@ export default function Index() {
 
       {/* Streak e Vision Points */}
       <StreakDisplay userId={user.id} />
-
-      {/* Barra de Progresso do Dia */}
-      <ProgressBar userId={user.id} />
 
       {/* Filtros de Período - Colapsável */}
       <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
@@ -463,8 +460,8 @@ export default function Index() {
             <DollarSign className="h-5 w-5 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold">
-              R$ {monthlyStats.balance.toFixed(2)}
+            <div className="text-2xl md:text-3xl font-bold whitespace-nowrap">
+              {formatCurrency(monthlyStats.balance)}
             </div>
             <p className="text-xs text-success mt-1">
               {monthlyStats.variation > 0 ? "+" : ""}{monthlyStats.variation.toFixed(1)}% este mês
@@ -480,8 +477,8 @@ export default function Index() {
             <TrendingUp className="h-5 w-5 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-success">
-              R$ {monthlyStats.totalIncome.toFixed(2)}
+            <div className="text-2xl md:text-3xl font-bold text-success whitespace-nowrap">
+              {formatCurrency(monthlyStats.totalIncome)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Total no mês
@@ -497,8 +494,8 @@ export default function Index() {
             <TrendingDown className="h-5 w-5 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-destructive">
-              R$ {monthlyStats.totalExpenses.toFixed(2)}
+            <div className="text-2xl md:text-3xl font-bold text-destructive whitespace-nowrap">
+              {formatCurrency(monthlyStats.totalExpenses)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Calotes no mês
@@ -518,8 +515,8 @@ export default function Index() {
               <Skeleton className="h-9 w-32 mb-2" />
             ) : (
               <>
-                <div className="text-2xl md:text-3xl font-bold text-secondary">
-                  R$ {dailyAverage.toFixed(2)}
+                <div className="text-2xl md:text-3xl font-bold text-secondary whitespace-nowrap">
+                  {formatCurrency(dailyAverage)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Média dos últimos {activeDaysCount} dias ativos
@@ -537,8 +534,8 @@ export default function Index() {
             <ShoppingCart className="h-5 w-5 text-warning" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-warning">
-              R$ {monthlyStats.totalCost.toFixed(2)}
+            <div className="text-2xl md:text-3xl font-bold text-warning whitespace-nowrap">
+              {formatCurrency(monthlyStats.totalCost)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Total no mês
@@ -641,7 +638,7 @@ export default function Index() {
                 }} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  R$ {monthlyStats.balance.toFixed(2)} de R$ {monthlyGoal.toFixed(2)}
+                  {formatCurrency(monthlyStats.balance)} de {formatCurrency(monthlyGoal)}
                 </p>
               </div>
             )}
