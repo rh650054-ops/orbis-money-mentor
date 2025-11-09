@@ -14,6 +14,7 @@ import Routine from "./pages/Routine";
 import Finances from "./pages/Finances";
 import Auth from "./pages/Auth";
 import Payment from "./pages/Payment";
+import Benefits from "./pages/Benefits";
 import AdminDemoUsers from "./pages/AdminDemoUsers";
 import NotFound from "./pages/NotFound";
 import CheckIn from "./pages/CheckIn";
@@ -26,6 +27,7 @@ const App = () => <QueryClientProvider client={queryClient}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/payment" element={<Payment />} />
+          <Route path="/benefits" element={<Benefits />} />
           <Route path="/check-in" element={<CheckIn />} />
           <Route path="/*" element={<Layout>
               <Routes>

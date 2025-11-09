@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
 import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
+import CardRegistrationModal from "@/components/CardRegistrationModal";
 import {
   Collapsible,
   CollapsibleContent,
@@ -41,6 +42,7 @@ export default function Index() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
+  const [showCardModal, setShowCardModal] = useState(false);
   // Load cached data on mount
   useEffect(() => {
     const cachedData = localStorage.getItem("orbis_dashboard_cache");
@@ -63,6 +65,13 @@ export default function Index() {
     }
     if (user) {
       loadDashboardData();
+      
+      // Check if this is first login (show card registration modal)
+      const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
+      if (!hasSeenCardModal) {
+        setShowCardModal(true);
+        localStorage.setItem('hasSeenCardModal', 'true');
+      }
     }
   }, [user, loading, navigate]);
   const loadDashboardData = async (customStartDate?: string, customEndDate?: string) => {
@@ -679,5 +688,10 @@ export default function Index() {
           </CardContent>
         </Card>
       </div>
+      
+      <CardRegistrationModal 
+        isOpen={showCardModal} 
+        onClose={() => setShowCardModal(false)} 
+      />
     </div>;
 }

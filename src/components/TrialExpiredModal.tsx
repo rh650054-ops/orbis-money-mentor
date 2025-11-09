@@ -1,14 +1,7 @@
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check, CreditCard, QrCode } from "lucide-react";
+import { Check, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface TrialExpiredModalProps {
@@ -17,12 +10,14 @@ interface TrialExpiredModalProps {
 }
 
 export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModalProps) {
-  const [paymentMethod, setPaymentMethod] = useState<'stripe' | null>(null);
   const navigate = useNavigate();
 
   const handleActivatePlan = () => {
-    // Will redirect to Stripe payment page
     navigate('/payment');
+  };
+
+  const handleViewBenefits = () => {
+    navigate('/benefits');
   };
 
   const handleLogout = () => {
@@ -35,10 +30,10 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
       <DialogContent className="sm:max-w-[600px]" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="text-2xl text-center">
-            🚫 Seu teste gratuito terminou
+            🚫 Seu teste gratuito terminou, Visionário!
           </DialogTitle>
           <DialogDescription className="text-center text-base mt-2">
-            Continue dominando seus números com o plano Visionário
+            Desbloqueie todos os recursos do Orbis por apenas R$19,90/mês
           </DialogDescription>
         </DialogHeader>
 
@@ -76,17 +71,25 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
         <div className="space-y-3 mt-6">
           <Button 
             onClick={handleActivatePlan}
-            className="w-full h-12 text-base"
+            className="w-full h-14 text-lg"
             size="lg"
           >
             <CreditCard className="w-5 h-5 mr-2" />
-            🔑 Ativar agora
+            ✅ Assinar agora
+          </Button>
+
+          <Button 
+            onClick={handleViewBenefits}
+            variant="outline"
+            className="w-full h-12"
+          >
+            Ver benefícios
           </Button>
 
           <Button 
             onClick={handleLogout}
             variant="ghost"
-            className="w-full"
+            className="w-full text-sm"
           >
             Voltar ao login
           </Button>

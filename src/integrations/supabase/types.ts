@@ -250,6 +250,7 @@ export type Database = {
           check_in_focus: string | null
           check_in_mood: string | null
           check_in_start_time: string | null
+          cpf: string | null
           created_at: string
           daily_sales_goal: number | null
           demo_created_by: string | null
@@ -269,6 +270,7 @@ export type Database = {
           next_payment_date: string | null
           nickname: string | null
           payment_status: string | null
+          phone: string | null
           plan_status: string | null
           plan_type: string | null
           streak_days: number | null
@@ -290,6 +292,7 @@ export type Database = {
           check_in_focus?: string | null
           check_in_mood?: string | null
           check_in_start_time?: string | null
+          cpf?: string | null
           created_at?: string
           daily_sales_goal?: number | null
           demo_created_by?: string | null
@@ -309,6 +312,7 @@ export type Database = {
           next_payment_date?: string | null
           nickname?: string | null
           payment_status?: string | null
+          phone?: string | null
           plan_status?: string | null
           plan_type?: string | null
           streak_days?: number | null
@@ -330,6 +334,7 @@ export type Database = {
           check_in_focus?: string | null
           check_in_mood?: string | null
           check_in_start_time?: string | null
+          cpf?: string | null
           created_at?: string
           daily_sales_goal?: number | null
           demo_created_by?: string | null
@@ -349,6 +354,7 @@ export type Database = {
           next_payment_date?: string | null
           nickname?: string | null
           payment_status?: string | null
+          phone?: string | null
           plan_status?: string | null
           plan_type?: string | null
           streak_days?: number | null

@@ -10,12 +10,11 @@ import { LogIn, UserPlus } from "lucide-react";
 import { z } from "zod";
 import orbisLogo from "@/assets/orbis-logo.png";
 const authSchema = z.object({
-  email: z.string().trim().email({
-    message: "Email inválido"
-  }).max(255),
-  password: z.string().min(6, {
-    message: "Senha deve ter no mínimo 6 caracteres"
-  }).max(100)
+  email: z.string().trim().email("Email inválido").max(255),
+  password: z.string().min(6, "A senha deve ter no mínimo 6 caracteres").max(100),
+  name: z.string().min(2, "Nome deve ter no mínimo 2 caracteres").optional(),
+  cpf: z.string().regex(/^\d{11}$/, "CPF deve conter 11 dígitos").optional(),
+  phone: z.string().regex(/^\d{10,11}$/, "Celular inválido (10 ou 11 dígitos)").optional(),
 });
 export default function Auth() {
   const navigate = useNavigate();
@@ -26,6 +25,9 @@ export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [phone, setPhone] = useState("");
   useEffect(() => {
     const {
       data: {
@@ -50,38 +52,83 @@ export default function Auth() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
       // Validar dados
-      const validated = authSchema.parse({
-        email: email.trim(),
-        password
-      });
       if (isLogin) {
-        const {
-          error
-        } = await supabase.auth.signInWithPassword({
-          email: validated.email,
-          password: validated.password
+        authSchema.parse({ email: email.trim(), password });
+      } else {
+        authSchema.parse({ email: email.trim(), password, name, cpf, phone });
+      }
+
+      if (isLogin) {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password
         });
+        
         if (error) throw error;
+        
         toast({
           title: "Login realizado!",
           description: "Bem-vindo de volta ao Orbis."
         });
       } else {
-        const {
-          error
-        } = await supabase.auth.signUp({
-          email: validated.email,
-          password: validated.password,
+        // Check for existing CPF, email, or phone
+        const { data: existingProfiles, error: checkError } = await supabase
+          .from('profiles')
+          .select('cpf, email, phone')
+          .or(`cpf.eq.${cpf},email.eq.${email.trim()},phone.eq.${phone}`);
+
+        if (checkError) throw checkError;
+
+        if (existingProfiles && existingProfiles.length > 0) {
+          toast({
+            variant: "destructive",
+            title: "Cadastro não permitido",
+            description: "Este CPF, e-mail ou número já possui uma conta no Orbis.",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // Create user account
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`
+            emailRedirectTo: `${window.location.origin}/`,
+            data: { name, cpf, phone }
           }
         });
-        if (error) throw error;
+
+        if (signUpError) throw signUpError;
+
+        // Update profile with CPF and phone (the trigger creates the profile)
+        if (authData.user) {
+          const trialStart = new Date();
+          const trialEnd = new Date();
+          trialEnd.setDate(trialEnd.getDate() + 3);
+
+          const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+              cpf,
+              phone,
+              nickname: name,
+              trial_start: trialStart.toISOString().split('T')[0],
+              trial_end: trialEnd.toISOString().split('T')[0],
+              is_trial_active: true,
+              plan_status: 'trial',
+            })
+            .eq('user_id', authData.user.id);
+
+          if (updateError) console.error('Error updating profile:', updateError);
+        }
+
         toast({
-          title: "Conta criada!",
-          description: "Você já pode começar a usar o Orbis."
+          title: "Conta criada com sucesso! 🎉",
+          description: "Bem-vindo ao Orbis! Você ganhou 3 dias de teste grátis.",
         });
       }
     } catch (error: any) {
@@ -132,6 +179,21 @@ export default function Auth() {
         </CardHeader>
         <CardContent className="relative z-10">
           <form onSubmit={handleAuth} className="space-y-4 relative z-10">
+            {!isLogin && (
+              <div className="space-y-2 relative z-20">
+                <Label htmlFor="name">Nome completo</Label>
+                <Input 
+                  id="name" 
+                  type="text" 
+                  placeholder="Seu nome" 
+                  value={name} 
+                  onChange={e => setName(e.target.value)} 
+                  required={!isLogin}
+                  className="cursor-text bg-background border-input hover:border-primary/50 focus:border-primary transition-colors relative z-20" 
+                />
+              </div>
+            )}
+            
             <div className="space-y-2 relative z-20">
               <Label htmlFor="email">Email</Label>
               <Input 
@@ -145,6 +207,39 @@ export default function Auth() {
                 className="cursor-text bg-background border-input hover:border-primary/50 focus:border-primary transition-colors relative z-20" 
               />
             </div>
+            
+            {!isLogin && (
+              <>
+                <div className="space-y-2 relative z-20">
+                  <Label htmlFor="cpf">CPF (somente números)</Label>
+                  <Input 
+                    id="cpf" 
+                    type="text" 
+                    placeholder="12345678900" 
+                    value={cpf} 
+                    onChange={e => setCpf(e.target.value.replace(/\D/g, ''))} 
+                    required={!isLogin}
+                    maxLength={11}
+                    className="cursor-text bg-background border-input hover:border-primary/50 focus:border-primary transition-colors relative z-20" 
+                  />
+                </div>
+                
+                <div className="space-y-2 relative z-20">
+                  <Label htmlFor="phone">Celular (somente números)</Label>
+                  <Input 
+                    id="phone" 
+                    type="text" 
+                    placeholder="11999999999" 
+                    value={phone} 
+                    onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} 
+                    required={!isLogin}
+                    maxLength={11}
+                    className="cursor-text bg-background border-input hover:border-primary/50 focus:border-primary transition-colors relative z-20" 
+                  />
+                </div>
+              </>
+            )}
+            
             <div className="space-y-2 relative z-20">
               <Label htmlFor="password">Senha</Label>
               <Input 

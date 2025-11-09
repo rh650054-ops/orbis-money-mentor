@@ -39,16 +39,30 @@ export default function Layout({ children }: LayoutProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && !user) {
-      navigate("/auth");
-      return;
-    }
-    
-    // Verificar se precisa fazer check-in
-    if (user && location.pathname !== '/check-in') {
-      checkNeedsCheckIn();
-    }
-  }, [user, loading, navigate, location.pathname]);
+    const checkAuth = async () => {
+      if (loading || trialLoading) return;
+      
+      if (!user) {
+        navigate("/auth");
+        return;
+      }
+
+      // Check if trial expired and redirect to payment page
+      const currentPath = window.location.pathname;
+      const allowedPaths = ['/payment', '/benefits', '/auth'];
+      
+      if (trialStatus.isExpired && !allowedPaths.includes(currentPath)) {
+        return; // Modal will handle this
+      }
+
+      // Verificar se precisa fazer check-in
+      if (location.pathname !== '/check-in') {
+        await checkNeedsCheckIn();
+      }
+    };
+
+    checkAuth();
+  }, [user, loading, trialLoading, trialStatus.isExpired, navigate, location.pathname]);
 
   const checkNeedsCheckIn = async () => {
     if (!user) return;
@@ -183,11 +197,13 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
-      {/* Trial Expired Modal */}
-      <TrialExpiredModal 
-        isOpen={shouldShowTrialExpiredModal}
-        onClose={() => navigate('/payment')}
-      />
+      {/* Trial Expired Modal - Only show if not on payment or benefits page */}
+      {trialStatus.isExpired && !['/payment', '/benefits', '/auth'].includes(location.pathname) && (
+        <TrialExpiredModal 
+          isOpen={trialStatus.isExpired} 
+          onClose={() => {}} 
+        />
+      )}
     </div>
   );
 }
