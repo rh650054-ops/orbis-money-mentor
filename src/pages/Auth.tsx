@@ -73,6 +73,8 @@ export default function Auth() {
           title: "Login realizado!",
           description: "Bem-vindo de volta ao Orbis."
         });
+        
+        navigate("/", { replace: true });
       } else {
         // Check for existing CPF, email, or phone
         const { data: existingProfiles, error: checkError } = await supabase
@@ -130,6 +132,8 @@ export default function Auth() {
           title: "Conta criada com sucesso! 🎉",
           description: "Bem-vindo ao Orbis! Você ganhou 3 dias de teste grátis.",
         });
+        
+        navigate("/", { replace: true });
       }
     } catch (error: any) {
       if (error instanceof z.ZodError) {

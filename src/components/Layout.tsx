@@ -39,43 +39,46 @@ export default function Layout({ children }: LayoutProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      if (loading || trialLoading) return;
-      
-      if (!user) {
-        navigate("/auth");
-        return;
-      }
+    // Fast redirect for non-authenticated users
+    if (!loading && !user) {
+      navigate("/auth", { replace: true });
+      return;
+    }
 
-      // Check if trial expired and redirect to payment page
-      const currentPath = window.location.pathname;
-      const allowedPaths = ['/payment', '/benefits', '/auth'];
-      
-      if (trialStatus.isExpired && !allowedPaths.includes(currentPath)) {
-        return; // Modal will handle this
-      }
+    // Skip checks while loading
+    if (loading || trialLoading || !user) return;
 
-      // Verificar se precisa fazer check-in
-      if (location.pathname !== '/check-in') {
-        await checkNeedsCheckIn();
-      }
-    };
+    const currentPath = location.pathname;
+    const allowedPaths = ['/payment', '/benefits', '/auth', '/check-in'];
+    
+    // Fast redirect for expired trial
+    if (trialStatus.isExpired && !allowedPaths.includes(currentPath)) {
+      navigate("/payment", { replace: true });
+      return;
+    }
 
-    checkAuth();
-  }, [user, loading, trialLoading, trialStatus.isExpired, navigate, location.pathname]);
+    // Check-in verification (non-blocking)
+    if (currentPath !== '/check-in' && !trialStatus.isExpired) {
+      checkNeedsCheckIn();
+    }
+  }, [user, loading, trialLoading, trialStatus.isExpired, location.pathname, navigate]);
 
   const checkNeedsCheckIn = async () => {
     if (!user) return;
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("last_check_in_date")
-      .eq("user_id", user.id)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("last_check_in_date")
+        .eq("user_id", user.id)
+        .single();
 
-    const today = new Date().toISOString().split('T')[0];
-    if (!profile?.last_check_in_date || profile.last_check_in_date !== today) {
-      navigate("/check-in");
+      const today = new Date().toISOString().split('T')[0];
+      if (!profile?.last_check_in_date || profile.last_check_in_date !== today) {
+        navigate("/check-in", { replace: true });
+      }
+    } catch (error) {
+      console.error("Check-in verification error:", error);
     }
   };
 
@@ -197,11 +200,11 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
-      {/* Trial Expired Modal - Only show if not on payment or benefits page */}
-      {trialStatus.isExpired && !['/payment', '/benefits', '/auth'].includes(location.pathname) && (
+      {/* Trial Expired Modal - Only show briefly before redirect */}
+      {!trialLoading && trialStatus.isExpired && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
         <TrialExpiredModal 
-          isOpen={trialStatus.isExpired} 
-          onClose={() => {}} 
+          isOpen={true} 
+          onClose={() => navigate('/payment', { replace: true })} 
         />
       )}
     </div>

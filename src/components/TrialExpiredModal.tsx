@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Check, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -13,16 +14,17 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
   const navigate = useNavigate();
 
   const handleActivatePlan = () => {
-    navigate('/payment');
+    navigate('/payment', { replace: true });
   };
 
   const handleViewBenefits = () => {
-    navigate('/benefits');
+    navigate('/benefits', { replace: true });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     onClose();
-    navigate('/auth');
+    await supabase.auth.signOut();
+    navigate('/auth', { replace: true });
   };
 
   return (
