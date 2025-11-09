@@ -28,17 +28,16 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
-    // Buscar dados do usuário
-    const today = new Date().toISOString().split('T')[0];
-    const firstDayOfMonth = new Date();
-    firstDayOfMonth.setDate(1);
-    const monthStart = firstDayOfMonth.toISOString().split('T')[0];
+    // Buscar dados dos últimos 7 dias
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const weekStart = sevenDaysAgo.toISOString().split('T')[0];
 
     const { data: salesData } = await supabase
       .from("daily_sales")
       .select("*")
       .eq("user_id", user.id)
-      .gte("date", monthStart)
+      .gte("date", weekStart)
       .order("date", { ascending: false });
 
     if (!salesData || salesData.length === 0) {
@@ -52,6 +51,7 @@ serve(async (req) => {
     }
 
     // Preparar dados para análise
+    const today = new Date().toISOString().split('T')[0];
     const totalIncome = salesData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
     const totalExpenses = salesData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
     const balance = totalIncome - totalExpenses;
@@ -68,49 +68,30 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY not configured");
     }
 
-    const systemPrompt = `Você é o Orbis IA, um assistente financeiro especializado em vendas de rua e comércio ambulante.
-Você entende profundamente os desafios únicos dos vendedores ambulantes: variação de movimento, pontos de venda, horários de pico, gestão de calotes, controle de estoque, clima e concorrência.
+    const systemPrompt = `Você é o Orbis IA, especialista em análise financeira para vendedores ambulantes.
+Analise os dados dos últimos 7 dias e gere um relatório com insights estratégicos.
 
-Analise os dados financeiros fornecidos e gere EXATAMENTE 4 insights estratégicos em formato JSON.
-Estrutura obrigatória para cada insight:
+Retorne um JSON com esta estrutura:
 {
-  "type": "success" | "warning" | "info" | "goal",
-  "title": "Título curto e impactante (máximo 6 palavras)",
-  "description": "Uma frase prática e acionável sobre o que fazer",
-  "impact": "Valor numérico ou porcentagem que quantifica o impacto"
+  "weeklyProjection": "Texto sobre projeção semanal baseada nos padrões identificados",
+  "goalEstimate": "Estimativa de quando o usuário vai bater a meta com base no ritmo atual",
+  "last7DaysAnalysis": "Análise detalhada dos últimos 7 dias com padrões e tendências",
+  "productiveHours": "Análise dos horários mais produtivos (inferir pelos timestamps)",
+  "improvement": "Sugestão específica e acionável para melhorar resultados"
 }
 
-Diretrizes:
-- Seja EXTREMAMENTE prático e focado em ações específicas para vendedores de rua
-- Use linguagem motivacional mas realista
-- Identifique padrões de vendas (dias melhores, horários, formas de pagamento)
-- Sugira estratégias concretas para aumentar lucro e reduzir calotes
-- Celebre conquistas e incentive melhorias
-- Quantifique sempre que possível (ex: "R$ 50 a mais", "15% de crescimento")
+Seja direto, prático e motivacional.`;
 
-Retorne APENAS um JSON válido no formato: {"insights": [...]}`;
+    const userPrompt = `Contexto: Vendedor ambulante com ${daysWithSales} dias registrados nos últimos 7 dias
 
-    const userPrompt = `Contexto: Vendedor ambulante registrando vendas diárias
+Dados dos últimos 7 dias:
+💰 Vendas totais: R$ ${totalIncome.toFixed(2)}
+📉 Calotes: R$ ${totalExpenses.toFixed(2)}
+✅ Lucro líquido: R$ ${balance.toFixed(2)}
+📊 Média diária: R$ ${avgDailyProfit.toFixed(2)}
+🎯 Hoje: R$ ${todayProfit.toFixed(2)}
 
-Dados do período atual:
-📊 Financeiro:
-- Total de vendas no mês: R$ ${totalIncome.toFixed(2)}
-- Total de calotes: R$ ${totalExpenses.toFixed(2)}
-- Saldo líquido: R$ ${balance.toFixed(2)}
-- Margem: ${totalIncome > 0 ? ((balance / totalIncome) * 100).toFixed(1) : 0}%
-
-📈 Atividade:
-- Dias trabalhados: ${daysWithSales}
-- Média de vendas por dia: R$ ${avgDailyProfit.toFixed(2)}
-- Performance hoje: R$ ${todayProfit.toFixed(2)}
-
-Com base nesses dados, gere 4 insights estratégicos focados em:
-1. Reconhecimento de conquistas ou alerta sobre problemas
-2. Oportunidade de crescimento identificada
-3. Dica prática para melhorar resultados
-4. Meta alcançável para os próximos dias
-
-Lembre-se: vendedor ambulante precisa de insights que considere a realidade da rua (movimento, clima, ponto de venda, etc.)`;
+Gere um relatório completo com os 5 campos solicitados.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -137,19 +118,18 @@ Lembre-se: vendedor ambulante precisa de insights que considere a realidade da r
     console.log("AI Response received");
     
     const content = aiData.choices[0].message.content;
-    let parsedInsights;
+    let parsedReport;
     
     try {
-      const jsonData = JSON.parse(content);
-      parsedInsights = jsonData.insights || jsonData;
-      console.log("Insights generated:", parsedInsights.length);
+      parsedReport = JSON.parse(content);
+      console.log("Report generated successfully");
     } catch (e) {
       console.error("Failed to parse AI response");
       throw new Error("Não foi possível processar a resposta da IA. Tente novamente.");
     }
 
     return new Response(
-      JSON.stringify({ insights: parsedInsights }),
+      JSON.stringify(parsedReport),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 

@@ -10,6 +10,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { AIInsightsReport } from "@/components/AIInsightsReport";
 
 interface SaleRecord {
   id: string;
@@ -234,6 +235,9 @@ export default function History() {
           )}
         </CardContent>
       </Card>
+
+      {/* Relatório de IA */}
+      <AIInsightsReport userId={user.id} />
 
       {/* Evolução Semanal */}
       {weekData.length > 0 && (

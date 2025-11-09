@@ -116,6 +116,39 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_work_log: {
+        Row: {
+          created_at: string | null
+          date: string
+          goal_achieved: boolean | null
+          id: string
+          notes: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          goal_achieved?: boolean | null
+          id?: string
+          notes?: string | null
+          status: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          goal_achieved?: boolean | null
+          id?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_goals: {
         Row: {
           created_at: string
@@ -203,6 +236,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          base_daily_goal: number | null
           billing_exempt: boolean | null
           check_in_focus: string | null
           check_in_mood: string | null
@@ -233,9 +267,12 @@ export type Database = {
           updated_at: string
           user_id: string
           vision_points: number | null
+          weekly_goal: number | null
+          weekly_work_days: number | null
         }
         Insert: {
           avatar_url?: string | null
+          base_daily_goal?: number | null
           billing_exempt?: boolean | null
           check_in_focus?: string | null
           check_in_mood?: string | null
@@ -266,9 +303,12 @@ export type Database = {
           updated_at?: string
           user_id: string
           vision_points?: number | null
+          weekly_goal?: number | null
+          weekly_work_days?: number | null
         }
         Update: {
           avatar_url?: string | null
+          base_daily_goal?: number | null
           billing_exempt?: boolean | null
           check_in_focus?: string | null
           check_in_mood?: string | null
@@ -299,6 +339,8 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vision_points?: number | null
+          weekly_goal?: number | null
+          weekly_work_days?: number | null
         }
         Relationships: []
       }

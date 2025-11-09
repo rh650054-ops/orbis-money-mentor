@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
+import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
 import {
   Collapsible,
@@ -342,6 +343,9 @@ export default function Index() {
         </p>
       </div>
 
+      {/* Planejamento Semanal */}
+      <WeeklyPlanning userId={user.id} />
+
       {/* Streak e Vision Points */}
       <StreakDisplay userId={user.id} />
 
@@ -452,7 +456,7 @@ export default function Index() {
 
     {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Saldo Total
@@ -469,7 +473,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient-border hover:shadow-glow-success transition-smooth">
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-success transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Entradas
@@ -486,7 +490,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Saídas
@@ -503,7 +507,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient-border hover:shadow-glow-secondary transition-smooth">
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-secondary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Lucro Diário Médio
@@ -526,7 +530,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Gasto Mercadoria

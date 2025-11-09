@@ -134,4 +134,42 @@ All colors MUST be HSL.
     mask-composite: exclude;
     pointer-events: none;
   }
+
+  /* Fixed height cards for consistency */
+  .card-fixed-height {
+    min-height: 140px;
+  }
+
+  .card-fixed-height-lg {
+    min-height: 200px;
+  }
+
+  /* Shadow glow effects on hover */
+  .shadow-glow-primary:hover {
+    box-shadow: 0 0 25px hsl(271 91% 65% / 0.4);
+  }
+
+  .shadow-glow-secondary:hover {
+    box-shadow: 0 0 25px hsl(189 94% 43% / 0.4);
+  }
+
+  .shadow-glow-success:hover {
+    box-shadow: 0 0 25px hsl(142 76% 36% / 0.4);
+  }
+
+  /* Fade in animation */
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }

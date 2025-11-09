@@ -2,21 +2,22 @@ import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Flame, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useStreak } from "@/hooks/useStreak";
 
 interface StreakDisplayProps {
   userId: string;
 }
 
 export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
-  const [streak, setStreak] = useState(0);
+  const { streak } = useStreak(userId);
   const [visionPoints, setVisionPoints] = useState(0);
 
   useEffect(() => {
-    loadStreak();
+    loadVisionPoints();
 
-    // Realtime subscription
+    // Realtime subscription for vision points only
     const channel = supabase
-      .channel('streak-changes')
+      .channel('vision-points-changes')
       .on(
         'postgres_changes',
         {
@@ -26,9 +27,6 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
           filter: `user_id=eq.${userId}`,
         },
         (payload: any) => {
-          if (payload.new.streak_days !== undefined) {
-            setStreak(payload.new.streak_days);
-          }
           if (payload.new.vision_points !== undefined) {
             setVisionPoints(payload.new.vision_points);
           }
@@ -41,15 +39,14 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
     };
   }, [userId]);
 
-  const loadStreak = async () => {
+  const loadVisionPoints = async () => {
     const { data } = await supabase
       .from("profiles")
-      .select("streak_days, vision_points")
+      .select("vision_points")
       .eq("user_id", userId)
       .single();
 
     if (data) {
-      setStreak(data.streak_days || 0);
       setVisionPoints(data.vision_points || 0);
     }
   };

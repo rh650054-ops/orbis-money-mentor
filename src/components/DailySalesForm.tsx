@@ -1,20 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle } from "lucide-react";
+import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
+import { MotivationalCard } from "./MotivationalCard";
 
 const salesSchema = z.object({
-  totalProfit: z.string().refine((val) => {
-    if (!val) return true;
+  totalProfit: z.string().min(1, { message: "Valor vendido é obrigatório" }).refine((val) => {
     const num = parseFloat(val);
-    return !isNaN(num) && num >= 0 && num <= 999999;
-  }, { message: "Lucro deve ser entre 0 e 999.999" }),
+    return !isNaN(num) && num > 0 && num <= 999999;
+  }, { message: "Valor vendido deve ser maior que 0" }),
   cost: z.string().refine((val) => {
     if (!val) return true;
     const num = parseFloat(val);
@@ -51,6 +51,9 @@ interface DailySalesFormProps {
 export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [baseDailyGoal, setBaseDailyGoal] = useState(200);
+  const [showMotivation, setShowMotivation] = useState(false);
+  const [motivationPercentage, setMotivationPercentage] = useState(0);
   const [formData, setFormData] = useState({
     totalProfit: "",
     cost: "",
@@ -60,6 +63,51 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     cardSales: "",
     notes: ""
   });
+
+  useEffect(() => {
+    loadDailyGoal();
+  }, [userId]);
+
+  const loadDailyGoal = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("base_daily_goal")
+      .eq("user_id", userId)
+      .single();
+
+    if (data?.base_daily_goal) {
+      setBaseDailyGoal(data.base_daily_goal);
+    }
+  };
+
+  const handlePlannedOff = async () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { error } = await supabase
+      .from("daily_work_log")
+      .upsert({
+        user_id: userId,
+        date: today,
+        status: 'planned_off',
+        notes: 'Folga planejada'
+      }, {
+        onConflict: 'user_id,date'
+      });
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível registrar a folga.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    toast({
+      title: "✅ Folga registrada!",
+      description: "Sua ofensiva está protegida. Descanse bem!",
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +146,25 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       if (error) throw error;
 
+      // Calculate percentage and show motivational message
+      const profit = parseFloat(formData.totalProfit);
+      const percentage = (profit / baseDailyGoal) * 100;
+      setMotivationPercentage(percentage);
+      setShowMotivation(true);
+
+      // Log work day
+      const goalAchieved = profit >= baseDailyGoal;
+      await supabase
+        .from("daily_work_log")
+        .upsert({
+          user_id: userId,
+          date: new Date().toISOString().split('T')[0],
+          status: 'worked',
+          goal_achieved: goalAchieved
+        }, {
+          onConflict: 'user_id,date'
+        });
+
       toast({
         title: "✅ Lançamento salvo com sucesso!",
         description: "Seu lançamento foi registrado no histórico.",
@@ -127,16 +194,35 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
   };
 
   return (
-    <Card className="card-gradient-border shadow-xl">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <DollarSign className="h-5 w-5 text-primary" />
-          Novo Lançamento
-        </CardTitle>
-        <p className="text-sm text-muted-foreground mt-1">
-          Registre cada venda individualmente para manter histórico completo
-        </p>
-      </CardHeader>
+    <>
+      <MotivationalCard 
+        percentage={motivationPercentage}
+        visible={showMotivation}
+        onHide={() => setShowMotivation(false)}
+      />
+      
+      <Card className="card-gradient-border shadow-xl">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-xl">
+                <DollarSign className="h-5 w-5 text-primary" />
+                Novo Lançamento
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Registre cada venda individualmente para manter histórico completo
+              </p>
+            </div>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={handlePlannedOff}
+              title="Marcar dia OFF (preserva ofensiva)"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
@@ -247,5 +333,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         </form>
       </CardContent>
     </Card>
+    </>
   );
 }
