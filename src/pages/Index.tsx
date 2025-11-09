@@ -9,9 +9,6 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
-import { StreakDisplay } from "@/components/StreakDisplay";
-import { ProgressBar } from "@/components/ProgressBar";
-import { DailyDashboard } from "@/components/DailyDashboard";
 import {
   Collapsible,
   CollapsibleContent,
@@ -342,15 +339,6 @@ export default function Index() {
           Controle total das suas finanças com insights inteligentes e metas personalizadas
         </p>
       </div>
-
-      {/* Ofensiva Visionária */}
-      <StreakDisplay userId={user.id} />
-
-      {/* Dashboard Diário */}
-      <DailyDashboard userId={user.id} />
-
-      {/* Barra de Progresso do Dia */}
-      <ProgressBar userId={user.id} />
 
       {/* Filtros de Período - Colapsável */}
       <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>

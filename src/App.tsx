@@ -16,7 +16,6 @@ import Auth from "./pages/Auth";
 import Payment from "./pages/Payment";
 import AdminDemoUsers from "./pages/AdminDemoUsers";
 import NotFound from "./pages/NotFound";
-import CheckIn from "./pages/CheckIn";
 const queryClient = new QueryClient();
 const App = () => <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -26,7 +25,6 @@ const App = () => <QueryClientProvider client={queryClient}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/payment" element={<Payment />} />
-          <Route path="/check-in" element={<CheckIn />} />
           <Route path="/*" element={<Layout>
               <Routes>
                 <Route path="/" element={<Index />} />
