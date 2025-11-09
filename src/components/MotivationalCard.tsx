@@ -17,32 +17,27 @@ export const MotivationalCard = ({ percentage, visible, onHide }: MotivationalCa
     if (percentage >= 100) {
       setMessage({
         icon: "🔥",
-        title: "META BATIDA!",
-        description: "Orgulho da sua constância, Visionário! Continue dominando!",
+        title: "META BATIDA, Visionário!",
+        description: "Você é imparável! Continue dominando!",
       });
-    } else if (percentage >= 80) {
-      setMessage({
-        icon: "💪",
-        title: "Quase lá!",
-        description: "Falta pouco para dominar o dia. Mantenha o foco!",
-      });
-    } else if (percentage >= 50) {
+    } else if (percentage >= 51) {
+      const missing = 100 - percentage;
       setMessage({
         icon: "⚡",
-        title: "Metade da meta!",
-        description: "Continue nesse ritmo, você está no caminho certo!",
+        title: `Visionário, faltou apenas ${missing.toFixed(0)}%!`,
+        description: "Continua! Você está quase lá!",
       });
-    } else if (percentage >= 20) {
+    } else if (percentage > 0) {
       setMessage({
-        icon: "🌟",
+        icon: "💪",
         title: "Primeiro passo dado!",
-        description: "Cada venda conta. Continue evoluindo!",
+        description: "Agora é manter o ritmo. Só não pare!",
       });
     } else {
       setMessage({
-        icon: "🚀",
-        title: "Vamos lá!",
-        description: "Comece forte e domine o dia!",
+        icon: "🌟",
+        title: "Cada dia é uma chance nova.",
+        description: "Comece pequeno. Só não pare.",
       });
     }
 

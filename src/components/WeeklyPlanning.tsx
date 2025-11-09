@@ -7,15 +7,26 @@ import { Calendar, Target, Pencil, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface WeeklyPlanningProps {
   userId: string;
 }
 
+const DAYS_OF_WEEK = [
+  { key: 'monday', label: 'Seg', fullLabel: 'Segunda' },
+  { key: 'tuesday', label: 'Ter', fullLabel: 'Terça' },
+  { key: 'wednesday', label: 'Qua', fullLabel: 'Quarta' },
+  { key: 'thursday', label: 'Qui', fullLabel: 'Quinta' },
+  { key: 'friday', label: 'Sex', fullLabel: 'Sexta' },
+  { key: 'saturday', label: 'Sáb', fullLabel: 'Sábado' },
+  { key: 'sunday', label: 'Dom', fullLabel: 'Domingo' },
+];
+
 export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [weeklyWorkDays, setWeeklyWorkDays] = useState(5);
+  const [workingDays, setWorkingDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
   const [baseDailyGoal, setBaseDailyGoal] = useState(200);
   const [weeklyGoal, setWeeklyGoal] = useState(1000);
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
@@ -27,23 +38,40 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
   const loadPlanning = async () => {
     const { data } = await supabase
       .from("profiles")
-      .select("weekly_work_days, base_daily_goal, weekly_goal, monthly_goal")
+      .select("working_days, base_daily_goal, weekly_goal, monthly_goal")
       .eq("user_id", userId)
       .single();
 
     if (data) {
-      setWeeklyWorkDays(data.weekly_work_days || 5);
+      setWorkingDays(data.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
       setBaseDailyGoal(data.base_daily_goal || 200);
       setWeeklyGoal(data.weekly_goal || 1000);
       setMonthlyGoal(data.monthly_goal || 4200);
     }
   };
 
+  const toggleDay = (day: string) => {
+    setWorkingDays(prev => 
+      prev.includes(day) 
+        ? prev.filter(d => d !== day)
+        : [...prev, day]
+    );
+  };
+
   const handleSave = async () => {
+    if (workingDays.length === 0) {
+      toast({
+        title: "Erro ao salvar",
+        description: "Selecione pelo menos um dia de trabalho.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { error } = await supabase
       .from("profiles")
       .update({
-        weekly_work_days: weeklyWorkDays,
+        working_days: workingDays,
         base_daily_goal: baseDailyGoal,
         weekly_goal: weeklyGoal,
         monthly_goal: monthlyGoal,
@@ -106,15 +134,23 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
       <CardContent className="space-y-4">
         {isEditing ? (
           <>
-            <div className="space-y-2">
-              <Label>Dias de trabalho por semana</Label>
-              <Input
-                type="number"
-                min="1"
-                max="7"
-                value={weeklyWorkDays}
-                onChange={(e) => setWeeklyWorkDays(parseInt(e.target.value) || 5)}
-              />
+            <div className="space-y-3">
+              <Label>Dias de trabalho</Label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS_OF_WEEK.map((day) => (
+                  <Badge
+                    key={day.key}
+                    variant={workingDays.includes(day.key) ? "default" : "outline"}
+                    className="cursor-pointer px-3 py-2 text-sm transition-all hover:scale-105"
+                    onClick={() => toggleDay(day.key)}
+                  >
+                    {day.label}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {workingDays.length} {workingDays.length === 1 ? 'dia' : 'dias'} selecionados
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Meta diária base (R$)</Label>
@@ -148,24 +184,36 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">📅 Dias/semana</p>
-              <p className="text-lg font-bold">{weeklyWorkDays} dias</p>
+          <>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">📅 Dias de trabalho</p>
+              <div className="flex flex-wrap gap-2">
+                {DAYS_OF_WEEK.map((day) => (
+                  <Badge
+                    key={day.key}
+                    variant={workingDays.includes(day.key) ? "default" : "outline"}
+                    className="text-xs"
+                  >
+                    {day.label}
+                  </Badge>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">🎯 Meta diária</p>
-              <p className="text-lg font-bold text-primary">{formatCurrency(baseDailyGoal)}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">🎯 Meta diária</p>
+                <p className="text-lg font-bold text-primary">{formatCurrency(baseDailyGoal)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">📊 Meta semanal</p>
+                <p className="text-lg font-bold text-secondary">{formatCurrency(weeklyGoal)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-muted-foreground">🏆 Meta mensal</p>
+                <p className="text-lg font-bold gradient-text">{formatCurrency(monthlyGoal)}</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">📊 Meta semanal</p>
-              <p className="text-lg font-bold text-secondary">{formatCurrency(weeklyGoal)}</p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">🏆 Meta mensal</p>
-              <p className="text-lg font-bold gradient-text">{formatCurrency(monthlyGoal)}</p>
-            </div>
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

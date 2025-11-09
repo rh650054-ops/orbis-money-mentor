@@ -119,30 +119,39 @@ export type Database = {
       daily_work_log: {
         Row: {
           created_at: string | null
+          daily_goal: number | null
           date: string
           goal_achieved: boolean | null
           id: string
           notes: string | null
+          percentage_achieved: number | null
+          sales_amount: number | null
           status: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
           created_at?: string | null
+          daily_goal?: number | null
           date: string
           goal_achieved?: boolean | null
           id?: string
           notes?: string | null
+          percentage_achieved?: number | null
+          sales_amount?: number | null
           status: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
           created_at?: string | null
+          daily_goal?: number | null
           date?: string
           goal_achieved?: boolean | null
           id?: string
           notes?: string | null
+          percentage_achieved?: number | null
+          sales_amount?: number | null
           status?: string
           updated_at?: string | null
           user_id?: string
@@ -246,6 +255,7 @@ export type Database = {
           demo_created_by: string | null
           demo_note: string | null
           email: string | null
+          freeze_used_this_week: boolean | null
           goal_hours: number | null
           goal_timer_active: boolean | null
           goal_timer_started_at: string | null
@@ -254,6 +264,7 @@ export type Database = {
           is_trial_active: boolean | null
           last_check_in_date: string | null
           last_payment_date: string | null
+          missed_days_this_week: number | null
           monthly_goal: number | null
           next_payment_date: string | null
           nickname: string | null
@@ -267,8 +278,10 @@ export type Database = {
           updated_at: string
           user_id: string
           vision_points: number | null
+          week_start_date: string | null
           weekly_goal: number | null
           weekly_work_days: number | null
+          working_days: string[] | null
         }
         Insert: {
           avatar_url?: string | null
@@ -282,6 +295,7 @@ export type Database = {
           demo_created_by?: string | null
           demo_note?: string | null
           email?: string | null
+          freeze_used_this_week?: boolean | null
           goal_hours?: number | null
           goal_timer_active?: boolean | null
           goal_timer_started_at?: string | null
@@ -290,6 +304,7 @@ export type Database = {
           is_trial_active?: boolean | null
           last_check_in_date?: string | null
           last_payment_date?: string | null
+          missed_days_this_week?: number | null
           monthly_goal?: number | null
           next_payment_date?: string | null
           nickname?: string | null
@@ -303,8 +318,10 @@ export type Database = {
           updated_at?: string
           user_id: string
           vision_points?: number | null
+          week_start_date?: string | null
           weekly_goal?: number | null
           weekly_work_days?: number | null
+          working_days?: string[] | null
         }
         Update: {
           avatar_url?: string | null
@@ -318,6 +335,7 @@ export type Database = {
           demo_created_by?: string | null
           demo_note?: string | null
           email?: string | null
+          freeze_used_this_week?: boolean | null
           goal_hours?: number | null
           goal_timer_active?: boolean | null
           goal_timer_started_at?: string | null
@@ -326,6 +344,7 @@ export type Database = {
           is_trial_active?: boolean | null
           last_check_in_date?: string | null
           last_payment_date?: string | null
+          missed_days_this_week?: number | null
           monthly_goal?: number | null
           next_payment_date?: string | null
           nickname?: string | null
@@ -339,8 +358,10 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vision_points?: number | null
+          week_start_date?: string | null
           weekly_goal?: number | null
           weekly_work_days?: number | null
+          working_days?: string[] | null
         }
         Relationships: []
       }

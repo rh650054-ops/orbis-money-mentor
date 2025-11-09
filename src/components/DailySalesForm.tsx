@@ -152,15 +152,20 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       setMotivationPercentage(percentage);
       setShowMotivation(true);
 
-      // Log work day
+      // Log work day with details
       const goalAchieved = profit >= baseDailyGoal;
+      const percentageAchieved = (profit / baseDailyGoal) * 100;
+      
       await supabase
         .from("daily_work_log")
         .upsert({
           user_id: userId,
           date: new Date().toISOString().split('T')[0],
           status: 'worked',
-          goal_achieved: goalAchieved
+          goal_achieved: goalAchieved,
+          sales_amount: profit,
+          daily_goal: baseDailyGoal,
+          percentage_achieved: percentageAchieved
         }, {
           onConflict: 'user_id,date'
         });
