@@ -22,7 +22,14 @@ export const AIInsightsReport = ({ userId }: AIInsightsReportProps) => {
         body: { userId },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw new Error(error.message || "Erro ao gerar insights");
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       setInsights(data);
       toast({
@@ -31,9 +38,20 @@ export const AIInsightsReport = ({ userId }: AIInsightsReportProps) => {
       });
     } catch (error: any) {
       console.error("Error generating insights:", error);
+      
+      let errorMessage = "Não foi possível gerar os insights.";
+      
+      if (error.message.includes("429") || error.message.includes("Limite")) {
+        errorMessage = "Limite de requisições atingido. Aguarde alguns instantes.";
+      } else if (error.message.includes("402") || error.message.includes("Créditos")) {
+        errorMessage = "Créditos insuficientes. Verifique Settings → Workspace → Usage.";
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível gerar os insights.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -70,16 +70,6 @@ serve(async (req) => {
 
     const systemPrompt = `Você é o Orbis IA, especialista em análise financeira para vendedores ambulantes.
 Analise os dados dos últimos 7 dias e gere um relatório com insights estratégicos.
-
-Retorne um JSON com esta estrutura:
-{
-  "weeklyProjection": "Texto sobre projeção semanal baseada nos padrões identificados",
-  "goalEstimate": "Estimativa de quando o usuário vai bater a meta com base no ritmo atual",
-  "last7DaysAnalysis": "Análise detalhada dos últimos 7 dias com padrões e tendências",
-  "productiveHours": "Análise dos horários mais produtivos (inferir pelos timestamps)",
-  "improvement": "Sugestão específica e acionável para melhorar resultados"
-}
-
 Seja direto, prático e motivacional.`;
 
     const userPrompt = `Contexto: Vendedor ambulante com ${daysWithSales} dias registrados nos últimos 7 dias
@@ -91,7 +81,7 @@ Dados dos últimos 7 dias:
 📊 Média diária: R$ ${avgDailyProfit.toFixed(2)}
 🎯 Hoje: R$ ${todayProfit.toFixed(2)}
 
-Gere um relatório completo com os 5 campos solicitados.`;
+Analise esses dados e gere insights acionáveis.`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -105,26 +95,77 @@ Gere um relatório completo com os 5 campos solicitados.`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        response_format: { type: "json_object" }
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "generate_insights_report",
+              description: "Gera relatório de insights financeiros para vendedor ambulante",
+              parameters: {
+                type: "object",
+                properties: {
+                  weeklyProjection: {
+                    type: "string",
+                    description: "Projeção semanal baseada nos padrões identificados (2-3 frases)"
+                  },
+                  goalEstimate: {
+                    type: "string",
+                    description: "Estimativa de quando vai bater a meta com base no ritmo atual (1-2 frases)"
+                  },
+                  last7DaysAnalysis: {
+                    type: "string",
+                    description: "Análise detalhada dos últimos 7 dias com padrões e tendências (3-4 frases)"
+                  },
+                  productiveHours: {
+                    type: "string",
+                    description: "Análise dos horários mais produtivos e sugestões de timing (2-3 frases)"
+                  },
+                  improvement: {
+                    type: "string",
+                    description: "Sugestão específica e acionável para melhorar resultados (2-3 frases)"
+                  }
+                },
+                required: ["weeklyProjection", "goalEstimate", "last7DaysAnalysis", "productiveHours", "improvement"],
+                additionalProperties: false
+              }
+            }
+          }
+        ],
+        tool_choice: { type: "function", function: { name: "generate_insights_report" } }
       }),
     });
 
     if (!aiResponse.ok) {
-      console.error("AI API error:", aiResponse.status);
-      throw new Error(`Erro ao conectar com IA: ${aiResponse.status}. Verifique a configuração do Lovable AI.`);
+      const errorText = await aiResponse.text();
+      console.error("AI API error:", aiResponse.status, errorText);
+      
+      if (aiResponse.status === 429) {
+        throw new Error("Limite de requisições atingido. Aguarde alguns instantes e tente novamente.");
+      }
+      if (aiResponse.status === 402) {
+        throw new Error("Créditos insuficientes. Adicione créditos em Settings → Workspace → Usage.");
+      }
+      
+      throw new Error(`Erro ao conectar com IA: ${aiResponse.status}`);
     }
 
     const aiData = await aiResponse.json();
-    console.log("AI Response received");
+    console.log("AI Response received:", JSON.stringify(aiData));
     
-    const content = aiData.choices[0].message.content;
     let parsedReport;
     
     try {
-      parsedReport = JSON.parse(content);
-      console.log("Report generated successfully");
+      // Extract from tool call response
+      const toolCall = aiData.choices[0].message.tool_calls?.[0];
+      if (toolCall && toolCall.function.arguments) {
+        parsedReport = JSON.parse(toolCall.function.arguments);
+        console.log("Report generated successfully via tool call");
+      } else {
+        throw new Error("No tool call in AI response");
+      }
     } catch (e) {
-      console.error("Failed to parse AI response");
+      console.error("Failed to parse AI response:", e);
+      console.error("AI response:", JSON.stringify(aiData));
       throw new Error("Não foi possível processar a resposta da IA. Tente novamente.");
     }
 
