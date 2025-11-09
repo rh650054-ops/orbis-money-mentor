@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import {
@@ -40,8 +41,29 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
+      return;
     }
-  }, [user, loading, navigate]);
+    
+    // Verificar se precisa fazer check-in
+    if (user && location.pathname !== '/check-in') {
+      checkNeedsCheckIn();
+    }
+  }, [user, loading, navigate, location.pathname]);
+
+  const checkNeedsCheckIn = async () => {
+    if (!user) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("last_check_in_date")
+      .eq("user_id", user.id)
+      .single();
+
+    const today = new Date().toISOString().split('T')[0];
+    if (!profile?.last_check_in_date || profile.last_check_in_date !== today) {
+      navigate("/check-in");
+    }
+  };
 
   const shouldShowTrialExpiredModal = 
     !trialLoading && 
