@@ -55,30 +55,30 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-2 md:grid-cols-2">
       {/* Streak */}
       <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
-        <CardContent className="p-6">
+        <CardContent className="p-3">
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Sequência Visionária</p>
-              <div className="flex items-center gap-2">
-                <Flame className={`w-5 h-5 ${streak > 0 ? "text-orange-500 animate-pulse" : "text-muted-foreground"}`} />
-                <span className="text-4xl font-bold gradient-text">
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">Sequência Visionária</p>
+              <div className="flex items-center gap-1.5">
+                <Flame className={`w-4 h-4 ${streak > 0 ? "text-orange-500 animate-pulse" : "text-muted-foreground"}`} />
+                <span className="text-2xl font-bold gradient-text">
                   {streak}
                 </span>
-                <span className="text-lg text-muted-foreground">
+                <span className="text-sm text-muted-foreground">
                   {streak === 1 ? "dia" : "dias"}
                 </span>
               </div>
             </div>
           </div>
           {streak > 0 && (
-            <div className="mt-4 p-3 bg-gradient-to-r from-orange-500/10 to-primary/10 border border-orange-500/20 rounded-lg">
-              <p className="text-sm font-semibold text-orange-500">
-                {streak >= 7 ? "🔥 Você é imparável!" : 
-                 streak >= 3 ? "💪 Continue assim!" : 
-                 "⚡ Começou bem!"}
+            <div className="mt-2 p-1.5 bg-gradient-to-r from-orange-500/10 to-primary/10 border border-orange-500/20 rounded">
+              <p className="text-xs font-semibold text-orange-500">
+                {streak >= 7 ? "🔥 Imparável!" : 
+                 streak >= 3 ? "💪 Continue!" : 
+                 "⚡ Boa!"}
               </p>
             </div>
           )}
@@ -87,25 +87,25 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
 
       {/* Vision Points */}
       <Card className="card-gradient-border hover:shadow-glow-secondary transition-smooth">
-        <CardContent className="p-6">
+        <CardContent className="p-3">
           <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="text-sm text-muted-foreground">Vision Points</p>
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-secondary animate-pulse" />
-                <span className="text-4xl font-bold gradient-text">
+            <div className="space-y-0.5">
+              <p className="text-xs text-muted-foreground">Vision Points</p>
+              <div className="flex items-center gap-1.5">
+                <Trophy className="w-4 h-4 text-secondary animate-pulse" />
+                <span className="text-2xl font-bold gradient-text">
                   {visionPoints}
                 </span>
-                <span className="text-lg text-muted-foreground">VP</span>
+                <span className="text-sm text-muted-foreground">VP</span>
               </div>
             </div>
           </div>
           {visionPoints >= 100 && (
-            <div className="mt-4 p-3 bg-gradient-to-r from-secondary/10 to-primary/10 border border-secondary/20 rounded-lg">
-              <p className="text-sm font-semibold text-secondary">
-                {visionPoints >= 500 ? "👑 Visionário Lendário!" : 
-                 visionPoints >= 200 ? "⭐ Visionário Avançado!" : 
-                 "🌟 Visionário em ascensão!"}
+            <div className="mt-2 p-1.5 bg-gradient-to-r from-secondary/10 to-primary/10 border border-secondary/20 rounded">
+              <p className="text-xs font-semibold text-secondary">
+                {visionPoints >= 500 ? "👑 Lendário!" : 
+                 visionPoints >= 200 ? "⭐ Avançado!" : 
+                 "🌟 Ascensão!"}
               </p>
             </div>
           )}
