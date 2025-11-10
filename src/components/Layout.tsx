@@ -40,6 +40,30 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  // Show trial reminder during trial period
+  useEffect(() => {
+    if (!user || trialLoading || subscriptionLoading) return;
+    if (subscriptionStatus.subscribed) return; // Don't show for subscribers
+    
+    const daysRemaining = trialStatus.daysRemaining ?? 0;
+    
+    // Show reminder if trial is active and has 3 or fewer days remaining
+    if (trialStatus.isTrialActive && daysRemaining <= 3 && daysRemaining > 0) {
+      const lastReminderDate = localStorage.getItem('lastTrialReminder');
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Show once per day
+      if (lastReminderDate !== today) {
+        toast({
+          title: `⚠️ Seu teste acaba em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'}!`,
+          description: "Assine agora por R$19,90/mês e mantenha acesso a todos os recursos.",
+          duration: 8000,
+        });
+        localStorage.setItem('lastTrialReminder', today);
+      }
+    }
+  }, [user, trialStatus.isTrialActive, trialStatus.daysRemaining, subscriptionStatus.subscribed, trialLoading, subscriptionLoading, toast]);
+
   useEffect(() => {
     // Fast redirect for non-authenticated users
     if (!loading && !user) {
@@ -172,6 +196,29 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+        {/* Trial Warning Banner */}
+        {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.isTrialActive && trialStatus.daysRemaining !== null && trialStatus.daysRemaining <= 3 && (
+          <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="text-2xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-warning mb-1">
+                  Seu teste gratuito acaba em {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'}!
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Após o término, você perderá acesso a todos os dados e funcionalidades. Assine agora para manter tudo salvo!
+                </p>
+                <Button 
+                  size="sm" 
+                  onClick={() => navigate('/payment')}
+                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
+                >
+                  Assinar por R$19,90/mês
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
         {children}
       </main>
 

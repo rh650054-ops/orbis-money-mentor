@@ -43,6 +43,7 @@ export default function Index() {
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
+  
   // Load cached data on mount
   useEffect(() => {
     const cachedData = localStorage.getItem("orbis_dashboard_cache");
@@ -65,15 +66,36 @@ export default function Index() {
     }
     if (user) {
       loadDashboardData();
-      
-      // Check if this is first login (show card registration modal)
+    }
+  }, [user, loading, navigate]);
+
+  // Check if should show card registration modal (only on first access for non-subscribers)
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkCardModal = async () => {
       const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
-      if (!hasSeenCardModal) {
+      if (hasSeenCardModal) return;
+
+      // Check subscription status
+      const session = await supabase.auth.getSession();
+      if (!session.data.session) return;
+
+      const { data } = await supabase.functions.invoke("check-subscription", {
+        headers: {
+          Authorization: `Bearer ${session.data.session.access_token}`,
+        },
+      });
+
+      // Only show if not subscribed
+      if (!data?.subscribed) {
         setShowCardModal(true);
         localStorage.setItem('hasSeenCardModal', 'true');
       }
-    }
-  }, [user, loading, navigate]);
+    };
+
+    checkCardModal();
+  }, [user]);
   const loadDashboardData = async (customStartDate?: string, customEndDate?: string) => {
     if (!user) return;
 
