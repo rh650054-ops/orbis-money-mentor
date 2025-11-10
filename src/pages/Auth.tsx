@@ -76,15 +76,26 @@ export default function Auth() {
         
         navigate("/", { replace: true });
       } else {
-        // Check for existing CPF, email, or phone
-        const { data: existingProfiles, error: checkError } = await supabase
+        // Check for existing CPF, email, or phone using separate queries to prevent SQL injection
+        const { data: existingByCpf } = await supabase
           .from('profiles')
-          .select('cpf, email, phone')
-          .or(`cpf.eq.${cpf},email.eq.${email.trim()},phone.eq.${phone}`);
+          .select('user_id')
+          .eq('cpf', cpf)
+          .limit(1);
 
-        if (checkError) throw checkError;
+        const { data: existingByEmail } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('email', email.trim())
+          .limit(1);
 
-        if (existingProfiles && existingProfiles.length > 0) {
+        const { data: existingByPhone } = await supabase
+          .from('profiles')
+          .select('user_id')
+          .eq('phone', phone)
+          .limit(1);
+
+        if (existingByCpf?.length || existingByEmail?.length || existingByPhone?.length) {
           toast({
             variant: "destructive",
             title: "Cadastro não permitido",
@@ -125,7 +136,7 @@ export default function Auth() {
             })
             .eq('user_id', authData.user.id);
 
-          if (updateError) console.error('Error updating profile:', updateError);
+          if (updateError) throw updateError;
         }
 
         toast({

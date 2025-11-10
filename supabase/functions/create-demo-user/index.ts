@@ -50,15 +50,21 @@ serve(async (req) => {
 
     console.log('Usuário autenticado:', requestingUser.id);
 
-    // Verificar se o usuário é admin (você pode adicionar uma tabela de admins)
-    const { data: adminProfile } = await supabaseAdmin
-      .from('profiles')
-      .select('is_demo, billing_exempt')
-      .eq('user_id', requestingUser.id)
-      .single();
+    // Verificar se o usuário é admin usando a função has_role
+    const { data: isAdmin, error: roleError } = await supabaseAdmin
+      .rpc('has_role', {
+        _user_id: requestingUser.id,
+        _role: 'admin'
+      });
 
-    // Para fins de teste inicial, vamos permitir qualquer usuário criar contas demo
-    // Em produção, você deve adicionar verificação de admin aqui
+    if (roleError) {
+      console.error('Erro ao verificar role:', roleError);
+      throw new Error('Erro ao verificar permissões');
+    }
+
+    if (!isAdmin) {
+      throw new Error('Acesso negado. Apenas administradores podem criar contas demo.');
+    }
 
     const { email, nickname, note }: CreateDemoUserRequest = await req.json();
 

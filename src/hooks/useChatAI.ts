@@ -27,8 +27,6 @@ export const useChatAI = () => {
     setIsLoading(true);
 
     try {
-      console.log('Sending message to AI:', userMessage);
-      
       // Prepare messages for API
       const conversationMessages = [...messages, newUserMessage].map(msg => ({
         role: msg.role,
@@ -40,15 +38,12 @@ export const useChatAI = () => {
       });
 
       if (error) {
-        console.error('Edge function error:', error);
         throw new Error(error.message || 'Erro ao chamar a função');
       }
 
       if (!data.success) {
         throw new Error(data.error || 'Erro na resposta da IA');
       }
-
-      console.log('AI response received:', data.message);
 
       // Add assistant message
       const assistantMessage: Message = {
@@ -60,8 +55,6 @@ export const useChatAI = () => {
       setMessages(prev => [...prev, assistantMessage]);
 
     } catch (error) {
-      console.error('Error sending message:', error);
-      
       const errorMessage = error instanceof Error ? error.message : 'Erro ao enviar mensagem';
       
       toast({
