@@ -86,9 +86,14 @@ serve(async (req) => {
 
     if (hasActiveSub) {
       const subscription = subscriptionsData.data[0];
-      subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
       subscriptionId = subscription.id;
-      console.log("[CHECK-SUBSCRIPTION] Assinatura ativa:", subscriptionId);
+      
+      // Validar se current_period_end existe antes de converter
+      if (subscription.current_period_end) {
+        subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+      }
+      
+      console.log("[CHECK-SUBSCRIPTION] Assinatura ativa:", subscriptionId, "Fim:", subscriptionEnd);
 
       await supabaseClient
         .from("profiles")
