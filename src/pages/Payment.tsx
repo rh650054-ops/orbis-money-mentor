@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, CreditCard, Loader2, QrCode } from "lucide-react";
+import { Check, CreditCard, Loader2 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import StripeCheckoutModal from "@/components/StripeCheckoutModal";
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -13,6 +14,9 @@ export default function Payment() {
   const { toast } = useToast();
   const [isDemo, setIsDemo] = useState(false);
   const [checkingDemo, setCheckingDemo] = useState(true);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string>("");
+  const [paymentLink, setPaymentLink] = useState<string>("");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -41,8 +45,8 @@ export default function Payment() {
   const handleStripeCheckout = async () => {
     try {
       toast({
-        title: "Redirecionando para pagamento...",
-        description: "Aguarde enquanto preparamos seu checkout seguro.",
+        title: "Preparando pagamento...",
+        description: "Aguarde enquanto configuramos seu checkout.",
       });
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -53,11 +57,14 @@ export default function Payment() {
 
       if (error) throw error;
 
-      if (data?.url) {
-        window.open(data.url, "_blank");
+      if (data?.clientSecret) {
+        setClientSecret(data.clientSecret);
+        setPaymentLink(data.paymentLink || "");
+        setShowCheckout(true);
+      } else {
+        throw new Error("Client secret não recebido");
       }
     } catch (error) {
-      console.error("Erro ao criar checkout:", error);
       toast({
         title: "Erro ao processar pagamento",
         description: "Não foi possível iniciar o checkout. Tente novamente.",
@@ -196,6 +203,15 @@ export default function Payment() {
             </div>
           </CardContent>
         </Card>
+
+        {showCheckout && clientSecret && (
+          <StripeCheckoutModal
+            isOpen={showCheckout}
+            onClose={() => setShowCheckout(false)}
+            clientSecret={clientSecret}
+            paymentLink={paymentLink}
+          />
+        )}
       </div>
     </div>
   );

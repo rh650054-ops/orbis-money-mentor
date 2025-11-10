@@ -47,7 +47,70 @@ serve(async (req) => {
 
     console.log("[CREATE-CHECKOUT] Cliente:", customerId || "novo");
 
-    // Criar sessão de checkout
+    // Criar ou obter cliente
+    if (!customerId) {
+      const createCustomerResponse = await fetch(
+        "https://api.stripe.com/v1/customers",
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${stripeKey}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            email: user.email,
+            metadata: JSON.stringify({ user_id: user.id }),
+          }).toString(),
+        }
+      );
+
+      const customerData = await createCustomerResponse.json();
+      if (!createCustomerResponse.ok) {
+        throw new Error(customerData.error?.message || "Erro ao criar cliente");
+      }
+      customerId = customerData.id;
+      console.log("[CREATE-CHECKOUT] Cliente criado:", customerId);
+    }
+
+    // Criar subscription com payment behavior
+    const subscriptionParams = new URLSearchParams({
+      customer: customerId,
+      "items[0][price]": "price_1SRiSkIvhIBqpwmQ15t3S6wk",
+      "payment_behavior": "default_incomplete",
+      "payment_settings[payment_method_types][]": "card",
+      "expand[]": "latest_invoice.payment_intent",
+      [`metadata[user_id]`]: user.id,
+    });
+
+    const subscriptionResponse = await fetch(
+      "https://api.stripe.com/v1/subscriptions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${stripeKey}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: subscriptionParams.toString(),
+      }
+    );
+
+    const subscriptionData = await subscriptionResponse.json();
+    
+    if (!subscriptionResponse.ok) {
+      console.error("[CREATE-CHECKOUT] Erro Stripe:", subscriptionData);
+      throw new Error(subscriptionData.error?.message || "Erro ao criar subscription");
+    }
+
+    console.log("[CREATE-CHECKOUT] Subscription criada:", subscriptionData.id);
+
+    // Extrair client_secret do payment_intent
+    const clientSecret = subscriptionData.latest_invoice?.payment_intent?.client_secret;
+    
+    if (!clientSecret) {
+      throw new Error("Client secret não encontrado");
+    }
+
+    // Criar também uma sessão de checkout como fallback
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const sessionParams = new URLSearchParams({
       "success_url": `${origin}/`,
@@ -55,16 +118,9 @@ serve(async (req) => {
       "mode": "subscription",
       "line_items[0][price]": "price_1SRiSkIvhIBqpwmQ15t3S6wk",
       "line_items[0][quantity]": "1",
+      customer: customerId,
       [`metadata[user_id]`]: user.id,
-      "payment_method_types[0]": "card",
-      "payment_method_types[1]": "boleto",
     });
-
-    if (customerId) {
-      sessionParams.append("customer", customerId);
-    } else {
-      sessionParams.append("customer_email", user.email);
-    }
 
     const sessionResponse = await fetch(
       "https://api.stripe.com/v1/checkout/sessions",
@@ -79,15 +135,14 @@ serve(async (req) => {
     );
 
     const sessionData = await sessionResponse.json();
-    
-    if (!sessionResponse.ok) {
-      console.error("[CREATE-CHECKOUT] Erro Stripe:", sessionData);
-      throw new Error(sessionData.error?.message || "Erro ao criar sessão");
-    }
+    const paymentLink = sessionData.url || null;
 
-    console.log("[CREATE-CHECKOUT] Sessão criada:", sessionData.id);
-
-    return new Response(JSON.stringify({ url: sessionData.url }), {
+    return new Response(JSON.stringify({ 
+      clientSecret,
+      paymentLink,
+      customerId,
+      subscriptionId: subscriptionData.id
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
