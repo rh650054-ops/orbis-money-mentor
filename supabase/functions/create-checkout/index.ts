@@ -53,9 +53,11 @@ serve(async (req) => {
       "success_url": `${origin}/`,
       "cancel_url": `${origin}/payment`,
       "mode": "subscription",
-      "line_items[0][price]": "price_1SONeBItCFwr7saGhtz5gdcK",
+      "line_items[0][price]": "price_1SRiSkIvhIBqpwmQ15t3S6wk",
       "line_items[0][quantity]": "1",
       [`metadata[user_id]`]: user.id,
+      "payment_method_types[0]": "card",
+      "payment_method_types[1]": "boleto",
     });
 
     if (customerId) {

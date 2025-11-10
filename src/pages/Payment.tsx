@@ -1,9 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, CreditCard, Loader2 } from "lucide-react";
+import { Check, CreditCard, Loader2, QrCode } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -11,11 +11,31 @@ export default function Payment() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const [isDemo, setIsDemo] = useState(false);
+  const [checkingDemo, setCheckingDemo] = useState(true);
 
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
+      return;
     }
+
+    const checkDemoStatus = async () => {
+      if (!user) return;
+      
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_demo, billing_exempt")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profile?.is_demo && profile?.billing_exempt) {
+        setIsDemo(true);
+      }
+      setCheckingDemo(false);
+    };
+
+    checkDemoStatus();
   }, [user, loading, navigate]);
 
   const handleStripeCheckout = async () => {
@@ -46,10 +66,33 @@ export default function Payment() {
     }
   };
 
-  if (loading || !user) {
+  if (loading || !user || checkingDemo) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (isDemo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-center">Conta Demo</CardTitle>
+            <CardDescription className="text-center">
+              Esta é uma conta de demonstração com acesso ilimitado
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-center text-muted-foreground">
+              Você tem acesso completo a todas as funcionalidades do Orbis sem necessidade de pagamento.
+            </p>
+            <Button onClick={() => navigate("/")} className="w-full">
+              Voltar ao Dashboard
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -116,26 +159,41 @@ export default function Payment() {
             <div className="pt-4 space-y-3">
               <Button
                 onClick={handleStripeCheckout}
-                className="w-full h-12 text-lg"
+                className="w-full h-14 text-lg font-semibold"
                 size="lg"
               >
                 <CreditCard className="w-5 h-5 mr-2" />
-                Pagar com Cartão
+                Pagar com Cartão ou PIX
+              </Button>
+
+              <Button
+                onClick={() => navigate("/benefits")}
+                variant="outline"
+                className="w-full h-12"
+              >
+                Ver todos os benefícios
               </Button>
 
               <Button
                 onClick={() => navigate("/")}
-                variant="outline"
+                variant="ghost"
                 className="w-full"
               >
                 Voltar
               </Button>
             </div>
 
-            <p className="text-xs text-center text-muted-foreground">
-              Pagamento seguro processado via Stripe. 
-              Cancele quando quiser, sem taxas adicionais.
-            </p>
+            <div className="pt-2 space-y-2">
+              <p className="text-xs text-center text-muted-foreground">
+                ✅ Pagamento 100% seguro via Stripe
+              </p>
+              <p className="text-xs text-center text-muted-foreground">
+                💳 Aceita cartão de crédito e PIX
+              </p>
+              <p className="text-xs text-center text-muted-foreground">
+                🔒 Cancele quando quiser, sem multa
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
