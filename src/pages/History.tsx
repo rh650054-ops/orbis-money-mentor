@@ -162,7 +162,10 @@ export default function History() {
       <div className="text-center space-y-2 mb-6">
         <h1 className="text-3xl md:text-4xl font-bold gradient-text">Histórico de Lançamentos</h1>
         <p className="text-muted-foreground">
-          Todos os seus lançamentos registrados • {filteredHistory.length} {filteredHistory.length === 1 ? 'registro' : 'registros'}
+          Todos os seus lançamentos individuais • {filteredHistory.length} {filteredHistory.length === 1 ? 'lançamento' : 'lançamentos'}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          💡 Múltiplos lançamentos do mesmo dia são somados automaticamente no Dashboard
         </p>
       </div>
 

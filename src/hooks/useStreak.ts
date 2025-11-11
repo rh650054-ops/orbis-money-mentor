@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
 
 export const useStreak = (userId: string | undefined) => {
   const [streak, setStreak] = useState(0);
@@ -55,7 +56,7 @@ export const useStreak = (userId: string | undefined) => {
       .from("daily_work_log")
       .select("*")
       .eq("user_id", userId)
-      .gte("date", ninetyDaysAgo.toISOString().split('T')[0])
+      .gte("date", formatBrazilDate(ninetyDaysAgo))
       .order("date", { ascending: false });
 
     if (!logs) {
@@ -81,14 +82,14 @@ export const useStreak = (userId: string | undefined) => {
         .update({
           missed_days_this_week: 0,
           freeze_used_this_week: false,
-          week_start_date: today.toISOString().split('T')[0],
+          week_start_date: getBrazilDate(),
         })
         .eq("user_id", userId);
     }
 
     let currentStreak = 0;
     let checkDate = new Date();
-    const todayStr = checkDate.toISOString().split('T')[0];
+    const todayStr = getBrazilDate();
     let consecutiveMissed = 0;
     let lastWasWorked = false;
 
@@ -100,7 +101,7 @@ export const useStreak = (userId: string | undefined) => {
 
     // Start from today and go backwards
     while (true) {
-      const dateStr = checkDate.toISOString().split('T')[0];
+      const dateStr = formatBrazilDate(checkDate);
       const dayOfWeek = getDayOfWeek(checkDate);
       const log = logs.find(l => l.date === dateStr);
 

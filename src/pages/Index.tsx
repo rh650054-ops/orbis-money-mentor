@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
 import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
+import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import {
   Collapsible,
@@ -114,7 +115,7 @@ export default function Index() {
     }
 
     // Carregar todas as vendas de hoje e agregar
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBrazilDate();
     const {
       data: todayData
     } = await supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today);

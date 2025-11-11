@@ -49,25 +49,42 @@ export default function Payment() {
         description: "Aguarde enquanto configuramos seu checkout.",
       });
 
+      const session = await supabase.auth.getSession();
+      if (!session?.data?.session?.access_token) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          Authorization: `Bearer ${session.data.session.access_token}`,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro na edge function:", error);
+        throw new Error(error.message || "Erro ao conectar com o servidor");
+      }
+
+      if (!data) {
+        throw new Error("Resposta vazia do servidor");
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
       if (data?.clientSecret) {
         setClientSecret(data.clientSecret);
         setPaymentLink(data.paymentLink || "");
         setShowCheckout(true);
       } else {
-        throw new Error("Client secret não recebido");
+        throw new Error("Client secret não recebido do servidor");
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Erro no checkout:", error);
       toast({
         title: "Erro ao processar pagamento",
-        description: "Não foi possível iniciar o checkout. Tente novamente.",
+        description: error?.message || "Não foi possível iniciar o checkout. Tente novamente.",
         variant: "destructive",
       });
     }

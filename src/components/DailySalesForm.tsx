@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
+import { getBrazilDate } from "@/lib/dateUtils";
 
 const salesSchema = z.object({
   totalProfit: z.string().min(1, { message: "Valor vendido é obrigatório" }).refine((val) => {
@@ -81,7 +82,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
   };
 
   const handlePlannedOff = async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBrazilDate();
     
     const { error } = await supabase
       .from("daily_work_log")
@@ -129,7 +130,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       const salesData = {
         user_id: userId,
-        date: new Date().toISOString().split('T')[0],
+        date: getBrazilDate(),
         total_profit: formData.totalProfit ? parseFloat(formData.totalProfit) : 0,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         total_debt: formData.totalDebt ? parseFloat(formData.totalDebt) : 0,
@@ -160,7 +161,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         .from("daily_work_log")
         .upsert({
           user_id: userId,
-          date: new Date().toISOString().split('T')[0],
+          date: getBrazilDate(),
           status: 'worked',
           goal_achieved: goalAchieved,
           sales_amount: profit,
