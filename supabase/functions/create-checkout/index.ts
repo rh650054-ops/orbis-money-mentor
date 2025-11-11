@@ -80,20 +80,38 @@ serve(async (req) => {
 
     console.log("[CREATE-CHECKOUT] Subscription criada:", subscription.id);
 
-    // Extrair client_secret com type safety
+    // Extrair client_secret com fallback robusto
+    let clientSecret: string | null = null;
+
+    // Tentar pegar do expand primeiro
     const latestInvoice = subscription.latest_invoice;
-    if (!latestInvoice || typeof latestInvoice === 'string') {
-      throw new Error("Latest invoice não expandida");
+    if (latestInvoice && typeof latestInvoice !== 'string') {
+      const paymentIntent = latestInvoice.payment_intent;
+      if (paymentIntent && typeof paymentIntent !== 'string') {
+        clientSecret = paymentIntent.client_secret;
+      }
     }
 
-    const paymentIntent = latestInvoice.payment_intent;
-    if (!paymentIntent || typeof paymentIntent === 'string') {
-      throw new Error("Payment intent não expandido");
-    }
-
-    const clientSecret = paymentIntent.client_secret;
+    // Se não conseguiu pelo expand, buscar manualmente
     if (!clientSecret) {
-      throw new Error("Client secret não encontrado no payment intent");
+      console.log("[CREATE-CHECKOUT] Expand falhou, buscando invoice manualmente");
+      const invoiceId = typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id;
+      
+      if (invoiceId) {
+        const invoice = await stripe.invoices.retrieve(invoiceId, {
+          expand: ["payment_intent"],
+        });
+        
+        const pi = invoice.payment_intent;
+        if (pi && typeof pi !== 'string') {
+          clientSecret = pi.client_secret;
+        }
+      }
+    }
+
+    if (!clientSecret) {
+      console.error("[CREATE-CHECKOUT] Não foi possível obter client_secret");
+      throw new Error("Não foi possível inicializar o pagamento. Tente novamente.");
     }
 
     console.log("[CREATE-CHECKOUT] Client secret extraído com sucesso");
