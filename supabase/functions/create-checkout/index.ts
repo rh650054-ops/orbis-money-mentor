@@ -59,7 +59,7 @@ serve(async (req) => {
           },
           body: new URLSearchParams({
             email: user.email,
-            metadata: JSON.stringify({ user_id: user.id }),
+            "metadata[user_id]": user.id,
           }).toString(),
         }
       );
@@ -102,13 +102,39 @@ serve(async (req) => {
     }
 
     console.log("[CREATE-CHECKOUT] Subscription criada:", subscriptionData.id);
+    console.log("[CREATE-CHECKOUT] Latest invoice:", subscriptionData.latest_invoice?.id);
 
     // Extrair client_secret do payment_intent
-    const clientSecret = subscriptionData.latest_invoice?.payment_intent?.client_secret;
+    let clientSecret = subscriptionData.latest_invoice?.payment_intent?.client_secret;
+    
+    // Se não veio no expand, buscar diretamente
+    if (!clientSecret && subscriptionData.latest_invoice?.payment_intent) {
+      const paymentIntentId = typeof subscriptionData.latest_invoice.payment_intent === 'string' 
+        ? subscriptionData.latest_invoice.payment_intent 
+        : subscriptionData.latest_invoice.payment_intent.id;
+      
+      console.log("[CREATE-CHECKOUT] Buscando payment intent:", paymentIntentId);
+      
+      const piResponse = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${paymentIntentId}`,
+        {
+          headers: {
+            "Authorization": `Bearer ${stripeKey}`,
+          },
+        }
+      );
+      
+      const piData = await piResponse.json();
+      clientSecret = piData.client_secret;
+      console.log("[CREATE-CHECKOUT] Client secret obtido:", clientSecret ? "OK" : "FALHOU");
+    }
     
     if (!clientSecret) {
-      throw new Error("Client secret não encontrado");
+      console.error("[CREATE-CHECKOUT] Dados completos da subscription:", JSON.stringify(subscriptionData, null, 2));
+      throw new Error("Client secret não encontrado na subscription");
     }
+    
+    console.log("[CREATE-CHECKOUT] Client secret extraído com sucesso");
 
     // Criar também uma sessão de checkout como fallback
     const origin = req.headers.get("origin") || "http://localhost:3000";
