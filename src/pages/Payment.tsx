@@ -49,16 +49,23 @@ export default function Payment() {
         description: "Aguarde enquanto configuramos seu checkout.",
       });
 
-      const session = await supabase.auth.getSession();
-      if (!session?.data?.session?.access_token) {
-        throw new Error("Sessão expirada. Faça login novamente.");
+      // Forçar refresh do token
+      const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
+      
+      if (sessionError || !sessionData?.session?.access_token) {
+        console.error("Erro ao obter sessão:", sessionError);
+        throw new Error("Sua sessão expirou. Por favor, faça login novamente.");
       }
+
+      console.log("Token obtido, chamando edge function...");
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         headers: {
-          Authorization: `Bearer ${session.data.session.access_token}`,
+          Authorization: `Bearer ${sessionData.session.access_token}`,
         },
       });
+
+      console.log("Resposta da edge function:", { data, error });
 
       if (error) {
         console.error("Erro na edge function:", error);
@@ -70,18 +77,21 @@ export default function Payment() {
       }
 
       if (data.error) {
+        console.error("Erro retornado pelo servidor:", data.error);
         throw new Error(data.error);
       }
 
       if (data?.clientSecret) {
+        console.log("Client secret recebido com sucesso");
         setClientSecret(data.clientSecret);
         setPaymentLink(data.paymentLink || "");
         setShowCheckout(true);
       } else {
+        console.error("Dados recebidos sem client secret:", data);
         throw new Error("Client secret não recebido do servidor");
       }
     } catch (error: any) {
-      console.error("Erro no checkout:", error);
+      console.error("Erro ao criar checkout:", error);
       toast({
         title: "Erro ao processar pagamento",
         description: error?.message || "Não foi possível iniciar o checkout. Tente novamente.",

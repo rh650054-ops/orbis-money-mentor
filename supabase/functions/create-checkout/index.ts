@@ -20,12 +20,26 @@ serve(async (req) => {
     console.log("[CREATE-CHECKOUT] Iniciando");
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Sem autorização");
+    if (!authHeader) {
+      console.error("[CREATE-CHECKOUT] Header Authorization ausente");
+      throw new Error("Sem autorização");
+    }
+
+    console.log("[CREATE-CHECKOUT] Token recebido:", authHeader.substring(0, 20) + "...");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data } = await supabaseClient.auth.getUser(token);
+    const { data, error: authError } = await supabaseClient.auth.getUser(token);
+    
+    if (authError) {
+      console.error("[CREATE-CHECKOUT] Erro na validação do token:", authError);
+      throw new Error(`Falha na autenticação: ${authError.message}`);
+    }
+    
     const user = data.user;
-    if (!user?.email) throw new Error("Usuário não autenticado");
+    if (!user?.email) {
+      console.error("[CREATE-CHECKOUT] Usuário sem email:", JSON.stringify(data));
+      throw new Error("Usuário não autenticado ou email ausente");
+    }
 
     console.log("[CREATE-CHECKOUT] Usuário:", user.email);
 
