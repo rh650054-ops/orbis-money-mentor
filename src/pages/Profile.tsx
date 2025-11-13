@@ -38,7 +38,8 @@ export default function Profile() {
     monthly_goal: 0,
     avatar_url: "",
     is_demo: false,
-    billing_exempt: false
+    billing_exempt: false,
+    plan_status: "trial"
   });
   const [editForm, setEditForm] = useState({
     nickname: "",
@@ -93,7 +94,8 @@ export default function Profile() {
         monthly_goal: data.monthly_goal || 0,
         avatar_url: data.avatar_url || "",
         is_demo: data.is_demo || false,
-        billing_exempt: data.billing_exempt || false
+        billing_exempt: data.billing_exempt || false,
+        plan_status: data.plan_status || "trial"
       });
       setEditForm({
         nickname: data.nickname || "",
@@ -124,7 +126,8 @@ export default function Profile() {
           monthly_goal: newProfile.monthly_goal || 0,
           avatar_url: newProfile.avatar_url || "",
           is_demo: newProfile.is_demo || false,
-          billing_exempt: newProfile.billing_exempt || false
+          billing_exempt: newProfile.billing_exempt || false,
+          plan_status: newProfile.plan_status || "trial"
         });
         setEditForm({
           nickname: newProfile.nickname || "",
@@ -514,62 +517,86 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* Subscription Card */}
-      <Card className="glass card-gradient-border overflow-hidden">
-        <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-primary opacity-20 blur-3xl rounded-full"></div>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow-primary">
-                <Crown className="w-6 h-6" />
-              </div>
-              <div>
-                <CardTitle>Orbis Premium</CardTitle>
-                <CardDescription>Plano Mensal</CardDescription>
-              </div>
-            </div>
-            <Badge className="bg-success/20 text-success">7 Dias Grátis</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <p className="text-muted-foreground">
-              Aproveite todos os recursos premium do Orbis por apenas:
-            </p>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-4xl font-bold gradient-text">R$ 19,90</span>
-              <span className="text-muted-foreground">/mês</span>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="space-y-3">
-            <p className="font-semibold">Recursos incluídos:</p>
-            <div className="grid gap-2">
-              {subscriptionFeatures.map((feature, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-                  <span className="text-sm">{feature}</span>
+      {/* Subscription Card - Apenas para não assinantes */}
+      {profile.plan_status !== 'active' && !profile.billing_exempt && (
+        <Card className="glass card-gradient-border overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-primary opacity-20 blur-3xl rounded-full"></div>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow-primary">
+                  <Crown className="w-6 h-6" />
                 </div>
-              ))}
+                <div>
+                  <CardTitle>Orbis Premium</CardTitle>
+                  <CardDescription>Plano Mensal</CardDescription>
+                </div>
+              </div>
+              <Badge className="bg-success/20 text-success">3 Dias Grátis</Badge>
             </div>
-          </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Aproveite todos os recursos premium do Orbis por apenas:
+              </p>
+              <div className="flex items-baseline space-x-2">
+                <span className="text-4xl font-bold gradient-text">R$ 19,90</span>
+                <span className="text-muted-foreground">/mês</span>
+              </div>
+            </div>
 
-          <Button 
-            onClick={handleUpgrade}
-            disabled={isUpgrading}
-            className="w-full bg-gradient-primary hover:opacity-90 transition-smooth shadow-glow-primary"
-          >
-            <Crown className="w-4 h-4 mr-2" />
-            {isUpgrading ? "Processando..." : "Assinar por R$ 19,90/mês"}
-          </Button>
+            <Separator />
 
-          <p className="text-xs text-center text-muted-foreground">
-            Cancele quando quiser. Sem taxas escondidas.
-          </p>
-        </CardContent>
-      </Card>
+            <div className="space-y-3">
+              <p className="font-semibold">Recursos incluídos:</p>
+              <div className="grid gap-2">
+                {subscriptionFeatures.map((feature, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+                    <span className="text-sm">{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <Button 
+              onClick={handleUpgrade}
+              disabled={isUpgrading}
+              className="w-full bg-gradient-primary hover:opacity-90 transition-smooth shadow-glow-primary"
+            >
+              <Crown className="w-4 h-4 mr-2" />
+              {isUpgrading ? "Processando..." : "Assinar por R$ 19,90/mês"}
+            </Button>
+
+            <p className="text-xs text-center text-muted-foreground">
+              Cancele quando quiser. Sem taxas escondidas.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Status PRO - Para assinantes ativos */}
+      {profile.plan_status === 'active' && !profile.is_demo && (
+        <Card className="glass border-2 border-foreground/80 bg-gradient-to-r from-foreground/5 to-foreground/10">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-foreground flex items-center justify-center shadow-lg">
+                  <Crown className="w-7 h-7 text-background" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">Usuário BLACK</h3>
+                  <p className="text-sm text-muted-foreground">Acesso completo a todos os recursos</p>
+                </div>
+              </div>
+              <Badge className="bg-foreground text-background px-4 py-2 text-sm font-bold shadow-lg">
+                PRO
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Card */}
       <Card className="glass">

@@ -76,30 +76,50 @@ export default function Auth() {
         
         navigate("/", { replace: true });
       } else {
-        // Check for existing CPF, email, or phone using separate queries to prevent SQL injection
+        // Verificar se CPF, email ou telefone já existem
         const { data: existingByCpf } = await supabase
           .from('profiles')
-          .select('user_id')
+          .select('cpf')
           .eq('cpf', cpf)
-          .limit(1);
+          .maybeSingle();
+
+        if (existingByCpf) {
+          toast({
+            variant: "destructive",
+            title: "CPF já cadastrado",
+            description: "Este CPF já possui uma conta no Orbis. Faça login ou use outro CPF.",
+          });
+          setIsLoading(false);
+          return;
+        }
 
         const { data: existingByEmail } = await supabase
           .from('profiles')
-          .select('user_id')
+          .select('email')
           .eq('email', email.trim())
-          .limit(1);
+          .maybeSingle();
+
+        if (existingByEmail) {
+          toast({
+            variant: "destructive",
+            title: "E-mail já cadastrado",
+            description: "Este e-mail já possui uma conta no Orbis. Faça login ou use outro e-mail.",
+          });
+          setIsLoading(false);
+          return;
+        }
 
         const { data: existingByPhone } = await supabase
           .from('profiles')
-          .select('user_id')
+          .select('phone')
           .eq('phone', phone)
-          .limit(1);
+          .maybeSingle();
 
-        if (existingByCpf?.length || existingByEmail?.length || existingByPhone?.length) {
+        if (existingByPhone) {
           toast({
             variant: "destructive",
-            title: "Cadastro não permitido",
-            description: "Este CPF, e-mail ou número já possui uma conta no Orbis.",
+            title: "Telefone já cadastrado",
+            description: "Este telefone já possui uma conta no Orbis. Faça login ou use outro número.",
           });
           setIsLoading(false);
           return;
