@@ -374,10 +374,18 @@ export default function Profile() {
                   <img 
                     src={avatarPreview || profile.avatar_url} 
                     alt="Avatar" 
-                    className="w-16 h-16 rounded-full object-cover shadow-glow-primary border-2 border-primary/20"
+                    className={`w-16 h-16 rounded-full object-cover border-2 ${
+                      profile.plan_status === "active" 
+                        ? "shadow-glow-primary border-purple-500/50 ring-2 ring-purple-500/30" 
+                        : "shadow-glow-primary border-primary/20"
+                    }`}
                   />
                 ) : (
-                  <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center text-2xl font-bold shadow-glow-primary">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold ${
+                    profile.plan_status === "active" 
+                      ? "bg-gradient-to-br from-purple-600 via-primary to-blue-600 shadow-glow-primary ring-2 ring-purple-500/30" 
+                      : "bg-gradient-primary shadow-glow-primary"
+                  }`}>
                     {profile.nickname ? profile.nickname.charAt(0).toUpperCase() : "U"}
                   </div>
                 )}
@@ -394,7 +402,15 @@ export default function Profile() {
                 )}
               </div>
               <div>
-                <CardTitle>{profile.nickname || "Usuário"}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle>{profile.nickname || "Usuário"}</CardTitle>
+                  {profile.plan_status === "active" && (
+                    <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none shadow-glow-primary">
+                      <Crown className="w-3 h-3 mr-1 text-yellow-400" />
+                      BLACK
+                    </Badge>
+                  )}
+                </div>
                 <CardDescription>{profile.email}</CardDescription>
               </div>
             </div>
@@ -519,42 +535,44 @@ export default function Profile() {
 
       {/* Subscription Card - Apenas para não assinantes */}
       {profile.plan_status !== 'active' && !profile.billing_exempt && (
-        <Card className="glass card-gradient-border overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-primary opacity-20 blur-3xl rounded-full"></div>
+        <Card className="glass overflow-hidden relative bg-gradient-to-br from-purple-950/30 via-primary/20 to-blue-950/30 border-purple-500/30 shadow-glow-primary">
+          <div className="absolute top-0 right-0 w-60 h-60 bg-gradient-to-br from-purple-500/20 to-blue-500/20 blur-3xl rounded-full"></div>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shadow-glow-primary">
-                  <Crown className="w-6 h-6" />
+                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-glow-primary">
+                  <Crown className="w-7 h-7 text-yellow-400" />
                 </div>
                 <div>
-                  <CardTitle>Orbis Premium</CardTitle>
-                  <CardDescription>Plano Mensal</CardDescription>
+                  <CardTitle className="text-xl gradient-text">Orbis BLACK</CardTitle>
+                  <CardDescription className="text-muted-foreground/90">Plano Mensal Premium</CardDescription>
                 </div>
               </div>
-              <Badge className="bg-success/20 text-success">3 Dias Grátis</Badge>
+              <Badge className="bg-gradient-to-r from-green-600 to-green-500 text-white border-none font-bold px-3 py-1 shadow-lg">
+                3 Dias Grátis
+              </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-6 relative z-10">
             <div className="space-y-4">
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground/90">
                 Aproveite todos os recursos premium do Orbis por apenas:
               </p>
               <div className="flex items-baseline space-x-2">
-                <span className="text-4xl font-bold gradient-text">R$ 19,90</span>
-                <span className="text-muted-foreground">/mês</span>
+                <span className="text-5xl font-bold gradient-text">R$ 19,90</span>
+                <span className="text-muted-foreground text-lg">/mês</span>
               </div>
             </div>
 
-            <Separator />
+            <Separator className="bg-purple-500/20" />
 
             <div className="space-y-3">
-              <p className="font-semibold">Recursos incluídos:</p>
-              <div className="grid gap-2">
+              <p className="font-semibold text-lg gradient-text">Recursos incluídos:</p>
+              <div className="grid gap-3">
                 {subscriptionFeatures.map((feature, index) => (
-                  <div key={index} className="flex items-center space-x-2">
-                    <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
-                    <span className="text-sm">{feature}</span>
+                  <div key={index} className="flex items-center space-x-3 bg-background/30 p-2 rounded-lg backdrop-blur-sm">
+                    <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0" />
+                    <span className="text-sm text-foreground/90">{feature}</span>
                   </div>
                 ))}
               </div>
@@ -563,14 +581,14 @@ export default function Profile() {
             <Button 
               onClick={handleUpgrade}
               disabled={isUpgrading}
-              className="w-full bg-gradient-primary hover:opacity-90 transition-smooth shadow-glow-primary"
+              className="w-full h-14 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white text-lg font-bold border-none shadow-glow-primary transition-all"
             >
-              <Crown className="w-4 h-4 mr-2" />
-              {isUpgrading ? "Processando..." : "Assinar por R$ 19,90/mês"}
+              <Crown className="w-5 h-5 mr-2 text-yellow-400" />
+              {isUpgrading ? "Processando..." : "Assinar Agora"}
             </Button>
 
-            <p className="text-xs text-center text-muted-foreground">
-              Cancele quando quiser. Sem taxas escondidas.
+            <p className="text-xs text-center text-muted-foreground/80">
+              🔒 Cancele quando quiser. Sem taxas escondidas.
             </p>
           </CardContent>
         </Card>
@@ -578,19 +596,19 @@ export default function Profile() {
 
       {/* Status PRO - Para assinantes ativos */}
       {profile.plan_status === 'active' && !profile.is_demo && (
-        <Card className="glass border-2 border-foreground/80 bg-gradient-to-r from-foreground/5 to-foreground/10">
-          <CardContent className="p-6">
+        <Card className="glass border-2 bg-gradient-to-br from-purple-950/40 via-primary/30 to-blue-950/40 border-purple-500/50 shadow-glow-primary">
+          <CardContent className="p-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 rounded-full bg-foreground flex items-center justify-center shadow-lg">
-                  <Crown className="w-7 h-7 text-background" />
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center shadow-glow-primary">
+                  <Crown className="w-9 h-9 text-yellow-400 drop-shadow-glow" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold">Usuário BLACK</h3>
-                  <p className="text-sm text-muted-foreground">Acesso completo a todos os recursos</p>
+                  <h3 className="text-2xl font-bold gradient-text">Usuário BLACK</h3>
+                  <p className="text-sm text-muted-foreground/90">✨ Acesso completo a todos os recursos premium</p>
                 </div>
               </div>
-              <Badge className="bg-foreground text-background px-4 py-2 text-sm font-bold shadow-lg">
+              <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none px-5 py-2 text-base font-bold shadow-glow-primary">
                 PRO
               </Badge>
             </div>

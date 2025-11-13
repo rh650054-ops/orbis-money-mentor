@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
+import { MotivationalMessage } from "./MotivationalMessage";
 import { getBrazilDate } from "@/lib/dateUtils";
 
 const salesSchema = z.object({
@@ -54,7 +55,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
   const [isLoading, setIsLoading] = useState(false);
   const [baseDailyGoal, setBaseDailyGoal] = useState(200);
   const [showMotivation, setShowMotivation] = useState(false);
+  const [showMessage, setShowMessage] = useState(false);
   const [motivationPercentage, setMotivationPercentage] = useState(0);
+  const [dayProfit, setDayProfit] = useState(0);
   const [formData, setFormData] = useState({
     totalProfit: "",
     cost: "",
@@ -180,7 +183,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         if (error) throw error;
       }
 
-      // Atualizar ofensiva baseado no total do dia
+      // Mostrar mensagem motivacional
+      setDayProfit(totalDayProfit);
+      setShowMessage(true);
+      setTimeout(() => setShowMessage(false), 5000);
+
+      // Atualizar constância baseado no total do dia
       const { data: profile } = await supabase
         .from("profiles")
         .select("streak_days, last_check_in_date")
@@ -189,7 +197,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       let newStreak = profile?.streak_days || 0;
       
-      // Se bateu a meta, avançar ofensiva
+      // Se bateu a meta, avançar constância
       if (totalDayProfit >= baseDailyGoal) {
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
@@ -290,6 +298,10 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         visible={showMotivation}
         onHide={() => setShowMotivation(false)}
       />
+      
+      {showMessage && (
+        <MotivationalMessage totalDayProfit={dayProfit} dailyGoal={baseDailyGoal} />
+      )}
       
       <Card className="card-gradient-border shadow-xl">
         <CardHeader>
