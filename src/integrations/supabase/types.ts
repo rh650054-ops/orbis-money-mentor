@@ -275,8 +275,10 @@ export type Database = {
           plan_type: string | null
           streak_days: number | null
           subscription_id: string | null
+          trial_days_remaining: number | null
           trial_end: string | null
           trial_start: string | null
+          trial_started_at: string | null
           updated_at: string
           user_id: string
           vision_points: number | null
@@ -317,8 +319,10 @@ export type Database = {
           plan_type?: string | null
           streak_days?: number | null
           subscription_id?: string | null
+          trial_days_remaining?: number | null
           trial_end?: string | null
           trial_start?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id: string
           vision_points?: number | null
@@ -359,8 +363,10 @@ export type Database = {
           plan_type?: string | null
           streak_days?: number | null
           subscription_id?: string | null
+          trial_days_remaining?: number | null
           trial_end?: string | null
           trial_start?: string | null
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string
           vision_points?: number | null

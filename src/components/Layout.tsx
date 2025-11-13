@@ -222,9 +222,9 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Mobile Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border/40 backdrop-blur-xl bg-background/95" style={{ position: 'fixed', zIndex: 9999, bottom: 0 }}>
-        <div className="flex items-center justify-around px-2 py-3"  style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      {/* Mobile Navigation - FIXO NO RODAPÉ */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-border/40 backdrop-blur-xl bg-background/95" style={{ position: 'fixed', zIndex: 50, bottom: 0, paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <div className="flex items-center justify-around px-2 py-3">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             const Icon = item.icon;
@@ -233,7 +233,7 @@ export default function Layout({ children }: LayoutProps) {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  "flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-smooth",
+                  "flex flex-col items-center space-y-1 px-3 py-2 rounded-lg transition-smooth touch-manipulation active:scale-95",
                   isActive
                     ? "text-primary"
                     : "text-muted-foreground"

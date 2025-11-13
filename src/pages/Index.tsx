@@ -14,6 +14,7 @@ import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
 import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
+import WeeklyPlanningModal from "@/components/WeeklyPlanningModal";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,6 +45,37 @@ export default function Index() {
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
+  const [showWeeklyPlanning, setShowWeeklyPlanning] = useState(false);
+  
+  // Check if should show weekly planning modal
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkWeeklyPlanning = async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("week_start_date")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!profile?.week_start_date) {
+        // Primeira vez, mostrar modal
+        setShowWeeklyPlanning(true);
+        return;
+      }
+
+      const lastPlanningDate = new Date(profile.week_start_date);
+      const today = new Date();
+      const daysDiff = Math.floor((today.getTime() - lastPlanningDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Mostrar modal se passou 7 dias
+      if (daysDiff >= 7) {
+        setShowWeeklyPlanning(true);
+      }
+    };
+
+    checkWeeklyPlanning();
+  }, [user]);
   
   // Load cached data on mount
   useEffect(() => {
@@ -716,5 +748,13 @@ export default function Index() {
         isOpen={showCardModal} 
         onClose={() => setShowCardModal(false)} 
       />
+      
+      {user && (
+        <WeeklyPlanningModal
+          userId={user.id}
+          isOpen={showWeeklyPlanning}
+          onClose={() => setShowWeeklyPlanning(false)}
+        />
+      )}
     </div>;
 }

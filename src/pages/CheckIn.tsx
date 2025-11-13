@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Sunrise, Target, Clock, Heart } from "lucide-react";
+import { Sunrise, Target, Clock, Heart, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,16 +49,19 @@ export default function CheckIn() {
     }
   };
 
+  const handleSkip = () => {
+    navigate("/");
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !salesGoal || !startTime || !focus || !mood) {
-      toast({
-        title: "Campos obrigatórios",
-        description: "Preencha todos os campos para continuar.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!user) return;
+    
+    // Campos não são mais obrigatórios - usar valores padrão se vazios
+    const goal = salesGoal || "0";
+    const time = startTime || new Date().toTimeString().slice(0, 5);
+    const userFocus = focus || "Minha meta de hoje";
+    const userMood = mood || "motivado";
 
     setIsLoading(true);
 
@@ -98,10 +101,10 @@ export default function CheckIn() {
           last_check_in_date: today,
           streak_days: newStreak,
           vision_points: (profile?.vision_points || 0) + pointsToAdd,
-          daily_sales_goal: parseFloat(salesGoal),
-          check_in_start_time: startTime,
-          check_in_focus: focus,
-          check_in_mood: mood,
+          daily_sales_goal: parseFloat(goal),
+          check_in_start_time: time,
+          check_in_focus: userFocus,
+          check_in_mood: userMood,
         })
         .eq("user_id", user.id);
 
@@ -141,7 +144,16 @@ export default function CheckIn() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-primary/5 to-background">
-      <Card className="w-full max-w-2xl card-gradient-border shadow-glow-primary animate-fade-in">
+      <Card className="w-full max-w-2xl card-gradient-border shadow-glow-primary animate-fade-in relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute top-4 right-4 z-10"
+          onClick={handleSkip}
+          title="Pular check-in"
+        >
+          <X className="h-5 w-5" />
+        </Button>
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mb-4 animate-pulse">
             <Sunrise className="w-8 h-8 text-primary-foreground" />

@@ -140,41 +140,125 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         notes: formData.notes.trim()
       };
 
-      // Insert new record (not upsert) to maintain transaction history
-      const { error } = await supabase
-        .from("daily_sales")
-        .insert(salesData);
+      const today = getBrazilDate();
+      const profit = parseFloat(formData.totalProfit);
 
-      if (error) throw error;
+      // CORRIGIDO: Verificar se já existe registro para hoje e somar valores
+      const { data: existingSale } = await supabase
+        .from("daily_sales")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .maybeSingle();
+
+      let totalDayProfit = profit;
+
+      if (existingSale) {
+        // Atualizar somando aos valores existentes
+        totalDayProfit = (existingSale.total_profit || 0) + profit;
+        const { error } = await supabase
+          .from("daily_sales")
+          .update({
+            total_profit: totalDayProfit,
+            cost: (existingSale.cost || 0) + salesData.cost,
+            total_debt: (existingSale.total_debt || 0) + salesData.total_debt,
+            cash_sales: (existingSale.cash_sales || 0) + salesData.cash_sales,
+            pix_sales: (existingSale.pix_sales || 0) + salesData.pix_sales,
+            card_sales: (existingSale.card_sales || 0) + salesData.card_sales,
+            notes: formData.notes ? `${existingSale.notes || ''}\n${formData.notes}` : existingSale.notes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingSale.id);
+        
+        if (error) throw error;
+      } else {
+        // Inserir novo registro
+        const { error } = await supabase
+          .from("daily_sales")
+          .insert(salesData);
+        
+        if (error) throw error;
+      }
+
+      // Atualizar ofensiva baseado no total do dia
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("streak_days, last_check_in_date")
+        .eq("user_id", userId)
+        .single();
+
+      let newStreak = profile?.streak_days || 0;
+      
+      // Se bateu a meta, avançar ofensiva
+      if (totalDayProfit >= baseDailyGoal) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayDate = new Date(yesterday);
+        yesterdayDate.setHours(0, 0, 0, 0);
+        
+        if (profile?.last_check_in_date) {
+          const lastCheckDate = new Date(profile.last_check_in_date);
+          lastCheckDate.setHours(0, 0, 0, 0);
+          const todayDate = new Date(today);
+          todayDate.setHours(0, 0, 0, 0);
+          
+          const daysDiff = Math.floor((todayDate.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          if (daysDiff === 1) {
+            newStreak = newStreak + 1;
+          } else if (daysDiff > 1) {
+            newStreak = 1;
+          }
+        } else {
+          newStreak = 1;
+        }
+
+        await supabase
+          .from("profiles")
+          .update({ streak_days: newStreak, last_check_in_date: today })
+          .eq("user_id", userId);
+      }
 
       // Calculate percentage and show motivational message
-      const profit = parseFloat(formData.totalProfit);
-      const percentage = (profit / baseDailyGoal) * 100;
+      const percentage = (totalDayProfit / baseDailyGoal) * 100;
       setMotivationPercentage(percentage);
       setShowMotivation(true);
 
       // Log work day with details
-      const goalAchieved = profit >= baseDailyGoal;
-      const percentageAchieved = (profit / baseDailyGoal) * 100;
+      const goalAchieved = totalDayProfit >= baseDailyGoal;
+      const percentageAchieved = percentage;
       
       await supabase
         .from("daily_work_log")
         .upsert({
           user_id: userId,
-          date: getBrazilDate(),
+          date: today,
           status: 'worked',
           goal_achieved: goalAchieved,
-          sales_amount: profit,
+          sales_amount: totalDayProfit,
           daily_goal: baseDailyGoal,
           percentage_achieved: percentageAchieved
         }, {
           onConflict: 'user_id,date'
         });
 
-      toast({
-        title: "✅ Lançamento salvo com sucesso!",
-        description: "Seu lançamento foi registrado no histórico.",
-      });
+      // Mensagem motivacional automática
+      const missing = Math.max(0, baseDailyGoal - totalDayProfit);
+      const missingPercent = ((missing / baseDailyGoal) * 100).toFixed(0);
+      
+      if (totalDayProfit >= baseDailyGoal) {
+        toast({
+          title: "🔥 Visionário! Meta batida!",
+          description: `R$${totalDayProfit.toFixed(2)} hoje! Isso aqui é disciplina de verdade!`,
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: `Você fez R$${totalDayProfit.toFixed(2)} hoje`,
+          description: `Faltou ${missingPercent}% para a meta. Não para. Tua história está sendo escrita.`,
+          duration: 6000,
+        });
+      }
 
       // Clear form after successful save
       setFormData({
