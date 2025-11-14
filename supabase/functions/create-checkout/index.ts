@@ -69,7 +69,7 @@ serve(async (req) => {
     // Criar subscription com expand correto
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
-      items: [{ price: "price_1SRiSkIvhIBqpwmQ15t3S6wk" }],
+      items: [{ price: "price_1STN7LItCFwr7saGu341zn1Q" }],
       payment_behavior: "default_incomplete",
       payment_settings: {
         payment_method_types: ["card"],
