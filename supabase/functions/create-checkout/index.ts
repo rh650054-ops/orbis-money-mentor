@@ -120,7 +120,7 @@ serve(async (req) => {
     const origin = req.headers.get("origin") || "http://localhost:3000";
     const checkoutSession = await stripe.checkout.sessions.create({
       customer: customerId,
-      line_items: [{ price: "price_1SRiSkIvhIBqpwmQ15t3S6wk", quantity: 1 }],
+      line_items: [{ price: "price_1STN7LItCFwr7saGu341zn1Q", quantity: 1 }],
       mode: "subscription",
       success_url: `${origin}/`,
       cancel_url: `${origin}/payment`,
