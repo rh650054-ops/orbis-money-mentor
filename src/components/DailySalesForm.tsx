@@ -183,6 +183,49 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         if (error) throw error;
       }
 
+      // Atualizar blocos de hora se existir plano hoje
+      const currentHour = new Date().getHours();
+      const { data: planData } = await supabase
+        .from("daily_goal_plans")
+        .select("id, work_hours")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .single();
+
+      if (planData) {
+        // Calcular qual bloco estamos (baseado na hora atual)
+        const hourIndex = Math.min(currentHour % planData.work_hours, planData.work_hours - 1);
+        
+        const { data: currentBlock } = await supabase
+          .from("hourly_goal_blocks")
+          .select("*")
+          .eq("plan_id", planData.id)
+          .eq("hour_index", hourIndex)
+          .single();
+
+        if (currentBlock) {
+          const newAchievedAmount = currentBlock.achieved_amount + profit;
+          const totalWithAdjustment = newAchievedAmount + currentBlock.manual_adjustment;
+          const isCompleted = totalWithAdjustment >= currentBlock.target_amount;
+
+          await supabase
+            .from("hourly_goal_blocks")
+            .update({
+              achieved_amount: newAchievedAmount,
+              is_completed: isCompleted,
+            })
+            .eq("id", currentBlock.id);
+
+          if (isCompleted && !currentBlock.is_completed) {
+            toast({
+              title: "🎯 Meta da hora batida!",
+              description: `Bloco ${hourIndex + 1} completado! Continue assim!`,
+              duration: 5000,
+            });
+          }
+        }
+      }
+
       // Mostrar mensagem motivacional
       setDayProfit(totalDayProfit);
       setShowMessage(true);

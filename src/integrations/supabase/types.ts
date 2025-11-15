@@ -65,6 +65,42 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_goal_plans: {
+        Row: {
+          created_at: string
+          daily_goal: number
+          date: string
+          hourly_goal: number
+          id: string
+          mood: string
+          updated_at: string
+          user_id: string
+          work_hours: number
+        }
+        Insert: {
+          created_at?: string
+          daily_goal: number
+          date?: string
+          hourly_goal: number
+          id?: string
+          mood: string
+          updated_at?: string
+          user_id: string
+          work_hours: number
+        }
+        Update: {
+          created_at?: string
+          daily_goal?: number
+          date?: string
+          hourly_goal?: number
+          id?: string
+          mood?: string
+          updated_at?: string
+          user_id?: string
+          work_hours?: number
+        }
+        Relationships: []
+      }
       daily_sales: {
         Row: {
           card_sales: number | null
@@ -196,6 +232,56 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      hourly_goal_blocks: {
+        Row: {
+          achieved_amount: number
+          created_at: string
+          hour_index: number
+          hour_label: string
+          id: string
+          is_completed: boolean
+          manual_adjustment: number | null
+          plan_id: string
+          target_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          achieved_amount?: number
+          created_at?: string
+          hour_index: number
+          hour_label: string
+          id?: string
+          is_completed?: boolean
+          manual_adjustment?: number | null
+          plan_id: string
+          target_amount: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          achieved_amount?: number
+          created_at?: string
+          hour_index?: number
+          hour_label?: string
+          id?: string
+          is_completed?: boolean
+          manual_adjustment?: number | null
+          plan_id?: string
+          target_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hourly_goal_blocks_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "daily_goal_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       personal_expenses: {
         Row: {
