@@ -15,8 +15,8 @@ import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
 import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
-import { DailyGoalModal } from "@/components/DailyGoalModal";
 import WeeklyPlanningModal from "@/components/WeeklyPlanningModal";
+import { DayStartPopup } from "@/components/DayStartPopup";
 import {
   Collapsible,
   CollapsibleContent,
@@ -26,7 +26,6 @@ export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { hasPlanToday, loading: planLoading } = useDailyGoalPlan(user?.id);
-  const [showGoalModal, setShowGoalModal] = useState(false);
   const { toast } = useToast();
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
@@ -50,6 +49,28 @@ export default function Index() {
   const [activeDaysCount, setActiveDaysCount] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
   const [showWeeklyPlanning, setShowWeeklyPlanning] = useState(false);
+  const [isRestDay, setIsRestDay] = useState(false);
+  
+  // Check if today is a rest day
+  useEffect(() => {
+    if (!user) return;
+    
+    const checkRestDay = async () => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("working_days")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profile?.working_days) {
+        const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
+        const isRest = !profile.working_days.includes(dayOfWeek);
+        setIsRestDay(isRest);
+      }
+    };
+
+    checkRestDay();
+  }, [user]);
   
   // Check if should show weekly planning modal
   useEffect(() => {
@@ -102,15 +123,10 @@ export default function Index() {
       return;
     }
     
-    // Mostrar modal de meta diária se ainda não criou hoje
-    if (user && !planLoading && !hasPlanToday) {
-      setShowGoalModal(true);
-    }
-    
     if (user) {
       loadDashboardData();
     }
-  }, [user, loading, navigate, planLoading, hasPlanToday]);
+  }, [user, loading, navigate]);
 
   // Check if should show card registration modal (only on first access for non-subscribers)
   useEffect(() => {
@@ -416,6 +432,13 @@ export default function Index() {
           Controle total das suas finanças com insights inteligentes e metas personalizadas
         </p>
       </div>
+
+      {/* Mensagem de Descanso */}
+      {isRestDay && (
+        <div className="p-4 bg-primary/10 rounded-lg text-center border border-primary/20">
+          <p className="text-sm text-muted-foreground">🌴 Hoje é seu dia de descanso.</p>
+        </div>
+      )}
 
       {/* Planejamento Semanal */}
       <WeeklyPlanning userId={user.id} />
@@ -764,6 +787,14 @@ export default function Index() {
           userId={user.id}
           isOpen={showWeeklyPlanning}
           onClose={() => setShowWeeklyPlanning(false)}
+        />
+      )}
+
+      {user && !isRestDay && (
+        <DayStartPopup
+          userId={user.id}
+          onStart={() => {}}
+          onEditPlanning={() => setShowWeeklyPlanning(true)}
         />
       )}
     </div>;
