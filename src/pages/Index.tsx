@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
+import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
@@ -14,6 +15,7 @@ import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
 import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
+import { DailyGoalModal } from "@/components/DailyGoalModal";
 import WeeklyPlanningModal from "@/components/WeeklyPlanningModal";
 import {
   Collapsible,
@@ -23,6 +25,8 @@ import {
 export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { hasPlanToday, loading: planLoading } = useDailyGoalPlan(user?.id);
+  const [showGoalModal, setShowGoalModal] = useState(false);
   const { toast } = useToast();
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
@@ -97,10 +101,16 @@ export default function Index() {
       navigate("/auth");
       return;
     }
+    
+    // Mostrar modal de meta diária se ainda não criou hoje
+    if (user && !planLoading && !hasPlanToday) {
+      setShowGoalModal(true);
+    }
+    
     if (user) {
       loadDashboardData();
     }
-  }, [user, loading, navigate]);
+  }, [user, loading, navigate, planLoading, hasPlanToday]);
 
   // Check if should show card registration modal (only on first access for non-subscribers)
   useEffect(() => {
