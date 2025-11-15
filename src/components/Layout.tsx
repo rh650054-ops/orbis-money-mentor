@@ -26,7 +26,7 @@ interface LayoutProps {
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Nova Venda", href: "/transactions", icon: TrendingUp },
-  { name: "Metas do Dia", href: "/daily-goals", icon: CheckSquare },
+  { name: "Ritmo", href: "/daily-goals", icon: CheckSquare },
   { name: "Histórico", href: "/history", icon: Target },
   { name: "Rotina", href: "/routine", icon: Clock },
   { name: "Finanças", href: "/finances", icon: Wallet },
