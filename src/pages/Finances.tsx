@@ -116,6 +116,9 @@ export default function Finances() {
     icon: "🎯"
   });
 
+  // Deposit state for goals
+  const [depositInputs, setDepositInputs] = useState<{ [key: string]: string }>({});
+
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -297,7 +300,8 @@ export default function Finances() {
           target_amount: parseFloat(newGoal.target_amount),
           current_amount: 0,
           deadline: newGoal.deadline || null,
-          icon: newGoal.icon
+          icon: newGoal.icon,
+          status: "active"
         });
 
       if (error) throw error;
@@ -314,6 +318,57 @@ export default function Finances() {
       console.error("Error adding goal:", error);
       toast({
         title: "Erro ao criar meta",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleAddDeposit = async (goalId: string) => {
+    const amount = depositInputs[goalId];
+    if (!amount || parseFloat(amount) <= 0) {
+      toast({
+        title: "Valor inválido",
+        description: "Digite um valor maior que zero",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+
+    try {
+      const newAmount = goal.current_amount + parseFloat(amount);
+      const newStatus = newAmount >= goal.target_amount ? "completed" : "active";
+
+      const { error } = await supabase
+        .from("financial_goals")
+        .update({
+          current_amount: newAmount,
+          status: newStatus
+        })
+        .eq("id", goalId);
+
+      if (error) throw error;
+
+      if (newStatus === "completed") {
+        toast({
+          title: "🎉 Meta alcançada!",
+          description: `Parabéns! Você completou a meta ${goal.name}!`,
+        });
+      } else {
+        toast({
+          title: "Depósito realizado!",
+          description: `R$ ${parseFloat(amount).toFixed(2)} adicionado à meta`,
+        });
+      }
+
+      setDepositInputs(prev => ({ ...prev, [goalId]: "" }));
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error adding deposit:", error);
+      toast({
+        title: "Erro ao adicionar depósito",
         variant: "destructive"
       });
     }
@@ -589,7 +644,7 @@ export default function Finances() {
             <h2 className="text-xl font-semibold">Despesas Pessoais</h2>
             <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
               <DialogTrigger asChild>
-                <Button>
+                <Button className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Nova Despesa
                 </Button>
@@ -732,15 +787,15 @@ export default function Finances() {
 
         {/* Goals Tab */}
         <TabsContent value="goals" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Objetivos Financeiros</h2>
-            <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova Meta
-                </Button>
-              </DialogTrigger>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h2 className="text-xl font-semibold">Objetivos Financeiros</h2>
+              <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
+                <DialogTrigger asChild>
+                  <Button className="w-full sm:w-auto">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nova Meta
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Criar Objetivo Financeiro</DialogTitle>
@@ -804,8 +859,8 @@ export default function Finances() {
 
                 return (
                   <Card key={goal.id} className="card-gradient-border">
-                    <CardContent className="pt-6">
-                      <div className="flex items-start justify-between mb-4">
+                    <CardContent className="pt-6 space-y-4">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="flex items-center gap-3">
                           <div className="text-3xl">{goal.icon}</div>
                           <div>
@@ -818,7 +873,7 @@ export default function Finances() {
                             )}
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left sm:text-right w-full sm:w-auto">
                           <p className="text-sm text-muted-foreground">Meta</p>
                           <p className="text-lg font-bold text-primary whitespace-nowrap">
                             {formatCurrency(goal.target_amount)}
@@ -828,17 +883,48 @@ export default function Finances() {
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                           <span className="text-muted-foreground whitespace-nowrap">
-                            {formatCurrency(goal.current_amount)} economizado
+                            {formatCurrency(goal.current_amount)} depositado
                           </span>
                           <span className="font-semibold text-primary">
                             {progress.toFixed(0)}%
                           </span>
                         </div>
                         <Progress value={progress} className="h-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Faltam {formatCurrency(remaining)} para atingir sua meta 🔥
-                        </p>
+                        {remaining > 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            Faltam {formatCurrency(remaining)} para atingir sua meta 🔥
+                          </p>
+                        )}
                       </div>
+                      
+                      {/* Sistema de Depósito Diário */}
+                      {goal.status === "active" && (
+                        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            placeholder="Quanto quer depositar hoje?"
+                            value={depositInputs[goal.id] || ""}
+                            onChange={(e) => setDepositInputs(prev => ({ ...prev, [goal.id]: e.target.value }))}
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={() => handleAddDeposit(goal.id)}
+                            disabled={!depositInputs[goal.id] || parseFloat(depositInputs[goal.id]) <= 0}
+                            className="w-full sm:w-auto"
+                          >
+                            Adicionar
+                          </Button>
+                        </div>
+                      )}
+                      
+                      {goal.status === "completed" && (
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
+                          <p className="text-green-600 dark:text-green-400 font-semibold">
+                            🎉 Meta Concluída!
+                          </p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );

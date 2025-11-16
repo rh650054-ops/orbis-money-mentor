@@ -4,13 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
 import { MotivationalMessage } from "./MotivationalMessage";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const salesSchema = z.object({
   totalProfit: z.string().min(1, { message: "Valor vendido é obrigatório" }).refine((val) => {
@@ -67,6 +72,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     cardSales: "",
     notes: ""
   });
+  const [dateOption, setDateOption] = useState<"today" | "yesterday" | "custom">("today");
+  const [customDate, setCustomDate] = useState<Date>();
 
   useEffect(() => {
     loadDailyGoal();
@@ -370,6 +377,48 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Campo de Data da Venda */}
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Data da Venda</Label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={dateOption} onValueChange={(value: any) => setDateOption(value)}>
+                <SelectTrigger className="w-full sm:w-[200px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Hoje</SelectItem>
+                  <SelectItem value="yesterday">Ontem</SelectItem>
+                  <SelectItem value="custom">Outra data</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              {dateOption === "custom" && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full sm:flex-1 justify-start text-left font-normal",
+                        !customDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {customDate ? format(customDate, "dd/MM/yyyy") : "Selecionar data"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={customDate}
+                      onSelect={setCustomDate}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label className="flex items-center gap-2">

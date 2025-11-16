@@ -6,7 +6,7 @@ import { getBrazilDate } from "@/lib/dateUtils";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, TrendingUp, Clock } from "lucide-react";
+import { CheckCircle2, XCircle, TrendingUp, Clock, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -35,7 +35,8 @@ export default function DailyGoals() {
   const { toast } = useToast();
   const [plan, setPlan] = useState<DailyPlan | null>(null);
   const [blocks, setBlocks] = useState<HourlyBlock[]>([]);
-  const [adjustments, setAdjustments] = useState<{ [key: string]: string }>({});
+  const [salesInputs, setSalesInputs] = useState<{ [key: string]: string }>({});
+  const [isCreatingPlan, setIsCreatingPlan] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -43,15 +44,16 @@ export default function DailyGoals() {
       return;
     }
     if (user) {
-      loadDailyPlan();
+      loadOrCreateDailyPlan();
     }
   }, [user, loading, navigate]);
 
-  const loadDailyPlan = async () => {
+  const loadOrCreateDailyPlan = async () => {
     if (!user) return;
 
     const today = getBrazilDate();
 
+    // Verificar se já existe plano para hoje
     const { data: planData } = await supabase
       .from("daily_goal_plans")
       .select("*")
@@ -61,16 +63,101 @@ export default function DailyGoals() {
 
     if (planData) {
       setPlan(planData);
+      loadBlocks(planData.id);
+    } else {
+      // Criar automaticamente baseado no planejamento
+      await createAutomaticPlan();
+    }
+  };
 
-      const { data: blocksData } = await supabase
-        .from("hourly_goal_blocks")
-        .select("*")
-        .eq("plan_id", planData.id)
-        .order("hour_index");
+  const createAutomaticPlan = async () => {
+    if (!user || isCreatingPlan) return;
+    
+    setIsCreatingPlan(true);
+    
+    try {
+      const today = getBrazilDate();
 
-      if (blocksData) {
-        setBlocks(blocksData);
+      // Buscar dados do planejamento
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("base_daily_goal, goal_hours")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!profile) {
+        toast({
+          title: "Configure seu planejamento",
+          description: "Vá até a aba Planejamento para começar.",
+          variant: "destructive",
+        });
+        navigate("/");
+        return;
       }
+
+      const dailyGoal = profile.base_daily_goal || 200;
+      const workHours = profile.goal_hours || 8;
+      const hourlyGoal = dailyGoal / workHours;
+
+      // Criar plano
+      const { data: newPlan, error: planError } = await supabase
+        .from("daily_goal_plans")
+        .insert({
+          user_id: user.id,
+          date: today,
+          daily_goal: dailyGoal,
+          work_hours: workHours,
+          mood: "normal",
+          hourly_goal: hourlyGoal,
+        })
+        .select()
+        .single();
+
+      if (planError) throw planError;
+
+      // Criar blocos
+      const blocks = Array.from({ length: workHours }, (_, i) => ({
+        plan_id: newPlan.id,
+        user_id: user.id,
+        hour_index: i,
+        hour_label: `Hora ${i + 1}`,
+        target_amount: hourlyGoal,
+      }));
+
+      const { error: blocksError } = await supabase
+        .from("hourly_goal_blocks")
+        .insert(blocks);
+
+      if (blocksError) throw blocksError;
+
+      setPlan(newPlan);
+      loadBlocks(newPlan.id);
+      
+      toast({
+        title: "Meta do dia criada!",
+        description: `${workHours} blocos de R$ ${hourlyGoal.toFixed(2)} cada.`,
+      });
+    } catch (error: any) {
+      console.error("Erro ao criar plano:", error);
+      toast({
+        title: "Erro",
+        description: "Não foi possível criar o plano do dia.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPlan(false);
+    }
+  };
+
+  const loadBlocks = async (planId: string) => {
+    const { data: blocksData } = await supabase
+      .from("hourly_goal_blocks")
+      .select("*")
+      .eq("plan_id", planId)
+      .order("hour_index");
+
+    if (blocksData) {
+      setBlocks(blocksData);
     }
   };
 
@@ -102,22 +189,40 @@ export default function DailyGoals() {
     };
   }, [plan]);
 
-  const handleAdjustment = async (blockId: string) => {
-    const value = parseFloat(adjustments[blockId] || "0");
-    if (value === 0) return;
+  const handleAddSale = async (blockId: string, hourIndex: number) => {
+    const value = parseFloat(salesInputs[blockId] || "0");
+    if (value <= 0) {
+      toast({
+        title: "Valor inválido",
+        description: "Digite um valor maior que zero.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const block = blocks.find((b) => b.id === blockId);
+    if (!block) return;
+
+    const newAchieved = block.achieved_amount + value;
+    const isCompleted = newAchieved >= block.target_amount;
 
     const { error } = await supabase
       .from("hourly_goal_blocks")
-      .update({ manual_adjustment: value })
+      .update({
+        achieved_amount: newAchieved,
+        is_completed: isCompleted,
+      })
       .eq("id", blockId);
 
     if (!error) {
-      toast({
-        title: "Ajuste aplicado",
-        description: `Valor ajustado em R$ ${value.toFixed(2)}`,
-      });
-      setAdjustments((prev) => ({ ...prev, [blockId]: "" }));
-      loadDailyPlan();
+      if (isCompleted && !block.is_completed) {
+        toast({
+          title: "🎯 Meta da hora batida!",
+          description: `Hora ${hourIndex + 1} concluída com sucesso!`,
+        });
+      }
+      setSalesInputs((prev) => ({ ...prev, [blockId]: "" }));
+      loadOrCreateDailyPlan();
     }
   };
 
@@ -130,23 +235,23 @@ export default function DailyGoals() {
       <div className="flex items-center justify-center min-h-[60vh] p-8">
         <Card className="p-8 text-center max-w-md">
           <TrendingUp className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-          <h2 className="text-2xl font-bold mb-2">Sem meta hoje</h2>
+          <h2 className="text-2xl font-bold mb-2">Carregando meta do dia...</h2>
           <p className="text-muted-foreground">
-            Você ainda não definiu sua meta para hoje. Volte à tela inicial para começar!
+            Estamos configurando seus blocos de hora automaticamente.
           </p>
         </Card>
       </div>
     );
   }
 
-  const totalAchieved = blocks.reduce((sum, b) => sum + b.achieved_amount + b.manual_adjustment, 0);
+  const totalAchieved = blocks.reduce((sum, b) => sum + b.achieved_amount + (b.manual_adjustment || 0), 0);
   const progressPercentage = (totalAchieved / plan.daily_goal) * 100;
   const completedBlocks = blocks.filter((b) => b.is_completed).length;
 
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Metas do Dia</h1>
+        <h1 className="text-3xl font-bold gradient-text">Ritmo</h1>
         <p className="text-muted-foreground mt-1">
           Acompanhe seu progresso hora a hora
         </p>
@@ -181,8 +286,9 @@ export default function DailyGoals() {
       {/* Lista de blocos */}
       <div className="space-y-3">
         {blocks.map((block) => {
-          const total = block.achieved_amount + block.manual_adjustment;
+          const total = block.achieved_amount + (block.manual_adjustment || 0);
           const blockProgress = (total / block.target_amount) * 100;
+          const remaining = block.target_amount - total;
 
           return (
             <Card key={block.id} className="p-4">
@@ -208,24 +314,31 @@ export default function DailyGoals() {
 
                   <Progress value={Math.min(blockProgress, 100)} className="h-2" />
 
-                  {/* Ajuste manual */}
+                  {!block.is_completed && remaining > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <AlertCircle className="w-4 h-4" />
+                      <span>Ainda faltam R$ {remaining.toFixed(2)} para bater a meta da hora.</span>
+                    </div>
+                  )}
+
+                  {/* Campo para adicionar venda */}
                   <div className="flex gap-2">
                     <Input
                       type="number"
-                      placeholder="Ajuste manual"
-                      value={adjustments[block.id] || ""}
+                      placeholder="Quanto vendeu nesta hora?"
+                      value={salesInputs[block.id] || ""}
                       onChange={(e) =>
-                        setAdjustments((prev) => ({ ...prev, [block.id]: e.target.value }))
+                        setSalesInputs((prev) => ({ ...prev, [block.id]: e.target.value }))
                       }
                       step="0.01"
                       className="flex-1"
                     />
                     <Button
                       size="sm"
-                      onClick={() => handleAdjustment(block.id)}
-                      disabled={!adjustments[block.id]}
+                      onClick={() => handleAddSale(block.id, block.hour_index)}
+                      disabled={!salesInputs[block.id] || parseFloat(salesInputs[block.id]) <= 0}
                     >
-                      Ajustar
+                      Adicionar
                     </Button>
                   </div>
                 </div>
