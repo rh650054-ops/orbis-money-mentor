@@ -3,10 +3,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Target, Check } from "lucide-react";
+import { Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 
 interface WeeklyPlanningModalProps {
   userId: string;
@@ -14,48 +13,64 @@ interface WeeklyPlanningModalProps {
   onClose: () => void;
 }
 
-const DAYS_OF_WEEK = [
-  { key: 'monday', label: 'Seg' },
-  { key: 'tuesday', label: 'Ter' },
-  { key: 'wednesday', label: 'Qua' },
-  { key: 'thursday', label: 'Qui' },
-  { key: 'friday', label: 'Sex' },
-  { key: 'saturday', label: 'Sáb' },
-  { key: 'sunday', label: 'Dom' },
-];
-
 export default function WeeklyPlanningModal({ userId, isOpen, onClose }: WeeklyPlanningModalProps) {
   const { toast } = useToast();
-  const [workingDays, setWorkingDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
-  const [baseDailyGoal, setBaseDailyGoal] = useState(200);
-  const [weeklyGoal, setWeeklyGoal] = useState(1000);
+  const [workDaysPerWeek, setWorkDaysPerWeek] = useState(5);
+  const [hoursPerDay, setHoursPerDay] = useState(8);
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
 
-  const toggleDay = (day: string) => {
-    setWorkingDays(prev => 
-      prev.includes(day) 
-        ? prev.filter(d => d !== day)
-        : [...prev, day]
-    );
+  useEffect(() => {
+    loadPlanning();
+  }, [userId]);
+
+  const loadPlanning = async () => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("weekly_work_days, goal_hours, monthly_goal")
+      .eq("user_id", userId)
+      .single();
+
+    if (data) {
+      setWorkDaysPerWeek(data.weekly_work_days || 5);
+      setHoursPerDay(data.goal_hours || 8);
+      setMonthlyGoal(data.monthly_goal || 4200);
+    }
+  };
+
+  const calculateDailyGoal = () => {
+    const workDaysInMonth = workDaysPerWeek * 4;
+    return monthlyGoal / workDaysInMonth;
+  };
+
+  const calculateWeeklyGoal = () => {
+    return calculateDailyGoal() * workDaysPerWeek;
+  };
+
+  const calculateHourlyGoal = () => {
+    return calculateDailyGoal() / hoursPerDay;
   };
 
   const handleSave = async () => {
-    if (workingDays.length === 0) {
+    if (workDaysPerWeek <= 0 || hoursPerDay <= 0 || monthlyGoal <= 0) {
       toast({
         title: "Erro",
-        description: "Selecione pelo menos um dia de trabalho.",
+        description: "Preencha todos os campos corretamente.",
         variant: "destructive",
       });
       return;
     }
 
+    const dailyGoal = calculateDailyGoal();
+    const weeklyGoal = calculateWeeklyGoal();
+
     const { error } = await supabase
       .from("profiles")
       .update({
-        working_days: workingDays,
-        base_daily_goal: baseDailyGoal,
-        weekly_goal: weeklyGoal,
+        weekly_work_days: workDaysPerWeek,
+        goal_hours: hoursPerDay,
         monthly_goal: monthlyGoal,
+        base_daily_goal: dailyGoal,
+        weekly_goal: weeklyGoal,
         week_start_date: new Date().toISOString().split('T')[0],
       })
       .eq("user_id", userId);
@@ -82,67 +97,64 @@ export default function WeeklyPlanningModal({ userId, isOpen, onClose }: WeeklyP
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Planejamento Semanal
+            <Target className="h-5 w-5 text-primary" />
+            Planejamento Mensal
           </DialogTitle>
           <DialogDescription>
-            Configure seus dias de trabalho e metas para a semana
+            Configure sua rotina de trabalho e meta mensal
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* Dias de trabalho */}
-          <div className="space-y-3">
-            <Label>Dias que você vai trabalhar</Label>
-            <div className="flex flex-wrap gap-2">
-              {DAYS_OF_WEEK.map((day) => (
-                <Badge
-                  key={day.key}
-                  variant={workingDays.includes(day.key) ? "default" : "outline"}
-                  className="cursor-pointer px-4 py-2"
-                  onClick={() => toggleDay(day.key)}
-                >
-                  {workingDays.includes(day.key) && <Check className="h-3 w-3 mr-1" />}
-                  {day.label}
-                </Badge>
-              ))}
-            </div>
-          </div>
-
-          {/* Meta diária */}
-          <div className="space-y-2">
-            <Label htmlFor="dailyGoal">Meta Diária (R$)</Label>
-            <Input
-              id="dailyGoal"
-              type="number"
-              value={baseDailyGoal}
-              onChange={(e) => setBaseDailyGoal(parseFloat(e.target.value) || 0)}
-              placeholder="200"
-            />
-          </div>
-
-          {/* Meta semanal */}
-          <div className="space-y-2">
-            <Label htmlFor="weeklyGoal">Meta Semanal (R$)</Label>
-            <Input
-              id="weeklyGoal"
-              type="number"
-              value={weeklyGoal}
-              onChange={(e) => setWeeklyGoal(parseFloat(e.target.value) || 0)}
-              placeholder="1000"
-            />
-          </div>
-
-          {/* Meta mensal */}
+          {/* Meta Mensal */}
           <div className="space-y-2">
             <Label htmlFor="monthlyGoal">Meta Mensal (R$)</Label>
             <Input
               id="monthlyGoal"
               type="number"
               value={monthlyGoal}
-              onChange={(e) => setMonthlyGoal(parseFloat(e.target.value) || 0)}
-              placeholder="4200"
+              onChange={(e) => setMonthlyGoal(Number(e.target.value))}
+              min={1}
+              placeholder="Ex: 4200"
             />
+          </div>
+
+          {/* Dias por semana */}
+          <div className="space-y-2">
+            <Label htmlFor="workDays">Quantos dias vai trabalhar na semana?</Label>
+            <Input
+              id="workDays"
+              type="number"
+              value={workDaysPerWeek}
+              onChange={(e) => setWorkDaysPerWeek(Number(e.target.value))}
+              min={1}
+              max={7}
+              placeholder="Ex: 5"
+            />
+          </div>
+
+          {/* Horas por dia */}
+          <div className="space-y-2">
+            <Label htmlFor="hoursPerDay">Quantas horas pretende trabalhar por dia?</Label>
+            <Input
+              id="hoursPerDay"
+              type="number"
+              value={hoursPerDay}
+              onChange={(e) => setHoursPerDay(Number(e.target.value))}
+              min={1}
+              max={24}
+              placeholder="Ex: 8"
+            />
+          </div>
+
+          {/* Resumo Calculado */}
+          <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+            <p className="text-sm font-medium">Metas Calculadas:</p>
+            <div className="space-y-1 text-sm">
+              <p>Meta Diária: <span className="font-bold">R$ {calculateDailyGoal().toFixed(2)}</span></p>
+              <p>Meta Semanal: <span className="font-bold">R$ {calculateWeeklyGoal().toFixed(2)}</span></p>
+              <p>Meta por Hora: <span className="font-bold">R$ {calculateHourlyGoal().toFixed(2)}</span></p>
+            </div>
           </div>
         </div>
 
