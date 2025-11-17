@@ -374,6 +374,22 @@ export default function Finances() {
     }
   };
 
+  const handleDeleteGoal = async (goalId: string) => {
+    if (!user) return;
+    const goal = goals.find(g => g.id === goalId);
+    if (!goal) return;
+    if (!confirm(`Tem certeza que deseja excluir a meta "${goal.name}"?`)) return;
+    try {
+      const { error } = await supabase.from("financial_goals").delete().eq("id", goalId);
+      if (error) throw error;
+      toast({ title: "Meta excluída", description: `A meta "${goal.name}" foi removida com sucesso.` });
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error deleting goal:", error);
+      toast({ title: "Erro ao excluir meta", description: "Não foi possível excluir a meta.", variant: "destructive" });
+    }
+  };
+
   const handleUpdateBudget = async () => {
     if (!user || !budgetInput) return;
 
@@ -908,13 +924,23 @@ export default function Finances() {
                             onChange={(e) => setDepositInputs(prev => ({ ...prev, [goal.id]: e.target.value }))}
                             className="flex-1"
                           />
-                          <Button
-                            onClick={() => handleAddDeposit(goal.id)}
-                            disabled={!depositInputs[goal.id] || parseFloat(depositInputs[goal.id]) <= 0}
-                            className="w-full sm:w-auto"
-                          >
-                            Adicionar
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              onClick={() => handleAddDeposit(goal.id)}
+                              disabled={!depositInputs[goal.id] || parseFloat(depositInputs[goal.id]) <= 0}
+                              className="flex-1 sm:flex-none"
+                            >
+                              Adicionar
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="icon"
+                              onClick={() => handleDeleteGoal(goal.id)}
+                              className="flex-shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       )}
                       
