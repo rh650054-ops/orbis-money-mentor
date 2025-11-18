@@ -125,92 +125,121 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   if (!planning) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-lg animate-fade-in card-gradient-border bg-card">
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        const today = getBrazilDate();
+        localStorage.setItem(`popup_shown_${userId}_${today}`, "true");
+      }
+      setIsOpen(open);
+    }}>
+      <DialogContent className="sm:max-w-2xl animate-scale-in backdrop-blur-xl bg-black/90 border border-white/10 shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between text-3xl font-bold">
-            <span className="gradient-text">Seu Dia Hoje</span>
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                const today = getBrazilDate();
-                localStorage.setItem(`popup_shown_${userId}_${today}`, "true");
-              }}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ❌
-            </button>
+          <DialogTitle className="text-4xl font-bold text-center mb-6">
+            <span className="bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
+              Seu Dia Hoje
+            </span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Meta Diária */}
-          <div className="bg-gradient-primary rounded-lg p-6 text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-black/20"></div>
-            <div className="relative z-10">
-              <p className="text-sm text-white/80 mb-1 font-medium">Meta Diária</p>
-              <p className="text-4xl font-bold text-white">
+        <div className="space-y-4 py-2">
+          {/* Meta Diária - Destaque Principal */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-600/20 p-6 backdrop-blur-sm border border-white/10">
+            <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-purple-600/10"></div>
+            <div className="relative z-10 text-center">
+              <p className="text-sm text-white/70 mb-2 font-medium uppercase tracking-wide">Meta de Hoje</p>
+              <p className="text-5xl font-bold text-white mb-1">
                 R$ {planning.dailyGoal.toFixed(2)}
               </p>
+              <p className="text-xs text-white/50">Meta por hora: R$ {planning.hourlyGoal.toFixed(2)}</p>
             </div>
           </div>
 
-          {/* Grid de informações */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2 bg-muted/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Clock className="w-5 h-5 text-primary" />
-                <span className="text-sm font-medium">Meta por Hora</span>
+          {/* Grid de Informações */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Horas de Trabalho */}
+            <div className="rounded-xl bg-white/5 backdrop-blur-sm p-4 border border-white/10 hover:bg-white/10 transition-all">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Horas</p>
+                  <p className="text-2xl font-bold text-white">{planning.workHours}h</p>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-foreground">
-                R$ {planning.hourlyGoal.toFixed(2)}
-              </p>
             </div>
 
-            <div className="space-y-2 bg-muted/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <TrendingUp className="w-5 h-5 text-secondary" />
-                <span className="text-sm font-medium">Horas de Trabalho</span>
+            {/* Meta Semanal */}
+            <div className="rounded-xl bg-white/5 backdrop-blur-sm p-4 border border-white/10 hover:bg-white/10 transition-all">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Semana</p>
+                  <p className="text-2xl font-bold text-white">R$ {planning.weeklyGoal.toFixed(0)}</p>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-foreground">{planning.workHours}h</p>
             </div>
 
-            <div className="space-y-2 bg-muted/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="w-5 h-5 text-accent" />
-                <span className="text-sm font-medium">Dias esta Semana</span>
+            {/* Dias Trabalhados */}
+            <div className="rounded-xl bg-white/5 backdrop-blur-sm p-4 border border-white/10 hover:bg-white/10 transition-all">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Esta Semana</p>
+                  <p className="text-2xl font-bold text-white">{planning.daysWorkedThisWeek} dias</p>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-foreground">{planning.daysWorkedThisWeek} dias</p>
             </div>
 
-            <div className="space-y-2 bg-muted/50 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Target className="w-5 h-5 text-success" />
-                <span className="text-sm font-medium">Meta Mensal</span>
+            {/* Progresso Mensal */}
+            <div className="rounded-xl bg-white/5 backdrop-blur-sm p-4 border border-white/10 hover:bg-white/10 transition-all">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-10 h-10 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                  <Target className="w-5 h-5 text-yellow-400" />
+                </div>
+                <div>
+                  <p className="text-xs text-white/60 uppercase tracking-wide">Meta Mensal</p>
+                  <p className="text-2xl font-bold text-white">{planning.monthProgress.toFixed(0)}%</p>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-foreground">{planning.monthProgress.toFixed(0)}%</p>
             </div>
           </div>
 
-          {/* Botões */}
-          <div className="space-y-3 pt-2">
+          {/* Botões de Ação */}
+          <div className="space-y-3 pt-4">
             <Button 
               onClick={handleStart}
-              className="w-full bg-gradient-primary hover:opacity-90 transition-opacity shadow-glow-primary"
-              size="lg"
+              className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all rounded-xl"
             >
-              Iniciar Meu Dia 🚀
+              🚀 Começar Meu Dia
             </Button>
             
-            <Button 
-              onClick={handleEdit}
-              variant="outline"
-              className="w-full border-primary/30 hover:bg-primary/10"
-              size="lg"
-            >
-              <Edit className="w-4 h-4 mr-2" />
-              Editar planejamento
-            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <Button 
+                onClick={handleEdit}
+                variant="outline"
+                className="h-12 border-white/20 hover:bg-white/10 text-white rounded-xl"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+              
+              <Button 
+                onClick={() => {
+                  const today = getBrazilDate();
+                  localStorage.setItem(`popup_shown_${userId}_${today}`, "true");
+                  setIsOpen(false);
+                }}
+                variant="ghost"
+                className="h-12 hover:bg-white/10 text-white/70 rounded-xl"
+              >
+                ❌ Fechar
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>
