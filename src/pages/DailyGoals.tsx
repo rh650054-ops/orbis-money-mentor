@@ -3,13 +3,15 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, TrendingUp, Clock, AlertCircle, Timer } from "lucide-react";
+import { CheckCircle2, XCircle, TrendingUp, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface HourlyBlock {
   id: string;
@@ -60,7 +62,6 @@ export default function DailyGoals() {
         if (newTimers[activeTimer] > 0) {
           newTimers[activeTimer] = newTimers[activeTimer] - 1;
         } else {
-          // Move to next hour
           const nextHour = activeTimer + 1;
           if (nextHour < (plan?.work_hours || 0)) {
             setActiveTimer(nextHour);
@@ -125,7 +126,7 @@ export default function DailyGoals() {
       const initialTimers: { [key: number]: number } = {};
       for (let i = 0; i < workHours; i++) initialTimers[i] = 3600;
       setTimers(initialTimers);
-      toast({ title: "Meta do dia criada!", description: `${workHours} blocos de R$ ${hourlyGoal.toFixed(2)} cada.` });
+      toast({ title: "Meta do dia criada!", description: `${workHours} blocos de ${formatCurrency(hourlyGoal)} cada.` });
     } catch (error: any) {
       console.error("Erro ao criar plano:", error);
       toast({ title: "Erro", description: "Não foi possível criar o plano do dia.", variant: "destructive" });
@@ -167,7 +168,7 @@ export default function DailyGoals() {
       await supabase.from("hourly_goal_blocks").update({ target_amount: newTarget }).eq("id", block.id);
     }
     await loadBlocks(plan!.id);
-    toast({ title: "Metas redistribuídas", description: `R$ ${shortfall.toFixed(2)} distribuído nas próximas ${remainingBlocks.length} horas.` });
+    toast({ title: "⚠️ Metas redistribuídas", description: `${formatCurrency(shortfall)} distribuído nas próximas ${remainingBlocks.length} horas.` });
   };
 
   const handleAddSale = async (blockId: string, hourIndex: number) => {
@@ -186,7 +187,6 @@ export default function DailyGoals() {
       if (isCompleted && !block.is_completed) {
         toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
       } else if (!isCompleted && shortfall > 0) {
-        toast({ title: "Continue firme!", description: `Faltam R$ ${shortfall.toFixed(2)} para bater a hora. Respira, Visionário, bora pra cima na próxima 🔥` });
         await redistributeGoals(hourIndex, shortfall);
       }
       setSalesInputs((prev) => ({ ...prev, [blockId]: "" }));
@@ -217,28 +217,59 @@ export default function DailyGoals() {
   const completedBlocks = blocks.filter((b) => b.is_completed).length;
 
   return (
-    <div className="space-y-6 pb-20 md:pb-8">
-      <div>
-        <h1 className="text-3xl font-bold gradient-text">⚡ Ritmo</h1>
-        <p className="text-muted-foreground mt-1">Acompanhe seu progresso hora a hora</p>
+    <div className="space-y-6 pb-24 md:pb-8">
+      <div className="text-center space-y-2">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          ⚡ Ritmo
+        </h1>
+        <p className="text-muted-foreground">Acompanhe seu progresso hora a hora</p>
       </div>
-      <Card className="p-6 card-gradient-border bg-gradient-card">
-        <div className="space-y-4">
+
+      <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-blue-500/10 to-purple-600/10 backdrop-blur-sm">
+        <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Meta do dia</p>
-              <p className="text-4xl font-bold gradient-text">R$ {plan.daily_goal.toFixed(2)}</p>
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Meta do Dia</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
+                {formatCurrency(plan.daily_goal)}
+              </p>
             </div>
-            <Badge variant={progressPercentage >= 100 ? "default" : "secondary"} className="text-xl px-6 py-3 bg-gradient-primary">{progressPercentage.toFixed(0)}%</Badge>
+            <Badge 
+              variant={progressPercentage >= 100 ? "default" : "secondary"} 
+              className={cn(
+                "text-xl px-6 py-3 font-bold",
+                progressPercentage >= 100 
+                  ? "bg-gradient-to-r from-green-500 to-emerald-600" 
+                  : "bg-gradient-to-r from-blue-500 to-purple-600"
+              )}
+            >
+              {progressPercentage.toFixed(0)}%
+            </Badge>
           </div>
-          <Progress value={progressPercentage} className="h-4" />
+          
+          <Progress value={progressPercentage} className="h-3" />
+          
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">R$ {totalAchieved.toFixed(2)} alcançado</span>
-            <span className="text-muted-foreground">{completedBlocks}/{plan.work_hours} blocos ✓</span>
+            <span className="text-muted-foreground">
+              {formatCurrency(totalAchieved)} alcançado
+            </span>
+            <span className="text-muted-foreground">
+              {completedBlocks}/{plan.work_hours} blocos ✓
+            </span>
           </div>
-          {activeTimer === null && (<Button onClick={startDay} className="w-full bg-gradient-primary shadow-glow-primary" size="lg">🚀 Iniciar Meu Dia</Button>)}
-        </div>
+
+          {activeTimer === null && (
+            <Button 
+              onClick={startDay} 
+              className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all"
+              size="lg"
+            >
+              🚀 Iniciar Meu Dia
+            </Button>
+          )}
+        </CardContent>
       </Card>
+
       <div className="space-y-4">
         {blocks.map((block) => {
           const total = block.achieved_amount + (block.manual_adjustment || 0);
@@ -246,42 +277,167 @@ export default function DailyGoals() {
           const remaining = block.target_amount - total;
           const isActive = activeTimer === block.hour_index;
           const timeRemaining = timers[block.hour_index] || 0;
+          const progressPercentage = Math.min(blockProgress, 100);
+          
           return (
-            <Card key={block.id} className={`p-5 card-gradient-border transition-all ${isActive ? 'shadow-glow-primary scale-105' : ''} ${block.is_completed ? 'bg-success/5' : 'bg-card'}`}>
-              <div className="space-y-4">
+            <Card 
+              key={block.id} 
+              className={cn(
+                "overflow-hidden border transition-all duration-300",
+                isActive && "ring-2 ring-blue-500 shadow-lg shadow-blue-500/50 scale-[1.02]",
+                block.is_completed && "border-green-500/30 bg-green-500/5",
+                !block.is_completed && !isActive && "border-white/10 bg-card/50 backdrop-blur-sm"
+              )}
+            >
+              <CardContent className="p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold ${block.is_completed ? 'bg-success/20 text-success' : 'bg-primary/20 text-primary'}`}>{block.hour_label}</div>
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all",
+                      block.is_completed && "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg",
+                      isActive && !block.is_completed && "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg animate-pulse",
+                      !block.is_completed && !isActive && "bg-white/5 text-foreground"
+                    )}>
+                      {block.hour_label}
+                    </div>
+                    
                     <div>
-                      <p className="text-sm text-muted-foreground">Meta da hora</p>
-                      <p className="text-2xl font-bold">R$ {block.target_amount.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Meta da Hora</p>
+                      <p className="text-2xl font-bold">{formatCurrency(block.target_amount)}</p>
+                      {total > 0 && (
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          Vendido: {formatCurrency(total)}
+                        </p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    {block.is_completed ? (<CheckCircle2 className="w-8 h-8 text-success" />) : (<XCircle className="w-8 h-8 text-muted-foreground" />)}
-                    {isActive && (<div className="flex items-center gap-2 mt-2 text-primary"><Timer className="w-5 h-5" /><span className="text-xl font-mono font-bold">{formatTime(timeRemaining)}</span></div>)}
+                  
+                  <div className="text-right space-y-2">
+                    {block.is_completed ? (
+                      <div className="flex flex-col items-end gap-1">
+                        <CheckCircle2 className="w-8 h-8 text-green-500" />
+                        <span className="text-xs text-green-500 font-semibold">Completo!</span>
+                      </div>
+                    ) : isActive ? (
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="relative w-16 h-16">
+                          <svg className="w-16 h-16 transform -rotate-90">
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                              className="text-white/10"
+                            />
+                            <circle
+                              cx="32"
+                              cy="32"
+                              r="28"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                              fill="none"
+                              strokeDasharray={`${2 * Math.PI * 28}`}
+                              strokeDashoffset={`${2 * Math.PI * 28 * (1 - timeRemaining / 3600)}`}
+                              className="text-blue-500 transition-all duration-1000"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-xs font-mono font-bold text-blue-400">
+                              {formatTime(timeRemaining).substring(3)}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-xs text-blue-400 font-semibold">Em andamento</span>
+                      </div>
+                    ) : (
+                      <XCircle className="w-8 h-8 text-muted-foreground/50" />
+                    )}
                   </div>
                 </div>
+
                 <div className="space-y-2">
-                  <Progress value={Math.min(blockProgress, 100)} className={`h-3 ${block.is_completed ? 'bg-success/20' : ''}`} />
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">R$ {total.toFixed(2)} vendido</span>
-                    {!block.is_completed && remaining > 0 && (<span className="text-warning font-semibold">Faltam R$ {remaining.toFixed(2)}</span>)}
+                    <span className="text-muted-foreground">Progresso</span>
+                    <span className={cn(
+                      "font-semibold",
+                      progressPercentage >= 100 && "text-green-500",
+                      progressPercentage >= 50 && progressPercentage < 100 && "text-yellow-500",
+                      progressPercentage < 50 && "text-muted-foreground"
+                    )}>
+                      {progressPercentage.toFixed(0)}%
+                    </span>
                   </div>
+                  <Progress 
+                    value={progressPercentage} 
+                    className={cn(
+                      "h-2",
+                      block.is_completed && "[&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600"
+                    )}
+                  />
                 </div>
-                {!block.is_completed && remaining > 0 && total > 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-warning/10 rounded-lg border border-warning/20">
-                    <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-warning-foreground">Faltam R$ {remaining.toFixed(2)} para bater a meta da hora. Respira, Visionário, bora pra cima na próxima 🔥</p>
+
+                {!block.is_completed && total > 0 && remaining > 0 && (
+                  <div className={cn(
+                    "flex items-start gap-3 p-4 rounded-lg border",
+                    progressPercentage >= 80 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20"
+                  )}>
+                    <AlertCircle className={cn(
+                      "w-5 h-5 flex-shrink-0 mt-0.5",
+                      progressPercentage >= 80 ? "text-yellow-500" : "text-red-500"
+                    )} />
+                    <div className="flex-1 space-y-1">
+                      <p className={cn(
+                        "text-sm font-medium",
+                        progressPercentage >= 80 ? "text-yellow-500" : "text-red-500"
+                      )}>
+                        Faltam {formatCurrency(remaining)} para bater a hora
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {progressPercentage >= 80 
+                          ? "Você está quase lá! Continue assim 🔥" 
+                          : "Respira, Visionário, bora pra cima na próxima 💪"}
+                      </p>
+                    </div>
                   </div>
                 )}
+
+                {block.is_completed && (
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium text-green-500">
+                        🔥 Meta da hora batida!
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Esse é o foco Visionário! Continue assim 💙
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {!block.is_completed && (
-                  <div className="flex gap-2">
-                    <Input type="number" placeholder="Quanto vendeu agora?" value={salesInputs[block.id] || ""} onChange={(e) => setSalesInputs((prev) => ({ ...prev, [block.id]: e.target.value }))} step="0.01" className="flex-1 border-primary/30 focus:border-primary" />
-                    <Button onClick={() => handleAddSale(block.id, block.hour_index)} disabled={!salesInputs[block.id] || parseFloat(salesInputs[block.id]) <= 0} className="bg-gradient-primary shadow-glow-primary">Adicionar</Button>
+                  <div className="flex gap-2 pt-2">
+                    <Input
+                      type="number"
+                      placeholder="Quanto vendeu agora?"
+                      value={salesInputs[block.id] || ""}
+                      onChange={(e) => setSalesInputs((prev) => ({ ...prev, [block.id]: e.target.value }))}
+                      step="0.01"
+                      className="flex-1 h-12 border-white/20 bg-white/5 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <Button
+                      onClick={() => handleAddSale(block.id, block.hour_index)}
+                      disabled={!salesInputs[block.id] || parseFloat(salesInputs[block.id]) <= 0}
+                      className="h-12 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold"
+                    >
+                      Adicionar
+                    </Button>
                   </div>
                 )}
-              </div>
+              </CardContent>
             </Card>
           );
         })}
