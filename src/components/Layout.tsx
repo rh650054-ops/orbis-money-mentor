@@ -29,7 +29,6 @@ const navigation = [
   { name: "Ritmo", href: "/daily-goals", icon: CheckSquare },
   { name: "Histórico", href: "/history", icon: Target },
   { name: "Rotina", href: "/routine", icon: Clock },
-  { name: "Finanças", href: "/finances", icon: Wallet },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -157,6 +156,10 @@ export default function Layout({ children }: LayoutProps) {
                       <User className="w-4 h-4 mr-2" />
                       Perfil
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/finances"); }}>
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Financeiro
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
                       <LogOut className="w-4 h-4 mr-2" />
@@ -226,7 +229,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile bottom navigation - Fixed */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90">
         <div className="flex items-center justify-around h-16 px-2">
-          {navigation.slice(0, 5).map((item) => {
+          {navigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link
