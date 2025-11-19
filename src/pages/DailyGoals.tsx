@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { EditPlanningModal } from "@/components/EditPlanningModal";
 
 interface HourlyBlock {
   id: string;
@@ -41,6 +42,7 @@ export default function DailyGoals() {
   const [isCreatingPlan, setIsCreatingPlan] = useState(false);
   const [timers, setTimers] = useState<{ [key: number]: number }>({});
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -279,14 +281,15 @@ export default function DailyGoals() {
             </div>
             <div className="flex items-center gap-2">
               <Button
-                onClick={() => navigate("/")}
+                onClick={() => setShowEditModal(true)}
                 variant="ghost"
                 size="sm"
                 className="h-10 w-10 p-0"
+                title="Editar planejamento"
               >
                 <Pencil className="w-4 h-4" />
               </Button>
-              <Badge 
+              <Badge
                 variant={progressPercentage >= 100 ? "default" : "secondary"} 
                 className={cn(
                   "text-xl px-6 py-3 font-bold",
@@ -504,6 +507,14 @@ export default function DailyGoals() {
           );
         })}
       </div>
+
+      {user && (
+        <EditPlanningModal
+          userId={user.id}
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   );
 }
