@@ -6,7 +6,7 @@ import { getBrazilDate } from "@/lib/dateUtils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, XCircle, TrendingUp, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, TrendingUp, AlertCircle, RotateCcw, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +51,31 @@ export default function DailyGoals() {
       loadOrCreateDailyPlan();
     }
   }, [user, loading, navigate]);
+
+  // Listen for profile changes
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('profile-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadOrCreateDailyPlan();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   // Timer effect
   useEffect(() => {
@@ -159,6 +184,24 @@ export default function DailyGoals() {
     toast({ title: "🚀 Dia iniciado!", description: "Seu cronômetro começou. Vamos lá, Visionário!" });
   };
 
+  const resetDay = async () => {
+    if (!plan) return;
+    
+    const { error } = await supabase
+      .from("hourly_goal_blocks")
+      .update({ achieved_amount: 0, is_completed: false, target_amount: plan.hourly_goal })
+      .eq("plan_id", plan.id);
+
+    if (!error) {
+      setActiveTimer(null);
+      const initialTimers: { [key: number]: number } = {};
+      for (let i = 0; i < plan.work_hours; i++) initialTimers[i] = 3600;
+      setTimers(initialTimers);
+      await loadBlocks(plan.id);
+      toast({ title: "🔄 Ritmo reiniciado", description: "Todos os blocos foram resetados." });
+    }
+  };
+
   const redistributeGoals = async (currentIndex: number, shortfall: number) => {
     const remainingBlocks = blocks.filter((b) => b.hour_index > currentIndex && !b.is_completed);
     if (remainingBlocks.length === 0) return;
@@ -234,17 +277,27 @@ export default function DailyGoals() {
                 {formatCurrency(plan.daily_goal)}
               </p>
             </div>
-            <Badge 
-              variant={progressPercentage >= 100 ? "default" : "secondary"} 
-              className={cn(
-                "text-xl px-6 py-3 font-bold",
-                progressPercentage >= 100 
-                  ? "bg-gradient-to-r from-green-500 to-emerald-600" 
-                  : "bg-gradient-to-r from-blue-500 to-purple-600"
-              )}
-            >
-              {progressPercentage.toFixed(0)}%
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => navigate("/")}
+                variant="ghost"
+                size="sm"
+                className="h-10 w-10 p-0"
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+              <Badge 
+                variant={progressPercentage >= 100 ? "default" : "secondary"} 
+                className={cn(
+                  "text-xl px-6 py-3 font-bold",
+                  progressPercentage >= 100 
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600" 
+                    : "bg-gradient-to-r from-blue-500 to-purple-600"
+                )}
+              >
+                {progressPercentage.toFixed(0)}%
+              </Badge>
+            </div>
           </div>
           
           <Progress value={progressPercentage} className="h-3" />
@@ -258,15 +311,24 @@ export default function DailyGoals() {
             </span>
           </div>
 
-          {activeTimer === null && (
-            <Button 
-              onClick={startDay} 
-              className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all"
-              size="lg"
+          <div className="flex gap-2">
+            {activeTimer === null && (
+              <Button 
+                onClick={startDay} 
+                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all"
+                size="lg"
+              >
+                🚀 Iniciar Meu Dia
+              </Button>
+            )}
+            <Button
+              onClick={resetDay}
+              variant="outline"
+              className="h-14 px-6 border-white/10 hover:bg-white/5"
             >
-              🚀 Iniciar Meu Dia
+              <RotateCcw className="w-4 h-4" />
             </Button>
-          )}
+          </div>
         </CardContent>
       </Card>
 
@@ -283,19 +345,19 @@ export default function DailyGoals() {
             <Card 
               key={block.id} 
               className={cn(
-                "overflow-hidden border transition-all duration-300",
-                isActive && "ring-2 ring-blue-500 shadow-lg shadow-blue-500/50 scale-[1.02]",
-                block.is_completed && "border-green-500/30 bg-green-500/5",
-                !block.is_completed && !isActive && "border-white/10 bg-card/50 backdrop-blur-sm"
+                "overflow-hidden border transition-all duration-300 rounded-2xl",
+                isActive && "ring-2 ring-blue-500 shadow-xl shadow-blue-500/30 scale-[1.01]",
+                block.is_completed && "border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-600/5 backdrop-blur-sm",
+                !block.is_completed && !isActive && "border-white/10 bg-black/40 backdrop-blur-sm"
               )}
             >
-              <CardContent className="p-5 space-y-4">
+              <CardContent className="p-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className={cn(
-                      "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all",
-                      block.is_completed && "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg",
-                      isActive && !block.is_completed && "bg-gradient-to-br from-blue-500 to-purple-600 text-white shadow-lg animate-pulse",
+                      "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all shadow-lg",
+                      block.is_completed && "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
+                      isActive && !block.is_completed && "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse",
                       !block.is_completed && !isActive && "bg-white/5 text-foreground"
                     )}>
                       {block.hour_label}
@@ -381,7 +443,7 @@ export default function DailyGoals() {
 
                 {!block.is_completed && total > 0 && remaining > 0 && (
                   <div className={cn(
-                    "flex items-start gap-3 p-4 rounded-lg border",
+                    "flex items-start gap-3 p-4 rounded-xl border backdrop-blur-sm",
                     progressPercentage >= 80 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20"
                   )}>
                     <AlertCircle className={cn(
@@ -405,7 +467,7 @@ export default function DailyGoals() {
                 )}
 
                 {block.is_completed && (
-                  <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20 backdrop-blur-sm">
                     <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1">
                       <p className="text-sm font-medium text-green-500">
@@ -431,7 +493,7 @@ export default function DailyGoals() {
                     <Button
                       onClick={() => handleAddSale(block.id, block.hour_index)}
                       disabled={!salesInputs[block.id] || parseFloat(salesInputs[block.id]) <= 0}
-                      className="h-12 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold"
+                      className="h-12 px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold shadow-lg"
                     >
                       Adicionar
                     </Button>
