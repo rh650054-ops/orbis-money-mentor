@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Target, Clock, TrendingUp, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/utils";
-import { getBrazilDate } from "@/lib/dateUtils";
 
 interface DayStartPopupProps {
   userId: string;
@@ -20,7 +19,8 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   const [workHours, setWorkHours] = useState(0);
 
   useEffect(() => {
-    checkAndShowPopup();
+    loadGoals();
+    setIsOpen(true);
     
     // Listen for profile updates
     const channel = supabase
@@ -45,14 +45,8 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   }, [userId]);
 
   const checkAndShowPopup = async () => {
-    const today = getBrazilDate();
-    const hasSeenKey = `day_start_popup_${today}`;
-    const hasSeen = localStorage.getItem(hasSeenKey);
-
-    if (!hasSeen) {
-      await loadGoals();
-      setIsOpen(true);
-    }
+    await loadGoals();
+    setIsOpen(true);
   };
 
   const loadGoals = async () => {
@@ -71,15 +65,11 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   };
 
   const handleStartDay = () => {
-    const today = getBrazilDate();
-    localStorage.setItem(`day_start_popup_${today}`, 'true');
     setIsOpen(false);
     onStart();
   };
 
   const handleClose = () => {
-    const today = getBrazilDate();
-    localStorage.setItem(`day_start_popup_${today}`, 'true');
     setIsOpen(false);
   };
 
