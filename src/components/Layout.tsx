@@ -91,22 +91,8 @@ export default function Layout({ children }: LayoutProps) {
   }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate]);
 
   const checkNeedsCheckIn = async () => {
-    if (!user) return;
-
-    try {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("last_check_in_date")
-        .eq("user_id", user.id)
-        .single();
-
-      const today = new Date().toISOString().split('T')[0];
-      if (!profile?.last_check_in_date || profile.last_check_in_date !== today) {
-        navigate("/check-in", { replace: true });
-      }
-    } catch (error) {
-      console.error("Check-in verification error:", error);
-    }
+    // Check-in desativado: não redirecionar mais para a tela de "Bom dia, Visionário"
+    return;
   };
 
   const shouldShowTrialExpiredModal = 
