@@ -348,10 +348,10 @@ export default function DailyGoals() {
             <Card
               key={block.id}
               className={cn(
-                "overflow-hidden border transition-all duration-300 rounded-2xl",
+                "overflow-hidden border-2 transition-all duration-300 rounded-2xl",
                 isActive && "ring-2 ring-blue-500 shadow-xl shadow-blue-500/30 scale-[1.01]",
-                block.is_completed && total >= block.target_amount && "border-green-500 bg-gradient-to-br from-green-500/30 to-emerald-600/20 backdrop-blur-sm",
-                block.is_completed && total < block.target_amount && "border-red-500 bg-gradient-to-br from-red-500/30 to-rose-600/20 backdrop-blur-sm",
+                block.is_completed && total >= block.target_amount && "border-green-500 bg-gradient-to-br from-green-600/40 to-emerald-700/30 shadow-lg shadow-green-500/50",
+                block.is_completed && total < block.target_amount && "border-red-500 bg-gradient-to-br from-red-600/40 to-rose-700/30 shadow-lg shadow-red-500/50",
                 !block.is_completed && !isActive && "border-white/10 bg-black/40 backdrop-blur-sm"
               )}
             >
@@ -360,7 +360,8 @@ export default function DailyGoals() {
                   <div className="flex items-center gap-4">
                     <div className={cn(
                       "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all shadow-lg",
-                      block.is_completed && "bg-gradient-to-br from-green-500 to-emerald-600 text-white",
+                      block.is_completed && total >= block.target_amount && "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-green-500/50",
+                      block.is_completed && total < block.target_amount && "bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/50",
                       isActive && !block.is_completed && "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse",
                       !block.is_completed && !isActive && "bg-white/5 text-foreground"
                     )}>
@@ -429,9 +430,10 @@ export default function DailyGoals() {
                     <span className="text-muted-foreground">Progresso</span>
                     <span className={cn(
                       "font-semibold",
-                      progressPercentage >= 100 && "text-green-500",
-                      progressPercentage >= 50 && progressPercentage < 100 && "text-yellow-500",
-                      progressPercentage < 50 && "text-muted-foreground"
+                      block.is_completed && total >= block.target_amount && "text-green-500",
+                      block.is_completed && total < block.target_amount && "text-red-500",
+                      !block.is_completed && progressPercentage >= 50 && progressPercentage < 100 && "text-yellow-500",
+                      !block.is_completed && progressPercentage < 50 && "text-muted-foreground"
                     )}>
                       {progressPercentage.toFixed(0)}%
                     </span>
@@ -440,7 +442,8 @@ export default function DailyGoals() {
                     value={progressPercentage} 
                     className={cn(
                       "h-2",
-                      block.is_completed && "[&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600"
+                      block.is_completed && total >= block.target_amount && "[&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600",
+                      block.is_completed && total < block.target_amount && "[&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-rose-600"
                     )}
                   />
                 </div>
@@ -470,8 +473,8 @@ export default function DailyGoals() {
                   </div>
                 )}
 
-                {block.is_completed && (
-                  <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20 backdrop-blur-sm">
+                {block.is_completed && total >= block.target_amount && (
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/20 border border-green-500/30 backdrop-blur-sm">
                     <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1">
                       <p className="text-sm font-medium text-green-500">
@@ -479,6 +482,20 @@ export default function DailyGoals() {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Esse é o foco Visionário! Continue assim 💙
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {block.is_completed && total < block.target_amount && (
+                  <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
+                    <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm font-medium text-red-500">
+                        ⚠️ Meta não atingida!
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Faltaram {formatCurrency(block.target_amount - total)}. Vamos recuperar na próxima! 💪
                       </p>
                     </div>
                   </div>
