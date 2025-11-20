@@ -158,6 +158,7 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
 
   const dailyGoal = calculateDailyGoal();
   const weeklyGoal = calculateWeeklyGoal();
+  const hourlyGoal = workHours > 0 ? dailyGoal / workHours : 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -228,7 +229,7 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
           {/* Preview das metas */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 border border-blue-500/20 space-y-2">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">📊 Resumo Calculado</p>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Meta Semanal:</p>
                 <p className="font-bold text-green-500">{formatCurrency(weeklyGoal)}</p>
@@ -236,6 +237,10 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
               <div>
                 <p className="text-muted-foreground">Meta Diária:</p>
                 <p className="font-bold text-blue-500">{formatCurrency(dailyGoal)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Meta por Hora:</p>
+                <p className="font-bold text-orange-500">{formatCurrency(hourlyGoal)}</p>
               </div>
             </div>
           </div>
