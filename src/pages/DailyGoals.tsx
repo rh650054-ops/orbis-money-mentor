@@ -345,12 +345,13 @@ export default function DailyGoals() {
           const progressPercentage = Math.min(blockProgress, 100);
           
           return (
-            <Card 
-              key={block.id} 
+            <Card
+              key={block.id}
               className={cn(
                 "overflow-hidden border transition-all duration-300 rounded-2xl",
                 isActive && "ring-2 ring-blue-500 shadow-xl shadow-blue-500/30 scale-[1.01]",
-                block.is_completed && "border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-600/5 backdrop-blur-sm",
+                block.is_completed && total >= block.target_amount && "border-green-500 bg-gradient-to-br from-green-500/30 to-emerald-600/20 backdrop-blur-sm",
+                block.is_completed && total < block.target_amount && "border-red-500 bg-gradient-to-br from-red-500/30 to-rose-600/20 backdrop-blur-sm",
                 !block.is_completed && !isActive && "border-white/10 bg-black/40 backdrop-blur-sm"
               )}
             >
