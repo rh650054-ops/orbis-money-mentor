@@ -3,10 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Target, Clock, Calendar } from "lucide-react";
+import { Target, Clock, Calendar, CalendarCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
+import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 
 interface EditPlanningModalProps {
   userId: string;
@@ -20,6 +21,7 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
   const [workHours, setWorkHours] = useState(8);
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(5);
   const [loading, setLoading] = useState(false);
+  const { isConnected, googleEmail, loading: calendarLoading, connect, disconnect } = useGoogleCalendar(userId);
 
   useEffect(() => {
     if (isOpen) {
@@ -243,6 +245,47 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
                 <p className="font-bold text-orange-500">{formatCurrency(hourlyGoal)}</p>
               </div>
             </div>
+          </div>
+
+          {/* Google Calendar Integration */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-600/10 border border-purple-500/20 space-y-3">
+            <div className="flex items-center gap-2">
+              <CalendarCheck className="w-4 h-4 text-purple-400" />
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">📅 Google Calendar</p>
+            </div>
+            
+            {isConnected ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">Conectado</p>
+                    <p className="text-xs text-muted-foreground">{googleEmail}</p>
+                  </div>
+                  <Button
+                    onClick={disconnect}
+                    variant="outline"
+                    size="sm"
+                    className="border-red-500/20 text-red-400 hover:bg-red-500/10"
+                  >
+                    Desconectar
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Conecte seu Google Calendar para sincronizar automaticamente suas metas e receber lembretes
+                </p>
+                <Button
+                  onClick={connect}
+                  disabled={calendarLoading}
+                  size="sm"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
+                >
+                  {calendarLoading ? "Conectando..." : "🔗 Conectar Google Calendar"}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Botões */}
