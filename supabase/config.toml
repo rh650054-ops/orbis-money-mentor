@@ -26,6 +26,3 @@ verify_jwt = false
 
 [functions.google-calendar-refresh]
 verify_jwt = false
-
-[functions.sync-work-blocks]
-verify_jwt = true

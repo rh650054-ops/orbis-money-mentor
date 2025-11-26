@@ -19,7 +19,6 @@ import AdminDemoUsers from "./pages/AdminDemoUsers";
 import NotFound from "./pages/NotFound";
 import CheckIn from "./pages/CheckIn";
 import DailyGoals from "./pages/DailyGoals";
-import WorkBlocks from "./pages/WorkBlocks";
 const queryClient = new QueryClient();
 const App = () => <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -41,7 +40,6 @@ const App = () => <QueryClientProvider client={queryClient}>
                 <Route path="/routine" element={<Routine />} />
                 <Route path="/finances" element={<Finances />} />
                 <Route path="/daily-goals" element={<DailyGoals />} />
-                <Route path="/work-blocks" element={<WorkBlocks />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
