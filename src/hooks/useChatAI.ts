@@ -38,11 +38,21 @@ export const useChatAI = () => {
       });
 
       if (error) {
+        console.error('Supabase function error:', error);
         throw new Error(error.message || 'Erro ao chamar a função');
+      }
+
+      // Verificar se data existe e tem o formato esperado
+      if (!data) {
+        throw new Error('Resposta vazia da função. Verifique a configuração do webhook no n8n.');
       }
 
       if (!data.success) {
         throw new Error(data.error || 'Erro na resposta da IA');
+      }
+
+      if (!data.message) {
+        throw new Error('Resposta da IA não contém mensagem');
       }
 
       // Add assistant message
