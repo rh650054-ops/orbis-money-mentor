@@ -101,6 +101,53 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_reports: {
+        Row: {
+          conselho: string | null
+          created_at: string | null
+          id: string
+          melhor_hora: number | null
+          pior_hora: number | null
+          porcentagem_meta: number
+          ritmo_medio: number
+          session_id: string
+          total_vendido: number
+          user_id: string
+        }
+        Insert: {
+          conselho?: string | null
+          created_at?: string | null
+          id?: string
+          melhor_hora?: number | null
+          pior_hora?: number | null
+          porcentagem_meta: number
+          ritmo_medio: number
+          session_id: string
+          total_vendido: number
+          user_id: string
+        }
+        Update: {
+          conselho?: string | null
+          created_at?: string | null
+          id?: string
+          melhor_hora?: number | null
+          pior_hora?: number | null
+          porcentagem_meta?: number
+          ritmo_medio?: number
+          session_id?: string
+          total_vendido?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_reports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "work_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_sales: {
         Row: {
           card_sales: number | null
@@ -265,6 +312,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      hour_blocks_v2: {
+        Row: {
+          bloco_index: number
+          created_at: string | null
+          horario_fim: string
+          horario_inicio: string
+          id: string
+          ritmo_ideal_hora: number
+          session_id: string
+          updated_at: string | null
+          user_id: string
+          valor_real: number | null
+        }
+        Insert: {
+          bloco_index: number
+          created_at?: string | null
+          horario_fim: string
+          horario_inicio: string
+          id?: string
+          ritmo_ideal_hora: number
+          session_id: string
+          updated_at?: string | null
+          user_id: string
+          valor_real?: number | null
+        }
+        Update: {
+          bloco_index?: number
+          created_at?: string | null
+          horario_fim?: string
+          horario_inicio?: string
+          id?: string
+          ritmo_ideal_hora?: number
+          session_id?: string
+          updated_at?: string | null
+          user_id?: string
+          valor_real?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hour_blocks_v2_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "work_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       hourly_goal_blocks: {
         Row: {
@@ -627,6 +721,51 @@ export type Database = {
           created_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      work_sessions: {
+        Row: {
+          constancia_dia: boolean | null
+          created_at: string | null
+          end_timestamp: string | null
+          id: string
+          meta_dia: number
+          planning_date: string
+          ritmo_ideal_inicial: number
+          start_timestamp: string
+          status: string
+          total_vendido: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          constancia_dia?: boolean | null
+          created_at?: string | null
+          end_timestamp?: string | null
+          id?: string
+          meta_dia: number
+          planning_date: string
+          ritmo_ideal_inicial: number
+          start_timestamp: string
+          status?: string
+          total_vendido?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          constancia_dia?: boolean | null
+          created_at?: string | null
+          end_timestamp?: string | null
+          id?: string
+          meta_dia?: number
+          planning_date?: string
+          ritmo_ideal_inicial?: number
+          start_timestamp?: string
+          status?: string
+          total_vendido?: number | null
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
