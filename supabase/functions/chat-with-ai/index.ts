@@ -104,81 +104,40 @@ serve(async (req) => {
 - Meta diária: R$ ${routineData.daily_profit || 0}`;
     }
 
-    // Chamar Lovable AI
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY not configured");
+    // Pegar a última mensagem do usuário
+    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    if (!lastUserMessage) {
+      throw new Error("Nenhuma mensagem do usuário encontrada");
     }
 
-    const systemPrompt = `Você é o Orbis, um assistente financeiro especializado em vendedores ambulantes e comércio de rua.
+    console.log("Enviando mensagem para n8n webhook...");
+    console.log("Mensagem:", lastUserMessage.content);
 
-PERSONALIDADE:
-- Amigável, motivador e prático
-- Usa linguagem simples e direta
-- Entende os desafios únicos de quem trabalha na rua
-- Celebra conquistas e oferece soluções concretas
-
-EXPERTISE:
-- Gestão financeira para vendedores ambulantes
-- Estratégias de vendas e pontos de venda
-- Controle de calotes e crédito
-- Análise de horários de pico
-- Planejamento de rotina e metas
-- Motivação e desenvolvimento pessoal${userContext}
-
-DIRETRIZES:
-- Seja sempre positivo mas realista
-- Dê conselhos práticos e acionáveis
-- Use exemplos do dia a dia de vendedor de rua
-- Quando falar de dinheiro, use valores realistas para o contexto brasileiro
-- Responda de forma concisa (máximo 3-4 parágrafos)
-- Use emojis ocasionalmente para ser mais amigável 😊`;
-
-    console.log("Calling Lovable AI...");
-
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Chamar webhook do n8n
+    const webhookResponse = await fetch("https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages
-        ],
-        temperature: 0.8,
-        max_tokens: 500
+        input: lastUserMessage.content,
+        userContext: userContext // Enviando contexto adicional para a IA do n8n
       }),
     });
 
-    if (!aiResponse.ok) {
-      console.error("AI API error:", aiResponse.status);
-      
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ 
-            error: "Muitas requisições. Por favor, aguarde um momento e tente novamente." 
-          }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ 
-            error: "Limite de uso da IA atingido. Entre em contato com o suporte." 
-          }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      throw new Error(`Erro na API da IA: ${aiResponse.status}`);
+    if (!webhookResponse.ok) {
+      console.error("Webhook error:", webhookResponse.status);
+      throw new Error(`Erro ao conectar com o webhook: ${webhookResponse.status}`);
     }
 
-    const aiData = await aiResponse.json();
-    const assistantMessage = aiData.choices[0].message.content;
+    const webhookData = await webhookResponse.json();
+    console.log("Resposta do webhook recebida");
+
+    if (!webhookData.resposta) {
+      throw new Error("Resposta do webhook não contém o campo 'resposta'");
+    }
+
+    const assistantMessage = webhookData.resposta;
 
     console.log("AI response received successfully");
 
