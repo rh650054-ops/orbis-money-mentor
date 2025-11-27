@@ -104,7 +104,7 @@ serve(async (req) => {
 - Meta diária: R$ ${routineData.daily_profit || 0}`;
     }
 
-    // Pegar a última mensagem do usuário
+    // Get last user message
     const lastUserMessage = messages.filter(m => m.role === 'user').pop();
     if (!lastUserMessage) {
       throw new Error("Nenhuma mensagem do usuário encontrada");
@@ -113,15 +113,14 @@ serve(async (req) => {
     console.log("Enviando mensagem para n8n webhook...");
     console.log("Mensagem:", lastUserMessage.content);
 
-    // Chamar webhook do n8n
-    const webhookResponse = await fetch("https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor", {
+    // Call n8n webhook (production URL)
+    const webhookResponse = await fetch("https://jovemrick.app.n8n.cloud/webhook/orbis-vendedor", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
         input: lastUserMessage.content,
-        userContext: userContext
       }),
     });
 
@@ -129,20 +128,14 @@ serve(async (req) => {
 
     if (!webhookResponse.ok) {
       console.error("Webhook error:", webhookResponse.status);
-      console.error("URL chamada:", "https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor");
-      
-      if (webhookResponse.status === 404) {
-        throw new Error("Webhook do n8n não encontrado. Verifique se o workflow está ativo e a URL está correta.");
-      }
-      
-      throw new Error(`Erro ao conectar com o webhook n8n (status ${webhookResponse.status})`);
+      throw new Error(`Erro ao chamar webhook da IA (status ${webhookResponse.status})`);
     }
 
     const webhookData = await webhookResponse.json();
-    console.log("Resposta do webhook recebida:", JSON.stringify(webhookData).substring(0, 100));
+    console.log("Resposta do webhook recebida:", JSON.stringify(webhookData).substring(0, 200));
 
     if (!webhookData.resposta) {
-      console.error("Resposta do webhook:", JSON.stringify(webhookData));
+      console.error("Resposta inválida do webhook:", JSON.stringify(webhookData));
       throw new Error("Resposta do webhook não contém o campo 'resposta'");
     }
 
