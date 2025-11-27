@@ -125,10 +125,29 @@ serve(async (req) => {
     });
 
     console.log("Status do webhook:", webhookResponse.status);
+    console.log("Headers da resposta:", JSON.stringify(Object.fromEntries(webhookResponse.headers.entries())));
 
     if (!webhookResponse.ok) {
-      console.error("Webhook error:", webhookResponse.status);
-      throw new Error(`Erro ao chamar webhook da IA (status ${webhookResponse.status})`);
+      // Tentar ler o corpo da resposta para ver o erro do n8n
+      let errorBody = "";
+      try {
+        const contentType = webhookResponse.headers.get("content-type");
+        if (contentType?.includes("application/json")) {
+          const errorJson = await webhookResponse.json();
+          errorBody = JSON.stringify(errorJson);
+        } else {
+          errorBody = await webhookResponse.text();
+        }
+      } catch (e) {
+        errorBody = "Não foi possível ler o corpo da resposta";
+      }
+      
+      console.error("Webhook error status:", webhookResponse.status);
+      console.error("Webhook error body:", errorBody);
+      console.error("URL chamada:", "https://jovemrick.app.n8n.cloud/webhook/orbis-vendedor");
+      console.error("Body enviado:", JSON.stringify({ input: lastUserMessage.content }));
+      
+      throw new Error(`Webhook do n8n retornou erro ${webhookResponse.status}. Verifique os logs do workflow no n8n. Detalhes: ${errorBody.substring(0, 200)}`);
     }
 
     const webhookData = await webhookResponse.json();
