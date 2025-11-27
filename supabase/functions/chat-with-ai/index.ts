@@ -113,8 +113,8 @@ serve(async (req) => {
     console.log("Enviando mensagem para n8n webhook...");
     console.log("Mensagem:", lastUserMessage.content);
 
-    // Call n8n webhook (production URL)
-    const webhookResponse = await fetch("https://jovemrick.app.n8n.cloud/webhook/orbis-vendedor", {
+    // Call n8n webhook (test URL)
+    const webhookResponse = await fetch("https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
