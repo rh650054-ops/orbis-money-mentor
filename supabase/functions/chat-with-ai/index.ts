@@ -121,19 +121,28 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         input: lastUserMessage.content,
-        userContext: userContext // Enviando contexto adicional para a IA do n8n
+        userContext: userContext
       }),
     });
 
+    console.log("Status do webhook:", webhookResponse.status);
+
     if (!webhookResponse.ok) {
       console.error("Webhook error:", webhookResponse.status);
-      throw new Error(`Erro ao conectar com o webhook: ${webhookResponse.status}`);
+      console.error("URL chamada:", "https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor");
+      
+      if (webhookResponse.status === 404) {
+        throw new Error("Webhook do n8n não encontrado. Verifique se o workflow está ativo e a URL está correta.");
+      }
+      
+      throw new Error(`Erro ao conectar com o webhook n8n (status ${webhookResponse.status})`);
     }
 
     const webhookData = await webhookResponse.json();
-    console.log("Resposta do webhook recebida");
+    console.log("Resposta do webhook recebida:", JSON.stringify(webhookData).substring(0, 100));
 
     if (!webhookData.resposta) {
+      console.error("Resposta do webhook:", JSON.stringify(webhookData));
       throw new Error("Resposta do webhook não contém o campo 'resposta'");
     }
 
