@@ -150,12 +150,30 @@ serve(async (req) => {
       throw new Error(`Webhook do n8n retornou erro ${webhookResponse.status}. Verifique os logs do workflow no n8n. Detalhes: ${errorBody.substring(0, 200)}`);
     }
 
-    const webhookData = await webhookResponse.json();
+    // Verificar se há conteúdo na resposta
+    const responseText = await webhookResponse.text();
+    console.log("Response text length:", responseText.length);
+    console.log("Response text (first 200 chars):", responseText.substring(0, 200));
+    
+    if (!responseText || responseText.trim() === '') {
+      console.error("Webhook retornou resposta vazia!");
+      throw new Error("O webhook do n8n retornou resposta vazia. Verifique se o nó 'Respond to Webhook' está configurado corretamente no workflow e se está retornando o campo 'resposta'.");
+    }
+
+    let webhookData;
+    try {
+      webhookData = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error("Erro ao fazer parse do JSON:", parseError);
+      console.error("Response text:", responseText);
+      throw new Error("O webhook retornou uma resposta inválida (não é JSON válido)");
+    }
+
     console.log("Resposta do webhook recebida:", JSON.stringify(webhookData).substring(0, 200));
 
     if (!webhookData.resposta) {
       console.error("Resposta inválida do webhook:", JSON.stringify(webhookData));
-      throw new Error("Resposta do webhook não contém o campo 'resposta'");
+      throw new Error("Resposta do webhook não contém o campo 'resposta'. Certifique-se de que o nó 'Respond to Webhook' no n8n está retornando {\"resposta\": \"texto da IA\"}");
     }
 
     const assistantMessage = webhookData.resposta;
