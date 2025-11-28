@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import DailyReportModal from "@/components/DailyReportModal";
 
 interface HourlyBlock {
   id: string;
@@ -43,6 +44,9 @@ export default function DailyGoals() {
   const [timers, setTimers] = useState<{ [key: number]: number }>({});
   const [activeTimer, setActiveTimer] = useState<number | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [dailyReport, setDailyReport] = useState<any>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -182,8 +186,29 @@ export default function DailyGoals() {
   }, [plan]);
 
   const startDay = () => {
+    const startTime = new Date();
+    setSessionStartTime(startTime);
     setActiveTimer(0);
-    toast({ title: "🚀 Dia iniciado!", description: "Seu cronômetro começou. Vamos lá, Visionário!" });
+    
+    // Save start timestamp in backend
+    if (user && plan) {
+      const today = getBrazilDate();
+      supabase
+        .from("work_sessions")
+        .upsert({
+          user_id: user.id,
+          planning_date: today,
+          start_timestamp: startTime.toISOString(),
+          meta_dia: plan.daily_goal,
+          ritmo_ideal_inicial: plan.hourly_goal,
+          status: "active",
+        }, {
+          onConflict: "user_id,planning_date",
+        })
+        .then(() => {
+          toast({ title: "🚀 Dia iniciado!", description: "Seu cronômetro começou. Vamos lá, Visionário!" });
+        });
+    }
   };
 
   const resetDay = async () => {
@@ -235,8 +260,95 @@ export default function DailyGoals() {
         await redistributeGoals(hourIndex, shortfall);
       }
       setSalesInputs((prev) => ({ ...prev, [blockId]: "" }));
+      
+      // Check if this is the last block
+      const updatedBlocks = await supabase
+        .from("hourly_goal_blocks")
+        .select("*")
+        .eq("plan_id", plan!.id)
+        .order("hour_index");
+      
+      if (updatedBlocks.data) {
+        const allCompleted = updatedBlocks.data.every((b) => b.is_completed);
+        
+        if (allCompleted) {
+          // Generate daily report
+          await generateDailyReport(updatedBlocks.data);
+        }
+      }
+      
       loadOrCreateDailyPlan();
     }
+  };
+
+  const generateDailyReport = async (completedBlocks: HourlyBlock[]) => {
+    if (!plan || !user) return;
+
+    const totalSold = completedBlocks.reduce((sum, b) => sum + b.achieved_amount, 0);
+    const percentageAchieved = (totalSold / plan.daily_goal) * 100;
+    const allBlocksFilled = completedBlocks.every((b) => b.achieved_amount > 0);
+    
+    // Find best and worst hours
+    const sortedBlocks = [...completedBlocks].sort((a, b) => b.achieved_amount - a.achieved_amount);
+    const bestHour = sortedBlocks[0] ? { index: sortedBlocks[0].hour_index, amount: sortedBlocks[0].achieved_amount } : null;
+    const worstHour = sortedBlocks[sortedBlocks.length - 1] ? { index: sortedBlocks[sortedBlocks.length - 1].hour_index, amount: sortedBlocks[sortedBlocks.length - 1].achieved_amount } : null;
+    
+    const averageRhythm = totalSold / completedBlocks.length;
+
+    // Generate advice
+    let advice = "";
+    if (percentageAchieved >= 100) {
+      advice = "Parabéns! Você bateu sua meta do dia! Continue com esse ritmo incrível e mantenha a constância. 🔥";
+    } else if (percentageAchieved >= 80) {
+      advice = "Você chegou muito perto da meta! Ajuste seu planejamento e você vai bater amanhã. 💪";
+    } else if (bestHour && worstHour) {
+      const bestHourLabel = `H${bestHour.index + 1}`;
+      advice = `Seu melhor desempenho foi na ${bestHourLabel}. Tente replicar o que funcionou nesse período nas outras horas.`;
+    } else {
+      advice = "Continue se esforçando! Cada dia é uma oportunidade de melhorar. Não desista! 🚀";
+    }
+
+    // Save report to database
+    const today = getBrazilDate();
+    const { data: sessionData } = await supabase
+      .from("work_sessions")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("planning_date", today)
+      .single();
+
+    if (sessionData) {
+      await supabase.from("work_sessions").update({
+        status: "finished",
+        end_timestamp: new Date().toISOString(),
+        total_vendido: totalSold,
+        constancia_dia: allBlocksFilled,
+      }).eq("id", sessionData.id);
+
+      await supabase.from("daily_reports").insert({
+        session_id: sessionData.id,
+        user_id: user.id,
+        total_vendido: totalSold,
+        melhor_hora: bestHour?.index,
+        pior_hora: worstHour?.index,
+        ritmo_medio: averageRhythm,
+        porcentagem_meta: percentageAchieved,
+        conselho: advice,
+      });
+    }
+
+    // Show report modal
+    setDailyReport({
+      totalSold,
+      dailyGoal: plan.daily_goal,
+      percentageAchieved,
+      bestHour,
+      worstHour,
+      averageRhythm,
+      consistency: allBlocksFilled,
+      advice,
+    });
+    setShowReportModal(true);
   };
 
   const formatTime = (seconds: number): string => {
@@ -531,6 +643,17 @@ export default function DailyGoals() {
           userId={user.id}
           isOpen={showEditModal}
           onClose={() => setShowEditModal(false)}
+        />
+      )}
+
+      {dailyReport && (
+        <DailyReportModal
+          isOpen={showReportModal}
+          onClose={() => {
+            setShowReportModal(false);
+            setDailyReport(null);
+          }}
+          report={dailyReport}
         />
       )}
     </div>

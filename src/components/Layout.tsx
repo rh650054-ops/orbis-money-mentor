@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
+import PWAInstallButton from "@/components/PWAInstallButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -179,6 +180,7 @@ export default function Layout({ children }: LayoutProps) {
                   );
                 })}
               </nav>
+              <PWAInstallButton />
             </div>
           </div>
         </div>
