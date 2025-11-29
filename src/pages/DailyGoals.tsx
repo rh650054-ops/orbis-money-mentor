@@ -462,8 +462,8 @@ export default function DailyGoals() {
               className={cn(
                 "overflow-hidden border-2 transition-all duration-300 rounded-2xl",
                 isActive && "ring-2 ring-blue-500 shadow-xl shadow-blue-500/30 scale-[1.01]",
-                block.is_completed && total >= block.target_amount && "border-green-500 bg-gradient-to-br from-green-600/40 to-emerald-700/30 shadow-lg shadow-green-500/50",
-                block.is_completed && total < block.target_amount && "border-red-500 bg-gradient-to-br from-red-600/40 to-rose-700/30 shadow-lg shadow-red-500/50",
+                block.is_completed && total >= block.target_amount && "bloco-verde",
+                block.is_completed && total < block.target_amount && "bloco-vermelho",
                 !block.is_completed && !isActive && "border-white/10 bg-black/40 backdrop-blur-sm"
               )}
             >
@@ -472,8 +472,8 @@ export default function DailyGoals() {
                   <div className="flex items-center gap-4">
                     <div className={cn(
                       "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all shadow-lg",
-                      block.is_completed && total >= block.target_amount && "bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-green-500/50",
-                      block.is_completed && total < block.target_amount && "bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/50",
+                      block.is_completed && total >= block.target_amount && "bloco-verde-numero",
+                      block.is_completed && total < block.target_amount && "bloco-vermelho-numero",
                       isActive && !block.is_completed && "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse",
                       !block.is_completed && !isActive && "bg-white/5 text-foreground"
                     )}>
@@ -542,8 +542,8 @@ export default function DailyGoals() {
                     <span className="text-muted-foreground">Progresso</span>
                     <span className={cn(
                       "font-semibold",
-                      block.is_completed && total >= block.target_amount && "text-green-500",
-                      block.is_completed && total < block.target_amount && "text-red-500",
+                      block.is_completed && total >= block.target_amount && "bloco-verde-texto",
+                      block.is_completed && total < block.target_amount && "bloco-vermelho-texto",
                       !block.is_completed && progressPercentage >= 50 && progressPercentage < 100 && "text-yellow-500",
                       !block.is_completed && progressPercentage < 50 && "text-muted-foreground"
                     )}>
@@ -554,8 +554,8 @@ export default function DailyGoals() {
                     value={progressPercentage} 
                     className={cn(
                       "h-2",
-                      block.is_completed && total >= block.target_amount && "[&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600",
-                      block.is_completed && total < block.target_amount && "[&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-rose-600"
+                      block.is_completed && total >= block.target_amount && "bloco-verde-progresso",
+                      block.is_completed && total < block.target_amount && "bloco-vermelho-progresso"
                     )}
                   />
                 </div>
