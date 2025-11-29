@@ -241,6 +241,18 @@ export default function DailyGoals() {
     toast({ title: "⚠️ Metas redistribuídas", description: `${formatCurrency(shortfall)} distribuído nas próximas ${remainingBlocks.length} horas.` });
   };
 
+  const redistributeSurplus = async (currentIndex: number, surplus: number) => {
+    const remainingBlocks = blocks.filter((b) => b.hour_index > currentIndex && !b.is_completed);
+    if (remainingBlocks.length === 0) return;
+    const reductionPerBlock = surplus / remainingBlocks.length;
+    for (const block of remainingBlocks) {
+      const newTarget = Math.max(0, block.target_amount - reductionPerBlock);
+      await supabase.from("hourly_goal_blocks").update({ target_amount: newTarget }).eq("id", block.id);
+    }
+    await loadBlocks(plan!.id);
+    toast({ title: "🎯 Excedente redistribuído", description: `${formatCurrency(surplus)} a menos nas próximas ${remainingBlocks.length} horas!` });
+  };
+
   const handleAddSale = async (blockId: string, hourIndex: number) => {
     const value = parseFloat(salesInputs[blockId] || "0");
     if (value <= 0) {
@@ -252,10 +264,16 @@ export default function DailyGoals() {
     const newAchieved = block.achieved_amount + value;
     const isCompleted = newAchieved >= block.target_amount;
     const shortfall = block.target_amount - newAchieved;
+    const surplus = newAchieved - block.target_amount;
     const { error } = await supabase.from("hourly_goal_blocks").update({ achieved_amount: newAchieved, is_completed: isCompleted }).eq("id", blockId);
     if (!error) {
       if (isCompleted && !block.is_completed) {
         toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
+        
+        // If there's a surplus, redistribute it to reduce future blocks
+        if (surplus > 0) {
+          await redistributeSurplus(hourIndex, surplus);
+        }
       } else if (!isCompleted && shortfall > 0) {
         await redistributeGoals(hourIndex, shortfall);
       }
