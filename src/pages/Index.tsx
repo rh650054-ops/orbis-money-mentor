@@ -552,7 +552,7 @@ export default function Index() {
       </Collapsible>
 
     {/* Financial Overview Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -604,6 +604,40 @@ export default function Index() {
           </CardContent>
         </Card>
 
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Gasto Mercadoria
+            </CardTitle>
+            <ShoppingCart className="h-5 w-5 text-warning" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl md:text-3xl font-bold text-warning whitespace-nowrap">
+              {formatCurrency(monthlyStats.totalCost)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Total no mês
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-success transition-smooth">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Lucro
+            </CardTitle>
+            <Zap className="h-5 w-5 text-success" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl md:text-3xl font-bold text-success whitespace-nowrap">
+              {formatCurrency(monthlyStats.totalIncome - monthlyStats.totalExpenses - monthlyStats.totalCost)}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Lucro líquido
+            </p>
+          </CardContent>
+        </Card>
+
         <Card className="card-gradient-border card-fixed-height hover:shadow-glow-secondary transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -624,23 +658,6 @@ export default function Index() {
                 </p>
               </>
             )}
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Gasto Mercadoria
-            </CardTitle>
-            <ShoppingCart className="h-5 w-5 text-warning" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-warning whitespace-nowrap">
-              {formatCurrency(monthlyStats.totalCost)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Total no mês
-            </p>
           </CardContent>
         </Card>
       </div>
