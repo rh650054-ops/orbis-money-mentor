@@ -553,19 +553,19 @@ export default function Index() {
 
     {/* Financial Overview Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-primary transition-smooth">
+        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-success transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Saldo Total
+              Lucro
             </CardTitle>
-            <DollarSign className="h-5 w-5 text-primary" />
+            <Zap className="h-5 w-5 text-success" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl md:text-3xl font-bold whitespace-nowrap">
-              {formatCurrency(monthlyStats.balance)}
+            <div className="text-2xl md:text-3xl font-bold text-success whitespace-nowrap">
+              {formatCurrency(monthlyStats.totalIncome - monthlyStats.totalExpenses - monthlyStats.totalCost)}
             </div>
-            <p className="text-xs text-success mt-1">
-              {monthlyStats.variation > 0 ? "+" : ""}{monthlyStats.variation.toFixed(1)}% este mês
+            <p className="text-xs text-muted-foreground mt-1">
+              Lucro líquido
             </p>
           </CardContent>
         </Card>
@@ -617,23 +617,6 @@ export default function Index() {
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Total no mês
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-success transition-smooth">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Lucro
-            </CardTitle>
-            <Zap className="h-5 w-5 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl md:text-3xl font-bold text-success whitespace-nowrap">
-              {formatCurrency(monthlyStats.totalIncome - monthlyStats.totalExpenses - monthlyStats.totalCost)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Lucro líquido
             </p>
           </CardContent>
         </Card>
