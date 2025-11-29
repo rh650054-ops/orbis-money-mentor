@@ -172,4 +172,38 @@ All colors MUST be HSL.
       transform: translateY(0);
     }
   }
+
+  /* Bloco Verde - Meta batida */
+  .bloco-verde {
+    @apply border-green-500 bg-gradient-to-br from-green-600/40 to-emerald-700/30 shadow-lg shadow-green-500/50;
+  }
+
+  .bloco-verde-numero {
+    @apply bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-green-500/50;
+  }
+
+  .bloco-verde-texto {
+    @apply text-green-500;
+  }
+
+  .bloco-verde-progresso {
+    @apply [&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600;
+  }
+
+  /* Bloco Vermelho - Meta não batida */
+  .bloco-vermelho {
+    @apply border-red-500 bg-gradient-to-br from-red-600/40 to-rose-700/30 shadow-lg shadow-red-500/50;
+  }
+
+  .bloco-vermelho-numero {
+    @apply bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/50;
+  }
+
+  .bloco-vermelho-texto {
+    @apply text-red-500;
+  }
+
+  .bloco-vermelho-progresso {
+    @apply [&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-rose-600;
+  }
 }
