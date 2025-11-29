@@ -47,6 +47,7 @@ export default function DailyGoals() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [dailyReport, setDailyReport] = useState<any>(null);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [elapsedTime, setElapsedTime] = useState<number>(0);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -55,8 +56,40 @@ export default function DailyGoals() {
     }
     if (user) {
       loadOrCreateDailyPlan();
+      loadSessionStartTime();
     }
   }, [user, loading, navigate]);
+
+  // Load session start time from backend
+  const loadSessionStartTime = async () => {
+    if (!user) return;
+    const today = getBrazilDate();
+    const { data } = await supabase
+      .from("work_sessions")
+      .select("start_timestamp")
+      .eq("user_id", user.id)
+      .eq("planning_date", today)
+      .eq("status", "active")
+      .maybeSingle();
+    
+    if (data?.start_timestamp) {
+      setSessionStartTime(new Date(data.start_timestamp));
+      setActiveTimer(0); // Mark as active
+    }
+  };
+
+  // Update elapsed time every second
+  useEffect(() => {
+    if (!sessionStartTime) return;
+    
+    const interval = setInterval(() => {
+      const now = new Date();
+      const elapsed = Math.floor((now.getTime() - sessionStartTime.getTime()) / 1000);
+      setElapsedTime(elapsed);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [sessionStartTime]);
 
   // Listen for profile changes
   useEffect(() => {
@@ -265,21 +298,25 @@ export default function DailyGoals() {
     const isCompleted = newAchieved >= block.target_amount;
     const shortfall = block.target_amount - newAchieved;
     const surplus = newAchieved - block.target_amount;
+    
     const { error } = await supabase.from("hourly_goal_blocks").update({ achieved_amount: newAchieved, is_completed: isCompleted }).eq("id", blockId);
+    
     if (!error) {
-      if (isCompleted && !block.is_completed) {
-        toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
-        
-        // If there's a surplus, redistribute it to reduce future blocks
-        if (surplus > 0) {
-          await redistributeSurplus(hourIndex, surplus);
-        }
-      } else if (!isCompleted && shortfall > 0) {
+      // If there's a surplus, redistribute it to reduce future blocks
+      if (surplus > 0 && isCompleted) {
+        await redistributeSurplus(hourIndex, surplus);
+      } else if (shortfall > 0 && !isCompleted) {
+        // If there's a shortfall, redistribute to increase future blocks
         await redistributeGoals(hourIndex, shortfall);
       }
+      
+      if (isCompleted && !block.is_completed) {
+        toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
+      }
+      
       setSalesInputs((prev) => ({ ...prev, [blockId]: "" }));
       
-      // Check if this is the last block
+      // Check if all blocks have values (for final report)
       const updatedBlocks = await supabase
         .from("hourly_goal_blocks")
         .select("*")
@@ -287,10 +324,10 @@ export default function DailyGoals() {
         .order("hour_index");
       
       if (updatedBlocks.data) {
-        const allCompleted = updatedBlocks.data.every((b) => b.is_completed);
+        const allHaveValues = updatedBlocks.data.every((b) => b.achieved_amount > 0);
         
-        if (allCompleted) {
-          // Generate daily report
+        if (allHaveValues) {
+          // Generate daily report when all blocks have been filled
           await generateDailyReport(updatedBlocks.data);
         }
       }
@@ -376,6 +413,12 @@ export default function DailyGoals() {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  const formatElapsedTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${String(minutes).padStart(2, '0')}m`;
+  };
+
   if (loading || !user) return null;
   if (!plan) return (
     <div className="flex items-center justify-center min-h-[60vh] p-8">
@@ -408,6 +451,11 @@ export default function DailyGoals() {
               <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
                 {formatCurrency(plan.daily_goal)}
               </p>
+              {sessionStartTime && (
+                <p className="text-sm text-blue-400 font-semibold mt-2">
+                  ⏱️ Tempo decorrido: {formatElapsedTime(elapsedTime)}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -480,9 +528,9 @@ export default function DailyGoals() {
               className={cn(
                 "overflow-hidden border-2 transition-all duration-300 rounded-2xl",
                 isActive && "ring-2 ring-blue-500 shadow-xl shadow-blue-500/30 scale-[1.01]",
-                block.is_completed && total >= block.target_amount && "bloco-verde",
-                block.is_completed && total < block.target_amount && "bloco-vermelho",
-                !block.is_completed && !isActive && "border-white/10 bg-black/40 backdrop-blur-sm"
+                total > 0 && total >= block.target_amount && "bloco-verde",
+                total > 0 && total < block.target_amount && "bloco-vermelho",
+                total === 0 && !isActive && "border-white/10 bg-black/40 backdrop-blur-sm"
               )}
             >
               <CardContent className="p-6 space-y-4">
@@ -490,10 +538,10 @@ export default function DailyGoals() {
                   <div className="flex items-center gap-4">
                     <div className={cn(
                       "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all shadow-lg",
-                      block.is_completed && total >= block.target_amount && "bloco-verde-numero",
-                      block.is_completed && total < block.target_amount && "bloco-vermelho-numero",
-                      isActive && !block.is_completed && "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse",
-                      !block.is_completed && !isActive && "bg-white/5 text-foreground"
+                      total > 0 && total >= block.target_amount && "bloco-verde-numero",
+                      total > 0 && total < block.target_amount && "bloco-vermelho-numero",
+                      isActive && total === 0 && "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse",
+                      total === 0 && !isActive && "bg-white/5 text-foreground"
                     )}>
                       {block.hour_label}
                     </div>
@@ -560,10 +608,10 @@ export default function DailyGoals() {
                     <span className="text-muted-foreground">Progresso</span>
                     <span className={cn(
                       "font-semibold",
-                      block.is_completed && total >= block.target_amount && "bloco-verde-texto",
-                      block.is_completed && total < block.target_amount && "bloco-vermelho-texto",
-                      !block.is_completed && progressPercentage >= 50 && progressPercentage < 100 && "text-yellow-500",
-                      !block.is_completed && progressPercentage < 50 && "text-muted-foreground"
+                      total > 0 && total >= block.target_amount && "bloco-verde-texto",
+                      total > 0 && total < block.target_amount && "bloco-vermelho-texto",
+                      total === 0 && progressPercentage >= 50 && progressPercentage < 100 && "text-yellow-500",
+                      total === 0 && progressPercentage < 50 && "text-muted-foreground"
                     )}>
                       {progressPercentage.toFixed(0)}%
                     </span>
@@ -572,13 +620,13 @@ export default function DailyGoals() {
                     value={progressPercentage} 
                     className={cn(
                       "h-2",
-                      block.is_completed && total >= block.target_amount && "bloco-verde-progresso",
-                      block.is_completed && total < block.target_amount && "bloco-vermelho-progresso"
+                      total > 0 && total >= block.target_amount && "bloco-verde-progresso",
+                      total > 0 && total < block.target_amount && "bloco-vermelho-progresso"
                     )}
                   />
                 </div>
 
-                {!block.is_completed && total > 0 && remaining > 0 && (
+                {total > 0 && remaining > 0 && (
                   <div className={cn(
                     "flex items-start gap-3 p-4 rounded-xl border backdrop-blur-sm",
                     progressPercentage >= 80 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20"
@@ -603,7 +651,7 @@ export default function DailyGoals() {
                   </div>
                 )}
 
-                {block.is_completed && total >= block.target_amount && (
+                {total >= block.target_amount && (
                   <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/20 border border-green-500/30 backdrop-blur-sm">
                     <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1">
@@ -617,7 +665,7 @@ export default function DailyGoals() {
                   </div>
                 )}
 
-                {block.is_completed && total < block.target_amount && (
+                {total > 0 && total < block.target_amount && (
                   <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/20 border border-red-500/30 backdrop-blur-sm">
                     <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 space-y-1">
@@ -631,7 +679,7 @@ export default function DailyGoals() {
                   </div>
                 )}
 
-                {!block.is_completed && (
+                {total < block.target_amount && (
                   <div className="flex gap-2 pt-2">
                     <Input
                       type="number"
