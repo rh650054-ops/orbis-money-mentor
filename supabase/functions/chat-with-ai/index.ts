@@ -40,8 +40,8 @@ serve(async (req) => {
       throw new Error("Messages array must contain between 1 and 50 messages");
     }
 
-    // Validate each message
-    for (const msg of messages) {
+    // Validate and sanitize each message
+    const sanitizedMessages = messages.map((msg: any) => {
       if (!msg || typeof msg !== 'object') {
         throw new Error("Invalid message format");
       }
@@ -54,10 +54,17 @@ serve(async (req) => {
         throw new Error("Invalid message content");
       }
       
-      if (msg.content.length === 0 || msg.content.length > 4000) {
-        throw new Error("Message content must be between 1 and 4000 characters");
+      // Truncate content if too long instead of throwing error
+      const content = msg.content.trim();
+      if (content.length === 0) {
+        throw new Error("Message content cannot be empty");
       }
-    }
+      
+      return {
+        role: msg.role,
+        content: content.length > 4000 ? content.substring(0, 4000) : content
+      };
+    });
 
     console.log("Processing chat request");
     console.log("Messages count:", messages.length);
@@ -105,7 +112,7 @@ serve(async (req) => {
     }
 
     // Get last user message
-    const lastUserMessage = messages.filter(m => m.role === 'user').pop();
+    const lastUserMessage = sanitizedMessages.filter((m: any) => m.role === 'user').pop();
     if (!lastUserMessage) {
       throw new Error("Nenhuma mensagem do usuário encontrada");
     }
@@ -150,7 +157,7 @@ serve(async (req) => {
         
         console.error("Webhook error status:", webhookResponse.status);
         console.error("Webhook error body:", errorBody);
-        console.error("URL chamada:", "https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor");
+        console.error("URL chamada:", N8N_WEBHOOK_URL);
         console.error("Body enviado:", JSON.stringify({ input: lastUserMessage.content }));
         
         throw new Error(`Webhook do n8n retornou erro ${webhookResponse.status}. Detalhes: ${errorBody.substring(0, 200)}`);
