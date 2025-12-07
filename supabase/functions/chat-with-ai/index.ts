@@ -124,7 +124,7 @@ serve(async (req) => {
 
     try {
       // Call n8n webhook - URL de produção
-      const N8N_WEBHOOK_URL = "https://jovemrick.app.n8n.cloud/webhook/orbis-vendedor";
+      const N8N_WEBHOOK_URL = "https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor";
       console.log("Chamando webhook:", N8N_WEBHOOK_URL);
       
       const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
