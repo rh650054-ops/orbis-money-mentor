@@ -116,8 +116,8 @@ serve(async (req) => {
     let assistantMessage = "";
 
     try {
-      // Call n8n webhook - usando URL de teste conforme solicitado
-      const N8N_WEBHOOK_URL = "https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor";
+      // Call n8n webhook - URL de produção
+      const N8N_WEBHOOK_URL = "https://jovemrick.app.n8n.cloud/webhook/orbis-vendedor";
       console.log("Chamando webhook:", N8N_WEBHOOK_URL);
       
       const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
