@@ -6,6 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useMonthlyChallenge, ChallengeLevel } from "@/hooks/useMonthlyChallenge";
 import confetti from "canvas-confetti";
+import { celebrationSounds } from "@/utils/celebrationSounds";
 
 interface MonthlyChallengeCardProps {
   userId: string;
@@ -91,6 +92,7 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
     // Se já temos um nível anterior registrado e ele mudou
     if (previousLevelRef.current && previousLevelRef.current !== currentLevel.nivel) {
       triggerConfetti();
+      celebrationSounds.playLevelUp();
     }
     
     // Atualizar referência do nível anterior
