@@ -6,7 +6,7 @@ import { getBrazilDate } from "@/lib/dateUtils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, RotateCcw, Pencil } from "lucide-react";
+import { TrendingUp, RotateCcw, Pencil, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
@@ -35,6 +35,8 @@ export default function DailyGoals() {
   const [dailyReport, setDailyReport] = useState<any>(null);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState<number>(0);
+  const [dayFinished, setDayFinished] = useState(false);
 
   const { blocks, planId, loadBlocks, stats, startDayTimers } = useHourlyBlocks(user?.id);
 
@@ -45,26 +47,42 @@ export default function DailyGoals() {
     }
     if (user) {
       loadOrCreateDailyPlan();
-      loadSessionStartTime();
+      loadSessionState();
     }
   }, [user, loading, navigate]);
 
-  // Load session start time from backend
-  const loadSessionStartTime = async () => {
+  // Load session state from backend
+  const loadSessionState = async () => {
     if (!user) return;
     const today = getBrazilDate();
     const { data } = await supabase
       .from("work_sessions")
-      .select("start_timestamp")
+      .select("start_timestamp, status")
       .eq("user_id", user.id)
       .eq("planning_date", today)
-      .eq("status", "active")
       .maybeSingle();
     
     if (data?.start_timestamp) {
       setSessionStartTime(new Date(data.start_timestamp));
+      if (data.status === 'finished') {
+        setDayFinished(true);
+      }
     }
   };
+
+  // Determine current active block based on completed status
+  useEffect(() => {
+    if (blocks.length === 0) return;
+    
+    // Find first non-completed block
+    const firstIncompleteIndex = blocks.findIndex(b => !b.is_completed);
+    if (firstIncompleteIndex === -1) {
+      // All blocks completed
+      setCurrentBlockIndex(blocks.length);
+    } else {
+      setCurrentBlockIndex(firstIncompleteIndex);
+    }
+  }, [blocks]);
 
   // Update elapsed time every second
   useEffect(() => {
@@ -201,6 +219,25 @@ export default function DailyGoals() {
     }
   };
 
+  const handleBlockCompleted = async (blockId: string, blockIndex: number) => {
+    // Start next block's timer if there is one
+    const nextBlock = blocks.find(b => b.hour_index === blockIndex + 1);
+    if (nextBlock && nextBlock.timer_status === 'idle') {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          timer_status: 'running',
+          timer_started_at: new Date().toISOString()
+        })
+        .eq("id", nextBlock.id);
+      
+      setCurrentBlockIndex(blockIndex + 1);
+      toast({ title: `⏱️ Hora ${blockIndex + 2} iniciada!`, description: "Continue focado!" });
+    }
+    
+    loadBlocks();
+  };
+
   const resetDay = async () => {
     if (!plan || !planId) return;
     
@@ -223,28 +260,27 @@ export default function DailyGoals() {
 
     if (!error) {
       setSessionStartTime(null);
+      setCurrentBlockIndex(0);
+      setDayFinished(false);
+      setDailyReport(null);
       loadBlocks();
       toast({ title: "🔄 Ritmo reiniciado", description: "Todos os blocos foram resetados." });
     }
   };
 
-  // Check if all blocks have values for final report
-  useEffect(() => {
-    if (!plan || blocks.length === 0) return;
-    
-    const allHaveValues = blocks.every((b) => b.achieved_amount > 0);
-    
-    if (allHaveValues && !dailyReport) {
-      generateDailyReport(blocks);
-    }
-  }, [blocks, plan]);
+  const finishDay = async () => {
+    if (!plan || !user) return;
+    await generateDailyReport(blocks);
+    setDayFinished(true);
+  };
 
   const generateDailyReport = async (completedBlocks: HourlyBlock[]) => {
     if (!plan || !user) return;
 
-    const totalSold = completedBlocks.reduce((sum, b) => sum + b.achieved_amount, 0);
+    const totalSold = completedBlocks.reduce((sum, b) => sum + (b.achieved_amount || 0), 0);
     const percentageAchieved = (totalSold / plan.daily_goal) * 100;
-    const allBlocksFilled = completedBlocks.every((b) => b.achieved_amount > 0);
+    const blocksWithValues = completedBlocks.filter(b => b.achieved_amount > 0);
+    const allBlocksFilled = blocksWithValues.length === completedBlocks.length;
     
     // Calculate payment method totals
     const totalDinheiro = completedBlocks.reduce((sum, b) => sum + (b.valor_dinheiro || 0), 0);
@@ -252,12 +288,12 @@ export default function DailyGoals() {
     const totalPix = completedBlocks.reduce((sum, b) => sum + (b.valor_pix || 0), 0);
     const totalCalote = completedBlocks.reduce((sum, b) => sum + (b.valor_calote || 0), 0);
     
-    // Find best and worst hours
-    const sortedBlocks = [...completedBlocks].sort((a, b) => b.achieved_amount - a.achieved_amount);
+    // Find best and worst hours (only from blocks with values)
+    const sortedBlocks = [...blocksWithValues].sort((a, b) => b.achieved_amount - a.achieved_amount);
     const bestHour = sortedBlocks[0] ? { index: sortedBlocks[0].hour_index, amount: sortedBlocks[0].achieved_amount } : null;
-    const worstHour = sortedBlocks[sortedBlocks.length - 1] ? { index: sortedBlocks[sortedBlocks.length - 1].hour_index, amount: sortedBlocks[sortedBlocks.length - 1].achieved_amount } : null;
+    const worstHour = sortedBlocks.length > 0 ? { index: sortedBlocks[sortedBlocks.length - 1].hour_index, amount: sortedBlocks[sortedBlocks.length - 1].achieved_amount } : null;
     
-    const averageRhythm = totalSold / completedBlocks.length;
+    const averageRhythm = blocksWithValues.length > 0 ? totalSold / blocksWithValues.length : 0;
 
     // Generate advice
     let advice = "";
@@ -338,8 +374,9 @@ export default function DailyGoals() {
 
   const totalAchieved = stats.totalVendido;
   const progressPercentage = (totalAchieved / plan.daily_goal) * 100;
-  const completedBlocksCount = stats.blocksCompleted;
+  const completedBlocksCount = blocks.filter(b => b.is_completed).length;
   const hasActiveSession = sessionStartTime !== null;
+  const allBlocksCompleted = completedBlocksCount === blocks.length && blocks.length > 0;
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
@@ -395,12 +432,12 @@ export default function DailyGoals() {
               {formatCurrency(totalAchieved)} alcançado
             </span>
             <span className="text-muted-foreground">
-              {completedBlocksCount}/{plan.work_hours} blocos ✓
+              {completedBlocksCount}/{plan.work_hours} horas concluídas
             </span>
           </div>
 
           <div className="flex gap-2">
-            {!hasActiveSession && (
+            {!hasActiveSession && !dayFinished && (
               <Button 
                 onClick={startDay} 
                 className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all"
@@ -409,6 +446,28 @@ export default function DailyGoals() {
                 🚀 Iniciar Meu Dia
               </Button>
             )}
+            
+            {hasActiveSession && !dayFinished && (
+              <Button 
+                onClick={finishDay}
+                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/50 hover:shadow-xl hover:shadow-green-500/60 transition-all"
+                size="lg"
+              >
+                <Flag className="w-5 h-5 mr-2" />
+                Concluir Dia
+              </Button>
+            )}
+            
+            {dayFinished && (
+              <Button 
+                onClick={() => setShowReportModal(true)}
+                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-purple-500 to-blue-600"
+                size="lg"
+              >
+                📊 Ver Relatório
+              </Button>
+            )}
+            
             <Button
               onClick={resetDay}
               variant="outline"
@@ -426,7 +485,10 @@ export default function DailyGoals() {
           <HourlyBlockDetail
             key={block.id}
             block={block}
-            isActive={hasActiveSession && index === 0}
+            isCurrentBlock={hasActiveSession && index === currentBlockIndex && !dayFinished}
+            isCompleted={block.is_completed}
+            canEdit={block.is_completed}
+            onBlockCompleted={handleBlockCompleted}
             onBlockUpdated={loadBlocks}
             planId={planId || ""}
             allBlocks={blocks}
@@ -447,7 +509,6 @@ export default function DailyGoals() {
           isOpen={showReportModal}
           onClose={() => {
             setShowReportModal(false);
-            setDailyReport(null);
           }}
           report={dailyReport}
         />
