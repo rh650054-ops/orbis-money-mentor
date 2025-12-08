@@ -272,6 +272,34 @@ export default function DailyGoals() {
     if (!plan || !user) return;
     await generateDailyReport(blocks);
     setDayFinished(true);
+    
+    // Update constância (streak) when finishing the day
+    await updateDailyWorkLog();
+  };
+
+  const updateDailyWorkLog = async () => {
+    if (!user || !plan) return;
+    
+    const today = getBrazilDate();
+    const totalSold = stats.totalVendido;
+    const goalAchieved = totalSold >= plan.daily_goal;
+    const percentageAchieved = (totalSold / plan.daily_goal) * 100;
+    
+    // Check if all blocks were completed
+    const allBlocksFilled = blocks.every(b => b.is_completed);
+    
+    // Create or update daily work log entry
+    await supabase.from("daily_work_log").upsert({
+      user_id: user.id,
+      date: today,
+      status: 'worked',
+      goal_achieved: goalAchieved,
+      sales_amount: totalSold,
+      daily_goal: plan.daily_goal,
+      percentage_achieved: percentageAchieved,
+    }, {
+      onConflict: 'user_id,date'
+    });
   };
 
   const generateDailyReport = async (completedBlocks: HourlyBlock[]) => {

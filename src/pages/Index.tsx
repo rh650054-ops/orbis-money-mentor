@@ -233,14 +233,14 @@ export default function Index() {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
       const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
-      const balance = totalIncome - totalExpenses;
+      const balance = totalIncome - totalExpenses - totalCost;
       
-      // Calculate real daily average from active days
+      // Calculate real daily average from NET PROFIT (lucro líquido)
       const activeDays = monthData.filter(day => day.total_profit > 0).length;
-      const avgProfit = activeDays > 0 ? totalIncome / activeDays : 0;
+      const netProfitPerDay = activeDays > 0 ? balance / activeDays : 0;
       
       setActiveDaysCount(activeDays);
-      setDailyAverage(avgProfit);
+      setDailyAverage(netProfitPerDay);
       
       const stats = {
         totalIncome,
@@ -255,7 +255,7 @@ export default function Index() {
       // Cache data
       localStorage.setItem("orbis_dashboard_cache", JSON.stringify({
         monthlyStats: stats,
-        dailyAverage: avgProfit,
+        dailyAverage: netProfitPerDay,
         activeDaysCount: activeDays,
         lastUpdate: new Date().toISOString()
       }));
@@ -725,8 +725,9 @@ export default function Index() {
                 <label className="text-sm text-muted-foreground">Nova Meta (R$)</label>
                 <Input
                   type="number"
-                  value={goalInput}
+                  value={goalInput === '0' ? '' : goalInput}
                   onChange={(e) => setGoalInput(e.target.value)}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
                   placeholder="Digite a meta"
                   className="text-lg font-semibold"
                   autoFocus
