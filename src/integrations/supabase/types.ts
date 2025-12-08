@@ -434,6 +434,51 @@ export type Database = {
           },
         ]
       }
+      monthly_challenges: {
+        Row: {
+          created_at: string
+          data_inicio: string
+          id: string
+          mes_referencia: string
+          meta_progresso: number
+          nivel_atual: string | null
+          progresso_atual: number
+          status: string
+          tipo_desafio: string
+          updated_at: string
+          user_id: string
+          xp_total: number
+        }
+        Insert: {
+          created_at?: string
+          data_inicio?: string
+          id?: string
+          mes_referencia: string
+          meta_progresso?: number
+          nivel_atual?: string | null
+          progresso_atual?: number
+          status?: string
+          tipo_desafio?: string
+          updated_at?: string
+          user_id: string
+          xp_total?: number
+        }
+        Update: {
+          created_at?: string
+          data_inicio?: string
+          id?: string
+          mes_referencia?: string
+          meta_progresso?: number
+          nivel_atual?: string | null
+          progresso_atual?: number
+          status?: string
+          tipo_desafio?: string
+          updated_at?: string
+          user_id?: string
+          xp_total?: number
+        }
+        Relationships: []
+      }
       personal_expenses: {
         Row: {
           amount: number
