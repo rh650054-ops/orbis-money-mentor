@@ -2,35 +2,32 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Banknote, CreditCard, Smartphone, AlertTriangle, TrendingUp } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useDailyBlockStats } from "@/hooks/useHourlyBlocks";
-
 interface DashboardBlockStatsProps {
   userId: string;
   date?: string;
 }
-
-export function DashboardBlockStats({ userId, date }: DashboardBlockStatsProps) {
-  const { stats, loading } = useDailyBlockStats(userId, date);
-
+export function DashboardBlockStats({
+  userId,
+  date
+}: DashboardBlockStatsProps) {
+  const {
+    stats,
+    loading
+  } = useDailyBlockStats(userId, date);
   if (loading) {
-    return (
-      <Card className="card-gradient-border animate-pulse">
+    return <Card className="card-gradient-border animate-pulse">
         <CardContent className="p-4">
           <div className="h-24 bg-muted/20 rounded-lg" />
         </CardContent>
-      </Card>
-    );
+      </Card>;
   }
-
   if (!stats || stats.totalBlocks === 0) {
     return null;
   }
-
-  return (
-    <Card className="card-gradient-border">
+  return <Card className="card-gradient-border">
       <CardContent className="p-4 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-lg flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-primary" />
+          <h3 className="font-semibold text-lg flex items-center gap-2">Resumo do Dia<TrendingUp className="w-5 h-5 text-primary" />
             Resumo do Ritmo
           </h3>
           <span className="text-sm text-muted-foreground">
@@ -94,6 +91,5 @@ export function DashboardBlockStats({ userId, date }: DashboardBlockStatsProps) 
           </div>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
 }
