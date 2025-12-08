@@ -5,12 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, TrendingUp, DollarSign, AlertTriangle, ShoppingCart, Filter, X } from "lucide-react";
+import { Calendar, TrendingUp, DollarSign, AlertTriangle, ShoppingCart, Filter, X, Trash2 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AIInsightsReport } from "@/components/AIInsightsReport";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface SaleRecord {
   id: string;
@@ -134,6 +145,35 @@ export default function History() {
     toast({
       title: "🔄 Filtros limpos",
       description: "Mostrando todos os lançamentos."
+    });
+  };
+
+  const handleDeleteSale = async (saleId: string) => {
+    const { error } = await supabase
+      .from("daily_sales")
+      .delete()
+      .eq("id", saleId);
+
+    if (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível excluir o lançamento.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Update local state
+    const updatedHistory = salesHistory.filter(sale => sale.id !== saleId);
+    const updatedFiltered = filteredHistory.filter(sale => sale.id !== saleId);
+    
+    setSalesHistory(updatedHistory);
+    setFilteredHistory(updatedFiltered);
+    updateWeekData(updatedFiltered);
+
+    toast({
+      title: "✅ Lançamento excluído!",
+      description: "Dashboard e histórico atualizados automaticamente."
     });
   };
 
@@ -323,15 +363,47 @@ export default function History() {
                           </span>
                         </div>
                       </div>
-                      {isGoalReached ? (
-                        <Badge className="bg-success/20 text-success border-success/30">
-                          🔥 Meta atingida!
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {percentage.toFixed(0)}% da meta
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {isGoalReached ? (
+                          <Badge className="bg-success/20 text-success border-success/30">
+                            🔥 Meta atingida!
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            {percentage.toFixed(0)}% da meta
+                          </Badge>
+                        )}
+                        
+                        {/* Delete Button */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir lançamento?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. O lançamento será removido permanentemente e o Dashboard será atualizado automaticamente.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteSale(sale.id)}
+                                className="bg-destructive hover:bg-destructive/90"
+                              >
+                                Excluir
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
 
                     {/* Valores principais */}

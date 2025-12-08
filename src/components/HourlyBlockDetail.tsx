@@ -51,10 +51,10 @@ export function HourlyBlockDetail({
 }: HourlyBlockDetailProps) {
   const { toast } = useToast();
   const [localBlock, setLocalBlock] = useState(block);
-  const [dinheiro, setDinheiro] = useState(block.valor_dinheiro?.toString() || "0");
-  const [cartao, setCartao] = useState(block.valor_cartao?.toString() || "0");
-  const [pix, setPix] = useState(block.valor_pix?.toString() || "0");
-  const [calote, setCalote] = useState(block.valor_calote?.toString() || "0");
+  const [dinheiro, setDinheiro] = useState(block.valor_dinheiro ? block.valor_dinheiro.toString() : "");
+  const [cartao, setCartao] = useState(block.valor_cartao ? block.valor_cartao.toString() : "");
+  const [pix, setPix] = useState(block.valor_pix ? block.valor_pix.toString() : "");
+  const [calote, setCalote] = useState(block.valor_calote ? block.valor_calote.toString() : "");
   const [timeRemaining, setTimeRemaining] = useState(3600);
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -63,10 +63,10 @@ export function HourlyBlockDetail({
   // Update local state when prop changes
   useEffect(() => {
     setLocalBlock(block);
-    setDinheiro(block.valor_dinheiro?.toString() || "0");
-    setCartao(block.valor_cartao?.toString() || "0");
-    setPix(block.valor_pix?.toString() || "0");
-    setCalote(block.valor_calote?.toString() || "0");
+    setDinheiro(block.valor_dinheiro ? block.valor_dinheiro.toString() : "");
+    setCartao(block.valor_cartao ? block.valor_cartao.toString() : "");
+    setPix(block.valor_pix ? block.valor_pix.toString() : "");
+    setCalote(block.valor_calote ? block.valor_calote.toString() : "");
   }, [block]);
 
   // Calculate time remaining based on server timestamps
@@ -457,9 +457,12 @@ export function HourlyBlockDetail({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
+                  min="0"
                   value={dinheiro}
                   onChange={(e) => setDinheiro(e.target.value)}
+                  onFocus={(e) => e.target.value === "0" && setDinheiro("")}
                   className="h-9 text-sm border-green-500/30 focus:border-green-500"
                   placeholder="0,00"
                 />
@@ -472,9 +475,12 @@ export function HourlyBlockDetail({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
+                  min="0"
                   value={cartao}
                   onChange={(e) => setCartao(e.target.value)}
+                  onFocus={(e) => e.target.value === "0" && setCartao("")}
                   className="h-9 text-sm border-blue-500/30 focus:border-blue-500"
                   placeholder="0,00"
                 />
@@ -487,9 +493,12 @@ export function HourlyBlockDetail({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
+                  min="0"
                   value={pix}
                   onChange={(e) => setPix(e.target.value)}
+                  onFocus={(e) => e.target.value === "0" && setPix("")}
                   className="h-9 text-sm border-purple-500/30 focus:border-purple-500"
                   placeholder="0,00"
                 />
@@ -502,9 +511,12 @@ export function HourlyBlockDetail({
                 </Label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
+                  min="0"
                   value={calote}
                   onChange={(e) => setCalote(e.target.value)}
+                  onFocus={(e) => e.target.value === "0" && setCalote("")}
                   className="h-9 text-sm border-red-500/30 focus:border-red-500"
                   placeholder="0,00"
                 />
