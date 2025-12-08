@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Trophy, Target, Zap, ChevronRight, Play, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useMonthlyChallenge, ChallengeLevel } from "@/hooks/useMonthlyChallenge";
+import confetti from "canvas-confetti";
 
 interface MonthlyChallengeCardProps {
   userId: string;
@@ -43,6 +44,31 @@ const getLevelBorderColor = (nivel: string): string => {
   }
 };
 
+const triggerConfetti = () => {
+  // Explosão inicial
+  confetti({
+    particleCount: 100,
+    spread: 70,
+    origin: { y: 0.6 }
+  });
+
+  // Segunda explosão com delay
+  setTimeout(() => {
+    confetti({
+      particleCount: 50,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0 }
+    });
+    confetti({
+      particleCount: 50,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1 }
+    });
+  }, 250);
+};
+
 export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
   const {
     challenge,
@@ -53,6 +79,23 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
     getNextLevel,
     createChallenge,
   } = useMonthlyChallenge(userId);
+
+  const previousLevelRef = useRef<string | null>(null);
+
+  // Detectar mudança de nível e disparar confete
+  useEffect(() => {
+    if (!challenge || loading) return;
+
+    const currentLevel = calculateLevel(challenge.progresso_atual);
+    
+    // Se já temos um nível anterior registrado e ele mudou
+    if (previousLevelRef.current && previousLevelRef.current !== currentLevel.nivel) {
+      triggerConfetti();
+    }
+    
+    // Atualizar referência do nível anterior
+    previousLevelRef.current = currentLevel.nivel;
+  }, [challenge?.progresso_atual, loading]);
 
   if (loading) {
     return (
