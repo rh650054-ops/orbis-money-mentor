@@ -20,9 +20,7 @@ const profileSchema = z.object({
   email: z.string()
     .trim()
     .email({ message: "E-mail inválido" })
-    .max(255, { message: "E-mail deve ter no máximo 255 caracteres" }),
-  monthly_goal: z.number()
-    .min(0, { message: "Meta deve ser positiva" })
+    .max(255, { message: "E-mail deve ter no máximo 255 caracteres" })
 });
 
 export default function Profile() {
@@ -44,7 +42,6 @@ export default function Profile() {
   const [editForm, setEditForm] = useState({
     nickname: "",
     email: "",
-    monthly_goal: 0,
     avatar_url: ""
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -100,7 +97,6 @@ export default function Profile() {
       setEditForm({
         nickname: data.nickname || "",
         email: data.email || "",
-        monthly_goal: data.monthly_goal || 0,
         avatar_url: data.avatar_url || ""
       });
       if (data.avatar_url) {
@@ -132,7 +128,6 @@ export default function Profile() {
         setEditForm({
           nickname: newProfile.nickname || "",
           email: newProfile.email || "",
-          monthly_goal: newProfile.monthly_goal || 0,
           avatar_url: newProfile.avatar_url || ""
         });
       }
@@ -223,7 +218,6 @@ export default function Profile() {
             .update({
               nickname: editForm.nickname.trim(),
               email: editForm.email.trim(),
-              monthly_goal: editForm.monthly_goal,
               avatar_url: finalAvatarUrl
             })
             .eq("user_id", user.id);
@@ -234,7 +228,6 @@ export default function Profile() {
             ...profile,
             nickname: editForm.nickname,
             email: editForm.email,
-            monthly_goal: editForm.monthly_goal,
             avatar_url: finalAvatarUrl
           });
 
@@ -253,7 +246,6 @@ export default function Profile() {
           .update({
             nickname: editForm.nickname.trim(),
             email: editForm.email.trim(),
-            monthly_goal: editForm.monthly_goal,
             avatar_url: finalAvatarUrl
           })
           .eq("user_id", user.id);
@@ -264,7 +256,6 @@ export default function Profile() {
           ...profile,
           nickname: editForm.nickname,
           email: editForm.email,
-          monthly_goal: editForm.monthly_goal,
           avatar_url: finalAvatarUrl
         });
 
@@ -466,17 +457,9 @@ export default function Profile() {
                   maxLength={255}
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Meta Mensal (R$)</Label>
-                <Input
-                  type="number"
-                  value={editForm.monthly_goal}
-                  onChange={(e) => setEditForm({ ...editForm, monthly_goal: parseFloat(e.target.value) || 0 })}
-                  placeholder="0.00"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
+              <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
+                💡 Para editar a meta mensal, use o painel "Editar Planejamento" no Dashboard.
+              </p>
               <div className="flex gap-2">
                 <Button 
                   onClick={handleSaveProfile}
@@ -493,7 +476,6 @@ export default function Profile() {
                     setEditForm({
                       nickname: profile.nickname,
                       email: profile.email,
-                      monthly_goal: profile.monthly_goal,
                       avatar_url: profile.avatar_url
                     });
                     setAvatarPreview(profile.avatar_url);

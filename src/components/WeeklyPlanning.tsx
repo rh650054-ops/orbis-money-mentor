@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar, Target, Pencil, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 
 interface WeeklyPlanningProps {
   userId: string;
+  onEditPlanning?: () => void;
 }
 
 const DAYS_OF_WEEK = [
@@ -23,7 +23,7 @@ const DAYS_OF_WEEK = [
   { key: 'sunday', label: 'Dom', fullLabel: 'Domingo' },
 ];
 
-export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
+export const WeeklyPlanning = ({ userId, onEditPlanning }: WeeklyPlanningProps) => {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [workingDays, setWorkingDays] = useState<string[]>(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);
@@ -33,6 +33,27 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
 
   useEffect(() => {
     loadPlanning();
+    
+    // Listen for profile updates
+    const channel = supabase
+      .channel('planning-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `user_id=eq.${userId}`
+        },
+        () => {
+          loadPlanning();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   const loadPlanning = async () => {
@@ -68,13 +89,11 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
       return;
     }
 
+    // Only update working_days, the rest is read-only
     const { error } = await supabase
       .from("profiles")
       .update({
         working_days: workingDays,
-        base_daily_goal: baseDailyGoal,
-        weekly_goal: weeklyGoal,
-        monthly_goal: monthlyGoal,
       })
       .eq("user_id", userId);
 
@@ -89,8 +108,8 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
 
     setIsEditing(false);
     toast({
-      title: "✅ Planejamento atualizado!",
-      description: "Suas metas foram salvas com sucesso.",
+      title: "✅ Dias de trabalho atualizados!",
+      description: "Suas configurações foram salvas com sucesso.",
     });
   };
 
@@ -102,33 +121,46 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
             <Calendar className="h-5 w-5 text-primary" />
             Planejamento
           </CardTitle>
-          {!isEditing ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setIsEditing(true)}
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Editar
-            </Button>
-          ) : (
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleSave}>
-                <Check className="h-4 w-4 mr-2" />
-                Salvar
+          <div className="flex gap-2">
+            {onEditPlanning && (
+              <Button
+                size="sm"
+                variant="default"
+                onClick={onEditPlanning}
+                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Editar Metas
               </Button>
+            )}
+            {!isEditing ? (
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  setIsEditing(false);
-                  loadPlanning();
-                }}
+                onClick={() => setIsEditing(true)}
               >
-                <X className="h-4 w-4" />
+                <Calendar className="h-4 w-4 mr-2" />
+                Dias
               </Button>
-            </div>
-          )}
+            ) : (
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSave}>
+                  <Check className="h-4 w-4 mr-2" />
+                  Salvar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditing(false);
+                    loadPlanning();
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -152,35 +184,26 @@ export const WeeklyPlanning = ({ userId }: WeeklyPlanningProps) => {
                 {workingDays.length} {workingDays.length === 1 ? 'dia' : 'dias'} selecionados
               </p>
             </div>
-            <div className="space-y-2">
-              <Label>Meta diária base (R$)</Label>
-              <Input
-                type="number"
-                step="10"
-                min="0"
-                value={baseDailyGoal}
-                onChange={(e) => setBaseDailyGoal(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Meta semanal (R$)</Label>
-              <Input
-                type="number"
-                step="50"
-                min="0"
-                value={weeklyGoal}
-                onChange={(e) => setWeeklyGoal(parseFloat(e.target.value) || 0)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Meta mensal (R$)</Label>
-              <Input
-                type="number"
-                step="100"
-                min="0"
-                value={monthlyGoal}
-                onChange={(e) => setMonthlyGoal(parseFloat(e.target.value) || 0)}
-              />
+            
+            {/* Read-only goals display */}
+            <div className="p-3 rounded-lg bg-muted/30 border border-muted/50">
+              <p className="text-xs text-muted-foreground mb-2">
+                💡 Para editar as metas, use o botão "Editar Metas" acima
+              </p>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Meta mensal</p>
+                  <p className="font-bold">{formatCurrency(monthlyGoal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Meta diária</p>
+                  <p className="font-bold">{formatCurrency(baseDailyGoal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Meta semanal</p>
+                  <p className="font-bold">{formatCurrency(weeklyGoal)}</p>
+                </div>
+              </div>
             </div>
           </>
         ) : (
