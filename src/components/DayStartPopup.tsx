@@ -25,11 +25,14 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   const [percentageAchieved, setPercentageAchieved] = useState(0);
 
   useEffect(() => {
-    loadGoalsAndStatus();
-    setIsOpen(true);
+    const init = async () => {
+      await loadGoalsAndStatus();
+      setIsOpen(true);
+    };
+    init();
     
-    // Listen for profile updates
-    const channel = supabase
+    // Listen for profile and work_sessions updates
+    const profileChannel = supabase
       .channel('profile-changes')
       .on(
         'postgres_changes',
@@ -45,14 +48,39 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       )
       .subscribe();
 
+    const sessionChannel = supabase
+      .channel('session-changes-popup')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_sessions',
+          filter: `user_id=eq.${userId}`
+        },
+        () => {
+          loadGoalsAndStatus();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profileChannel);
+      supabase.removeChannel(sessionChannel);
     };
   }, [userId]);
 
   const loadGoalsAndStatus = async () => {
     const today = getBrazilDate();
     
+    // Check work session status for today FIRST
+    const { data: session } = await supabase
+      .from("work_sessions")
+      .select("status, total_vendido")
+      .eq("user_id", userId)
+      .eq("planning_date", today)
+      .maybeSingle();
+
     // Load profile goals
     const { data: profile } = await supabase
       .from("profiles")
@@ -67,14 +95,6 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       setWorkHours(profile.goal_hours || 0);
     }
 
-    // Check work session status for today
-    const { data: session } = await supabase
-      .from("work_sessions")
-      .select("status, total_vendido")
-      .eq("user_id", userId)
-      .eq("planning_date", today)
-      .maybeSingle();
-
     if (session) {
       if (session.status === 'finished') {
         setDayStatus('finished');
@@ -84,6 +104,8 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
         }
       } else if (session.status === 'active') {
         setDayStatus('in_progress');
+      } else {
+        setDayStatus('not_started');
       }
     } else {
       setDayStatus('not_started');
