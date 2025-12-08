@@ -36,7 +36,7 @@ export default function DailyGoals() {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [currentBlockIndex, setCurrentBlockIndex] = useState<number>(0);
-  const [dayFinished, setDayFinished] = useState(false);
+  const [dayStatus, setDayStatus] = useState<'not_started' | 'in_progress' | 'finished'>('not_started');
 
   const { blocks, planId, loadBlocks, stats, startDayTimers } = useHourlyBlocks(user?.id);
 
@@ -65,7 +65,9 @@ export default function DailyGoals() {
     if (data?.start_timestamp) {
       setSessionStartTime(new Date(data.start_timestamp));
       if (data.status === 'finished') {
-        setDayFinished(true);
+        setDayStatus('finished');
+      } else if (data.status === 'active') {
+        setDayStatus('in_progress');
       }
     }
   };
@@ -195,6 +197,7 @@ export default function DailyGoals() {
   const startDay = async () => {
     const startTime = new Date();
     setSessionStartTime(startTime);
+    setDayStatus('in_progress');
     
     // Start first block timer
     await startDayTimers();
@@ -261,7 +264,7 @@ export default function DailyGoals() {
     if (!error) {
       setSessionStartTime(null);
       setCurrentBlockIndex(0);
-      setDayFinished(false);
+      setDayStatus('not_started');
       setDailyReport(null);
       loadBlocks();
       toast({ title: "🔄 Ritmo reiniciado", description: "Todos os blocos foram resetados." });
@@ -271,7 +274,7 @@ export default function DailyGoals() {
   const finishDay = async () => {
     if (!plan || !user) return;
     await generateDailyReport(blocks);
-    setDayFinished(true);
+    setDayStatus('finished');
     
     // Update constância (streak) when finishing the day
     await updateDailyWorkLog();
@@ -403,7 +406,6 @@ export default function DailyGoals() {
   const totalAchieved = stats.totalVendido;
   const progressPercentage = (totalAchieved / plan.daily_goal) * 100;
   const completedBlocksCount = blocks.filter(b => b.is_completed).length;
-  const hasActiveSession = sessionStartTime !== null;
   const allBlocksCompleted = completedBlocksCount === blocks.length && blocks.length > 0;
 
   return (
@@ -465,7 +467,7 @@ export default function DailyGoals() {
           </div>
 
           <div className="flex gap-2">
-            {!hasActiveSession && !dayFinished && (
+            {dayStatus === 'not_started' && (
               <Button 
                 onClick={startDay} 
                 className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all"
@@ -475,7 +477,7 @@ export default function DailyGoals() {
               </Button>
             )}
             
-            {hasActiveSession && !dayFinished && (
+            {dayStatus === 'in_progress' && (
               <Button 
                 onClick={finishDay}
                 className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/50 hover:shadow-xl hover:shadow-green-500/60 transition-all"
@@ -486,7 +488,7 @@ export default function DailyGoals() {
               </Button>
             )}
             
-            {dayFinished && (
+            {dayStatus === 'finished' && (
               <Button 
                 onClick={() => setShowReportModal(true)}
                 className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-purple-500 to-blue-600"
@@ -513,7 +515,7 @@ export default function DailyGoals() {
           <HourlyBlockDetail
             key={block.id}
             block={block}
-            isCurrentBlock={hasActiveSession && index === currentBlockIndex && !dayFinished}
+            isCurrentBlock={dayStatus === 'in_progress' && index === currentBlockIndex}
             isCompleted={block.is_completed}
             canEdit={block.is_completed}
             onBlockCompleted={handleBlockCompleted}
