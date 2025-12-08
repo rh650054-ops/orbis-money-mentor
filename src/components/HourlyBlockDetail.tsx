@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { celebrationSounds } from "@/utils/celebrationSounds";
 
 interface HourlyBlock {
   id: string;
@@ -227,10 +228,13 @@ export function HourlyBlockDetail({
           title: "⏰ Hora concluída automaticamente!", 
           description: `Valores salvos: ${formatCurrency(total)}`
         });
+        celebrationSounds.playNotification();
       } else if (metaAtingida) {
         toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
+        celebrationSounds.playAchievement();
       } else {
         toast({ title: "✅ Hora concluída!", description: "Vamos recuperar na próxima!" });
+        celebrationSounds.playSuccess();
       }
       
       setIsEditing(false);

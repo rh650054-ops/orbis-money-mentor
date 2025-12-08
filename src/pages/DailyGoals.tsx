@@ -15,6 +15,7 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import DailyReportModal from "@/components/DailyReportModal";
 import { HourlyBlockDetail } from "@/components/HourlyBlockDetail";
 import { useHourlyBlocks, HourlyBlock } from "@/hooks/useHourlyBlocks";
+import { celebrationSounds } from "@/utils/celebrationSounds";
 
 interface DailyPlan {
   id: string;
@@ -424,6 +425,13 @@ export default function DailyGoals() {
         porcentagem_meta: percentageAchieved,
         conselho: advice,
       });
+    }
+
+    // Play celebration sound based on performance
+    if (percentageAchieved >= 100) {
+      celebrationSounds.playDailyGoalComplete();
+    } else {
+      celebrationSounds.playSuccess();
     }
 
     // Show report modal
