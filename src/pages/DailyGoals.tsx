@@ -62,13 +62,19 @@ export default function DailyGoals() {
       .eq("planning_date", today)
       .maybeSingle();
     
-    if (data?.start_timestamp) {
-      setSessionStartTime(new Date(data.start_timestamp));
+    if (data) {
+      if (data.start_timestamp) {
+        setSessionStartTime(new Date(data.start_timestamp));
+      }
       if (data.status === 'finished') {
         setDayStatus('finished');
       } else if (data.status === 'active') {
         setDayStatus('in_progress');
+      } else {
+        setDayStatus('not_started');
       }
+    } else {
+      setDayStatus('not_started');
     }
   };
 
