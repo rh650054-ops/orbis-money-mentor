@@ -16,11 +16,12 @@ type DayStatus = 'not_started' | 'in_progress' | 'finished';
 
 export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopupProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [dailyGoal, setDailyGoal] = useState(0);
   const [weeklyGoal, setWeeklyGoal] = useState(0);
   const [monthlyGoal, setMonthlyGoal] = useState(0);
   const [workHours, setWorkHours] = useState(0);
-  const [dayStatus, setDayStatus] = useState<DayStatus>('not_started');
+  const [dayStatus, setDayStatus] = useState<DayStatus | null>(null);
   const [totalSold, setTotalSold] = useState(0);
   const [percentageAchieved, setPercentageAchieved] = useState(0);
 
@@ -31,23 +32,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     };
     init();
     
-    // Listen for profile and work_sessions updates
-    const profileChannel = supabase
-      .channel('profile-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `user_id=eq.${userId}`
-        },
-        () => {
-          loadGoalsAndStatus();
-        }
-      )
-      .subscribe();
-
+    // Listen for work_sessions updates
     const sessionChannel = supabase
       .channel('session-changes-popup')
       .on(
@@ -59,27 +44,32 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
           filter: `user_id=eq.${userId}`
         },
         () => {
+          console.log('[DayStartPopup] Session changed, reloading...');
           loadGoalsAndStatus();
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(profileChannel);
       supabase.removeChannel(sessionChannel);
     };
   }, [userId]);
 
   const loadGoalsAndStatus = async () => {
+    setIsLoading(true);
     const today = getBrazilDate();
     
-    // Check work session status for today FIRST
-    const { data: session } = await supabase
+    console.log('[DayStartPopup] Loading status for date:', today, 'user:', userId);
+    
+    // Check work session status for today FIRST - this is the SOURCE OF TRUTH
+    const { data: session, error: sessionError } = await supabase
       .from("work_sessions")
       .select("status, total_vendido")
       .eq("user_id", userId)
       .eq("planning_date", today)
       .maybeSingle();
+
+    console.log('[DayStartPopup] Session data:', session, 'error:', sessionError);
 
     // Load profile goals
     const { data: profile } = await supabase
@@ -95,21 +85,28 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       setWorkHours(profile.goal_hours || 0);
     }
 
+    // Determine day status based on session
     if (session) {
       if (session.status === 'finished') {
+        console.log('[DayStartPopup] Setting status to finished');
         setDayStatus('finished');
         setTotalSold(session.total_vendido || 0);
         if (profile?.base_daily_goal) {
           setPercentageAchieved(((session.total_vendido || 0) / profile.base_daily_goal) * 100);
         }
       } else if (session.status === 'active') {
+        console.log('[DayStartPopup] Setting status to in_progress');
         setDayStatus('in_progress');
       } else {
+        console.log('[DayStartPopup] Session exists but status is:', session.status);
         setDayStatus('not_started');
       }
     } else {
+      console.log('[DayStartPopup] No session found, setting not_started');
       setDayStatus('not_started');
     }
+    
+    setIsLoading(false);
   };
 
   const handleStartDay = () => {
@@ -129,6 +126,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
 
   // Title based on day status
   const getTitle = () => {
+    if (isLoading || dayStatus === null) return "⏳ Carregando...";
     if (dayStatus === 'finished') return "📊 Relatório do Dia";
     if (dayStatus === 'in_progress') return "⚡ Seu Dia em Andamento";
     return "⚡ Seu Dia Hoje";
@@ -214,7 +212,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
               ❌ Fechar
             </Button>
             
-            {dayStatus === 'not_started' && (
+            {!isLoading && dayStatus === 'not_started' && (
               <Button
                 onClick={handleStartDay}
                 className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold shadow-lg shadow-blue-500/50"
@@ -223,7 +221,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
               </Button>
             )}
             
-            {dayStatus === 'in_progress' && (
+            {!isLoading && dayStatus === 'in_progress' && (
               <Button
                 onClick={handleViewReport}
                 className="flex-1 h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 font-semibold shadow-lg shadow-green-500/50"
@@ -232,13 +230,22 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
               </Button>
             )}
             
-            {dayStatus === 'finished' && (
+            {!isLoading && dayStatus === 'finished' && (
               <Button
                 onClick={handleViewReport}
                 className="flex-1 h-12 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 font-semibold shadow-lg shadow-purple-500/50"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Ver Relatório
+              </Button>
+            )}
+            
+            {isLoading && (
+              <Button
+                disabled
+                className="flex-1 h-12 bg-gradient-to-r from-gray-500 to-gray-600 font-semibold"
+              >
+                Carregando...
               </Button>
             )}
           </div>

@@ -36,7 +36,8 @@ export default function DailyGoals() {
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [currentBlockIndex, setCurrentBlockIndex] = useState<number>(0);
-  const [dayStatus, setDayStatus] = useState<'not_started' | 'in_progress' | 'finished'>('not_started');
+  const [dayStatus, setDayStatus] = useState<'not_started' | 'in_progress' | 'finished' | null>(null);
+  const [isLoadingSession, setIsLoadingSession] = useState(true);
 
   const { blocks, planId, loadBlocks, stats, startDayTimers } = useHourlyBlocks(user?.id);
 
@@ -46,36 +47,75 @@ export default function DailyGoals() {
       return;
     }
     if (user) {
-      loadOrCreateDailyPlan();
-      loadSessionState();
+      // Load session state FIRST, then plan
+      loadSessionState().then(() => {
+        loadOrCreateDailyPlan();
+      });
     }
   }, [user, loading, navigate]);
 
-  // Load session state from backend
+  // Listen for work_sessions changes to sync state
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('work-session-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'work_sessions',
+          filter: `user_id=eq.${user.id}`
+        },
+        () => {
+          loadSessionState();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
+  // Load session state from backend - this is the SOURCE OF TRUTH
   const loadSessionState = async () => {
     if (!user) return;
+    setIsLoadingSession(true);
+    
     const today = getBrazilDate();
-    const { data } = await supabase
+    console.log('[DailyGoals] Loading session for date:', today, 'user:', user.id);
+    
+    const { data, error } = await supabase
       .from("work_sessions")
       .select("start_timestamp, status")
       .eq("user_id", user.id)
       .eq("planning_date", today)
       .maybeSingle();
     
+    console.log('[DailyGoals] Session data:', data, 'error:', error);
+    
     if (data) {
       if (data.start_timestamp) {
         setSessionStartTime(new Date(data.start_timestamp));
       }
       if (data.status === 'finished') {
+        console.log('[DailyGoals] Setting dayStatus to finished');
         setDayStatus('finished');
       } else if (data.status === 'active') {
+        console.log('[DailyGoals] Setting dayStatus to in_progress');
         setDayStatus('in_progress');
       } else {
+        console.log('[DailyGoals] Session exists but status is:', data.status);
         setDayStatus('not_started');
       }
     } else {
+      console.log('[DailyGoals] No session found, setting not_started');
       setDayStatus('not_started');
     }
+    
+    setIsLoadingSession(false);
   };
 
   // Determine current active block based on completed status
@@ -201,31 +241,43 @@ export default function DailyGoals() {
   };
 
   const startDay = async () => {
+    if (!user || !plan) return;
+    
     const startTime = new Date();
+    const today = getBrazilDate();
+    
+    console.log('[DailyGoals] Starting day for:', today);
+    
+    // Save to backend FIRST, then update local state
+    const { error } = await supabase
+      .from("work_sessions")
+      .upsert({
+        user_id: user.id,
+        planning_date: today,
+        start_timestamp: startTime.toISOString(),
+        meta_dia: plan.daily_goal,
+        ritmo_ideal_inicial: plan.hourly_goal,
+        status: "active",
+      }, {
+        onConflict: "user_id,planning_date",
+      });
+    
+    if (error) {
+      console.error('[DailyGoals] Error starting day:', error);
+      toast({ title: "Erro", description: "Não foi possível iniciar o dia.", variant: "destructive" });
+      return;
+    }
+    
+    console.log('[DailyGoals] Day started successfully, updating state');
+    
+    // Update local state after successful save
     setSessionStartTime(startTime);
     setDayStatus('in_progress');
     
     // Start first block timer
     await startDayTimers();
     
-    // Save start timestamp in backend
-    if (user && plan) {
-      const today = getBrazilDate();
-      await supabase
-        .from("work_sessions")
-        .upsert({
-          user_id: user.id,
-          planning_date: today,
-          start_timestamp: startTime.toISOString(),
-          meta_dia: plan.daily_goal,
-          ritmo_ideal_inicial: plan.hourly_goal,
-          status: "active",
-        }, {
-          onConflict: "user_id,planning_date",
-        });
-      
-      toast({ title: "🚀 Dia iniciado!", description: "Seu cronômetro começou. Vamos lá, Visionário!" });
-    }
+    toast({ title: "🚀 Dia iniciado!", description: "Seu cronômetro começou. Vamos lá, Visionário!" });
   };
 
   const handleBlockCompleted = async (blockId: string, blockIndex: number) => {
@@ -399,7 +451,7 @@ export default function DailyGoals() {
   };
 
   if (loading || !user) return null;
-  if (!plan) return (
+  if (!plan || isLoadingSession || dayStatus === null) return (
     <div className="flex items-center justify-center min-h-[60vh] p-8">
       <Card className="p-8 text-center max-w-md card-gradient-border">
         <TrendingUp className="w-16 h-16 mx-auto mb-4 text-primary" />
