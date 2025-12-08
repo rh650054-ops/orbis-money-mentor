@@ -184,8 +184,9 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
             <Input
               id="monthlyGoal"
               type="number"
-              value={monthlyGoal}
-              onChange={(e) => setMonthlyGoal(Number(e.target.value))}
+              value={monthlyGoal || ''}
+              onChange={(e) => setMonthlyGoal(e.target.value === '' ? 0 : Number(e.target.value))}
+              onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
               min={1}
               placeholder="Ex: 4200"
               className="h-12 border-white/10 bg-white/5 focus:border-blue-500"
@@ -201,8 +202,9 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
             <Input
               id="workDays"
               type="number"
-              value={workDaysPerWeek}
-              onChange={(e) => setWorkDaysPerWeek(Number(e.target.value))}
+              value={workDaysPerWeek || ''}
+              onChange={(e) => setWorkDaysPerWeek(e.target.value === '' ? 0 : Number(e.target.value))}
+              onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
               min={1}
               max={7}
               placeholder="Ex: 5"
@@ -219,8 +221,9 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
             <Input
               id="workHours"
               type="number"
-              value={workHours}
-              onChange={(e) => setWorkHours(Number(e.target.value))}
+              value={workHours || ''}
+              onChange={(e) => setWorkHours(e.target.value === '' ? 0 : Number(e.target.value))}
+              onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
               min={1}
               max={24}
               placeholder="Ex: 8"
