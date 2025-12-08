@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Target, Clock, Calendar, CalendarCheck } from "lucide-react";
+import { Target, Clock, Calendar, CalendarCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
@@ -13,9 +13,11 @@ interface EditPlanningModalProps {
   userId: string;
   isOpen: boolean;
   onClose: () => void;
+  isRequired?: boolean;
+  requiredReason?: "first_time" | "new_month" | null;
 }
 
-export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModalProps) {
+export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false, requiredReason = null }: EditPlanningModalProps) {
   const { toast } = useToast();
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
   const [workHours, setWorkHours] = useState(8);
@@ -77,6 +79,7 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
         weekly_work_days: workDaysPerWeek,
         base_daily_goal: dailyGoal,
         weekly_goal: weeklyGoal,
+        week_start_date: new Date().toISOString().split('T')[0],
       })
       .eq("user_id", userId);
 
@@ -162,17 +165,64 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
   const weeklyGoal = calculateWeeklyGoal();
   const hourlyGoal = workHours > 0 ? dailyGoal / workHours : 0;
 
+  // Get title and description based on required reason
+  const getTitle = () => {
+    if (requiredReason === "first_time") {
+      return "🎯 Configure seu Planejamento";
+    }
+    if (requiredReason === "new_month") {
+      return "📅 Novo Mês - Atualize suas Metas";
+    }
+    return "✏️ Editar Planejamento";
+  };
+
+  const getDescription = () => {
+    if (requiredReason === "first_time") {
+      return "Defina sua meta deste mês, suas horas de trabalho por dia e quantos dias irá trabalhar.";
+    }
+    if (requiredReason === "new_month") {
+      return "É dia 1! Configure suas metas para este novo mês.";
+    }
+    return "Ajuste sua meta mensal, horas e dias de trabalho";
+  };
+
+  // Handle close - only allow if not required
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isRequired) {
+      toast({
+        title: "⚠️ Configuração obrigatória",
+        description: "Você precisa configurar seu planejamento para continuar usando o app.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!open) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px] bg-black/95 backdrop-blur-xl border border-white/10">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
-            ✏️ Editar Planejamento
+            {getTitle()}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Ajuste sua meta mensal, horas e dias de trabalho
+            {getDescription()}
           </DialogDescription>
         </DialogHeader>
+
+        {isRequired && (
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-yellow-200">
+              {requiredReason === "first_time" 
+                ? "Configure seu planejamento para começar a usar o Orbis."
+                : "Defina suas metas para este novo mês antes de continuar."}
+            </p>
+          </div>
+        )}
 
         <div className="space-y-6 py-4">
           {/* Meta Mensal */}
@@ -250,63 +300,67 @@ export function EditPlanningModal({ userId, isOpen, onClose }: EditPlanningModal
             </div>
           </div>
 
-          {/* Google Calendar Integration */}
-          <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-600/10 border border-purple-500/20 space-y-3">
-            <div className="flex items-center gap-2">
-              <CalendarCheck className="w-4 h-4 text-purple-400" />
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">📅 Google Calendar</p>
-            </div>
-            
-            {isConnected ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-white">Conectado</p>
-                    <p className="text-xs text-muted-foreground">{googleEmail}</p>
+          {/* Google Calendar Integration - only show when not in required mode */}
+          {!isRequired && (
+            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-600/10 border border-purple-500/20 space-y-3">
+              <div className="flex items-center gap-2">
+                <CalendarCheck className="w-4 h-4 text-purple-400" />
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">📅 Google Calendar</p>
+              </div>
+              
+              {isConnected ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-white">Conectado</p>
+                      <p className="text-xs text-muted-foreground">{googleEmail}</p>
+                    </div>
+                    <Button
+                      onClick={disconnect}
+                      variant="outline"
+                      size="sm"
+                      className="border-red-500/20 text-red-400 hover:bg-red-500/10"
+                    >
+                      Desconectar
+                    </Button>
                   </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Conecte seu Google Calendar para sincronizar automaticamente suas metas e receber lembretes
+                  </p>
                   <Button
-                    onClick={disconnect}
-                    variant="outline"
+                    onClick={connect}
+                    disabled={calendarLoading}
                     size="sm"
-                    className="border-red-500/20 text-red-400 hover:bg-red-500/10"
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
                   >
-                    Desconectar
+                    {calendarLoading ? "Conectando..." : "🔗 Conectar Google Calendar"}
                   </Button>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Conecte seu Google Calendar para sincronizar automaticamente suas metas e receber lembretes
-                </p>
-                <Button
-                  onClick={connect}
-                  disabled={calendarLoading}
-                  size="sm"
-                  className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
-                >
-                  {calendarLoading ? "Conectando..." : "🔗 Conectar Google Calendar"}
-                </Button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Botões */}
           <div className="flex gap-3 pt-2">
-            <Button
-              onClick={onClose}
-              variant="outline"
-              className="flex-1 h-12 border-white/10 hover:bg-white/5"
-              disabled={loading}
-            >
-              Cancelar
-            </Button>
+            {!isRequired && (
+              <Button
+                onClick={onClose}
+                variant="outline"
+                className="flex-1 h-12 border-white/10 hover:bg-white/5"
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+            )}
             <Button
               onClick={handleSave}
-              className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold"
+              className={`h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold ${isRequired ? 'flex-1' : 'flex-1'}`}
               disabled={loading}
             >
-              {loading ? "Salvando..." : "💾 Salvar"}
+              {loading ? "Salvando..." : isRequired ? "🚀 Começar" : "💾 Salvar"}
             </Button>
           </div>
         </div>

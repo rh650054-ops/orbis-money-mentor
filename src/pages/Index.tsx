@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, Check, X, ShoppingCart, Calendar, Filter, ChevronDown } from "lucide-react";
+import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, ShoppingCart, Calendar, Filter, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -15,9 +15,10 @@ import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
 import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
-import WeeklyPlanningModal from "@/components/WeeklyPlanningModal";
+import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { DashboardBlockStats } from "@/components/DashboardBlockStats";
+import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 import {
   Collapsible,
   CollapsibleContent,
@@ -39,8 +40,6 @@ export default function Index() {
     variation: 0
   });
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [goalInput, setGoalInput] = useState("4200");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
@@ -50,8 +49,11 @@ export default function Index() {
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
-  const [showWeeklyPlanning, setShowWeeklyPlanning] = useState(false);
+  const [showEditPlanning, setShowEditPlanning] = useState(false);
   const [isRestDay, setIsRestDay] = useState(false);
+  
+  // Hook for required monthly goal check
+  const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
   
   // Check if today is a rest day
   useEffect(() => {
@@ -72,36 +74,6 @@ export default function Index() {
     };
 
     checkRestDay();
-  }, [user]);
-  
-  // Check if should show weekly planning modal
-  useEffect(() => {
-    if (!user) return;
-    
-    const checkWeeklyPlanning = async () => {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("week_start_date")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!profile?.week_start_date) {
-        // Primeira vez, mostrar modal
-        setShowWeeklyPlanning(true);
-        return;
-      }
-
-      const lastPlanningDate = new Date(profile.week_start_date);
-      const today = new Date();
-      const daysDiff = Math.floor((today.getTime() - lastPlanningDate.getTime()) / (1000 * 60 * 60 * 24));
-
-      // Mostrar modal se passou 7 dias
-      if (daysDiff >= 7) {
-        setShowWeeklyPlanning(true);
-      }
-    };
-
-    checkWeeklyPlanning();
   }, [user]);
   
   // Load cached data on mount
@@ -171,7 +143,6 @@ export default function Index() {
     
     if (profile?.monthly_goal) {
       setMonthlyGoal(profile.monthly_goal);
-      setGoalInput(profile.monthly_goal.toString());
     }
 
     // Carregar todas as vendas de hoje e agregar
@@ -349,38 +320,6 @@ export default function Index() {
     return Math.min(progress, 100);
   };
 
-  const handleSaveGoal = async () => {
-    const newGoal = parseFloat(goalInput);
-    if (isNaN(newGoal) || newGoal <= 0) {
-      toast({
-        title: "Erro",
-        description: "Digite um valor válido para a meta.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const { error } = await supabase
-      .from("profiles")
-      .update({ monthly_goal: newGoal })
-      .eq("user_id", user?.id);
-
-    if (error) {
-      toast({
-        title: "Erro",
-        description: "Não foi possível salvar a meta.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setMonthlyGoal(newGoal);
-    setIsEditingGoal(false);
-    toast({
-      title: "✅ Meta atualizada!",
-      description: `Nova meta: ${formatCurrency(newGoal)}`
-    });
-  };
   const getMotivationMessage = () => {
     if (!todaySales) {
       return {
@@ -443,7 +382,7 @@ export default function Index() {
       )}
 
       {/* Planejamento Semanal */}
-      <WeeklyPlanning userId={user.id} />
+      <WeeklyPlanning userId={user.id} onEditPlanning={() => setShowEditPlanning(true)} />
 
       {/* Resumo do Ritmo - Estatísticas dos Blocos de Hora */}
       <DashboardBlockStats userId={user.id} />
@@ -691,64 +630,30 @@ export default function Index() {
                 <Target className="h-5 w-5 text-secondary" />
                 Meta do Mês
               </div>
-              {!isEditingGoal ? (
-                <button 
-                  onClick={() => setIsEditingGoal(true)}
-                  className="p-1.5 hover:bg-primary/10 rounded-md transition-colors"
-                >
-                  <Pencil className="h-4 w-4 text-primary" />
-                </button>
-              ) : (
-                <div className="flex gap-1">
-                  <button 
-                    onClick={handleSaveGoal}
-                    className="p-1.5 hover:bg-success/10 rounded-md transition-colors"
-                  >
-                    <Check className="h-4 w-4 text-success" />
-                  </button>
-                  <button 
-                    onClick={() => {
-                      setIsEditingGoal(false);
-                      setGoalInput(monthlyGoal.toString());
-                    }}
-                    className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors"
-                  >
-                    <X className="h-4 w-4 text-destructive" />
-                  </button>
-                </div>
-              )}
+              <button 
+                onClick={() => setShowEditPlanning(true)}
+                className="p-1.5 hover:bg-primary/10 rounded-md transition-colors"
+                title="Editar planejamento"
+              >
+                <Pencil className="h-4 w-4 text-primary" />
+              </button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {isEditingGoal ? (
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Nova Meta (R$)</label>
-                <Input
-                  type="number"
-                  value={goalInput === '0' ? '' : goalInput}
-                  onChange={(e) => setGoalInput(e.target.value)}
-                  onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-                  placeholder="Digite a meta"
-                  className="text-lg font-semibold"
-                  autoFocus
-                />
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Progresso</span>
+                <span className="font-semibold text-secondary">{calculateGoalProgress().toFixed(0)}%</span>
               </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Progresso</span>
-                  <span className="font-semibold text-secondary">{calculateGoalProgress().toFixed(0)}%</span>
-                </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
-                  <div className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-smooth shadow-glow-primary" style={{
-                  width: `${calculateGoalProgress()}%`
-                }} />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatCurrency(monthlyStats.balance)} de {formatCurrency(monthlyGoal)}
-                </p>
+              <div className="h-3 bg-muted rounded-full overflow-hidden shadow-inner">
+                <div className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-smooth shadow-glow-primary" style={{
+                width: `${calculateGoalProgress()}%`
+              }} />
               </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                {formatCurrency(monthlyStats.balance)} de {formatCurrency(monthlyGoal)}
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -788,19 +693,28 @@ export default function Index() {
         onClose={() => setShowCardModal(false)} 
       />
       
-      {user && (
-        <WeeklyPlanningModal
+      {/* Required Monthly Goal Modal */}
+      {user && (isMonthlyGoalRequired || showEditPlanning) && (
+        <EditPlanningModal
           userId={user.id}
-          isOpen={showWeeklyPlanning}
-          onClose={() => setShowWeeklyPlanning(false)}
+          isOpen={isMonthlyGoalRequired || showEditPlanning}
+          onClose={() => {
+            if (isMonthlyGoalRequired) {
+              onMonthlyGoalCompleted();
+            }
+            setShowEditPlanning(false);
+            loadDashboardData();
+          }}
+          isRequired={isMonthlyGoalRequired}
+          requiredReason={monthlyGoalReason}
         />
       )}
 
-      {user && !isRestDay && (
+      {user && !isRestDay && !isMonthlyGoalRequired && (
         <DayStartPopup
           userId={user.id}
           onStart={() => {}}
-          onEditPlanning={() => setShowWeeklyPlanning(true)}
+          onEditPlanning={() => setShowEditPlanning(true)}
         />
       )}
     </div>;
