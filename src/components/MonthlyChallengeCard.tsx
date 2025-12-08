@@ -112,78 +112,102 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
   const mesNome = new Date(challenge.data_inicio).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <Card className={`glass border-2 ${getLevelBorderColor(currentLevel.nivel)} transition-all`}>
-      <CardHeader className="pb-2">
+    <Card className={`glass border-2 ${getLevelBorderColor(currentLevel.nivel)} transition-all overflow-hidden`}>
+      {/* Header com nível destacado */}
+      <div className={`bg-gradient-to-r ${getLevelColor(currentLevel.nivel)} p-4`}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Trophy className="w-5 h-5 text-primary" />
-            <CardTitle className="text-base">Desafio do Mês</CardTitle>
+          <div className="flex items-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl">
+              {getLevelEmoji(currentLevel.nivel)}
+            </div>
+            <div className="text-white">
+              <p className="text-sm opacity-90">Seu nível atual</p>
+              <h3 className="text-2xl font-bold">{currentLevel.nivel}</h3>
+            </div>
           </div>
-          <Badge 
-            className={`bg-gradient-to-r ${getLevelColor(currentLevel.nivel)} text-white border-none`}
-          >
-            {getLevelEmoji(currentLevel.nivel)} {currentLevel.nivel}
-          </Badge>
+          <div className="text-right text-white">
+            <p className="text-sm opacity-90">XP Total</p>
+            <p className="text-2xl font-bold flex items-center gap-1">
+              <Zap className="w-5 h-5 text-yellow-300" />
+              {challenge.xp_total}
+            </p>
+          </div>
         </div>
-        <CardDescription className="capitalize">{mesNome}</CardDescription>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
+      </div>
+
+      <CardContent className="p-4 space-y-4">
         {/* Progresso atual */}
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Dias trabalhados</span>
-            <span className="font-semibold">{challenge.progresso_atual} / {challenge.meta_progresso}</span>
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Target className="w-4 h-4" />
+              Dias trabalhados este mês
+            </span>
+            <span className="font-bold text-lg">{challenge.progresso_atual} / {challenge.meta_progresso}</span>
           </div>
           <Progress 
             value={(challenge.progresso_atual / challenge.meta_progresso) * 100} 
-            className="h-2"
+            className="h-3"
           />
-        </div>
-
-        {/* XP Total */}
-        <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg">
-          <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-yellow-500" />
-            <span className="text-sm font-medium">XP Total</span>
-          </div>
-          <span className="text-lg font-bold text-primary">{challenge.xp_total}</span>
         </div>
 
         {/* Próximo nível */}
         {nextLevel && (
-          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-muted">
             <div className="flex items-center gap-2">
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Próximo: <span className="font-medium text-foreground">{nextLevel.nivel}</span>
-              </span>
+              <span className="text-xl">{getLevelEmoji(nextLevel.nivel)}</span>
+              <div>
+                <p className="text-xs text-muted-foreground">Próximo nível</p>
+                <p className="font-semibold">{nextLevel.nivel}</p>
+              </div>
             </div>
-            <span className="text-sm text-muted-foreground">
-              {nextLevel.dias_necessarios - challenge.progresso_atual} dias restantes
-            </span>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Faltam</p>
+              <p className="font-bold text-primary">{nextLevel.dias_necessarios - challenge.progresso_atual} dias</p>
+            </div>
           </div>
         )}
 
-        {/* Níveis disponíveis */}
+        {/* Barra de níveis visual */}
         <div className="pt-2">
-          <p className="text-xs text-muted-foreground mb-2">Níveis do desafio:</p>
-          <div className="flex flex-wrap gap-1">
-            {levels.slice(1).map((level) => (
-              <Badge 
-                key={level.nivel}
-                variant={challenge.progresso_atual >= level.dias_necessarios ? "default" : "outline"}
-                className={`text-xs ${
-                  challenge.progresso_atual >= level.dias_necessarios 
-                    ? `bg-gradient-to-r ${getLevelColor(level.nivel)} text-white border-none` 
-                    : 'opacity-50'
-                }`}
-              >
-                {getLevelEmoji(level.nivel)} {level.dias_necessarios}d
-              </Badge>
-            ))}
+          <p className="text-xs text-muted-foreground mb-3">Progressão de níveis:</p>
+          <div className="flex items-center justify-between gap-1">
+            {levels.slice(1).map((level, index) => {
+              const isAchieved = challenge.progresso_atual >= level.dias_necessarios;
+              const isCurrent = currentLevel.nivel === level.nivel;
+              
+              return (
+                <div 
+                  key={level.nivel} 
+                  className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                    isCurrent 
+                      ? `bg-gradient-to-b ${getLevelColor(level.nivel)} text-white scale-105 shadow-lg` 
+                      : isAchieved 
+                        ? 'bg-muted/50' 
+                        : 'bg-muted/20 opacity-50'
+                  }`}
+                >
+                  <span className={`text-lg ${isCurrent ? 'animate-pulse' : ''}`}>
+                    {getLevelEmoji(level.nivel)}
+                  </span>
+                  <span className={`text-[10px] font-medium ${isCurrent ? 'text-white' : 'text-muted-foreground'}`}>
+                    {level.dias_necessarios}d
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
+
+        {/* Mensagem motivacional */}
+        <p className="text-xs text-center text-muted-foreground italic pt-2 border-t border-muted">
+          {challenge.progresso_atual === 0 
+            ? "🚀 Comece seu desafio trabalhando no primeiro dia!"
+            : challenge.progresso_atual >= 30
+              ? "👑 Você é Lendário! Desafio completo!"
+              : `💪 Continue assim! Você está no caminho certo.`
+          }
+        </p>
       </CardContent>
     </Card>
   );
