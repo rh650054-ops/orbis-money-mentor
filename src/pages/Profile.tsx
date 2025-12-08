@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 
 const profileSchema = z.object({
   nickname: z.string()
@@ -597,6 +598,9 @@ export default function Profile() {
           </CardContent>
         </Card>
       )}
+
+      {/* Monthly Challenge Card */}
+      {user && <MonthlyChallengeCard userId={user.id} />}
 
       {/* Stats Card */}
       <Card className="glass">
