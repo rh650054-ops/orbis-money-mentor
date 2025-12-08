@@ -371,8 +371,16 @@ export type Database = {
           manual_adjustment: number | null
           plan_id: string
           target_amount: number
+          timer_elapsed_seconds: number | null
+          timer_paused_at: string | null
+          timer_started_at: string | null
+          timer_status: string | null
           updated_at: string
           user_id: string
+          valor_calote: number | null
+          valor_cartao: number | null
+          valor_dinheiro: number | null
+          valor_pix: number | null
         }
         Insert: {
           achieved_amount?: number
@@ -384,8 +392,16 @@ export type Database = {
           manual_adjustment?: number | null
           plan_id: string
           target_amount: number
+          timer_elapsed_seconds?: number | null
+          timer_paused_at?: string | null
+          timer_started_at?: string | null
+          timer_status?: string | null
           updated_at?: string
           user_id: string
+          valor_calote?: number | null
+          valor_cartao?: number | null
+          valor_dinheiro?: number | null
+          valor_pix?: number | null
         }
         Update: {
           achieved_amount?: number
@@ -397,8 +413,16 @@ export type Database = {
           manual_adjustment?: number | null
           plan_id?: string
           target_amount?: number
+          timer_elapsed_seconds?: number | null
+          timer_paused_at?: string | null
+          timer_started_at?: string | null
+          timer_status?: string | null
           updated_at?: string
           user_id?: string
+          valor_calote?: number | null
+          valor_cartao?: number | null
+          valor_dinheiro?: number | null
+          valor_pix?: number | null
         }
         Relationships: [
           {

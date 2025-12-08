@@ -17,11 +17,13 @@ import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import WeeklyPlanningModal from "@/components/WeeklyPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
+import { DashboardBlockStats } from "@/components/DashboardBlockStats";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+
 export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -442,6 +444,9 @@ export default function Index() {
 
       {/* Planejamento Semanal */}
       <WeeklyPlanning userId={user.id} />
+
+      {/* Resumo do Ritmo - Estatísticas dos Blocos de Hora */}
+      <DashboardBlockStats userId={user.id} />
 
       {/* Streak e Vision Points */}
       <StreakDisplay userId={user.id} />
