@@ -10,6 +10,7 @@ import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { celebrationSounds } from "@/utils/celebrationSounds";
+import { FireEffect } from "@/components/FireEffect";
 
 interface HourlyBlock {
   id: string;
@@ -60,6 +61,7 @@ export function HourlyBlockDetail({
   const [isSaving, setIsSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [reminderShown, setReminderShown] = useState(false);
+  const [showFireEffect, setShowFireEffect] = useState(false);
 
   // Update local state when prop changes
   useEffect(() => {
@@ -230,8 +232,15 @@ export function HourlyBlockDetail({
         });
         celebrationSounds.playNotification();
       } else if (metaAtingida) {
+        // Show fire effect when completing hour with any sales
+        setShowFireEffect(true);
         toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
         celebrationSounds.playAchievement();
+      } else if (total > 0) {
+        // Show fire effect for any sales added
+        setShowFireEffect(true);
+        toast({ title: "✅ Hora concluída!", description: "Vamos recuperar na próxima!" });
+        celebrationSounds.playSuccess();
       } else {
         toast({ title: "✅ Hora concluída!", description: "Vamos recuperar na próxima!" });
         celebrationSounds.playSuccess();
@@ -603,6 +612,12 @@ export function HourlyBlockDetail({
           </div>
         )}
       </CardContent>
+
+      {/* Fire Effect */}
+      <FireEffect 
+        show={showFireEffect} 
+        onComplete={() => setShowFireEffect(false)} 
+      />
     </Card>
   );
 }

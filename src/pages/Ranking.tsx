@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2 } from "lucide-react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -8,11 +8,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
+
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
   "Disciplina é o caminho da vitória!",
   "Liderando com propósito!",
   "No topo, onde pertence!",
+  "Foco, força e faturamento!",
+  "Transformando metas em conquistas!",
 ];
 
 // Emojis exclusivos para verificar se é emoji ou imagem
@@ -299,50 +302,97 @@ function FaturamentoLeague({
     <div className="space-y-6">
       {/* League Title */}
       <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-gradient-to-br from-yellow-500/20 to-amber-600/10 border border-yellow-500/30">
-          <Trophy className="w-6 h-6 text-yellow-500" />
+        <div className="p-3 rounded-xl bg-gradient-to-br from-yellow-500/30 via-amber-500/20 to-yellow-600/30 border border-yellow-500/40 shadow-lg shadow-yellow-500/20">
+          <Trophy className="w-7 h-7 text-yellow-400" />
         </div>
         <div>
-          <h2 className="text-xl font-bold">Liga de Faturamento</h2>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 bg-clip-text text-transparent">
+            Liga de Faturamento
+          </h2>
           <p className="text-sm text-muted-foreground">Maiores vendedores do mês</p>
         </div>
       </div>
 
-      {/* Top 1 - Premium Card */}
+      {/* Top 1 - ULTRA PREMIUM Card */}
       {top1 && (
-        <Card className="relative overflow-hidden border-2 border-yellow-500/50 bg-gradient-to-br from-yellow-500/10 via-purple-500/5 to-pink-500/10">
-          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-transparent to-purple-500/5 animate-pulse" />
-          <div className="absolute -top-20 -right-20 w-40 h-40 bg-yellow-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-purple-500/20 rounded-full blur-3xl" />
+        <Card className="relative overflow-hidden border-2 border-yellow-400/60 animate-float">
+          {/* Holographic background */}
+          <div className="absolute inset-0 holographic-premium opacity-20" />
           
-          <CardContent className="relative p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Crown className="w-8 h-8 text-yellow-500 animate-pulse" />
-                <span className="text-sm font-medium text-yellow-500">TOP 1</span>
+          {/* Animated gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/20 via-purple-500/10 to-amber-600/20" />
+          
+          {/* Shine sweep effect */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 animate-shine-sweep" />
+          </div>
+          
+          {/* Glow orbs */}
+          <div className="absolute -top-32 -right-32 w-64 h-64 bg-yellow-500/40 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-amber-600/30 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-500/20 rounded-full blur-3xl" />
+          
+          <CardContent className="relative p-8">
+            {/* Crown and stars header */}
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Crown className="w-12 h-12 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)]" />
+                  <Sparkles className="w-5 h-5 text-yellow-300 absolute -top-1 -right-1 animate-pulse" />
+                </div>
+                <div>
+                  <span className="text-lg font-black text-yellow-400 tracking-wider drop-shadow-[0_0_10px_rgba(250,204,21,0.6)]">
+                    TOP 1
+                  </span>
+                  <p className="text-xs text-yellow-500/70 uppercase tracking-widest">Campeão do Mês</p>
+                </div>
               </div>
               <div className="flex items-center gap-1">
                 {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+                  <Star 
+                    key={i} 
+                    className="w-5 h-5 text-yellow-400 fill-yellow-400 drop-shadow-[0_0_5px_rgba(250,204,21,0.6)]" 
+                    style={{ animationDelay: `${i * 0.1}s` }}
+                  />
                 ))}
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <div className="relative">
-                {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-xl shadow-yellow-500/30 border-2 border-yellow-500")}
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center shadow-lg">
-                  <Crown className="w-4 h-4 text-black" />
+                <div className="absolute -inset-2 bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 rounded-full blur-md opacity-60 animate-pulse" />
+                {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-2xl shadow-yellow-500/50 border-4 border-yellow-400 relative z-10 w-24 h-24 text-4xl")}
+                <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-amber-500 flex items-center justify-center shadow-lg z-20 border-2 border-yellow-300">
+                  <Crown className="w-5 h-5 text-black" />
                 </div>
               </div>
-              <div className="flex-1">
-                <h3 className="text-2xl font-bold text-foreground">{top1.nome_usuario || 'Usuário'}</h3>
-                <p className="text-3xl font-black bg-gradient-to-r from-yellow-400 to-amber-500 bg-clip-text text-transparent">
+              <div className="flex-1 space-y-2">
+                <h3 className="text-3xl font-black text-foreground drop-shadow-lg">{top1.nome_usuario || 'Usuário'}</h3>
+                <p className="text-4xl font-black bg-gradient-to-r from-yellow-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent drop-shadow-lg">
                   {formatCurrency(top1.faturamento_total_mes)}
                 </p>
-                <p className="text-sm text-muted-foreground italic mt-1">
-                  "{motivationalPhrases[0]}"
-                </p>
+                <div className="flex items-center gap-2 pt-1">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <p className="text-sm text-purple-300 italic font-medium">
+                    "{motivationalPhrases[Math.floor(Math.random() * motivationalPhrases.length)]}"
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Achievement badges */}
+            <div className="flex items-center justify-center gap-3 mt-6 pt-4 border-t border-yellow-500/20">
+              <div className="px-3 py-1.5 rounded-full bg-yellow-500/20 border border-yellow-500/40 flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-yellow-400" />
+                <span className="text-xs font-bold text-yellow-400">LÍDER</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/40 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-purple-400" />
+                <span className="text-xs font-bold text-purple-400">ELITE</span>
+              </div>
+              <div className="px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 flex items-center gap-2">
+                <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+                <span className="text-xs font-bold text-amber-400">DESTAQUE</span>
               </div>
             </div>
           </CardContent>

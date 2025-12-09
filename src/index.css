@@ -206,4 +206,76 @@ All colors MUST be HSL.
   .bloco-vermelho-progresso {
     @apply [&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-rose-600;
   }
+
+  /* Fire effect animation */
+  @keyframes fire-rise {
+    0% {
+      transform: translateY(0) scale(1) rotate(0deg);
+      opacity: 1;
+    }
+    50% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateY(-100vh) scale(0.5) rotate(20deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-fire-rise {
+    animation: fire-rise 1.5s ease-out forwards;
+  }
+
+  .fire-emoji {
+    filter: drop-shadow(0 0 10px hsl(25 100% 50%)) drop-shadow(0 0 20px hsl(25 100% 50%));
+  }
+
+  /* Premium holographic effect */
+  @keyframes holographic-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  .holographic-premium {
+    background: linear-gradient(
+      135deg,
+      hsl(45 100% 60%) 0%,
+      hsl(280 100% 60%) 25%,
+      hsl(45 100% 70%) 50%,
+      hsl(280 100% 50%) 75%,
+      hsl(45 100% 60%) 100%
+    );
+    background-size: 400% 400%;
+    animation: holographic-shift 4s ease-in-out infinite;
+  }
+
+  @keyframes shine-sweep {
+    0% {
+      transform: translateX(-100%) rotate(25deg);
+    }
+    100% {
+      transform: translateX(200%) rotate(25deg);
+    }
+  }
+
+  .animate-shine-sweep {
+    animation: shine-sweep 3s ease-in-out infinite;
+  }
+
+  @keyframes float-gentle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .animate-float {
+    animation: float-gentle 3s ease-in-out infinite;
+  }
 }
