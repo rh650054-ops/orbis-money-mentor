@@ -18,6 +18,7 @@ import { useHourlyBlocks, HourlyBlock } from "@/hooks/useHourlyBlocks";
 import { celebrationSounds } from "@/utils/celebrationSounds";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { FireEffect } from "@/components/FireEffect";
+import { DashboardBlockStats } from "@/components/DashboardBlockStats";
 
 interface DailyPlan {
   id: string;
@@ -588,6 +589,11 @@ export default function DailyGoals() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Daily Summary - Bruto/Calote/Líquido */}
+      {user && dayStatus === 'in_progress' && (
+        <DashboardBlockStats userId={user.id} />
+      )}
 
       {/* Hourly Blocks */}
       <div className="space-y-4">

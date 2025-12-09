@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
+import confetti from "canvas-confetti";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -85,6 +86,10 @@ export default function Ranking() {
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
+  // Track previous positions for confetti effect
+  const prevFaturamentoPosition = useRef<number | null>(null);
+  const prevConstanciaPosition = useRef<number | null>(null);
+
   // Get current user profile for modal
   const [userProfile, setUserProfile] = useState({ nickname: '', avatar: '' });
 
@@ -98,6 +103,70 @@ export default function Ranking() {
     if (data) {
       setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
     }
+  };
+
+  // Trigger confetti when position improves
+  useEffect(() => {
+    if (!currentUserStats) return;
+    
+    const currentFaturamentoPos = currentUserStats.posicao_faturamento;
+    const currentConstanciaPos = currentUserStats.posicao_constancia;
+    
+    // Check if faturamento position improved
+    if (prevFaturamentoPosition.current !== null && 
+        currentFaturamentoPos !== null && 
+        currentFaturamentoPos < prevFaturamentoPosition.current) {
+      triggerConfetti();
+    }
+    
+    // Check if constancia position improved
+    if (prevConstanciaPosition.current !== null && 
+        currentConstanciaPos !== null && 
+        currentConstanciaPos < prevConstanciaPosition.current) {
+      triggerConfetti();
+    }
+    
+    // Update refs
+    prevFaturamentoPosition.current = currentFaturamentoPos;
+    prevConstanciaPosition.current = currentConstanciaPos;
+  }, [currentUserStats?.posicao_faturamento, currentUserStats?.posicao_constancia]);
+
+  const triggerConfetti = () => {
+    const duration = 3000;
+    const animationEnd = Date.now() + duration;
+    
+    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+    const interval = setInterval(() => {
+      const timeLeft = animationEnd - Date.now();
+
+      if (timeLeft <= 0) {
+        return clearInterval(interval);
+      }
+
+      const particleCount = 50 * (timeLeft / duration);
+
+      confetti({
+        particleCount,
+        startVelocity: 30,
+        spread: 360,
+        origin: {
+          x: randomInRange(0.1, 0.3),
+          y: Math.random() - 0.2
+        },
+        colors: ['#a855f7', '#ec4899', '#f97316', '#fbbf24', '#22c55e']
+      });
+      confetti({
+        particleCount,
+        startVelocity: 30,
+        spread: 360,
+        origin: {
+          x: randomInRange(0.7, 0.9),
+          y: Math.random() - 0.2
+        },
+        colors: ['#a855f7', '#ec4899', '#f97316', '#fbbf24', '#22c55e']
+      });
+    }, 250);
   };
 
   useEffect(() => {
