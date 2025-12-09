@@ -17,6 +17,7 @@ import { HourlyBlockDetail } from "@/components/HourlyBlockDetail";
 import { useHourlyBlocks, HourlyBlock } from "@/hooks/useHourlyBlocks";
 import { celebrationSounds } from "@/utils/celebrationSounds";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
+import { FireEffect } from "@/components/FireEffect";
 
 interface DailyPlan {
   id: string;
@@ -40,6 +41,7 @@ export default function DailyGoals() {
   const [currentBlockIndex, setCurrentBlockIndex] = useState<number>(0);
   const [dayStatus, setDayStatus] = useState<'not_started' | 'in_progress' | 'finished' | null>(null);
   const [isLoadingSession, setIsLoadingSession] = useState(true);
+  const [showFireEffect, setShowFireEffect] = useState(false);
 
   const { blocks, planId, loadBlocks, stats, startDayTimers } = useHourlyBlocks(user?.id);
   const { updateUserStats, checkWorkedYesterday } = useLeaderboard(user?.id);
@@ -334,6 +336,10 @@ export default function DailyGoals() {
 
   const finishDay = async () => {
     if (!plan || !user) return;
+    
+    // Trigger fire effect
+    setShowFireEffect(true);
+    
     await generateDailyReport(blocks);
     setDayStatus('finished');
     
@@ -377,7 +383,8 @@ export default function DailyGoals() {
     const totalSold = completedBlocks.reduce((sum, b) => sum + (b.achieved_amount || 0), 0);
     const percentageAchieved = (totalSold / plan.daily_goal) * 100;
     const blocksWithValues = completedBlocks.filter(b => b.achieved_amount > 0);
-    const allBlocksFilled = blocksWithValues.length === completedBlocks.length;
+    // Constância is earned by finishing the day (clicking "Concluir Dia"), not by filling all blocks
+    const earnedConstancy = true; // User earns constancy by clicking "Concluir Dia"
     
     // Calculate payment method totals
     const totalDinheiro = completedBlocks.reduce((sum, b) => sum + (b.valor_dinheiro || 0), 0);
@@ -419,7 +426,7 @@ export default function DailyGoals() {
         status: "finished",
         end_timestamp: new Date().toISOString(),
         total_vendido: totalSold,
-        constancia_dia: allBlocksFilled,
+        constancia_dia: earnedConstancy, // Constância earned by clicking "Concluir Dia"
       }).eq("id", sessionData.id);
 
       await supabase.from("daily_reports").insert({
@@ -449,7 +456,7 @@ export default function DailyGoals() {
       bestHour,
       worstHour,
       averageRhythm,
-      consistency: allBlocksFilled,
+      consistency: earnedConstancy,
       advice,
       totalDinheiro,
       totalCartao,
@@ -616,6 +623,12 @@ export default function DailyGoals() {
           report={dailyReport}
         />
       )}
+
+      {/* Fire Effect */}
+      <FireEffect 
+        show={showFireEffect} 
+        onComplete={() => setShowFireEffect(false)} 
+      />
     </div>
   );
 }
