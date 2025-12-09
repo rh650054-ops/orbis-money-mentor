@@ -1,30 +1,13 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Banknote, CreditCard, Smartphone, AlertTriangle, TrendingUp, Calculator, Wallet } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import { useDailyBlockStats } from "@/hooks/useHourlyBlocks";
+import { DailyBlockStats } from "@/hooks/useHourlyBlocks";
 
 interface DashboardBlockStatsProps {
-  userId: string;
-  date?: string;
+  stats: DailyBlockStats;
 }
 
-export function DashboardBlockStats({
-  userId,
-  date
-}: DashboardBlockStatsProps) {
-  const {
-    stats,
-    loading
-  } = useDailyBlockStats(userId, date);
-
-  if (loading) {
-    return <Card className="card-gradient-border animate-pulse">
-        <CardContent className="p-4">
-          <div className="h-24 bg-muted/20 rounded-lg" />
-        </CardContent>
-      </Card>;
-  }
-
+export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
   if (!stats || stats.totalBlocks === 0) {
     return null;
   }
@@ -34,7 +17,8 @@ export function DashboardBlockStats({
   const caloteDoDia = stats.totalCalote;
   const faturamentoLiquido = faturamentoBruto - caloteDoDia;
 
-  return <Card className="card-gradient-border overflow-hidden">
+  return (
+    <Card className="card-gradient-border overflow-hidden">
       <CardContent className="p-4 space-y-4">
         {/* Header with Bruto/Calote/Líquido Summary */}
         <div className="grid grid-cols-3 gap-2">
@@ -123,5 +107,6 @@ export function DashboardBlockStats({
           </div>
         </div>
       </CardContent>
-    </Card>;
+    </Card>
+  );
 }
