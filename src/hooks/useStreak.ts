@@ -119,16 +119,11 @@ export const useStreak = (userId: string | undefined) => {
 
       // If there's a log
       if (log) {
-        if (log.status === 'worked' && log.goal_achieved) {
-          // Worked and achieved goal - increment streak
+        if (log.status === 'worked') {
+          // Worked the day - increment streak (regardless of goal achieved)
           currentStreak++;
           lastWasWorked = true;
           consecutiveMissed = 0;
-        } else if (log.status === 'worked' && !log.goal_achieved) {
-          // Worked but didn't achieve goal - don't increment, but don't break
-          // Show motivational message based on percentage
-          lastWasWorked = false;
-          // Don't break the streak, just don't increment
         } else if (log.status === 'planned_off') {
           // Planned off - maintain streak
           consecutiveMissed = 0;
