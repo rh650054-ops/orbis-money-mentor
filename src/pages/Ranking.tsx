@@ -399,35 +399,67 @@ function FaturamentoLeague({
         </Card>
       )}
 
-      {/* Top 2 & 3 */}
+      {/* Top 2 & 3 - Premium Cards */}
       {(top2 || top3) && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           {top2 && (
-            <Card className={cn("border", getPositionStyle(2))}>
-              <CardContent className="p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <Medal className="w-6 h-6 text-slate-400" />
+            <Card className="relative overflow-hidden border-2 border-slate-400/60 bg-gradient-to-br from-slate-400/15 via-slate-300/10 to-slate-500/15">
+              {/* Subtle shine effect */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 animate-shine-sweep" style={{ animationDuration: '4s' }} />
+              </div>
+              <div className="absolute -top-16 -right-16 w-32 h-32 bg-slate-400/20 rounded-full blur-2xl" />
+              
+              <CardContent className="relative p-5 text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="relative">
+                    <Medal className="w-8 h-8 text-slate-300 drop-shadow-[0_0_8px_rgba(148,163,184,0.6)]" />
+                    <span className="absolute -top-1 -right-1 text-xs font-black text-slate-400">2</span>
+                  </div>
                 </div>
-                <div className="mx-auto mb-2">
-                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-slate-400 mx-auto")}
+                <div className="relative mx-auto mb-3">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-slate-400 to-slate-300 rounded-full blur-sm opacity-50" />
+                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border-2 border-slate-300 mx-auto relative z-10 shadow-lg")}
                 </div>
-                <h4 className="font-semibold text-sm truncate">{top2.nome_usuario || 'Usuário'}</h4>
-                <p className="text-lg font-bold text-slate-400">{formatCurrency(top2.faturamento_total_mes)}</p>
+                <h4 className="font-bold text-sm truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
+                <p className="text-xl font-black bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                  {formatCurrency(top2.faturamento_total_mes)}
+                </p>
+                <div className="mt-2 px-2 py-1 rounded-full bg-slate-400/20 border border-slate-400/30 inline-flex items-center gap-1">
+                  <Star className="w-3 h-3 text-slate-400 fill-slate-400" />
+                  <span className="text-xs font-semibold text-slate-400">PRATA</span>
+                </div>
               </CardContent>
             </Card>
           )}
 
           {top3 && (
-            <Card className={cn("border", getPositionStyle(3))}>
-              <CardContent className="p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <Medal className="w-6 h-6 text-orange-600" />
+            <Card className="relative overflow-hidden border-2 border-amber-600/60 bg-gradient-to-br from-amber-700/15 via-orange-600/10 to-amber-800/15">
+              {/* Subtle shine effect */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 animate-shine-sweep" style={{ animationDuration: '5s' }} />
+              </div>
+              <div className="absolute -top-16 -right-16 w-32 h-32 bg-amber-600/20 rounded-full blur-2xl" />
+              
+              <CardContent className="relative p-5 text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="relative">
+                    <Medal className="w-8 h-8 text-amber-600 drop-shadow-[0_0_8px_rgba(217,119,6,0.6)]" />
+                    <span className="absolute -top-1 -right-1 text-xs font-black text-amber-600">3</span>
+                  </div>
                 </div>
-                <div className="mx-auto mb-2">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-orange-500 mx-auto")}
+                <div className="relative mx-auto mb-3">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-amber-600 to-orange-500 rounded-full blur-sm opacity-50" />
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border-2 border-amber-500 mx-auto relative z-10 shadow-lg")}
                 </div>
-                <h4 className="font-semibold text-sm truncate">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-lg font-bold text-orange-500">{formatCurrency(top3.faturamento_total_mes)}</p>
+                <h4 className="font-bold text-sm truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
+                <p className="text-xl font-black bg-gradient-to-r from-amber-500 via-orange-400 to-amber-600 bg-clip-text text-transparent">
+                  {formatCurrency(top3.faturamento_total_mes)}
+                </p>
+                <div className="mt-2 px-2 py-1 rounded-full bg-amber-600/20 border border-amber-600/30 inline-flex items-center gap-1">
+                  <Star className="w-3 h-3 text-amber-600 fill-amber-600" />
+                  <span className="text-xs font-semibold text-amber-600">BRONZE</span>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -475,20 +507,35 @@ function FaturamentoLeague({
         </Card>
       )}
 
-      {/* Rest of Top 10 */}
+      {/* Rest of Top 10 - Premium List */}
       {restRanking.length > 0 && (
         <div className="space-y-2">
           {restRanking.map((user, index) => (
-            <Card key={user.id} className="border border-border/50 bg-card/30 hover:bg-card/50 transition-colors">
-              <CardContent className="p-3 flex items-center gap-3">
-                <span className="w-8 text-center text-muted-foreground font-bold">
-                  #{index + 4}
-                </span>
-                {renderAvatar(user.avatar_url, user.nome_usuario, "sm")}
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{user.nome_usuario || 'Usuário'}</p>
+            <Card 
+              key={user.id} 
+              className="group relative overflow-hidden border border-purple-500/20 bg-gradient-to-r from-card/80 via-purple-500/5 to-card/80 hover:from-purple-500/10 hover:via-purple-500/15 hover:to-purple-500/10 transition-all duration-300 hover:border-purple-500/40 hover:shadow-lg hover:shadow-purple-500/10"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="relative p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 flex items-center justify-center">
+                  <span className="text-sm font-black bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    {index + 4}
+                  </span>
                 </div>
-                <p className="font-bold text-muted-foreground">{formatCurrency(user.faturamento_total_mes)}</p>
+                <div className="relative">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500/30 to-pink-500/30 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {renderAvatar(user.avatar_url, user.nome_usuario, "sm", "relative z-10 border border-purple-500/30")}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-foreground group-hover:text-purple-300 transition-colors">{user.nome_usuario || 'Usuário'}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <TrendingUp className="w-3 h-3 text-purple-400" />
+                    <span className="text-xs text-muted-foreground">Top 10</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-purple-400 group-hover:text-purple-300 transition-colors">{formatCurrency(user.faturamento_total_mes)}</p>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -616,37 +663,67 @@ function ConstanciaLeague({
         </Card>
       )}
 
-      {/* Top 2 & 3 */}
+      {/* Top 2 & 3 - Premium Cards */}
       {(top2 || top3) && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           {top2 && (
-            <Card className={cn("border", getPositionStyle(2))}>
-              <CardContent className="p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <Medal className="w-6 h-6 text-slate-400" />
+            <Card className="relative overflow-hidden border-2 border-slate-400/60 bg-gradient-to-br from-slate-400/15 via-slate-300/10 to-slate-500/15">
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 animate-shine-sweep" style={{ animationDuration: '4s' }} />
+              </div>
+              <div className="absolute -top-16 -right-16 w-32 h-32 bg-slate-400/20 rounded-full blur-2xl" />
+              
+              <CardContent className="relative p-5 text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="relative">
+                    <Medal className="w-8 h-8 text-slate-300 drop-shadow-[0_0_8px_rgba(148,163,184,0.6)]" />
+                    <span className="absolute -top-1 -right-1 text-xs font-black text-slate-400">2</span>
+                  </div>
                 </div>
-                <div className="mx-auto mb-2">
-                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-slate-400 mx-auto")}
+                <div className="relative mx-auto mb-3">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-slate-400 to-slate-300 rounded-full blur-sm opacity-50" />
+                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border-2 border-slate-300 mx-auto relative z-10 shadow-lg")}
                 </div>
-                <h4 className="font-semibold text-sm truncate">{top2.nome_usuario || 'Usuário'}</h4>
-                <p className="text-lg font-bold text-slate-400">{top2.dias_trabalhados_mes} dias</p>
-                <p className="text-xs text-muted-foreground">{top2.constancia_streak_atual} seguidos</p>
+                <h4 className="font-bold text-sm truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
+                <p className="text-xl font-black bg-gradient-to-r from-slate-300 via-slate-200 to-slate-400 bg-clip-text text-transparent">
+                  {top2.dias_trabalhados_mes} dias
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{top2.constancia_streak_atual} seguidos</p>
+                <div className="mt-2 px-2 py-1 rounded-full bg-slate-400/20 border border-slate-400/30 inline-flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-400">PRATA</span>
+                </div>
               </CardContent>
             </Card>
           )}
 
           {top3 && (
-            <Card className={cn("border", getPositionStyle(3))}>
-              <CardContent className="p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <Medal className="w-6 h-6 text-orange-600" />
+            <Card className="relative overflow-hidden border-2 border-amber-600/60 bg-gradient-to-br from-amber-700/15 via-orange-600/10 to-amber-800/15">
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 animate-shine-sweep" style={{ animationDuration: '5s' }} />
+              </div>
+              <div className="absolute -top-16 -right-16 w-32 h-32 bg-amber-600/20 rounded-full blur-2xl" />
+              
+              <CardContent className="relative p-5 text-center">
+                <div className="flex justify-center mb-3">
+                  <div className="relative">
+                    <Medal className="w-8 h-8 text-amber-600 drop-shadow-[0_0_8px_rgba(217,119,6,0.6)]" />
+                    <span className="absolute -top-1 -right-1 text-xs font-black text-amber-600">3</span>
+                  </div>
                 </div>
-                <div className="mx-auto mb-2">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-orange-500 mx-auto")}
+                <div className="relative mx-auto mb-3">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-amber-600 to-orange-500 rounded-full blur-sm opacity-50" />
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border-2 border-amber-500 mx-auto relative z-10 shadow-lg")}
                 </div>
-                <h4 className="font-semibold text-sm truncate">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-lg font-bold text-orange-500">{top3.dias_trabalhados_mes} dias</p>
-                <p className="text-xs text-muted-foreground">{top3.constancia_streak_atual} seguidos</p>
+                <h4 className="font-bold text-sm truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
+                <p className="text-xl font-black bg-gradient-to-r from-amber-500 via-orange-400 to-amber-600 bg-clip-text text-transparent">
+                  {top3.dias_trabalhados_mes} dias
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{top3.constancia_streak_atual} seguidos</p>
+                <div className="mt-2 px-2 py-1 rounded-full bg-amber-600/20 border border-amber-600/30 inline-flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-amber-600" />
+                  <span className="text-xs font-semibold text-amber-600">BRONZE</span>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -695,21 +772,35 @@ function ConstanciaLeague({
         </Card>
       )}
 
-      {/* Rest of Top 10 */}
+      {/* Rest of Top 10 - Premium List */}
       {restRanking.length > 0 && (
         <div className="space-y-2">
           {restRanking.map((user, index) => (
-            <Card key={user.id} className="border border-border/50 bg-card/30 hover:bg-card/50 transition-colors">
-              <CardContent className="p-3 flex items-center gap-3">
-                <span className="w-8 text-center text-muted-foreground font-bold">
-                  #{index + 4}
-                </span>
-                {renderAvatar(user.avatar_url, user.nome_usuario, "sm")}
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{user.nome_usuario || 'Usuário'}</p>
-                  <p className="text-xs text-muted-foreground">{user.constancia_streak_atual} seguidos</p>
+            <Card 
+              key={user.id} 
+              className="group relative overflow-hidden border border-orange-500/20 bg-gradient-to-r from-card/80 via-orange-500/5 to-card/80 hover:from-orange-500/10 hover:via-orange-500/15 hover:to-orange-500/10 transition-all duration-300 hover:border-orange-500/40 hover:shadow-lg hover:shadow-orange-500/10"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-orange-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <CardContent className="relative p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 flex items-center justify-center">
+                  <span className="text-sm font-black bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
+                    {index + 4}
+                  </span>
                 </div>
-                <p className="font-bold text-muted-foreground">{user.dias_trabalhados_mes} dias</p>
+                <div className="relative">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500/30 to-red-500/30 rounded-full blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {renderAvatar(user.avatar_url, user.nome_usuario, "sm", "relative z-10 border border-orange-500/30")}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-sm text-foreground group-hover:text-orange-300 transition-colors">{user.nome_usuario || 'Usuário'}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <Flame className="w-3 h-3 text-orange-400" />
+                    <span className="text-xs text-muted-foreground">{user.constancia_streak_atual} seguidos</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-orange-400 group-hover:text-orange-300 transition-colors">{user.dias_trabalhados_mes} dias</p>
+                </div>
               </CardContent>
             </Card>
           ))}
