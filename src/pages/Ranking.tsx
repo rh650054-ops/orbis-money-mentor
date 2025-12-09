@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -7,13 +7,65 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
-
+import { RankingProfileModal } from "@/components/RankingProfileModal";
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
   "Disciplina é o caminho da vitória!",
   "Liderando com propósito!",
   "No topo, onde pertence!",
 ];
+
+// Emojis exclusivos para verificar se é emoji ou imagem
+const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];
+
+function isEmojiAvatar(avatar: string | null): boolean {
+  if (!avatar) return false;
+  return EXCLUSIVE_EMOJIS.includes(avatar);
+}
+
+function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "md" | "lg" = "md", className?: string) {
+  const sizeClasses = {
+    sm: "w-10 h-10 text-lg",
+    md: "w-14 h-14 text-xl",
+    lg: "w-20 h-20 text-3xl"
+  };
+  
+  if (isEmojiAvatar(avatar)) {
+    return (
+      <div className={cn(
+        "rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg",
+        sizeClasses[size],
+        className
+      )}>
+        {avatar}
+      </div>
+    );
+  }
+  
+  if (avatar) {
+    return (
+      <img 
+        src={avatar} 
+        alt={name || ''} 
+        className={cn(
+          "rounded-full object-cover",
+          sizeClasses[size],
+          className
+        )}
+      />
+    );
+  }
+  
+  return (
+    <div className={cn(
+      "rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold text-white",
+      sizeClasses[size],
+      className
+    )}>
+      {(name || 'U').charAt(0).toUpperCase()}
+    </div>
+  );
+}
 
 export default function Ranking() {
   const { user } = useAuth();
@@ -22,11 +74,32 @@ export default function Ranking() {
     constanciaRanking, 
     currentUserStats, 
     isLoading,
-    hasParticipated 
+    hasParticipated,
+    loadLeaderboard
   } = useLeaderboard(user?.id);
   
   const [activeTab, setActiveTab] = useState<"faturamento" | "constancia">("faturamento");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  // Get current user profile for modal
+  const [userProfile, setUserProfile] = useState({ nickname: '', avatar: '' });
+
+  const loadUserProfile = async () => {
+    if (!user?.id) return;
+    const { data } = await (await import("@/integrations/supabase/client")).supabase
+      .from("profiles")
+      .select("nickname, avatar_url")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (data) {
+      setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
+    }
+  };
+
+  useEffect(() => {
+    loadUserProfile();
+  }, [user?.id]);
 
   const getPositionStyle = (position: number) => {
     switch (position) {
@@ -124,6 +197,11 @@ export default function Ranking() {
           hasParticipated={hasParticipated}
           formatCurrency={formatCurrency}
           getPositionStyle={getPositionStyle}
+          onEditProfile={() => {
+            loadUserProfile();
+            setProfileModalOpen(true);
+          }}
+          userId={user?.id}
         />
       ) : (
         <ConstanciaLeague
@@ -131,6 +209,26 @@ export default function Ranking() {
           currentUserStats={currentUserStats}
           hasParticipated={hasParticipated}
           getPositionStyle={getPositionStyle}
+          onEditProfile={() => {
+            loadUserProfile();
+            setProfileModalOpen(true);
+          }}
+          userId={user?.id}
+        />
+      )}
+
+      {/* Profile Edit Modal */}
+      {user && (
+        <RankingProfileModal
+          open={profileModalOpen}
+          onOpenChange={setProfileModalOpen}
+          userId={user.id}
+          currentNickname={userProfile.nickname}
+          currentAvatar={userProfile.avatar}
+          onProfileUpdated={() => {
+            loadUserProfile();
+            loadLeaderboard();
+          }}
         />
       )}
     </div>
@@ -143,6 +241,8 @@ interface FaturamentoLeagueProps {
   hasParticipated: boolean;
   formatCurrency: (value: number) => string;
   getPositionStyle: (position: number) => string;
+  onEditProfile: () => void;
+  userId?: string;
 }
 
 function FaturamentoLeague({ 
@@ -150,7 +250,9 @@ function FaturamentoLeague({
   currentUserStats, 
   hasParticipated,
   formatCurrency, 
-  getPositionStyle 
+  getPositionStyle,
+  onEditProfile,
+  userId
 }: FaturamentoLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
@@ -228,17 +330,7 @@ function FaturamentoLeague({
 
             <div className="flex items-center gap-4">
               <div className="relative">
-                {top1.avatar_url ? (
-                  <img 
-                    src={top1.avatar_url} 
-                    alt={top1.nome_usuario || ''} 
-                    className="w-20 h-20 rounded-full object-cover shadow-xl shadow-yellow-500/30 border-2 border-yellow-500"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-500 to-amber-600 flex items-center justify-center text-3xl font-bold text-black shadow-xl shadow-yellow-500/30">
-                    {(top1.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-xl shadow-yellow-500/30 border-2 border-yellow-500")}
                 <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center shadow-lg">
                   <Crown className="w-4 h-4 text-black" />
                 </div>
@@ -266,17 +358,9 @@ function FaturamentoLeague({
                 <div className="flex justify-center mb-2">
                   <Medal className="w-6 h-6 text-slate-400" />
                 </div>
-                {top2.avatar_url ? (
-                  <img 
-                    src={top2.avatar_url} 
-                    alt={top2.nome_usuario || ''} 
-                    className="w-14 h-14 mx-auto rounded-full object-cover mb-2 border border-slate-400"
-                  />
-                ) : (
-                  <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-xl font-bold text-black mb-2">
-                    {(top2.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="mx-auto mb-2">
+                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-slate-400 mx-auto")}
+                </div>
                 <h4 className="font-semibold text-sm truncate">{top2.nome_usuario || 'Usuário'}</h4>
                 <p className="text-lg font-bold text-slate-400">{formatCurrency(top2.faturamento_total_mes)}</p>
               </CardContent>
@@ -289,17 +373,9 @@ function FaturamentoLeague({
                 <div className="flex justify-center mb-2">
                   <Medal className="w-6 h-6 text-orange-600" />
                 </div>
-                {top3.avatar_url ? (
-                  <img 
-                    src={top3.avatar_url} 
-                    alt={top3.nome_usuario || ''} 
-                    className="w-14 h-14 mx-auto rounded-full object-cover mb-2 border border-orange-500"
-                  />
-                ) : (
-                  <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-bold text-black mb-2">
-                    {(top3.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="mx-auto mb-2">
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-orange-500 mx-auto")}
+                </div>
                 <h4 className="font-semibold text-sm truncate">{top3.nome_usuario || 'Usuário'}</h4>
                 <p className="text-lg font-bold text-orange-500">{formatCurrency(top3.faturamento_total_mes)}</p>
               </CardContent>
@@ -313,17 +389,15 @@ function FaturamentoLeague({
         <Card className="border-2 border-purple-500/50 bg-gradient-to-r from-purple-500/10 to-pink-500/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3 mb-3">
-              {currentUserStats.avatar_url ? (
-                <img 
-                  src={currentUserStats.avatar_url} 
-                  alt="" 
-                  className="w-12 h-12 rounded-full object-cover border border-purple-500"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-lg font-bold">
-                  {(currentUserStats.nome_usuario || 'V').charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div className="relative">
+                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-purple-500")}
+                <button
+                  onClick={onEditProfile}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center shadow-lg hover:bg-purple-600 transition-colors"
+                >
+                  <Edit2 className="w-3 h-3 text-white" />
+                </button>
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-medium">
@@ -360,17 +434,7 @@ function FaturamentoLeague({
                 <span className="w-8 text-center text-muted-foreground font-bold">
                   #{index + 4}
                 </span>
-                {user.avatar_url ? (
-                  <img 
-                    src={user.avatar_url} 
-                    alt={user.nome_usuario || ''} 
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center font-semibold">
-                    {(user.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                {renderAvatar(user.avatar_url, user.nome_usuario, "sm")}
                 <div className="flex-1">
                   <p className="font-medium text-sm">{user.nome_usuario || 'Usuário'}</p>
                 </div>
@@ -396,13 +460,17 @@ interface ConstanciaLeagueProps {
   currentUserStats: LeaderboardEntry | null;
   hasParticipated: boolean;
   getPositionStyle: (position: number) => string;
+  onEditProfile: () => void;
+  userId?: string;
 }
 
 function ConstanciaLeague({ 
   ranking, 
   currentUserStats, 
   hasParticipated,
-  getPositionStyle 
+  getPositionStyle,
+  onEditProfile,
+  userId
 }: ConstanciaLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
@@ -479,17 +547,7 @@ function ConstanciaLeague({
 
             <div className="flex items-center gap-4">
               <div className="relative">
-                {top1.avatar_url ? (
-                  <img 
-                    src={top1.avatar_url} 
-                    alt={top1.nome_usuario || ''} 
-                    className="w-20 h-20 rounded-full object-cover shadow-xl shadow-orange-500/30 border-2 border-orange-500"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center text-3xl font-bold text-black shadow-xl shadow-orange-500/30">
-                    {(top1.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-xl shadow-orange-500/30 border-2 border-orange-500")}
                 <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center shadow-lg">
                   <Flame className="w-4 h-4 text-black" />
                 </div>
@@ -517,17 +575,9 @@ function ConstanciaLeague({
                 <div className="flex justify-center mb-2">
                   <Medal className="w-6 h-6 text-slate-400" />
                 </div>
-                {top2.avatar_url ? (
-                  <img 
-                    src={top2.avatar_url} 
-                    alt={top2.nome_usuario || ''} 
-                    className="w-14 h-14 mx-auto rounded-full object-cover mb-2 border border-slate-400"
-                  />
-                ) : (
-                  <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-xl font-bold text-black mb-2">
-                    {(top2.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="mx-auto mb-2">
+                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-slate-400 mx-auto")}
+                </div>
                 <h4 className="font-semibold text-sm truncate">{top2.nome_usuario || 'Usuário'}</h4>
                 <p className="text-lg font-bold text-slate-400">{top2.dias_trabalhados_mes} dias</p>
                 <p className="text-xs text-muted-foreground">{top2.constancia_streak_atual} seguidos</p>
@@ -541,17 +591,9 @@ function ConstanciaLeague({
                 <div className="flex justify-center mb-2">
                   <Medal className="w-6 h-6 text-orange-600" />
                 </div>
-                {top3.avatar_url ? (
-                  <img 
-                    src={top3.avatar_url} 
-                    alt={top3.nome_usuario || ''} 
-                    className="w-14 h-14 mx-auto rounded-full object-cover mb-2 border border-orange-500"
-                  />
-                ) : (
-                  <div className="w-14 h-14 mx-auto rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center text-xl font-bold text-black mb-2">
-                    {(top3.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <div className="mx-auto mb-2">
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-orange-500 mx-auto")}
+                </div>
                 <h4 className="font-semibold text-sm truncate">{top3.nome_usuario || 'Usuário'}</h4>
                 <p className="text-lg font-bold text-orange-500">{top3.dias_trabalhados_mes} dias</p>
                 <p className="text-xs text-muted-foreground">{top3.constancia_streak_atual} seguidos</p>
@@ -566,17 +608,15 @@ function ConstanciaLeague({
         <Card className="border-2 border-orange-500/50 bg-gradient-to-r from-orange-500/10 to-red-500/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3 mb-3">
-              {currentUserStats.avatar_url ? (
-                <img 
-                  src={currentUserStats.avatar_url} 
-                  alt="" 
-                  className="w-12 h-12 rounded-full object-cover border border-orange-500"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-lg font-bold">
-                  {(currentUserStats.nome_usuario || 'V').charAt(0).toUpperCase()}
-                </div>
-              )}
+              <div className="relative">
+                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-orange-500")}
+                <button
+                  onClick={onEditProfile}
+                  className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-orange-500 flex items-center justify-center shadow-lg hover:bg-orange-600 transition-colors"
+                >
+                  <Edit2 className="w-3 h-3 text-white" />
+                </button>
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 font-medium">
@@ -614,17 +654,7 @@ function ConstanciaLeague({
                 <span className="w-8 text-center text-muted-foreground font-bold">
                   #{index + 4}
                 </span>
-                {user.avatar_url ? (
-                  <img 
-                    src={user.avatar_url} 
-                    alt={user.nome_usuario || ''} 
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center font-semibold">
-                    {(user.nome_usuario || 'U').charAt(0).toUpperCase()}
-                  </div>
-                )}
+                {renderAvatar(user.avatar_url, user.nome_usuario, "sm")}
                 <div className="flex-1">
                   <p className="font-medium text-sm">{user.nome_usuario || 'Usuário'}</p>
                   <p className="text-xs text-muted-foreground">{user.constancia_streak_atual} seguidos</p>
