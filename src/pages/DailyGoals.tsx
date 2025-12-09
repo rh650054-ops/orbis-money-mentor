@@ -590,9 +590,9 @@ export default function DailyGoals() {
         </CardContent>
       </Card>
 
-      {/* Daily Summary - Bruto/Calote/Líquido */}
-      {user && dayStatus === 'in_progress' && (
-        <DashboardBlockStats userId={user.id} />
+      {/* Daily Summary - Bruto/Calote/Líquido - Updates in real-time from stats */}
+      {dayStatus === 'in_progress' && stats.totalBlocks > 0 && (
+        <DashboardBlockStats stats={stats} />
       )}
 
       {/* Hourly Blocks */}

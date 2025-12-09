@@ -19,6 +19,7 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { DashboardBlockStats } from "@/components/DashboardBlockStats";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
+import { useDailyBlockStats } from "@/hooks/useHourlyBlocks";
 import {
   Collapsible,
   CollapsibleContent,
@@ -54,6 +55,9 @@ export default function Index() {
   
   // Hook for required monthly goal check
   const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
+  
+  // Hook for block stats
+  const { stats: blockStats } = useDailyBlockStats(user?.id);
   
   // Check if today is a rest day
   useEffect(() => {
@@ -385,7 +389,7 @@ export default function Index() {
       <WeeklyPlanning userId={user.id} onEditPlanning={() => setShowEditPlanning(true)} />
 
       {/* Resumo do Ritmo - Estatísticas dos Blocos de Hora */}
-      <DashboardBlockStats userId={user.id} />
+      {blockStats && blockStats.totalBlocks > 0 && <DashboardBlockStats stats={blockStats} />}
 
       {/* Streak e Vision Points */}
       <StreakDisplay userId={user.id} />
