@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Target, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown } from "lucide-react";
+import { Home, TrendingUp, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
@@ -28,7 +28,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Nova Venda", href: "/transactions", icon: TrendingUp },
   { name: "Ritmo", href: "/daily-goals", icon: CheckSquare },
-  { name: "Histórico", href: "/history", icon: Target },
+  { name: "Ranking", href: "/ranking", icon: Trophy },
   { name: "Rotina", href: "/routine", icon: Clock },
 ];
 
@@ -146,6 +146,10 @@ export default function Layout({ children }: LayoutProps) {
                     <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/finances"); }}>
                       <Wallet className="w-4 h-4 mr-2" />
                       Financeiro
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/history"); }}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Histórico
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
