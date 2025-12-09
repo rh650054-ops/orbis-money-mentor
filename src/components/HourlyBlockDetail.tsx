@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Pause, Play, AlertCircle, Banknote, CreditCard, Smartphone, AlertTriangle, Lock, Pencil } from "lucide-react";
+import { CheckCircle2, Pause, Play, AlertCircle, Banknote, CreditCard, Smartphone, AlertTriangle, Lock, Pencil, Calculator, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -62,15 +62,62 @@ export function HourlyBlockDetail({
   const [isEditing, setIsEditing] = useState(false);
   const [reminderShown, setReminderShown] = useState(false);
   const [showFireEffect, setShowFireEffect] = useState(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isUserEditingRef = useRef(false);
 
-  // Update local state when prop changes
+  // Update local state when prop changes, but ONLY if user is not actively editing
   useEffect(() => {
+    if (isUserEditingRef.current) return; // Don't overwrite user edits
+    
     setLocalBlock(block);
     setDinheiro(block.valor_dinheiro ? block.valor_dinheiro.toString() : "");
     setCartao(block.valor_cartao ? block.valor_cartao.toString() : "");
     setPix(block.valor_pix ? block.valor_pix.toString() : "");
     setCalote(block.valor_calote ? block.valor_calote.toString() : "");
-  }, [block]);
+  }, [block.id, block.valor_dinheiro, block.valor_cartao, block.valor_pix, block.valor_calote]);
+
+  // Auto-save function for real-time persistence
+  const autoSaveValues = useCallback(async () => {
+    const valorDinheiro = parseFloat(dinheiro) || 0;
+    const valorCartao = parseFloat(cartao) || 0;
+    const valorPix = parseFloat(pix) || 0;
+    const valorCalote = parseFloat(calote) || 0;
+    const total = valorDinheiro + valorCartao + valorPix;
+
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({
+        valor_dinheiro: valorDinheiro,
+        valor_cartao: valorCartao,
+        valor_pix: valorPix,
+        valor_calote: valorCalote,
+        achieved_amount: total,
+      })
+      .eq("id", block.id);
+    
+    isUserEditingRef.current = false;
+  }, [block.id, dinheiro, cartao, pix, calote]);
+
+  // Debounced auto-save when values change
+  useEffect(() => {
+    if (!isCurrentBlock && !isEditing) return;
+    
+    isUserEditingRef.current = true;
+    
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
+      autoSaveValues();
+    }, 1500); // Save after 1.5 seconds of inactivity
+    
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [dinheiro, cartao, pix, calote, isCurrentBlock, isEditing, autoSaveValues]);
 
   // Calculate time remaining based on server timestamps
   const calculateTimeRemaining = useCallback(() => {
@@ -536,6 +583,31 @@ export function HourlyBlockDetail({
               </div>
             </div>
 
+            {/* Calculated Fields: Total da Hora and Saldo Líquido */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <Calculator className="w-4 h-4 text-blue-400" />
+                  <span className="text-xs text-muted-foreground">Total da Hora</span>
+                </div>
+                <p className="text-lg font-bold text-blue-400">
+                  {formatCurrency(total)}
+                </p>
+              </div>
+              <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <span className="text-xs text-muted-foreground">Saldo Líquido</span>
+                </div>
+                <p className={cn(
+                  "text-lg font-bold",
+                  (total - (parseFloat(calote) || 0)) >= 0 ? "text-green-400" : "text-red-400"
+                )}>
+                  {formatCurrency(total - (parseFloat(calote) || 0))}
+                </p>
+              </div>
+            </div>
+
             {/* Action Button */}
             {isEditing ? (
               <div className="flex gap-2">
@@ -547,7 +619,10 @@ export function HourlyBlockDetail({
                   {isSaving ? "Salvando..." : "💾 Salvar Alterações"}
                 </Button>
                 <Button 
-                  onClick={() => setIsEditing(false)}
+                  onClick={() => {
+                    setIsEditing(false);
+                    isUserEditingRef.current = false;
+                  }}
                   variant="outline"
                   className="h-11"
                 >
@@ -568,22 +643,41 @@ export function HourlyBlockDetail({
 
         {/* Completed block summary (when not editing) */}
         {isCompleted && !isEditing && (
-          <div className="grid grid-cols-4 gap-2 pt-2 border-t border-white/10">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">💵</p>
-              <p className="text-sm font-semibold">{formatCurrency(block.valor_dinheiro || 0)}</p>
+          <div className="space-y-3 pt-2 border-t border-white/10">
+            {/* Payment methods */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">💵</p>
+                <p className="text-sm font-semibold">{formatCurrency(block.valor_dinheiro || 0)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">💳</p>
+                <p className="text-sm font-semibold">{formatCurrency(block.valor_cartao || 0)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">📱</p>
+                <p className="text-sm font-semibold">{formatCurrency(block.valor_pix || 0)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">❌</p>
+                <p className="text-sm font-semibold text-red-400">{formatCurrency(block.valor_calote || 0)}</p>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">💳</p>
-              <p className="text-sm font-semibold">{formatCurrency(block.valor_cartao || 0)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">📱</p>
-              <p className="text-sm font-semibold">{formatCurrency(block.valor_pix || 0)}</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">❌</p>
-              <p className="text-sm font-semibold text-red-400">{formatCurrency(block.valor_calote || 0)}</p>
+            {/* Total and Saldo Líquido */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20 text-center">
+                <p className="text-xs text-muted-foreground">Total da Hora</p>
+                <p className="text-sm font-bold text-blue-400">{formatCurrency(block.achieved_amount || 0)}</p>
+              </div>
+              <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 text-center">
+                <p className="text-xs text-muted-foreground">Saldo Líquido</p>
+                <p className={cn(
+                  "text-sm font-bold",
+                  ((block.achieved_amount || 0) - (block.valor_calote || 0)) >= 0 ? "text-green-400" : "text-red-400"
+                )}>
+                  {formatCurrency((block.achieved_amount || 0) - (block.valor_calote || 0))}
+                </p>
+              </div>
             </div>
           </div>
         )}
