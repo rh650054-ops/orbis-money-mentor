@@ -434,6 +434,54 @@ export type Database = {
           },
         ]
       }
+      leaderboard_stats: {
+        Row: {
+          avatar_url: string | null
+          constancia_maior_streak: number
+          constancia_streak_atual: number
+          created_at: string
+          dias_trabalhados_mes: number
+          faturamento_total_mes: number
+          id: string
+          mes_referencia: string
+          nome_usuario: string | null
+          posicao_constancia: number | null
+          posicao_faturamento: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          constancia_maior_streak?: number
+          constancia_streak_atual?: number
+          created_at?: string
+          dias_trabalhados_mes?: number
+          faturamento_total_mes?: number
+          id?: string
+          mes_referencia: string
+          nome_usuario?: string | null
+          posicao_constancia?: number | null
+          posicao_faturamento?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          constancia_maior_streak?: number
+          constancia_streak_atual?: number
+          created_at?: string
+          dias_trabalhados_mes?: number
+          faturamento_total_mes?: number
+          id?: string
+          mes_referencia?: string
+          nome_usuario?: string | null
+          posicao_constancia?: number | null
+          posicao_faturamento?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       monthly_challenges: {
         Row: {
           created_at: string
@@ -852,6 +900,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalculate_ranking_positions: {
+        Args: { target_month: string }
+        Returns: undefined
       }
     }
     Enums: {

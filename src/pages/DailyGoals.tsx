@@ -16,6 +16,7 @@ import DailyReportModal from "@/components/DailyReportModal";
 import { HourlyBlockDetail } from "@/components/HourlyBlockDetail";
 import { useHourlyBlocks, HourlyBlock } from "@/hooks/useHourlyBlocks";
 import { celebrationSounds } from "@/utils/celebrationSounds";
+import { useLeaderboard } from "@/hooks/useLeaderboard";
 
 interface DailyPlan {
   id: string;
@@ -41,6 +42,7 @@ export default function DailyGoals() {
   const [isLoadingSession, setIsLoadingSession] = useState(true);
 
   const { blocks, planId, loadBlocks, stats, startDayTimers } = useHourlyBlocks(user?.id);
+  const { updateUserStats, checkWorkedYesterday } = useLeaderboard(user?.id);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -337,6 +339,11 @@ export default function DailyGoals() {
     
     // Update constância (streak) when finishing the day
     await updateDailyWorkLog();
+    
+    // Update leaderboard stats
+    const totalVendidoHoje = stats.totalVendido;
+    const workedYesterday = await checkWorkedYesterday();
+    await updateUserStats(totalVendidoHoje, workedYesterday);
   };
 
   const updateDailyWorkLog = async () => {
