@@ -357,7 +357,9 @@ export function HourlyBlockDetail({
     }
   };
 
-  const total = (parseFloat(dinheiro) || 0) + (parseFloat(cartao) || 0) + (parseFloat(pix) || 0);
+  const valorCaloteNum = parseFloat(calote) || 0;
+  const saldoLiquido = (parseFloat(dinheiro) || 0) + (parseFloat(cartao) || 0) + (parseFloat(pix) || 0);
+  const total = saldoLiquido + valorCaloteNum; // Bruto = tudo que vendeu (incluindo calotes)
   const blockProgress = (total / block.target_amount) * 100;
   const progressPercentage = Math.min(blockProgress, 100);
   const remaining = Math.max(0, block.target_amount - total);
@@ -583,12 +585,12 @@ export function HourlyBlockDetail({
               </div>
             </div>
 
-            {/* Calculated Fields: Total da Hora and Saldo Líquido */}
+            {/* Calculated Fields: Bruto (Total da Hora) and Líquido */}
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
               <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20">
                 <div className="flex items-center gap-2 mb-1">
                   <Calculator className="w-4 h-4 text-blue-400" />
-                  <span className="text-xs text-muted-foreground">Total da Hora</span>
+                  <span className="text-xs text-muted-foreground">Bruto (Vendido)</span>
                 </div>
                 <p className="text-lg font-bold text-blue-400">
                   {formatCurrency(total)}
@@ -597,13 +599,13 @@ export function HourlyBlockDetail({
               <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
                 <div className="flex items-center gap-2 mb-1">
                   <TrendingUp className="w-4 h-4 text-green-400" />
-                  <span className="text-xs text-muted-foreground">Saldo Líquido</span>
+                  <span className="text-xs text-muted-foreground">Líquido (Recebido)</span>
                 </div>
                 <p className={cn(
                   "text-lg font-bold",
-                  (total - (parseFloat(calote) || 0)) >= 0 ? "text-green-400" : "text-red-400"
+                  saldoLiquido >= 0 ? "text-green-400" : "text-red-400"
                 )}>
-                  {formatCurrency(total - (parseFloat(calote) || 0))}
+                  {formatCurrency(saldoLiquido)}
                 </p>
               </div>
             </div>
@@ -663,19 +665,19 @@ export function HourlyBlockDetail({
                 <p className="text-sm font-semibold text-red-400">{formatCurrency(block.valor_calote || 0)}</p>
               </div>
             </div>
-            {/* Total and Saldo Líquido */}
+            {/* Bruto and Líquido */}
             <div className="grid grid-cols-2 gap-2">
               <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20 text-center">
-                <p className="text-xs text-muted-foreground">Total da Hora</p>
-                <p className="text-sm font-bold text-blue-400">{formatCurrency(block.achieved_amount || 0)}</p>
+                <p className="text-xs text-muted-foreground">Bruto (Vendido)</p>
+                <p className="text-sm font-bold text-blue-400">{formatCurrency((block.achieved_amount || 0) + (block.valor_calote || 0))}</p>
               </div>
               <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 text-center">
-                <p className="text-xs text-muted-foreground">Saldo Líquido</p>
+                <p className="text-xs text-muted-foreground">Líquido (Recebido)</p>
                 <p className={cn(
                   "text-sm font-bold",
-                  ((block.achieved_amount || 0) - (block.valor_calote || 0)) >= 0 ? "text-green-400" : "text-red-400"
+                  (block.achieved_amount || 0) >= 0 ? "text-green-400" : "text-red-400"
                 )}>
-                  {formatCurrency((block.achieved_amount || 0) - (block.valor_calote || 0))}
+                  {formatCurrency(block.achieved_amount || 0)}
                 </p>
               </div>
             </div>
