@@ -18,6 +18,7 @@ import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
+import { useDashboardSync } from "@/hooks/useDashboardSync";
 import {
   Collapsible,
   CollapsibleContent,
@@ -53,6 +54,9 @@ export default function Index() {
   
   // Hook for required monthly goal check
   const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
+  
+  // Real-time sync from Ritmo hourly blocks
+  const { todayStats: ritmoStats } = useDashboardSync(user?.id);
   
   // Check if today is a rest day
   useEffect(() => {
@@ -354,7 +358,9 @@ export default function Index() {
     return null;
   }
   const motivation = getMotivationMessage();
-  const dailyProfit = todaySales?.total_profit || 0;
+  // Use ritmoStats for real-time daily profit from hourly blocks, fallback to todaySales
+  const dailyProfit = ritmoStats.faturamentoLiquido > 0 ? ritmoStats.faturamentoLiquido : (todaySales?.total_profit || 0);
+  const dailyCalotes = ritmoStats.totalCalotes > 0 ? ritmoStats.totalCalotes : (todaySales?.total_debt || 0);
   return <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Hero Section */}
       <div className="text-center space-y-1 mb-6">
@@ -664,15 +670,15 @@ export default function Index() {
                 {motivation.message}
               </p>
             </div>
-            {todaySales && <div className="space-y-2 mt-3">
+            {(ritmoStats.faturamentoLiquido > 0 || todaySales) && <div className="space-y-2 mt-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2 rounded-lg bg-success/10 border border-success/20">
                     <p className="text-xs text-muted-foreground">Lucro Hoje</p>
-                    <p className="text-sm font-bold text-success">R$ {dailyProfit.toFixed(2)}</p>
+                    <p className="text-sm font-bold text-success">{formatCurrency(dailyProfit)}</p>
                   </div>
                   <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20">
                     <p className="text-xs text-muted-foreground">Calotes</p>
-                    <p className="text-sm font-bold text-destructive">R$ {(todaySales.total_debt || 0).toFixed(2)}</p>
+                    <p className="text-sm font-bold text-destructive">{formatCurrency(dailyCalotes)}</p>
                   </div>
                 </div>
                 <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-center">
