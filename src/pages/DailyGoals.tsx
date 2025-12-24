@@ -608,6 +608,7 @@ export default function DailyGoals() {
             onBlockUpdated={loadBlocks}
             planId={planId || ""}
             allBlocks={blocks}
+            userId={user?.id}
           />
         ))}
       </div>

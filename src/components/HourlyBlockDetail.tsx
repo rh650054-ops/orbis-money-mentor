@@ -4,13 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle2, Pause, Play, AlertCircle, Banknote, CreditCard, Smartphone, AlertTriangle, Lock, Pencil, Calculator, TrendingUp } from "lucide-react";
+import { CheckCircle2, Pause, Play, AlertCircle, Banknote, CreditCard, Smartphone, AlertTriangle, Lock, Pencil, Calculator, TrendingUp, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { celebrationSounds } from "@/utils/celebrationSounds";
 import { FireEffect } from "@/components/FireEffect";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
+import { useAudioSettings } from "@/hooks/useAudioSettings";
 
 interface HourlyBlock {
   id: string;
@@ -39,6 +41,7 @@ interface HourlyBlockDetailProps {
   onBlockUpdated: () => void;
   planId: string;
   allBlocks: HourlyBlock[];
+  userId?: string;
 }
 
 export function HourlyBlockDetail({ 
@@ -49,7 +52,8 @@ export function HourlyBlockDetail({
   onBlockCompleted,
   onBlockUpdated,
   planId,
-  allBlocks
+  allBlocks,
+  userId
 }: HourlyBlockDetailProps) {
   const { toast } = useToast();
   const [localBlock, setLocalBlock] = useState(block);
@@ -62,8 +66,113 @@ export function HourlyBlockDetail({
   const [isEditing, setIsEditing] = useState(false);
   const [reminderShown, setReminderShown] = useState(false);
   const [showFireEffect, setShowFireEffect] = useState(false);
+  const [activeVoiceField, setActiveVoiceField] = useState<"dinheiro" | "cartao" | "pix" | "calote" | null>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isUserEditingRef = useRef(false);
+
+  // Audio settings - source of truth from user profile
+  const { settings: audioSettings, speak, isMicSupported } = useAudioSettings(userId);
+
+  // Speech recognition for voice input
+  const { isListening, startListening, stopListening, error: speechError } = useSpeechRecognition({
+    audioInputEnabled: audioSettings.audioInputEnabled,
+    onResult: (transcript) => {
+      // Extract number from speech
+      const numericValue = extractNumericValue(transcript);
+      if (numericValue !== null && activeVoiceField) {
+        switch (activeVoiceField) {
+          case "dinheiro":
+            setDinheiro(numericValue.toString());
+            break;
+          case "cartao":
+            setCartao(numericValue.toString());
+            break;
+          case "pix":
+            setPix(numericValue.toString());
+            break;
+          case "calote":
+            setCalote(numericValue.toString());
+            break;
+        }
+        // Voice feedback if enabled
+        if (audioSettings.audioOutputEnabled) {
+          speak(`${numericValue} reais em ${getFieldLabel(activeVoiceField)}`);
+        }
+        toast({ title: `🎤 ${formatCurrency(numericValue)} registrado em ${getFieldLabel(activeVoiceField)}` });
+      } else {
+        toast({ title: "Não entendi o valor", description: "Tente falar apenas o número", variant: "destructive" });
+      }
+      setActiveVoiceField(null);
+    },
+    onError: (error) => {
+      toast({ title: "Erro na voz", description: error, variant: "destructive" });
+      setActiveVoiceField(null);
+    },
+  });
+
+  // Extract numeric value from speech transcript
+  const extractNumericValue = (text: string): number | null => {
+    // Remove common words and clean up
+    const cleaned = text
+      .toLowerCase()
+      .replace(/reais?/g, "")
+      .replace(/r\$/g, "")
+      .replace(/centavos?/g, "")
+      .replace(/e/g, ".")
+      .replace(/,/g, ".")
+      .replace(/[^0-9.]/g, " ")
+      .trim();
+    
+    // Extract numbers
+    const numbers = cleaned.match(/\d+\.?\d*/g);
+    if (numbers && numbers.length > 0) {
+      return parseFloat(numbers[0]);
+    }
+    
+    // Try to parse written numbers
+    const writtenNumbers: { [key: string]: number } = {
+      "zero": 0, "um": 1, "uma": 1, "dois": 2, "duas": 2, "três": 3, "tres": 3,
+      "quatro": 4, "cinco": 5, "seis": 6, "sete": 7, "oito": 8, "nove": 9,
+      "dez": 10, "vinte": 20, "trinta": 30, "quarenta": 40, "cinquenta": 50,
+      "sessenta": 60, "setenta": 70, "oitenta": 80, "noventa": 90, "cem": 100,
+      "duzentos": 200, "trezentos": 300, "quatrocentos": 400, "quinhentos": 500
+    };
+    
+    const words = text.toLowerCase().split(" ");
+    for (const word of words) {
+      if (writtenNumbers[word] !== undefined) {
+        return writtenNumbers[word];
+      }
+    }
+    
+    return null;
+  };
+
+  const getFieldLabel = (field: string): string => {
+    switch (field) {
+      case "dinheiro": return "Dinheiro";
+      case "cartao": return "Cartão";
+      case "pix": return "Pix";
+      case "calote": return "Calote";
+      default: return field;
+    }
+  };
+
+  const handleVoiceInput = (field: "dinheiro" | "cartao" | "pix" | "calote") => {
+    // RULE: Only work if audio_input_enabled = true
+    if (!audioSettings.audioInputEnabled) {
+      toast({ title: "Voz desativada", description: "Ative nas configurações do perfil", variant: "destructive" });
+      return;
+    }
+    
+    if (isListening) {
+      stopListening();
+      setActiveVoiceField(null);
+    } else {
+      setActiveVoiceField(field);
+      startListening();
+    }
+  };
 
   // Update local state when prop changes, but ONLY if user is not actively editing
   useEffect(() => {
@@ -278,16 +387,28 @@ export function HourlyBlockDetail({
           description: `Valores salvos: ${formatCurrency(total)}`
         });
         celebrationSounds.playNotification();
+        // Voice feedback if enabled
+        if (audioSettings.audioOutputEnabled) {
+          speak(`Hora concluída automaticamente. Valor salvo: ${total} reais`);
+        }
       } else if (metaAtingida) {
         // Show fire effect when completing hour with any sales
         setShowFireEffect(true);
         toast({ title: "🔥 Meta da hora batida!", description: "Esse é o foco Visionário! 💙" });
         celebrationSounds.playAchievement();
+        // Voice feedback if enabled
+        if (audioSettings.audioOutputEnabled) {
+          speak(`Parabéns! Meta da hora batida! ${total} reais vendidos!`);
+        }
       } else if (total > 0) {
         // Show fire effect for any sales added
         setShowFireEffect(true);
         toast({ title: "✅ Hora concluída!", description: "Vamos recuperar na próxima!" });
         celebrationSounds.playSuccess();
+        // Voice feedback if enabled
+        if (audioSettings.audioOutputEnabled) {
+          speak(`Hora concluída. ${total} reais. Vamos recuperar na próxima!`);
+        }
       } else {
         toast({ title: "✅ Hora concluída!", description: "Vamos recuperar na próxima!" });
         celebrationSounds.playSuccess();
@@ -517,17 +638,34 @@ export function HourlyBlockDetail({
                   <Banknote className="w-3 h-3 text-green-500" />
                   Dinheiro
                 </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={dinheiro}
-                  onChange={(e) => setDinheiro(e.target.value)}
-                  onFocus={(e) => e.target.value === "0" && setDinheiro("")}
-                  className="h-9 text-sm border-green-500/30 focus:border-green-500"
-                  placeholder="0,00"
-                />
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={dinheiro}
+                    onChange={(e) => setDinheiro(e.target.value)}
+                    onFocus={(e) => e.target.value === "0" && setDinheiro("")}
+                    className="h-9 text-sm border-green-500/30 focus:border-green-500 flex-1"
+                    placeholder="0,00"
+                  />
+                  {audioSettings.audioInputEnabled && isMicSupported && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={isListening && activeVoiceField === "dinheiro" ? "default" : "outline"}
+                      className="h-9 w-9 shrink-0"
+                      onClick={() => handleVoiceInput("dinheiro")}
+                    >
+                      {isListening && activeVoiceField === "dinheiro" ? (
+                        <MicOff className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
               
               <div className="space-y-1">
@@ -535,17 +673,34 @@ export function HourlyBlockDetail({
                   <CreditCard className="w-3 h-3 text-blue-500" />
                   Cartão
                 </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={cartao}
-                  onChange={(e) => setCartao(e.target.value)}
-                  onFocus={(e) => e.target.value === "0" && setCartao("")}
-                  className="h-9 text-sm border-blue-500/30 focus:border-blue-500"
-                  placeholder="0,00"
-                />
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={cartao}
+                    onChange={(e) => setCartao(e.target.value)}
+                    onFocus={(e) => e.target.value === "0" && setCartao("")}
+                    className="h-9 text-sm border-blue-500/30 focus:border-blue-500 flex-1"
+                    placeholder="0,00"
+                  />
+                  {audioSettings.audioInputEnabled && isMicSupported && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={isListening && activeVoiceField === "cartao" ? "default" : "outline"}
+                      className="h-9 w-9 shrink-0"
+                      onClick={() => handleVoiceInput("cartao")}
+                    >
+                      {isListening && activeVoiceField === "cartao" ? (
+                        <MicOff className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
               
               <div className="space-y-1">
@@ -553,17 +708,34 @@ export function HourlyBlockDetail({
                   <Smartphone className="w-3 h-3 text-purple-500" />
                   Pix
                 </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={pix}
-                  onChange={(e) => setPix(e.target.value)}
-                  onFocus={(e) => e.target.value === "0" && setPix("")}
-                  className="h-9 text-sm border-purple-500/30 focus:border-purple-500"
-                  placeholder="0,00"
-                />
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={pix}
+                    onChange={(e) => setPix(e.target.value)}
+                    onFocus={(e) => e.target.value === "0" && setPix("")}
+                    className="h-9 text-sm border-purple-500/30 focus:border-purple-500 flex-1"
+                    placeholder="0,00"
+                  />
+                  {audioSettings.audioInputEnabled && isMicSupported && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={isListening && activeVoiceField === "pix" ? "default" : "outline"}
+                      className="h-9 w-9 shrink-0"
+                      onClick={() => handleVoiceInput("pix")}
+                    >
+                      {isListening && activeVoiceField === "pix" ? (
+                        <MicOff className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
               
               <div className="space-y-1">
@@ -571,17 +743,34 @@ export function HourlyBlockDetail({
                   <AlertTriangle className="w-3 h-3 text-red-500" />
                   Calote
                 </Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0"
-                  value={calote}
-                  onChange={(e) => setCalote(e.target.value)}
-                  onFocus={(e) => e.target.value === "0" && setCalote("")}
-                  className="h-9 text-sm border-red-500/30 focus:border-red-500"
-                  placeholder="0,00"
-                />
+                <div className="flex gap-1">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    step="0.01"
+                    min="0"
+                    value={calote}
+                    onChange={(e) => setCalote(e.target.value)}
+                    onFocus={(e) => e.target.value === "0" && setCalote("")}
+                    className="h-9 text-sm border-red-500/30 focus:border-red-500 flex-1"
+                    placeholder="0,00"
+                  />
+                  {audioSettings.audioInputEnabled && isMicSupported && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant={isListening && activeVoiceField === "calote" ? "default" : "outline"}
+                      className="h-9 w-9 shrink-0"
+                      onClick={() => handleVoiceInput("calote")}
+                    >
+                      {isListening && activeVoiceField === "calote" ? (
+                        <MicOff className="w-4 h-4 text-red-500" />
+                      ) : (
+                        <Mic className="w-4 h-4" />
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
