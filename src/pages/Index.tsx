@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, ShoppingCart, Calendar, Filter, ChevronDown } from "lucide-react";
+import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, ShoppingCart, Calendar, Filter, ChevronDown, Volume2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -19,6 +19,7 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 import { useDashboardSync } from "@/hooks/useDashboardSync";
+import { useAudioSettings } from "@/hooks/useAudioSettings";
 import {
   Collapsible,
   CollapsibleContent,
@@ -57,6 +58,25 @@ export default function Index() {
   
   // Real-time sync from Ritmo hourly blocks
   const { todayStats: ritmoStats } = useDashboardSync(user?.id);
+  
+  // Audio settings for voice summary
+  const { settings: audioSettings, speak, isSpeechSupported } = useAudioSettings(user?.id);
+  
+  // Function to speak the daily summary
+  const handleListenSummary = () => {
+    if (!audioSettings.audioOutputEnabled) {
+      toast({ title: "Voz desativada", description: "Ative nas configurações do perfil", variant: "destructive" });
+      return;
+    }
+    
+    const metaDia = monthlyGoal / 30;
+    const porcentagem = metaDia > 0 ? ((dailyProfit / metaDia) * 100).toFixed(0) : 0;
+    
+    const summaryText = `Hoje você fez ${dailyProfit} reais. Sua meta diária é ${metaDia.toFixed(0)} reais. Você está em ${porcentagem} por cento da meta. ${dailyCalotes > 0 ? `Você teve ${dailyCalotes} reais em calotes.` : ''} Continue assim!`;
+    
+    speak(summaryText);
+    toast({ title: "🔊 Reproduzindo resumo..." });
+  };
   
   // Check if today is a rest day
   useEffect(() => {
