@@ -728,7 +728,7 @@ export default function Index() {
                 </div>
                 <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-center">
                   <p className="text-xs text-muted-foreground">Lançamentos Hoje</p>
-                  <p className="text-sm font-bold text-primary">{todaySales.entry_count || 0}</p>
+                  <p className="text-sm font-bold text-primary">{todaySales?.entry_count || 0}</p>
                 </div>
               </div>}
           </CardContent>
