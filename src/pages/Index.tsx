@@ -406,6 +406,31 @@ export default function Index() {
         </div>
       )}
 
+      {/* Resumo do Dia com Áudio */}
+      <Card className="card-gradient-border">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-lg">Hoje: {formatCurrency(dailyProfit)}</h3>
+              <p className="text-sm text-muted-foreground">
+                {dailyCalotes > 0 ? `Calotes: ${formatCurrency(dailyCalotes)}` : "Sem calotes hoje"}
+              </p>
+            </div>
+            {audioSettings.audioOutputEnabled && isSpeechSupported && (
+              <Button
+                onClick={handleListenSummary}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <Volume2 className="w-4 h-4" />
+                Ouvir resumo
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Planejamento Semanal */}
       <WeeklyPlanning userId={user.id} onEditPlanning={() => setShowEditPlanning(true)} />
 
