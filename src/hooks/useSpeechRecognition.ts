@@ -49,6 +49,16 @@ export function useSpeechRecognition({
       return;
     }
 
+    // Stop any existing recognition first
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {
+        // Ignore
+      }
+      recognitionRef.current = null;
+    }
+
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
@@ -93,17 +103,21 @@ export function useSpeechRecognition({
             errorMessage = "Erro de rede";
             break;
           case "aborted":
-            errorMessage = "Reconhecimento cancelado";
-            break;
+            // Don't show error for manual abort
+            setIsListening(false);
+            recognitionRef.current = null;
+            return;
         }
         
         setError(errorMessage);
         setIsListening(false);
+        recognitionRef.current = null;
         onError?.(errorMessage);
       };
 
       recognition.onend = () => {
         setIsListening(false);
+        recognitionRef.current = null;
       };
 
       recognitionRef.current = recognition;
@@ -112,13 +126,19 @@ export function useSpeechRecognition({
       // Fallback for errors
       setError("Não foi possível iniciar o reconhecimento de voz");
       setIsListening(false);
+      recognitionRef.current = null;
       onError?.("Não foi possível iniciar o reconhecimento de voz");
     }
   }, [audioInputEnabled, isSupported, language, onResult, onError]);
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {
+        // Ignore
+      }
+      recognitionRef.current = null;
       setIsListening(false);
     }
   }, []);

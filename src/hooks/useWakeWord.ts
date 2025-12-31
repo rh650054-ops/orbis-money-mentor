@@ -15,6 +15,13 @@ export function useWakeWord({
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<any>(null);
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isStoppedRef = useRef(false);
+  const enabledRef = useRef(enabled);
+
+  // Keep enabledRef in sync
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
 
   // Check browser support
   useEffect(() => {
@@ -23,8 +30,32 @@ export function useWakeWord({
     setIsSupported(!!SpeechRecognition);
   }, []);
 
+  const stopPassiveListening = useCallback(() => {
+    isStoppedRef.current = true;
+    
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
+    
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {
+        // Ignore errors when stopping
+      }
+      recognitionRef.current = null;
+    }
+    setIsPassiveListening(false);
+  }, []);
+
   const startPassiveListening = useCallback(() => {
-    if (!enabled || !isSupported) return;
+    if (!enabledRef.current || !isSupported) return;
+    
+    // Don't start if already listening
+    if (recognitionRef.current) return;
+
+    isStoppedRef.current = false;
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -34,12 +65,14 @@ export function useWakeWord({
     try {
       const recognition = new SpeechRecognition();
       recognition.lang = "pt-BR";
-      recognition.continuous = true;
+      recognition.continuous = false; // Changed to false to prevent infinite loops
       recognition.interimResults = true;
       recognition.maxAlternatives = 3;
 
       recognition.onstart = () => {
-        setIsPassiveListening(true);
+        if (!isStoppedRef.current) {
+          setIsPassiveListening(true);
+        }
       };
 
       recognition.onresult = (event: any) => {
@@ -54,7 +87,7 @@ export function useWakeWord({
             );
 
             if (detected) {
-              recognition.stop();
+              stopPassiveListening();
               onWakeWordDetected();
               return;
             }
@@ -65,23 +98,29 @@ export function useWakeWord({
       recognition.onerror = (event: any) => {
         console.log("Wake word detection error:", event.error);
         setIsPassiveListening(false);
+        recognitionRef.current = null;
         
-        // Auto-restart after errors (except permission denied)
-        if (event.error !== "not-allowed" && enabled) {
+        // Only restart for recoverable errors, not permission denied or aborted
+        if (event.error !== "not-allowed" && event.error !== "aborted" && enabledRef.current && !isStoppedRef.current) {
           restartTimeoutRef.current = setTimeout(() => {
-            startPassiveListening();
-          }, 1000);
+            if (enabledRef.current && !isStoppedRef.current) {
+              startPassiveListening();
+            }
+          }, 2000);
         }
       };
 
       recognition.onend = () => {
         setIsPassiveListening(false);
+        recognitionRef.current = null;
         
-        // Auto-restart if still enabled
-        if (enabled) {
+        // Only restart if still enabled and not manually stopped
+        if (enabledRef.current && !isStoppedRef.current) {
           restartTimeoutRef.current = setTimeout(() => {
-            startPassiveListening();
-          }, 500);
+            if (enabledRef.current && !isStoppedRef.current) {
+              startPassiveListening();
+            }
+          }, 1000);
         }
       };
 
@@ -90,30 +129,18 @@ export function useWakeWord({
     } catch (error) {
       console.log("Failed to start wake word detection:", error);
       setIsPassiveListening(false);
-    }
-  }, [enabled, isSupported, wakeWords, onWakeWordDetected]);
-
-  const stopPassiveListening = useCallback(() => {
-    if (restartTimeoutRef.current) {
-      clearTimeout(restartTimeoutRef.current);
-      restartTimeoutRef.current = null;
-    }
-    
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        // Ignore errors when stopping
-      }
       recognitionRef.current = null;
     }
-    setIsPassiveListening(false);
-  }, []);
+  }, [isSupported, wakeWords, onWakeWordDetected, stopPassiveListening]);
 
   // Start/stop based on enabled state
   useEffect(() => {
     if (enabled && isSupported) {
-      startPassiveListening();
+      // Delay start to avoid conflicts
+      const timer = setTimeout(() => {
+        startPassiveListening();
+      }, 500);
+      return () => clearTimeout(timer);
     } else {
       stopPassiveListening();
     }
@@ -121,7 +148,14 @@ export function useWakeWord({
     return () => {
       stopPassiveListening();
     };
-  }, [enabled, isSupported, startPassiveListening, stopPassiveListening]);
+  }, [enabled, isSupported]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopPassiveListening();
+    };
+  }, [stopPassiveListening]);
 
   return {
     isPassiveListening,
