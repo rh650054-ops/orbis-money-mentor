@@ -8,7 +8,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { OrbisAssistantButton } from "@/components/assistant";
+import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import {
@@ -242,8 +242,8 @@ export default function Layout({ children }: LayoutProps) {
         </div>
       </nav>
 
-      {/* Orbis AI Assistant Button */}
-      <OrbisAssistantButton userId={user?.id} />
+      {/* Floating Chat Button */}
+      <FloatingChatButton />
 
       {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
       {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
