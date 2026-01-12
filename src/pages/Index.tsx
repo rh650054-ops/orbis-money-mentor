@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, ShoppingCart, Calendar, Filter, ChevronDown, Volume2 } from "lucide-react";
+import { TrendingUp, DollarSign, TrendingDown, Target, Flame, Zap, Pencil, ShoppingCart, Calendar, Filter, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -18,8 +18,6 @@ import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
-import { useDashboardSync } from "@/hooks/useDashboardSync";
-import { useAudioSettings } from "@/hooks/useAudioSettings";
 import {
   Collapsible,
   CollapsibleContent,
@@ -55,28 +53,6 @@ export default function Index() {
   
   // Hook for required monthly goal check
   const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
-  
-  // Real-time sync from Ritmo hourly blocks
-  const { todayStats: ritmoStats } = useDashboardSync(user?.id);
-  
-  // Audio settings for voice summary
-  const { settings: audioSettings, speak, isSpeechSupported } = useAudioSettings(user?.id);
-  
-  // Function to speak the daily summary
-  const handleListenSummary = () => {
-    if (!audioSettings.audioOutputEnabled) {
-      toast({ title: "Voz desativada", description: "Ative nas configurações do perfil", variant: "destructive" });
-      return;
-    }
-    
-    const metaDia = monthlyGoal / 30;
-    const porcentagem = metaDia > 0 ? ((dailyProfit / metaDia) * 100).toFixed(0) : 0;
-    
-    const summaryText = `Hoje você fez ${dailyProfit} reais. Sua meta diária é ${metaDia.toFixed(0)} reais. Você está em ${porcentagem} por cento da meta. ${dailyCalotes > 0 ? `Você teve ${dailyCalotes} reais em calotes.` : ''} Continue assim!`;
-    
-    speak(summaryText);
-    toast({ title: "🔊 Reproduzindo resumo..." });
-  };
   
   // Check if today is a rest day
   useEffect(() => {
@@ -378,9 +354,7 @@ export default function Index() {
     return null;
   }
   const motivation = getMotivationMessage();
-  // Use ritmoStats for real-time daily profit from hourly blocks, fallback to todaySales
-  const dailyProfit = ritmoStats.faturamentoLiquido > 0 ? ritmoStats.faturamentoLiquido : (todaySales?.total_profit || 0);
-  const dailyCalotes = ritmoStats.totalCalotes > 0 ? ritmoStats.totalCalotes : (todaySales?.total_debt || 0);
+  const dailyProfit = todaySales?.total_profit || 0;
   return <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
       {/* Hero Section */}
       <div className="text-center space-y-1 mb-6">
@@ -405,31 +379,6 @@ export default function Index() {
           <p className="text-sm text-muted-foreground">🌴 Hoje é seu dia de descanso.</p>
         </div>
       )}
-
-      {/* Resumo do Dia com Áudio */}
-      <Card className="card-gradient-border">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-lg">Hoje: {formatCurrency(dailyProfit)}</h3>
-              <p className="text-sm text-muted-foreground">
-                {dailyCalotes > 0 ? `Calotes: ${formatCurrency(dailyCalotes)}` : "Sem calotes hoje"}
-              </p>
-            </div>
-            {audioSettings.audioOutputEnabled && isSpeechSupported && (
-              <Button
-                onClick={handleListenSummary}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-              >
-                <Volume2 className="w-4 h-4" />
-                Ouvir resumo
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Planejamento Semanal */}
       <WeeklyPlanning userId={user.id} onEditPlanning={() => setShowEditPlanning(true)} />
@@ -715,20 +664,20 @@ export default function Index() {
                 {motivation.message}
               </p>
             </div>
-            {(ritmoStats.faturamentoLiquido > 0 || todaySales) && <div className="space-y-2 mt-3">
+            {todaySales && <div className="space-y-2 mt-3">
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2 rounded-lg bg-success/10 border border-success/20">
                     <p className="text-xs text-muted-foreground">Lucro Hoje</p>
-                    <p className="text-sm font-bold text-success">{formatCurrency(dailyProfit)}</p>
+                    <p className="text-sm font-bold text-success">R$ {dailyProfit.toFixed(2)}</p>
                   </div>
                   <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20">
                     <p className="text-xs text-muted-foreground">Calotes</p>
-                    <p className="text-sm font-bold text-destructive">{formatCurrency(dailyCalotes)}</p>
+                    <p className="text-sm font-bold text-destructive">R$ {(todaySales.total_debt || 0).toFixed(2)}</p>
                   </div>
                 </div>
                 <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 text-center">
                   <p className="text-xs text-muted-foreground">Lançamentos Hoje</p>
-                  <p className="text-sm font-bold text-primary">{todaySales?.entry_count || 0}</p>
+                  <p className="text-sm font-bold text-primary">{todaySales.entry_count || 0}</p>
                 </div>
               </div>}
           </CardContent>

@@ -574,8 +574,6 @@ export type Database = {
       }
       profiles: {
         Row: {
-          audio_input_enabled: boolean | null
-          audio_output_enabled: boolean | null
           avatar_url: string | null
           base_daily_goal: number | null
           billing_exempt: boolean | null
@@ -605,8 +603,6 @@ export type Database = {
           phone: string | null
           plan_status: string | null
           plan_type: string | null
-          speech_rate: string | null
-          speech_volume: string | null
           streak_days: number | null
           subscription_id: string | null
           trial_days_remaining: number | null
@@ -622,8 +618,6 @@ export type Database = {
           working_days: string[] | null
         }
         Insert: {
-          audio_input_enabled?: boolean | null
-          audio_output_enabled?: boolean | null
           avatar_url?: string | null
           base_daily_goal?: number | null
           billing_exempt?: boolean | null
@@ -653,8 +647,6 @@ export type Database = {
           phone?: string | null
           plan_status?: string | null
           plan_type?: string | null
-          speech_rate?: string | null
-          speech_volume?: string | null
           streak_days?: number | null
           subscription_id?: string | null
           trial_days_remaining?: number | null
@@ -670,8 +662,6 @@ export type Database = {
           working_days?: string[] | null
         }
         Update: {
-          audio_input_enabled?: boolean | null
-          audio_output_enabled?: boolean | null
           avatar_url?: string | null
           base_daily_goal?: number | null
           billing_exempt?: boolean | null
@@ -701,8 +691,6 @@ export type Database = {
           phone?: string | null
           plan_status?: string | null
           plan_type?: string | null
-          speech_rate?: string | null
-          speech_volume?: string | null
           streak_days?: number | null
           subscription_id?: string | null
           trial_days_remaining?: number | null
