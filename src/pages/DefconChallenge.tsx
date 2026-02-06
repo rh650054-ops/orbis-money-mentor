@@ -1,61 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
-import { formatCurrency } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { DefconTimer } from "@/components/defcon/DefconTimer";
-import { DefconCheckpoint } from "@/components/defcon/DefconCheckpoint";
-import { DefconDecision } from "@/components/defcon/DefconDecision";
-import { DefconMission } from "@/components/defcon/DefconMission";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
+import { DefconRunning } from "@/components/defcon/DefconRunning";
+import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const {
-    session,
-    currentBlock,
-    blocks,
-    phase,
-    setPhase,
-    remainingSeconds,
-    loading,
-    startChallenge,
-    submitBlockSales,
-    advanceToNextBlock,
-    endChallenge,
-    completeChallenge,
-  } = useDefconChallenge(user?.id);
-
-  const [dailyGoal, setDailyGoal] = useState<number>(0);
-  const [lastSaleAmount, setLastSaleAmount] = useState<number>(0);
-  const [showDecision, setShowDecision] = useState(false);
-
-  // Load user's daily goal from profile
-  useEffect(() => {
-    if (!user) return;
-    const loadGoal = async () => {
-      const { data } = await supabase
-        .from("profiles")
-        .select("base_daily_goal")
-        .eq("user_id", user.id)
-        .single();
-      if (data?.base_daily_goal) {
-        setDailyGoal(data.base_daily_goal);
-      }
-    };
-    loadGoal();
-  }, [user]);
+  const defcon = useDefconChallenge(user?.id);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
+    if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
-  if (authLoading || loading || !user) {
+  if (authLoading || defcon.loading || !user) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-2xl font-mono text-red-500 animate-pulse">
@@ -65,96 +26,75 @@ export default function DefconChallenge() {
     );
   }
 
-  const handleStart = async (goal: number) => {
-    setDailyGoal(goal);
-    await startChallenge(goal);
-  };
-
-  const handleCheckpointSubmit = async (amount: number) => {
-    await submitBlockSales(amount);
-    setLastSaleAmount(amount);
-    setShowDecision(true);
-  };
-
-  const handleAdvance = async () => {
-    setShowDecision(false);
-    await advanceToNextBlock();
-  };
-
-  const handleEnd = async () => {
-    setShowDecision(false);
-    await endChallenge();
-  };
-
-  const handleExit = () => {
-    navigate("/daily-goals");
-  };
-
-  const missionGoal = session?.daily_goal || dailyGoal;
-  const totalSold = session?.total_sold || 0;
-
-  // IDLE - Start screen
-  if (phase === "idle") {
+  if (!defcon.hasPlan) {
     return (
-      <DefconStartScreen
-        defaultGoal={dailyGoal}
-        onStart={handleStart}
-        onExit={handleExit}
-      />
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
+        <div className="text-6xl mb-6">⚠️</div>
+        <h1 className="text-2xl font-bold text-white mb-3">Sem plano hoje</h1>
+        <p className="text-sm text-neutral-500 font-mono text-center mb-8">
+          Vá até o Ritmo para criar seu plano do dia antes de iniciar o DEFCON 4.
+        </p>
+        <button
+          onClick={() => navigate("/daily-goals")}
+          className="h-14 px-8 bg-neutral-900 border border-neutral-700 text-white font-bold rounded-xl active:scale-95 transition-transform"
+        >
+          IR PARA O RITMO
+        </button>
+      </div>
     );
   }
 
-  // FINISHED or ABANDONED
-  if (phase === "finished" || phase === "abandoned") {
-    return (
-      <DefconEndScreen
-        phase={phase}
-        totalSold={totalSold}
-        dailyGoal={missionGoal}
-        totalBlocks={blocks.length}
-        onExit={handleExit}
-      />
-    );
+  const handleExit = () => navigate("/daily-goals");
+
+  switch (defcon.phase) {
+    case "idle":
+      return (
+        <DefconStartScreen
+          dailyGoal={defcon.dailyGoal}
+          totalBlocks={defcon.blocks.length}
+          onStart={defcon.startChallenge}
+          onExit={handleExit}
+        />
+      );
+
+    case "running":
+      return (
+        <DefconRunning
+          dailyGoal={defcon.dailyGoal}
+          totalSold={defcon.totalSold}
+          currentBlock={defcon.currentBlock}
+          currentBlockIndex={defcon.currentBlockIndex}
+          totalBlocks={defcon.blocks.length}
+          remainingSeconds={defcon.remainingSeconds}
+          blockStartedAt={defcon.blockStartedAt}
+          blockEndTime={defcon.blockEndTime}
+          onAddSale={defcon.addSale}
+          onEnd={defcon.endChallenge}
+        />
+      );
+
+    case "break":
+      return (
+        <DefconBreak
+          breakRemaining={defcon.breakRemaining}
+          currentBlockIndex={defcon.currentBlockIndex}
+          blockSold={defcon.currentBlock?.achieved_amount || 0}
+        />
+      );
+
+    case "finished":
+    case "abandoned":
+      return (
+        <DefconEndScreen
+          phase={defcon.phase}
+          totalSold={defcon.totalSold}
+          dailyGoal={defcon.dailyGoal}
+          totalBlocks={defcon.currentBlockIndex + 1}
+          onExit={handleExit}
+        />
+      );
+
+    default:
+      return null;
   }
-
-  // RUNNING or CHECKPOINT
-  return (
-    <div className="min-h-screen bg-black flex flex-col select-none">
-      {/* Mission header - always visible */}
-      <DefconMission goal={missionGoal} totalSold={totalSold} />
-
-      {/* Main content */}
-      <div className="flex-1 flex items-center justify-center px-6">
-        {phase === "running" && !showDecision && (
-          <DefconTimer
-            remainingSeconds={remainingSeconds}
-            blockIndex={session?.current_block_index || 0}
-            onTimeUp={() => setPhase("checkpoint")}
-          />
-        )}
-
-        {phase === "checkpoint" && !showDecision && (
-          <DefconCheckpoint
-            blockIndex={session?.current_block_index || 0}
-            onSubmit={handleCheckpointSubmit}
-          />
-        )}
-
-        {showDecision && (
-          <DefconDecision
-            saleAmount={lastSaleAmount}
-            onAdvance={handleAdvance}
-            onEnd={handleEnd}
-          />
-        )}
-      </div>
-
-      {/* Block counter */}
-      <div className="pb-8 text-center">
-        <span className="text-xs font-mono text-neutral-600 tracking-widest uppercase">
-          Bloco {(session?.current_block_index || 0) + 1} • {formatCurrency(totalSold)} vendido
-        </span>
-      </div>
-    </div>
-  );
 }
