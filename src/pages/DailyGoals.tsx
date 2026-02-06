@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { TrendingUp, RotateCcw, Pencil, Flag } from "lucide-react";
+import { TrendingUp, RotateCcw, Pencil, Flag, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
@@ -491,6 +491,18 @@ export default function DailyGoals() {
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
+      {/* DEFCON 4 Entry */}
+      <Link
+        to="/defcon"
+        className="block w-full p-4 bg-red-950/30 border border-red-900/30 rounded-xl text-center active:scale-[0.98] transition-transform"
+      >
+        <div className="flex items-center justify-center gap-2">
+          <Zap className="w-5 h-5 text-red-500" />
+          <span className="text-lg font-black text-red-500 tracking-wide">DEFCON 4</span>
+          <span className="text-sm text-neutral-500 font-mono">— Modo Desafio</span>
+        </div>
+      </Link>
+
       <div className="text-center space-y-2">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
           ⚡ Ritmo
