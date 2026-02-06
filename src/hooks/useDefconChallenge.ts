@@ -2,93 +2,260 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
 
-const BLOCK_DURATION_SECONDS = 50 * 60; // 50 minutes
+const BLOCK_DURATION = 60 * 60; // 60 minutes
+const BREAK_DURATION = 5 * 60;  // 5 minutes
 
-export interface ChallengeBlock {
+export type DefconPhase = "idle" | "running" | "break" | "finished" | "abandoned";
+
+export interface DefconBlock {
   id: string;
-  block_index: number;
-  sold_amount: number;
-  started_at: string;
-  ended_at: string | null;
-  status: string;
+  hour_index: number;
+  hour_label: string;
+  target_amount: number;
+  achieved_amount: number;
+  is_completed: boolean;
+  valor_dinheiro: number;
+  valor_cartao: number;
+  valor_pix: number;
+  valor_calote: number;
 }
-
-export interface ChallengeSession {
-  id: string;
-  date: string;
-  status: string;
-  daily_goal: number;
-  total_blocks: number;
-  current_block_index: number;
-  total_sold: number;
-  started_at: string;
-  ended_at: string | null;
-}
-
-type Phase = "idle" | "running" | "checkpoint" | "finished" | "abandoned";
 
 export function useDefconChallenge(userId: string | undefined) {
-  const [session, setSession] = useState<ChallengeSession | null>(null);
-  const [currentBlock, setCurrentBlock] = useState<ChallengeBlock | null>(null);
-  const [blocks, setBlocks] = useState<ChallengeBlock[]>([]);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [remainingSeconds, setRemainingSeconds] = useState(BLOCK_DURATION_SECONDS);
+  const [phase, setPhase] = useState<DefconPhase>("idle");
+  const [blocks, setBlocks] = useState<DefconBlock[]>([]);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0);
+  const [dailyGoal, setDailyGoal] = useState(0);
+  const [totalSold, setTotalSold] = useState(0);
+  const [remainingSeconds, setRemainingSeconds] = useState(BLOCK_DURATION);
+  const [breakRemaining, setBreakRemaining] = useState(BREAK_DURATION);
+  const [blockStartedAt, setBlockStartedAt] = useState<Date | null>(null);
+  const [breakStartedAt, setBreakStartedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hasPlan, setHasPlan] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load existing session for today
-  const loadSession = useCallback(async () => {
+  // Refs for stable closure access in timer callbacks
+  const blocksRef = useRef<DefconBlock[]>([]);
+  blocksRef.current = blocks;
+  const currentBlockIndexRef = useRef(0);
+  currentBlockIndexRef.current = currentBlockIndex;
+  const sessionIdRef = useRef<string | null>(null);
+  sessionIdRef.current = sessionId;
+  const totalSoldRef = useRef(0);
+  totalSoldRef.current = totalSold;
+
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  const recalcTotal = (blocksData: DefconBlock[]) => {
+    return blocksData.reduce((sum, b) => {
+      return sum + (b.valor_dinheiro || 0) + (b.valor_cartao || 0) + (b.valor_pix || 0) + (b.valor_calote || 0);
+    }, 0);
+  };
+
+  const completeChallenge = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    clearTimer();
+
+    await supabase
+      .from("challenge_sessions")
+      .update({
+        status: "completed",
+        ended_at: new Date().toISOString(),
+        total_sold: totalSoldRef.current,
+      })
+      .eq("id", sid);
+
+    setPhase("finished");
+  }, [clearTimer]);
+
+  const advanceToNextBlock = useCallback(async () => {
+    const nextIdx = currentBlockIndexRef.current + 1;
+    const blks = blocksRef.current;
+    const sid = sessionIdRef.current;
+
+    if (nextIdx >= blks.length) {
+      await completeChallenge();
+      return;
+    }
+
+    const nextBlock = blks[nextIdx];
+    const startTime = new Date();
+
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({ timer_status: "running", timer_started_at: startTime.toISOString() })
+      .eq("id", nextBlock.id);
+
+    if (sid) {
+      await supabase
+        .from("challenge_sessions")
+        .update({ current_block_index: nextIdx })
+        .eq("id", sid);
+    }
+
+    setCurrentBlockIndex(nextIdx);
+    setBlockStartedAt(startTime);
+    setRemainingSeconds(BLOCK_DURATION);
+    setPhase("running");
+  }, [completeChallenge]);
+
+  const handleBlockTimeUp = useCallback(async () => {
+    const idx = currentBlockIndexRef.current;
+    const blks = blocksRef.current;
+    const currentBlock = blks[idx];
+
+    if (currentBlock) {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({ is_completed: true, timer_status: "finalizado" })
+        .eq("id", currentBlock.id);
+    }
+
+    if (idx + 1 >= blks.length) {
+      await completeChallenge();
+    } else {
+      const now = new Date();
+      setBreakStartedAt(now);
+      setBreakRemaining(BREAK_DURATION);
+      setPhase("break");
+    }
+  }, [completeChallenge]);
+
+  // Load today's plan and blocks
+  const loadData = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
 
     const today = getBrazilDate();
-    const { data: sessionData } = await supabase
+
+    const { data: planData } = await supabase
+      .from("daily_goal_plans")
+      .select("id, daily_goal")
+      .eq("user_id", userId)
+      .eq("date", today)
+      .maybeSingle();
+
+    if (!planData) {
+      setHasPlan(false);
+      setLoading(false);
+      return;
+    }
+
+    setHasPlan(true);
+    setDailyGoal(planData.daily_goal);
+
+    const { data: blocksData } = await supabase
+      .from("hourly_goal_blocks")
+      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, timer_started_at")
+      .eq("plan_id", planData.id)
+      .order("hour_index");
+
+    const loadedBlocks: DefconBlock[] = (blocksData || []).map(b => ({
+      id: b.id,
+      hour_index: b.hour_index,
+      hour_label: b.hour_label,
+      target_amount: b.target_amount,
+      achieved_amount: b.achieved_amount || 0,
+      is_completed: b.is_completed,
+      valor_dinheiro: b.valor_dinheiro || 0,
+      valor_cartao: b.valor_cartao || 0,
+      valor_pix: b.valor_pix || 0,
+      valor_calote: b.valor_calote || 0,
+    }));
+
+    setBlocks(loadedBlocks);
+    const total = recalcTotal(loadedBlocks);
+    setTotalSold(total);
+
+    // Check for active DEFCON session
+    const { data: session } = await supabase
       .from("challenge_sessions")
       .select("*")
       .eq("user_id", userId)
       .eq("date", today)
       .maybeSingle();
 
-    if (sessionData) {
-      setSession(sessionData as ChallengeSession);
+    if (session) {
+      setSessionId(session.id);
 
-      // Load blocks
-      const { data: blocksData } = await supabase
-        .from("challenge_blocks")
-        .select("*")
-        .eq("session_id", sessionData.id)
-        .order("block_index", { ascending: true });
+      if (session.status === "completed") {
+        setPhase("finished");
+        setLoading(false);
+        return;
+      }
+      if (session.status === "abandoned") {
+        setPhase("abandoned");
+        setLoading(false);
+        return;
+      }
 
-      const loadedBlocks = (blocksData || []) as ChallengeBlock[];
-      setBlocks(loadedBlocks);
+      // Active session - resume
+      const blockIdx = session.current_block_index;
+      setCurrentBlockIndex(blockIdx);
 
-      if (sessionData.status === "completed" || sessionData.status === "abandoned") {
-        setPhase(sessionData.status === "completed" ? "finished" : "abandoned");
-      } else {
-        // Find active block
-        const activeBlock = loadedBlocks.find(b => b.status === "active");
-        if (activeBlock) {
-          setCurrentBlock(activeBlock);
-          // Calculate remaining time
-          const elapsed = Math.floor(
-            (Date.now() - new Date(activeBlock.started_at).getTime()) / 1000
-          );
-          const remaining = Math.max(0, BLOCK_DURATION_SECONDS - elapsed);
-          setRemainingSeconds(remaining);
-          if (remaining <= 0) {
-            setPhase("checkpoint");
+      const currentBlockData = blocksData?.[blockIdx];
+      if (currentBlockData?.timer_started_at) {
+        const startedAt = new Date(currentBlockData.timer_started_at);
+        const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+
+        if (elapsed < BLOCK_DURATION) {
+          setPhase("running");
+          setBlockStartedAt(startedAt);
+          setRemainingSeconds(BLOCK_DURATION - elapsed);
+        } else if (elapsed < BLOCK_DURATION + BREAK_DURATION) {
+          setPhase("break");
+          setBreakStartedAt(new Date(startedAt.getTime() + BLOCK_DURATION * 1000));
+          setBreakRemaining(BREAK_DURATION - (elapsed - BLOCK_DURATION));
+        } else {
+          // Past block + break — complete current block and advance
+          await supabase
+            .from("hourly_goal_blocks")
+            .update({ is_completed: true, timer_status: "finalizado" })
+            .eq("id", currentBlockData.id);
+
+          const nextIdx = blockIdx + 1;
+          if (nextIdx >= loadedBlocks.length) {
+            await supabase
+              .from("challenge_sessions")
+              .update({ status: "completed", ended_at: new Date().toISOString(), total_sold: total })
+              .eq("id", session.id);
+            setPhase("finished");
           } else {
+            const now = new Date();
+            await supabase
+              .from("hourly_goal_blocks")
+              .update({ timer_status: "running", timer_started_at: now.toISOString() })
+              .eq("id", loadedBlocks[nextIdx].id);
+            await supabase
+              .from("challenge_sessions")
+              .update({ current_block_index: nextIdx })
+              .eq("id", session.id);
+
+            setCurrentBlockIndex(nextIdx);
+            setBlockStartedAt(now);
+            setRemainingSeconds(BLOCK_DURATION);
             setPhase("running");
           }
-        } else {
-          // Check if we need a checkpoint for a completed block without sold_amount
-          const lastBlock = loadedBlocks[loadedBlocks.length - 1];
-          if (lastBlock && lastBlock.status === "completed") {
-            setCurrentBlock(lastBlock);
-            setPhase("checkpoint");
-          } else {
-            setPhase("idle");
-          }
+        }
+      } else {
+        // No timer started — start fresh
+        const now = new Date();
+        const currentBlock = loadedBlocks[blockIdx];
+        if (currentBlock) {
+          await supabase
+            .from("hourly_goal_blocks")
+            .update({ timer_status: "running", timer_started_at: now.toISOString() })
+            .eq("id", currentBlock.id);
+          setBlockStartedAt(now);
+          setRemainingSeconds(BLOCK_DURATION);
+          setPhase("running");
         }
       }
     } else {
@@ -99,187 +266,192 @@ export function useDefconChallenge(userId: string | undefined) {
   }, [userId]);
 
   useEffect(() => {
-    loadSession();
-  }, [loadSession]);
+    loadData();
+  }, [loadData]);
 
   // Timer countdown
   useEffect(() => {
-    if (phase !== "running" || !currentBlock) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
+    clearTimer();
+
+    if (phase === "running" && blockStartedAt) {
+      timerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - blockStartedAt.getTime()) / 1000);
+        const remaining = Math.max(0, BLOCK_DURATION - elapsed);
+        setRemainingSeconds(remaining);
+
+        if (remaining <= 0) {
+          clearTimer();
+          handleBlockTimeUp();
+        }
+      }, 1000);
+    } else if (phase === "break" && breakStartedAt) {
+      timerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - breakStartedAt.getTime()) / 1000);
+        const remaining = Math.max(0, BREAK_DURATION - elapsed);
+        setBreakRemaining(remaining);
+
+        if (remaining <= 0) {
+          clearTimer();
+          advanceToNextBlock();
+        }
+      }, 1000);
     }
 
-    timerRef.current = setInterval(() => {
-      const elapsed = Math.floor(
-        (Date.now() - new Date(currentBlock.started_at).getTime()) / 1000
-      );
-      const remaining = Math.max(0, BLOCK_DURATION_SECONDS - elapsed);
-      setRemainingSeconds(remaining);
+    return clearTimer;
+  }, [phase, blockStartedAt, breakStartedAt, clearTimer, handleBlockTimeUp, advanceToNextBlock]);
 
-      if (remaining <= 0) {
-        setPhase("checkpoint");
-        if (timerRef.current) clearInterval(timerRef.current);
-      }
-    }, 1000);
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [phase, currentBlock]);
-
-  // Start a new challenge
-  const startChallenge = async (dailyGoal: number) => {
-    if (!userId) return;
+  const startChallenge = async () => {
+    if (!userId || blocks.length === 0) return;
 
     const today = getBrazilDate();
+    const startTime = new Date();
 
-    // Create session
-    const { data: newSession, error } = await supabase
+    // Create or reset challenge session
+    const { data: existingSession } = await supabase
       .from("challenge_sessions")
-      .insert({
+      .select("id")
+      .eq("user_id", userId)
+      .eq("date", today)
+      .maybeSingle();
+
+    let sid: string;
+    if (existingSession) {
+      await supabase
+        .from("challenge_sessions")
+        .update({
+          status: "active",
+          daily_goal: dailyGoal,
+          total_blocks: blocks.length,
+          current_block_index: 0,
+          total_sold: totalSold,
+          started_at: startTime.toISOString(),
+          ended_at: null,
+        })
+        .eq("id", existingSession.id);
+      sid = existingSession.id;
+    } else {
+      const { data: newSession } = await supabase
+        .from("challenge_sessions")
+        .insert({
+          user_id: userId,
+          date: today,
+          daily_goal: dailyGoal,
+          status: "active",
+          total_blocks: blocks.length,
+          current_block_index: 0,
+          total_sold: totalSold,
+        })
+        .select("id")
+        .single();
+      if (!newSession) return;
+      sid = newSession.id;
+    }
+
+    setSessionId(sid);
+
+    // Also ensure work_session exists and is active
+    const { data: workSession } = await supabase
+      .from("work_sessions")
+      .select("id, status")
+      .eq("user_id", userId)
+      .eq("planning_date", today)
+      .maybeSingle();
+
+    if (!workSession) {
+      await supabase.from("work_sessions").insert({
         user_id: userId,
-        date: today,
-        daily_goal: dailyGoal,
+        planning_date: today,
+        start_timestamp: startTime.toISOString(),
+        meta_dia: dailyGoal,
+        ritmo_ideal_inicial: dailyGoal / blocks.length,
         status: "active",
-        total_blocks: 0,
-        current_block_index: 0,
-        total_sold: 0,
-      })
-      .select()
-      .single();
+      });
+    } else if (workSession.status !== "active" && workSession.status !== "finished") {
+      await supabase
+        .from("work_sessions")
+        .update({ status: "active", start_timestamp: startTime.toISOString() })
+        .eq("id", workSession.id);
+    }
 
-    if (error || !newSession) return;
+    // Start first block timer
+    const firstBlock = blocks[0];
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({ timer_status: "running", timer_started_at: startTime.toISOString() })
+      .eq("id", firstBlock.id);
 
-    setSession(newSession as ChallengeSession);
-
-    // Start first block
-    await startNextBlock(newSession.id, 0);
-  };
-
-  const startNextBlock = async (sessionId: string, blockIndex: number) => {
-    if (!userId) return;
-
-    const { data: newBlock, error } = await supabase
-      .from("challenge_blocks")
-      .insert({
-        session_id: sessionId,
-        user_id: userId,
-        block_index: blockIndex,
-        sold_amount: 0,
-        status: "active",
-      })
-      .select()
-      .single();
-
-    if (error || !newBlock) return;
-
-    const block = newBlock as ChallengeBlock;
-    setCurrentBlock(block);
-    setBlocks(prev => [...prev, block]);
-    setRemainingSeconds(BLOCK_DURATION_SECONDS);
+    setCurrentBlockIndex(0);
+    setBlockStartedAt(startTime);
+    setRemainingSeconds(BLOCK_DURATION);
     setPhase("running");
-
-    // Update session
-    await supabase
-      .from("challenge_sessions")
-      .update({
-        current_block_index: blockIndex,
-        total_blocks: blockIndex + 1,
-      })
-      .eq("id", sessionId);
-
-    setSession(prev => prev ? {
-      ...prev,
-      current_block_index: blockIndex,
-      total_blocks: blockIndex + 1,
-    } : prev);
   };
 
-  // Submit sales for current block and go to decision
-  const submitBlockSales = async (amount: number) => {
-    if (!currentBlock || !session || !userId) return;
+  const addSale = async (amount: number) => {
+    if (!userId || phase !== "running" || amount <= 0) return;
 
-    // Update block
+    const currentBlock = blocks[currentBlockIndex];
+    if (!currentBlock) return;
+
+    const newDinheiro = currentBlock.valor_dinheiro + amount;
+    const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
+    const newTotal = totalSold + amount;
+
     await supabase
-      .from("challenge_blocks")
-      .update({
-        sold_amount: amount,
-        status: "completed",
-        ended_at: new Date().toISOString(),
-      })
+      .from("hourly_goal_blocks")
+      .update({ achieved_amount: newAchieved, valor_dinheiro: newDinheiro })
       .eq("id", currentBlock.id);
 
-    // Update session total
-    const newTotal = session.total_sold + amount;
-    await supabase
-      .from("challenge_sessions")
-      .update({ total_sold: newTotal })
-      .eq("id", session.id);
+    if (sessionId) {
+      await supabase
+        .from("challenge_sessions")
+        .update({ total_sold: newTotal })
+        .eq("id", sessionId);
+    }
 
-    setSession(prev => prev ? { ...prev, total_sold: newTotal } : prev);
     setBlocks(prev =>
-      prev.map(b =>
-        b.id === currentBlock.id
-          ? { ...b, sold_amount: amount, status: "completed", ended_at: new Date().toISOString() }
+      prev.map((b, i) =>
+        i === currentBlockIndex
+          ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro }
           : b
       )
     );
-
-    // Return the amount for feedback
-    return amount;
+    setTotalSold(newTotal);
   };
 
-  // Advance to next block
-  const advanceToNextBlock = async () => {
-    if (!session) return;
-    const nextIndex = session.current_block_index + 1;
-    await startNextBlock(session.id, nextIndex);
-  };
-
-  // End challenge (abandon)
   const endChallenge = async () => {
-    if (!session) return;
+    const sid = sessionIdRef.current;
+    if (!sid) return;
+    clearTimer();
 
     await supabase
       .from("challenge_sessions")
-      .update({
-        status: "abandoned",
-        ended_at: new Date().toISOString(),
-      })
-      .eq("id", session.id);
+      .update({ status: "abandoned", ended_at: new Date().toISOString(), total_sold: totalSoldRef.current })
+      .eq("id", sid);
 
-    setSession(prev => prev ? { ...prev, status: "abandoned" } : prev);
     setPhase("abandoned");
   };
 
-  // Complete challenge successfully
-  const completeChallenge = async () => {
-    if (!session) return;
+  const blockEndTime = blockStartedAt
+    ? new Date(blockStartedAt.getTime() + BLOCK_DURATION * 1000)
+    : null;
 
-    await supabase
-      .from("challenge_sessions")
-      .update({
-        status: "completed",
-        ended_at: new Date().toISOString(),
-      })
-      .eq("id", session.id);
-
-    setSession(prev => prev ? { ...prev, status: "completed" } : prev);
-    setPhase("finished");
-  };
+  const currentBlock = blocks[currentBlockIndex] || null;
 
   return {
-    session,
-    currentBlock,
-    blocks,
     phase,
-    setPhase,
+    blocks,
+    currentBlock,
+    currentBlockIndex,
+    dailyGoal,
+    totalSold,
     remainingSeconds,
+    breakRemaining,
+    blockStartedAt,
+    blockEndTime,
     loading,
+    hasPlan,
     startChallenge,
-    submitBlockSales,
-    advanceToNextBlock,
+    addSale,
     endChallenge,
-    completeChallenge,
   };
 }

@@ -1,0 +1,213 @@
+import { useState } from "react";
+import { formatCurrency } from "@/lib/utils";
+import { Plus, X } from "lucide-react";
+import { DefconBlock } from "@/hooks/useDefconChallenge";
+
+interface DefconRunningProps {
+  dailyGoal: number;
+  totalSold: number;
+  currentBlock: DefconBlock | null;
+  currentBlockIndex: number;
+  totalBlocks: number;
+  remainingSeconds: number;
+  blockStartedAt: Date | null;
+  blockEndTime: Date | null;
+  onAddSale: (amount: number) => void;
+  onEnd: () => void;
+}
+
+export function DefconRunning({
+  dailyGoal,
+  totalSold,
+  currentBlock,
+  currentBlockIndex,
+  totalBlocks,
+  remainingSeconds,
+  blockStartedAt,
+  blockEndTime,
+  onAddSale,
+  onEnd,
+}: DefconRunningProps) {
+  const [showAddSale, setShowAddSale] = useState(false);
+  const [saleValue, setSaleValue] = useState("");
+  const [showConfirmEnd, setShowConfirmEnd] = useState(false);
+
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  const progress = ((60 * 60 - remainingSeconds) / (60 * 60)) * 100;
+  const isUrgent = remainingSeconds < 300; // last 5 minutes
+
+  const remaining = Math.max(0, dailyGoal - totalSold);
+
+  const formatTime = (date: Date | null) => {
+    if (!date) return "--:--";
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  };
+
+  const handleAddSale = () => {
+    const amount = parseFloat(saleValue) || 0;
+    if (amount > 0) {
+      onAddSale(amount);
+      setSaleValue("");
+      setShowAddSale(false);
+    }
+  };
+
+  const blockSold = currentBlock
+    ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
+    : 0;
+
+  // Confirm end screen
+  if (showConfirmEnd) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
+        <div className="text-center space-y-3 mb-8">
+          <div className="text-6xl">⚠️</div>
+          <div className="text-xl font-bold text-white">Encerrar o desafio?</div>
+          <p className="text-sm text-neutral-500 font-mono">
+            Você perde a streak. Tem certeza?
+          </p>
+        </div>
+        <div className="w-full max-w-sm space-y-3">
+          <button
+            onClick={onEnd}
+            className="w-full h-14 bg-red-600 text-white font-black text-lg rounded-xl active:scale-95 transition-transform"
+          >
+            SIM, ENCERRAR
+          </button>
+          <button
+            onClick={() => setShowConfirmEnd(false)}
+            className="w-full h-14 bg-neutral-900 border border-neutral-700 text-neutral-400 font-bold text-lg rounded-xl active:scale-95 transition-transform"
+          >
+            VOLTAR
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-black flex flex-col select-none">
+      {/* Mission header */}
+      <div className="pt-12 pb-4 px-6 text-center">
+        <div className="text-xs font-mono text-red-500/60 tracking-[0.3em] uppercase mb-2">
+          🎯 Missão
+        </div>
+        <div className="text-2xl md:text-3xl font-black text-white tracking-tight">
+          Vender {formatCurrency(dailyGoal)}
+        </div>
+        {totalSold > 0 && (
+          <div className="mt-2 text-sm font-mono text-neutral-500">
+            Faltam {formatCurrency(remaining)}
+          </div>
+        )}
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
+        {/* Block info */}
+        <div className="text-center">
+          <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-1">
+            Bloco #{currentBlockIndex + 1}
+          </div>
+          <div className="text-sm font-mono text-neutral-500">
+            {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
+          </div>
+        </div>
+
+        {/* Timer */}
+        <div
+          className={`text-8xl md:text-9xl font-black font-mono tabular-nums tracking-tighter ${
+            isUrgent ? "text-red-500 animate-pulse" : "text-white"
+          }`}
+        >
+          {String(minutes).padStart(2, "0")}
+          <span className={isUrgent ? "text-red-500/50" : "text-white/30"}>:</span>
+          {String(seconds).padStart(2, "0")}
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full max-w-md h-1 bg-neutral-900 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-1000 ease-linear rounded-full ${
+              isUrgent ? "bg-red-500" : "bg-white/20"
+            }`}
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        {/* Block sales total */}
+        <div className="text-center">
+          <div className="text-sm font-mono text-neutral-600 mb-1">Vendido neste bloco</div>
+          <div className="text-3xl font-black text-white">
+            {formatCurrency(blockSold)}
+          </div>
+        </div>
+
+        {/* Add sale button */}
+        <button
+          onClick={() => setShowAddSale(true)}
+          className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-green-600/30"
+        >
+          <Plus className="w-10 h-10 text-white" strokeWidth={3} />
+        </button>
+
+        {/* Mantra */}
+        <p className="text-sm text-neutral-700 font-mono italic">
+          "Venda agora. Pense depois."
+        </p>
+      </div>
+
+      {/* Footer */}
+      <div className="pb-6 px-6 flex justify-between items-center">
+        <span className="text-xs font-mono text-neutral-600 tracking-widest uppercase">
+          Bloco {currentBlockIndex + 1}/{totalBlocks} • {formatCurrency(totalSold)} total
+        </span>
+        <button
+          onClick={() => setShowConfirmEnd(true)}
+          className="text-xs font-mono text-red-900 active:text-red-500 transition-colors"
+        >
+          ENCERRAR
+        </button>
+      </div>
+
+      {/* Add sale modal */}
+      {showAddSale && (
+        <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
+          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">Registrar venda</h3>
+              <button onClick={() => { setShowAddSale(false); setSaleValue(""); }}>
+                <X className="w-6 h-6 text-neutral-500" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
+                R$
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={saleValue}
+                onChange={(e) => setSaleValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddSale()}
+                placeholder="0"
+                autoFocus
+                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-green-500 transition-colors placeholder:text-neutral-700"
+              />
+            </div>
+
+            <button
+              onClick={handleAddSale}
+              disabled={!saleValue || parseFloat(saleValue) <= 0}
+              className="w-full h-16 bg-green-600 text-white font-black text-xl rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
+            >
+              + REGISTRAR
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
