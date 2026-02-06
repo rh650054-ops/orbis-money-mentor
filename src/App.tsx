@@ -21,6 +21,7 @@ import NotFound from "./pages/NotFound";
 import CheckIn from "./pages/CheckIn";
 import DailyGoals from "./pages/DailyGoals";
 import Ranking from "./pages/Ranking";
+import DefconChallenge from "./pages/DefconChallenge";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,8 @@ const App = () => (
           <Route path="/payment" element={<Payment />} />
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/check-in" element={<CheckIn />} />
+          <Route path="/install" element={<Install />} />
+          <Route path="/defcon" element={<DefconChallenge />} />
           <Route path="/install" element={<Install />} />
           <Route path="/*" element={
             <Layout>

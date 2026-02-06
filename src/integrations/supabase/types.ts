@@ -14,6 +14,98 @@ export type Database = {
   }
   public: {
     Tables: {
+      challenge_blocks: {
+        Row: {
+          block_index: number
+          created_at: string
+          ended_at: string | null
+          id: string
+          session_id: string
+          sold_amount: number
+          started_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          block_index: number
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          session_id: string
+          sold_amount?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          block_index?: number
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          session_id?: string
+          sold_amount?: number
+          started_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "challenge_blocks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      challenge_sessions: {
+        Row: {
+          created_at: string
+          current_block_index: number
+          daily_goal: number
+          date: string
+          ended_at: string | null
+          id: string
+          started_at: string
+          status: string
+          total_blocks: number
+          total_sold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_block_index?: number
+          daily_goal: number
+          date?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          total_blocks?: number
+          total_sold?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_block_index?: number
+          daily_goal?: number
+          date?: string
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          status?: string
+          total_blocks?: number
+          total_sold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       daily_checklist: {
         Row: {
           activity_name: string
@@ -574,6 +666,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          audio_input_enabled: boolean | null
+          audio_output_enabled: boolean | null
           avatar_url: string | null
           base_daily_goal: number | null
           billing_exempt: boolean | null
@@ -603,6 +697,8 @@ export type Database = {
           phone: string | null
           plan_status: string | null
           plan_type: string | null
+          speech_rate: string | null
+          speech_volume: string | null
           streak_days: number | null
           subscription_id: string | null
           trial_days_remaining: number | null
@@ -618,6 +714,8 @@ export type Database = {
           working_days: string[] | null
         }
         Insert: {
+          audio_input_enabled?: boolean | null
+          audio_output_enabled?: boolean | null
           avatar_url?: string | null
           base_daily_goal?: number | null
           billing_exempt?: boolean | null
@@ -647,6 +745,8 @@ export type Database = {
           phone?: string | null
           plan_status?: string | null
           plan_type?: string | null
+          speech_rate?: string | null
+          speech_volume?: string | null
           streak_days?: number | null
           subscription_id?: string | null
           trial_days_remaining?: number | null
@@ -662,6 +762,8 @@ export type Database = {
           working_days?: string[] | null
         }
         Update: {
+          audio_input_enabled?: boolean | null
+          audio_output_enabled?: boolean | null
           avatar_url?: string | null
           base_daily_goal?: number | null
           billing_exempt?: boolean | null
@@ -691,6 +793,8 @@ export type Database = {
           phone?: string | null
           plan_status?: string | null
           plan_type?: string | null
+          speech_rate?: string | null
+          speech_volume?: string | null
           streak_days?: number | null
           subscription_id?: string | null
           trial_days_remaining?: number | null
