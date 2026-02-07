@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
+import { celebrationSounds } from "@/utils/celebrationSounds";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -384,6 +385,9 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlockStartedAt(startTime);
     setRemainingSeconds(BLOCK_DURATION);
     setPhase("running");
+
+    // Play DEFCON activation sound
+    celebrationSounds.playDefconActivation();
   };
 
   const addSale = async (amount: number) => {
@@ -431,6 +435,59 @@ export function useDefconChallenge(userId: string | undefined) {
     setPhase("abandoned");
   };
 
+  const savePaymentBreakdown = async (dinheiro: number, cartao: number, pix: number) => {
+    if (!userId) return;
+    const total = totalSoldRef.current;
+    const calote = Math.max(0, total - (dinheiro + cartao + pix));
+
+    // Distribute proportionally across all blocks
+    const blks = blocksRef.current;
+    const totalFromBlocks = blks.reduce((sum, b) => sum + b.valor_dinheiro + b.valor_cartao + b.valor_pix + b.valor_calote, 0);
+
+    for (const block of blks) {
+      const blockTotal = block.valor_dinheiro + block.valor_cartao + block.valor_pix + block.valor_calote;
+      if (blockTotal <= 0 || totalFromBlocks <= 0) continue;
+
+      const ratio = blockTotal / totalFromBlocks;
+      const bDinheiro = Math.round(dinheiro * ratio * 100) / 100;
+      const bCartao = Math.round(cartao * ratio * 100) / 100;
+      const bPix = Math.round(pix * ratio * 100) / 100;
+      const bCalote = Math.round(calote * ratio * 100) / 100;
+
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          valor_dinheiro: bDinheiro,
+          valor_cartao: bCartao,
+          valor_pix: bPix,
+          valor_calote: bCalote,
+          achieved_amount: bDinheiro + bCartao + bPix + bCalote,
+        })
+        .eq("id", block.id);
+    }
+
+    // Update local state
+    setBlocks(prev =>
+      prev.map(b => {
+        const blockTotal = b.valor_dinheiro + b.valor_cartao + b.valor_pix + b.valor_calote;
+        if (blockTotal <= 0 || totalFromBlocks <= 0) return b;
+        const ratio = blockTotal / totalFromBlocks;
+        const bDinheiro = Math.round(dinheiro * ratio * 100) / 100;
+        const bCartao = Math.round(cartao * ratio * 100) / 100;
+        const bPix = Math.round(pix * ratio * 100) / 100;
+        const bCalote = Math.round(calote * ratio * 100) / 100;
+        return {
+          ...b,
+          valor_dinheiro: bDinheiro,
+          valor_cartao: bCartao,
+          valor_pix: bPix,
+          valor_calote: bCalote,
+          achieved_amount: bDinheiro + bCartao + bPix + bCalote,
+        };
+      })
+    );
+  };
+
   const blockEndTime = blockStartedAt
     ? new Date(blockStartedAt.getTime() + BLOCK_DURATION * 1000)
     : null;
@@ -453,5 +510,6 @@ export function useDefconChallenge(userId: string | undefined) {
     startChallenge,
     addSale,
     endChallenge,
+    savePaymentBreakdown,
   };
 }

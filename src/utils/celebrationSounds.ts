@@ -235,6 +235,65 @@ class CelebrationSoundManager {
     }
   }
 
+  // DEFCON 4 activation - dramatic alarm/siren sound
+  async playDefconActivation() {
+    if (!this.enabled) return;
+    try {
+      const ctx = await this.resumeContext();
+      const now = ctx.currentTime;
+
+      // Low warning tone sweep
+      const sweep = ctx.createOscillator();
+      const sweepGain = ctx.createGain();
+      sweep.connect(sweepGain);
+      sweepGain.connect(ctx.destination);
+      sweep.type = 'sawtooth';
+      sweep.frequency.setValueAtTime(80, now);
+      sweep.frequency.linearRampToValueAtTime(200, now + 0.3);
+      sweep.frequency.linearRampToValueAtTime(80, now + 0.6);
+      sweepGain.gain.setValueAtTime(0, now);
+      sweepGain.gain.linearRampToValueAtTime(0.12, now + 0.05);
+      sweepGain.gain.setValueAtTime(0.12, now + 0.5);
+      sweepGain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+      sweep.start(now);
+      sweep.stop(now + 0.8);
+
+      // Alert beeps
+      const beepFreqs = [440, 440, 660];
+      beepFreqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.value = freq;
+        const startTime = now + 0.7 + i * 0.15;
+        gain.gain.setValueAtTime(0, startTime);
+        gain.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
+        gain.gain.setValueAtTime(0.08, startTime + 0.08);
+        gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.12);
+        osc.start(startTime);
+        osc.stop(startTime + 0.15);
+      });
+
+      // Final deep impact
+      const impact = ctx.createOscillator();
+      const impactGain = ctx.createGain();
+      impact.connect(impactGain);
+      impactGain.connect(ctx.destination);
+      impact.type = 'sine';
+      impact.frequency.setValueAtTime(60, now + 1.2);
+      impact.frequency.exponentialRampToValueAtTime(30, now + 1.8);
+      impactGain.gain.setValueAtTime(0, now + 1.2);
+      impactGain.gain.linearRampToValueAtTime(0.2, now + 1.25);
+      impactGain.gain.exponentialRampToValueAtTime(0.01, now + 1.8);
+      impact.start(now + 1.2);
+      impact.stop(now + 2.0);
+    } catch (e) {
+      console.warn('Could not play DEFCON activation sound:', e);
+    }
+  }
+
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
   }
