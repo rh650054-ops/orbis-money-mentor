@@ -90,6 +90,7 @@ export default function DefconChallenge() {
           totalSold={defcon.totalSold}
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.currentBlockIndex + 1}
+          onSaveBreakdown={defcon.savePaymentBreakdown}
           onExit={handleExit}
         />
       );
