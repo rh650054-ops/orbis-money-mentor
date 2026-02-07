@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
 import { celebrationSounds } from "@/utils/celebrationSounds";
+import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -489,6 +490,9 @@ export function useDefconChallenge(userId: string | undefined) {
         };
       })
     );
+
+    // Sync to daily_sales for dashboard
+    await syncBlocksToDailySales(userId);
   };
 
   const blockEndTime = blockStartedAt
