@@ -16,6 +16,7 @@ import DailyReportModal from "@/components/DailyReportModal";
 import { HourlyBlockDetail } from "@/components/HourlyBlockDetail";
 import { useHourlyBlocks, HourlyBlock } from "@/hooks/useHourlyBlocks";
 import { celebrationSounds } from "@/utils/celebrationSounds";
+import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { FireEffect } from "@/components/FireEffect";
 import { DashboardBlockStats } from "@/components/DashboardBlockStats";
@@ -441,6 +442,9 @@ export default function DailyGoals() {
         conselho: advice,
       });
     }
+
+    // Sync to daily_sales for dashboard
+    await syncBlocksToDailySales(user.id);
 
     // Play celebration sound based on performance
     if (percentageAchieved >= 100) {
