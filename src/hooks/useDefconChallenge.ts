@@ -119,6 +119,9 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("id", currentBlock.id);
     }
 
+    // Play block complete alert sound
+    celebrationSounds.playSuccess();
+
     if (idx + 1 >= blks.length) {
       await completeChallenge();
     } else {
