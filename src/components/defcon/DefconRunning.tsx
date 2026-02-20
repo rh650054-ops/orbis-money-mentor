@@ -36,6 +36,7 @@ export function DefconRunning({
   const [saleValue, setSaleValue] = useState("");
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
   const [showLunchPicker, setShowLunchPicker] = useState(false);
+  const [customLunchMinutes, setCustomLunchMinutes] = useState("");
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
@@ -231,24 +232,55 @@ export function DefconRunning({
           <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-white">🍽️ Pausa para almoço</h3>
-              <button onClick={() => setShowLunchPicker(false)}>
+              <button onClick={() => { setShowLunchPicker(false); setCustomLunchMinutes(""); }}>
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
             <p className="text-sm text-neutral-500 font-mono">
               Escolha o tempo de pausa. Você só pode usar 1 vez por dia.
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-4 gap-2">
               {[15, 30, 45, 60].map((min) => (
                 <button
                   key={min}
-                  onClick={() => { setShowLunchPicker(false); onLunchPause(min); }}
-                  className="h-16 bg-neutral-800 border border-neutral-700 rounded-xl text-white font-bold text-lg active:scale-95 transition-transform hover:border-amber-600"
+                  onClick={() => setCustomLunchMinutes(String(min))}
+                  className={`h-12 rounded-xl font-bold text-sm active:scale-95 transition-all border ${
+                    customLunchMinutes === String(min)
+                      ? "bg-amber-600 border-amber-500 text-white"
+                      : "bg-neutral-800 border-neutral-700 text-neutral-300"
+                  }`}
                 >
                   {min} min
                 </button>
               ))}
             </div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-neutral-600 font-mono">
+                min
+              </span>
+              <input
+                type="number"
+                inputMode="numeric"
+                value={customLunchMinutes}
+                onChange={(e) => setCustomLunchMinutes(e.target.value)}
+                placeholder="Ou digite os minutos"
+                className="w-full h-14 bg-black border-2 border-neutral-700 rounded-xl text-center text-2xl font-black text-white pl-12 pr-4 focus:outline-none focus:border-amber-500 transition-colors placeholder:text-neutral-700 placeholder:text-sm"
+              />
+            </div>
+            <button
+              onClick={() => {
+                const mins = parseInt(customLunchMinutes) || 0;
+                if (mins > 0 && mins <= 180) {
+                  setShowLunchPicker(false);
+                  setCustomLunchMinutes("");
+                  onLunchPause(mins);
+                }
+              }}
+              disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 180}
+              className="w-full h-14 bg-amber-600 text-white font-black text-lg rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
+            >
+              INICIAR PAUSA
+            </button>
           </div>
         </div>
       )}
