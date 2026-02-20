@@ -7,7 +7,7 @@ import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
 
-export type DefconPhase = "idle" | "running" | "break" | "finished" | "abandoned";
+export type DefconPhase = "idle" | "running" | "break" | "finished" | "abandoned" | "lunch_pause";
 
 export interface DefconBlock {
   id: string;
@@ -35,6 +35,11 @@ export function useDefconChallenge(userId: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [hasPlan, setHasPlan] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [lunchPauseUsed, setLunchPauseUsed] = useState(false);
+  const [lunchPauseRemaining, setLunchPauseRemaining] = useState(0);
+  const [lunchPauseStartedAt, setLunchPauseStartedAt] = useState<Date | null>(null);
+  const [lunchPauseDuration, setLunchPauseDuration] = useState(0);
+  const [pausedBlockRemaining, setPausedBlockRemaining] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Refs for stable closure access in timer callbacks
@@ -270,6 +275,51 @@ export function useDefconChallenge(userId: string | undefined) {
     setLoading(false);
   }, [userId]);
 
+  const startLunchPause = async (durationMinutes: number) => {
+    if (!userId || phase !== "running" || lunchPauseUsed) return;
+
+    const now = new Date();
+    const currentRemaining = remainingSeconds;
+
+    // Save how much time was left on the current block
+    setPausedBlockRemaining(currentRemaining);
+    setLunchPauseDuration(durationMinutes * 60);
+    setLunchPauseStartedAt(now);
+    setLunchPauseRemaining(durationMinutes * 60);
+    setLunchPauseUsed(true);
+
+    // Pause the current block timer in DB
+    const currentBlockData = blocks[currentBlockIndex];
+    if (currentBlockData) {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({ timer_status: "pausado", timer_paused_at: now.toISOString() })
+        .eq("id", currentBlockData.id);
+    }
+
+    clearTimer();
+    setPhase("lunch_pause");
+  };
+
+  const resumeFromLunch = useCallback(async () => {
+    const now = new Date();
+    const currentBlockData = blocksRef.current[currentBlockIndexRef.current];
+
+    if (currentBlockData) {
+      // Set a new timer_started_at so the remaining time matches what was left before pause
+      const newStartedAt = new Date(now.getTime() - (BLOCK_DURATION - pausedBlockRemaining) * 1000);
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({ timer_status: "running", timer_started_at: newStartedAt.toISOString(), timer_paused_at: null })
+        .eq("id", currentBlockData.id);
+
+      setBlockStartedAt(newStartedAt);
+      setRemainingSeconds(pausedBlockRemaining);
+    }
+
+    setPhase("running");
+  }, [pausedBlockRemaining, clearTimer]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
@@ -300,10 +350,21 @@ export function useDefconChallenge(userId: string | undefined) {
           advanceToNextBlock();
         }
       }, 1000);
+    } else if (phase === "lunch_pause" && lunchPauseStartedAt && lunchPauseDuration > 0) {
+      timerRef.current = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - lunchPauseStartedAt.getTime()) / 1000);
+        const remaining = Math.max(0, lunchPauseDuration - elapsed);
+        setLunchPauseRemaining(remaining);
+
+        if (remaining <= 0) {
+          clearTimer();
+          resumeFromLunch();
+        }
+      }, 1000);
     }
 
     return clearTimer;
-  }, [phase, blockStartedAt, breakStartedAt, clearTimer, handleBlockTimeUp, advanceToNextBlock]);
+  }, [phase, blockStartedAt, breakStartedAt, lunchPauseStartedAt, lunchPauseDuration, clearTimer, handleBlockTimeUp, advanceToNextBlock]);
 
   const startChallenge = async () => {
     if (!userId || blocks.length === 0) return;
@@ -514,9 +575,12 @@ export function useDefconChallenge(userId: string | undefined) {
     blockEndTime,
     loading,
     hasPlan,
+    lunchPauseUsed,
+    lunchPauseRemaining,
     startChallenge,
     addSale,
     endChallenge,
     savePaymentBreakdown,
+    startLunchPause,
   };
 }
