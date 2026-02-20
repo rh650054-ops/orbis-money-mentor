@@ -6,6 +6,7 @@ import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
+import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();
@@ -68,8 +69,10 @@ export default function DefconChallenge() {
           remainingSeconds={defcon.remainingSeconds}
           blockStartedAt={defcon.blockStartedAt}
           blockEndTime={defcon.blockEndTime}
+          lunchPauseUsed={defcon.lunchPauseUsed}
           onAddSale={defcon.addSale}
           onEnd={defcon.endChallenge}
+          onLunchPause={defcon.startLunchPause}
         />
       );
 
@@ -79,6 +82,14 @@ export default function DefconChallenge() {
           breakRemaining={defcon.breakRemaining}
           currentBlockIndex={defcon.currentBlockIndex}
           blockSold={defcon.currentBlock?.achieved_amount || 0}
+        />
+      );
+
+    case "lunch_pause":
+      return (
+        <DefconLunchPause
+          lunchPauseRemaining={defcon.lunchPauseRemaining}
+          totalSold={defcon.totalSold}
         />
       );
 

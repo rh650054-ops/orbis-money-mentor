@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X } from "lucide-react";
+import { Plus, X, UtensilsCrossed } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 
 interface DefconRunningProps {
@@ -12,8 +12,10 @@ interface DefconRunningProps {
   remainingSeconds: number;
   blockStartedAt: Date | null;
   blockEndTime: Date | null;
+  lunchPauseUsed: boolean;
   onAddSale: (amount: number) => void;
   onEnd: () => void;
+  onLunchPause: (minutes: number) => void;
 }
 
 export function DefconRunning({
@@ -25,12 +27,15 @@ export function DefconRunning({
   remainingSeconds,
   blockStartedAt,
   blockEndTime,
+  lunchPauseUsed,
   onAddSale,
   onEnd,
+  onLunchPause,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
+  const [showLunchPicker, setShowLunchPicker] = useState(false);
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
@@ -163,12 +168,23 @@ export function DefconRunning({
         <span className="text-xs font-mono text-neutral-600 tracking-widest uppercase">
           Bloco {currentBlockIndex + 1}/{totalBlocks} • {formatCurrency(totalSold)} total
         </span>
-        <button
-          onClick={() => setShowConfirmEnd(true)}
-          className="text-xs font-mono text-red-900 active:text-red-500 transition-colors"
-        >
-          ENCERRAR
-        </button>
+        <div className="flex items-center gap-4">
+          {!lunchPauseUsed && (
+            <button
+              onClick={() => setShowLunchPicker(true)}
+              className="text-xs font-mono text-amber-700 active:text-amber-400 transition-colors flex items-center gap-1"
+            >
+              <UtensilsCrossed className="w-3 h-3" />
+              ALMOÇO
+            </button>
+          )}
+          <button
+            onClick={() => setShowConfirmEnd(true)}
+            className="text-xs font-mono text-red-900 active:text-red-500 transition-colors"
+          >
+            ENCERRAR
+          </button>
+        </div>
       </div>
 
       {/* Add sale modal */}
@@ -205,6 +221,34 @@ export function DefconRunning({
             >
               + REGISTRAR
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lunch pause duration picker */}
+      {showLunchPicker && (
+        <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
+          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">🍽️ Pausa para almoço</h3>
+              <button onClick={() => setShowLunchPicker(false)}>
+                <X className="w-6 h-6 text-neutral-500" />
+              </button>
+            </div>
+            <p className="text-sm text-neutral-500 font-mono">
+              Escolha o tempo de pausa. Você só pode usar 1 vez por dia.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {[15, 30, 45, 60].map((min) => (
+                <button
+                  key={min}
+                  onClick={() => { setShowLunchPicker(false); onLunchPause(min); }}
+                  className="h-16 bg-neutral-800 border border-neutral-700 rounded-xl text-white font-bold text-lg active:scale-95 transition-transform hover:border-amber-600"
+                >
+                  {min} min
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
