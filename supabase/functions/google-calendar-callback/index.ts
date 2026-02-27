@@ -14,16 +14,34 @@ serve(async (req) => {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state'); // user_id
+    const stateParam = url.searchParams.get('state');
     const error = url.searchParams.get('error');
 
-    if (error || !code || !state) {
-      console.error('OAuth error or missing params:', error, code, state);
+    // Parse state which now contains user_id and origin
+    let userId: string | null = null;
+    let allowedOrigin = '*';
+    
+    if (stateParam) {
+      try {
+        const stateObj = JSON.parse(atob(stateParam));
+        userId = stateObj.user_id || null;
+        allowedOrigin = stateObj.origin || '*';
+      } catch {
+        // Fallback for legacy plain user_id state
+        userId = stateParam;
+      }
+    }
+
+    if (error || !code || !userId) {
+      console.error('OAuth error or missing params:', error, code, userId);
+      const sanitizedError = (error || 'Missing parameters').replace(/'/g, "\\'").replace(/[<>]/g, '');
       return new Response(`
         <html>
           <body>
             <script>
-              window.opener.postMessage({ type: 'google-calendar-error', error: '${error || 'Missing parameters'}' }, '*');
+              if (window.opener) {
+                window.opener.postMessage({ type: 'google-calendar-error', error: '${sanitizedError}' }, '${allowedOrigin}');
+              }
               window.close();
             </script>
           </body>
@@ -62,7 +80,9 @@ serve(async (req) => {
         <html>
           <body>
             <script>
-              window.opener.postMessage({ type: 'google-calendar-error', error: 'Failed to get tokens' }, '*');
+              if (window.opener) {
+                window.opener.postMessage({ type: 'google-calendar-error', error: 'Failed to get tokens' }, '${allowedOrigin}');
+              }
               window.close();
             </script>
           </body>
@@ -78,6 +98,9 @@ serve(async (req) => {
     });
     const userInfo = await userInfoResponse.json();
 
+    // Sanitize email for safe embedding in HTML
+    const safeEmail = (userInfo.email || '').replace(/'/g, "\\'").replace(/[<>]/g, '');
+
     // Calculate token expiry
     const expiryDate = new Date();
     expiryDate.setSeconds(expiryDate.getSeconds() + tokens.expires_in);
@@ -86,11 +109,10 @@ serve(async (req) => {
     const { data: existingToken } = await supabase
       .from('google_calendar_tokens')
       .select('id')
-      .eq('user_id', state)
+      .eq('user_id', userId)
       .single();
 
     if (existingToken) {
-      // Update existing token
       await supabase
         .from('google_calendar_tokens')
         .update({
@@ -99,13 +121,12 @@ serve(async (req) => {
           token_expiry: expiryDate.toISOString(),
           google_email: userInfo.email,
         })
-        .eq('user_id', state);
+        .eq('user_id', userId);
     } else {
-      // Insert new token
       await supabase
         .from('google_calendar_tokens')
         .insert({
-          user_id: state,
+          user_id: userId,
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           token_expiry: expiryDate.toISOString(),
@@ -117,7 +138,9 @@ serve(async (req) => {
       <html>
         <body>
           <script>
-            window.opener.postMessage({ type: 'google-calendar-success', email: '${userInfo.email}' }, '*');
+            if (window.opener) {
+              window.opener.postMessage({ type: 'google-calendar-success', email: '${safeEmail}' }, '${allowedOrigin}');
+            }
             window.close();
           </script>
         </body>
@@ -127,12 +150,13 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in google-calendar-callback:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(`
       <html>
         <body>
           <script>
-            window.opener.postMessage({ type: 'google-calendar-error', error: '${errorMessage}' }, '*');
+            if (window.opener) {
+              window.opener.postMessage({ type: 'google-calendar-error', error: 'Authentication failed' }, '*');
+            }
             window.close();
           </script>
         </body>

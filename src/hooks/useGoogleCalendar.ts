@@ -41,6 +41,7 @@ export const useGoogleCalendar = (userId: string | undefined) => {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },
+        body: { origin: window.location.origin },
       });
 
       if (error) throw error;
@@ -51,8 +52,14 @@ export const useGoogleCalendar = (userId: string | undefined) => {
         "width=600,height=700"
       );
 
-      // Listen for the OAuth callback
+      // Listen for the OAuth callback with origin validation
+      const expectedOrigin = window.location.origin;
       const handleMessage = (event: MessageEvent) => {
+        // Validate message origin - only accept from our own origin or the Supabase functions domain
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        if (event.origin !== expectedOrigin && event.origin !== supabaseUrl) {
+          return;
+        }
         if (event.data.type === "google-calendar-success") {
           setIsConnected(true);
           setGoogleEmail(event.data.email);
