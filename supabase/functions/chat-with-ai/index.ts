@@ -123,9 +123,12 @@ serve(async (req) => {
     let assistantMessage = "";
 
     try {
-      // Call n8n webhook - URL de produção
-      const N8N_WEBHOOK_URL = "https://jovemrick.app.n8n.cloud/webhook-test/orbis-vendedor";
-      console.log("Chamando webhook:", N8N_WEBHOOK_URL);
+      // Call n8n webhook - URL from environment
+      const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL");
+      if (!N8N_WEBHOOK_URL) {
+        throw new Error("N8N_WEBHOOK_URL not configured");
+      }
+      console.log("Chamando webhook n8n");
       
       const webhookResponse = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",

@@ -30,6 +30,20 @@ serve(async (req) => {
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const redirectUri = `${supabaseUrl}/functions/v1/google-calendar-callback`;
 
+    // Parse the request body for the origin
+    let clientOrigin = '*';
+    try {
+      const body = await req.json();
+      if (body.origin) {
+        clientOrigin = body.origin;
+      }
+    } catch {
+      // No body provided, use default
+    }
+
+    // Encode user_id and origin into state parameter
+    const statePayload = btoa(JSON.stringify({ user_id: user.id, origin: clientOrigin }));
+
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', clientId!);
     authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -37,7 +51,7 @@ serve(async (req) => {
     authUrl.searchParams.set('scope', 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.events');
     authUrl.searchParams.set('access_type', 'offline');
     authUrl.searchParams.set('prompt', 'consent');
-    authUrl.searchParams.set('state', user.id);
+    authUrl.searchParams.set('state', statePayload);
 
     return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
