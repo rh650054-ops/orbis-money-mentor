@@ -6,17 +6,8 @@ verify_jwt = true
 [functions.chat-with-ai]
 verify_jwt = true
 
-[functions.create-checkout]
-verify_jwt = true
-
-[functions.check-subscription]
-verify_jwt = true
-
 [functions.create-demo-user]
 verify_jwt = true
-
-[functions.stripe-webhook]
-verify_jwt = false
 
 [functions.google-calendar-auth]
 verify_jwt = true

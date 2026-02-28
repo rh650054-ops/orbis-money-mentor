@@ -16,6 +16,7 @@ import Auth from "./pages/Auth";
 import Payment from "./pages/Payment";
 import Benefits from "./pages/Benefits";
 import AdminDemoUsers from "./pages/AdminDemoUsers";
+import AdminSubscriptions from "./pages/AdminSubscriptions";
 import Install from "./pages/Install";
 import NotFound from "./pages/NotFound";
 import CheckIn from "./pages/CheckIn";
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/ranking" element={<Ranking />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
+                <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>

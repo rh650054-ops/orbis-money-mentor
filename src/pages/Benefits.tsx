@@ -137,13 +137,13 @@ export default function Benefits() {
             <Button
               size="lg"
               className="w-full sm:w-auto px-12 h-16 text-xl font-bold shadow-lg hover:shadow-xl"
-              onClick={() => navigate('/payment')}
+              onClick={() => window.open("https://pay.hotmart.com/N104683123F", "_blank")}
             >
               🚀 Assinar por R$ 19,90/mês
             </Button>
             
             <div className="text-sm text-muted-foreground">
-              💳 Cartão de crédito ou PIX
+              💳 Cartão, boleto ou PIX via Hotmart
             </div>
           </div>
 

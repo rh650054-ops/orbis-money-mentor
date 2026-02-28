@@ -1,8 +1,8 @@
-import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CreditCard, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { CreditCard } from "lucide-react";
+
+const HOTMART_CHECKOUT_URL = "https://pay.hotmart.com/N104683123F";
 
 interface CardRegistrationModalProps {
   isOpen: boolean;
@@ -10,11 +10,9 @@ interface CardRegistrationModalProps {
 }
 
 export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrationModalProps) {
-  const navigate = useNavigate();
-
-  const handleRegisterCard = () => {
+  const handleRegister = () => {
     onClose();
-    navigate('/payment');
+    window.open(HOTMART_CHECKOUT_URL, "_blank");
   };
 
   const handleSkip = () => {
@@ -26,21 +24,21 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="text-2xl text-center">
-            💳 Deseja cadastrar seu cartão agora?
+            🚀 Garanta seu acesso ao Orbis!
           </DialogTitle>
           <DialogDescription className="text-center text-base mt-4">
-            O cartão <strong>não será cobrado</strong> durante o teste. Após 3 dias de teste, você pode confirmar sua assinatura por <strong>R$19,90/mês</strong>.
+            Após o teste gratuito de 3 dias, assine por apenas <strong>R$19,90/mês</strong> para manter acesso completo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 mt-6">
           <Button 
-            onClick={handleRegisterCard}
+            onClick={handleRegister}
             className="w-full h-12 text-base"
             size="lg"
           >
             <CreditCard className="w-5 h-5 mr-2" />
-            ✅ Cadastrar cartão
+            ✅ Assinar agora
           </Button>
 
           <Button 
@@ -48,12 +46,12 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
             variant="ghost"
             className="w-full"
           >
-            ❌ Continuar sem cartão
+            ❌ Continuar no teste gratuito
           </Button>
         </div>
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Você pode cadastrar seu cartão a qualquer momento nas configurações.
+          Você pode assinar a qualquer momento nas configurações.
         </p>
       </DialogContent>
     </Dialog>
