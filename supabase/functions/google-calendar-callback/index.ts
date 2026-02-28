@@ -150,12 +150,14 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in google-calendar-callback:', error);
+    // Use a safe fallback origin - restrict to known app domains
+    const fallbackOrigin = Deno.env.get('SUPABASE_URL') ? new URL(Deno.env.get('SUPABASE_URL')!).origin : 'null';
     return new Response(`
       <html>
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'google-calendar-error', error: 'Authentication failed' }, '*');
+              window.opener.postMessage({ type: 'google-calendar-error', error: 'Authentication failed' }, '${fallbackOrigin}');
             }
             window.close();
           </script>
