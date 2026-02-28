@@ -52,7 +52,7 @@ export default function Profile() {
     goals: 0,
     insights: 0
   });
-  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isUpgrading] = useState(false);
   const subscriptionFeatures = [
     "Insights ilimitados da IA",
     "Análises avançadas de gastos",
@@ -286,41 +286,8 @@ export default function Profile() {
     });
   };
 
-  const handleUpgrade = async () => {
-    if (!user) return;
-    setIsUpgrading(true);
-
-    try {
-      toast({
-        title: "Redirecionando para pagamento...",
-        description: "Aguarde enquanto preparamos seu checkout.",
-      });
-
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        headers: {
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-      });
-
-      if (error) throw error;
-
-      if (data?.url) {
-        window.open(data.url, "_blank");
-        toast({
-          title: "Checkout aberto!",
-          description: "Complete o pagamento na nova aba.",
-        });
-      }
-    } catch (error) {
-      console.error("Erro ao criar checkout:", error);
-      toast({
-        title: "Erro ao processar",
-        description: "Não foi possível iniciar o checkout. Tente novamente.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpgrading(false);
-    }
+  const handleUpgrade = () => {
+    window.open("https://pay.hotmart.com/N104683123F", "_blank");
   };
 
   if (loading || !user) {
@@ -504,7 +471,7 @@ export default function Profile() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Button 
             onClick={() => navigate("/admin/demo-users")}
             className="w-full"
@@ -512,6 +479,14 @@ export default function Profile() {
           >
             <UserPlus className="w-4 h-4 mr-2" />
             Acessar Painel de Contas Demo
+          </Button>
+          <Button 
+            onClick={() => navigate("/admin/subscriptions")}
+            className="w-full"
+            variant="outline"
+          >
+            <Shield className="w-4 h-4 mr-2" />
+            Gerenciar Assinaturas
           </Button>
         </CardContent>
       </Card>

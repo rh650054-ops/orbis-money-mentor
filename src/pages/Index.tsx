@@ -109,18 +109,15 @@ export default function Index() {
       const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
       if (hasSeenCardModal) return;
 
-      // Check subscription status
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) return;
-
-      const { data } = await supabase.functions.invoke("check-subscription", {
-        headers: {
-          Authorization: `Bearer ${session.data.session.access_token}`,
-        },
-      });
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan_status, is_demo, billing_exempt")
+        .eq("user_id", user.id)
+        .single();
 
       // Only show if not subscribed
-      if (!data?.subscribed) {
+      const isSubscribed = (profile?.is_demo && profile?.billing_exempt) || profile?.plan_status === "active";
+      if (!isSubscribed) {
         setShowCardModal(true);
         localStorage.setItem('hasSeenCardModal', 'true');
       }

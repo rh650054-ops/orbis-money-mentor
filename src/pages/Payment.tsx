@@ -3,10 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, CreditCard, Loader2 } from "lucide-react";
+import { Check, CreditCard, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import StripeCheckoutModal from "@/components/StripeCheckoutModal";
+
+const HOTMART_CHECKOUT_URL = "https://pay.hotmart.com/N104683123F";
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -14,9 +15,7 @@ export default function Payment() {
   const { toast } = useToast();
   const [isDemo, setIsDemo] = useState(false);
   const [checkingDemo, setCheckingDemo] = useState(true);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [clientSecret, setClientSecret] = useState<string>("");
-  const [paymentLink, setPaymentLink] = useState<string>("");
+  const [isChecking, setIsChecking] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -42,61 +41,42 @@ export default function Payment() {
     checkDemoStatus();
   }, [user, loading, navigate]);
 
-  const handleStripeCheckout = async () => {
+  const handleHotmartCheckout = () => {
+    window.open(HOTMART_CHECKOUT_URL, "_blank");
+  };
+
+  const handleCheckAccess = async () => {
+    if (!user) return;
+    setIsChecking(true);
+
     try {
-      toast({
-        title: "Preparando pagamento...",
-        description: "Aguarde enquanto configuramos seu checkout.",
-      });
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("plan_status")
+        .eq("user_id", user.id)
+        .single();
 
-      // Forçar refresh do token
-      const { data: sessionData, error: sessionError } = await supabase.auth.refreshSession();
-      
-      if (sessionError || !sessionData?.session?.access_token) {
-        console.error("Erro ao obter sessão:", sessionError);
-        throw new Error("Sua sessão expirou. Por favor, faça login novamente.");
-      }
-
-      console.log("Token obtido, chamando edge function...");
-
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        headers: {
-          Authorization: `Bearer ${sessionData.session.access_token}`,
-        },
-      });
-
-      console.log("Resposta da edge function:", { data, error });
-
-      if (error) {
-        console.error("Erro na edge function:", error);
-        throw new Error(error.message || "Erro ao conectar com o servidor");
-      }
-
-      if (!data) {
-        throw new Error("Resposta vazia do servidor");
-      }
-
-      if (data.error) {
-        console.error("Erro retornado pelo servidor:", data.error);
-        throw new Error(data.error);
-      }
-
-      if (data?.clientSecret) {
-        console.log("Client secret recebido com sucesso");
-        setClientSecret(data.clientSecret);
-        setPaymentLink(data.paymentLink || "");
-        setShowCheckout(true);
+      if (profile?.plan_status === "active") {
+        toast({
+          title: "✅ Acesso liberado!",
+          description: "Seu plano foi ativado. Redirecionando...",
+        });
+        setTimeout(() => navigate("/"), 1500);
       } else {
-        console.error("Dados recebidos sem client secret:", data);
-        throw new Error("Client secret não recebido do servidor");
+        toast({
+          title: "Pagamento não confirmado",
+          description: "Seu acesso ainda não foi ativado. Se já pagou, aguarde alguns minutos ou entre em contato.",
+          variant: "destructive",
+        });
       }
-    } catch (error: any) {
-      console.error("Erro ao criar checkout:", error);
+    } catch {
       toast({
-        title: "Erro ao processar pagamento",
-        description: error?.message || "Não foi possível iniciar o checkout. Tente novamente.",
+        title: "Erro ao verificar",
+        description: "Tente novamente.",
         variant: "destructive",
       });
+    } finally {
+      setIsChecking(false);
     }
   };
 
@@ -192,12 +172,22 @@ export default function Payment() {
 
             <div className="pt-4 space-y-3">
               <Button
-                onClick={handleStripeCheckout}
+                onClick={handleHotmartCheckout}
                 className="w-full h-14 text-lg font-semibold"
                 size="lg"
               >
                 <CreditCard className="w-5 h-5 mr-2" />
-                Pagar com Cartão ou PIX
+                Assinar Orbis
+              </Button>
+
+              <Button
+                onClick={handleCheckAccess}
+                variant="outline"
+                className="w-full h-12"
+                disabled={isChecking}
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isChecking ? "animate-spin" : ""}`} />
+                {isChecking ? "Verificando..." : "Já paguei, verificar acesso"}
               </Button>
 
               <Button
@@ -219,10 +209,10 @@ export default function Payment() {
 
             <div className="pt-2 space-y-2">
               <p className="text-xs text-center text-muted-foreground">
-                ✅ Pagamento 100% seguro via Stripe
+                ✅ Pagamento 100% seguro via Hotmart
               </p>
               <p className="text-xs text-center text-muted-foreground">
-                💳 Aceita cartão de crédito e PIX
+                💳 Aceita cartão de crédito, boleto e PIX
               </p>
               <p className="text-xs text-center text-muted-foreground">
                 🔒 Cancele quando quiser, sem multa
@@ -230,15 +220,6 @@ export default function Payment() {
             </div>
           </CardContent>
         </Card>
-
-        {showCheckout && clientSecret && (
-          <StripeCheckoutModal
-            isOpen={showCheckout}
-            onClose={() => setShowCheckout(false)}
-            clientSecret={clientSecret}
-            paymentLink={paymentLink}
-          />
-        )}
       </div>
     </div>
   );

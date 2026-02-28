@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
 
 interface SubscriptionStatus {
   subscribed: boolean;
@@ -15,7 +14,6 @@ export function useSubscription(userId: string | undefined) {
     subscription_id: null,
   });
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   const checkSubscription = async () => {
     if (!userId) {
@@ -24,24 +22,23 @@ export function useSubscription(userId: string | undefined) {
     }
 
     try {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) {
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase.functions.invoke("check-subscription", {
-        headers: {
-          Authorization: `Bearer ${session.data.session.access_token}`,
-        },
-      });
+      const { data: profile, error } = await supabase
+        .from("profiles")
+        .select("plan_status, is_demo, billing_exempt, subscription_id")
+        .eq("user_id", userId)
+        .single();
 
       if (error) throw error;
 
+      // Demo accounts or active plans count as subscribed
+      const isSubscribed =
+        (profile.is_demo && profile.billing_exempt) ||
+        profile.plan_status === "active";
+
       setStatus({
-        subscribed: data.subscribed || false,
-        subscription_end: data.subscription_end || null,
-        subscription_id: data.subscription_id || null,
+        subscribed: isSubscribed,
+        subscription_end: null,
+        subscription_id: profile.subscription_id || null,
       });
     } catch (error) {
       console.error("Error checking subscription:", error);
