@@ -925,6 +925,87 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          grace_until: string | null
+          hotmart_purchase_id: string | null
+          hotmart_subscription_id: string | null
+          id: string
+          last_event_at: string | null
+          provider: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          grace_until?: string | null
+          hotmart_purchase_id?: string | null
+          hotmart_subscription_id?: string | null
+          id?: string
+          last_event_at?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          grace_until?: string | null
+          hotmart_purchase_id?: string | null
+          hotmart_subscription_id?: string | null
+          id?: string
+          last_event_at?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      unlinked_purchases: {
+        Row: {
+          buyer_cpf: string | null
+          buyer_email: string | null
+          created_at: string
+          event_type: string
+          hotmart_purchase_id: string | null
+          hotmart_subscription_id: string | null
+          id: string
+          linked_at: string | null
+          linked_to_user_id: string | null
+          payload: Json
+        }
+        Insert: {
+          buyer_cpf?: string | null
+          buyer_email?: string | null
+          created_at?: string
+          event_type: string
+          hotmart_purchase_id?: string | null
+          hotmart_subscription_id?: string | null
+          id?: string
+          linked_at?: string | null
+          linked_to_user_id?: string | null
+          payload?: Json
+        }
+        Update: {
+          buyer_cpf?: string | null
+          buyer_email?: string | null
+          created_at?: string
+          event_type?: string
+          hotmart_purchase_id?: string | null
+          hotmart_subscription_id?: string | null
+          id?: string
+          linked_at?: string | null
+          linked_to_user_id?: string | null
+          payload?: Json
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null

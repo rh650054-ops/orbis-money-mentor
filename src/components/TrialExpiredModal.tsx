@@ -28,13 +28,26 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
 
+      // Check subscriptions table first
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("status, grace_until")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const now = new Date();
+      const hasActiveSub = sub && sub.status === "active" && sub.grace_until && now <= new Date(sub.grace_until);
+
+      // Fallback to profile check
       const { data: profile } = await supabase
         .from("profiles")
-        .select("plan_status")
+        .select("plan_status, is_demo, billing_exempt")
         .eq("user_id", user.id)
         .single();
 
-      if (profile?.plan_status === "active") {
+      const isActive = hasActiveSub || profile?.plan_status === "active" || (profile?.is_demo && profile?.billing_exempt);
+
+      if (isActive) {
         toast({
           title: "✅ Acesso liberado!",
           description: "Seu plano foi ativado com sucesso.",

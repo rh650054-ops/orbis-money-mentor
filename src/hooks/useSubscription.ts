@@ -3,14 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface SubscriptionStatus {
   subscribed: boolean;
-  subscription_end: string | null;
+  status: string | null;
+  graceUntil: string | null;
   subscription_id: string | null;
 }
 
 export function useSubscription(userId: string | undefined) {
   const [status, setStatus] = useState<SubscriptionStatus>({
     subscribed: false,
-    subscription_end: null,
+    status: null,
+    graceUntil: null,
     subscription_id: null,
   });
   const [loading, setLoading] = useState(true);
@@ -22,24 +24,72 @@ export function useSubscription(userId: string | undefined) {
     }
 
     try {
-      const { data: profile, error } = await supabase
+      // Check profile for demo/trial status
+      const { data: profile } = await supabase
         .from("profiles")
-        .select("plan_status, is_demo, billing_exempt, subscription_id")
+        .select("plan_status, is_demo, billing_exempt, is_trial_active, trial_end, subscription_id")
         .eq("user_id", userId)
         .single();
 
-      if (error) throw error;
+      if (!profile) {
+        setLoading(false);
+        return;
+      }
 
-      // Demo accounts or active plans count as subscribed
-      const isSubscribed =
-        (profile.is_demo && profile.billing_exempt) ||
-        profile.plan_status === "active";
+      // Demo accounts always have access
+      if (profile.is_demo && profile.billing_exempt) {
+        setStatus({ subscribed: true, status: "demo", graceUntil: null, subscription_id: null });
+        setLoading(false);
+        return;
+      }
 
-      setStatus({
-        subscribed: isSubscribed,
-        subscription_end: null,
-        subscription_id: profile.subscription_id || null,
-      });
+      // Check trial
+      if (profile.is_trial_active && profile.trial_end) {
+        const trialEnd = new Date(profile.trial_end + "T23:59:59");
+        if (new Date() <= trialEnd) {
+          setStatus({ subscribed: true, status: "trial", graceUntil: profile.trial_end, subscription_id: null });
+          setLoading(false);
+          return;
+        }
+        // Trial expired - mark it
+        await supabase
+          .from("profiles")
+          .update({ is_trial_active: false, plan_status: "expired" })
+          .eq("user_id", userId);
+      }
+
+      // Check subscriptions table
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (sub) {
+        const now = new Date();
+        const graceUntil = sub.grace_until ? new Date(sub.grace_until) : null;
+        const isActive = sub.status === "active" && graceUntil && now <= graceUntil;
+        const isPastDueInGrace = sub.status === "past_due" && graceUntil && now <= graceUntil;
+
+        setStatus({
+          subscribed: isActive || isPastDueInGrace || false,
+          status: sub.status,
+          graceUntil: sub.grace_until,
+          subscription_id: sub.hotmart_subscription_id || null,
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check if profile has active status (from admin manual activation)
+      if (profile.plan_status === "active") {
+        setStatus({ subscribed: true, status: "active", graceUntil: null, subscription_id: profile.subscription_id });
+        setLoading(false);
+        return;
+      }
+
+      // No subscription found
+      setStatus({ subscribed: false, status: "inactive", graceUntil: null, subscription_id: null });
     } catch (error) {
       console.error("Error checking subscription:", error);
     } finally {
