@@ -58,8 +58,12 @@ export default function Auth() {
         .maybeSingle();
 
       if (error) throw new Error("Erro ao buscar e-mail. Tente novamente.");
-      if (!data || !data.cpf) {
+      if (!data) {
         throw new Error("E-mail não encontrado. Verifique ou faça login com CPF.");
+      }
+      // If user has no CPF, login directly with their email
+      if (!data.cpf) {
+        return trimmed;
       }
       return cpfToInternalEmail(data.cpf);
     }
