@@ -10,16 +10,20 @@ import { LogIn, UserPlus } from "lucide-react";
 import orbisLogo from "@/assets/orbis-logo.png";
 import { validateCPF, cpfToInternalEmail } from "@/utils/cpfValidation";
 
+type LoginMethod = "cpf" | "email";
+
 export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [loginMethod, setLoginMethod] = useState<LoginMethod>("cpf");
   const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [loginEmail, setLoginEmail] = useState("");
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -31,48 +35,74 @@ export default function Auth() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
+  const resolveLoginEmail = async (): Promise<string> => {
+    if (loginMethod === "cpf") {
+      const cleanedCpf = cpf.replace(/\D/g, '');
+      if (!cleanedCpf || cleanedCpf.length !== 11) {
+        throw new Error("CPF deve conter 11 dígitos.");
+      }
+      if (!validateCPF(cleanedCpf)) {
+        throw new Error("CPF inválido. Verifique os dígitos.");
+      }
+      return cpfToInternalEmail(cleanedCpf);
+    } else {
+      // Email login: look up the user's internal email via profiles table
+      const trimmed = loginEmail.trim().toLowerCase();
+      if (!trimmed || !trimmed.includes("@")) {
+        throw new Error("Informe um e-mail válido.");
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("cpf")
+        .eq("email", trimmed)
+        .maybeSingle();
+
+      if (error) throw new Error("Erro ao buscar e-mail. Tente novamente.");
+      if (!data || !data.cpf) {
+        throw new Error("E-mail não encontrado. Verifique ou faça login com CPF.");
+      }
+      return cpfToInternalEmail(data.cpf);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const cleanedCpf = cpf.replace(/\D/g, '');
-
-      if (!cleanedCpf || cleanedCpf.length !== 11) {
-        throw new Error("CPF deve conter 11 dígitos.");
-      }
-
-      if (!validateCPF(cleanedCpf)) {
-        throw new Error("CPF inválido. Verifique os dígitos.");
-      }
-
       if (password.length < 6) {
         throw new Error("A senha deve ter no mínimo 6 caracteres.");
       }
 
-      const internalEmail = cpfToInternalEmail(cleanedCpf);
-
       if (isLogin) {
+        const internalEmail = await resolveLoginEmail();
         const { error } = await supabase.auth.signInWithPassword({
           email: internalEmail,
           password,
         });
         if (error) {
           if (error.message.includes("Invalid login")) {
-            throw new Error("CPF ou senha incorretos.");
+            throw new Error(loginMethod === "cpf" ? "CPF ou senha incorretos." : "E-mail ou senha incorretos.");
           }
           throw error;
         }
         toast({ title: "Login realizado!", description: "Bem-vindo de volta ao Orbis." });
         navigate("/", { replace: true });
       } else {
-        // Signup
+        // Signup - always requires CPF
+        const cleanedCpf = cpf.replace(/\D/g, '');
+        if (!cleanedCpf || cleanedCpf.length !== 11) {
+          throw new Error("CPF deve conter 11 dígitos.");
+        }
+        if (!validateCPF(cleanedCpf)) {
+          throw new Error("CPF inválido. Verifique os dígitos.");
+        }
         if (name.length < 2) {
           throw new Error("Nome deve ter no mínimo 2 caracteres.");
         }
 
-        // Check if CPF already exists in profiles
-        // We use a service-level check via signUp - if the internal email exists, signup will fail
+        const internalEmail = cpfToInternalEmail(cleanedCpf);
+
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: internalEmail,
           password,
@@ -88,7 +118,6 @@ export default function Auth() {
           throw signUpError;
         }
 
-        // Update profile with user data
         if (authData.user) {
           const trialStart = new Date();
           const trialEnd = new Date();
@@ -129,7 +158,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-gradient-to-b from-black via-[#1A1A1A] to-black">
+    <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-gradient-to-b from-black via-[#1A1A1A] to-black" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}>
       <div className="text-center mb-8 space-y-1">
         <div className="flex justify-center mb-6">
           <img src={orbisLogo} alt="Orbis Logo" className="w-32 h-32 object-contain" />
@@ -152,7 +181,7 @@ export default function Auth() {
             {isLogin ? "Entre na sua conta" : "Crie sua conta gratuita"}
           </CardTitle>
           <CardDescription>
-            {isLogin ? "Use seu CPF e senha" : "Cadastre-se com seu CPF"}
+            {isLogin ? "Use seu CPF ou e-mail" : "Cadastre-se com seu CPF"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -172,20 +201,67 @@ export default function Auth() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="cpf">CPF (somente números)</Label>
-              <Input
-                id="cpf"
-                type="text"
-                inputMode="numeric"
-                placeholder="12345678900"
-                value={cpf}
-                onChange={(e) => setCpf(e.target.value.replace(/\D/g, ""))}
-                required
-                maxLength={11}
-                className="bg-background"
-              />
-            </div>
+            {/* Login method toggle - only on login */}
+            {isLogin && (
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod("cpf")}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    loginMethod === "cpf"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  CPF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLoginMethod("email")}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                    loginMethod === "email"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  E-mail
+                </button>
+              </div>
+            )}
+
+            {/* CPF field - always on signup, conditional on login */}
+            {(!isLogin || loginMethod === "cpf") && (
+              <div className="space-y-2">
+                <Label htmlFor="cpf">CPF (somente números)</Label>
+                <Input
+                  id="cpf"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="12345678900"
+                  value={cpf}
+                  onChange={(e) => setCpf(e.target.value.replace(/\D/g, ""))}
+                  required
+                  maxLength={11}
+                  className="bg-background"
+                />
+              </div>
+            )}
+
+            {/* Email field for login */}
+            {isLogin && loginMethod === "email" && (
+              <div className="space-y-2">
+                <Label htmlFor="loginEmail">E-mail</Label>
+                <Input
+                  id="loginEmail"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={loginEmail}
+                  onChange={(e) => setLoginEmail(e.target.value)}
+                  required
+                  className="bg-background"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="password">Senha</Label>

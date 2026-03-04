@@ -72,6 +72,7 @@ All colors MUST be HSL.
     @apply bg-background text-foreground;
     font-feature-settings: "cv11", "ss01";
     font-optical-sizing: auto;
+    min-height: 100dvh;
   }
 
   /* Smooth scrolling */

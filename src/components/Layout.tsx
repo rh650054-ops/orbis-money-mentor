@@ -112,9 +112,9 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/80">
+      <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/80" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -219,7 +219,7 @@ export default function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Mobile bottom navigation - Fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-around h-16 px-2">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
