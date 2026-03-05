@@ -14,6 +14,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_access: {
+        Row: {
+          cpf: string
+          created_at: string
+          enabled: boolean
+          id: string
+          notes: string | null
+          role: string
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notes?: string | null
+          role?: string
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notes?: string | null
+          role?: string
+        }
+        Relationships: []
+      }
+      auth_audit: {
+        Row: {
+          cpf: string
+          created_at: string
+          id: string
+          reason: string | null
+          result: string
+          user_id: string | null
+        }
+        Insert: {
+          cpf: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          result: string
+          user_id?: string | null
+        }
+        Update: {
+          cpf?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          result?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       challenge_blocks: {
         Row: {
           block_index: number

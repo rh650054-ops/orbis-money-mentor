@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, TrendingUp, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { useSubscription } from "@/hooks/useSubscription";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, signOut, loading } = useAuth();
   const { trialStatus, loading: trialLoading } = useTrialStatus(user?.id);
   const { status: subscriptionStatus, loading: subscriptionLoading } = useSubscription(user?.id);
+  const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
@@ -124,7 +126,16 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <span className="text-xl font-bold gradient-text">Orbis</span>
               </Link>
-              
+              {isAdmin && (
+                <span className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                  adminRole === "admin" 
+                    ? "bg-primary/20 text-primary border border-primary/30" 
+                    : "bg-muted text-muted-foreground border border-border"
+                )}>
+                  {adminRole}
+                </span>
+              )}
               {/* User Profile Dropdown */}
               {user && (
                 <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
