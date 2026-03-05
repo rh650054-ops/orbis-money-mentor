@@ -485,6 +485,9 @@ export function useDefconChallenge(userId: string | undefined) {
       )
     );
     setTotalSold(newTotal);
+
+    // Sync to dashboard and ranking in real-time
+    syncBlocksToDailySales(userId);
   };
 
   const endChallenge = async () => {
