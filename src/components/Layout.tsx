@@ -126,7 +126,16 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <span className="text-xl font-bold gradient-text">Orbis</span>
               </Link>
-              
+              {isAdmin && (
+                <span className={cn(
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                  adminRole === "admin" 
+                    ? "bg-primary/20 text-primary border border-primary/30" 
+                    : "bg-muted text-muted-foreground border border-border"
+                )}>
+                  {adminRole}
+                </span>
+              )}
               {/* User Profile Dropdown */}
               {user && (
                 <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
