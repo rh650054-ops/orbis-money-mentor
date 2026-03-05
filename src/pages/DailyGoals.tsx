@@ -621,7 +621,7 @@ export default function DailyGoals() {
             isCompleted={block.is_completed}
             canEdit={block.is_completed}
             onBlockCompleted={handleBlockCompleted}
-            onBlockUpdated={loadBlocks}
+            onBlockUpdated={() => { loadBlocks(); if (user) syncBlocksToDailySales(user.id); }}
             planId={planId || ""}
             allBlocks={blocks}
           />

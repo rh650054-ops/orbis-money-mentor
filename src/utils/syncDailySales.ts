@@ -3,7 +3,7 @@ import { getBrazilDate } from "@/lib/dateUtils";
 
 /**
  * Syncs aggregated hourly block data to the daily_sales table.
- * Called when DEFCON 4 finishes or Ritmo "Concluir Dia" is clicked.
+ * Called on every block value change for real-time dashboard updates.
  * Upserts a single daily_sales record for today with totals from hourly_goal_blocks.
  */
 export async function syncBlocksToDailySales(userId: string) {
@@ -31,7 +31,6 @@ export async function syncBlocksToDailySales(userId: string) {
   const totalCartao = blocks.reduce((sum, b) => sum + (b.valor_cartao || 0), 0);
   const totalPix = blocks.reduce((sum, b) => sum + (b.valor_pix || 0), 0);
   const totalCalote = blocks.reduce((sum, b) => sum + (b.valor_calote || 0), 0);
-  const totalBruto = totalDinheiro + totalCartao + totalPix + totalCalote;
   const totalLiquido = totalDinheiro + totalCartao + totalPix;
 
   // Check if daily_sales record exists for today
@@ -67,5 +66,85 @@ export async function syncBlocksToDailySales(userId: string) {
         card_sales: totalCartao,
         unpaid_sales: totalCalote > 0 ? 1 : 0,
       });
+  }
+
+  // Also update leaderboard revenue in real-time
+  await syncLeaderboardRevenue(userId);
+}
+
+/**
+ * Updates leaderboard faturamento from daily_sales for the current month.
+ * Called on every sale, not just on "Concluir Dia".
+ */
+async function syncLeaderboardRevenue(userId: string) {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const startOfMonth = `${currentMonth}-01`;
+  const today = getBrazilDate();
+
+  // Sum all daily_sales for this month (bruto = cash + pix + card + calote)
+  const { data: monthlySales } = await supabase
+    .from("daily_sales")
+    .select("cash_sales, pix_sales, card_sales, total_debt")
+    .eq("user_id", userId)
+    .gte("date", startOfMonth)
+    .lte("date", today);
+
+  const totalFaturamento = (monthlySales || []).reduce(
+    (sum, s) => sum + (s.cash_sales || 0) + (s.pix_sales || 0) + (s.card_sales || 0) + (s.total_debt || 0),
+    0
+  );
+
+  // Get user profile for name/avatar
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("nickname, email, avatar_url")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
+  const avatarUrl = profile?.avatar_url;
+
+  // Count days with sales > 0 this month
+  const daysWithSales = (monthlySales || []).filter(
+    s => ((s.cash_sales || 0) + (s.pix_sales || 0) + (s.card_sales || 0) + (s.total_debt || 0)) > 0
+  ).length;
+
+  // Get or create leaderboard entry
+  const { data: existingEntry } = await supabase
+    .from("leaderboard_stats")
+    .select("id, dias_trabalhados_mes, constancia_streak_atual, constancia_maior_streak")
+    .eq("user_id", userId)
+    .eq("mes_referencia", currentMonth)
+    .maybeSingle();
+
+  if (existingEntry) {
+    await supabase
+      .from("leaderboard_stats")
+      .update({
+        nome_usuario: userName,
+        avatar_url: avatarUrl,
+        faturamento_total_mes: totalFaturamento,
+        dias_trabalhados_mes: Math.max(existingEntry.dias_trabalhados_mes, daysWithSales),
+      })
+      .eq("id", existingEntry.id);
+  } else if (totalFaturamento > 0) {
+    await supabase
+      .from("leaderboard_stats")
+      .insert({
+        user_id: userId,
+        nome_usuario: userName,
+        avatar_url: avatarUrl,
+        mes_referencia: currentMonth,
+        faturamento_total_mes: totalFaturamento,
+        dias_trabalhados_mes: daysWithSales,
+        constancia_streak_atual: 1,
+        constancia_maior_streak: 1,
+      });
+  }
+
+  // Recalculate positions
+  if (totalFaturamento > 0) {
+    await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
   }
 }
