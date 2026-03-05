@@ -24,7 +24,15 @@ export function useSubscription(userId: string | undefined) {
     }
 
     try {
-      // Check profile for demo/trial status
+      // First, trigger admin access check (server-side whitelist)
+      // This updates profile flags if user is whitelisted
+      try {
+        await supabase.functions.invoke("check-admin-access");
+      } catch (e) {
+        console.warn("Admin access check failed, continuing with normal flow:", e);
+      }
+
+      // Now read profile (after admin check may have updated it)
       const { data: profile } = await supabase
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt, is_trial_active, trial_end, subscription_id")
@@ -36,7 +44,7 @@ export function useSubscription(userId: string | undefined) {
         return;
       }
 
-      // Demo accounts always have access
+      // Demo/admin accounts always have access
       if (profile.is_demo && profile.billing_exempt) {
         setStatus({ subscribed: true, status: "demo", graceUntil: null, subscription_id: null });
         setLoading(false);
@@ -51,7 +59,6 @@ export function useSubscription(userId: string | undefined) {
           setLoading(false);
           return;
         }
-        // Trial expired - mark it
         await supabase
           .from("profiles")
           .update({ is_trial_active: false, plan_status: "expired" })
