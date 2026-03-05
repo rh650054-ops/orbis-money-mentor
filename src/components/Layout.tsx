@@ -39,6 +39,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, signOut, loading } = useAuth();
   const { trialStatus, loading: trialLoading } = useTrialStatus(user?.id);
   const { status: subscriptionStatus, loading: subscriptionLoading } = useSubscription(user?.id);
+  const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
