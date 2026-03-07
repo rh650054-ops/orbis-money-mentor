@@ -39,7 +39,6 @@ export function DefconRunning({
   const [showLunchPicker, setShowLunchPicker] = useState(false);
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
-  const [customLunchMinutes, setCustomLunchMinutes] = useState("");
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
@@ -53,10 +52,15 @@ export function DefconRunning({
     return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
+  const registerSale = (amount: number) => {
+    onAddSale(amount);
+    setSaleHistory((prev) => [...prev, amount]);
+  };
+
   const handleAddSale = () => {
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
-      onAddSale(amount);
+      registerSale(amount);
       setSaleValue("");
       setShowAddSale(false);
     }
