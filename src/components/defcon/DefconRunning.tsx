@@ -2,6 +2,7 @@ import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, X, UtensilsCrossed } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
+import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 
 interface DefconRunningProps {
   dailyGoal: number;
@@ -37,6 +38,7 @@ export function DefconRunning({
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
   const [showLunchPicker, setShowLunchPicker] = useState(false);
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
+  const [saleHistory, setSaleHistory] = useState<number[]>([]);
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
@@ -50,10 +52,15 @@ export function DefconRunning({
     return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
+  const registerSale = (amount: number) => {
+    onAddSale(amount);
+    setSaleHistory((prev) => [...prev, amount]);
+  };
+
   const handleAddSale = () => {
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
-      onAddSale(amount);
+      registerSale(amount);
       setSaleValue("");
       setShowAddSale(false);
     }
@@ -149,6 +156,12 @@ export function DefconRunning({
             {formatCurrency(blockSold)}
           </div>
         </div>
+
+        {/* Quick sale buttons */}
+        <DefconQuickSaleButtons
+          saleHistory={saleHistory}
+          onQuickSale={registerSale}
+        />
 
         {/* Add sale button */}
         <button
