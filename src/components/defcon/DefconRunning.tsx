@@ -2,6 +2,7 @@ import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
 import { Plus, X, UtensilsCrossed } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
+import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 
 interface DefconRunningProps {
   dailyGoal: number;
