@@ -33,40 +33,19 @@ export async function syncBlocksToDailySales(userId: string) {
   const totalCalote = blocks.reduce((sum, b) => sum + (b.valor_calote || 0), 0);
   const totalLiquido = totalDinheiro + totalCartao + totalPix;
 
-  // Check if daily_sales record exists for today
-  const { data: existing } = await supabase
+  // Upsert daily_sales record (avoids race conditions with concurrent calls)
+  await supabase
     .from("daily_sales")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("date", today)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from("daily_sales")
-      .update({
-        total_profit: totalLiquido,
-        total_debt: totalCalote,
-        cash_sales: totalDinheiro,
-        pix_sales: totalPix,
-        card_sales: totalCartao,
-        unpaid_sales: totalCalote > 0 ? 1 : 0,
-      })
-      .eq("id", existing.id);
-  } else {
-    await supabase
-      .from("daily_sales")
-      .insert({
-        user_id: userId,
-        date: today,
-        total_profit: totalLiquido,
-        total_debt: totalCalote,
-        cash_sales: totalDinheiro,
-        pix_sales: totalPix,
-        card_sales: totalCartao,
-        unpaid_sales: totalCalote > 0 ? 1 : 0,
-      });
-  }
+    .upsert({
+      user_id: userId,
+      date: today,
+      total_profit: totalLiquido,
+      total_debt: totalCalote,
+      cash_sales: totalDinheiro,
+      pix_sales: totalPix,
+      card_sales: totalCartao,
+      unpaid_sales: totalCalote > 0 ? 1 : 0,
+    }, { onConflict: 'user_id,date' });
 
   // Also update leaderboard revenue in real-time
   await syncLeaderboardRevenue(userId);
