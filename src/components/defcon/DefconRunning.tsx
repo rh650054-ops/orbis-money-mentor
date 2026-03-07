@@ -157,6 +157,12 @@ export function DefconRunning({
           </div>
         </div>
 
+        {/* Quick sale buttons */}
+        <DefconQuickSaleButtons
+          saleHistory={saleHistory}
+          onQuickSale={registerSale}
+        />
+
         {/* Add sale button */}
         <button
           onClick={() => setShowAddSale(true)}
