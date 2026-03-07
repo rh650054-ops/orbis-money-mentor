@@ -38,6 +38,8 @@ export function DefconRunning({
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
   const [showLunchPicker, setShowLunchPicker] = useState(false);
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
+  const [saleHistory, setSaleHistory] = useState<number[]>([]);
+  const [customLunchMinutes, setCustomLunchMinutes] = useState("");
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
