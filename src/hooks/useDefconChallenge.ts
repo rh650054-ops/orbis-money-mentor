@@ -7,7 +7,7 @@ import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
 
-export type DefconPhase = "idle" | "running" | "break" | "finished" | "abandoned" | "lunch_pause";
+export type DefconPhase = "idle" | "running" | "break" | "block_report" | "finished" | "abandoned" | "lunch_pause";
 
 export interface DefconBlock {
   id: string;
@@ -20,6 +20,13 @@ export interface DefconBlock {
   valor_cartao: number;
   valor_pix: number;
   valor_calote: number;
+}
+
+export interface BlockReportData {
+  blockIndex: number;
+  approaches: number;
+  sales: number;
+  soldAmount: number;
 }
 
 export function useDefconChallenge(userId: string | undefined) {
@@ -40,6 +47,14 @@ export function useDefconChallenge(userId: string | undefined) {
   const [lunchPauseStartedAt, setLunchPauseStartedAt] = useState<Date | null>(null);
   const [lunchPauseDuration, setLunchPauseDuration] = useState(0);
   const [pausedBlockRemaining, setPausedBlockRemaining] = useState(0);
+  
+  // Approach & sales tracking per block
+  const [blockApproaches, setBlockApproaches] = useState(0);
+  const [blockSalesCount, setBlockSalesCount] = useState(0);
+  const [totalApproaches, setTotalApproaches] = useState(0);
+  const [totalSalesCount, setTotalSalesCount] = useState(0);
+  const [blockReportData, setBlockReportData] = useState<BlockReportData | null>(null);
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Refs for stable closure access in timer callbacks
@@ -51,6 +66,10 @@ export function useDefconChallenge(userId: string | undefined) {
   sessionIdRef.current = sessionId;
   const totalSoldRef = useRef(0);
   totalSoldRef.current = totalSold;
+  const blockApproachesRef = useRef(0);
+  blockApproachesRef.current = blockApproaches;
+  const blockSalesCountRef = useRef(0);
+  blockSalesCountRef.current = blockSalesCount;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -70,6 +89,9 @@ export function useDefconChallenge(userId: string | undefined) {
     if (!sid) return;
     clearTimer();
 
+    // Save current block approaches to challenge_blocks before finishing
+    await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
+
     await supabase
       .from("challenge_sessions")
       .update({
@@ -81,6 +103,32 @@ export function useDefconChallenge(userId: string | undefined) {
 
     setPhase("finished");
   }, [clearTimer]);
+
+  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number) => {
+    // Upsert to challenge_blocks
+    const { data: existing } = await supabase
+      .from("challenge_blocks")
+      .select("id")
+      .eq("session_id", sid)
+      .eq("block_index", blockIdx)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("challenge_blocks")
+        .update({ approaches_count: approaches })
+        .eq("id", existing.id);
+    } else if (userId) {
+      await supabase
+        .from("challenge_blocks")
+        .insert({
+          session_id: sid,
+          user_id: userId,
+          block_index: blockIdx,
+          approaches_count: approaches,
+        });
+    }
+  };
 
   const advanceToNextBlock = useCallback(async () => {
     const nextIdx = currentBlockIndexRef.current + 1;
@@ -107,6 +155,10 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("id", sid);
     }
 
+    // Reset block-level counters
+    setBlockApproaches(0);
+    setBlockSalesCount(0);
+
     setCurrentBlockIndex(nextIdx);
     setBlockStartedAt(startTime);
     setRemainingSeconds(BLOCK_DURATION);
@@ -117,6 +169,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const idx = currentBlockIndexRef.current;
     const blks = blocksRef.current;
     const currentBlock = blks[idx];
+    const sid = sessionIdRef.current;
 
     if (currentBlock) {
       await supabase
@@ -125,8 +178,44 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("id", currentBlock.id);
     }
 
+    // Save approaches for this block
+    if (sid) {
+      await saveBlockApproaches(sid, idx, blockApproachesRef.current);
+    }
+
     // Play block complete alert sound
     celebrationSounds.playSuccess();
+
+    // Calculate block sold amount
+    const blockSold = currentBlock
+      ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
+      : 0;
+
+    // Show block report before break/finish
+    setBlockReportData({
+      blockIndex: idx,
+      approaches: blockApproachesRef.current,
+      sales: blockSalesCountRef.current,
+      soldAmount: blockSold,
+    });
+
+    if (idx + 1 >= blks.length) {
+      // Last block - show report then finish
+      clearTimer();
+      setPhase("block_report");
+    } else {
+      clearTimer();
+      setPhase("block_report");
+    }
+  }, [completeChallenge, clearTimer]);
+
+  const dismissBlockReport = useCallback(async () => {
+    const idx = currentBlockIndexRef.current;
+    const blks = blocksRef.current;
+
+    // Accumulate totals
+    setTotalApproaches(prev => prev + blockApproachesRef.current);
+    setTotalSalesCount(prev => prev + blockSalesCountRef.current);
 
     if (idx + 1 >= blks.length) {
       await completeChallenge();
@@ -195,6 +284,17 @@ export function useDefconChallenge(userId: string | undefined) {
     if (session) {
       setSessionId(session.id);
 
+      // Load total approaches from challenge_blocks
+      const { data: challengeBlocks } = await supabase
+        .from("challenge_blocks")
+        .select("approaches_count, block_index")
+        .eq("session_id", session.id);
+
+      if (challengeBlocks) {
+        const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
+        setTotalApproaches(totalApp);
+      }
+
       if (session.status === "completed") {
         setPhase("finished");
         setLoading(false);
@@ -224,7 +324,6 @@ export function useDefconChallenge(userId: string | undefined) {
           setBreakStartedAt(new Date(startedAt.getTime() + BLOCK_DURATION * 1000));
           setBreakRemaining(BREAK_DURATION - (elapsed - BLOCK_DURATION));
         } else {
-          // Past block + break — complete current block and advance
           await supabase
             .from("hourly_goal_blocks")
             .update({ is_completed: true, timer_status: "finalizado" })
@@ -255,7 +354,6 @@ export function useDefconChallenge(userId: string | undefined) {
           }
         }
       } else {
-        // No timer started — start fresh
         const now = new Date();
         const currentBlock = loadedBlocks[blockIdx];
         if (currentBlock) {
@@ -281,14 +379,12 @@ export function useDefconChallenge(userId: string | undefined) {
     const now = new Date();
     const currentRemaining = remainingSeconds;
 
-    // Save how much time was left on the current block
     setPausedBlockRemaining(currentRemaining);
     setLunchPauseDuration(durationMinutes * 60);
     setLunchPauseStartedAt(now);
     setLunchPauseRemaining(durationMinutes * 60);
     setLunchPauseUsed(true);
 
-    // Pause the current block timer in DB
     const currentBlockData = blocks[currentBlockIndex];
     if (currentBlockData) {
       await supabase
@@ -306,7 +402,6 @@ export function useDefconChallenge(userId: string | undefined) {
     const currentBlockData = blocksRef.current[currentBlockIndexRef.current];
 
     if (currentBlockData) {
-      // Set a new timer_started_at so the remaining time matches what was left before pause
       const newStartedAt = new Date(now.getTime() - (BLOCK_DURATION - pausedBlockRemaining) * 1000);
       await supabase
         .from("hourly_goal_blocks")
@@ -372,7 +467,6 @@ export function useDefconChallenge(userId: string | undefined) {
     const today = getBrazilDate();
     const startTime = new Date();
 
-    // Create or reset challenge session
     const { data: existingSession } = await supabase
       .from("challenge_sessions")
       .select("id")
@@ -415,7 +509,6 @@ export function useDefconChallenge(userId: string | undefined) {
 
     setSessionId(sid);
 
-    // Also ensure work_session exists and is active
     const { data: workSession } = await supabase
       .from("work_sessions")
       .select("id, status")
@@ -439,19 +532,23 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("id", workSession.id);
     }
 
-    // Start first block timer
     const firstBlock = blocks[0];
     await supabase
       .from("hourly_goal_blocks")
       .update({ timer_status: "running", timer_started_at: startTime.toISOString() })
       .eq("id", firstBlock.id);
 
+    // Reset counters
+    setBlockApproaches(0);
+    setBlockSalesCount(0);
+    setTotalApproaches(0);
+    setTotalSalesCount(0);
+
     setCurrentBlockIndex(0);
     setBlockStartedAt(startTime);
     setRemainingSeconds(BLOCK_DURATION);
     setPhase("running");
 
-    // Play DEFCON activation sound
     celebrationSounds.playDefconActivation();
   };
 
@@ -485,15 +582,35 @@ export function useDefconChallenge(userId: string | undefined) {
       )
     );
     setTotalSold(newTotal);
+    setBlockSalesCount(prev => prev + 1);
 
-    // Sync to dashboard and ranking in real-time (await to prevent race conditions)
     await syncBlocksToDailySales(userId);
+  };
+
+  const addApproach = () => {
+    if (phase !== "running") return;
+    setBlockApproaches(prev => prev + 1);
+  };
+
+  const addOccurrence = async (description: string) => {
+    if (!userId || !sessionId) return;
+    await supabase.from("defcon_occurrences").insert({
+      user_id: userId,
+      session_id: sessionId,
+      block_index: currentBlockIndex,
+      description,
+    });
   };
 
   const endChallenge = async () => {
     const sid = sessionIdRef.current;
     if (!sid) return;
     clearTimer();
+
+    // Save current block approaches
+    await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
+    setTotalApproaches(prev => prev + blockApproachesRef.current);
+    setTotalSalesCount(prev => prev + blockSalesCountRef.current);
 
     await supabase
       .from("challenge_sessions")
@@ -508,7 +625,6 @@ export function useDefconChallenge(userId: string | undefined) {
     const total = totalSoldRef.current;
     const calote = Math.max(0, total - (dinheiro + cartao + pix));
 
-    // Distribute proportionally across all blocks
     const blks = blocksRef.current;
     const totalFromBlocks = blks.reduce((sum, b) => sum + b.valor_dinheiro + b.valor_cartao + b.valor_pix + b.valor_calote, 0);
 
@@ -534,7 +650,6 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("id", block.id);
     }
 
-    // Update local state
     setBlocks(prev =>
       prev.map(b => {
         const blockTotal = b.valor_dinheiro + b.valor_cartao + b.valor_pix + b.valor_calote;
@@ -555,7 +670,6 @@ export function useDefconChallenge(userId: string | undefined) {
       })
     );
 
-    // Sync to daily_sales for dashboard
     await syncBlocksToDailySales(userId);
   };
 
@@ -580,10 +694,18 @@ export function useDefconChallenge(userId: string | undefined) {
     hasPlan,
     lunchPauseUsed,
     lunchPauseRemaining,
+    blockApproaches,
+    blockSalesCount,
+    totalApproaches,
+    totalSalesCount,
+    blockReportData,
     startChallenge,
     addSale,
+    addApproach,
+    addOccurrence,
     endChallenge,
     savePaymentBreakdown,
     startLunchPause,
+    dismissBlockReport,
   };
 }

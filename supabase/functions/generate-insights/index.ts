@@ -28,6 +28,41 @@ serve(async (req) => {
       throw new Error("Unauthorized");
     }
 
+    const body = await req.json();
+
+    // Handle DEFCON day report AI tip
+    if (body?.type === "defcon_day_report") {
+      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+      if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+      const prompt = `O vendedor ambulante fez ${body.approaches} abordagens e ${body.sales} vendas hoje, taxa de ${body.conversionRate}%. Dê 2 dicas curtas e práticas em linguagem simples para melhorar amanhã. Máximo 3 linhas.`;
+
+      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: "Você é um coach de vendas ambulantes. Seja direto e prático." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+
+      if (!aiRes.ok) {
+        if (aiRes.status === 429) return new Response(JSON.stringify({ error: "Rate limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (aiRes.status === 402) return new Response(JSON.stringify({ error: "Payment required" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        throw new Error("AI error");
+      }
+
+      const aiData = await aiRes.json();
+      const tip = aiData.choices?.[0]?.message?.content || "";
+      return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Buscar dados dos últimos 7 dias
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
