@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X, UtensilsCrossed } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
+import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 
 interface DefconRunningProps {
   dailyGoal: number;
@@ -14,7 +15,10 @@ interface DefconRunningProps {
   blockStartedAt: Date | null;
   blockEndTime: Date | null;
   lunchPauseUsed: boolean;
+  blockApproaches: number;
   onAddSale: (amount: number) => void;
+  onAddApproach: () => void;
+  onAddOccurrence: (description: string) => void;
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
 }
@@ -29,7 +33,10 @@ export function DefconRunning({
   blockStartedAt,
   blockEndTime,
   lunchPauseUsed,
+  blockApproaches,
   onAddSale,
+  onAddApproach,
+  onAddOccurrence,
   onEnd,
   onLunchPause,
 }: DefconRunningProps) {
@@ -38,6 +45,7 @@ export function DefconRunning({
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
   const [showLunchPicker, setShowLunchPicker] = useState(false);
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
+  const [showOccurrence, setShowOccurrence] = useState(false);
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
 
   const minutes = Math.floor(remainingSeconds / 60);
@@ -149,6 +157,12 @@ export function DefconRunning({
           />
         </div>
 
+        {/* Approaches counter */}
+        <div className="text-center">
+          <div className="text-sm font-mono text-neutral-600 mb-1">Abordagens neste bloco</div>
+          <div className="text-2xl font-black text-blue-400">{blockApproaches}</div>
+        </div>
+
         {/* Block sales total */}
         <div className="text-center">
           <div className="text-sm font-mono text-neutral-600 mb-1">Vendido neste bloco</div>
@@ -163,13 +177,24 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
-        {/* Add sale button */}
-        <button
-          onClick={() => setShowAddSale(true)}
-          className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-green-600/30"
-        >
-          <Plus className="w-10 h-10 text-white" strokeWidth={3} />
-        </button>
+        {/* Action buttons row */}
+        <div className="flex items-center gap-6">
+          {/* Approach button */}
+          <button
+            onClick={onAddApproach}
+            className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-blue-600/30"
+          >
+            <UserRound className="w-8 h-8 text-white" strokeWidth={2.5} />
+          </button>
+
+          {/* Add sale button */}
+          <button
+            onClick={() => setShowAddSale(true)}
+            className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-green-600/30"
+          >
+            <Plus className="w-10 h-10 text-white" strokeWidth={3} />
+          </button>
+        </div>
 
         {/* Mantra */}
         <p className="text-sm text-neutral-700 font-mono italic">
@@ -183,6 +208,13 @@ export function DefconRunning({
           Bloco {currentBlockIndex + 1}/{totalBlocks} • {formatCurrency(totalSold)} total
         </span>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowOccurrence(true)}
+            className="text-xs font-mono text-neutral-600 active:text-neutral-300 transition-colors flex items-center gap-1"
+          >
+            <FileText className="w-3 h-3" />
+            OCORRÊNCIA
+          </button>
           {!lunchPauseUsed && (
             <button
               onClick={() => setShowLunchPicker(true)}
@@ -296,6 +328,17 @@ export function DefconRunning({
             </button>
           </div>
         </div>
+      )}
+
+      {/* Occurrence modal */}
+      {showOccurrence && (
+        <DefconOccurrenceModal
+          onSave={(desc) => {
+            onAddOccurrence(desc);
+            setShowOccurrence(false);
+          }}
+          onClose={() => setShowOccurrence(false)}
+        />
       )}
     </div>
   );

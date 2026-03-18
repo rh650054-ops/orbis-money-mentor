@@ -7,6 +7,8 @@ import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
+import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
+import { DefconDayReport } from "@/components/defcon/DefconDayReport";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();
@@ -70,11 +72,25 @@ export default function DefconChallenge() {
           blockStartedAt={defcon.blockStartedAt}
           blockEndTime={defcon.blockEndTime}
           lunchPauseUsed={defcon.lunchPauseUsed}
+          blockApproaches={defcon.blockApproaches}
           onAddSale={defcon.addSale}
+          onAddApproach={defcon.addApproach}
+          onAddOccurrence={defcon.addOccurrence}
           onEnd={defcon.endChallenge}
           onLunchPause={defcon.startLunchPause}
         />
       );
+
+    case "block_report":
+      return defcon.blockReportData ? (
+        <DefconBlockReport
+          blockIndex={defcon.blockReportData.blockIndex}
+          approaches={defcon.blockReportData.approaches}
+          sales={defcon.blockReportData.sales}
+          soldAmount={defcon.blockReportData.soldAmount}
+          onContinue={defcon.dismissBlockReport}
+        />
+      ) : null;
 
     case "break":
       return (
@@ -96,14 +112,29 @@ export default function DefconChallenge() {
     case "finished":
     case "abandoned":
       return (
-        <DefconEndScreen
-          phase={defcon.phase}
-          totalSold={defcon.totalSold}
-          dailyGoal={defcon.dailyGoal}
-          totalBlocks={defcon.currentBlockIndex + 1}
-          onSaveBreakdown={defcon.savePaymentBreakdown}
-          onExit={handleExit}
-        />
+        <div className="min-h-screen bg-black flex flex-col items-center">
+          <DefconEndScreen
+            phase={defcon.phase}
+            totalSold={defcon.totalSold}
+            dailyGoal={defcon.dailyGoal}
+            totalBlocks={defcon.currentBlockIndex + 1}
+            onSaveBreakdown={defcon.savePaymentBreakdown}
+            onExit={handleExit}
+          />
+          {/* Day report with approaches */}
+          {(defcon.totalApproaches > 0 || defcon.totalSalesCount > 0) && (
+            <div className="px-6 pb-10">
+              <DefconDayReport
+                totalApproaches={defcon.totalApproaches}
+                totalSales={defcon.totalSalesCount}
+                totalSold={defcon.totalSold}
+                dailyGoal={defcon.dailyGoal}
+                userId={user.id}
+                onDismiss={() => {}}
+              />
+            </div>
+          )}
+        </div>
       );
 
     default:

@@ -70,6 +70,7 @@ export type Database = {
       }
       challenge_blocks: {
         Row: {
+          approaches_count: number
           block_index: number
           created_at: string
           ended_at: string | null
@@ -82,6 +83,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approaches_count?: number
           block_index: number
           created_at?: string
           ended_at?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approaches_count?: number
           block_index?: number
           created_at?: string
           ended_at?: string | null
@@ -387,6 +390,41 @@ export type Database = {
         }
         Relationships: []
       }
+      defcon_occurrences: {
+        Row: {
+          block_index: number
+          created_at: string
+          description: string
+          id: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          block_index: number
+          created_at?: string
+          description: string
+          id?: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          block_index?: number
+          created_at?: string
+          description?: string
+          id?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defcon_occurrences_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "challenge_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financial_goals: {
         Row: {
           created_at: string
@@ -509,6 +547,7 @@ export type Database = {
       hourly_goal_blocks: {
         Row: {
           achieved_amount: number
+          approaches_count: number
           created_at: string
           hour_index: number
           hour_label: string
@@ -530,6 +569,7 @@ export type Database = {
         }
         Insert: {
           achieved_amount?: number
+          approaches_count?: number
           created_at?: string
           hour_index: number
           hour_label: string
@@ -551,6 +591,7 @@ export type Database = {
         }
         Update: {
           achieved_amount?: number
+          approaches_count?: number
           created_at?: string
           hour_index?: number
           hour_label?: string
