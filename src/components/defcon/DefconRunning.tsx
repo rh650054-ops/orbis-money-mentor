@@ -157,6 +157,12 @@ export function DefconRunning({
           />
         </div>
 
+        {/* Approaches counter */}
+        <div className="text-center">
+          <div className="text-sm font-mono text-neutral-600 mb-1">Abordagens neste bloco</div>
+          <div className="text-2xl font-black text-blue-400">{blockApproaches}</div>
+        </div>
+
         {/* Block sales total */}
         <div className="text-center">
           <div className="text-sm font-mono text-neutral-600 mb-1">Vendido neste bloco</div>
@@ -171,13 +177,24 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
-        {/* Add sale button */}
-        <button
-          onClick={() => setShowAddSale(true)}
-          className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-green-600/30"
-        >
-          <Plus className="w-10 h-10 text-white" strokeWidth={3} />
-        </button>
+        {/* Action buttons row */}
+        <div className="flex items-center gap-6">
+          {/* Approach button */}
+          <button
+            onClick={onAddApproach}
+            className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-blue-600/30"
+          >
+            <UserRound className="w-8 h-8 text-white" strokeWidth={2.5} />
+          </button>
+
+          {/* Add sale button */}
+          <button
+            onClick={() => setShowAddSale(true)}
+            className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-green-600/30"
+          >
+            <Plus className="w-10 h-10 text-white" strokeWidth={3} />
+          </button>
+        </div>
 
         {/* Mantra */}
         <p className="text-sm text-neutral-700 font-mono italic">
