@@ -208,6 +208,13 @@ export function DefconRunning({
           Bloco {currentBlockIndex + 1}/{totalBlocks} • {formatCurrency(totalSold)} total
         </span>
         <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowOccurrence(true)}
+            className="text-xs font-mono text-neutral-600 active:text-neutral-300 transition-colors flex items-center gap-1"
+          >
+            <FileText className="w-3 h-3" />
+            OCORRÊNCIA
+          </button>
           {!lunchPauseUsed && (
             <button
               onClick={() => setShowLunchPicker(true)}
