@@ -15,7 +15,10 @@ interface DefconRunningProps {
   blockStartedAt: Date | null;
   blockEndTime: Date | null;
   lunchPauseUsed: boolean;
+  blockApproaches: number;
   onAddSale: (amount: number) => void;
+  onAddApproach: () => void;
+  onAddOccurrence: (description: string) => void;
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
 }
