@@ -33,7 +33,10 @@ export function DefconRunning({
   blockStartedAt,
   blockEndTime,
   lunchPauseUsed,
+  blockApproaches,
   onAddSale,
+  onAddApproach,
+  onAddOccurrence,
   onEnd,
   onLunchPause,
 }: DefconRunningProps) {
