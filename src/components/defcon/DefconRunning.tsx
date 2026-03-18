@@ -329,6 +329,17 @@ export function DefconRunning({
           </div>
         </div>
       )}
+
+      {/* Occurrence modal */}
+      {showOccurrence && (
+        <DefconOccurrenceModal
+          onSave={(desc) => {
+            onAddOccurrence(desc);
+            setShowOccurrence(false);
+          }}
+          onClose={() => setShowOccurrence(false)}
+        />
+      )}
     </div>
   );
 }
