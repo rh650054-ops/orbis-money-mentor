@@ -16,6 +16,7 @@ import { MotivationalMessage } from "./MotivationalMessage";
 import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
 const salesSchema = z.object({
   totalProfit: z.string().min(1, { message: "Valor vendido é obrigatório" }).refine((val) => {
