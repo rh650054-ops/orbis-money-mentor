@@ -35,8 +35,8 @@ export function ActivityTimer({
   const [customDuration, setCustomDuration] = useState(25);
   const [showCustomDialog, setShowCustomDialog] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const updateRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const updateRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const notificationRef = useRef({ halfway: false, lastFive: false });
 
   useEffect(() => {
