@@ -62,7 +62,7 @@ export function HourlyBlockDetail({
   const [isEditing, setIsEditing] = useState(false);
   const [reminderShown, setReminderShown] = useState(false);
   const [showFireEffect, setShowFireEffect] = useState(false);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isUserEditingRef = useRef(false);
 
   // Update local state when prop changes, but ONLY if user is not actively editing
