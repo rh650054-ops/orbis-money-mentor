@@ -86,9 +86,9 @@ export async function syncLeaderboardRevenue(userId: string) {
   const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.avatar_url;
 
-  // Count days with sales > 0 this month
+  // Count days with sales > 0 this month (using total_profit for consistency)
   const daysWithSales = (monthlySales || []).filter(
-    s => ((s.cash_sales || 0) + (s.pix_sales || 0) + (s.card_sales || 0) + (s.total_debt || 0)) > 0
+    s => (s.total_profit || 0) > 0
   ).length;
 
   // Get or create leaderboard entry
