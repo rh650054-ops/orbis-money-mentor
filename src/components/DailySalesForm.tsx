@@ -234,6 +234,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         }
       }
 
+      // Sync leaderboard revenue (ensures ranking matches Dashboard)
+      await syncLeaderboardRevenue(userId);
+
       // Mostrar mensagem motivacional
       setDayProfit(totalDayProfit);
       setShowMessage(true);
