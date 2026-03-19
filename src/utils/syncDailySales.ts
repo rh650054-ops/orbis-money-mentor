@@ -53,9 +53,10 @@ export async function syncBlocksToDailySales(userId: string) {
 
 /**
  * Updates leaderboard faturamento from daily_sales for the current month.
- * Called on every sale, not just on "Concluir Dia".
+ * Uses total_profit (same source as Dashboard "Entradas") to ensure consistency.
+ * Called on every sale from any source (Ritmo blocks, Nova Venda, DEFCON 4).
  */
-async function syncLeaderboardRevenue(userId: string) {
+export async function syncLeaderboardRevenue(userId: string) {
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const startOfMonth = `${currentMonth}-01`;
