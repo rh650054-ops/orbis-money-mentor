@@ -62,16 +62,17 @@ export async function syncLeaderboardRevenue(userId: string) {
   const startOfMonth = `${currentMonth}-01`;
   const today = getBrazilDate();
 
-  // Sum all daily_sales for this month (bruto = cash + pix + card + calote)
+  // Sum all daily_sales for this month using total_profit (same as Dashboard "Entradas")
   const { data: monthlySales } = await supabase
     .from("daily_sales")
-    .select("cash_sales, pix_sales, card_sales, total_debt")
+    .select("total_profit, cash_sales, pix_sales, card_sales, total_debt")
     .eq("user_id", userId)
     .gte("date", startOfMonth)
     .lte("date", today);
 
+  // Use total_profit as the single source of truth (matches Dashboard exactly)
   const totalFaturamento = (monthlySales || []).reduce(
-    (sum, s) => sum + (s.cash_sales || 0) + (s.pix_sales || 0) + (s.card_sales || 0) + (s.total_debt || 0),
+    (sum, s) => sum + (s.total_profit || 0),
     0
   );
 
