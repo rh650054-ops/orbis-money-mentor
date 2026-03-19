@@ -53,24 +53,26 @@ export async function syncBlocksToDailySales(userId: string) {
 
 /**
  * Updates leaderboard faturamento from daily_sales for the current month.
- * Called on every sale, not just on "Concluir Dia".
+ * Uses total_profit (same source as Dashboard "Entradas") to ensure consistency.
+ * Called on every sale from any source (Ritmo blocks, Nova Venda, DEFCON 4).
  */
-async function syncLeaderboardRevenue(userId: string) {
+export async function syncLeaderboardRevenue(userId: string) {
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const startOfMonth = `${currentMonth}-01`;
   const today = getBrazilDate();
 
-  // Sum all daily_sales for this month (bruto = cash + pix + card + calote)
+  // Sum all daily_sales for this month using total_profit (same as Dashboard "Entradas")
   const { data: monthlySales } = await supabase
     .from("daily_sales")
-    .select("cash_sales, pix_sales, card_sales, total_debt")
+    .select("total_profit, cash_sales, pix_sales, card_sales, total_debt")
     .eq("user_id", userId)
     .gte("date", startOfMonth)
     .lte("date", today);
 
+  // Use total_profit as the single source of truth (matches Dashboard exactly)
   const totalFaturamento = (monthlySales || []).reduce(
-    (sum, s) => sum + (s.cash_sales || 0) + (s.pix_sales || 0) + (s.card_sales || 0) + (s.total_debt || 0),
+    (sum, s) => sum + (s.total_profit || 0),
     0
   );
 
@@ -84,9 +86,9 @@ async function syncLeaderboardRevenue(userId: string) {
   const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.avatar_url;
 
-  // Count days with sales > 0 this month
+  // Count days with sales > 0 this month (using total_profit for consistency)
   const daysWithSales = (monthlySales || []).filter(
-    s => ((s.cash_sales || 0) + (s.pix_sales || 0) + (s.card_sales || 0) + (s.total_debt || 0)) > 0
+    s => (s.total_profit || 0) > 0
   ).length;
 
   // Get or create leaderboard entry
