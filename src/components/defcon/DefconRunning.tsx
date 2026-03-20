@@ -118,6 +118,16 @@ export function DefconRunning({
 
   return (
     <div className="min-h-screen bg-black flex flex-col select-none">
+      {/* Smart approach notifications */}
+      <DefconSmartNotification
+        userId={userId}
+        totalApproaches={totalApproaches}
+        totalSalesCount={totalSalesCount}
+        blockApproaches={blockApproaches}
+        blockSalesCount={blockSalesCount}
+        phase="running"
+        currentBlockIndex={currentBlockIndex}
+      />
       {/* Mission header */}
       <div className="pt-12 pb-4 px-6 text-center">
         <div className="text-xs font-mono text-red-500/60 tracking-[0.3em] uppercase mb-2">

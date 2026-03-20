@@ -63,6 +63,7 @@ export default function DefconChallenge() {
     case "running":
       return (
         <DefconRunning
+          userId={user.id}
           dailyGoal={defcon.dailyGoal}
           totalSold={defcon.totalSold}
           currentBlock={defcon.currentBlock}
@@ -73,6 +74,9 @@ export default function DefconChallenge() {
           blockEndTime={defcon.blockEndTime}
           lunchPauseUsed={defcon.lunchPauseUsed}
           blockApproaches={defcon.blockApproaches}
+          totalApproaches={defcon.totalApproaches}
+          totalSalesCount={defcon.totalSalesCount}
+          blockSalesCount={defcon.blockSalesCount}
           onAddSale={defcon.addSale}
           onAddApproach={defcon.addApproach}
           onAddOccurrence={defcon.addOccurrence}
