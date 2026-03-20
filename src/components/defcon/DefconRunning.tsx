@@ -4,6 +4,7 @@ import { Plus, X, UtensilsCrossed, UserRound, FileText } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
+import { DefconSmartNotification } from "./DefconSmartNotification";
 
 interface DefconRunningProps {
   dailyGoal: number;
