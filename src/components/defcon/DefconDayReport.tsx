@@ -81,6 +81,8 @@ export function DefconDayReport({
     ? ((totalApproaches - yesterdayApproaches) / yesterdayApproaches) * 100
     : null;
 
+  const approachesPerSale = totalSales > 0 ? (totalApproaches / totalSales) : 0;
+
   return (
     <div className="w-full max-w-sm space-y-4 mt-6">
       <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase text-center mb-2">
