@@ -43,6 +43,7 @@ export default function Layout({ children }: LayoutProps) {
   const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { phase, setPhase, markDone } = useOnboarding();
 
   // Show trial reminder during trial period
   useEffect(() => {
