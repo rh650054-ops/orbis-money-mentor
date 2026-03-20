@@ -240,6 +240,7 @@ export default function Layout({ children }: LayoutProps) {
               <Link
                 key={item.name}
                 to={item.href}
+                {...(item.tourId ? { "data-tour": item.tourId } : {})}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium transition-all rounded-lg",
                   isActive 
