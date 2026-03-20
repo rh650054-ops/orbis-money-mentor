@@ -597,8 +597,14 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlockSalesCount(prev => prev + 1);
 
     // Auto-increment approach: whoever bought was approached
-    setBlockApproaches(prev => prev + 1);
+    const newApproaches = blockApproaches + 1;
+    setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
+
+    // Persist approaches to DB
+    if (sessionId) {
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
+    }
 
     await syncBlocksToDailySales(userId);
   };
