@@ -213,8 +213,8 @@ export function useDefconChallenge(userId: string | undefined) {
     const idx = currentBlockIndexRef.current;
     const blks = blocksRef.current;
 
-    // Accumulate totals
-    setTotalApproaches(prev => prev + blockApproachesRef.current);
+    // Totals are already accumulated in real-time via addSale/addApproach
+    // Just accumulate block sales count for the report
     setTotalSalesCount(prev => prev + blockSalesCountRef.current);
 
     if (idx + 1 >= blks.length) {
