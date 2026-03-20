@@ -284,15 +284,25 @@ export function useDefconChallenge(userId: string | undefined) {
     if (session) {
       setSessionId(session.id);
 
-      // Load total approaches from challenge_blocks
+      // Load total approaches and current block approaches from challenge_blocks
       const { data: challengeBlocks } = await supabase
         .from("challenge_blocks")
-        .select("approaches_count, block_index")
+        .select("approaches_count, block_index, sold_amount")
         .eq("session_id", session.id);
 
       if (challengeBlocks) {
         const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
+        
+        // Count total sales from blocks that have sold_amount > 0
+        const totalSls = challengeBlocks.reduce((sum, b) => sum + ((b.sold_amount || 0) > 0 ? 1 : 0), 0);
+        setTotalSalesCount(totalSls);
+
+        // Restore current block's approaches
+        const currentChallengeBlock = challengeBlocks.find(b => b.block_index === session.current_block_index);
+        if (currentChallengeBlock) {
+          setBlockApproaches(currentChallengeBlock.approaches_count || 0);
+        }
       }
 
       if (session.status === "completed") {
