@@ -538,11 +538,13 @@ export function useDefconChallenge(userId: string | undefined) {
       .update({ timer_status: "running", timer_started_at: startTime.toISOString() })
       .eq("id", firstBlock.id);
 
-    // Reset counters
+    // Reset block counters (totals are loaded from DB or start at 0 for new sessions)
     setBlockApproaches(0);
     setBlockSalesCount(0);
-    setTotalApproaches(0);
-    setTotalSalesCount(0);
+    if (!existingSession) {
+      setTotalApproaches(0);
+      setTotalSalesCount(0);
+    }
 
     setCurrentBlockIndex(0);
     setBlockStartedAt(startTime);
