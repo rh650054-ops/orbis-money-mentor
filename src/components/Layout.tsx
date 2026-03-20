@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import PWAInstallButton from "@/components/PWAInstallButton";
+import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,11 +27,11 @@ interface LayoutProps {
 }
 
 const navigation = [
-  { name: "Dashboard", href: "/", icon: Home },
-  { name: "Nova Venda", href: "/transactions", icon: TrendingUp },
-  { name: "Ritmo", href: "/daily-goals", icon: CheckSquare },
-  { name: "Ranking", href: "/ranking", icon: Trophy },
-  { name: "Rotina", href: "/routine", icon: Clock },
+  { name: "Dashboard", href: "/", icon: Home, tourId: "" },
+  { name: "Nova Venda", href: "/transactions", icon: TrendingUp, tourId: "" },
+  { name: "Ritmo", href: "/daily-goals", icon: CheckSquare, tourId: "nav-ritmo" },
+  { name: "Ranking", href: "/ranking", icon: Trophy, tourId: "nav-ranking" },
+  { name: "Rotina", href: "/routine", icon: Clock, tourId: "nav-rotina" },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -42,6 +43,7 @@ export default function Layout({ children }: LayoutProps) {
   const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const { phase, setPhase, markDone } = useOnboarding();
 
   // Show trial reminder during trial period
   useEffect(() => {
@@ -238,6 +240,7 @@ export default function Layout({ children }: LayoutProps) {
               <Link
                 key={item.name}
                 to={item.href}
+                {...(item.tourId ? { "data-tour": item.tourId } : {})}
                 className={cn(
                   "flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium transition-all rounded-lg",
                   isActive 
@@ -255,6 +258,9 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Floating Chat Button */}
       <FloatingChatButton />
+
+      {/* Onboarding */}
+      <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />
 
       {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
       {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (

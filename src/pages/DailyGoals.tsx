@@ -498,6 +498,7 @@ export default function DailyGoals() {
       {/* DEFCON 4 Entry */}
       <Link
         to="/defcon"
+        data-tour="defcon-banner"
         className="block w-full p-4 bg-red-950/30 border border-red-900/30 rounded-xl text-center active:scale-[0.98] transition-transform"
       >
         <div className="flex items-center justify-center gap-2">

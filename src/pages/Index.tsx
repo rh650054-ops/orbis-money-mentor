@@ -507,7 +507,7 @@ export default function Index() {
           </CardContent>
         </Card>
 
-        <Card className="card-gradient-border card-fixed-height hover:shadow-glow-success transition-smooth">
+        <Card data-tour="meta-dia" className="card-gradient-border card-fixed-height hover:shadow-glow-success transition-smooth">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Entradas
