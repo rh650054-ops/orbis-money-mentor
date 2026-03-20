@@ -7,6 +7,7 @@ import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
 
 interface DefconRunningProps {
+  userId: string;
   dailyGoal: number;
   totalSold: number;
   currentBlock: DefconBlock | null;
@@ -17,6 +18,9 @@ interface DefconRunningProps {
   blockEndTime: Date | null;
   lunchPauseUsed: boolean;
   blockApproaches: number;
+  totalApproaches: number;
+  totalSalesCount: number;
+  blockSalesCount: number;
   onAddSale: (amount: number) => void;
   onAddApproach: () => void;
   onAddOccurrence: (description: string) => void;
