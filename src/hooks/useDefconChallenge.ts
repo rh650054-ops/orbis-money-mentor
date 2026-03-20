@@ -213,8 +213,8 @@ export function useDefconChallenge(userId: string | undefined) {
     const idx = currentBlockIndexRef.current;
     const blks = blocksRef.current;
 
-    // Accumulate totals
-    setTotalApproaches(prev => prev + blockApproachesRef.current);
+    // Totals are already accumulated in real-time via addSale/addApproach
+    // Just accumulate block sales count for the report
     setTotalSalesCount(prev => prev + blockSalesCountRef.current);
 
     if (idx + 1 >= blks.length) {
@@ -284,15 +284,25 @@ export function useDefconChallenge(userId: string | undefined) {
     if (session) {
       setSessionId(session.id);
 
-      // Load total approaches from challenge_blocks
+      // Load total approaches and current block approaches from challenge_blocks
       const { data: challengeBlocks } = await supabase
         .from("challenge_blocks")
-        .select("approaches_count, block_index")
+        .select("approaches_count, block_index, sold_amount")
         .eq("session_id", session.id);
 
       if (challengeBlocks) {
         const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
+        
+        // Count total sales from blocks that have sold_amount > 0
+        const totalSls = challengeBlocks.reduce((sum, b) => sum + ((b.sold_amount || 0) > 0 ? 1 : 0), 0);
+        setTotalSalesCount(totalSls);
+
+        // Restore current block's approaches
+        const currentChallengeBlock = challengeBlocks.find(b => b.block_index === session.current_block_index);
+        if (currentChallengeBlock) {
+          setBlockApproaches(currentChallengeBlock.approaches_count || 0);
+        }
       }
 
       if (session.status === "completed") {
@@ -538,11 +548,13 @@ export function useDefconChallenge(userId: string | undefined) {
       .update({ timer_status: "running", timer_started_at: startTime.toISOString() })
       .eq("id", firstBlock.id);
 
-    // Reset counters
+    // Reset block counters (totals are loaded from DB or start at 0 for new sessions)
     setBlockApproaches(0);
     setBlockSalesCount(0);
-    setTotalApproaches(0);
-    setTotalSalesCount(0);
+    if (!existingSession) {
+      setTotalApproaches(0);
+      setTotalSalesCount(0);
+    }
 
     setCurrentBlockIndex(0);
     setBlockStartedAt(startTime);
@@ -584,12 +596,29 @@ export function useDefconChallenge(userId: string | undefined) {
     setTotalSold(newTotal);
     setBlockSalesCount(prev => prev + 1);
 
+    // Auto-increment approach: whoever bought was approached
+    const newApproaches = blockApproaches + 1;
+    setBlockApproaches(newApproaches);
+    setTotalApproaches(prev => prev + 1);
+
+    // Persist approaches to DB
+    if (sessionId) {
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
+    }
+
     await syncBlocksToDailySales(userId);
   };
 
   const addApproach = () => {
     if (phase !== "running") return;
-    setBlockApproaches(prev => prev + 1);
+    const newApproaches = blockApproaches + 1;
+    setBlockApproaches(newApproaches);
+    setTotalApproaches(prev => prev + 1);
+
+    // Persist to DB immediately
+    if (sessionId) {
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
+    }
   };
 
   const addOccurrence = async (description: string) => {
@@ -609,7 +638,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     // Save current block approaches
     await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
-    setTotalApproaches(prev => prev + blockApproachesRef.current);
+    // Totals already accumulated in real-time
     setTotalSalesCount(prev => prev + blockSalesCountRef.current);
 
     await supabase

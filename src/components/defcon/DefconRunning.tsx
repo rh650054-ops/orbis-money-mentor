@@ -4,8 +4,10 @@ import { Plus, X, UtensilsCrossed, UserRound, FileText } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
+import { DefconSmartNotification } from "./DefconSmartNotification";
 
 interface DefconRunningProps {
+  userId: string;
   dailyGoal: number;
   totalSold: number;
   currentBlock: DefconBlock | null;
@@ -16,6 +18,9 @@ interface DefconRunningProps {
   blockEndTime: Date | null;
   lunchPauseUsed: boolean;
   blockApproaches: number;
+  totalApproaches: number;
+  totalSalesCount: number;
+  blockSalesCount: number;
   onAddSale: (amount: number) => void;
   onAddApproach: () => void;
   onAddOccurrence: (description: string) => void;
@@ -24,6 +29,7 @@ interface DefconRunningProps {
 }
 
 export function DefconRunning({
+  userId,
   dailyGoal,
   totalSold,
   currentBlock,
@@ -34,6 +40,9 @@ export function DefconRunning({
   blockEndTime,
   lunchPauseUsed,
   blockApproaches,
+  totalApproaches,
+  totalSalesCount,
+  blockSalesCount,
   onAddSale,
   onAddApproach,
   onAddOccurrence,
@@ -109,6 +118,16 @@ export function DefconRunning({
 
   return (
     <div className="min-h-screen bg-black flex flex-col select-none">
+      {/* Smart approach notifications */}
+      <DefconSmartNotification
+        userId={userId}
+        totalApproaches={totalApproaches}
+        totalSalesCount={totalSalesCount}
+        blockApproaches={blockApproaches}
+        blockSalesCount={blockSalesCount}
+        phase="running"
+        currentBlockIndex={currentBlockIndex}
+      />
       {/* Mission header */}
       <div className="pt-12 pb-4 px-6 text-center">
         <div className="text-xs font-mono text-red-500/60 tracking-[0.3em] uppercase mb-2">

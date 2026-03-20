@@ -81,6 +81,8 @@ export function DefconDayReport({
     ? ((totalApproaches - yesterdayApproaches) / yesterdayApproaches) * 100
     : null;
 
+  const approachesPerSale = totalSales > 0 ? (totalApproaches / totalSales) : 0;
+
   return (
     <div className="w-full max-w-sm space-y-4 mt-6">
       <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase text-center mb-2">
@@ -113,7 +115,16 @@ export function DefconDayReport({
 
         {approachDiff !== null && yesterdayApproaches !== null && (
           <>
-            <div className="h-px bg-neutral-800" />
+        <div className="h-px bg-neutral-800" />
+
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-mono text-neutral-500">👥 Abordagens por venda</span>
+          <span className="text-xl font-black text-white">
+            {approachesPerSale > 0 ? `${approachesPerSale.toFixed(1)} pessoas` : "—"}
+          </span>
+        </div>
+
+        <div className="h-px bg-neutral-800" />
             <div className="text-xs font-mono text-neutral-500 text-center">
               Hoje você abordou {totalApproaches} pessoas. Ontem foram {yesterdayApproaches}.{" "}
               <span className={approachDiff >= 0 ? "text-green-500" : "text-red-500"}>
