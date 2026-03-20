@@ -259,6 +259,9 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
+      {/* Onboarding */}
+      <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />
+
       {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
       {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
         <TrialExpiredModal 
