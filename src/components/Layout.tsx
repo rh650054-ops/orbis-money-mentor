@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import PWAInstallButton from "@/components/PWAInstallButton";
+import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
 import {
   DropdownMenu,
   DropdownMenuContent,
