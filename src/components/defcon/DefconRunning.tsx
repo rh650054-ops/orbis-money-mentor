@@ -29,6 +29,7 @@ interface DefconRunningProps {
 }
 
 export function DefconRunning({
+  userId,
   dailyGoal,
   totalSold,
   currentBlock,
@@ -39,6 +40,9 @@ export function DefconRunning({
   blockEndTime,
   lunchPauseUsed,
   blockApproaches,
+  totalApproaches,
+  totalSalesCount,
+  blockSalesCount,
   onAddSale,
   onAddApproach,
   onAddOccurrence,
