@@ -611,8 +611,14 @@ export function useDefconChallenge(userId: string | undefined) {
 
   const addApproach = () => {
     if (phase !== "running") return;
-    setBlockApproaches(prev => prev + 1);
+    const newApproaches = blockApproaches + 1;
+    setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
+
+    // Persist to DB immediately
+    if (sessionId) {
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
+    }
   };
 
   const addOccurrence = async (description: string) => {
