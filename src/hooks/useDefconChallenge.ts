@@ -214,8 +214,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const blks = blocksRef.current;
 
     // Totals are already accumulated in real-time via addSale/addApproach
-    // Just accumulate block sales count for the report
-    setTotalSalesCount(prev => prev + blockSalesCountRef.current);
+    // No need to add blockSalesCount again — it's already in totalSalesCount
 
     if (idx + 1 >= blks.length) {
       await completeChallenge();
