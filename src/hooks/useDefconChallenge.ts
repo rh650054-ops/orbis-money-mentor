@@ -595,6 +595,7 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
     setBlockSalesCount(prev => prev + 1);
+    setTotalSalesCount(prev => prev + 1);
 
     // Auto-increment approach: whoever bought was approached
     const newApproaches = blockApproaches + 1;
