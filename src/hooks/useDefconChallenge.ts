@@ -214,8 +214,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const blks = blocksRef.current;
 
     // Totals are already accumulated in real-time via addSale/addApproach
-    // Just accumulate block sales count for the report
-    setTotalSalesCount(prev => prev + blockSalesCountRef.current);
+    // No need to add blockSalesCount again — it's already in totalSalesCount
 
     if (idx + 1 >= blks.length) {
       await completeChallenge();
@@ -595,6 +594,7 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
     setBlockSalesCount(prev => prev + 1);
+    setTotalSalesCount(prev => prev + 1);
 
     // Auto-increment approach: whoever bought was approached
     const newApproaches = blockApproaches + 1;
@@ -638,8 +638,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     // Save current block approaches
     await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
-    // Totals already accumulated in real-time
-    setTotalSalesCount(prev => prev + blockSalesCountRef.current);
+    // Totals already accumulated in real-time — no need to add again
 
     await supabase
       .from("challenge_sessions")
