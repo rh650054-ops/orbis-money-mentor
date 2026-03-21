@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
+import { X } from "lucide-react";
 
 interface SmartNotification {
   id: string;
   icon: string;
   message: string;
   timestamp: number;
+  holdingDown: boolean;
 }
 
 interface DefconSmartNotificationProps {
@@ -19,7 +21,8 @@ interface DefconSmartNotificationProps {
   currentBlockIndex: number;
 }
 
-const DEFAULT_BENCHMARK = 8; // 1 sale per 8 approaches for new users
+const NOTIFICATION_DURATION = 7000; // 7 seconds
+const DEFAULT_BENCHMARK = 8;
 
 export function DefconSmartNotification({
   userId,
@@ -39,8 +42,9 @@ export function DefconSmartNotification({
   const prevApproachesRef = useRef(0);
   const approachesSinceLastSaleRef = useRef(0);
   const shownTriggersRef = useRef<Set<string>>(new Set());
+  const holdingRef = useRef<Set<string>>(new Set());
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
-  // Load historical data on mount
   useEffect(() => {
     if (!userId) return;
     loadHistory();
@@ -89,14 +93,36 @@ export function DefconSmartNotification({
 
   const showNotification = useCallback((icon: string, message: string) => {
     const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, icon, message, timestamp: Date.now() }]);
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== id));
-    }, 4000);
+    setNotifications(prev => [...prev, { id, icon, message, timestamp: Date.now(), holdingDown: false }]);
+    const timer = setTimeout(() => {
+      if (!holdingRef.current.has(id)) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }
+      timersRef.current.delete(id);
+    }, NOTIFICATION_DURATION);
+    timersRef.current.set(id, timer);
   }, []);
 
   const dismissNotification = useCallback((id: string) => {
+    const timer = timersRef.current.get(id);
+    if (timer) clearTimeout(timer);
+    timersRef.current.delete(id);
+    holdingRef.current.delete(id);
     setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  const holdStart = useCallback((id: string) => {
+    holdingRef.current.add(id);
+  }, []);
+
+  const holdEnd = useCallback((id: string) => {
+    holdingRef.current.delete(id);
+    // Start a new dismiss timer
+    const timer = setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      timersRef.current.delete(id);
+    }, 3000);
+    timersRef.current.set(id, timer);
   }, []);
 
   // Track approach-without-sale streaks
@@ -111,36 +137,36 @@ export function DefconSmartNotification({
     }
 
     if (newSale) {
-      const salesDiff = totalSalesCount - prevSalesRef.current;
-
       // TRIGGER 1 — First sale of the day
       if (prevSalesRef.current === 0 && totalSalesCount > 0 && !shownTriggersRef.current.has("first_sale")) {
         shownTriggersRef.current.add("first_sale");
         const avgStr = historicalAvg.toFixed(0);
         showNotification(
           "⚡",
-          `Primeira venda! Você abordou ${totalApproaches} pessoas. Seu ritmo histórico é 1 venda a cada ${avgStr} abordagens.`
+          `Primeira venda! ${totalApproaches} abordagens até aqui. Seu histórico: 1 venda a cada ${avgStr} abordagens. ${totalApproaches <= historicalAvg ? "Mais rápido que o normal. Mantém esse ritmo." : "Dentro do esperado. Segue firme."}`
         );
       }
 
       // Reset dry streak on sale
       approachesSinceLastSaleRef.current = 0;
 
-      // TRIGGER 2/3 — Better or worse than historical
+      // TRIGGER 2/3 — Performance comparison (every 2 sales after the 2nd)
       if (totalSalesCount >= 2) {
         const currentAvg = totalApproaches / totalSalesCount;
         const triggerKey = `perf_check_${totalSalesCount}`;
         if (!shownTriggersRef.current.has(triggerKey)) {
           shownTriggersRef.current.add(triggerKey);
+          const pctDiff = Math.abs(((currentAvg - historicalAvg) / historicalAvg) * 100).toFixed(0);
+          
           if (currentAvg < historicalAvg * 0.85) {
             showNotification(
               "🔥",
-              `Você tá convertendo melhor que de costume! Histórico: 1 a cada ${historicalAvg.toFixed(0)}. Hoje: 1 a cada ${currentAvg.toFixed(0)}. Repete isso.`
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens. ${(totalSalesCount / totalApproaches * 100).toFixed(0)}% de conversão. Histórico: 1 a cada ${historicalAvg.toFixed(0)}. Hoje: 1 a cada ${currentAvg.toFixed(0)}. Você tá ${pctDiff}% acima do normal. O que fez diferente? Repete.`
             );
           } else if (currentAvg > historicalAvg * 1.4) {
             showNotification(
               "🧠",
-              `Hoje tá em 1 venda a cada ${currentAvg.toFixed(0)} abordagens. Histórico: ${historicalAvg.toFixed(0)}. Isso é normal — cada "não" te aproxima do próximo "sim".`
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — 1 a cada ${currentAvg.toFixed(0)}. Histórico: ${historicalAvg.toFixed(0)}. Faltam ${Math.max(0, Math.round(historicalAvg - approachesSinceLastSaleRef.current))} abordagens pro próximo "sim" estatístico. Cada "não" te aproxima.`
             );
           }
         }
@@ -153,10 +179,10 @@ export function DefconSmartNotification({
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
         const expectedSales = Math.round(totalApproaches / historicalAvg);
-        const remaining = Math.max(0, Math.round(historicalAvg - (approachesSinceLastSaleRef.current)));
+        const currentConversion = totalSalesCount > 0 ? (totalSalesCount / totalApproaches * 100).toFixed(0) : "0";
         showNotification(
           "📊",
-          `${totalApproaches} abordagens. Se seu padrão se mantiver, você tem ~${expectedSales} vendas previstas. Não para.`
+          `${totalApproaches} abordagens, ${totalSalesCount} vendas (${currentConversion}%). Se seu padrão se mantiver, ~${expectedSales} vendas previstas. ${totalSalesCount >= expectedSales ? "Você tá acima da previsão. Segue." : `Faltam ~${Math.max(0, expectedSales - totalSalesCount)} vendas pra igualar sua média.`}`
         );
       }
     }
@@ -168,9 +194,10 @@ export function DefconSmartNotification({
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
         const maxDry = Math.max(longestDryStreak, dryCount);
+        const remaining = maxDry - dryCount;
         showNotification(
           "🧠",
-          `${dryCount} abordagens sem vender. Seu recorde de sequência sem venda foi ${maxDry} — e você vendeu logo depois. O próximo "sim" tá chegando.`
+          `${dryCount} abordagens sem vender. Seu recorde de sequência sem venda: ${maxDry}. ${remaining > 0 ? `Faltam ${remaining} pro recorde — e depois dele você sempre vendeu.` : "Você igualou o recorde. A próxima venda tá na esquina."}`
         );
       }
     }
@@ -184,19 +211,88 @@ export function DefconSmartNotification({
   return (
     <div className="fixed top-4 left-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none">
       {notifications.map((n) => (
-        <div
+        <NotificationCard
           key={n.id}
-          className="pointer-events-auto bg-neutral-900/95 backdrop-blur-sm border border-neutral-700/50 rounded-xl px-4 py-3 flex items-start gap-3 animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50"
-          onClick={() => dismissNotification(n.id)}
-          role="button"
-          tabIndex={0}
-        >
-          <span className="text-xl flex-shrink-0 mt-0.5">{n.icon}</span>
-          <p className="text-xs font-mono text-neutral-300 leading-relaxed line-clamp-3">
-            {n.message}
-          </p>
-        </div>
+          notification={n}
+          onDismiss={() => dismissNotification(n.id)}
+          onHoldStart={() => holdStart(n.id)}
+          onHoldEnd={() => holdEnd(n.id)}
+        />
       ))}
+    </div>
+  );
+}
+
+function NotificationCard({
+  notification,
+  onDismiss,
+  onHoldStart,
+  onHoldEnd,
+}: {
+  notification: SmartNotification;
+  onDismiss: () => void;
+  onHoldStart: () => void;
+  onHoldEnd: () => void;
+}) {
+  const [progress, setProgress] = useState(100);
+  const startTimeRef = useRef(Date.now());
+  const holdingRef = useRef(false);
+  const pausedAtRef = useRef<number | null>(null);
+  const elapsedBeforePauseRef = useRef(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (holdingRef.current) return;
+      
+      const elapsed = elapsedBeforePauseRef.current + (Date.now() - (pausedAtRef.current !== null ? Date.now() : startTimeRef.current));
+      const realElapsed = elapsedBeforePauseRef.current + (Date.now() - startTimeRef.current);
+      const pct = Math.max(0, 100 - (realElapsed / NOTIFICATION_DURATION) * 100);
+      setProgress(pct);
+    }, 50);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleTouchStart = () => {
+    holdingRef.current = true;
+    elapsedBeforePauseRef.current += Date.now() - startTimeRef.current;
+    onHoldStart();
+  };
+
+  const handleTouchEnd = () => {
+    holdingRef.current = false;
+    startTimeRef.current = Date.now();
+    onHoldEnd();
+  };
+
+  return (
+    <div
+      className="pointer-events-auto bg-neutral-900/95 backdrop-blur-sm border border-neutral-700/50 rounded-xl overflow-hidden animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onMouseDown={handleTouchStart}
+      onMouseUp={handleTouchEnd}
+      onMouseLeave={() => { if (holdingRef.current) handleTouchEnd(); }}
+    >
+      <div className="px-4 py-3 flex items-start gap-3">
+        <span className="text-xl flex-shrink-0 mt-0.5">{notification.icon}</span>
+        <p className="text-xs font-mono text-neutral-300 leading-relaxed flex-1">
+          {notification.message}
+        </p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+          className="flex-shrink-0 mt-0.5"
+        >
+          <X className="w-4 h-4 text-neutral-600 active:text-neutral-300" />
+        </button>
+      </div>
+      {/* Progress bar */}
+      <div className="h-0.5 w-full bg-neutral-800">
+        <div
+          className="h-full bg-neutral-500/50 transition-none"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }
