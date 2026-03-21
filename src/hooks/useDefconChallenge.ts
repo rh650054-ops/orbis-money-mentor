@@ -638,8 +638,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     // Save current block approaches
     await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
-    // Totals already accumulated in real-time
-    setTotalSalesCount(prev => prev + blockSalesCountRef.current);
+    // Totals already accumulated in real-time — no need to add again
 
     await supabase
       .from("challenge_sessions")
