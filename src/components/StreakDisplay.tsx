@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Flame, Trophy } from "lucide-react";
+import { Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStreak } from "@/hooks/useStreak";
+import VisionPointsCard from "@/components/VisionPointsCard";
 
 interface StreakDisplayProps {
   userId: string;
@@ -15,7 +16,6 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
   useEffect(() => {
     loadVisionPoints();
 
-    // Realtime subscription for vision points only
     const channel = supabase
       .channel('vision-points-changes')
       .on(
@@ -51,91 +51,54 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
     }
   };
 
-  // Determinar cor baseada na constância
+  const getFireSize = () => {
+    if (streak >= 30) return "text-4xl";
+    if (streak >= 7) return "text-3xl";
+    return "text-2xl";
+  };
+
   const getConstancyColor = () => {
-    if (streak >= 51) return "text-purple-500"; // 51-100 dias
-    if (streak >= 26) return "text-blue-500"; // 26-50 dias
-    if (streak >= 8) return "text-green-500"; // 8-25 dias
-    return "text-orange-500"; // 1-7 dias
+    if (streak >= 30) return "text-purple-500";
+    if (streak >= 7) return "text-green-500";
+    if (streak >= 3) return "text-orange-500";
+    return "text-muted-foreground";
   };
 
-  const getConstancyBorderColor = () => {
-    if (streak >= 51) return "border-purple-500/20";
-    if (streak >= 26) return "border-blue-500/20";
-    if (streak >= 8) return "border-green-500/20";
-    return "border-orange-500/20";
-  };
-
-  const getConstancyBgColor = () => {
-    if (streak >= 51) return "from-purple-500/10 to-primary/10";
-    if (streak >= 26) return "from-blue-500/10 to-primary/10";
-    if (streak >= 8) return "from-green-500/10 to-primary/10";
-    return "from-orange-500/10 to-primary/10";
-  };
-
-  const getConstancyMessage = () => {
-    if (streak >= 51) return "👑 Lendário!";
-    if (streak >= 26) return "💎 Diamante!";
-    if (streak >= 8) return "⚡ Avançado!";
-    if (streak >= 3) return "💪 Continue!";
-    return "⚡ Boa!";
+  const getMessage = () => {
+    if (streak === 0) return "Sua sequência foi reiniciada. Recomece hoje.";
+    if (streak <= 2) return "Bom começo! Continue.";
+    if (streak <= 6) return "Você está criando um hábito!";
+    if (streak <= 29) return "Semana completa! Imparável.";
+    return "Lenda. Você é um Visionário.";
   };
 
   return (
-    <div className="grid gap-2 md:grid-cols-2">
-      {/* Constância */}
-      <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-xs text-muted-foreground">Constância</p>
-              <div className="flex items-center gap-1.5">
-                <Flame className={`w-4 h-4 ${streak > 0 ? `${getConstancyColor()} animate-pulse` : "text-muted-foreground"}`} />
-                <span className={`text-2xl font-bold ${getConstancyColor()}`}>
-                  {streak}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {streak === 1 ? "dia" : "dias"}
-                </span>
+    <div className="space-y-3">
+      {/* Streak + VP side by side */}
+      <div className="grid gap-3 grid-cols-1">
+        {/* Streak Card */}
+        <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <span className={getFireSize()}>🔥</span>
+              <div className="flex-1">
+                <div className="flex items-center gap-1">
+                  <Flame className={`w-4 h-4 ${streak > 0 ? `${getConstancyColor()} animate-pulse` : "text-muted-foreground"}`} />
+                  <span className="text-xs text-muted-foreground">Constância</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className={`text-2xl font-bold ${getConstancyColor()}`}>{streak}</span>
+                  <span className="text-sm text-muted-foreground">dias seguidos</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">{getMessage()}</p>
               </div>
             </div>
-          </div>
-          {streak > 0 && (
-            <div className={`mt-2 p-1.5 bg-gradient-to-r ${getConstancyBgColor()} border ${getConstancyBorderColor()} rounded`}>
-              <p className={`text-xs font-semibold ${getConstancyColor()}`}>
-                {getConstancyMessage()}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* Vision Points */}
-      <Card className="card-gradient-border hover:shadow-glow-secondary transition-smooth">
-        <CardContent className="p-3">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-xs text-muted-foreground">Vision Points</p>
-              <div className="flex items-center gap-1.5">
-                <Trophy className="w-4 h-4 text-secondary animate-pulse" />
-                <span className="text-2xl font-bold gradient-text">
-                  {visionPoints}
-                </span>
-                <span className="text-sm text-muted-foreground">VP</span>
-              </div>
-            </div>
-          </div>
-          {visionPoints >= 100 && (
-            <div className="mt-2 p-1.5 bg-gradient-to-r from-secondary/10 to-primary/10 border border-secondary/20 rounded">
-              <p className="text-xs font-semibold text-secondary">
-                {visionPoints >= 500 ? "👑 Lendário!" : 
-                 visionPoints >= 200 ? "⭐ Avançado!" : 
-                 "🌟 Ascensão!"}
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {/* Vision Points Card with levels and modal */}
+        <VisionPointsCard points={visionPoints} />
+      </div>
     </div>
   );
 };
