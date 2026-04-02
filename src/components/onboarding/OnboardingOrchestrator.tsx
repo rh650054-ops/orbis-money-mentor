@@ -1,20 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import OnboardingSlides from "./OnboardingSlides";
-import GuidedTour from "./GuidedTour";
-import OnboardingCelebration from "./OnboardingCelebration";
+import MissionDay1Modal from "./MissionDay1Modal";
 
-const STORAGE_KEY = "orbis_onboarding_completed";
-const SLIDE_COUNT = 5;
+const STORAGE_KEY = "orbis_onboarding_completo";
+const OLD_STORAGE_KEY = "orbis_onboarding_completed";
 
-type Phase = "slides" | "tour" | "celebration" | "done";
+type Phase = "slides" | "mission" | "done";
 
 export function useOnboarding() {
   const [phase, setPhase] = useState<Phase>(() => {
-    return localStorage.getItem(STORAGE_KEY) === "true" ? "done" : "slides";
+    return (localStorage.getItem(STORAGE_KEY) === "true" || localStorage.getItem(OLD_STORAGE_KEY) === "true") ? "done" : "slides";
   });
 
   const markDone = () => {
     localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(OLD_STORAGE_KEY, "true");
     setPhase("done");
   };
 
@@ -33,24 +33,14 @@ export default function OnboardingOrchestrator({ phase, setPhase, markDone }: Pr
   if (phase === "slides") {
     return (
       <OnboardingSlides
-        onComplete={() => setPhase("tour")}
+        onComplete={() => setPhase("mission")}
         onSkip={markDone}
       />
     );
   }
 
-  if (phase === "tour") {
-    return (
-      <GuidedTour
-        slideCount={SLIDE_COUNT}
-        onComplete={() => setPhase("celebration")}
-        onSkip={markDone}
-      />
-    );
-  }
-
-  if (phase === "celebration") {
-    return <OnboardingCelebration onDone={markDone} />;
+  if (phase === "mission") {
+    return <MissionDay1Modal onDone={markDone} />;
   }
 
   return null;
