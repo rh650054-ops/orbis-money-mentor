@@ -385,6 +385,12 @@ export default function Index() {
       {/* Streak e Vision Points */}
       <StreakDisplay userId={user.id} />
 
+      {/* Routine Progress Card */}
+      <StreakCard userId={user.id} />
+
+      {/* Anti-procrastination nudge */}
+      <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
+
       {/* Filtros de Período - Colapsável */}
       <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
         <Card className="card-gradient-border">
