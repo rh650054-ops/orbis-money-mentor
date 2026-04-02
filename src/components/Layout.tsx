@@ -263,6 +263,11 @@ export default function Layout({ children }: LayoutProps) {
       {/* Onboarding */}
       <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />
 
+      {/* Morning Commit Modal */}
+      {user && phase === "done" && (
+        <MorningCommitModal userId={user.id} onDismiss={() => {}} />
+      )}
+
       {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
       {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
         <TrialExpiredModal 
