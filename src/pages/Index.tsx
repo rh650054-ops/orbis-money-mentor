@@ -11,6 +11,8 @@ import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StreakDisplay } from "@/components/StreakDisplay";
+import StreakCard from "@/components/StreakCard";
+import AntiProcrastination from "@/components/AntiProcrastination";
 import { WeeklyPlanning } from "@/components/WeeklyPlanning";
 import { formatCurrency } from "@/lib/utils";
 import { getBrazilDate } from "@/lib/dateUtils";
