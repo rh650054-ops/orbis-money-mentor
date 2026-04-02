@@ -13,6 +13,7 @@ import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
+import MorningCommitModal from "@/components/MorningCommitModal";
 import {
   DropdownMenu,
   DropdownMenuContent,
