@@ -6,6 +6,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Validate that origin is a proper URL (not '*' or arbitrary string)
+function isValidOrigin(origin: string): boolean {
+  try {
+    const url = new URL(origin);
+    return url.protocol === 'https:' || url.protocol === 'http:';
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -17,30 +27,38 @@ serve(async (req) => {
     const stateParam = url.searchParams.get('state');
     const error = url.searchParams.get('error');
 
-    // Parse state which now contains user_id and origin
+    // Parse state which contains user_id and origin
     let userId: string | null = null;
-    let allowedOrigin = '*';
+    let allowedOrigin: string | null = null;
     
     if (stateParam) {
       try {
         const stateObj = JSON.parse(atob(stateParam));
         userId = stateObj.user_id || null;
-        allowedOrigin = stateObj.origin || '*';
+        // Only accept valid URL origins, never '*'
+        if (stateObj.origin && isValidOrigin(stateObj.origin)) {
+          allowedOrigin = stateObj.origin;
+        }
       } catch {
         // Fallback for legacy plain user_id state
         userId = stateParam;
       }
     }
 
+    // Use Supabase URL origin as a safe fallback if no valid origin was provided
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const fallbackOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null;
+    const targetOrigin = allowedOrigin || fallbackOrigin || 'null';
+
     if (error || !code || !userId) {
-      console.error('OAuth error or missing params:', error, code, userId);
+      console.error('OAuth error or missing params:', error);
       const sanitizedError = (error || 'Missing parameters').replace(/'/g, "\\'").replace(/[<>]/g, '');
       return new Response(`
         <html>
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-calendar-error', error: '${sanitizedError}' }, '${allowedOrigin}');
+                window.opener.postMessage({ type: 'google-calendar-error', error: '${sanitizedError}' }, '${targetOrigin}');
               }
               window.close();
             </script>
@@ -51,9 +69,8 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = createClient(supabaseUrl!, supabaseServiceKey);
 
     const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
@@ -75,13 +92,13 @@ serve(async (req) => {
     const tokens = await tokenResponse.json();
 
     if (!tokens.access_token || !tokens.refresh_token) {
-      console.error('Failed to get tokens:', tokens);
+      console.error('Failed to get tokens');
       return new Response(`
         <html>
           <body>
             <script>
               if (window.opener) {
-                window.opener.postMessage({ type: 'google-calendar-error', error: 'Failed to get tokens' }, '${allowedOrigin}');
+                window.opener.postMessage({ type: 'google-calendar-error', error: 'Failed to get tokens' }, '${targetOrigin}');
               }
               window.close();
             </script>
@@ -139,7 +156,7 @@ serve(async (req) => {
         <body>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'google-calendar-success', email: '${safeEmail}' }, '${allowedOrigin}');
+              window.opener.postMessage({ type: 'google-calendar-success', email: '${safeEmail}' }, '${targetOrigin}');
             }
             window.close();
           </script>
@@ -150,8 +167,8 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in google-calendar-callback:', error);
-    // Use a safe fallback origin - restrict to known app domains
-    const fallbackOrigin = Deno.env.get('SUPABASE_URL') ? new URL(Deno.env.get('SUPABASE_URL')!).origin : 'null';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const fallbackOrigin = supabaseUrl ? new URL(supabaseUrl).origin : 'null';
     return new Response(`
       <html>
         <body>
