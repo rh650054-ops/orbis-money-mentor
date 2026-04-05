@@ -354,7 +354,7 @@ export default function Index() {
   }
   const motivation = getMotivationMessage();
   const dailyProfit = todaySales?.total_profit || 0;
-  return <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in">
+  return <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in overflow-x-hidden">
       {/* Hero Section */}
       <div className="text-center space-y-1 mb-6">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
