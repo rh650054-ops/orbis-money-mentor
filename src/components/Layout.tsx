@@ -122,6 +122,11 @@ export default function Layout({ children }: LayoutProps) {
     navigate("/auth");
   };
 
+  // If onboarding not complete, render ONLY the onboarding
+  if (!onboardingCompleto && phase !== "done") {
+    return <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />;
+  }
+
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
       {/* Header */}
