@@ -106,6 +106,7 @@ export default function Index() {
   // Check if should show card registration modal (only on first access for non-subscribers)
   useEffect(() => {
     if (!user) return;
+    if (!localStorage.getItem('orbis_onboarding_completo')) return;
     
     const checkCardModal = async () => {
       const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
