@@ -271,8 +271,6 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
-      {/* Onboarding */}
-      <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />
 
       {/* Morning Commit Modal */}
       {user && phase === "done" && (
