@@ -114,7 +114,7 @@ export const WeeklyPlanning = ({ userId, onEditPlanning }: WeeklyPlanningProps) 
   };
 
   return (
-    <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth">
+    <Card className="card-gradient-border hover:shadow-glow-primary transition-smooth w-full max-w-full overflow-hidden">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">

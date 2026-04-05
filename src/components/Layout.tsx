@@ -45,10 +45,12 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { phase, setPhase, markDone } = useOnboarding();
+  const onboardingCompleto = localStorage.getItem('orbis_onboarding_completo') === 'true';
 
   // Show trial reminder during trial period
   useEffect(() => {
     if (!user || trialLoading || subscriptionLoading) return;
+    if (!onboardingCompleto) return;
     if (subscriptionStatus.subscribed) return; // Don't show for subscribers
     
     const daysRemaining = trialStatus.daysRemaining ?? 0;
@@ -77,6 +79,9 @@ export default function Layout({ children }: LayoutProps) {
       return;
     }
 
+    // Block all redirects during onboarding
+    if (!onboardingCompleto) return;
+
     // Skip checks while loading
     if (loading || trialLoading || subscriptionLoading || !user) return;
 
@@ -94,7 +99,7 @@ export default function Layout({ children }: LayoutProps) {
     if (currentPath !== '/check-in' && !trialStatus.isExpired) {
       checkNeedsCheckIn();
     }
-  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate]);
+  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto]);
 
   const checkNeedsCheckIn = async () => {
     // Check-in desativado: não redirecionar mais para a tela de "Bom dia, Visionário"
@@ -102,6 +107,7 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const shouldShowTrialExpiredModal = 
+    onboardingCompleto &&
     !trialLoading && 
     trialStatus.isExpired && 
     trialStatus.planStatus === 'expired' &&
@@ -115,6 +121,11 @@ export default function Layout({ children }: LayoutProps) {
     });
     navigate("/auth");
   };
+
+  // If onboarding not complete, render ONLY the onboarding
+  if (!onboardingCompleto && phase !== "done") {
+    return <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />;
+  }
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -260,8 +271,6 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
-      {/* Onboarding */}
-      <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />
 
       {/* Morning Commit Modal */}
       {user && phase === "done" && (
