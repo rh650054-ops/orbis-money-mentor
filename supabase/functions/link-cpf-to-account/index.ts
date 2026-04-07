@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+    "authorization, x-client-info, apikey, content-type, x-admin-secret",
 };
 
 Deno.serve(async (req) => {
@@ -15,10 +15,10 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
-    
-    // Allow service role via apikey header (standard Supabase pattern)
-    const apiKey = req.headers.get("apikey") || "";
-    const isServiceRole = apiKey === serviceRoleKey;
+    const adminSecret = req.headers.get("x-admin-secret");
+
+    // Allow access via service role key in x-admin-secret header
+    const isServiceRole = adminSecret === serviceRoleKey;
 
     if (!isServiceRole) {
       if (!authHeader) {
