@@ -15,20 +15,19 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
-
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Not authenticated" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Check if using service role key directly
-    const token = authHeader.replace("Bearer ", "");
-    const isServiceRole = token === serviceRoleKey;
+    
+    // Allow service role via apikey header (standard Supabase pattern)
+    const apiKey = req.headers.get("apikey") || "";
+    const isServiceRole = apiKey === serviceRoleKey;
 
     if (!isServiceRole) {
-      // Verify caller is admin user
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: "Not authenticated" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       const anonClient = createClient(
         supabaseUrl,
         Deno.env.get("SUPABASE_ANON_KEY")!,
