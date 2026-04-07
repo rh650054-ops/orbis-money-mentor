@@ -12,8 +12,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify caller is admin
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
+
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Not authenticated" }), {
         status: 401,
@@ -21,49 +23,46 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Check if using service role key directly
+    const token = authHeader.replace("Bearer ", "");
+    const isServiceRole = token === serviceRoleKey;
 
-    // Verify caller with anon client
-    const anonClient = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      {
-        global: { headers: { Authorization: authHeader } },
+    if (!isServiceRole) {
+      // Verify caller is admin user
+      const anonClient = createClient(
+        supabaseUrl,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: { user: caller } } = await anonClient.auth.getUser();
+      if (!caller) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    );
-    const {
-      data: { user: caller },
-    } = await anonClient.auth.getUser();
-    if (!caller) {
-      return new Response(JSON.stringify({ error: "Invalid token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    // Check admin role
-    const adminClient = createClient(supabaseUrl, serviceRoleKey);
-    const { data: adminRole } = await adminClient
-      .from("admin_access")
-      .select("cpf")
-      .limit(1);
+      const adminClient = createClient(supabaseUrl, serviceRoleKey);
+      const { data: adminRole } = await adminClient
+        .from("admin_access")
+        .select("cpf")
+        .limit(100);
+      const { data: callerProfile } = await adminClient
+        .from("profiles")
+        .select("cpf")
+        .eq("user_id", caller.id)
+        .single();
 
-    const { data: callerProfile } = await adminClient
-      .from("profiles")
-      .select("cpf")
-      .eq("user_id", caller.id)
-      .single();
+      const isAdmin =
+        callerProfile?.cpf &&
+        adminRole?.some((a: { cpf: string }) => a.cpf === callerProfile.cpf);
 
-    const isAdmin =
-      callerProfile?.cpf &&
-      adminRole?.some((a: { cpf: string }) => a.cpf === callerProfile.cpf);
-
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Admin access required" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Admin access required" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const { email, cpf } = await req.json();
@@ -71,10 +70,7 @@ Deno.serve(async (req) => {
     if (!email || !cpf) {
       return new Response(
         JSON.stringify({ error: "email and cpf are required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -82,14 +78,12 @@ Deno.serve(async (req) => {
     if (cleanCpf.length !== 11) {
       return new Response(
         JSON.stringify({ error: "CPF must have 11 digits" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const internalEmail = `${cleanCpf}@orbis.internal`;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
     // Find user by email in profiles
     const { data: profile, error: profileError } = await adminClient
@@ -100,13 +94,8 @@ Deno.serve(async (req) => {
 
     if (profileError || !profile) {
       return new Response(
-        JSON.stringify({
-          error: `Profile not found for email: ${email}`,
-        }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: `Profile not found for email: ${email}` }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -120,32 +109,8 @@ Deno.serve(async (req) => {
 
     if (existingCpf) {
       return new Response(
-        JSON.stringify({
-          error: "This CPF is already linked to another account",
-        }),
-        {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Check if internal email is already taken by another auth user
-    const { data: existingAuth } =
-      await adminClient.auth.admin.listUsers();
-    const conflictUser = existingAuth?.users?.find(
-      (u: { email?: string; id: string }) =>
-        u.email === internalEmail && u.id !== profile.user_id
-    );
-    if (conflictUser) {
-      return new Response(
-        JSON.stringify({
-          error: `Auth account ${internalEmail} already exists for a different user`,
-        }),
-        {
-          status: 409,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "This CPF is already linked to another account" }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -158,13 +123,8 @@ Deno.serve(async (req) => {
 
     if (authUpdateError) {
       return new Response(
-        JSON.stringify({
-          error: `Failed to update auth email: ${authUpdateError.message}`,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: `Failed to update auth email: ${authUpdateError.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -176,13 +136,8 @@ Deno.serve(async (req) => {
 
     if (profileUpdateError) {
       return new Response(
-        JSON.stringify({
-          error: `Failed to update profile: ${profileUpdateError.message}`,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: `Failed to update profile: ${profileUpdateError.message}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -193,18 +148,12 @@ Deno.serve(async (req) => {
         user_id: profile.user_id,
         new_auth_email: internalEmail,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: err.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
