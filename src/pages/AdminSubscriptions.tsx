@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2 } from "lucide-react";
 
 interface SubscriptionUser {
   id: string;
@@ -31,6 +31,9 @@ export default function AdminSubscriptions() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [linkEmail, setLinkEmail] = useState("");
+  const [linkCpf, setLinkCpf] = useState("");
+  const [isLinking, setIsLinking] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -185,6 +188,81 @@ export default function AdminSubscriptions() {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Link CPF */}
+      <Card className="glass border-primary/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="w-5 h-5 text-primary" />
+            Vincular CPF a Conta
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Use quando um usuário se cadastrou com e-mail mas precisa vincular o CPF para login.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>E-mail da conta</Label>
+              <Input
+                placeholder="email@exemplo.com"
+                value={linkEmail}
+                onChange={(e) => setLinkEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>CPF (11 dígitos)</Label>
+              <Input
+                placeholder="12345678900"
+                value={linkCpf}
+                onChange={(e) => setLinkCpf(e.target.value.replace(/\D/g, ""))}
+                maxLength={11}
+                inputMode="numeric"
+              />
+            </div>
+          </div>
+          <Button
+            onClick={async () => {
+              if (!linkEmail || linkCpf.length !== 11) {
+                toast({ title: "Preencha e-mail e CPF (11 dígitos)", variant: "destructive" });
+                return;
+              }
+              setIsLinking(true);
+              try {
+                const { data, error } = await supabase.functions.invoke("link-cpf-to-account", {
+                  body: { email: linkEmail.trim(), cpf: linkCpf },
+                });
+                if (error) throw error;
+                if (data?.error) throw new Error(data.error);
+                toast({
+                  title: "✅ CPF vinculado com sucesso!",
+                  description: data?.message || "Usuário pode fazer login com CPF agora.",
+                });
+                setLinkEmail("");
+                setLinkCpf("");
+                loadUsers();
+              } catch (err: any) {
+                toast({
+                  title: "Erro ao vincular CPF",
+                  description: err.message || "Tente novamente.",
+                  variant: "destructive",
+                });
+              } finally {
+                setIsLinking(false);
+              }
+            }}
+            disabled={isLinking}
+            className="w-full"
+          >
+            {isLinking ? (
+              <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Link2 className="w-4 h-4 mr-2" />
+            )}
+            Vincular CPF
+          </Button>
         </CardContent>
       </Card>
 
