@@ -61,7 +61,7 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[9998] bg-black/95 flex items-center justify-center p-6">
+    <div className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center p-6" style={{ pointerEvents: 'auto' }}>
       <div className="max-w-sm w-full text-center space-y-5 animate-fade-in">
         <span className="text-6xl block">🔥</span>
         <p className="text-lg text-white leading-relaxed">
