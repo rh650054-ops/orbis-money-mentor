@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
@@ -7,6 +8,7 @@ interface Props {
 }
 
 export default function MorningCommitModal({ userId, onDismiss }: Props) {
+  const navigate = useNavigate();
   const [show, setShow] = useState(false);
   const [configuredTime, setConfiguredTime] = useState("");
   const nome = localStorage.getItem("orbis_nome") || "Vendedor";
@@ -49,6 +51,7 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
     localStorage.setItem("orbis_morning_commit_" + today, "true");
     setShow(false);
     onDismiss();
+    navigate("/daily-goals");
   };
 
   const handleSkip = () => {
