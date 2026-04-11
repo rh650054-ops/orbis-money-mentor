@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useChatAI } from "@/hooks/useChatAI";
 import { cn } from "@/lib/utils";
+import { useOfflineGuard } from "@/hooks/useOfflineGuard";
 
 export default function Chat() {
   const [inputMessage, setInputMessage] = useState("");
@@ -24,8 +25,11 @@ export default function Chat() {
     }
   }, [messages]);
 
+  const { requireOnline } = useOfflineGuard();
+
   const handleSendMessage = () => {
     if (!inputMessage.trim() || isLoading) return;
+    if (!requireOnline("A análise por IA")) return;
     sendMessage(inputMessage);
     setInputMessage("");
   };
