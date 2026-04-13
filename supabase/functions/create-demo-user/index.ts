@@ -18,7 +18,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('=== Iniciando criação de conta demo ===');
+    console.log('=== Iniciando criação/conversão de conta demo ===');
     
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -31,12 +31,8 @@ serve(async (req) => {
       }
     );
 
-    console.log('Supabase client criado');
-
-    // Verificar se o usuário que está chamando é admin
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      console.error('Autorização não fornecida');
       throw new Error('Autorização necessária');
     }
 
@@ -44,23 +40,12 @@ serve(async (req) => {
     const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
 
     if (authError || !requestingUser) {
-      console.error('Erro de autenticação:', authError);
       throw new Error('Usuário não autenticado');
     }
 
-    console.log('Usuário autenticado:', requestingUser.id);
-
-    // Verificar se o usuário é admin usando a função has_role
-    const { data: isAdmin, error: roleError } = await supabaseAdmin
-      .rpc('has_role', {
-        _user_id: requestingUser.id,
-        _role: 'admin'
-      });
-
-    if (roleError) {
-      console.error('Erro ao verificar role:', roleError);
-      throw new Error('Erro ao verificar permissões');
-    }
+    // Verificar se o usuário é admin
+    const { data: isAdmin } = await supabaseAdmin
+      .rpc('has_role', { _user_id: requestingUser.id, _role: 'admin' });
 
     if (!isAdmin) {
       throw new Error('Acesso negado. Apenas administradores podem criar contas demo.');
@@ -72,38 +57,42 @@ serve(async (req) => {
       throw new Error('Email é obrigatório');
     }
 
-    // Gerar senha aleatória
-    const randomPassword = crypto.randomUUID().slice(0, 12) + 'Aa1!';
+    // Verificar se já existe um usuário com esse e-mail
+    const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+    const existingUser = existingUsers?.users?.find(u => u.email === email);
 
-    console.log('Criando usuário demo:', email);
+    let userId: string;
+    let password: string | null = null;
 
-    // Criar usuário
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: randomPassword,
-      email_confirm: true,
-      user_metadata: {
-        nickname: nickname || email.split('@')[0],
-      }
-    });
+    if (existingUser) {
+      console.log('Usuário já existe, convertendo para demo:', existingUser.id);
+      userId = existingUser.id;
+    } else {
+      // Criar novo usuário
+      password = crypto.randomUUID().slice(0, 12) + 'Aa1!';
+      console.log('Criando novo usuário demo:', email);
 
-    if (createError) {
-      console.error('Erro ao criar usuário:', createError);
-      throw createError;
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          nickname: nickname || email.split('@')[0],
+        }
+      });
+
+      if (createError) throw createError;
+      userId = newUser.user.id;
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
-    console.log('Usuário criado, atualizando perfil...');
-
-    // Aguardar um pouco para garantir que o perfil foi criado pelo trigger
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Atualizar o perfil com os campos demo
+    // Atualizar perfil para demo
     const { error: updateError } = await supabaseAdmin
       .from('profiles')
       .update({
         is_demo: true,
         demo_created_by: requestingUser.id,
-        demo_note: note || 'Conta de demonstração criada manualmente',
+        demo_note: note || 'Conta de demonstração',
         billing_exempt: true,
         plan_status: 'active',
         plan_type: 'demo',
@@ -112,24 +101,24 @@ serve(async (req) => {
         is_trial_active: false,
         nickname: nickname || email.split('@')[0]
       })
-      .eq('user_id', newUser.user.id);
+      .eq('user_id', userId);
 
-    if (updateError) {
-      console.error('Erro ao atualizar perfil:', updateError);
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
-    console.log('Conta demo criada com sucesso!');
+    console.log('Conta demo configurada com sucesso!');
 
     return new Response(
       JSON.stringify({
         success: true,
         user: {
-          id: newUser.user.id,
-          email: newUser.user.email,
-          password: randomPassword
+          id: userId,
+          email,
+          password: password || '(conta existente — senha não alterada)',
+          existing: !!existingUser
         },
-        message: 'Conta demo criada com sucesso!'
+        message: existingUser 
+          ? 'Conta existente convertida para demo com sucesso!' 
+          : 'Conta demo criada com sucesso!'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -138,13 +127,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Erro ao criar conta demo:', error);
+    console.error('Erro ao criar/converter conta demo:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
     return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage
-      }),
+      JSON.stringify({ success: false, error: errorMessage }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 400,
