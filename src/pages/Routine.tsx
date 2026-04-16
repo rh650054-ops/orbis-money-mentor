@@ -10,6 +10,7 @@ import { Clock, Sunrise, Briefcase, Utensils, Sunset, Moon, Settings, ListChecks
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { getBrazilDate } from "@/lib/dateUtils";
 import RoutineOnboardingStep1 from "@/components/routine/RoutineOnboardingStep1";
 import RoutineOnboardingStep2, { RoutineItem } from "@/components/routine/RoutineOnboardingStep2";
 import RoutineDailyChecklist from "@/components/routine/RoutineDailyChecklist";
@@ -107,7 +108,7 @@ export default function Routine() {
       }
 
       // Clear today's checklist so it regenerates
-      const today = new Date().toISOString().split("T")[0];
+      const today = getBrazilDate();
       await supabase
         .from("daily_checklist")
         .delete()
@@ -232,7 +233,7 @@ function RoutineConfigPanel({ userId, onBack, onResetOnboarding }: { userId: str
       toast({ title: "Erro ao salvar", variant: "destructive" });
     } else {
       // Clear today's checklist to regenerate
-      const today = new Date().toISOString().split("T")[0];
+      const today = getBrazilDate();
       await supabase
         .from("daily_checklist")
         .delete()

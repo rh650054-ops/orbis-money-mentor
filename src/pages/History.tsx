@@ -95,7 +95,8 @@ export default function History() {
     const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     
     const weekChartData: WeekData[] = last7Days.map((sale) => {
-      const date = new Date(sale.date + 'T00:00:00');
+      // Adiciona meio-dia para evitar que a data mude por diferença de timezone
+      const date = new Date(sale.date + 'T12:00:00');
       return {
         name: weekDays[date.getDay()],
         value: sale.total_profit,

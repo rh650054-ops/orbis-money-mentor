@@ -18,7 +18,7 @@ export const useDailyGoalPlan = (userId: string | undefined) => {
         .select("id")
         .eq("user_id", userId)
         .eq("date", today)
-        .single();
+        .maybeSingle();
 
       setHasPlanToday(!!data);
       setCurrentPlanId(data?.id || null);

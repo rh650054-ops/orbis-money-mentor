@@ -53,7 +53,7 @@ export function useSubscription(userId: string | undefined) {
 
       // Check trial
       if (profile.is_trial_active && profile.trial_end) {
-        const trialEnd = new Date(profile.trial_end + "T23:59:59");
+        const trialEnd = new Date(profile.trial_end + "T23:59:59-03:00");
         if (new Date() <= trialEnd) {
           setStatus({ subscribed: true, status: "trial", graceUntil: profile.trial_end, subscription_id: null });
           setLoading(false);

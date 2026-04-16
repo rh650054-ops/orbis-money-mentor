@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 export const useVisionPoints = (userId: string | undefined) => {
   const [points, setPoints] = useState(0);
+  const pointsRef = useRef(0);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -14,18 +15,19 @@ export const useVisionPoints = (userId: string | undefined) => {
         .from("profiles")
         .select("vision_points")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (data) {
+        pointsRef.current = data.vision_points || 0;
         setPoints(data.vision_points || 0);
       }
     };
 
     loadPoints();
 
-    // Realtime subscription
+    // Realtime subscription — usa ref para evitar stale closure
     const channel = supabase
-      .channel('vision-points-changes')
+      .channel(`vision-points-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -37,7 +39,8 @@ export const useVisionPoints = (userId: string | undefined) => {
         (payload: any) => {
           if (payload.new.vision_points !== undefined) {
             const newPoints = payload.new.vision_points;
-            const diff = newPoints - points;
+            const diff = newPoints - pointsRef.current;
+            pointsRef.current = newPoints;
             
             if (diff > 0) {
               setPoints(newPoints);
@@ -46,6 +49,8 @@ export const useVisionPoints = (userId: string | undefined) => {
                 description: `+${diff} pontos! Total: ${newPoints} VP`,
                 duration: 3000,
               });
+            } else {
+              setPoints(newPoints);
             }
           }
         }

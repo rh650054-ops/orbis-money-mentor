@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import NumericKeyboard from "@/components/NumericKeyboard";
+import { getBrazilDate } from "@/lib/dateUtils";
 
 export default function CheckIn() {
   const navigate = useNavigate();
@@ -43,7 +44,7 @@ export default function CheckIn() {
       .eq("user_id", user.id)
       .single();
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBrazilDate();
     if (profile?.last_check_in_date === today) {
       navigate("/");
     }
@@ -66,7 +67,7 @@ export default function CheckIn() {
     setIsLoading(true);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = getBrazilDate();
       
       // Buscar perfil atual
       const { data: profile } = await supabase

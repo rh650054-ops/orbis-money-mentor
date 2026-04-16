@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getBrazilDate } from "@/lib/dateUtils";
 
 export interface ChallengeLevel {
   nivel: string;
@@ -38,10 +39,7 @@ export const useMonthlyChallenge = (userId: string | undefined) => {
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
-  const getCurrentMonthRef = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  };
+  const getCurrentMonthRef = () => getBrazilDate().substring(0, 7);
 
   const calculateLevel = (diasTrabalhados: number): ChallengeLevel => {
     let currentLevel = CHALLENGE_LEVELS[0];

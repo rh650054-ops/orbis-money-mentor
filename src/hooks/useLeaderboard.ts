@@ -24,8 +24,8 @@ export function useLeaderboard(userId: string | undefined) {
   const [hasParticipated, setHasParticipated] = useState(false);
 
   const getCurrentMonth = () => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Usa timezone Brasil para garantir mês correto
+    return getBrazilDate().substring(0, 7);
   };
 
   const loadLeaderboard = useCallback(async () => {

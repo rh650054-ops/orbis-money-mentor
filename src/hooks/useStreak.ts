@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
@@ -6,15 +6,16 @@ import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
 export const useStreak = (userId: string | undefined) => {
   const [streak, setStreak] = useState(0);
   const { toast } = useToast();
+  const calculatingRef = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
     
     calculateStreak();
 
-    // Realtime subscription
+    // Realtime subscription — usa nome único por usuário para evitar conflitos
     const channel = supabase
-      .channel('streak-updates')
+      .channel(`streak-updates-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -36,15 +37,19 @@ export const useStreak = (userId: string | undefined) => {
 
   const calculateStreak = async () => {
     if (!userId) return;
+    // Previne execuções concorrentes
+    if (calculatingRef.current) return;
+    calculatingRef.current = true;
 
+    try {
     // Get profile with working days configuration
     const { data: profile } = await supabase
       .from("profiles")
       .select("working_days, missed_days_this_week, week_start_date, freeze_used_this_week")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
-    if (!profile) return;
+    if (!profile) { return; }
 
     const workingDays = profile.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
 
@@ -194,6 +199,11 @@ export const useStreak = (userId: string | undefined) => {
         description: `Você está em ${currentStreak} dias consecutivos!`,
       });
     }
+  } catch (error) {
+    console.error("calculateStreak error:", error);
+  } finally {
+    calculatingRef.current = false;
+  }
   };
 
   const updateStreakInProfile = async (newStreak: number) => {

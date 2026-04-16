@@ -34,7 +34,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     
     // Listen for work_sessions updates
     const sessionChannel = supabase
-      .channel('session-changes-popup')
+      .channel(`session-changes-popup-${userId}`)
       .on(
         'postgres_changes',
         {

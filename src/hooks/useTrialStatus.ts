@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { getBrazilDate } from "@/lib/dateUtils";
 
 interface TrialStatus {
   isTrialActive: boolean;
@@ -57,10 +58,13 @@ export function useTrialStatus(userId: string | undefined) {
       // Check if trial expired for non-demo users
       await supabase.rpc('check_trial_expired', { user_uuid: userId });
 
-      const trialEndDate = profile.trial_end ? new Date(profile.trial_end) : null;
-      const today = new Date();
-      const daysRemaining = trialEndDate 
-        ? Math.ceil((trialEndDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      // Compara datas no fuso de Brasília para evitar leituras erradas perto da meia-noite
+      const todayBrazil = getBrazilDate();
+      const trialEndDate = profile.trial_end
+        ? new Date(profile.trial_end + "T23:59:59-03:00")
+        : null;
+      const daysRemaining = trialEndDate
+        ? Math.ceil((trialEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0;
 
       const isExpired = profile.plan_status === 'expired';

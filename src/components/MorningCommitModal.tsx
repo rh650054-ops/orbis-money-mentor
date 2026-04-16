@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrazilDate } from "@/lib/dateUtils";
 
 interface Props {
   userId: string;
@@ -16,7 +17,7 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
   useEffect(() => {
     const check = async () => {
       // Check if already dismissed today
-      const today = new Date().toISOString().split("T")[0];
+      const today = getBrazilDate();
       if (localStorage.getItem("orbis_morning_commit_" + today)) return;
 
       // Get routine wake/work time
@@ -47,7 +48,7 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
   if (!show) return null;
 
   const handleCommit = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getBrazilDate();
     localStorage.setItem("orbis_morning_commit_" + today, "true");
     setShow(false);
     onDismiss();
@@ -55,7 +56,7 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
   };
 
   const handleSkip = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = getBrazilDate();
     localStorage.setItem("orbis_morning_commit_" + today, "true");
     setShow(false);
   };
