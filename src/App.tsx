@@ -23,6 +23,7 @@ import CheckIn from "./pages/CheckIn";
 import DailyGoals from "./pages/DailyGoals";
 import Ranking from "./pages/Ranking";
 import DefconChallenge from "./pages/DefconChallenge";
+import BankConnections from "./pages/BankConnections";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
                 <Route path="/daily-goals" element={<DailyGoals />} />
                 <Route path="/ranking" element={<Ranking />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/bank-connections" element={<BankConnections />} />
                 <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                 <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, TrendingUp, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText } from "lucide-react";
+import { Home, TrendingUp, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText, Building2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -177,6 +177,10 @@ export default function Layout({ children }: LayoutProps) {
                     <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/history"); }}>
                       <FileText className="w-4 h-4 mr-2" />
                       Histórico
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/bank-connections"); }}>
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Contas Bancárias
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
