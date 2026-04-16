@@ -126,6 +126,26 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     setIsLoading(true);
 
     try {
+      // Bloqueia registro se o dia de trabalho ainda não foi iniciado
+      const today = getBrazilDate();
+      const { data: session } = await supabase
+        .from("work_sessions")
+        .select("status")
+        .eq("user_id", userId)
+        .eq("planning_date", today)
+        .maybeSingle();
+
+      const sessionStarted = session?.status === "active" || session?.status === "finished";
+      if (!sessionStarted) {
+        toast({
+          title: "⚠️ Inicie o seu dia primeiro!",
+          description: "Clique em 'Começar o Dia' na tela principal antes de registrar vendas.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Validate form data
       const validation = salesSchema.safeParse(formData);
       if (!validation.success) {

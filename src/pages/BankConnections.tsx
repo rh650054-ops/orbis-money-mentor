@@ -188,6 +188,25 @@ export default function BankConnections() {
 
   const handleConfirmSale = async (sale: AutoDetectedSale) => {
     if (!user) return;
+
+    // Bloqueia confirmação se o dia de trabalho não foi iniciado para a data da venda
+    const { data: session } = await supabase
+      .from("work_sessions")
+      .select("status")
+      .eq("user_id", user.id)
+      .eq("planning_date", sale.transaction_date)
+      .maybeSingle();
+
+    const sessionStarted = session?.status === "active" || session?.status === "finished";
+    if (!sessionStarted) {
+      toast({
+        title: "⚠️ Dia de trabalho não iniciado!",
+        description: `Para confirmar esta venda, inicie o dia de trabalho correspondente à data ${sale.transaction_date} primeiro.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     setConfirming(sale.id);
 
     try {
