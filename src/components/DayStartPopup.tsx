@@ -14,6 +14,10 @@ interface DayStartPopupProps {
 
 type DayStatus = 'not_started' | 'in_progress' | 'finished';
 
+// Chave de localStorage para controlar se o popup já foi visto hoje
+const getSeenKey = (userId: string, today: string) =>
+  `orbis_popup_seen_${userId}_${today}`;
+
 export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopupProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,9 +30,17 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   const [percentageAchieved, setPercentageAchieved] = useState(0);
 
   useEffect(() => {
+    const today = getBrazilDate();
+    const seenKey = getSeenKey(userId, today);
+
+    // Só abre o popup se ainda não foi dispensado hoje
+    const alreadySeen = localStorage.getItem(seenKey) === 'true';
+
     const init = async () => {
       await loadGoalsAndStatus();
-      setIsOpen(true);
+      if (!alreadySeen) {
+        setIsOpen(true);
+      }
     };
     init();
     
@@ -109,16 +121,32 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     setIsLoading(false);
   };
 
-  const handleStartDay = () => {
+  const markSeenToday = () => {
+    const today = getBrazilDate();
+    localStorage.setItem(getSeenKey(userId, today), 'true');
+  };
+
+  const handleStartDay = async () => {
+    const today = getBrazilDate();
+    // Cria ou atualiza a sessão de trabalho como 'active'
+    await supabase
+      .from("work_sessions")
+      .upsert(
+        { user_id: userId, planning_date: today, status: "active" },
+        { onConflict: "user_id,planning_date" }
+      );
+    markSeenToday();
     setIsOpen(false);
     onStart();
   };
 
   const handleClose = () => {
+    markSeenToday();
     setIsOpen(false);
   };
 
   const handleViewReport = () => {
+    markSeenToday();
     setIsOpen(false);
     // Navigate to ritmo page to see report
     window.location.href = '/daily-goals';
