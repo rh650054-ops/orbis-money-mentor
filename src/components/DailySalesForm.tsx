@@ -171,7 +171,6 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         notes: formData.notes.trim()
       };
 
-      const today = getBrazilDate();
       const profit = parseFloat(formData.totalProfit);
 
       // CORRIGIDO: Verificar se já existe registro para hoje e somar valores

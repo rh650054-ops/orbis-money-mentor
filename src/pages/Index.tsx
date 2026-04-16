@@ -368,9 +368,6 @@ export default function Index() {
             Domine seu futuro.
           </span>
         </h2>
-        <p className="text-muted-foreground text-sm md:text-base mt-4">
-          Controle total das suas finanças com insights inteligentes e metas personalizadas
-        </p>
       </div>
 
       {/* Mensagem de Descanso */}
@@ -379,9 +376,6 @@ export default function Index() {
           <p className="text-sm text-muted-foreground">🌴 Hoje é seu dia de descanso.</p>
         </div>
       )}
-
-      {/* Planejamento Semanal */}
-      <WeeklyPlanning userId={user.id} onEditPlanning={() => setShowEditPlanning(true)} />
 
       {/* Streak e Vision Points */}
       <StreakDisplay userId={user.id} />
