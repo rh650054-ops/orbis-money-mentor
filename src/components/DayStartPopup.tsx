@@ -132,7 +132,14 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     await supabase
       .from("work_sessions")
       .upsert(
-        { user_id: userId, planning_date: today, status: "active" },
+        {
+          user_id: userId,
+          planning_date: today,
+          status: "active",
+          start_timestamp: new Date().toISOString(),
+          meta_dia: 0,
+          ritmo_ideal_inicial: 0,
+        },
         { onConflict: "user_id,planning_date" }
       );
     markSeenToday();
