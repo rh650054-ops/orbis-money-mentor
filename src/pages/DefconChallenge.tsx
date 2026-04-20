@@ -134,7 +134,7 @@ export default function DefconChallenge() {
                 totalSold={defcon.totalSold}
                 dailyGoal={defcon.dailyGoal}
                 userId={user.id}
-                onDismiss={() => {}}
+                onDismiss={() => navigate('/daily-goals')}
               />
             </div>
           )}

@@ -28,7 +28,7 @@ export default function Transactions() {
       </div>
 
       {/* Formulário de Registro de Vendas */}
-      <DailySalesForm userId={user.id} onSaved={() => {}} />
+      <DailySalesForm userId={user.id} onSaved={() => navigate('/')} />
     </div>
   );
 }

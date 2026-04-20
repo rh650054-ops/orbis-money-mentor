@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 const profileSchema = z.object({
   nickname: z.string()
@@ -28,6 +29,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
+  const { whitelisted: isAdmin } = useAdminAccess(user?.id);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState({
@@ -460,7 +462,8 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      {/* Admin Panel Access Card - Visível apenas para admins/primeiros usuários */}
+      {/* Admin Panel Access Card - apenas para admins */}
+      {isAdmin && (
       <Card className="glass border-primary/30 bg-gradient-to-r from-primary/5 to-secondary/5">
         <CardHeader>
           <div className="flex items-center gap-3">
@@ -490,6 +493,7 @@ export default function Profile() {
           </Button>
         </CardContent>
       </Card>
+      )}
 
       {/* Subscription Card - Apenas para não assinantes */}
       {profile.plan_status !== 'active' && !profile.billing_exempt && (

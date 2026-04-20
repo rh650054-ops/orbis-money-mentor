@@ -183,6 +183,7 @@ export default function Insights() {
               <Card
                 key={insight.id}
                 className={`glass border ${colors.border} hover:scale-[1.02] transition-smooth cursor-pointer`}
+                onClick={() => navigate(`/chat?insight=${encodeURIComponent(insight.title)}`)}
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">

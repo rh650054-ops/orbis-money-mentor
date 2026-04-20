@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Target, Clock, TrendingUp, Zap, FileText } from "lucide-react";
@@ -19,6 +20,7 @@ const getSeenKey = (userId: string, today: string) =>
   `orbis_popup_seen_${userId}_${today}`;
 
 export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopupProps) => {
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [dailyGoal, setDailyGoal] = useState(0);
@@ -155,8 +157,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   const handleViewReport = () => {
     markSeenToday();
     setIsOpen(false);
-    // Navigate to ritmo page to see report
-    window.location.href = '/daily-goals';
+    navigate('/daily-goals');
   };
 
   // Title based on day status

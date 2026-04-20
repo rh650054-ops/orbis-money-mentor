@@ -709,7 +709,7 @@ export default function Index() {
       {user && !isRestDay && !isMonthlyGoalRequired && (
         <DayStartPopup
           userId={user.id}
-          onStart={() => {}}
+          onStart={() => navigate('/daily-goals')}
           onEditPlanning={() => setShowEditPlanning(true)}
         />
       )}
