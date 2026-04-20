@@ -91,43 +91,42 @@ export default function Auth() {
           throw new Error("Nome deve ter no mínimo 2 caracteres.");
         }
 
-        // Use edge function to create user with email already confirmed
-        // (bypasses email confirmation requirement for @orbis.internal addresses)
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-        const res = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": anonKey,
-          },
-          body: JSON.stringify({
-            cpf: cleanedCpf,
-            password,
-            name,
-            phone: phone || null,
-            email: email || null,
-          }),
-        });
-
-        const result = await res.json();
-        if (!res.ok || result.error) {
-          if (result.error?.includes("already") || res.status === 409) {
-            throw new Error("Este CPF já possui uma conta no Orbis. Faça login.");
-          }
-          throw new Error(result.error || "Erro ao criar conta. Tente novamente.");
-        }
-
-        // Auto-login after successful registration
         const internalEmail = cpfToInternalEmail(cleanedCpf);
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        const trialStart = new Date().toISOString().split('T')[0];
+        const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: internalEmail,
           password,
+          options: {
+            data: {
+              nickname: name,
+              cpf: cleanedCpf,
+            },
+          },
         });
 
-        if (signInError) {
-          throw new Error("Conta criada! Agora faça login com seu CPF e senha.");
+        if (signUpError) {
+          if (signUpError.message.includes("already registered") || signUpError.message.includes("User already")) {
+            throw new Error("Este CPF já possui uma conta no Orbis. Faça login.");
+          }
+          throw signUpError;
+        }
+
+        // Update profile with CPF, phone, email, and trial info
+        if (signUpData?.user) {
+          await supabase.from("profiles").upsert({
+            user_id: signUpData.user.id,
+            nickname: name,
+            cpf: cleanedCpf,
+            phone: phone || null,
+            email: email || null,
+            trial_start: trialStart,
+            trial_end: trialEnd,
+            is_trial_active: true,
+            plan_status: "trial",
+            plan_type: "trial",
+          }, { onConflict: "user_id" });
         }
 
         toast({
