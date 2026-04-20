@@ -46,26 +46,12 @@ export default function Auth() {
       }
       return cpfToInternalEmail(cleanedCpf);
     } else {
-      // Email login: look up the user's internal email via profiles table
+      // Email login: sign in directly with the provided email
       const trimmed = loginEmail.trim().toLowerCase();
       if (!trimmed || !trimmed.includes("@")) {
         throw new Error("Informe um e-mail válido.");
       }
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("cpf")
-        .eq("email", trimmed)
-        .maybeSingle();
-
-      if (error) throw new Error("Erro ao buscar e-mail. Tente novamente.");
-      if (!data) {
-        throw new Error("E-mail não encontrado. Verifique ou faça login com CPF.");
-      }
-      // If user has no CPF, login directly with their email
-      if (!data.cpf) {
-        return trimmed;
-      }
-      return cpfToInternalEmail(data.cpf);
+      return trimmed;
     }
   };
 

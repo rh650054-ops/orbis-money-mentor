@@ -89,8 +89,8 @@ export default function Layout({ children }: LayoutProps) {
     const currentPath = location.pathname;
     const allowedPaths = ['/payment', '/benefits', '/auth', '/check-in'];
     
-    // Fast redirect for expired trial WITHOUT active subscription
-    const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed;
+    // Fast redirect for expired trial WITHOUT active subscription (admins are exempt)
+    const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed && !isAdmin;
     if (needsSubscription && !allowedPaths.includes(currentPath)) {
       navigate("/payment", { replace: true });
       return;
@@ -112,6 +112,7 @@ export default function Layout({ children }: LayoutProps) {
     !trialLoading && 
     trialStatus.isExpired && 
     trialStatus.planStatus === 'expired' &&
+    !isAdmin &&
     location.pathname !== '/payment';
 
   const handleSignOut = async () => {
