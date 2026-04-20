@@ -91,43 +91,43 @@ export default function Auth() {
           throw new Error("Nome deve ter no mínimo 2 caracteres.");
         }
 
-        const internalEmail = cpfToInternalEmail(cleanedCpf);
+        // Use edge function to create user with email already confirmed
+        // (bypasses email confirmation requirement for @orbis.internal addresses)
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-        const { data: authData, error: signUpError } = await supabase.auth.signUp({
-          email: internalEmail,
-          password,
-          options: {
-            data: { name, cpf: cleanedCpf, phone: phone || undefined },
+        const res = await fetch(`${supabaseUrl}/functions/v1/register-user`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": anonKey,
           },
+          body: JSON.stringify({
+            cpf: cleanedCpf,
+            password,
+            name,
+            phone: phone || null,
+            email: email || null,
+          }),
         });
 
-        if (signUpError) {
-          if (signUpError.message.includes("already registered")) {
+        const result = await res.json();
+        if (!res.ok || result.error) {
+          if (result.error?.includes("already") || res.status === 409) {
             throw new Error("Este CPF já possui uma conta no Orbis. Faça login.");
           }
-          throw signUpError;
+          throw new Error(result.error || "Erro ao criar conta. Tente novamente.");
         }
 
-        if (authData.user) {
-          const trialStart = new Date();
-          const trialEnd = new Date();
-          trialEnd.setDate(trialEnd.getDate() + 3);
+        // Auto-login after successful registration
+        const internalEmail = cpfToInternalEmail(cleanedCpf);
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: internalEmail,
+          password,
+        });
 
-          const { error: updateError } = await supabase
-            .from("profiles")
-            .update({
-              cpf: cleanedCpf,
-              phone: phone || null,
-              email: email || null,
-              nickname: name,
-              trial_start: trialStart.toISOString().split("T")[0],
-              trial_end: trialEnd.toISOString().split("T")[0],
-              is_trial_active: true,
-              plan_status: "trial",
-            })
-            .eq("user_id", authData.user.id);
-
-          if (updateError) throw updateError;
+        if (signInError) {
+          throw new Error("Conta criada! Agora faça login com seu CPF e senha.");
         }
 
         toast({

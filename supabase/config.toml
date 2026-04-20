@@ -3,6 +3,9 @@ project_id = "muflwkimmvdyujwlmrfh"
 [functions.check-admin-access]
 verify_jwt = false
 
+[functions.register-user]
+verify_jwt = false
+
 [functions.generate-insights]
 verify_jwt = true
 
