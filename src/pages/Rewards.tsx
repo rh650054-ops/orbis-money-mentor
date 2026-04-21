@@ -231,20 +231,20 @@ export default function Rewards() {
                 <div
                   className="relative overflow-hidden rounded-2xl border transition-all"
                   style={{
-                    background: isUnlocked
+                    background: isCurrent
+                      ? `linear-gradient(135deg, ${tier.accent}2E 0%, hsl(var(--card)) 55%, hsl(var(--card)) 100%)`
+                      : isUnlocked
                       ? `linear-gradient(135deg, ${tier.accent}28 0%, hsl(var(--card)) 55%, hsl(var(--card)) 100%)`
-                      : isCurrent
-                      ? `linear-gradient(135deg, ${tier.accent}18 0%, hsl(var(--card)) 60%, hsl(var(--card)) 100%)`
                       : "hsl(var(--card) / 0.5)",
-                    borderColor: isUnlocked
+                    borderColor: isCurrent
+                      ? `${tier.accent}`
+                      : isUnlocked
                       ? `${tier.accent}66`
-                      : isCurrent
-                      ? `${tier.accent}55`
                       : "hsl(var(--border) / 0.6)",
-                    boxShadow: isUnlocked
+                    boxShadow: isCurrent
+                      ? `0 8px 32px -10px ${tier.accent}, 0 0 0 1px ${tier.accent}40, inset 0 1px 0 ${tier.accent}30`
+                      : isUnlocked
                       ? `0 8px 32px -12px ${tier.accent}70, inset 0 1px 0 ${tier.accent}25`
-                      : isCurrent
-                      ? `0 6px 24px -14px ${tier.accent}55`
                       : "none",
                   }}
                 >
@@ -253,7 +253,9 @@ export default function Rewards() {
                       <div
                         className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
                         style={{
-                          background: `linear-gradient(90deg, transparent, ${tier.accent}25, transparent)`,
+                          background: `linear-gradient(90deg, transparent, ${
+                            isCurrent ? tier.accent + "40" : tier.accent + "25"
+                          }, transparent)`,
                         }}
                       />
                     </div>
