@@ -179,6 +179,44 @@ export default function Layout({ children }: LayoutProps) {
                 })}
               </nav>
               <PWAInstallButton />
+              {/* User Profile Dropdown - direita */}
+              {user && (
+                <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="flex items-center gap-1.5 h-9 px-2">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                        <User className="w-4 h-4 text-primary" />
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/profile"); }}>
+                      <User className="w-4 h-4 mr-2" />
+                      Perfil
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/finances"); }}>
+                      <Wallet className="w-4 h-4 mr-2" />
+                      Financeiro
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/history"); }}>
+                      <FileText className="w-4 h-4 mr-2" />
+                      Histórico
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/bank-connections"); }}>
+                      <Building2 className="w-4 h-4 mr-2" />
+                      Contas Bancárias
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sair
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
           </div>
         </div>
