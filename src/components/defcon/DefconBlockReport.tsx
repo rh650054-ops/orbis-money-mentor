@@ -36,6 +36,16 @@ export function DefconBlockReport({
     return "🏆";
   };
 
+  // Load logo as HTMLImageElement (for canvas drawing)
+  const loadLogo = (): Promise<HTMLImageElement> =>
+    new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = orbisLogo;
+    });
+
   // Generate a transparent PNG (1080x1920 - Instagram Story size) with stats
   const generateStoryImage = async (): Promise<Blob | null> => {
     const W = 1080;
@@ -49,7 +59,7 @@ export function DefconBlockReport({
     // Fully transparent background
     ctx.clearRect(0, 0, W, H);
 
-    // Helper for centered text
+    // Helper for centered text with optional letter-spacing
     const centerText = (
       text: string,
       y: number,
@@ -63,7 +73,6 @@ export function DefconBlockReport({
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       if (letterSpacing > 0) {
-        // Manual letter spacing
         const chars = text.split("");
         const widths = chars.map((c) => ctx.measureText(c).width);
         const total = widths.reduce((a, b) => a + b, 0) + letterSpacing * (chars.length - 1);
@@ -79,35 +88,33 @@ export function DefconBlockReport({
       }
     };
 
-    // Top badge: "BLOCO #N"
-    centerText(`BLOCO #${blockIndex + 1}`, 380, 44, "600", "rgba(255,255,255,0.7)", 8);
-
-    // Emoji (large)
-    ctx.font = "180px -apple-system, sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(getEmoji(), W / 2, 560);
-
-    // Stats stack (Strava-like): label small, value huge
-    let y = 780;
+    // Stats stack — labels MUCH bigger, values huge (Strava-like)
+    let y = 520;
     const drawStat = (label: string, value: string, valueColor = "#FFFFFF") => {
-      centerText(label, y, 38, "500", "rgba(255,255,255,0.65)", 4);
-      y += 80;
-      centerText(value, y, 130, "800", valueColor);
-      y += 160;
+      centerText(label.toUpperCase(), y, 72, "700", "rgba(255,255,255,0.85)", 10);
+      y += 130;
+      centerText(value, y, 180, "900", valueColor);
+      y += 230;
     };
 
     drawStat("Faturamento", formatCurrency(soldAmount), "#FFFFFF");
     drawStat("Vendas", String(sales), "#22C55E");
-    drawStat("Abordagens", String(approaches), "#FFFFFF");
 
     const convColor =
       conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F59E0B" : "#EF4444";
     drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
 
-    // Bottom brand
-    centerText("ORBIS", H - 160, 56, "900", "#F4A100", 14);
-    centerText("modo defcon 4", H - 100, 28, "500", "rgba(255,255,255,0.5)", 6);
+    // Bottom: Orbis logo image
+    try {
+      const logo = await loadLogo();
+      const logoSize = 220;
+      const logoX = W / 2 - logoSize / 2;
+      const logoY = H - logoSize - 120;
+      ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
+    } catch {
+      // Fallback: text logo
+      centerText("ORBIS", H - 180, 80, "900", "#FFFFFF", 16);
+    }
 
     return new Promise((resolve) =>
       canvas.toBlob((blob) => resolve(blob), "image/png")
