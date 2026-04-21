@@ -70,7 +70,6 @@ export default function Profile() {
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
-  const { cities: editCities, loading: loadingEditCities } = useBrazilCities(/* placeholder */ "");
   const [stats, setStats] = useState({
     transactions: 0,
     goals: 0,
