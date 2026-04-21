@@ -33,6 +33,8 @@ export default function Auth() {
     "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
   ];
 
+  const { cities, loading: loadingCities } = useBrazilCities(state);
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) navigate("/");
