@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import NumericKeyboard from "@/components/NumericKeyboard";
+import AutoDistribution from "@/components/AutoDistribution";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from "recharts";
@@ -646,6 +647,9 @@ export default function Finances() {
           </CardContent>
         </Card>
       )}
+
+      {/* Distribuição automática do líquido diário */}
+      <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
 
       <Tabs defaultValue="expenses" className="w-full">
         <TabsList className="grid w-full grid-cols-3">

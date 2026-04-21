@@ -315,6 +315,50 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_distributions: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          goal_id: string
+          goal_name: string
+          id: string
+          liquido_base: number
+          percentual: number
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date?: string
+          goal_id: string
+          goal_name: string
+          id?: string
+          liquido_base: number
+          percentual: number
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          goal_id?: string
+          goal_name?: string
+          id?: string
+          liquido_base?: number
+          percentual?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_distributions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "financial_goals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_goal_plans: {
         Row: {
           created_at: string
@@ -534,6 +578,7 @@ export type Database = {
           icon: string | null
           id: string
           name: string
+          percentual_distribuicao: number
           status: string
           target_amount: number
           updated_at: string
@@ -546,6 +591,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name: string
+          percentual_distribuicao?: number
           status?: string
           target_amount?: number
           updated_at?: string
@@ -558,6 +604,7 @@ export type Database = {
           icon?: string | null
           id?: string
           name?: string
+          percentual_distribuicao?: number
           status?: string
           target_amount?: number
           updated_at?: string
