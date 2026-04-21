@@ -136,12 +136,29 @@ export function DefconRunning({
 
   const handleAddTip = () => {
     const amount = parseFloat(tipValue) || 0;
-    if (amount > 0 && onAddTip) {
-      onAddTip(amount);
+    if (amount > 0) {
+      // gorjeta entra no faturamento como venda
+      onAddSale(amount);
+      setSaleHistory((prev) => [...prev, amount]);
+      onAddTip?.(amount);
       pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
       setTipValue("");
+      setTipPhone("");
       setShowAddTip(false);
     }
+  };
+
+  const handleTipAndCharge = () => {
+    const amount = parseFloat(tipValue) || 0;
+    if (amount <= 0) return;
+    onAddSale(amount);
+    setSaleHistory((prev) => [...prev, amount]);
+    onAddTip?.(amount);
+    pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
+    openWhatsAppCharge(tipPhone, amount);
+    setTipValue("");
+    setTipPhone("");
+    setShowAddTip(false);
   };
 
   const impactPhrase =
