@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award, Flame, Shield, Sword, Rocket, Diamond, ChevronRight, TrendingUp, Gift, Crown as CrownIcon } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award, Flame, Shield, Sword, Rocket, Diamond, ChevronRight, TrendingUp, Gift } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
@@ -19,6 +19,7 @@ type Tier = {
   xpRequired: number;
   rarity: string;
   rarityColor: string;
+  bgGradient: string;
 };
 
 const TIERS: Tier[] = [
@@ -35,6 +36,7 @@ const TIERS: Tier[] = [
     glowColor: "shadow-emerald-500/20",
     rarity: "Comum",
     rarityColor: "text-emerald-400",
+    bgGradient: "from-emerald-500/10 via-transparent to-transparent",
     rewards: [
       "Selo Semente no perfil",
       "Acesso à comunidade Orbis",
@@ -54,6 +56,7 @@ const TIERS: Tier[] = [
     glowColor: "shadow-orange-500/20",
     rarity: "Incomum",
     rarityColor: "text-orange-400",
+    bgGradient: "from-orange-500/10 via-transparent to-transparent",
     rewards: [
       "1 mês grátis de assinatura",
       "Selo Brasa exclusivo",
@@ -73,6 +76,7 @@ const TIERS: Tier[] = [
     glowColor: "shadow-amber-500/20",
     rarity: "Raro",
     rarityColor: "text-amber-400",
+    bgGradient: "from-amber-500/10 via-transparent to-transparent",
     rewards: [
       "3 meses grátis de assinatura",
       "Convite para grupo VIP",
@@ -92,6 +96,7 @@ const TIERS: Tier[] = [
     glowColor: "shadow-purple-500/20",
     rarity: "Épico",
     rarityColor: "text-purple-400",
+    bgGradient: "from-purple-500/10 via-transparent to-transparent",
     rewards: [
       "Plano anual grátis",
       "Selo Império holográfico",
@@ -111,6 +116,7 @@ const TIERS: Tier[] = [
     glowColor: "shadow-cyan-500/20",
     rarity: "Lendário",
     rarityColor: "text-cyan-400",
+    bgGradient: "from-cyan-500/10 via-transparent to-transparent",
     rewards: [
       "Mentoria 1:1 com fundador",
       "Acesso vitalício ao Orbis",
@@ -118,9 +124,6 @@ const TIERS: Tier[] = [
     ],
   },
 ];
-
-const formatThreshold = (v: number) =>
-  v >= 1_000_000 ? `R$ ${v / 1_000_000}M` : `R$ ${v / 1_000}K`;
 
 export default function Rewards() {
   const navigate = useNavigate();
