@@ -117,7 +117,7 @@ export default function Products() {
   const loadAll = async () => {
     if (!user) return;
     setLoading(true);
-    const [prodRes, pixRes] = await Promise.all([
+    const [prodRes, pixRes, profRes] = await Promise.all([
       supabase
         .from("products")
         .select("*")
@@ -130,9 +130,18 @@ export default function Products() {
         .eq("user_id", user.id)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: true }),
+      supabase
+        .from("profiles")
+        .select("nickname, city")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
     if (prodRes.data) setProducts(prodRes.data as Product[]);
     if (pixRes.data) setPixAccounts(pixRes.data as PixAccount[]);
+    if (profRes.data) setProfileDefaults({
+      name: profRes.data.nickname || "",
+      city: (profRes.data.city || "").toUpperCase(),
+    });
     setLoading(false);
   };
 
