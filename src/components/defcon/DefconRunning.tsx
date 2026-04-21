@@ -283,19 +283,19 @@ export function DefconRunning({
         </div>
 
         {/* Bloco info — linha legível em movimento */}
-        <div className="flex items-center justify-center gap-4 text-[15px] font-mono">
+        <div className="flex items-center justify-center gap-5 text-[17px] font-mono">
           <span className="font-black text-[#22C55E]">{formatCurrency(blockSold)}</span>
-          <span className="text-white/15">•</span>
-          <span className="text-white/85">
-            <span className="font-black text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1] text-[13px]">vendas</span>
+          <span className="text-white/20">•</span>
+          <span className="text-white/90">
+            <span className="font-black text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1] text-[14px]">vendas</span>
           </span>
-          <span className="text-white/15">•</span>
-          <span className={`text-white/85 ${approachPulse ? "scale-110" : ""} transition-transform`}>
-            <span className="font-black text-white">{blockApproaches}</span> <span className="text-[#A1A1A1] text-[13px]">abord.</span>
+          <span className="text-white/20">•</span>
+          <span className={`text-white/90 ${approachPulse ? "scale-110" : ""} transition-transform`}>
+            <span className="font-black text-white">{blockApproaches}</span> <span className="text-[#A1A1A1] text-[14px]">abord.</span>
           </span>
           {blockApproaches > 0 && (
             <>
-              <span className="text-white/15">•</span>
+              <span className="text-white/20">•</span>
               <span className="text-[#F5B400] font-black">{conversionRate}%</span>
             </>
           )}
@@ -307,35 +307,35 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
-        {/* Botões de ação — alvos grandes para uso na rua */}
-        <div className="w-full flex items-stretch justify-center gap-3 px-1">
-          {/* Abordagem — neutro mas visível */}
+        {/* Botões de ação — hierarquia: venda maior, outros menores */}
+        <div className="w-full flex items-stretch justify-center gap-2.5 px-1">
+          {/* Abordagem — menor, neutro */}
           <button
             onClick={handleApproachClick}
-            className={`flex-1 h-[64px] rounded-2xl bg-[#1A1A1A] border border-white/15 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
-              approachPulse ? "ring-2 ring-white/40 bg-[#2A2A2A]" : ""
+            className={`flex-[0.85] h-[56px] rounded-2xl bg-[#1A1A1A] border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
+              approachPulse ? "ring-2 ring-white/30 bg-[#2A2A2A]" : ""
             }`}
           >
-            <UserRound className="w-5 h-5 text-white/90" strokeWidth={2.5} />
-            <span className="text-[12px] font-bold text-white/90 leading-none">Abordagem</span>
+            <UserRound className="w-4 h-4 text-white/80" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold text-white/80 leading-none">Abordagem</span>
           </button>
 
-          {/* Venda — destaque dourado, alvo maior */}
+          {/* Venda — maior, destaque absoluto */}
           <button
             onClick={() => setShowAddSale(true)}
-            className="flex-[1.5] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_32px_-6px_rgba(245,180,0,0.75)]"
+            className="flex-[1.3] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_36px_-6px_rgba(245,180,0,0.8)]"
           >
-            <Plus className="w-6 h-6 text-black" strokeWidth={3.5} />
-            <span className="text-[17px] font-black text-black tracking-tight">Venda</span>
+            <Plus className="w-7 h-7 text-black" strokeWidth={3.5} />
+            <span className="text-[18px] font-black text-black tracking-tight">Venda</span>
           </button>
 
-          {/* Gorjeta — outline mesmo tamanho */}
+          {/* Gorjeta — menor, outline */}
           <button
             onClick={() => setShowAddTip(true)}
-            className="flex-1 h-[64px] rounded-2xl bg-transparent border-2 border-[#F5B400]/50 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
+            className="flex-[0.85] h-[56px] rounded-2xl bg-transparent border-2 border-[#F5B400]/40 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
           >
-            <Coins className="w-5 h-5 text-[#F5B400]" strokeWidth={2.5} />
-            <span className="text-[12px] font-bold text-[#F5B400] leading-none">Gorjeta</span>
+            <Coins className="w-4 h-4 text-[#F5B400]" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold text-[#F5B400] leading-none">Gorjeta</span>
           </button>
         </div>
 
@@ -347,28 +347,28 @@ export function DefconRunning({
 
       {/* Footer — controles com tap target adequado, sem competir com ações */}
       <div className="pb-5 pt-3 px-4 border-t border-white/5">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-3">
           <button
             onClick={() => setShowOccurrence(true)}
-            className="flex-1 h-12 rounded-xl bg-[#0F0F0F] border border-white/10 flex items-center justify-center gap-1.5 active:scale-95 active:bg-[#1A1A1A] transition-all"
+            className="flex-1 h-[48px] rounded-xl bg-[#1A1A1A] border border-white/15 flex items-center justify-center gap-2 active:scale-95 active:bg-[#2A2A2A] transition-all"
           >
-            <FileText className="w-3.5 h-3.5 text-[#A1A1A1]" />
-            <span className="text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase">Ocorrência</span>
+            <FileText className="w-4 h-4 text-[#A1A1A1]" />
+            <span className="text-[12px] font-mono text-[#A1A1A1] tracking-wider uppercase">Ocorrência</span>
           </button>
           {!lunchPauseUsed && (
             <button
               onClick={() => setShowLunchPicker(true)}
-              className="flex-1 h-12 rounded-xl bg-[#0F0F0F] border border-white/10 flex items-center justify-center gap-1.5 active:scale-95 active:bg-[#1A1A1A] transition-all"
+              className="flex-1 h-[48px] rounded-xl bg-[#1A1A1A] border border-white/15 flex items-center justify-center gap-2 active:scale-95 active:bg-[#2A2A2A] transition-all"
             >
-              <UtensilsCrossed className="w-3.5 h-3.5 text-[#A1A1A1]" />
-              <span className="text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase">Almoço</span>
+              <UtensilsCrossed className="w-4 h-4 text-[#A1A1A1]" />
+              <span className="text-[12px] font-mono text-[#A1A1A1] tracking-wider uppercase">Almoço</span>
             </button>
           )}
           <button
             onClick={() => setShowConfirmEnd(true)}
-            className="flex-1 h-12 rounded-xl bg-[#0F0F0F] border border-red-500/25 flex items-center justify-center gap-1.5 active:scale-95 active:bg-red-500/10 transition-all"
+            className="flex-1 h-[48px] rounded-xl bg-[#1A1A1A] border border-red-500/30 flex items-center justify-center gap-2 active:scale-95 active:bg-red-500/15 transition-all"
           >
-            <span className="text-[11px] font-mono text-red-500/80 tracking-wider uppercase font-bold">Encerrar</span>
+            <span className="text-[12px] font-mono text-red-500/90 tracking-wider uppercase font-bold">Encerrar</span>
           </button>
         </div>
         <div className="mt-2 text-center text-[9px] font-mono text-[#A1A1A1]/40 tracking-[0.3em] uppercase">
