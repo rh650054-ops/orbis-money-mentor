@@ -860,6 +860,45 @@ export type Database = {
         }
         Relationships: []
       }
+      pix_accounts: {
+        Row: {
+          bank_name: string
+          created_at: string
+          id: string
+          is_default: boolean
+          merchant_city: string
+          merchant_name: string
+          pix_key: string
+          pix_key_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank_name: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          merchant_city: string
+          merchant_name: string
+          pix_key: string
+          pix_key_type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank_name?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          merchant_city?: string
+          merchant_name?: string
+          pix_key?: string
+          pix_key_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           cost: number
@@ -868,7 +907,9 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          open_price: boolean
           photo_url: string | null
+          pix_account_id: string | null
           sale_price: number
           stock_min: number
           stock_quantity: number
@@ -882,7 +923,9 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          open_price?: boolean
           photo_url?: string | null
+          pix_account_id?: string | null
           sale_price?: number
           stock_min?: number
           stock_quantity?: number
@@ -896,14 +939,24 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          open_price?: boolean
           photo_url?: string | null
+          pix_account_id?: string | null
           sale_price?: number
           stock_min?: number
           stock_quantity?: number
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_pix_account_id_fkey"
+            columns: ["pix_account_id"]
+            isOneToOne: false
+            referencedRelation: "pix_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
