@@ -488,26 +488,33 @@ export default function Index() {
       </div>
 
       {/* 5. PRÓXIMA CONQUISTA */}
-      <Card className="bg-card border border-border rounded-2xl">
-        <CardContent className="p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium text-foreground">Próxima conquista</p>
-            <span className="text-xs text-muted-foreground">{progressoMeta.toFixed(0)}%</span>
-          </div>
-          <p className="text-lg font-semibold text-foreground">
-            {formatCurrency(faturamentoMes)}{" "}
-            <span className="text-muted-foreground text-sm font-normal">
-              / {formatCurrency(monthlyGoal)}
-            </span>
-          </p>
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-smooth"
-              style={{ width: `${progressoMeta}%` }}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <button
+        onClick={() => navigate('/rewards')}
+        className="w-full text-left"
+        aria-label="Ver recompensas por conquista"
+      >
+        <Card className="bg-card border border-border rounded-2xl hover:border-primary/50 transition-colors">
+          <CardContent className="p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-foreground">Próxima conquista</p>
+              <span className="text-xs text-primary">Ver recompensas →</span>
+            </div>
+            <p className="text-lg font-semibold text-foreground">
+              {formatCurrency(faturamentoMes)}{" "}
+              <span className="text-muted-foreground text-sm font-normal">
+                / {formatCurrency(monthlyGoal)}
+              </span>
+            </p>
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-smooth"
+                style={{ width: `${progressoMeta}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{progressoMeta.toFixed(0)}% da meta mensal</p>
+          </CardContent>
+        </Card>
+      </button>
 
       {/* 6. GRÁFICO SEMANAL */}
       {weeklyData.length > 0 && (

@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import CheckIn from "./pages/CheckIn";
 import DailyGoals from "./pages/DailyGoals";
 import Ranking from "./pages/Ranking";
+import Rewards from "./pages/Rewards";
 import DefconChallenge from "./pages/DefconChallenge";
 import BankConnections from "./pages/BankConnections";
 
@@ -56,6 +57,7 @@ const App = () => (
                 <Route path="/finances" element={<Finances />} />
                 <Route path="/daily-goals" element={<DailyGoals />} />
                 <Route path="/ranking" element={<Ranking />} />
+                <Route path="/rewards" element={<Rewards />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/my-account" element={<MyAccount />} />
                 <Route path="/settings" element={<Settings />} />
