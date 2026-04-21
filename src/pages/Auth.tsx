@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogIn, UserPlus } from "lucide-react";
 import orbisLogo from "@/assets/orbis-logo.png";
 import { validateCPF, cpfToInternalEmail } from "@/utils/cpfValidation";
+import { useBrazilCities } from "@/hooks/useBrazilCities";
 
 type LoginMethod = "cpf" | "email";
 
