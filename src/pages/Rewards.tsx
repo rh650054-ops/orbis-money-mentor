@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
@@ -15,6 +15,7 @@ type Tier = {
   icon: React.ReactNode;
   level: number;
   colorClass: string;
+  glowColor: string;
 };
 
 const TIERS: Tier[] = [
@@ -27,6 +28,7 @@ const TIERS: Tier[] = [
     emoji: "🌱",
     icon: <Target className="h-5 w-5" />,
     colorClass: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
+    glowColor: "shadow-emerald-500/20",
     rewards: [
       "Selo Semente no perfil",
       "Acesso à comunidade Orbis",
@@ -42,6 +44,7 @@ const TIERS: Tier[] = [
     emoji: "🔥",
     icon: <Zap className="h-5 w-5" />,
     colorClass: "from-orange-500/20 to-orange-600/10 border-orange-500/30",
+    glowColor: "shadow-orange-500/20",
     rewards: [
       "1 mês grátis de assinatura",
       "Selo Brasa exclusivo",
@@ -57,6 +60,7 @@ const TIERS: Tier[] = [
     emoji: "⚒️",
     icon: <Trophy className="h-5 w-5" />,
     colorClass: "from-amber-500/20 to-amber-600/10 border-amber-500/30",
+    glowColor: "shadow-amber-500/20",
     rewards: [
       "3 meses grátis de assinatura",
       "Convite para grupo VIP",
@@ -72,6 +76,7 @@ const TIERS: Tier[] = [
     emoji: "👑",
     icon: <Crown className="h-5 w-5" />,
     colorClass: "from-purple-500/20 to-purple-600/10 border-purple-500/30",
+    glowColor: "shadow-purple-500/20",
     rewards: [
       "Plano anual grátis",
       "Selo Império holográfico",
@@ -87,6 +92,7 @@ const TIERS: Tier[] = [
     emoji: "⭐",
     icon: <Star className="h-5 w-5" />,
     colorClass: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30",
+    glowColor: "shadow-cyan-500/20",
     rewards: [
       "Mentoria 1:1 com fundador",
       "Acesso vitalício ao Orbis",
