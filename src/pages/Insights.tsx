@@ -185,6 +185,8 @@ export default function Insights() {
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
+    // Gorjetas ainda não possuem campo dedicado no banco — exibido como 0 até criarmos o registro.
+    const gorjetas = 0;
 
     return {
       faturamento,
@@ -195,6 +197,9 @@ export default function Insights() {
       totalVendas,
       abordagensPorVenda,
       mediaDiaria,
+      custos,
+      calotes,
+      gorjetas,
     };
   }, [sales, blocks, rangeDays]);
 
