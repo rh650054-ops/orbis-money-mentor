@@ -648,6 +648,9 @@ export default function Finances() {
         </Card>
       )}
 
+      {/* Distribuição automática do líquido diário */}
+      <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
+
       <Tabs defaultValue="expenses" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="expenses">Despesas</TabsTrigger>
