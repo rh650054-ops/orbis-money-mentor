@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useBrazilCities } from "@/hooks/useBrazilCities";
 
 const BR_STATES = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -75,6 +76,7 @@ export default function Profile() {
     insights: 0
   });
   const [isUpgrading] = useState(false);
+  const { cities: editCities, loading: loadingEditCities } = useBrazilCities(editForm.state);
   const subscriptionFeatures = [
     "Insights ilimitados da IA",
     "Análises avançadas de gastos",
@@ -496,7 +498,7 @@ export default function Profile() {
                   <Label>Estado</Label>
                   <select
                     value={editForm.state}
-                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value, city: "" })}
                     className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                   >
                     <option value="">UF</option>
@@ -507,12 +509,22 @@ export default function Profile() {
                 </div>
                 <div className="space-y-2 col-span-2">
                   <Label>Cidade</Label>
-                  <Input
+                  <select
                     value={editForm.city}
                     onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                    placeholder="Sua cidade"
-                    maxLength={80}
-                  />
+                    disabled={!editForm.state || loadingEditCities}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+                  >
+                    <option value="">
+                      {!editForm.state ? "Selecione o estado" : loadingEditCities ? "Carregando..." : "Selecione a cidade"}
+                    </option>
+                    {editForm.city && !editCities.includes(editForm.city) && (
+                      <option value={editForm.city}>{editForm.city}</option>
+                    )}
+                    {editCities.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="space-y-2">

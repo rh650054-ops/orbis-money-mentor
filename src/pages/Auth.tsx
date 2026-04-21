@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { LogIn, UserPlus } from "lucide-react";
 import orbisLogo from "@/assets/orbis-logo.png";
 import { validateCPF, cpfToInternalEmail } from "@/utils/cpfValidation";
+import { useBrazilCities } from "@/hooks/useBrazilCities";
 
 type LoginMethod = "cpf" | "email";
 
@@ -31,6 +32,8 @@ export default function Auth() {
     "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
     "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
   ];
+
+  const { cities, loading: loadingCities } = useBrazilCities(state);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -301,7 +304,7 @@ export default function Auth() {
                     <select
                       id="state"
                       value={state}
-                      onChange={(e) => setState(e.target.value)}
+                      onChange={(e) => { setState(e.target.value); setCity(""); }}
                       required
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                     >
@@ -313,16 +316,21 @@ export default function Auth() {
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="city">Cidade</Label>
-                    <Input
+                    <select
                       id="city"
-                      type="text"
-                      placeholder="Sua cidade"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       required
-                      maxLength={80}
-                      className="bg-background"
-                    />
+                      disabled={!state || loadingCities}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+                    >
+                      <option value="">
+                        {!state ? "Selecione o estado" : loadingCities ? "Carregando..." : "Selecione a cidade"}
+                      </option>
+                      {cities.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-2">
