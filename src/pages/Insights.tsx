@@ -2,19 +2,20 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
-  TrendingUp,
-  TrendingDown,
   Trophy,
   ChevronRight,
   Loader2,
   ArrowUpRight,
   ArrowDownRight,
+  CalendarIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -25,7 +26,7 @@ import {
   CartesianGrid,
 } from "recharts";
 
-type Period = "today" | "7d" | "month";
+type Period = "today" | "7d" | "30d" | "custom";
 
 interface DailySale {
   date: string;
@@ -45,22 +46,22 @@ interface HourBlock {
 const PERIOD_LABELS: Record<Period, string> = {
   today: "Hoje",
   "7d": "7 dias",
-  month: "Mês",
+  "30d": "30 dias",
+  custom: "Personalizado",
 };
 
-function startOfPeriod(period: Period): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  if (period === "today") return d;
-  if (period === "7d") {
-    d.setDate(d.getDate() - 6);
-    return d;
-  }
-  return new Date(d.getFullYear(), d.getMonth(), 1);
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
 }
 
 function isoDate(d: Date): string {
   return d.toISOString().split("T")[0];
+}
+
+function fmtBR(d: Date): string {
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 export default function Insights() {
@@ -69,11 +70,43 @@ export default function Insights() {
   const { currentUserStats, hasParticipated } = useLeaderboard(user?.id);
 
   const [period, setPeriod] = useState<Period>("7d");
+  const [customStart, setCustomStart] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 6);
+    return startOfDay(d);
+  });
+  const [customEnd, setCustomEnd] = useState<Date | undefined>(() => startOfDay(new Date()));
+
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
-  const [prevWeekProfit, setPrevWeekProfit] = useState(0);
+  const [prevRangeProfit, setPrevRangeProfit] = useState(0);
+
+  // Computed range
+  const range = useMemo(() => {
+    const today = startOfDay(new Date());
+    if (period === "today") return { start: today, end: today };
+    if (period === "7d") {
+      const s = new Date(today);
+      s.setDate(s.getDate() - 6);
+      return { start: s, end: today };
+    }
+    if (period === "30d") {
+      const s = new Date(today);
+      s.setDate(s.getDate() - 29);
+      return { start: s, end: today };
+    }
+    const s = customStart ? startOfDay(customStart) : today;
+    const e = customEnd ? startOfDay(customEnd) : today;
+    return s <= e ? { start: s, end: e } : { start: e, end: s };
+  }, [period, customStart, customEnd]);
+
+  const rangeDays = useMemo(() => {
+    return Math.round((range.end.getTime() - range.start.getTime()) / 86400000) + 1;
+  }, [range]);
+
+  const isSingleDay = rangeDays === 1;
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -81,40 +114,40 @@ export default function Insights() {
       return;
     }
     if (user) loadData();
-  }, [user, authLoading, period]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, authLoading, range.start.getTime(), range.end.getTime()]);
 
   async function loadData() {
     if (!user) return;
     setLoading(true);
     try {
-      const start = startOfPeriod(period);
-      const startISO = isoDate(start);
+      const startISO = isoDate(range.start);
+      const endISO = isoDate(range.end);
 
-      // Range needed for blocks (last 30 days for hour analysis)
-      const blocksStart = new Date();
-      blocksStart.setDate(blocksStart.getDate() - 29);
+      // Previous comparable range
+      const prevEnd = new Date(range.start);
+      prevEnd.setDate(prevEnd.getDate() - 1);
+      const prevStart = new Date(prevEnd);
+      prevStart.setDate(prevStart.getDate() - (rangeDays - 1));
 
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const prevWeekStart = new Date();
-      prevWeekStart.setDate(prevWeekStart.getDate() - 13);
-      const prevWeekEnd = new Date();
-      prevWeekEnd.setDate(prevWeekEnd.getDate() - 7);
-
-      const [salesRes, blocksRes, ydRes, prevWkRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost")
           .eq("user_id", user.id)
           .gte("date", startISO)
+          .lte("date", endISO)
           .order("date", { ascending: true }),
         supabase
           .from("hourly_goal_blocks")
           .select("hour_index,hour_label,achieved_amount,approaches_count,created_at")
           .eq("user_id", user.id)
-          .gte("created_at", blocksStart.toISOString()),
+          .gte("created_at", range.start.toISOString())
+          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
         supabase
           .from("daily_sales")
           .select("total_profit")
@@ -125,15 +158,15 @@ export default function Insights() {
           .from("daily_sales")
           .select("total_profit")
           .eq("user_id", user.id)
-          .gte("date", isoDate(prevWeekStart))
-          .lte("date", isoDate(prevWeekEnd)),
+          .gte("date", isoDate(prevStart))
+          .lte("date", isoDate(prevEnd)),
       ]);
 
       setSales(salesRes.data || []);
       setBlocks(blocksRes.data || []);
       setYesterdayProfit(ydRes.data?.total_profit || 0);
-      setPrevWeekProfit(
-        (prevWkRes.data || []).reduce((s, d: any) => s + (d.total_profit || 0), 0),
+      setPrevRangeProfit(
+        (prevRes.data || []).reduce((s, d: any) => s + (d.total_profit || 0), 0),
       );
     } finally {
       setLoading(false);
@@ -146,18 +179,12 @@ export default function Insights() {
     const custos = sales.reduce((s, d) => s + (d.cost || 0), 0);
     const lucro = faturamento - calotes - custos;
 
-    const periodBlocks = blocks.filter((b) => {
-      const created = new Date(b.created_at);
-      return created >= startOfPeriod(period);
-    });
-    const totalAbordagens = periodBlocks.reduce(
-      (s, b) => s + (b.approaches_count || 0),
-      0,
-    );
-    const totalVendas = periodBlocks.filter((b) => (b.achieved_amount || 0) > 0).length;
+    const totalAbordagens = blocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
+    const totalVendas = blocks.filter((b) => (b.achieved_amount || 0) > 0).length;
     const conversao = totalAbordagens > 0 ? (totalVendas / totalAbordagens) * 100 : 0;
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
+    const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
 
     return {
       faturamento,
@@ -167,26 +194,30 @@ export default function Insights() {
       totalAbordagens,
       totalVendas,
       abordagensPorVenda,
+      mediaDiaria,
     };
-  }, [sales, blocks, period]);
+  }, [sales, blocks, rangeDays]);
 
   const chartData = useMemo(() => {
-    const days = period === "today" ? 1 : period === "7d" ? 7 : 30;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     const map = new Map(sales.map((d) => [d.date, d.total_profit || 0]));
-    const result: { label: string; valor: number }[] = [];
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
+    const result: { label: string; valor: number; iso: string }[] = [];
+    for (let i = 0; i < rangeDays; i++) {
+      const d = new Date(range.start);
+      d.setDate(d.getDate() + i);
       const iso = isoDate(d);
-      result.push({
-        label: d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
-        valor: map.get(iso) || 0,
-      });
+      result.push({ label: fmtBR(d), valor: map.get(iso) || 0, iso });
     }
     return result;
-  }, [sales, period]);
+  }, [sales, range.start, rangeDays]);
+
+  const bestWorstDay = useMemo(() => {
+    if (chartData.length < 2) return null;
+    const withSales = chartData.filter((d) => d.valor > 0);
+    if (withSales.length === 0) return null;
+    const best = [...withSales].sort((a, b) => b.valor - a.valor)[0];
+    const worst = [...withSales].sort((a, b) => a.valor - b.valor)[0];
+    return { best, worst };
+  }, [chartData]);
 
   const compareYesterday = useMemo(() => {
     const todayProfit =
@@ -196,20 +227,11 @@ export default function Insights() {
     return { pct, valid: true, todayProfit };
   }, [sales, yesterdayProfit]);
 
-  const compareWeek = useMemo(() => {
-    const weekProfit = sales
-      .filter((d) => {
-        const dt = new Date(d.date);
-        const start = new Date();
-        start.setDate(start.getDate() - 6);
-        start.setHours(0, 0, 0, 0);
-        return dt >= start;
-      })
-      .reduce((s, d) => s + (d.total_profit || 0), 0);
-    if (!prevWeekProfit) return { pct: 0, valid: false, weekProfit };
-    const pct = ((weekProfit - prevWeekProfit) / prevWeekProfit) * 100;
-    return { pct, valid: true, weekProfit };
-  }, [sales, prevWeekProfit]);
+  const comparePrev = useMemo(() => {
+    if (!prevRangeProfit) return { pct: 0, valid: false };
+    const pct = ((summary.faturamento - prevRangeProfit) / prevRangeProfit) * 100;
+    return { pct, valid: true };
+  }, [summary.faturamento, prevRangeProfit]);
 
   const bestHours = useMemo(() => {
     const byHour: Record<number, { total: number; count: number; label: string }> = {};
@@ -220,7 +242,7 @@ export default function Insights() {
       byHour[b.hour_index].total += b.achieved_amount || 0;
       byHour[b.hour_index].count += 1;
     }
-    const arr = Object.entries(byHour)
+    return Object.entries(byHour)
       .map(([h, v]) => ({
         hour: parseInt(h),
         label: v.label,
@@ -228,7 +250,6 @@ export default function Insights() {
       }))
       .filter((h) => h.avg > 0)
       .sort((a, b) => b.avg - a.avg);
-    return arr;
   }, [blocks]);
 
   const aiInsights = useMemo(() => {
@@ -238,31 +259,45 @@ export default function Insights() {
         `Você precisa de ${summary.abordagensPorVenda.toFixed(1)} abordagens para gerar 1 venda.`,
       );
     }
-    if (compareYesterday.valid) {
-      if (compareYesterday.pct > 10)
-        tips.push(`Hoje você está vendendo ${compareYesterday.pct.toFixed(0)}% mais que ontem.`);
-      else if (compareYesterday.pct < -10)
-        tips.push(
-          `Atenção: hoje você está vendendo ${Math.abs(compareYesterday.pct).toFixed(0)}% menos que ontem.`,
-        );
-    }
-    if (bestHours.length >= 2) {
-      tips.push(`Você vende mais no horário de ${bestHours[0].label}.`);
-      const worst = bestHours[bestHours.length - 1];
-      if (worst.avg < bestHours[0].avg * 0.5) {
-        tips.push(`Seu pior horário é ${worst.label} — evite gastar energia ali.`);
+    if (isSingleDay) {
+      if (compareYesterday.valid) {
+        if (compareYesterday.pct > 10)
+          tips.push(`Hoje está ${compareYesterday.pct.toFixed(0)}% melhor que ontem.`);
+        else if (compareYesterday.pct < -10)
+          tips.push(
+            `Hoje está ${Math.abs(compareYesterday.pct).toFixed(0)}% abaixo de ontem.`,
+          );
       }
+    } else {
+      tips.push(
+        `Sua média diária no período foi ${formatCurrency(summary.mediaDiaria)}.`,
+      );
+      if (bestWorstDay) {
+        tips.push(
+          `Melhor dia: ${bestWorstDay.best.label} (${formatCurrency(bestWorstDay.best.valor)}) · Pior: ${bestWorstDay.worst.label} (${formatCurrency(bestWorstDay.worst.valor)}).`,
+        );
+      }
+      if (comparePrev.valid) {
+        tips.push(
+          comparePrev.pct >= 0
+            ? `Tendência positiva: ${comparePrev.pct.toFixed(0)}% acima do período anterior.`
+            : `Tendência de queda: ${Math.abs(comparePrev.pct).toFixed(0)}% abaixo do período anterior.`,
+        );
+      }
+    }
+    if (bestHours.length >= 1) {
+      tips.push(`Melhor desempenho no horário ${bestHours[0].label}.`);
     }
     if (summary.conversao > 0 && summary.conversao < 15) {
       tips.push(
-        `Sua conversão está em ${summary.conversao.toFixed(0)}%. Reveja a abordagem para melhorar.`,
+        `Sua conversão está em ${summary.conversao.toFixed(0)}%. Reveja a abordagem.`,
       );
     }
     if (tips.length === 0) {
       tips.push("Registre mais vendas para destravar insights personalizados.");
     }
     return tips;
-  }, [summary, compareYesterday, bestHours]);
+  }, [summary, isSingleDay, compareYesterday, comparePrev, bestWorstDay, bestHours]);
 
   if (authLoading || !user) return null;
 
@@ -270,29 +305,47 @@ export default function Insights() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-8 text-foreground">
-      {/* Header + period filter */}
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold">Dados</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Decisões claras a partir do seu desempenho
-          </p>
-        </div>
-        <div className="inline-flex rounded-full border border-border/60 bg-card/40 p-1">
-          {(["today", "7d", "month"] as Period[]).map((p) => (
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold">Dados</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Decisões claras a partir do seu desempenho
+        </p>
+      </div>
+
+      {/* Period filter */}
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-2">
+          {(["today", "7d", "30d", "custom"] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 text-xs rounded-full transition-colors ${
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-full border transition-colors",
                 period === p
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card/40 border-border/60 text-muted-foreground hover:text-foreground",
+              )}
             >
               {PERIOD_LABELS[p]}
             </button>
           ))}
         </div>
+
+        {period === "custom" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <DateField label="De" date={customStart} onChange={setCustomStart} />
+            <span className="text-muted-foreground text-xs">até</span>
+            <DateField label="Até" date={customEnd} onChange={setCustomEnd} />
+          </div>
+        )}
+
+        <p className="text-[11px] text-muted-foreground">
+          Período: <span className="text-foreground font-medium">
+            {fmtBR(range.start)} → {fmtBR(range.end)}
+          </span>{" "}
+          · {rangeDays} {rangeDays === 1 ? "dia" : "dias"}
+        </p>
       </div>
 
       {loading ? (
@@ -301,7 +354,7 @@ export default function Insights() {
         </div>
       ) : (
         <>
-          {/* 1. Resumo do período */}
+          {/* 1. Resumo */}
           <section className="grid grid-cols-2 gap-3">
             <MetricCell label="Faturamento" value={formatCurrency(summary.faturamento)} />
             <MetricCell
@@ -317,7 +370,71 @@ export default function Insights() {
             />
           </section>
 
-          {/* 2. Gráfico principal */}
+          {/* Period analysis block */}
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+            <p className="text-[11px] uppercase tracking-wider text-primary font-semibold">
+              Análise do período
+            </p>
+            <p className="text-sm text-foreground/90">
+              Entre <span className="font-semibold">{fmtBR(range.start)}</span> e{" "}
+              <span className="font-semibold">{fmtBR(range.end)}</span>:{" "}
+              {isSingleDay ? (
+                <>
+                  faturamento de{" "}
+                  <span className="text-emerald-400 font-semibold">
+                    {formatCurrency(summary.faturamento)}
+                  </span>
+                  {compareYesterday.valid && (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <span
+                        className={
+                          compareYesterday.pct >= 0 ? "text-emerald-400" : "text-red-400"
+                        }
+                      >
+                        {compareYesterday.pct >= 0 ? "+" : ""}
+                        {compareYesterday.pct.toFixed(0)}% vs ontem
+                      </span>
+                    </>
+                  )}
+                  .
+                </>
+              ) : (
+                <>
+                  total de{" "}
+                  <span className="text-emerald-400 font-semibold">
+                    {formatCurrency(summary.faturamento)}
+                  </span>
+                  , média diária{" "}
+                  <span className="font-semibold">
+                    {formatCurrency(summary.mediaDiaria)}
+                  </span>
+                  , conversão{" "}
+                  <span className="text-primary font-semibold">
+                    {summary.conversao.toFixed(1)}%
+                  </span>
+                  .
+                  {bestWorstDay && (
+                    <>
+                      {" "}
+                      Melhor dia:{" "}
+                      <span className="text-emerald-400 font-semibold">
+                        {bestWorstDay.best.label}
+                      </span>{" "}
+                      · Pior:{" "}
+                      <span className="text-red-400 font-semibold">
+                        {bestWorstDay.worst.label}
+                      </span>
+                      .
+                    </>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
+
+          {/* 2. Gráfico */}
           <SectionTitle>Faturamento</SectionTitle>
           <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
             <div className="h-44">
@@ -336,6 +453,7 @@ export default function Insights() {
                     fontSize={10}
                     tickLine={false}
                     axisLine={false}
+                    interval="preserveStartEnd"
                   />
                   <YAxis
                     stroke="hsl(var(--muted-foreground))"
@@ -365,7 +483,7 @@ export default function Insights() {
             </div>
           </div>
 
-          {/* 3. Performance de vendas */}
+          {/* 3. Performance */}
           <SectionTitle>Performance</SectionTitle>
           <div className="rounded-2xl border border-border/40 bg-card/30 p-4 space-y-3">
             <div className="grid grid-cols-3 gap-3">
@@ -391,19 +509,28 @@ export default function Insights() {
             </div>
           </div>
 
-          {/* 4. Comparação de desempenho */}
+          {/* 4. Comparação */}
           <SectionTitle>Comparação</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
-            <ComparisonCell
-              label="Hoje vs ontem"
-              pct={compareYesterday.pct}
-              valid={compareYesterday.valid}
-            />
-            <ComparisonCell
-              label="Semana vs anterior"
-              pct={compareWeek.pct}
-              valid={compareWeek.valid}
-            />
+            {isSingleDay ? (
+              <>
+                <ComparisonCell
+                  label="Hoje vs ontem"
+                  pct={compareYesterday.pct}
+                  valid={compareYesterday.valid}
+                />
+                <MetricCell label="Faturamento ontem" value={formatCurrency(yesterdayProfit)} />
+              </>
+            ) : (
+              <>
+                <ComparisonCell
+                  label="Período vs anterior"
+                  pct={comparePrev.pct}
+                  valid={comparePrev.valid}
+                />
+                <MetricCell label="Média diária" value={formatCurrency(summary.mediaDiaria)} />
+              </>
+            )}
           </div>
 
           {/* 5. Melhores horários */}
@@ -411,7 +538,7 @@ export default function Insights() {
           <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
             {bestHours.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Sem dados de horários ainda. Trabalhe alguns blocos no Ritmo.
+                Sem dados de horários no período.
               </p>
             ) : (
               <div className="space-y-2.5">
@@ -422,9 +549,14 @@ export default function Insights() {
                     </span>
                     <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden">
                       <div
-                        className={`h-full rounded-full ${
-                          i === 0 ? "bg-emerald-400" : i === bestHours.length - 1 ? "bg-red-400/70" : "bg-primary/70"
-                        }`}
+                        className={cn(
+                          "h-full rounded-full",
+                          i === 0
+                            ? "bg-emerald-400"
+                            : i === bestHours.length - 1
+                              ? "bg-red-400/70"
+                              : "bg-primary/70",
+                        )}
                         style={{ width: `${(h.avg / maxHourAvg) * 100}%` }}
                       />
                     </div>
@@ -454,7 +586,7 @@ export default function Insights() {
                     {currentUserStats.posicao_constancia ?? "-"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Veja sua posição na sua cidade, estado e global
+                    Cidade · estado · global
                   </p>
                 </>
               ) : (
@@ -465,7 +597,7 @@ export default function Insights() {
               )}
             </div>
             <span className="text-xs text-primary inline-flex items-center">
-              Ver ranking completo <ChevronRight className="w-4 h-4 ml-0.5" />
+              Ver completo <ChevronRight className="w-4 h-4 ml-0.5" />
             </span>
           </button>
 
@@ -498,6 +630,44 @@ export default function Insights() {
   );
 }
 
+function DateField({
+  label,
+  date,
+  onChange,
+}: {
+  label: string;
+  date: Date | undefined;
+  onChange: (d: Date | undefined) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-9 px-3 text-xs justify-start font-normal bg-card/40 border-border/60",
+            !date && "text-muted-foreground",
+          )}
+        >
+          <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+          {date ? `${label}: ${fmtBR(date)}` : label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={onChange}
+          disabled={(d) => d > new Date()}
+          initialFocus
+          className={cn("p-3 pointer-events-auto")}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-2">
@@ -518,7 +688,7 @@ function MetricCell({
   return (
     <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
       <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1.5 text-xl font-semibold ${valueClassName}`}>{value}</p>
+      <p className={cn("mt-1.5 text-xl font-semibold", valueClassName)}>{value}</p>
     </div>
   );
 }
@@ -552,7 +722,7 @@ function ComparisonCell({
     <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
       <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
       {valid ? (
-        <div className={`mt-1.5 flex items-center gap-1 text-lg font-semibold ${color}`}>
+        <div className={cn("mt-1.5 flex items-center gap-1 text-lg font-semibold", color)}>
           <Icon className="w-4 h-4" />
           {positive ? "+" : ""}
           {pct.toFixed(0)}%
