@@ -25,22 +25,22 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] bg-background/95 border border-border backdrop-blur-xl">
+      <DialogContent className="sm:max-w-[600px] bg-black/95 border-white/10 backdrop-blur-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3 text-2xl">
             <div className={cn(
               "w-12 h-12 rounded-full flex items-center justify-center",
-              goalAchieved
-                ? "bg-gradient-to-br from-success to-success/70"
-                : "bg-gradient-primary"
+              goalAchieved 
+                ? "bg-gradient-to-br from-green-500 to-emerald-600" 
+                : "bg-gradient-to-br from-blue-500 to-purple-600"
             )}>
               {goalAchieved ? (
-                <CheckCircle2 className="w-6 h-6 text-success-foreground" />
+                <CheckCircle2 className="w-6 h-6 text-white" />
               ) : (
-                <Target className="w-6 h-6 text-primary-foreground" />
+                <Target className="w-6 h-6 text-white" />
               )}
             </div>
-            <span className="gradient-text">
+            <span className="bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
               Relatório do Dia
             </span>
           </DialogTitle>
@@ -48,11 +48,11 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
 
         <div className="space-y-4 py-4">
           {/* Total do Dia */}
-          <Card className="overflow-hidden border-border bg-gradient-gold-soft backdrop-blur-sm">
+          <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-blue-500/10 to-purple-600/10 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm text-muted-foreground">Total Vendido</p>
-                <p className="text-4xl font-bold gradient-text">
+                <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
                   {formatCurrency(report.totalSold)}
                 </p>
               </div>
@@ -68,14 +68,14 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
           {/* Percentual da Meta */}
           <Card className={cn(
             "overflow-hidden border-2 backdrop-blur-sm",
-            goalAchieved
-              ? "border-success bg-success/10"
-              : "border-primary/40 bg-primary/10"
+            goalAchieved 
+              ? "border-green-500 bg-gradient-to-br from-green-600/20 to-emerald-700/20" 
+              : "border-blue-500 bg-gradient-to-br from-blue-600/20 to-purple-700/20"
           )}>
             <CardContent className="p-6 text-center">
               <div className={cn(
                 "text-6xl font-bold mb-2",
-                goalAchieved ? "text-success" : "text-primary"
+                goalAchieved ? "text-green-500" : "text-blue-400"
               )}>
                 {report.percentageAchieved.toFixed(0)}%
               </div>
@@ -87,27 +87,29 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
 
           {/* Estatísticas */}
           <div className="grid grid-cols-2 gap-4">
+            {/* Melhor Hora */}
             {report.bestHour && (
-              <Card className="overflow-hidden border-border bg-success/10 backdrop-blur-sm">
+              <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-green-600/20 to-emerald-700/20 backdrop-blur-sm">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-success" />
+                    <TrendingUp className="w-4 h-4 text-green-500" />
                     <p className="text-xs text-muted-foreground">Melhor Hora</p>
                   </div>
-                  <p className="text-lg font-bold text-success">H{report.bestHour.index + 1}</p>
+                  <p className="text-lg font-bold text-green-500">H{report.bestHour.index + 1}</p>
                   <p className="text-sm text-muted-foreground">{formatCurrency(report.bestHour.amount)}</p>
                 </CardContent>
               </Card>
             )}
 
+            {/* Pior Hora */}
             {report.worstHour && (
-              <Card className="overflow-hidden border-border bg-destructive/10 backdrop-blur-sm">
+              <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-red-600/20 to-rose-700/20 backdrop-blur-sm">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="w-4 h-4 text-destructive" />
+                    <TrendingDown className="w-4 h-4 text-red-500" />
                     <p className="text-xs text-muted-foreground">Pior Hora</p>
                   </div>
-                  <p className="text-lg font-bold text-destructive">H{report.worstHour.index + 1}</p>
+                  <p className="text-lg font-bold text-red-500">H{report.worstHour.index + 1}</p>
                   <p className="text-sm text-muted-foreground">{formatCurrency(report.worstHour.amount)}</p>
                 </CardContent>
               </Card>
@@ -115,11 +117,11 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
           </div>
 
           {/* Ritmo Médio */}
-          <Card className="overflow-hidden border-border bg-card/60 backdrop-blur-sm">
+          <Card className="overflow-hidden border-white/10 bg-black/40 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-muted-foreground">Ritmo Médio</p>
-                <p className="text-xl font-bold gradient-text">
+                <p className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
                   {formatCurrency(report.averageRhythm)}/hora
                 </p>
               </div>
@@ -129,27 +131,27 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
           {/* Constância */}
           <Card className={cn(
             "overflow-hidden border-2 backdrop-blur-sm",
-            report.consistency
-              ? "border-success bg-success/10"
-              : "border-warning bg-warning/10"
+            report.consistency 
+              ? "border-green-500 bg-gradient-to-br from-green-600/20 to-emerald-700/20" 
+              : "border-yellow-500 bg-gradient-to-br from-yellow-600/20 to-orange-700/20"
           )}>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 {report.consistency ? (
-                  <CheckCircle2 className="w-8 h-8 text-success flex-shrink-0" />
+                  <CheckCircle2 className="w-8 h-8 text-green-500 flex-shrink-0" />
                 ) : (
-                  <XCircle className="w-8 h-8 text-warning flex-shrink-0" />
+                  <XCircle className="w-8 h-8 text-yellow-500 flex-shrink-0" />
                 )}
                 <div>
                   <p className={cn(
                     "text-sm font-semibold mb-1",
-                    report.consistency ? "text-success" : "text-warning"
+                    report.consistency ? "text-green-500" : "text-yellow-500"
                   )}>
                     {report.consistency ? "Constância Atingida!" : "Constância Não Atingida"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {report.consistency
-                      ? "Você preencheu todos os blocos do dia! 🔥"
+                    {report.consistency 
+                      ? "Você preencheu todos os blocos do dia! 🔥" 
                       : "Complete todos os blocos para manter sua constância."}
                   </p>
                 </div>
@@ -158,12 +160,12 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
           </Card>
 
           {/* Conselho do Dia */}
-          <Card className="overflow-hidden border-primary/30 bg-gradient-gold-soft backdrop-blur-sm">
+          <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-purple-600/20 to-blue-700/20 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
                 <div className="text-2xl flex-shrink-0">💡</div>
                 <div>
-                  <p className="text-sm font-semibold text-primary mb-2">Conselho do Dia</p>
+                  <p className="text-sm font-semibold text-purple-400 mb-2">Conselho do Dia</p>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {report.advice}
                   </p>
@@ -175,7 +177,7 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
 
         <Button
           onClick={onClose}
-          className="w-full h-14 text-lg font-semibold bg-gradient-primary text-primary-foreground hover:opacity-90 glow-primary"
+          className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg"
         >
           Finalizar
         </Button>

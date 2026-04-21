@@ -6,10 +6,6 @@ import { getUnsynced, markSynced, clearSynced, type OfflineRecord } from "./offl
 
 let syncing = false;
 
-type SyncWindow = Window & {
-  __orbisOfflineSyncCleanup__?: () => void;
-};
-
 export async function syncAllPendingData(): Promise<void> {
   if (syncing) return;
   syncing = true;
@@ -104,32 +100,19 @@ async function syncApproachRecord(record: OfflineRecord): Promise<boolean> {
 }
 
 // Setup listeners
-export function setupOfflineSyncListeners(): () => void {
-  const syncWindow = window as SyncWindow;
-  syncWindow.__orbisOfflineSyncCleanup__?.();
-
-  const handleOnline = () => {
+export function setupOfflineSyncListeners(): void {
+  window.addEventListener('online', () => {
     console.log('[OfflineSync] Connection restored, syncing...');
-    void syncAllPendingData();
-  };
+    syncAllPendingData();
+  });
 
-  window.addEventListener('online', handleOnline);
-
+  // Try Background Sync if available
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
-    navigator.serviceWorker.ready
-      .then((reg) => (reg as ServiceWorkerRegistration & { sync?: { register: (tag: string) => Promise<void> } }).sync?.register('orbis-sync'))
-      .catch(() => {
-        // Background sync unavailable, online listener remains active.
+    navigator.serviceWorker.ready.then(reg => {
+      // Register for background sync
+      (reg as any).sync?.register('orbis-sync').catch(() => {
+        // Background sync not supported, fallback to online event
       });
+    });
   }
-
-  const cleanup = () => {
-    window.removeEventListener('online', handleOnline);
-    if (syncWindow.__orbisOfflineSyncCleanup__ === cleanup) {
-      delete syncWindow.__orbisOfflineSyncCleanup__;
-    }
-  };
-
-  syncWindow.__orbisOfflineSyncCleanup__ = cleanup;
-  return cleanup;
 }

@@ -203,9 +203,9 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-background/95 backdrop-blur-xl border border-border">
+      <DialogContent className="sm:max-w-[500px] bg-black/95 backdrop-blur-xl border border-white/10">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold gradient-text">
+          <DialogTitle className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
             {getTitle()}
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
@@ -214,10 +214,10 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
         </DialogHeader>
 
         {isRequired && (
-          <div className="p-3 rounded-lg bg-warning/10 border border-warning/30 flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-warning mt-0.5 shrink-0" />
-            <p className="text-sm text-warning">
-              {requiredReason === "first_time"
+          <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500 mt-0.5 shrink-0" />
+            <p className="text-sm text-yellow-200">
+              {requiredReason === "first_time" 
                 ? "Configure seu planejamento para começar a usar o Orbis."
                 : "Defina suas metas para este novo mês antes de continuar."}
             </p>
@@ -228,7 +228,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
           {/* Meta Mensal */}
           <div className="space-y-2">
             <Label htmlFor="monthlyGoal" className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
+              <Target className="w-4 h-4 text-blue-500" />
               Meta Mensal (R$)
             </Label>
             <Input
@@ -239,14 +239,14 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
               min={1}
               placeholder="Ex: 4200"
-              className="h-12 border-border bg-input focus:border-primary"
+              className="h-12 border-white/10 bg-white/5 focus:border-blue-500"
             />
           </div>
 
           {/* Dias por semana */}
           <div className="space-y-2">
             <Label htmlFor="workDays" className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-primary" />
+              <Calendar className="w-4 h-4 text-green-500" />
               Quantos dias vai trabalhar na semana?
             </Label>
             <Input
@@ -258,14 +258,14 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               min={1}
               max={7}
               placeholder="Ex: 5"
-              className="h-12 border-border bg-input focus:border-primary"
+              className="h-12 border-white/10 bg-white/5 focus:border-green-500"
             />
           </div>
 
           {/* Horas por dia */}
           <div className="space-y-2">
             <Label htmlFor="workHours" className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary" />
+              <Clock className="w-4 h-4 text-orange-500" />
               Quantas horas vai trabalhar por dia?
             </Label>
             <Input
@@ -277,49 +277,49 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               min={1}
               max={24}
               placeholder="Ex: 8"
-              className="h-12 border-border bg-input focus:border-primary"
+              className="h-12 border-white/10 bg-white/5 focus:border-orange-500"
             />
           </div>
 
           {/* Preview das metas */}
-          <div className="p-4 rounded-xl bg-gradient-gold-soft border border-primary/30 space-y-2">
+          <div className="p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 border border-blue-500/20 space-y-2">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">📊 Resumo Calculado</p>
             <div className="grid grid-cols-3 gap-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Meta Semanal:</p>
-                <p className="font-bold text-primary">{formatCurrency(weeklyGoal)}</p>
+                <p className="font-bold text-green-500">{formatCurrency(weeklyGoal)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Meta Diária:</p>
-                <p className="font-bold text-primary">{formatCurrency(dailyGoal)}</p>
+                <p className="font-bold text-blue-500">{formatCurrency(dailyGoal)}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Meta por Hora:</p>
-                <p className="font-bold text-primary">{formatCurrency(hourlyGoal)}</p>
+                <p className="font-bold text-orange-500">{formatCurrency(hourlyGoal)}</p>
               </div>
             </div>
           </div>
 
-          {/* Google Calendar Integration */}
+          {/* Google Calendar Integration - only show when not in required mode */}
           {!isRequired && (
-            <div className="p-4 rounded-xl bg-card/60 border border-border space-y-3">
+            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-600/10 border border-purple-500/20 space-y-3">
               <div className="flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4 text-primary" />
+                <CalendarCheck className="w-4 h-4 text-purple-400" />
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">📅 Google Calendar</p>
               </div>
-
+              
               {isConnected ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-foreground">Conectado</p>
+                      <p className="text-sm font-medium text-white">Conectado</p>
                       <p className="text-xs text-muted-foreground">{googleEmail}</p>
                     </div>
                     <Button
                       onClick={disconnect}
                       variant="outline"
                       size="sm"
-                      className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                      className="border-red-500/20 text-red-400 hover:bg-red-500/10"
                     >
                       Desconectar
                     </Button>
@@ -334,7 +334,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                     onClick={connect}
                     disabled={calendarLoading}
                     size="sm"
-                    className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90"
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
                   >
                     {calendarLoading ? "Conectando..." : "🔗 Conectar Google Calendar"}
                   </Button>
@@ -349,7 +349,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               <Button
                 onClick={onClose}
                 variant="outline"
-                className="flex-1 h-12 border-border hover:bg-muted/50"
+                className="flex-1 h-12 border-white/10 hover:bg-white/5"
                 disabled={loading}
               >
                 Cancelar
@@ -357,7 +357,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
             )}
             <Button
               onClick={handleSave}
-              className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
+              className={`h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold ${isRequired ? 'flex-1' : 'flex-1'}`}
               disabled={loading}
             >
               {loading ? "Salvando..." : isRequired ? "🚀 Começar" : "💾 Salvar"}

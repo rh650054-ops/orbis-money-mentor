@@ -428,59 +428,47 @@ export function useDefconChallenge(userId: string | undefined) {
     loadData();
   }, [loadData]);
 
-  // Stable refs for timer callbacks (prevents interval recreation on every render)
-  const handleBlockTimeUpRef = useRef(handleBlockTimeUp);
-  handleBlockTimeUpRef.current = handleBlockTimeUp;
-  const advanceToNextBlockRef = useRef(advanceToNextBlock);
-  advanceToNextBlockRef.current = advanceToNextBlock;
-  const resumeFromLunchRef = useRef(resumeFromLunch);
-  resumeFromLunchRef.current = resumeFromLunch;
-
-  // Timer countdown — depends ONLY on phase + start timestamps
+  // Timer countdown
   useEffect(() => {
     clearTimer();
 
     if (phase === "running" && blockStartedAt) {
-      const startMs = blockStartedAt.getTime();
       timerRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startMs) / 1000);
+        const elapsed = Math.floor((Date.now() - blockStartedAt.getTime()) / 1000);
         const remaining = Math.max(0, BLOCK_DURATION - elapsed);
         setRemainingSeconds(remaining);
 
         if (remaining <= 0) {
           clearTimer();
-          handleBlockTimeUpRef.current();
+          handleBlockTimeUp();
         }
       }, 1000);
     } else if (phase === "break" && breakStartedAt) {
-      const startMs = breakStartedAt.getTime();
       timerRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startMs) / 1000);
+        const elapsed = Math.floor((Date.now() - breakStartedAt.getTime()) / 1000);
         const remaining = Math.max(0, BREAK_DURATION - elapsed);
         setBreakRemaining(remaining);
 
         if (remaining <= 0) {
           clearTimer();
-          advanceToNextBlockRef.current();
+          advanceToNextBlock();
         }
       }, 1000);
     } else if (phase === "lunch_pause" && lunchPauseStartedAt && lunchPauseDuration > 0) {
-      const startMs = lunchPauseStartedAt.getTime();
-      const duration = lunchPauseDuration;
       timerRef.current = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - startMs) / 1000);
-        const remaining = Math.max(0, duration - elapsed);
+        const elapsed = Math.floor((Date.now() - lunchPauseStartedAt.getTime()) / 1000);
+        const remaining = Math.max(0, lunchPauseDuration - elapsed);
         setLunchPauseRemaining(remaining);
 
         if (remaining <= 0) {
           clearTimer();
-          resumeFromLunchRef.current();
+          resumeFromLunch();
         }
       }, 1000);
     }
 
     return clearTimer;
-  }, [phase, blockStartedAt, breakStartedAt, lunchPauseStartedAt, lunchPauseDuration, clearTimer]);
+  }, [phase, blockStartedAt, breakStartedAt, lunchPauseStartedAt, lunchPauseDuration, clearTimer, handleBlockTimeUp, advanceToNextBlock]);
 
   const startChallenge = async () => {
     if (!userId || blocks.length === 0) return;
