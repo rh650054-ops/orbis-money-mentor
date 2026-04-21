@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { Instagram, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
-import orbisLogo from "@/assets/orbis-logo.jpeg";
+import orbisLogo from "@/assets/orbis-logo-share.png";
 
 interface DefconBlockReportProps {
   blockIndex: number;
@@ -104,13 +104,15 @@ export function DefconBlockReport({
       conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F59E0B" : "#EF4444";
     drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
 
-    // Bottom: Orbis logo image
+    // Bottom: Orbis logo image (wider since it includes the wordmark)
     try {
       const logo = await loadLogo();
-      const logoSize = 220;
-      const logoX = W / 2 - logoSize / 2;
-      const logoY = H - logoSize - 120;
-      ctx.drawImage(logo, logoX, logoY, logoSize, logoSize);
+      const logoW = 460;
+      const ratio = logo.height / logo.width;
+      const logoH = logoW * ratio;
+      const logoX = W / 2 - logoW / 2;
+      const logoY = H - logoH - 120;
+      ctx.drawImage(logo, logoX, logoY, logoW, logoH);
     } catch {
       // Fallback: text logo
       centerText("ORBIS", H - 180, 80, "900", "#FFFFFF", 16);
