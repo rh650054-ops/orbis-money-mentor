@@ -288,18 +288,21 @@ export function DefconEndScreen({
             </h2>
 
             <PaymentInput
+              emoji="📱"
               label="Pix"
               value={pix}
               onChange={setPix}
               accent="text-neutral-400"
             />
             <PaymentInput
+              emoji="💳"
               label="Cartão"
               value={cartao}
               onChange={setCartao}
               accent="text-neutral-400"
             />
             <PaymentInput
+              emoji="💵"
               label="Dinheiro"
               value={dinheiro}
               onChange={setDinheiro}
@@ -378,16 +381,22 @@ export function DefconEndScreen({
 }
 
 interface PaymentInputProps {
+  emoji?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   accent: string;
 }
 
-function PaymentInput({ label, value, onChange, accent }: PaymentInputProps) {
+function PaymentInput({ emoji, label, value, onChange, accent }: PaymentInputProps) {
   return (
     <div className="relative h-14 rounded-xl bg-neutral-950 border border-neutral-900 focus-within:border-neutral-700 transition-colors">
-      <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium ${accent}`}>
+      {emoji && (
+        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">
+          {emoji}
+        </span>
+      )}
+      <span className={`absolute ${emoji ? 'left-12' : 'left-4'} top-1/2 -translate-y-1/2 text-sm font-medium ${accent}`}>
         {label}
       </span>
       <span className="absolute right-[88px] top-1/2 -translate-y-1/2 text-xs text-neutral-600">
@@ -399,7 +408,7 @@ function PaymentInput({ label, value, onChange, accent }: PaymentInputProps) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
-        className="w-full h-full bg-transparent text-right text-lg font-bold text-white pr-4 pl-24 focus:outline-none placeholder:text-neutral-700"
+        className="w-full h-full bg-transparent text-right text-lg font-bold text-white pr-4 pl-32 focus:outline-none placeholder:text-neutral-700"
       />
     </div>
   );
