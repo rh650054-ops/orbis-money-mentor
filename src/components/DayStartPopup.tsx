@@ -172,7 +172,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent className="sm:max-w-[480px] bg-black/95 backdrop-blur-xl border border-white/10 shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent text-center pb-2">
+          <DialogTitle className="text-3xl font-bold gradient-text text-center pb-2">
             {getTitle()}
           </DialogTitle>
         </DialogHeader>
@@ -180,10 +180,10 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
         <div className="space-y-4 py-4">
           {/* Show report summary if day is finished */}
           {dayStatus === 'finished' && (
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-green-500/10 to-emerald-600/10 border border-green-500/20 backdrop-blur-sm">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-success/10 to-success/5 border border-success/30 backdrop-blur-sm">
               <div className="text-center space-y-2">
                 <p className="text-sm text-muted-foreground uppercase tracking-wide">Total Vendido</p>
-                <p className="text-3xl font-bold text-green-400">{formatCurrency(totalSold)}</p>
+                <p className="text-3xl font-bold text-success">{formatCurrency(totalSold)}</p>
                 <p className="text-lg text-muted-foreground">
                   {percentageAchieved.toFixed(0)}% da meta
                 </p>
@@ -192,10 +192,10 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
           )}
 
           {/* Meta Diária */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-600/10 border border-blue-500/20 backdrop-blur-sm">
+          <div className="p-5 rounded-2xl bg-gradient-gold-soft border border-primary/30 backdrop-blur-sm">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                <Target className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                <Target className="w-5 h-5 text-primary-foreground" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Meta de Hoje</p>
@@ -207,18 +207,18 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
           {/* Meta Semanal e Mensal - Grid */}
           <div className="grid grid-cols-2 gap-4">
             {/* Meta Semanal */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-600/10 border border-green-500/20 backdrop-blur-sm">
+            <div className="p-4 rounded-xl bg-card/60 border border-border backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-green-500" />
+                <Zap className="w-5 h-5 text-primary" />
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Semana</p>
               </div>
               <p className="text-lg font-bold whitespace-nowrap">{formatCurrency(weeklyGoal)}</p>
             </div>
 
             {/* Meta Mensal */}
-            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-600/10 border border-purple-500/20 backdrop-blur-sm">
+            <div className="p-4 rounded-xl bg-card/60 border border-border backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
+                <TrendingUp className="w-5 h-5 text-primary" />
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Mês</p>
               </div>
               <p className="text-lg font-bold whitespace-nowrap">{formatCurrency(monthlyGoal)}</p>
@@ -226,10 +226,10 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
           </div>
 
           {/* Horas de Trabalho */}
-          <div className="p-5 rounded-2xl bg-gradient-to-br from-orange-500/10 to-red-600/10 border border-orange-500/20 backdrop-blur-sm">
+          <div className="p-5 rounded-2xl bg-card/60 border border-border backdrop-blur-sm">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                <Clock className="w-5 h-5 text-primary-foreground" />
               </div>
               <div className="flex-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Horas Planejadas</p>
@@ -243,7 +243,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             <Button
               onClick={handleClose}
               variant="outline"
-              className="flex-1 h-12 border-white/10 hover:bg-white/5"
+              className="flex-1 h-12 border-border hover:bg-muted/50"
             >
               ❌ Fechar
             </Button>
@@ -251,7 +251,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             {!isLoading && dayStatus === 'not_started' && (
               <Button
                 onClick={handleStartDay}
-                className="flex-1 h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 font-semibold shadow-lg shadow-blue-500/50"
+                className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
               >
                 🚀 Iniciar Meu Dia
               </Button>
@@ -260,7 +260,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             {!isLoading && dayStatus === 'in_progress' && (
               <Button
                 onClick={handleViewReport}
-                className="flex-1 h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 font-semibold shadow-lg shadow-green-500/50"
+                className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
               >
                 ⚡ Continuar Trabalhando
               </Button>
@@ -269,7 +269,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             {!isLoading && dayStatus === 'finished' && (
               <Button
                 onClick={handleViewReport}
-                className="flex-1 h-12 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 font-semibold shadow-lg shadow-purple-500/50"
+                className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
               >
                 <FileText className="w-4 h-4 mr-2" />
                 Ver Relatório
@@ -279,7 +279,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             {isLoading && (
               <Button
                 disabled
-                className="flex-1 h-12 bg-gradient-to-r from-gray-500 to-gray-600 font-semibold"
+                className="flex-1 h-12 bg-muted text-muted-foreground font-semibold"
               >
                 Carregando...
               </Button>
