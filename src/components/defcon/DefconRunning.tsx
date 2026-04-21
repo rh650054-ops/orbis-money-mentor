@@ -312,7 +312,7 @@ export function DefconRunning({
           {/* Abordagem — menor, neutro */}
           <button
             onClick={handleApproachClick}
-            className={`flex-1 h-[56px] rounded-2xl bg-[#1A1A1A] border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
+            className={`flex-[0.85] h-[56px] rounded-2xl bg-[#1A1A1A] border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
               approachPulse ? "ring-2 ring-white/30 bg-[#2A2A2A]" : ""
             }`}
           >
@@ -323,7 +323,7 @@ export function DefconRunning({
           {/* Venda — maior, destaque absoluto */}
           <button
             onClick={() => setShowAddSale(true)}
-            className="flex-[1.7] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_36px_-6px_rgba(245,180,0,0.8)]"
+            className="flex-[1.3] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_36px_-6px_rgba(245,180,0,0.8)]"
           >
             <Plus className="w-7 h-7 text-black" strokeWidth={3.5} />
             <span className="text-[18px] font-black text-black tracking-tight">Venda</span>
@@ -332,7 +332,7 @@ export function DefconRunning({
           {/* Gorjeta — menor, outline */}
           <button
             onClick={() => setShowAddTip(true)}
-            className="flex-1 h-[56px] rounded-2xl bg-transparent border-2 border-[#F5B400]/40 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
+            className="flex-[0.85] h-[56px] rounded-2xl bg-transparent border-2 border-[#F5B400]/40 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
           >
             <Coins className="w-4 h-4 text-[#F5B400]" strokeWidth={2.5} />
             <span className="text-[11px] font-bold text-[#F5B400] leading-none">Gorjeta</span>
