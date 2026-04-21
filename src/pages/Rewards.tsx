@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award, Flame, Shield, Sword, Rocket, Diamond } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
@@ -16,6 +16,7 @@ type Tier = {
   level: number;
   colorClass: string;
   glowColor: string;
+  xpRequired: number;
 };
 
 const TIERS: Tier[] = [
@@ -23,6 +24,7 @@ const TIERS: Tier[] = [
     name: "Semente",
     level: 1,
     threshold: 10_000,
+    xpRequired: 1000,
     tagline: "O começo de tudo",
     accent: "hsl(140 70% 45%)",
     emoji: "🌱",
@@ -39,6 +41,7 @@ const TIERS: Tier[] = [
     name: "Brasa",
     level: 2,
     threshold: 50_000,
+    xpRequired: 5000,
     tagline: "O fogo está aceso",
     accent: "hsl(25 95% 55%)",
     emoji: "🔥",
@@ -55,6 +58,7 @@ const TIERS: Tier[] = [
     name: "Forja",
     level: 3,
     threshold: 100_000,
+    xpRequired: 10000,
     tagline: "Você está moldando seu futuro",
     accent: "hsl(45 95% 55%)",
     emoji: "⚒️",
@@ -71,6 +75,7 @@ const TIERS: Tier[] = [
     name: "Império",
     level: 4,
     threshold: 500_000,
+    xpRequired: 50000,
     tagline: "Reconhecido entre os melhores",
     accent: "hsl(280 70% 60%)",
     emoji: "👑",
@@ -87,6 +92,7 @@ const TIERS: Tier[] = [
     name: "Lenda",
     level: 5,
     threshold: 1_000_000,
+    xpRequired: 100000,
     tagline: "Top 1% — você é referência",
     accent: "hsl(200 90% 60%)",
     emoji: "⭐",
