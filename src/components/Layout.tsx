@@ -251,22 +251,43 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile bottom navigation - Fixed */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around h-16 px-2">
+        <div className="flex items-end justify-around h-16 px-2">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href;
+            const Icon = item.icon;
+
+            // Center CTA - sifrão dourado destacado
+            if (item.isCenter) {
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  {...(item.tourId ? { "data-tour": item.tourId } : {})}
+                  className="relative flex flex-col items-center justify-center -mt-6"
+                >
+                  <div className={cn(
+                    "w-14 h-14 rounded-full flex items-center justify-center shadow-[var(--glow-primary)] transition-all",
+                    "bg-primary text-primary-foreground hover:scale-105"
+                  )}>
+                    <Icon className="h-6 w-6" strokeWidth={2.5} />
+                  </div>
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={item.name}
                 to={item.href}
                 {...(item.tourId ? { "data-tour": item.tourId } : {})}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium transition-all rounded-lg",
-                  isActive 
-                    ? "text-primary bg-primary/10" 
-                    : "text-muted-foreground hover:text-primary hover:bg-primary/5"
+                  "flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium transition-all rounded-lg flex-1",
+                  isActive
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-primary"
                 )}
               >
-                <item.icon className="h-5 w-5" />
+                <Icon className="h-5 w-5" />
                 <span className="text-[10px]">{item.name}</span>
               </Link>
             );
