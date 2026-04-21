@@ -76,6 +76,7 @@ export default function Profile() {
     insights: 0
   });
   const [isUpgrading] = useState(false);
+  const { cities: editCities, loading: loadingEditCities } = useBrazilCities(editForm.state);
   const subscriptionFeatures = [
     "Insights ilimitados da IA",
     "Análises avançadas de gastos",
