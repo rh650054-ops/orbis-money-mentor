@@ -775,113 +775,184 @@ export default function Products() {
       </Dialog>
 
       {/* PIX ACCOUNTS MANAGER */}
-      <Dialog open={pixManagerOpen} onOpenChange={setPixManagerOpen}>
+      <Dialog open={pixManagerOpen} onOpenChange={(o) => { setPixManagerOpen(o); if (!o) resetPixForm(); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Contas Pix</DialogTitle>
           </DialogHeader>
 
-          {/* Lista */}
-          {pixAccounts.length > 0 && !editingPix && (
+          {/* Lista de contas já cadastradas */}
+          {pixAccounts.length > 0 && !selectedBankId && !editingPix && (
             <div className="space-y-2">
-              {pixAccounts.map((a) => (
-                <Card key={a.id} className={a.is_default ? "border-primary/50" : ""}>
-                  <CardContent className="p-3 flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-medium text-sm truncate">{a.bank_name}</p>
-                        {a.is_default && <Star className="w-3 h-3 text-primary fill-primary" />}
+              <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">
+                Bancos cadastrados
+              </p>
+              {pixAccounts.map((a) => {
+                const bank = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name) || getBankById("outro");
+                return (
+                  <Card key={a.id} className={a.is_default ? "border-primary/50" : ""}>
+                    <CardContent className="p-3 flex items-center gap-2">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0"
+                        style={{ backgroundColor: `${bank.color}25` }}
+                      >
+                        {bank.emoji}
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {a.pix_key_type.toUpperCase()} • {a.pix_key}
-                      </p>
-                    </div>
-                    {!a.is_default && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
-                        <Star className="w-3.5 h-3.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-sm truncate">{a.bank_name}</p>
+                          {a.is_default && <Star className="w-3 h-3 text-primary fill-primary" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {a.pix_key_type.toUpperCase()} • {a.pix_key}
+                        </p>
+                      </div>
+                      {!a.is_default && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
+                          <Star className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => editPixAccount(a)}>
+                        <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                    )}
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => editPixAccount(a)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deletePixAccount(a.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deletePixAccount(a.id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 
-          {/* Form */}
-          <div className="space-y-3 pt-2 border-t border-border/40">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              {editingPix ? "Editar conta" : "Adicionar nova conta"}
-            </p>
-            <div>
-              <Label>Apelido / Banco</Label>
-              <Input
-                placeholder="Ex: Nubank, Itaú, Bradesco"
-                value={pixForm.bank_name}
-                onChange={(e) => setPixForm({ ...pixForm, bank_name: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Tipo</Label>
-                <Select
-                  value={pixForm.pix_key_type}
-                  onValueChange={(v) => setPixForm({ ...pixForm, pix_key_type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cpf">CPF</SelectItem>
-                    <SelectItem value="cnpj">CNPJ</SelectItem>
-                    <SelectItem value="email">E-mail</SelectItem>
-                    <SelectItem value="phone">Telefone</SelectItem>
-                    <SelectItem value="random">Aleatória</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Chave</Label>
-                <Input
-                  value={pixForm.pix_key}
-                  onChange={(e) => setPixForm({ ...pixForm, pix_key: e.target.value })}
-                />
+          {/* Seletor visual de banco */}
+          {!selectedBankId && !editingPix && (
+            <div className="space-y-2 pt-2">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">
+                {pixAccounts.length > 0 ? "Adicionar outro banco" : "Escolha seu banco"}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {BRAZILIAN_BANKS.map((b) => {
+                  const alreadyAdded = pixAccounts.some((a) => a.bank_name === b.name);
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => selectBankToAdd(b.id)}
+                      className="relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition active:scale-95"
+                      style={alreadyAdded ? { opacity: 0.5 } : {}}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+                        style={{ backgroundColor: `${b.color}30` }}
+                      >
+                        {b.emoji}
+                      </div>
+                      <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">
+                        {b.name}
+                      </span>
+                      {alreadyAdded && (
+                        <Check className="absolute top-1 right-1 w-3 h-3 text-primary" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <div>
-              <Label>Nome do recebedor</Label>
-              <Input
-                maxLength={25}
-                value={pixForm.merchant_name}
-                onChange={(e) => setPixForm({ ...pixForm, merchant_name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Cidade</Label>
-              <Input
-                maxLength={15}
-                placeholder="Ex: SAO PAULO"
-                value={pixForm.merchant_city}
-                onChange={(e) => setPixForm({ ...pixForm, merchant_city: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-2">
-              {editingPix && (
-                <Button variant="ghost" className="flex-1" onClick={() => { setEditingPix(null); setPixForm(emptyPixForm); }}>
-                  Cancelar
+          )}
+
+          {/* Form de chave Pix (só aparece após escolher banco) */}
+          {(selectedBankId || editingPix) && (
+            <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const bank = getBankById(selectedBankId || "outro");
+                  return (
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ backgroundColor: `${bank.color}30` }}
+                    >
+                      {bank.emoji}
+                    </div>
+                  );
+                })()}
+                <div className="flex-1">
+                  <p className="font-semibold">{pixForm.bank_name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {editingPix ? "Editando chave Pix" : "Adicionar chave Pix deste banco"}
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={resetPixForm}>
+                  ✕
                 </Button>
+              </div>
+
+              {selectedBankId === "outro" && !editingPix && (
+                <div>
+                  <Label>Nome do banco</Label>
+                  <Input
+                    placeholder="Ex: Banco Original"
+                    value={pixForm.bank_name}
+                    onChange={(e) => setPixForm({ ...pixForm, bank_name: e.target.value })}
+                  />
+                </div>
               )}
-              <Button className="flex-1" onClick={savePixAccount}>
-                {editingPix ? "Atualizar" : "Adicionar"}
+
+              <div className="grid grid-cols-[110px_1fr] gap-2">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select
+                    value={pixForm.pix_key_type}
+                    onValueChange={(v) => setPixForm({ ...pixForm, pix_key_type: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cpf">CPF</SelectItem>
+                      <SelectItem value="cnpj">CNPJ</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="phone">Telefone</SelectItem>
+                      <SelectItem value="random">Aleatória</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Chave Pix</Label>
+                  <Input
+                    autoFocus
+                    placeholder="Sua chave deste banco"
+                    value={pixForm.pix_key}
+                    onChange={(e) => setPixForm({ ...pixForm, pix_key: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Nome do recebedor</Label>
+                  <Input
+                    maxLength={25}
+                    value={pixForm.merchant_name}
+                    onChange={(e) => setPixForm({ ...pixForm, merchant_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Cidade</Label>
+                  <Input
+                    maxLength={15}
+                    placeholder="SAO PAULO"
+                    value={pixForm.merchant_city}
+                    onChange={(e) => setPixForm({ ...pixForm, merchant_city: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <Button className="w-full" size="lg" onClick={savePixAccount}>
+                {editingPix ? "Atualizar banco" : "Salvar banco"}
               </Button>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
