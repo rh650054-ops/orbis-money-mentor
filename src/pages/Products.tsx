@@ -108,6 +108,8 @@ export default function Products() {
   const [pixManagerOpen, setPixManagerOpen] = useState(false);
   const [editingPix, setEditingPix] = useState<PixAccount | null>(null);
   const [pixForm, setPixForm] = useState(emptyPixForm);
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [profileDefaults, setProfileDefaults] = useState({ name: "", city: "" });
 
   useEffect(() => {
     if (!user) return;
