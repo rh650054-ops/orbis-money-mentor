@@ -386,7 +386,7 @@ export default function Index() {
       {/* Saudação */}
       <div className="space-y-1">
         <p className="text-2xl font-semibold tracking-tight text-foreground">
-          {greeting}, <span className="text-primary">vendedor</span>
+          {greeting}, <span className="text-primary">{nickname || "vendedor"}</span>
         </p>
         <p className="text-sm text-muted-foreground">Vamos dominar o dia.</p>
       </div>
