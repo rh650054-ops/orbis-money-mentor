@@ -307,35 +307,35 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
-        {/* Botões de ação — alvos grandes para uso na rua */}
-        <div className="w-full flex items-stretch justify-center gap-3 px-1">
-          {/* Abordagem — neutro mas visível */}
+        {/* Botões de ação — hierarquia: venda maior, outros menores */}
+        <div className="w-full flex items-stretch justify-center gap-2.5 px-1">
+          {/* Abordagem — menor, neutro */}
           <button
             onClick={handleApproachClick}
-            className={`flex-1 h-[64px] rounded-2xl bg-[#1A1A1A] border border-white/15 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
-              approachPulse ? "ring-2 ring-white/40 bg-[#2A2A2A]" : ""
+            className={`flex-1 h-[56px] rounded-2xl bg-[#1A1A1A] border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
+              approachPulse ? "ring-2 ring-white/30 bg-[#2A2A2A]" : ""
             }`}
           >
-            <UserRound className="w-5 h-5 text-white/90" strokeWidth={2.5} />
-            <span className="text-[12px] font-bold text-white/90 leading-none">Abordagem</span>
+            <UserRound className="w-4 h-4 text-white/80" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold text-white/80 leading-none">Abordagem</span>
           </button>
 
-          {/* Venda — destaque dourado, alvo maior */}
+          {/* Venda — maior, destaque absoluto */}
           <button
             onClick={() => setShowAddSale(true)}
-            className="flex-[1.5] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_32px_-6px_rgba(245,180,0,0.75)]"
+            className="flex-[1.7] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_36px_-6px_rgba(245,180,0,0.8)]"
           >
-            <Plus className="w-6 h-6 text-black" strokeWidth={3.5} />
-            <span className="text-[17px] font-black text-black tracking-tight">Venda</span>
+            <Plus className="w-7 h-7 text-black" strokeWidth={3.5} />
+            <span className="text-[18px] font-black text-black tracking-tight">Venda</span>
           </button>
 
-          {/* Gorjeta — outline mesmo tamanho */}
+          {/* Gorjeta — menor, outline */}
           <button
             onClick={() => setShowAddTip(true)}
-            className="flex-1 h-[64px] rounded-2xl bg-transparent border-2 border-[#F5B400]/50 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
+            className="flex-1 h-[56px] rounded-2xl bg-transparent border-2 border-[#F5B400]/40 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
           >
-            <Coins className="w-5 h-5 text-[#F5B400]" strokeWidth={2.5} />
-            <span className="text-[12px] font-bold text-[#F5B400] leading-none">Gorjeta</span>
+            <Coins className="w-4 h-4 text-[#F5B400]" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold text-[#F5B400] leading-none">Gorjeta</span>
           </button>
         </div>
 
