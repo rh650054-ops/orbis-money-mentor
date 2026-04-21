@@ -115,12 +115,18 @@ export default function Profile() {
         avatar_url: data.avatar_url || "",
         is_demo: data.is_demo || false,
         billing_exempt: data.billing_exempt || false,
-        plan_status: data.plan_status || "trial"
+        plan_status: data.plan_status || "trial",
+        phone: data.phone || "",
+        state: data.state || "",
+        city: data.city || "",
       });
       setEditForm({
         nickname: data.nickname || "",
         email: data.email || "",
-        avatar_url: data.avatar_url || ""
+        avatar_url: data.avatar_url || "",
+        phone: data.phone || "",
+        state: data.state || "",
+        city: data.city || "",
       });
       if (data.avatar_url) {
         setAvatarPreview(data.avatar_url);
