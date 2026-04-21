@@ -3,6 +3,7 @@ import { Share2, AlertTriangle, Sparkles } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import orbisLogo from "@/assets/orbis-logo-share.png";
+import pixLogo from "@/assets/pix-logo.png";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -288,7 +289,7 @@ export function DefconEndScreen({
             </h2>
 
             <PaymentInput
-              emoji="📱"
+              iconSrc={pixLogo}
               label="Pix"
               value={pix}
               onChange={setPix}
@@ -382,21 +383,29 @@ export function DefconEndScreen({
 
 interface PaymentInputProps {
   emoji?: string;
+  iconSrc?: string;
   label: string;
   value: string;
   onChange: (v: string) => void;
   accent: string;
 }
 
-function PaymentInput({ emoji, label, value, onChange, accent }: PaymentInputProps) {
+function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: PaymentInputProps) {
+  const hasIcon = !!emoji || !!iconSrc;
   return (
     <div className="relative h-14 rounded-xl bg-neutral-950 border border-neutral-900 focus-within:border-neutral-700 transition-colors">
-      {emoji && (
+      {iconSrc ? (
+        <img
+          src={iconSrc}
+          alt=""
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 object-contain"
+        />
+      ) : emoji ? (
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">
           {emoji}
         </span>
-      )}
-      <span className={`absolute ${emoji ? 'left-12' : 'left-4'} top-1/2 -translate-y-1/2 text-sm font-medium ${accent}`}>
+      ) : null}
+      <span className={`absolute ${hasIcon ? 'left-12' : 'left-4'} top-1/2 -translate-y-1/2 text-sm font-medium ${accent}`}>
         {label}
       </span>
       <span className="absolute right-[88px] top-1/2 -translate-y-1/2 text-xs text-neutral-600">
