@@ -38,6 +38,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { generatePixPayload } from "@/lib/pixCode";
+import { BRAZILIAN_BANKS, getBankById } from "@/lib/brazilianBanks";
 
 interface Product {
   id: string;
@@ -107,6 +108,8 @@ export default function Products() {
   const [pixManagerOpen, setPixManagerOpen] = useState(false);
   const [editingPix, setEditingPix] = useState<PixAccount | null>(null);
   const [pixForm, setPixForm] = useState(emptyPixForm);
+  const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
+  const [profileDefaults, setProfileDefaults] = useState({ name: "", city: "" });
 
   useEffect(() => {
     if (!user) return;
@@ -116,7 +119,7 @@ export default function Products() {
   const loadAll = async () => {
     if (!user) return;
     setLoading(true);
-    const [prodRes, pixRes] = await Promise.all([
+    const [prodRes, pixRes, profRes] = await Promise.all([
       supabase
         .from("products")
         .select("*")
@@ -129,9 +132,18 @@ export default function Products() {
         .eq("user_id", user.id)
         .order("is_default", { ascending: false })
         .order("created_at", { ascending: true }),
+      supabase
+        .from("profiles")
+        .select("nickname, city")
+        .eq("user_id", user.id)
+        .maybeSingle(),
     ]);
     if (prodRes.data) setProducts(prodRes.data as Product[]);
     if (pixRes.data) setPixAccounts(pixRes.data as PixAccount[]);
+    if (profRes.data) setProfileDefaults({
+      name: profRes.data.nickname || "",
+      city: (profRes.data.city || "").toUpperCase(),
+    });
     setLoading(false);
   };
 
@@ -227,14 +239,38 @@ export default function Products() {
   };
 
   // ---------- Pix accounts CRUD ----------
-  const openPixManager = () => {
+  const resetPixForm = () => {
     setEditingPix(null);
-    setPixForm(emptyPixForm);
+    setSelectedBankId(null);
+    setPixForm({
+      ...emptyPixForm,
+      merchant_name: profileDefaults.name,
+      merchant_city: profileDefaults.city,
+    });
+  };
+
+  const openPixManager = () => {
+    resetPixForm();
     setPixManagerOpen(true);
+  };
+
+  const selectBankToAdd = (bankId: string) => {
+    const bank = getBankById(bankId);
+    setSelectedBankId(bankId);
+    setEditingPix(null);
+    setPixForm({
+      bank_name: bank.name,
+      pix_key: "",
+      pix_key_type: "cpf",
+      merchant_name: profileDefaults.name,
+      merchant_city: profileDefaults.city,
+    });
   };
 
   const editPixAccount = (a: PixAccount) => {
     setEditingPix(a);
+    const matched = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name);
+    setSelectedBankId(matched?.id || "outro");
     setPixForm({
       bank_name: a.bank_name,
       pix_key: a.pix_key,
@@ -247,7 +283,7 @@ export default function Products() {
   const savePixAccount = async () => {
     if (!user) return;
     if (!pixForm.bank_name.trim() || !pixForm.pix_key.trim() || !pixForm.merchant_name.trim() || !pixForm.merchant_city.trim()) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      toast({ title: "Preencha chave, nome e cidade", variant: "destructive" });
       return;
     }
     const payload = {
@@ -256,7 +292,7 @@ export default function Products() {
       pix_key: pixForm.pix_key.trim(),
       pix_key_type: pixForm.pix_key_type,
       merchant_name: pixForm.merchant_name.trim(),
-      merchant_city: pixForm.merchant_city.trim(),
+      merchant_city: pixForm.merchant_city.trim().toUpperCase(),
       is_default: editingPix?.is_default ?? pixAccounts.length === 0,
     };
     const { error } = editingPix
@@ -265,9 +301,8 @@ export default function Products() {
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: editingPix ? "Conta atualizada" : "Conta Pix adicionada" });
-      setEditingPix(null);
-      setPixForm(emptyPixForm);
+      toast({ title: editingPix ? "Conta atualizada" : "✅ Banco adicionado" });
+      resetPixForm();
       loadAll();
     }
   };
@@ -282,6 +317,7 @@ export default function Products() {
   const deletePixAccount = async (id: string) => {
     if (!confirm("Excluir esta conta Pix?")) return;
     await supabase.from("pix_accounts").delete().eq("id", id);
+    if (editingPix?.id === id) resetPixForm();
     loadAll();
   };
 
@@ -649,25 +685,46 @@ export default function Products() {
                 </button>
               </div>
               {pixAccounts.length === 0 ? (
-                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
-                  Cadastre uma conta Pix primeiro para gerar QR Code.
-                </p>
-              ) : (
-                <Select
-                  value={form.pix_account_id}
-                  onValueChange={(v) => setForm({ ...form, pix_account_id: v })}
+                <button
+                  type="button"
+                  onClick={openPixManager}
+                  className="w-full text-left text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 rounded-lg p-3 transition"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Escolha o banco" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pixAccounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.bank_name} {a.is_default && "⭐"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  Toque para escolher seu banco e gerar QR Code →
+                </button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {pixAccounts.map((a) => {
+                    const bank = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name) || getBankById("outro");
+                    const selected = form.pix_account_id === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, pix_account_id: a.id })}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border transition active:scale-95 ${
+                          selected
+                            ? "border-primary bg-primary/10"
+                            : "border-border/60 bg-muted/30 hover:bg-muted/60"
+                        }`}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                          style={{ backgroundColor: `${bank.color}30` }}
+                        >
+                          {bank.emoji}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-xs font-medium truncate">{a.bank_name}</p>
+                          {a.is_default && (
+                            <p className="text-[9px] text-primary">★ Padrão</p>
+                          )}
+                        </div>
+                        {selected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
@@ -739,113 +796,184 @@ export default function Products() {
       </Dialog>
 
       {/* PIX ACCOUNTS MANAGER */}
-      <Dialog open={pixManagerOpen} onOpenChange={setPixManagerOpen}>
+      <Dialog open={pixManagerOpen} onOpenChange={(o) => { setPixManagerOpen(o); if (!o) resetPixForm(); }}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Contas Pix</DialogTitle>
           </DialogHeader>
 
-          {/* Lista */}
-          {pixAccounts.length > 0 && !editingPix && (
+          {/* Lista de contas já cadastradas */}
+          {pixAccounts.length > 0 && !selectedBankId && !editingPix && (
             <div className="space-y-2">
-              {pixAccounts.map((a) => (
-                <Card key={a.id} className={a.is_default ? "border-primary/50" : ""}>
-                  <CardContent className="p-3 flex items-center gap-2">
-                    <Landmark className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="font-medium text-sm truncate">{a.bank_name}</p>
-                        {a.is_default && <Star className="w-3 h-3 text-primary fill-primary" />}
+              <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">
+                Bancos cadastrados
+              </p>
+              {pixAccounts.map((a) => {
+                const bank = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name) || getBankById("outro");
+                return (
+                  <Card key={a.id} className={a.is_default ? "border-primary/50" : ""}>
+                    <CardContent className="p-3 flex items-center gap-2">
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-base shrink-0"
+                        style={{ backgroundColor: `${bank.color}25` }}
+                      >
+                        {bank.emoji}
                       </div>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {a.pix_key_type.toUpperCase()} • {a.pix_key}
-                      </p>
-                    </div>
-                    {!a.is_default && (
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
-                        <Star className="w-3.5 h-3.5" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-medium text-sm truncate">{a.bank_name}</p>
+                          {a.is_default && <Star className="w-3 h-3 text-primary fill-primary" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {a.pix_key_type.toUpperCase()} • {a.pix_key}
+                        </p>
+                      </div>
+                      {!a.is_default && (
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
+                          <Star className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => editPixAccount(a)}>
+                        <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                    )}
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => editPixAccount(a)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deletePixAccount(a.id)}>
-                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deletePixAccount(a.id)}>
+                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
 
-          {/* Form */}
-          <div className="space-y-3 pt-2 border-t border-border/40">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              {editingPix ? "Editar conta" : "Adicionar nova conta"}
-            </p>
-            <div>
-              <Label>Apelido / Banco</Label>
-              <Input
-                placeholder="Ex: Nubank, Itaú, Bradesco"
-                value={pixForm.bank_name}
-                onChange={(e) => setPixForm({ ...pixForm, bank_name: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label>Tipo</Label>
-                <Select
-                  value={pixForm.pix_key_type}
-                  onValueChange={(v) => setPixForm({ ...pixForm, pix_key_type: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cpf">CPF</SelectItem>
-                    <SelectItem value="cnpj">CNPJ</SelectItem>
-                    <SelectItem value="email">E-mail</SelectItem>
-                    <SelectItem value="phone">Telefone</SelectItem>
-                    <SelectItem value="random">Aleatória</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Chave</Label>
-                <Input
-                  value={pixForm.pix_key}
-                  onChange={(e) => setPixForm({ ...pixForm, pix_key: e.target.value })}
-                />
+          {/* Seletor visual de banco */}
+          {!selectedBankId && !editingPix && (
+            <div className="space-y-2 pt-2">
+              <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">
+                {pixAccounts.length > 0 ? "Adicionar outro banco" : "Escolha seu banco"}
+              </p>
+              <div className="grid grid-cols-3 gap-2">
+                {BRAZILIAN_BANKS.map((b) => {
+                  const alreadyAdded = pixAccounts.some((a) => a.bank_name === b.name);
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => selectBankToAdd(b.id)}
+                      className="relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition active:scale-95"
+                      style={alreadyAdded ? { opacity: 0.5 } : {}}
+                    >
+                      <div
+                        className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+                        style={{ backgroundColor: `${b.color}30` }}
+                      >
+                        {b.emoji}
+                      </div>
+                      <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">
+                        {b.name}
+                      </span>
+                      {alreadyAdded && (
+                        <Check className="absolute top-1 right-1 w-3 h-3 text-primary" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <div>
-              <Label>Nome do recebedor</Label>
-              <Input
-                maxLength={25}
-                value={pixForm.merchant_name}
-                onChange={(e) => setPixForm({ ...pixForm, merchant_name: e.target.value })}
-              />
-            </div>
-            <div>
-              <Label>Cidade</Label>
-              <Input
-                maxLength={15}
-                placeholder="Ex: SAO PAULO"
-                value={pixForm.merchant_city}
-                onChange={(e) => setPixForm({ ...pixForm, merchant_city: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-2">
-              {editingPix && (
-                <Button variant="ghost" className="flex-1" onClick={() => { setEditingPix(null); setPixForm(emptyPixForm); }}>
-                  Cancelar
+          )}
+
+          {/* Form de chave Pix (só aparece após escolher banco) */}
+          {(selectedBankId || editingPix) && (
+            <div className="space-y-3 pt-2 border-t border-border/40">
+              <div className="flex items-center gap-2">
+                {(() => {
+                  const bank = getBankById(selectedBankId || "outro");
+                  return (
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                      style={{ backgroundColor: `${bank.color}30` }}
+                    >
+                      {bank.emoji}
+                    </div>
+                  );
+                })()}
+                <div className="flex-1">
+                  <p className="font-semibold">{pixForm.bank_name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {editingPix ? "Editando chave Pix" : "Adicionar chave Pix deste banco"}
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={resetPixForm}>
+                  ✕
                 </Button>
+              </div>
+
+              {selectedBankId === "outro" && !editingPix && (
+                <div>
+                  <Label>Nome do banco</Label>
+                  <Input
+                    placeholder="Ex: Banco Original"
+                    value={pixForm.bank_name}
+                    onChange={(e) => setPixForm({ ...pixForm, bank_name: e.target.value })}
+                  />
+                </div>
               )}
-              <Button className="flex-1" onClick={savePixAccount}>
-                {editingPix ? "Atualizar" : "Adicionar"}
+
+              <div className="grid grid-cols-[110px_1fr] gap-2">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select
+                    value={pixForm.pix_key_type}
+                    onValueChange={(v) => setPixForm({ ...pixForm, pix_key_type: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cpf">CPF</SelectItem>
+                      <SelectItem value="cnpj">CNPJ</SelectItem>
+                      <SelectItem value="email">E-mail</SelectItem>
+                      <SelectItem value="phone">Telefone</SelectItem>
+                      <SelectItem value="random">Aleatória</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Chave Pix</Label>
+                  <Input
+                    autoFocus
+                    placeholder="Sua chave deste banco"
+                    value={pixForm.pix_key}
+                    onChange={(e) => setPixForm({ ...pixForm, pix_key: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label>Nome do recebedor</Label>
+                  <Input
+                    maxLength={25}
+                    value={pixForm.merchant_name}
+                    onChange={(e) => setPixForm({ ...pixForm, merchant_name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Cidade</Label>
+                  <Input
+                    maxLength={15}
+                    placeholder="SAO PAULO"
+                    value={pixForm.merchant_city}
+                    onChange={(e) => setPixForm({ ...pixForm, merchant_city: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <Button className="w-full" size="lg" onClick={savePixAccount}>
+                {editingPix ? "Atualizar banco" : "Salvar banco"}
               </Button>
             </div>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
