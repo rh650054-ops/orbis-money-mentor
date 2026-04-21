@@ -304,7 +304,7 @@ export default function Auth() {
                     <select
                       id="state"
                       value={state}
-                      onChange={(e) => setState(e.target.value)}
+                      onChange={(e) => { setState(e.target.value); setCity(""); }}
                       required
                       className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                     >
@@ -316,16 +316,21 @@ export default function Auth() {
                   </div>
                   <div className="space-y-2 col-span-2">
                     <Label htmlFor="city">Cidade</Label>
-                    <Input
+                    <select
                       id="city"
-                      type="text"
-                      placeholder="Sua cidade"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       required
-                      maxLength={80}
-                      className="bg-background"
-                    />
+                      disabled={!state || loadingCities}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm disabled:opacity-60"
+                    >
+                      <option value="">
+                        {!state ? "Selecione o estado" : loadingCities ? "Carregando..." : "Selecione a cidade"}
+                      </option>
+                      {cities.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-2">
