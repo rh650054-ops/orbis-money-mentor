@@ -88,8 +88,31 @@ export function DefconRunning({
     if (amount > 0) {
       registerSale(amount);
       setSaleValue("");
+      setSalePhone("");
       setShowAddSale(false);
     }
+  };
+
+  const sanitizePhone = (raw: string) => raw.replace(/\D/g, "");
+
+  const openWhatsAppCharge = (rawPhone: string, amount: number) => {
+    const digits = sanitizePhone(rawPhone);
+    if (!digits || amount <= 0) return;
+    const phone = digits.length <= 11 ? `55${digits}` : digits;
+    const msg = encodeURIComponent(
+      `Olá! Passando para confirmar sua compra no valor de ${formatCurrency(amount)}. Pode me enviar o comprovante por aqui? Obrigado! 🙏`
+    );
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  };
+
+  const handleSaleAndCharge = () => {
+    const amount = parseFloat(saleValue) || 0;
+    if (amount <= 0) return;
+    registerSale(amount);
+    openWhatsAppCharge(salePhone, amount);
+    setSaleValue("");
+    setSalePhone("");
+    setShowAddSale(false);
   };
 
   const blockSold = currentBlock
