@@ -371,10 +371,10 @@ export function DefconRunning({
       {/* Add sale modal */}
       {showAddSale && (
         <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
-          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
+          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-5 animate-in slide-in-from-bottom duration-200">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-white">Registrar venda</h3>
-              <button onClick={() => { setShowAddSale(false); setSaleValue(""); }}>
+              <button onClick={() => { setShowAddSale(false); setSaleValue(""); setSalePhone(""); }}>
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
@@ -395,13 +395,43 @@ export function DefconRunning({
               />
             </div>
 
-            <button
-              onClick={handleAddSale}
-              disabled={!saleValue || parseFloat(saleValue) <= 0}
-              className="w-full h-16 bg-green-600 text-white font-black text-xl rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
-            >
-              + REGISTRAR
-            </button>
+            {/* WhatsApp opcional para cobrança */}
+            <div>
+              <label className="block text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase mb-2">
+                WhatsApp do cliente (opcional)
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={salePhone}
+                  onChange={(e) => setSalePhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full h-12 bg-black border-2 border-neutral-700 rounded-xl text-base font-mono text-white pl-12 pr-4 focus:outline-none focus:border-[#22C55E] transition-colors placeholder:text-neutral-700"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddSale}
+                disabled={!saleValue || parseFloat(saleValue) <= 0}
+                className="flex-[1.4] h-14 bg-green-600 text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" strokeWidth={3} />
+                REGISTRAR
+              </button>
+              <button
+                onClick={handleSaleAndCharge}
+                disabled={!saleValue || parseFloat(saleValue) <= 0 || sanitizePhone(salePhone).length < 10}
+                className="flex-1 h-14 bg-[#25D366] text-black font-black text-[13px] rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+                title="Registrar venda e enviar cobrança via WhatsApp"
+              >
+                <MessageCircle className="w-4 h-4" strokeWidth={3} />
+                COBRAR
+              </button>
+            </div>
           </div>
         </div>
       )}
