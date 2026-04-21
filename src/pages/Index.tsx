@@ -367,24 +367,7 @@ export default function Index() {
   const totalSalesToday = todaySales?.entry_count || 0;
   const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost;
 
-  return <div className="min-h-screen bg-background px-5 pt-6 pb-24 space-y-6 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
-      {/* 1. HEADER MINIMALISTA */}
-      <header className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="text-primary font-bold text-sm">O</span>
-          </div>
-          <span className="font-semibold tracking-tight text-foreground">Orbis</span>
-        </div>
-        <button
-          onClick={() => navigate('/profile')}
-          className="w-9 h-9 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
-          aria-label="Perfil"
-        >
-          <span className="text-xs">👤</span>
-        </button>
-      </header>
-
+  return <div className="min-h-screen bg-background px-5 pt-4 pb-24 space-y-6 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
       {/* Mensagem de descanso (discreta) */}
       {isRestDay && (
         <div className="px-4 py-3 bg-card rounded-2xl text-center border border-border">
