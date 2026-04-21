@@ -685,25 +685,46 @@ export default function Products() {
                 </button>
               </div>
               {pixAccounts.length === 0 ? (
-                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
-                  Cadastre uma conta Pix primeiro para gerar QR Code.
-                </p>
-              ) : (
-                <Select
-                  value={form.pix_account_id}
-                  onValueChange={(v) => setForm({ ...form, pix_account_id: v })}
+                <button
+                  type="button"
+                  onClick={openPixManager}
+                  className="w-full text-left text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 rounded-lg p-3 transition"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Escolha o banco" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {pixAccounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.bank_name} {a.is_default && "⭐"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  Toque para escolher seu banco e gerar QR Code →
+                </button>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {pixAccounts.map((a) => {
+                    const bank = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name) || getBankById("outro");
+                    const selected = form.pix_account_id === a.id;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => setForm({ ...form, pix_account_id: a.id })}
+                        className={`flex items-center gap-2 p-2.5 rounded-xl border transition active:scale-95 ${
+                          selected
+                            ? "border-primary bg-primary/10"
+                            : "border-border/60 bg-muted/30 hover:bg-muted/60"
+                        }`}
+                      >
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
+                          style={{ backgroundColor: `${bank.color}30` }}
+                        >
+                          {bank.emoji}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-xs font-medium truncate">{a.bank_name}</p>
+                          {a.is_default && (
+                            <p className="text-[9px] text-primary">★ Padrão</p>
+                          )}
+                        </div>
+                        {selected && <Check className="w-4 h-4 text-primary shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
