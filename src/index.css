@@ -8,36 +8,35 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Orbis Dark Theme - Premium Financial App */
-    --background: 0 0% 4.3%;          /* #0B0B0B */
+    /* Orbis Dark Theme - Premium Fintech */
+    --background: 0 0% 0%;            /* #000000 pure black */
     --foreground: 0 0% 100%;          /* #FFFFFF */
 
-    --card: 0 0% 7%;                  /* #121212 */
+    --card: 0 0% 6%;                  /* #0F0F0F */
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 7%;
+    --popover: 0 0% 6%;
     --popover-foreground: 0 0% 100%;
 
-    /* Gold primary - premium accent */
-    --primary: 44 100% 48%;           /* #F5B700 */
-    --primary-foreground: 0 0% 6%;
+    /* Gold primary - reserved for CTAs, progress, key accents */
+    --primary: 45 100% 48%;           /* #F5B400 */
+    --primary-foreground: 0 0% 4%;
 
-    /* Subtle secondary (kept neutral, no longer cyan) */
-    --secondary: 0 0% 14%;
+    --secondary: 0 0% 12%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 62%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 63%;     /* #A1A1A1 */
 
-    --accent: 44 100% 48%;
-    --accent-foreground: 0 0% 6%;
+    --accent: 45 100% 48%;
+    --accent-foreground: 0 0% 4%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 84% 60%;         /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 12%;
-    --ring: 44 100% 48%;
+    --border: 0 0% 12%;
+    --input: 0 0% 10%;
+    --ring: 45 100% 48%;
 
     --radius: 1rem;
 

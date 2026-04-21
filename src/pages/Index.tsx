@@ -360,232 +360,174 @@ export default function Index() {
   const faltaParaMeta = Math.max(monthlyGoal - faturamentoMes, 0);
   const progressoMeta = calculateGoalProgress();
 
-  return <div className="min-h-screen p-4 md:p-8 space-y-8 animate-fade-in overflow-x-hidden max-w-3xl mx-auto">
-      {/* Header — clean, left-aligned */}
-      <header className="space-y-1">
-        <p className="text-sm text-muted-foreground tracking-wide uppercase">Dashboard</p>
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-          Domine seus números.
-        </h1>
+  // Daily goal calc
+  const dailyGoal = monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200;
+  const dailyProgress = dailyGoal > 0 ? Math.min((dailyProfit / dailyGoal) * 100, 100) : 0;
+  const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
+  const totalSalesToday = todaySales?.entry_count || 0;
+  const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost;
+
+  return <div className="min-h-screen bg-background px-5 pt-6 pb-24 space-y-6 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+      {/* 1. HEADER MINIMALISTA */}
+      <header className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <span className="text-primary font-bold text-sm">O</span>
+          </div>
+          <span className="font-semibold tracking-tight text-foreground">Orbis</span>
+        </div>
+        <button
+          onClick={() => navigate('/profile')}
+          className="w-9 h-9 rounded-full bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+          aria-label="Perfil"
+        >
+          <span className="text-xs">👤</span>
+        </button>
       </header>
 
-      {/* Streak (mantido, leve) */}
-      <StreakDisplay userId={user.id} />
-
-      {/* Mensagem de Descanso */}
+      {/* Mensagem de descanso (discreta) */}
       {isRestDay && (
-        <div className="p-4 bg-card rounded-2xl text-center border border-border">
-          <p className="text-sm text-muted-foreground">🌴 Hoje é seu dia de descanso.</p>
+        <div className="px-4 py-3 bg-card rounded-2xl text-center border border-border">
+          <p className="text-sm text-muted-foreground">🌴 Hoje é seu dia de descanso</p>
         </div>
       )}
 
-      {/* 1. FATURAMENTO DO MÊS — bloco principal (foco máximo) */}
-      <Card className="bg-card border border-border rounded-2xl shadow-sm">
-        <CardContent className="p-6 md:p-8 space-y-6">
-          <div className="flex items-start justify-between">
+      {/* 2. CARD PRINCIPAL — HOJE (FOCO TOTAL) */}
+      <Card className="bg-card border border-border rounded-2xl shadow-lg">
+        <CardContent className="p-6 space-y-6">
+          <div className="flex items-end justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Faturamento do mês</p>
-              <p className="text-4xl md:text-5xl font-bold mt-2 tracking-tight">
-                {formatCurrency(faturamentoMes)}
-              </p>
-            </div>
-            <button
-              onClick={() => setShowEditPlanning(true)}
-              className="p-2 hover:bg-muted rounded-lg transition-colors"
-              title="Editar planejamento"
-            >
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
-
-          {/* Barra de progresso dourada */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Meta: {formatCurrency(monthlyGoal)}</span>
-              <span className="text-primary font-semibold">{progressoMeta.toFixed(0)}%</span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-smooth"
-                style={{ width: `${progressoMeta}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {faltaParaMeta > 0
-                ? `Falta ${formatCurrency(faltaParaMeta)} para a meta`
-                : "Meta do mês atingida 🎯"}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 2. LUCRO LÍQUIDO + MÉDIA DIÁRIA */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="bg-card border border-border rounded-2xl">
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Lucro líquido</p>
-            <p className="text-2xl md:text-3xl font-bold mt-2 text-success">
-              {formatCurrency(lucroLiquido)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-2">No mês atual</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card border border-border rounded-2xl">
-          <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">Lucro médio diário</p>
-            {isLoadingData ? (
-              <Skeleton className="h-8 w-32 mt-2" />
-            ) : (
-              <>
-                <p className="text-2xl md:text-3xl font-bold mt-2 text-success">
-                  {formatCurrency(dailyAverage)}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {activeDaysCount} dias ativos
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* 3. HOJE — com botão de ação dourado */}
-      <Card className="bg-card border border-border rounded-2xl">
-        <CardContent className="p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Hoje</p>
-              <p className="text-2xl md:text-3xl font-bold mt-1">
+              <p className="text-sm text-muted-foreground mb-2">Hoje</p>
+              <p className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
                 {formatCurrency(dailyProfit)}
               </p>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Lançamentos</p>
-              <p className="text-lg font-semibold">{todaySales?.entry_count || 0}</p>
+            <div className="text-right pb-1">
+              <p className="text-2xl font-semibold text-foreground">{totalSalesToday}</p>
+              <p className="text-xs text-muted-foreground">vendas</p>
             </div>
           </div>
 
-          {todaySales && (
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-background/50 border border-border">
-                <p className="text-xs text-muted-foreground">Lucro</p>
-                <p className="text-sm font-bold text-success mt-0.5">
-                  {formatCurrency(dailyProfit)}
-                </p>
-              </div>
-              <div className="p-3 rounded-xl bg-background/50 border border-border">
-                <p className="text-xs text-muted-foreground">Calotes</p>
-                <p className="text-sm font-bold text-destructive mt-0.5">
-                  {formatCurrency(todaySales.total_debt || 0)}
-                </p>
-              </div>
+          <div className="space-y-2">
+            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary rounded-full transition-smooth"
+                style={{ width: `${dailyProgress}%` }}
+              />
             </div>
-          )}
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Meta diária: {formatCurrency(dailyGoal)}</span>
+              <span>{faltaDia > 0 ? `Faltam ${formatCurrency(faltaDia)}` : "Meta atingida 🎯"}</span>
+            </div>
+          </div>
 
           <Button
             onClick={() => navigate('/daily-goals')}
-            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-xl"
+            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-xl shadow-[var(--glow-primary)]"
           >
             Ir para Ritmo
           </Button>
         </CardContent>
       </Card>
 
-      {/* 4. PRÓXIMA META — discreto */}
+      {/* 3. RESUMO DO MÊS */}
       <Card className="bg-card border border-border rounded-2xl">
-        <CardContent className="p-5">
+        <CardContent className="p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-muted">
-                <Target className="h-4 w-4 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Próxima meta</p>
-                <p className="text-sm font-semibold">
-                  {faltaParaMeta > 0 ? formatCurrency(faltaParaMeta) : "Concluída"}
-                </p>
-              </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Faturamento do mês</p>
+              <p className="text-xl font-semibold mt-1 text-foreground">
+                {formatCurrency(faturamentoMes)}
+              </p>
             </div>
-            <span className="text-xs text-muted-foreground">
-              {progressoMeta.toFixed(0)}% concluído
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-primary font-medium">{progressoMeta.toFixed(0)}%</span>
+              <button
+                onClick={() => setShowEditPlanning(true)}
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors"
+                aria-label="Editar planejamento"
+              >
+                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          </div>
+          <div className="h-1 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-smooth"
+              style={{ width: `${progressoMeta}%` }}
+            />
           </div>
         </CardContent>
       </Card>
 
-      {/* Routine + Anti-procrastination (agrupados ao final) */}
-      <StreakCard userId={user.id} />
-      <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
-
-      {/* Filtros — colapsado por padrão */}
-      <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+      {/* 4. VISÃO FINANCEIRA — 2 cards lado a lado */}
+      <div className="grid grid-cols-2 gap-4">
         <Card className="bg-card border border-border rounded-2xl">
-          <CardContent className="p-4">
-            <CollapsibleTrigger className="w-full">
-              <div className="flex items-center justify-between cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Filtrar período</span>
-                  {isFiltering && (
-                    <span className="text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full">
-                      Ativo
-                    </span>
-                  )}
-                </div>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isFilterOpen ? "rotate-180" : ""}`} />
-              </div>
-            </CollapsibleTrigger>
-
-            <CollapsibleContent className="space-y-4 mt-4">
-              <div className="flex flex-wrap gap-2">
-                {(["day","week","month","all"] as const).map(t => (
-                  <Button
-                    key={t}
-                    size="sm"
-                    variant={filterType === t ? "default" : "outline"}
-                    onClick={() => handleQuickFilter(t)}
-                    className="flex-1 md:flex-none"
-                  >
-                    {t === "day" ? "Hoje" : t === "week" ? "Semana" : t === "month" ? "Mês" : "Tudo"}
-                  </Button>
-                ))}
-              </div>
-
-              <div className="space-y-3 pt-3 border-t border-border">
-                <p className="text-xs text-muted-foreground">Período Personalizado</p>
-                <div className="flex flex-col md:flex-row gap-2">
-                  <Input type="date" value={startDate} onChange={(e) => { setStartDate(e.target.value); setFilterType("custom"); }} className="flex-1" />
-                  <Input type="date" value={endDate} onChange={(e) => { setEndDate(e.target.value); setFilterType("custom"); }} max={new Date().toISOString().split('T')[0]} className="flex-1" />
-                  <Button onClick={handleApplyFilter} size="sm">Aplicar</Button>
-                  {isFiltering && (
-                    <Button onClick={handleClearFilter} size="sm" variant="outline">Limpar</Button>
-                  )}
-                </div>
-              </div>
-            </CollapsibleContent>
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground">Lucro líquido</p>
+            <p className="text-xl md:text-2xl font-bold mt-2 text-success">
+              {formatCurrency(lucroLiquido)}
+            </p>
           </CardContent>
         </Card>
-      </Collapsible>
 
-      {/* Evolução semanal */}
+        <Card className="bg-card border border-border rounded-2xl">
+          <CardContent className="p-5">
+            <p className="text-xs text-muted-foreground">Custos</p>
+            <p className="text-xl md:text-2xl font-bold mt-2 text-destructive">
+              {formatCurrency(custosTotal)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 5. PRÓXIMA CONQUISTA */}
+      <Card className="bg-card border border-border rounded-2xl">
+        <CardContent className="p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-foreground">Próxima conquista</p>
+            <span className="text-xs text-muted-foreground">{progressoMeta.toFixed(0)}%</span>
+          </div>
+          <p className="text-lg font-semibold text-foreground">
+            {formatCurrency(faturamentoMes)}{" "}
+            <span className="text-muted-foreground text-sm font-normal">
+              / {formatCurrency(monthlyGoal)}
+            </span>
+          </p>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-smooth"
+              style={{ width: `${progressoMeta}%` }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 6. GRÁFICO SEMANAL */}
       {weeklyData.length > 0 && (
         <Card className="bg-card border border-border rounded-2xl">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Evolução semanal</CardTitle>
+          <CardHeader className="pb-2 pt-5 px-5">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Últimos 7 dias</CardTitle>
           </CardHeader>
-          <CardContent className="h-[220px]">
+          <CardContent className="h-[180px] px-2 pb-4">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weeklyData}>
+              <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
                     <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '12px' }} formatter={value => [`R$ ${value}`, 'Vendido']} />
+                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                  }}
+                  formatter={value => [formatCurrency(Number(value)), 'Vendido']}
+                />
                 <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -593,14 +535,11 @@ export default function Index() {
         </Card>
       )}
 
+      {/* Anti-procrastination — mantido (não é gamificação visual extra) */}
+      <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
+
       <CardRegistrationModal isOpen={showCardModal} onClose={() => setShowCardModal(false)} />
-      
-      <CardRegistrationModal 
-        isOpen={showCardModal} 
-        onClose={() => setShowCardModal(false)} 
-      />
-      
-      {/* Required Monthly Goal Modal */}
+
       {user && (isMonthlyGoalRequired || showEditPlanning) && (
         <EditPlanningModal
           userId={user.id}
