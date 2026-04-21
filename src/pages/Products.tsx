@@ -90,6 +90,7 @@ export default function Products() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [pixAccounts, setPixAccounts] = useState<PixAccount[]>([]);
+  const [connectedBankNames, setConnectedBankNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Product form
@@ -119,7 +120,7 @@ export default function Products() {
   const loadAll = async () => {
     if (!user) return;
     setLoading(true);
-    const [prodRes, pixRes, profRes] = await Promise.all([
+    const [prodRes, pixRes, profRes, bankConnRes] = await Promise.all([
       supabase
         .from("products")
         .select("*")
@@ -137,6 +138,10 @@ export default function Products() {
         .select("nickname, city")
         .eq("user_id", user.id)
         .maybeSingle(),
+      supabase
+        .from("bank_connections")
+        .select("institution_name")
+        .eq("user_id", user.id),
     ]);
     if (prodRes.data) setProducts(prodRes.data as Product[]);
     if (pixRes.data) setPixAccounts(pixRes.data as PixAccount[]);
@@ -144,8 +149,28 @@ export default function Products() {
       name: profRes.data.nickname || "",
       city: (profRes.data.city || "").toUpperCase(),
     });
+    if (bankConnRes.data) {
+      setConnectedBankNames(
+        (bankConnRes.data as { institution_name: string }[]).map((b) => b.institution_name),
+      );
+    }
     setLoading(false);
   };
+
+  // Filtra os bancos disponíveis no seletor pelos que o usuário conectou em /bank-connections.
+  // Match flexível por substring case-insensitive (ex: "Nu Pagamentos S.A." → Nubank).
+  const availableBanks = (() => {
+    if (connectedBankNames.length === 0) return [] as typeof BRAZILIAN_BANKS;
+    const normalized = connectedBankNames.map((n) => n.toLowerCase());
+    const matched = BRAZILIAN_BANKS.filter((b) => {
+      const bn = b.name.toLowerCase();
+      return normalized.some((n) => n.includes(bn) || bn.includes(n));
+    });
+    // Sempre permite "Outro banco" como fallback manual
+    const outro = BRAZILIAN_BANKS.find((b) => b.id === "outro");
+    if (outro && !matched.includes(outro)) matched.push(outro);
+    return matched;
+  })();
 
   const defaultPixAccount = pixAccounts.find((a) => a.is_default) || pixAccounts[0] || null;
 
@@ -846,39 +871,65 @@ export default function Products() {
             </div>
           )}
 
-          {/* Seletor visual de banco */}
+          {/* Seletor visual de banco — só mostra os bancos conectados em /bank-connections */}
           {!selectedBankId && !editingPix && (
             <div className="space-y-2 pt-2">
               <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">
                 {pixAccounts.length > 0 ? "Adicionar outro banco" : "Escolha seu banco"}
               </p>
-              <div className="grid grid-cols-3 gap-2">
-                {BRAZILIAN_BANKS.map((b) => {
-                  const alreadyAdded = pixAccounts.some((a) => a.bank_name === b.name);
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      onClick={() => selectBankToAdd(b.id)}
-                      className="relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition active:scale-95"
-                      style={alreadyAdded ? { opacity: 0.5 } : {}}
+
+              {availableBanks.length === 0 ? (
+                <Card className="border-dashed border-primary/30 bg-primary/5">
+                  <CardContent className="p-4 text-center space-y-3">
+                    <Landmark className="w-8 h-8 mx-auto text-primary/70" />
+                    <div>
+                      <p className="text-sm font-medium">Nenhum banco conectado ainda</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Conecte seus bancos primeiro para gerar QR Codes Pix dos seus produtos.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setPixManagerOpen(false);
+                        navigate("/bank-connections");
+                      }}
+                      className="gap-1.5"
                     >
-                      <div
-                        className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
-                        style={{ backgroundColor: `${b.color}30` }}
+                      <Plus className="w-3.5 h-3.5" />
+                      Conectar banco
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {availableBanks.map((b) => {
+                    const alreadyAdded = pixAccounts.some((a) => a.bank_name === b.name);
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => selectBankToAdd(b.id)}
+                        className="relative flex flex-col items-center justify-center gap-1 p-3 rounded-xl border border-border/60 bg-muted/30 hover:bg-muted/60 hover:border-primary/50 transition active:scale-95"
+                        style={alreadyAdded ? { opacity: 0.5 } : {}}
                       >
-                        {b.emoji}
-                      </div>
-                      <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">
-                        {b.name}
-                      </span>
-                      {alreadyAdded && (
-                        <Check className="absolute top-1 right-1 w-3 h-3 text-primary" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-lg"
+                          style={{ backgroundColor: `${b.color}30` }}
+                        >
+                          {b.emoji}
+                        </div>
+                        <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">
+                          {b.name}
+                        </span>
+                        {alreadyAdded && (
+                          <Check className="absolute top-1 right-1 w-3 h-3 text-primary" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
