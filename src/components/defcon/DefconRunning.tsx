@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -26,6 +26,7 @@ interface DefconRunningProps {
   onAddOccurrence: (description: string) => void;
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
+  onAddTip?: (amount: number) => void;
 }
 
 export function DefconRunning({
@@ -48,6 +49,7 @@ export function DefconRunning({
   onAddOccurrence,
   onEnd,
   onLunchPause,
+  onAddTip,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -56,6 +58,10 @@ export function DefconRunning({
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
   const [showOccurrence, setShowOccurrence] = useState(false);
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
+  const [showAddTip, setShowAddTip] = useState(false);
+  const [tipValue, setTipValue] = useState("");
+  const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
+  const [approachPulse, setApproachPulse] = useState(false);
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
@@ -72,6 +78,7 @@ export function DefconRunning({
   const registerSale = (amount: number) => {
     onAddSale(amount);
     setSaleHistory((prev) => [...prev, amount]);
+    pushFloater(`+${formatCurrency(amount)}`, "sale");
   };
 
   const handleAddSale = () => {
@@ -86,6 +93,40 @@ export function DefconRunning({
   const blockSold = currentBlock
     ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
     : 0;
+
+  const conversionRate = blockApproaches > 0 ? Math.round((blockSalesCount / blockApproaches) * 100) : 0;
+
+  const pushFloater = (text: string, tone: "sale" | "tip" | "approach") => {
+    const id = Date.now() + Math.random();
+    setFloaters((p) => [...p, { id, text, tone }]);
+    setTimeout(() => setFloaters((p) => p.filter((f) => f.id !== id)), 1100);
+  };
+
+  const handleApproachClick = () => {
+    onAddApproach();
+    setApproachPulse(true);
+    setTimeout(() => setApproachPulse(false), 280);
+    pushFloater("+1", "approach");
+  };
+
+  const handleAddTip = () => {
+    const amount = parseFloat(tipValue) || 0;
+    if (amount > 0 && onAddTip) {
+      onAddTip(amount);
+      pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
+      setTipValue("");
+      setShowAddTip(false);
+    }
+  };
+
+  const impactPhrase =
+    remaining <= 0
+      ? "Meta batida. Continue empilhando."
+      : totalSold === 0
+      ? "Sem ação, sem dinheiro."
+      : conversionRate > 0 && conversionRate < 15
+      ? "Mais abordagem = mais venda."
+      : `Você está a ${formatCurrency(remaining)} da meta.`;
 
   // Confirm end screen
   if (showConfirmEnd) {
@@ -129,65 +170,85 @@ export function DefconRunning({
         currentBlockIndex={currentBlockIndex}
       />
       {/* Mission header */}
-      <div className="pt-12 pb-4 px-6 text-center">
-        <div className="text-xs font-mono text-red-500/60 tracking-[0.3em] uppercase mb-2">
-          🎯 Missão
+      <div className="pt-10 pb-3 px-6 text-center">
+        <div className="text-[10px] font-mono text-[#A1A1A1] tracking-[0.3em] uppercase mb-1.5">
+          🔥 MISSÃO
         </div>
-        <div className="text-2xl md:text-3xl font-black text-white tracking-tight">
-          Vender {formatCurrency(dailyGoal)}
+        <div className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+          Faltam <span className="text-[#F5B400]">{formatCurrency(Math.max(0, remaining))}</span> para a meta
         </div>
-        {totalSold > 0 && (
-          <div className="mt-2 text-sm font-mono text-neutral-500">
-            Faltam {formatCurrency(remaining)}
-          </div>
-        )}
+        <div className="mt-1.5 text-[11px] font-mono text-[#A1A1A1]">
+          Meta: {formatCurrency(dailyGoal)} • Feito: <span className="text-[#22C55E]">{formatCurrency(totalSold)}</span>
+        </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-8">
-        {/* Block info */}
-        <div className="text-center">
-          <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-1">
-            Bloco #{currentBlockIndex + 1}
-          </div>
-          <div className="text-sm font-mono text-neutral-500">
-            {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
-          </div>
+      <div className="flex-1 flex flex-col items-center justify-between px-5 pb-2 gap-3 relative">
+        {/* Floating feedback */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          {floaters.map((f) => (
+            <div
+              key={f.id}
+              className={`absolute left-1/2 -translate-x-1/2 top-[42%] font-black text-2xl animate-fade-in ${
+                f.tone === "sale" ? "text-[#22C55E]" : f.tone === "tip" ? "text-[#F5B400]" : "text-white/80"
+              }`}
+              style={{ animation: "fire-rise 1s ease-out forwards" }}
+            >
+              {f.text}
+            </div>
+          ))}
         </div>
 
-        {/* Timer */}
-        <div
-          className={`text-8xl md:text-9xl font-black font-mono tabular-nums tracking-tighter ${
-            isUrgent ? "text-red-500 animate-pulse" : "text-white"
-          }`}
-        >
-          {String(minutes).padStart(2, "0")}
-          <span className={isUrgent ? "text-red-500/50" : "text-white/30"}>:</span>
-          {String(seconds).padStart(2, "0")}
+        {/* Block label */}
+        <div className="text-[10px] font-mono text-[#A1A1A1]/70 tracking-[0.3em] uppercase">
+          Bloco #{currentBlockIndex + 1} • {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
         </div>
 
-        {/* Progress bar */}
-        <div className="w-full max-w-md h-1 bg-neutral-900 rounded-full overflow-hidden">
+        {/* Timer - foco visual absoluto */}
+        <div className="flex flex-col items-center gap-2 my-1">
           <div
-            className={`h-full transition-all duration-1000 ease-linear rounded-full ${
-              isUrgent ? "bg-red-500" : "bg-white/20"
+            className={`text-[88px] md:text-9xl font-black font-mono tabular-nums tracking-tighter leading-none ${
+              isUrgent ? "text-red-500 animate-pulse" : "text-white"
             }`}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        {/* Approaches counter */}
-        <div className="text-center">
-          <div className="text-sm font-mono text-neutral-600 mb-1">Abordagens neste bloco</div>
-          <div className="text-2xl font-black text-blue-400">{blockApproaches}</div>
-        </div>
-
-        {/* Block sales total */}
-        <div className="text-center">
-          <div className="text-sm font-mono text-neutral-600 mb-1">Vendido neste bloco</div>
-          <div className="text-3xl font-black text-white">
-            {formatCurrency(blockSold)}
+            style={{
+              textShadow: isUrgent
+                ? "0 0 40px rgba(239,68,68,0.5)"
+                : "0 0 32px rgba(245,180,0,0.18)",
+            }}
+          >
+            {String(minutes).padStart(2, "0")}
+            <span className={isUrgent ? "text-red-500/50" : "text-[#F5B400]/40"}>:</span>
+            {String(seconds).padStart(2, "0")}
           </div>
+
+          {/* Progress bar */}
+          <div className="w-56 h-[3px] bg-white/5 rounded-full overflow-hidden">
+            <div
+              className={`h-full transition-all duration-1000 ease-linear rounded-full ${
+                isUrgent ? "bg-red-500" : "bg-[#F5B400]"
+              }`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Bloco info compacto - linha única */}
+        <div className="flex items-center justify-center gap-3 text-[13px] font-mono">
+          <span className="font-black text-[#22C55E]">{formatCurrency(blockSold)}</span>
+          <span className="text-white/15">•</span>
+          <span className="text-white/80">
+            <span className="font-bold text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1]">vendas</span>
+          </span>
+          <span className="text-white/15">•</span>
+          <span className={`text-white/80 ${approachPulse ? "scale-110" : ""} transition-transform`}>
+            <span className="font-bold text-white">{blockApproaches}</span> <span className="text-[#A1A1A1]">abord.</span>
+          </span>
+          {blockApproaches > 0 && (
+            <>
+              <span className="text-white/15">•</span>
+              <span className="text-[#F5B400] font-bold">{conversionRate}%</span>
+            </>
+          )}
         </div>
 
         {/* Quick sale buttons */}
@@ -196,58 +257,71 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
-        {/* Action buttons row */}
-        <div className="flex items-center gap-6">
-          {/* Approach button */}
+        {/* Botões de ação - linha horizontal com hierarquia */}
+        <div className="w-full flex items-stretch justify-center gap-2.5 px-1">
+          {/* Abordagem - neutro */}
           <button
-            onClick={onAddApproach}
-            className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-blue-600/30"
+            onClick={handleApproachClick}
+            className={`flex-1 h-14 rounded-2xl bg-[#1A1A1A] border border-white/10 flex items-center justify-center gap-2 active:scale-95 transition-all ${
+              approachPulse ? "ring-2 ring-white/30" : ""
+            }`}
           >
-            <UserRound className="w-8 h-8 text-white" strokeWidth={2.5} />
+            <UserRound className="w-4 h-4 text-[#A1A1A1]" strokeWidth={2.5} />
+            <span className="text-[13px] font-bold text-[#A1A1A1]">Abordagem</span>
           </button>
 
-          {/* Add sale button */}
+          {/* Venda - destaque dourado */}
           <button
             onClick={() => setShowAddSale(true)}
-            className="w-20 h-20 bg-green-600 rounded-full flex items-center justify-center active:scale-90 transition-transform shadow-lg shadow-green-600/30"
+            className="flex-[1.4] h-14 rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_8px_28px_-8px_rgba(245,180,0,0.7)]"
           >
-            <Plus className="w-10 h-10 text-white" strokeWidth={3} />
+            <Plus className="w-5 h-5 text-black" strokeWidth={3} />
+            <span className="text-[15px] font-black text-black tracking-tight">Venda</span>
+          </button>
+
+          {/* Gorjeta - outline discreto */}
+          <button
+            onClick={() => (onAddTip ? setShowAddTip(true) : pushFloater("+1 🎯", "tip"))}
+            className="flex-1 h-14 rounded-2xl bg-transparent border border-[#F5B400]/40 flex items-center justify-center gap-2 active:scale-95 transition-all"
+          >
+            <Coins className="w-4 h-4 text-[#F5B400]" strokeWidth={2.5} />
+            <span className="text-[13px] font-bold text-[#F5B400]">Gorjeta</span>
           </button>
         </div>
 
-        {/* Mantra */}
-        <p className="text-sm text-neutral-700 font-mono italic">
-          "Venda agora. Pense depois."
+        {/* Frase de impacto */}
+        <p className="text-[12px] text-[#A1A1A1] font-mono text-center">
+          {impactPhrase}
         </p>
       </div>
 
-      {/* Footer */}
-      <div className="pb-6 px-6 flex justify-between items-center">
-        <span className="text-xs font-mono text-neutral-600 tracking-widest uppercase">
-          Bloco {currentBlockIndex + 1}/{totalBlocks} • {formatCurrency(totalSold)} total
+      {/* Footer - controles discretos */}
+      <div className="pb-5 pt-2 px-6 flex justify-between items-center border-t border-white/5">
+        <span className="text-[10px] font-mono text-[#A1A1A1]/50 tracking-widest uppercase">
+          {currentBlockIndex + 1}/{totalBlocks}
         </span>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-5">
           <button
             onClick={() => setShowOccurrence(true)}
-            className="text-xs font-mono text-neutral-600 active:text-neutral-300 transition-colors flex items-center gap-1"
+            className="text-[10px] font-mono text-[#A1A1A1]/60 active:text-white transition-colors flex items-center gap-1"
           >
             <FileText className="w-3 h-3" />
-            OCORRÊNCIA
+            ocorrência
           </button>
           {!lunchPauseUsed && (
             <button
               onClick={() => setShowLunchPicker(true)}
-              className="text-xs font-mono text-amber-700 active:text-amber-400 transition-colors flex items-center gap-1"
+              className="text-[10px] font-mono text-[#A1A1A1]/60 active:text-[#F5B400] transition-colors flex items-center gap-1"
             >
               <UtensilsCrossed className="w-3 h-3" />
-              ALMOÇO
+              almoço
             </button>
           )}
           <button
             onClick={() => setShowConfirmEnd(true)}
-            className="text-xs font-mono text-red-900 active:text-red-500 transition-colors"
+            className="text-[10px] font-mono text-[#A1A1A1]/40 active:text-red-500 transition-colors"
           >
-            ENCERRAR
+            encerrar
           </button>
         </div>
       </div>
@@ -358,6 +432,42 @@ export function DefconRunning({
           }}
           onClose={() => setShowOccurrence(false)}
         />
+      )}
+
+      {/* Add tip modal */}
+      {showAddTip && onAddTip && (
+        <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
+          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
+              <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
+                <X className="w-6 h-6 text-neutral-500" />
+              </button>
+            </div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
+                R$
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={tipValue}
+                onChange={(e) => setTipValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddTip()}
+                placeholder="0"
+                autoFocus
+                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-[#F5B400] transition-colors placeholder:text-neutral-700"
+              />
+            </div>
+            <button
+              onClick={handleAddTip}
+              disabled={!tipValue || parseFloat(tipValue) <= 0}
+              className="w-full h-16 bg-[#F5B400] text-black font-black text-xl rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
+            >
+              + REGISTRAR GORJETA
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
