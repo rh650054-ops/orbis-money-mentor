@@ -97,6 +97,19 @@ export default function Auth() {
         if (name.length < 2) {
           throw new Error("Nome deve ter no mínimo 2 caracteres.");
         }
+        const cleanedPhone = phone.replace(/\D/g, "");
+        if (cleanedPhone.length < 10 || cleanedPhone.length > 11) {
+          throw new Error("Informe um WhatsApp válido (DDD + número).");
+        }
+        if (!state) {
+          throw new Error("Selecione o seu estado.");
+        }
+        if (city.trim().length < 2) {
+          throw new Error("Informe a sua cidade.");
+        }
+        if (email && !email.includes("@")) {
+          throw new Error("E-mail inválido.");
+        }
 
         const internalEmail = cpfToInternalEmail(cleanedCpf);
         const trialStart = new Date().toISOString().split('T')[0];
@@ -120,14 +133,16 @@ export default function Auth() {
           throw signUpError;
         }
 
-        // Update profile with CPF, phone, email, and trial info
+        // Update profile with CPF, phone, email, location and trial info
         if (signUpData?.user) {
           await supabase.from("profiles").upsert({
             user_id: signUpData.user.id,
             nickname: name,
             cpf: cleanedCpf,
-            phone: phone || null,
-            email: email || null,
+            phone: cleanedPhone,
+            email: email.trim() || null,
+            state,
+            city: city.trim(),
             trial_start: trialStart,
             trial_end: trialEnd,
             is_trial_active: true,
