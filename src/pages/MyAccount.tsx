@@ -152,12 +152,18 @@ export default function Profile() {
           avatar_url: newProfile.avatar_url || "",
           is_demo: newProfile.is_demo || false,
           billing_exempt: newProfile.billing_exempt || false,
-          plan_status: newProfile.plan_status || "trial"
+          plan_status: newProfile.plan_status || "trial",
+          phone: newProfile.phone || "",
+          state: newProfile.state || "",
+          city: newProfile.city || "",
         });
         setEditForm({
           nickname: newProfile.nickname || "",
           email: newProfile.email || "",
-          avatar_url: newProfile.avatar_url || ""
+          avatar_url: newProfile.avatar_url || "",
+          phone: newProfile.phone || "",
+          state: newProfile.state || "",
+          city: newProfile.city || "",
         });
       }
     }
