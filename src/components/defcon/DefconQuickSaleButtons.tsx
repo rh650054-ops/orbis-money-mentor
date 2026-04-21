@@ -23,18 +23,18 @@ export function DefconQuickSaleButtons({ saleHistory, onQuickSale }: DefconQuick
   if (unique.length === 0) return null;
 
   return (
-    <div className="w-full max-w-md px-2">
-      <div className="text-xs font-mono text-neutral-600 text-center mb-2 tracking-widest uppercase">
+    <div className="w-full max-w-md px-1">
+      <div className="text-[10px] font-mono text-[#A1A1A1]/70 text-center mb-2 tracking-[0.25em] uppercase">
         Venda rápida
       </div>
-      <div className="flex flex-wrap justify-center gap-2">
+      <div className="flex flex-wrap justify-center gap-2.5">
         {unique.map((amount) => (
           <button
             key={amount}
             onClick={() => onQuickSale(amount)}
-            className="h-12 px-5 bg-neutral-900 border border-neutral-700 rounded-xl text-white font-bold text-base active:scale-90 active:bg-green-600 transition-all"
+            className="h-14 px-5 min-w-[88px] bg-[#1A1A1A] border border-[#F5B400]/30 rounded-2xl text-white font-black text-[17px] active:scale-90 active:bg-[#22C55E] active:border-[#22C55E] transition-all shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
           >
-            {formatCurrency(amount)}
+            + {formatCurrency(amount).replace('R$\u00a0', 'R$')}
           </button>
         ))}
       </div>
