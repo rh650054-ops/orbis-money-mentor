@@ -147,10 +147,10 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
     }));
 
   const handleSavePercentages = async () => {
-    if (Math.round(draftTotal) !== 100 && draftTotal !== 0) {
+    if (draftTotal > 100) {
       toast({
-        title: "Soma precisa ser 100%",
-        description: `Atualmente: ${draftTotal.toFixed(0)}%. Ajuste pra fechar 100%.`,
+        title: "Passou de 100%",
+        description: `Atualmente: ${draftTotal.toFixed(0)}%. Reduza pra no máximo 100%.`,
         variant: "destructive",
       });
       return;
