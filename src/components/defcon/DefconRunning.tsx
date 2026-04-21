@@ -161,14 +161,22 @@ export function DefconRunning({
     setShowAddTip(false);
   };
 
+  // Frase de impacto inteligente — empurra ação concreta
+  const avgTicket =
+    totalSalesCount > 0 ? totalSold / totalSalesCount : saleHistory.length > 0 ? saleHistory[saleHistory.length - 1] : 0;
+  const salesNeeded = avgTicket > 0 ? Math.ceil(remaining / avgTicket) : 0;
   const impactPhrase =
     remaining <= 0
       ? "Meta batida. Continue empilhando."
       : totalSold === 0
       ? "Sem ação, sem dinheiro."
+      : isUrgent
+      ? "Acelera esse bloco."
+      : salesNeeded > 0 && avgTicket > 0
+      ? `Faltam ${salesNeeded} ${salesNeeded === 1 ? "venda" : "vendas"} de ${formatCurrency(Math.round(avgTicket))}`
       : conversionRate > 0 && conversionRate < 15
       ? "Mais abordagem = mais venda."
-      : `Você está a ${formatCurrency(remaining)} da meta.`;
+      : "Mais 1 venda agora.";
 
   // Confirm end screen
   if (showConfirmEnd) {
