@@ -9,6 +9,9 @@ import Transactions from "./pages/Transactions";
 import History from "./pages/History";
 import Insights from "./pages/Insights";
 import Profile from "./pages/Profile";
+import MyAccount from "./pages/MyAccount";
+import Settings from "./pages/Settings";
+import Products from "./pages/Products";
 import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
 import Finances from "./pages/Finances";
@@ -54,6 +57,9 @@ const App = () => (
                 <Route path="/daily-goals" element={<DailyGoals />} />
                 <Route path="/ranking" element={<Ranking />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/my-account" element={<MyAccount />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/products" element={<Products />} />
                 <Route path="/bank-connections" element={<BankConnections />} />
                 <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                 <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
