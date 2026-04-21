@@ -19,10 +19,10 @@ type Tier = {
   level: number;
   colorClass: string;
   glowColor: string;
-  xpRequired: number;
   rarity: string;
   rarityColor: string;
   bgGradient: string;
+  xpRequired: number;
 };
 
 const TIERS: Tier[] = [
