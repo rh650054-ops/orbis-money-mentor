@@ -488,33 +488,130 @@ export default function Index() {
       </div>
 
       {/* 5. PRÓXIMA CONQUISTA */}
-      <button
-        onClick={() => navigate('/rewards')}
-        className="w-full text-left"
-        aria-label="Ver recompensas por conquista"
-      >
-        <Card className="bg-card border border-border rounded-2xl hover:border-primary/50 transition-colors">
-          <CardContent className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-foreground">Próxima conquista</p>
-              <span className="text-xs text-primary">Ver recompensas →</span>
+      {(() => {
+        const REWARD_TIERS = [
+          { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
+          { name: "Brasa", emoji: "🔥", threshold: 50_000, accent: "25 95% 55%", rarity: "Incomum" },
+          { name: "Forja", emoji: "⚒️", threshold: 100_000, accent: "45 95% 55%", rarity: "Raro" },
+          { name: "Lenda", emoji: "⭐", threshold: 1_000_000, accent: "200 90% 60%", rarity: "Lendário" },
+        ];
+        const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
+        const nextTier = nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx];
+        const prevThreshold = nextIdx <= 0 ? 0 : REWARD_TIERS[nextIdx - 1].threshold;
+        const tierProgress = nextIdx === -1
+          ? 100
+          : Math.min(((faturamentoMes - prevThreshold) / (nextTier.threshold - prevThreshold)) * 100, 100);
+        const restante = Math.max(nextTier.threshold - faturamentoMes, 0);
+
+        return (
+          <button
+            onClick={() => navigate('/rewards')}
+            className="w-full text-left group"
+            aria-label="Ver recompensas por conquista"
+          >
+            <div
+              className="relative overflow-hidden rounded-2xl border p-5 space-y-4 transition-all"
+              style={{
+                background: `linear-gradient(135deg, hsl(${nextTier.accent} / 0.18) 0%, hsl(var(--card)) 55%, hsl(var(--card)) 100%)`,
+                borderColor: `hsl(${nextTier.accent} / 0.4)`,
+                boxShadow: `0 8px 32px -12px hsl(${nextTier.accent} / 0.45), inset 0 1px 0 hsl(${nextTier.accent} / 0.15)`,
+              }}
+            >
+              {/* Shine sweep */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                <div
+                  className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
+                  style={{
+                    background: `linear-gradient(90deg, transparent, hsl(${nextTier.accent} / 0.18), transparent)`,
+                  }}
+                />
+              </div>
+
+              {/* Header */}
+              <div className="relative flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full"
+                    style={{
+                      background: `hsl(${nextTier.accent} / 0.18)`,
+                      color: `hsl(${nextTier.accent})`,
+                      border: `1px solid hsl(${nextTier.accent} / 0.35)`,
+                    }}
+                  >
+                    Próxima conquista
+                  </span>
+                </div>
+                <span
+                  className="text-xs font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform"
+                  style={{ color: `hsl(${nextTier.accent})` }}
+                >
+                  Recompensas →
+                </span>
+              </div>
+
+              {/* Tier badge + name */}
+              <div className="relative flex items-center gap-3">
+                <div
+                  className="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 animate-float"
+                  style={{
+                    background: `linear-gradient(135deg, hsl(${nextTier.accent} / 0.35), hsl(${nextTier.accent} / 0.1))`,
+                    boxShadow: `0 0 24px -4px hsl(${nextTier.accent} / 0.6), inset 0 1px 0 hsl(${nextTier.accent} / 0.4)`,
+                    border: `1px solid hsl(${nextTier.accent} / 0.5)`,
+                  }}
+                >
+                  <span className="text-3xl leading-none drop-shadow-lg">{nextTier.emoji}</span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                    {nextTier.rarity}
+                  </p>
+                  <p className="text-lg font-black text-foreground leading-tight">
+                    Patente {nextTier.name}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Faltam <span className="font-bold" style={{ color: `hsl(${nextTier.accent})` }}>{formatCurrency(restante)}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress */}
+              <div className="relative space-y-1.5">
+                <div className="flex justify-between items-baseline">
+                  <p className="text-base font-bold text-foreground">
+                    {formatCurrency(faturamentoMes)}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-medium">
+                    / {formatCurrency(nextTier.threshold)}
+                  </p>
+                </div>
+                <div className="relative h-2 bg-muted/60 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+                    style={{
+                      width: `${tierProgress}%`,
+                      background: `linear-gradient(90deg, hsl(${nextTier.accent}), hsl(${nextTier.accent} / 0.7))`,
+                      boxShadow: `0 0 12px hsl(${nextTier.accent} / 0.7)`,
+                    }}
+                  >
+                    <div
+                      className="absolute inset-0 animate-shine-sweep"
+                      style={{
+                        background: "linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.4), transparent)",
+                      }}
+                    />
+                  </div>
+                </div>
+                <p
+                  className="text-[11px] font-bold text-right"
+                  style={{ color: `hsl(${nextTier.accent})` }}
+                >
+                  {tierProgress.toFixed(0)}% rumo a {nextTier.name} {nextTier.emoji}
+                </p>
+              </div>
             </div>
-            <p className="text-lg font-semibold text-foreground">
-              {formatCurrency(faturamentoMes)}{" "}
-              <span className="text-muted-foreground text-sm font-normal">
-                / {formatCurrency(monthlyGoal)}
-              </span>
-            </p>
-            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary rounded-full transition-smooth"
-                style={{ width: `${progressoMeta}%` }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">{progressoMeta.toFixed(0)}% da meta mensal</p>
-          </CardContent>
-        </Card>
-      </button>
+          </button>
+        );
+      })()}
 
       {/* 6. GRÁFICO SEMANAL */}
       {weeklyData.length > 0 && (
