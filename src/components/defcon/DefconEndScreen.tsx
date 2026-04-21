@@ -132,7 +132,7 @@ export function DefconEndScreen({
     const TITLE_SIZE = 72;
     const VALUE_SIZE = 160;
     const SPACING = 12;
-    const VALUE_COLOR = "#0D0D0D"; // preto — legível em qualquer fundo do Story
+    const VALUE_COLOR = "#FFFFFF"; // branco
 
     // Faturamento
     centerText("FATURAMENTO", 200, TITLE_SIZE, "800", "#F4A100", SPACING);
@@ -164,7 +164,7 @@ export function DefconEndScreen({
       const logoH = logoW * ratio;
       ctx.save();
       ctx.globalAlpha = 0.55;
-      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 160, logoW, logoH);
+      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 60, logoW, logoH);
       ctx.restore();
     } catch {
       ctx.save();
