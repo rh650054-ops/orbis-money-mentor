@@ -186,9 +186,11 @@ export default function Rewards() {
                 {formatCurrency(totalRevenue)}
               </p>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/30">
-              <Sparkles className="h-3.5 w-3.5 text-primary" />
-              <span className="text-xs font-semibold text-primary">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/30">
+              <span className="text-base leading-none">
+                {currentTierIdx >= 0 ? TIERS[currentTierIdx].emoji : "✨"}
+              </span>
+              <span className="text-xs font-bold text-primary">
                 {currentTierIdx >= 0 ? TIERS[currentTierIdx].name : "Iniciante"}
               </span>
             </div>
@@ -243,44 +245,68 @@ export default function Rewards() {
                 }`}
               >
                 <div className="flex items-center gap-4 p-4">
-                  {/* Tier number badge */}
+                  {/* Emoji badge with level */}
                   <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shrink-0 relative"
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 relative"
                     style={{
                       background: isUnlocked
-                        ? `linear-gradient(135deg, ${tier.accent}, ${tier.accent}80)`
+                        ? `linear-gradient(135deg, ${tier.accent}, ${tier.accent}60)`
                         : "hsl(var(--muted))",
-                      color: isUnlocked ? "white" : "hsl(var(--muted-foreground))",
+                      boxShadow: isUnlocked ? `0 8px 24px -8px ${tier.accent}` : "none",
+                      filter: isUnlocked ? "none" : "grayscale(0.6) opacity(0.7)",
                     }}
                   >
-                    {isUnlocked ? (
-                      <Check className="h-5 w-5" strokeWidth={3} />
-                    ) : (
-                      <span className="text-base">0{idx + 1}</span>
+                    <span className="text-3xl leading-none">{tier.emoji}</span>
+                    <div
+                      className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-background"
+                      style={{
+                        background: isUnlocked ? tier.accent : "hsl(var(--muted))",
+                        color: isUnlocked ? "white" : "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      {tier.level}
+                    </div>
+                    {isUnlocked && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center">
+                        <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
+                      </div>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold text-foreground">{tier.name}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                        Nível {tier.level}
+                      </span>
+                      <span className={`text-[10px] uppercase tracking-wider font-bold ${tier.rarityColor}`}>
+                        • {tier.rarity}
+                      </span>
                       {!isUnlocked && (
                         <Lock className="h-3 w-3 text-muted-foreground" />
                       )}
                     </div>
+                    <p className="font-bold text-foreground text-base leading-tight mt-0.5">
+                      {tier.name}
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">
                       {tier.tagline}
                     </p>
                   </div>
 
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 flex flex-col items-end gap-1">
                     <p
-                      className="text-sm font-bold"
+                      className="text-sm font-black"
                       style={{
                         color: isUnlocked ? tier.accent : "hsl(var(--muted-foreground))",
                       }}
                     >
                       {formatThreshold(tier.threshold)}
                     </p>
+                    <ChevronRight
+                      className={`h-4 w-4 text-muted-foreground transition-transform ${
+                        isExpanded ? "rotate-90" : ""
+                      }`}
+                    />
                   </div>
                 </div>
 
