@@ -1,81 +1,78 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
 
 type Tier = {
   name: string;
-  min: number;
-  max: number;
-  emoji: string;
+  threshold: number;
+  tagline: string;
   rewards: string[];
+  accent: string;
 };
 
 const TIERS: Tier[] = [
   {
-    name: "Solaris",
-    min: 500_000,
-    max: 1_000_000,
-    emoji: "🪩",
+    name: "Semente",
+    threshold: 10_000,
+    tagline: "O começo de tudo",
+    accent: "hsl(140 60% 50%)",
+    rewards: [
+      "Selo Semente no perfil",
+      "Acesso à comunidade Orbis",
+      "Trilha de planejamento avançado",
+    ],
+  },
+  {
+    name: "Brasa",
+    threshold: 50_000,
+    tagline: "O fogo está aceso",
+    accent: "hsl(25 95% 55%)",
+    rewards: [
+      "1 mês grátis de assinatura",
+      "Selo Brasa exclusivo",
+      "Workshops mensais ao vivo",
+    ],
+  },
+  {
+    name: "Forja",
+    threshold: 100_000,
+    tagline: "Você está moldando seu futuro",
+    accent: "hsl(45 95% 55%)",
+    rewards: [
+      "3 meses grátis de assinatura",
+      "Convite para grupo VIP",
+      "Mentoria coletiva trimestral",
+    ],
+  },
+  {
+    name: "Império",
+    threshold: 500_000,
+    tagline: "Reconhecido entre os melhores",
+    accent: "hsl(280 70% 60%)",
+    rewards: [
+      "Plano anual grátis",
+      "Selo Império holográfico",
+      "Acesso antecipado a novos recursos",
+    ],
+  },
+  {
+    name: "Lenda",
+    threshold: 1_000_000,
+    tagline: "Top 1% — você é referência",
+    accent: "hsl(200 90% 60%)",
     rewards: [
       "Mentoria 1:1 com fundador",
       "Acesso vitalício ao Orbis",
-      "Reconhecimento na comunidade Top 1%",
-    ],
-  },
-  {
-    name: "Dune",
-    min: 250_000,
-    max: 500_000,
-    emoji: "🌟",
-    rewards: [
-      "Plano anual grátis",
-      "Selo Dune no perfil",
-      "Acesso a workshops exclusivos",
-    ],
-  },
-  {
-    name: "Oasis",
-    min: 100_000,
-    max: 250_000,
-    emoji: "🌵",
-    rewards: [
-      "3 meses grátis de assinatura",
-      "Selo Oasis no perfil",
-      "Convite para grupo VIP",
-    ],
-  },
-  {
-    name: "Mirage",
-    min: 10_000,
-    max: 100_000,
-    emoji: "🌱",
-    rewards: [
-      "1 mês grátis de assinatura",
-      "Selo Mirage no perfil",
-      "Templates de planejamento avançado",
-    ],
-  },
-  {
-    name: "Início",
-    min: 0,
-    max: 10_000,
-    emoji: "🌿",
-    rewards: [
-      "Acesso ao app Orbis",
-      "Comunidade de vendedores",
-      "Trilha de onboarding",
+      "Reconhecimento na Hall of Fame",
     ],
   },
 ];
 
-const formatRange = (min: number, max: number) => {
-  const fmt = (v: number) =>
-    v >= 1_000_000 ? `${v / 1_000_000}M` : `${v / 1_000}K`;
-  return `${fmt(min)} - ${fmt(max)}`;
-};
+const formatThreshold = (v: number) =>
+  v >= 1_000_000 ? `R$ ${v / 1_000_000}M` : `R$ ${v / 1_000}K`;
 
 export default function Rewards() {
   const navigate = useNavigate();
@@ -98,142 +95,173 @@ export default function Rewards() {
     })();
   }, [user]);
 
-  const currentTierIndex = TIERS.findIndex(
-    (t) => totalRevenue >= t.min && totalRevenue < t.max
-  );
-  const activeIdx =
-    currentTierIndex === -1 ? (totalRevenue >= 1_000_000 ? 0 : TIERS.length - 1) : currentTierIndex;
+  // Find next tier (not yet reached)
+  const nextTierIdx = TIERS.findIndex((t) => totalRevenue < t.threshold);
+  const currentTierIdx = nextTierIdx === -1 ? TIERS.length - 1 : nextTierIdx - 1;
+  const nextTier = nextTierIdx === -1 ? null : TIERS[nextTierIdx];
+  const progressToNext = nextTier
+    ? Math.min((totalRevenue / nextTier.threshold) * 100, 100)
+    : 100;
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden pb-24">
-      {/* Stars background */}
-      <div className="absolute inset-0 pointer-events-none">
-        {Array.from({ length: 30 }).map((_, i) => (
-          <div
-            key={i}
-            className="absolute rounded-full bg-foreground/30"
-            style={{
-              width: Math.random() * 3 + 1 + "px",
-              height: Math.random() * 3 + 1 + "px",
-              top: Math.random() * 100 + "%",
-              left: Math.random() * 100 + "%",
-              opacity: Math.random() * 0.6 + 0.2,
-            }}
-          />
-        ))}
-      </div>
-
+    <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <div className="relative flex items-center justify-between px-5 pt-6 pb-4">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 -ml-2 hover:bg-muted/30 rounded-lg transition-colors"
-          aria-label="Voltar"
-        >
-          <ChevronLeft className="h-6 w-6 text-foreground" />
-        </button>
-        <h1 className="text-lg font-semibold text-foreground">Rank</h1>
-        <div className="w-10" />
+      <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
+        <div className="flex items-center justify-between px-5 py-4 max-w-2xl mx-auto">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 -ml-2 hover:bg-muted/30 rounded-lg transition-colors"
+            aria-label="Voltar"
+          >
+            <ChevronLeft className="h-5 w-5 text-foreground" />
+          </button>
+          <h1 className="text-base font-semibold text-foreground">Recompensas</h1>
+          <div className="w-9" />
+        </div>
       </div>
 
-      {/* Total revenue chip */}
-      <div className="relative px-5 mb-4 text-center">
-        <p className="text-xs text-muted-foreground">Faturamento total</p>
-        <p className="text-xl font-bold text-foreground">
-          {formatCurrency(totalRevenue)}
-        </p>
-      </div>
+      <div className="max-w-2xl mx-auto px-5 pt-6 space-y-6">
+        {/* Hero — current status + progress to next */}
+        <div className="rounded-3xl bg-gradient-to-br from-primary/15 via-card to-card border border-primary/30 p-6 space-y-5">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">
+                Faturamento total
+              </p>
+              <p className="text-3xl font-bold text-foreground">
+                {formatCurrency(totalRevenue)}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/30">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              <span className="text-xs font-semibold text-primary">
+                {currentTierIdx >= 0 ? TIERS[currentTierIdx].name : "Iniciante"}
+              </span>
+            </div>
+          </div>
 
-      {/* Path with tiers */}
-      <div className="relative px-5">
-        <svg
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          viewBox="0 0 350 900"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          <defs>
-            <linearGradient id="pathGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity="0.3" />
-              <stop offset="60%" stopColor="hsl(45 90% 55%)" stopOpacity="0.6" />
-              <stop offset="100%" stopColor="hsl(140 70% 45%)" stopOpacity="0.9" />
-            </linearGradient>
-          </defs>
-          <path
-            d="M 60 60 C 280 120, 280 220, 100 290 S 60 480, 280 540 S 100 720, 200 850"
-            stroke="url(#pathGradient)"
-            strokeWidth="6"
-            fill="none"
-            strokeLinecap="round"
-          />
-        </svg>
+          {nextTier ? (
+            <div className="space-y-2">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Próximo: {nextTier.name}</span>
+                <span>
+                  faltam {formatCurrency(nextTier.threshold - totalRevenue)}
+                </span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all"
+                  style={{ width: `${progressToNext}%` }}
+                />
+              </div>
+              <p className="text-xs text-right text-primary font-medium">
+                {progressToNext.toFixed(1)}%
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-primary font-medium">
+              🏆 Você desbloqueou todos os tiers!
+            </p>
+          )}
+        </div>
 
-        <div className="relative space-y-12 py-6">
+        {/* Tier list */}
+        <div className="space-y-3">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground px-1">
+            Sua jornada
+          </p>
+
           {TIERS.map((tier, idx) => {
-            const isActive = idx === activeIdx;
-            const isUnlocked = totalRevenue >= tier.min;
-            const alignLeft = idx % 2 === 0;
+            const isUnlocked = totalRevenue >= tier.threshold;
+            const isCurrent = idx === currentTierIdx + (nextTierIdx === -1 ? 0 : 0) && !isUnlocked && idx === nextTierIdx;
             const isExpanded = expanded === tier.name;
 
             return (
-              <div
+              <button
                 key={tier.name}
-                className={`flex ${alignLeft ? "justify-start" : "justify-end"}`}
+                onClick={() => setExpanded(isExpanded ? null : tier.name)}
+                className={`w-full text-left rounded-2xl border transition-all overflow-hidden ${
+                  isCurrent
+                    ? "border-primary bg-card shadow-[0_0_24px_-8px_hsl(var(--primary)/0.4)]"
+                    : isUnlocked
+                    ? "border-border bg-card"
+                    : "border-border/60 bg-card/50"
+                }`}
               >
-                <button
-                  onClick={() => setExpanded(isExpanded ? null : tier.name)}
-                  className={`relative w-[78%] text-left rounded-2xl border transition-all ${
-                    isActive
-                      ? "border-primary bg-card shadow-[0_0_20px_hsl(var(--primary)/0.25)]"
-                      : isUnlocked
-                      ? "border-success/40 bg-card/80"
-                      : "border-border bg-card/60"
-                  }`}
-                >
-                  {/* Node dot */}
-                  <span
-                    className={`absolute top-1/2 -translate-y-1/2 ${
-                      alignLeft ? "-left-3" : "-right-3"
-                    } w-4 h-4 rounded-full ring-4 ring-background ${
-                      isUnlocked ? "bg-success" : "bg-muted-foreground/40"
-                    }`}
-                  />
-
-                  <div className="flex items-center gap-3 p-4">
-                    <div className="w-12 h-12 rounded-xl bg-muted/40 flex items-center justify-center text-2xl shrink-0">
-                      {tier.emoji}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground">{tier.name}</p>
-                      <p className="text-sm text-success">
-                        {formatRange(tier.min, tier.max)}
-                      </p>
-                    </div>
+                <div className="flex items-center gap-4 p-4">
+                  {/* Tier number badge */}
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center font-bold text-lg shrink-0 relative"
+                    style={{
+                      background: isUnlocked
+                        ? `linear-gradient(135deg, ${tier.accent}, ${tier.accent}80)`
+                        : "hsl(var(--muted))",
+                      color: isUnlocked ? "white" : "hsl(var(--muted-foreground))",
+                    }}
+                  >
+                    {isUnlocked ? (
+                      <Check className="h-5 w-5" strokeWidth={3} />
+                    ) : (
+                      <span className="text-base">0{idx + 1}</span>
+                    )}
                   </div>
 
-                  {isExpanded && (
-                    <div className="px-4 pb-4 pt-1 border-t border-border/50 animate-fade-in">
-                      <p className="text-xs text-muted-foreground mb-2 mt-3">
-                        Recompensas:
-                      </p>
-                      <ul className="space-y-1.5">
-                        {tier.rewards.map((r) => (
-                          <li
-                            key={r}
-                            className="text-sm text-foreground flex items-start gap-2"
-                          >
-                            <span className="text-success mt-0.5">✓</span>
-                            <span>{r}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-foreground">{tier.name}</p>
+                      {!isUnlocked && (
+                        <Lock className="h-3 w-3 text-muted-foreground" />
+                      )}
                     </div>
-                  )}
-                </button>
-              </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {tier.tagline}
+                    </p>
+                  </div>
+
+                  <div className="text-right shrink-0">
+                    <p
+                      className="text-sm font-bold"
+                      style={{
+                        color: isUnlocked ? tier.accent : "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      {formatThreshold(tier.threshold)}
+                    </p>
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="px-4 pb-4 pt-0 animate-fade-in">
+                    <div
+                      className="rounded-xl p-4 space-y-2"
+                      style={{
+                        background: `${tier.accent}10`,
+                        border: `1px solid ${tier.accent}30`,
+                      }}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                        O que você ganha
+                      </p>
+                      {tier.rewards.map((r) => (
+                        <div key={r} className="flex items-start gap-2.5">
+                          <div
+                            className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0"
+                            style={{ background: tier.accent }}
+                          />
+                          <p className="text-sm text-foreground">{r}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </button>
             );
           })}
         </div>
+
+        <p className="text-center text-xs text-muted-foreground pt-2">
+          Recompensas baseadas no seu faturamento total acumulado
+        </p>
       </div>
     </div>
   );
