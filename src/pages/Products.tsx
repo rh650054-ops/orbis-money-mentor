@@ -38,6 +38,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { generatePixPayload } from "@/lib/pixCode";
+import { BRAZILIAN_BANKS, getBankById } from "@/lib/brazilianBanks";
 
 interface Product {
   id: string;
