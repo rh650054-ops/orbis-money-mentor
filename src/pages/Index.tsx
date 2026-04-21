@@ -41,6 +41,7 @@ export default function Index() {
     variation: 0
   });
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
+  const [nickname, setNickname] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
@@ -136,12 +137,15 @@ export default function Index() {
     // Carregar meta do perfil
     const { data: profile } = await supabase
       .from("profiles")
-      .select("monthly_goal")
+      .select("monthly_goal, nickname")
       .eq("user_id", user.id)
       .single();
     
     if (profile?.monthly_goal) {
       setMonthlyGoal(profile.monthly_goal);
+    }
+    if (profile?.nickname) {
+      setNickname(profile.nickname);
     }
 
     // Carregar todas as vendas de hoje e agregar
@@ -382,7 +386,7 @@ export default function Index() {
       {/* Saudação */}
       <div className="space-y-1">
         <p className="text-2xl font-semibold tracking-tight text-foreground">
-          {greeting}, <span className="text-primary">vendedor</span>
+          {greeting}, <span className="text-primary">{nickname || "vendedor"}</span>
         </p>
         <p className="text-sm text-muted-foreground">Vamos dominar o dia.</p>
       </div>
