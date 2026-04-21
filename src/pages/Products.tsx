@@ -90,6 +90,7 @@ export default function Products() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [pixAccounts, setPixAccounts] = useState<PixAccount[]>([]);
+  const [connectedBankNames, setConnectedBankNames] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Product form
