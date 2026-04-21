@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award, Flame, Shield, Sword, Rocket, Diamond, ChevronRight } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award, Flame, Shield, Sword, Rocket, Diamond, ChevronRight, TrendingUp, Gift, Crown as CrownIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
@@ -18,6 +18,7 @@ type Tier = {
   glowColor: string;
   xpRequired: number;
   rarity: string;
+  rarityColor: string;
 };
 
 const TIERS: Tier[] = [
@@ -33,6 +34,7 @@ const TIERS: Tier[] = [
     colorClass: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
     glowColor: "shadow-emerald-500/20",
     rarity: "Comum",
+    rarityColor: "text-emerald-400",
     rewards: [
       "Selo Semente no perfil",
       "Acesso à comunidade Orbis",
@@ -51,6 +53,7 @@ const TIERS: Tier[] = [
     colorClass: "from-orange-500/20 to-orange-600/10 border-orange-500/30",
     glowColor: "shadow-orange-500/20",
     rarity: "Incomum",
+    rarityColor: "text-orange-400",
     rewards: [
       "1 mês grátis de assinatura",
       "Selo Brasa exclusivo",
@@ -69,6 +72,7 @@ const TIERS: Tier[] = [
     colorClass: "from-amber-500/20 to-amber-600/10 border-amber-500/30",
     glowColor: "shadow-amber-500/20",
     rarity: "Raro",
+    rarityColor: "text-amber-400",
     rewards: [
       "3 meses grátis de assinatura",
       "Convite para grupo VIP",
@@ -87,6 +91,7 @@ const TIERS: Tier[] = [
     colorClass: "from-purple-500/20 to-purple-600/10 border-purple-500/30",
     glowColor: "shadow-purple-500/20",
     rarity: "Épico",
+    rarityColor: "text-purple-400",
     rewards: [
       "Plano anual grátis",
       "Selo Império holográfico",
@@ -105,6 +110,7 @@ const TIERS: Tier[] = [
     colorClass: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30",
     glowColor: "shadow-cyan-500/20",
     rarity: "Lendário",
+    rarityColor: "text-cyan-400",
     rewards: [
       "Mentoria 1:1 com fundador",
       "Acesso vitalício ao Orbis",
