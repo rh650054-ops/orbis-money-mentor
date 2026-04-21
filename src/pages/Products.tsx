@@ -120,7 +120,7 @@ export default function Products() {
   const loadAll = async () => {
     if (!user) return;
     setLoading(true);
-    const [prodRes, pixRes, profRes] = await Promise.all([
+    const [prodRes, pixRes, profRes, bankConnRes] = await Promise.all([
       supabase
         .from("products")
         .select("*")
@@ -138,6 +138,10 @@ export default function Products() {
         .select("nickname, city")
         .eq("user_id", user.id)
         .maybeSingle(),
+      supabase
+        .from("bank_connections")
+        .select("institution_name")
+        .eq("user_id", user.id),
     ]);
     if (prodRes.data) setProducts(prodRes.data as Product[]);
     if (pixRes.data) setPixAccounts(pixRes.data as PixAccount[]);
@@ -145,8 +149,28 @@ export default function Products() {
       name: profRes.data.nickname || "",
       city: (profRes.data.city || "").toUpperCase(),
     });
+    if (bankConnRes.data) {
+      setConnectedBankNames(
+        (bankConnRes.data as { institution_name: string }[]).map((b) => b.institution_name),
+      );
+    }
     setLoading(false);
   };
+
+  // Filtra os bancos disponíveis no seletor pelos que o usuário conectou em /bank-connections.
+  // Match flexível por substring case-insensitive (ex: "Nu Pagamentos S.A." → Nubank).
+  const availableBanks = (() => {
+    if (connectedBankNames.length === 0) return [] as typeof BRAZILIAN_BANKS;
+    const normalized = connectedBankNames.map((n) => n.toLowerCase());
+    const matched = BRAZILIAN_BANKS.filter((b) => {
+      const bn = b.name.toLowerCase();
+      return normalized.some((n) => n.includes(bn) || bn.includes(n));
+    });
+    // Sempre permite "Outro banco" como fallback manual
+    const outro = BRAZILIAN_BANKS.find((b) => b.id === "outro");
+    if (outro && !matched.includes(outro)) matched.push(outro);
+    return matched;
+  })();
 
   const defaultPixAccount = pixAccounts.find((a) => a.is_default) || pixAccounts[0] || null;
 
