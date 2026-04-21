@@ -98,20 +98,55 @@ export function DefconEndScreen({
       }
     };
 
-    let y = 520;
-    const drawStat = (label: string, value: string, valueColor = "#FFFFFF") => {
-      centerText(label.toUpperCase(), y, 72, "700", "rgba(255,255,255,0.85)", 10);
-      y += 130;
-      centerText(value, y, 180, "900", valueColor);
-      y += 230;
+    // Golden divider with glowing center diamond
+    const drawDivider = (y: number) => {
+      const lineW = 720;
+      const xStart = W / 2 - lineW / 2;
+      const xEnd = W / 2 + lineW / 2;
+
+      const grad = ctx.createLinearGradient(xStart, y, xEnd, y);
+      grad.addColorStop(0, "rgba(244,161,0,0)");
+      grad.addColorStop(0.5, "rgba(244,161,0,1)");
+      grad.addColorStop(1, "rgba(244,161,0,0)");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(xStart, y);
+      ctx.lineTo(xEnd, y);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.shadowColor = "rgba(244,161,0,0.9)";
+      ctx.shadowBlur = 40;
+      ctx.fillStyle = "#FFD24A";
+      ctx.beginPath();
+      ctx.moveTo(W / 2, y - 14);
+      ctx.lineTo(W / 2 + 14, y);
+      ctx.lineTo(W / 2, y + 14);
+      ctx.lineTo(W / 2 - 14, y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
     };
 
-    drawStat("Faturamento", formatCurrency(totalSold), "#FFFFFF");
-    drawStat("Vendas", String(totalSalesCount || 0), "#22C55E");
+    const TITLE_SIZE = 110;
+    const TITLE_WEIGHT = "900";
+    const SPACING = 18;
+
+    // Faturamento — dourado
+    centerText("FATURAMENTO", 240, TITLE_SIZE, TITLE_WEIGHT, "#F4A100", SPACING);
+    drawDivider(560);
+
+    // Vendas — verde
+    centerText("VENDAS", 760, TITLE_SIZE, TITLE_WEIGHT, "#22C55E", SPACING);
+    drawDivider(1080);
+
+    // Conversão — vermelho (ou ajustada por desempenho)
     const convColor =
       conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F4A100" : "#EF4444";
-    drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
+    centerText("CONVERSÃO", 1280, TITLE_SIZE, TITLE_WEIGHT, convColor, SPACING);
 
+    // Orbis watermark sutil no rodapé
     try {
       const logo = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
@@ -120,12 +155,18 @@ export function DefconEndScreen({
         img.onerror = reject;
         img.src = orbisLogo;
       });
-      const logoW = 460;
+      const logoW = 380;
       const ratio = logo.height / logo.width;
       const logoH = logoW * ratio;
-      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 120, logoW, logoH);
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 160, logoW, logoH);
+      ctx.restore();
     } catch {
-      centerText("ORBIS", H - 180, 80, "900", "#FFFFFF", 16);
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      centerText("ORBIS", H - 220, 90, "900", "#FFFFFF", 16);
+      ctx.restore();
     }
 
     return new Promise((resolve) =>
