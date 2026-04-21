@@ -14,6 +14,11 @@ import { z } from "zod";
 import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 
+const BR_STATES = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
+
 const profileSchema = z.object({
   nickname: z.string()
     .trim()
@@ -21,8 +26,17 @@ const profileSchema = z.object({
     .max(100, { message: "Apelido deve ter no máximo 100 caracteres" }),
   email: z.string()
     .trim()
-    .email({ message: "E-mail inválido" })
     .max(255, { message: "E-mail deve ter no máximo 255 caracteres" })
+    .optional()
+    .or(z.literal("")),
+  phone: z.string()
+    .trim()
+    .refine((v) => {
+      const d = v.replace(/\D/g, "");
+      return d.length >= 10 && d.length <= 11;
+    }, { message: "WhatsApp inválido (DDD + número)" }),
+  state: z.string().min(2, { message: "Selecione o estado" }).max(2),
+  city: z.string().trim().min(2, { message: "Informe a cidade" }).max(80),
 });
 
 export default function Profile() {
@@ -40,12 +54,18 @@ export default function Profile() {
     avatar_url: "",
     is_demo: false,
     billing_exempt: false,
-    plan_status: "trial"
+    plan_status: "trial",
+    phone: "",
+    state: "",
+    city: "",
   });
   const [editForm, setEditForm] = useState({
     nickname: "",
     email: "",
-    avatar_url: ""
+    avatar_url: "",
+    phone: "",
+    state: "",
+    city: "",
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
@@ -95,12 +115,18 @@ export default function Profile() {
         avatar_url: data.avatar_url || "",
         is_demo: data.is_demo || false,
         billing_exempt: data.billing_exempt || false,
-        plan_status: data.plan_status || "trial"
+        plan_status: data.plan_status || "trial",
+        phone: data.phone || "",
+        state: data.state || "",
+        city: data.city || "",
       });
       setEditForm({
         nickname: data.nickname || "",
         email: data.email || "",
-        avatar_url: data.avatar_url || ""
+        avatar_url: data.avatar_url || "",
+        phone: data.phone || "",
+        state: data.state || "",
+        city: data.city || "",
       });
       if (data.avatar_url) {
         setAvatarPreview(data.avatar_url);
@@ -126,12 +152,18 @@ export default function Profile() {
           avatar_url: newProfile.avatar_url || "",
           is_demo: newProfile.is_demo || false,
           billing_exempt: newProfile.billing_exempt || false,
-          plan_status: newProfile.plan_status || "trial"
+          plan_status: newProfile.plan_status || "trial",
+          phone: newProfile.phone || "",
+          state: newProfile.state || "",
+          city: newProfile.city || "",
         });
         setEditForm({
           nickname: newProfile.nickname || "",
           email: newProfile.email || "",
-          avatar_url: newProfile.avatar_url || ""
+          avatar_url: newProfile.avatar_url || "",
+          phone: newProfile.phone || "",
+          state: newProfile.state || "",
+          city: newProfile.city || "",
         });
       }
     }
@@ -220,8 +252,11 @@ export default function Profile() {
             .from("profiles")
             .update({
               nickname: editForm.nickname.trim(),
-              email: editForm.email.trim(),
-              avatar_url: finalAvatarUrl
+              email: editForm.email.trim() || null,
+              avatar_url: finalAvatarUrl,
+              phone: editForm.phone.replace(/\D/g, ""),
+              state: editForm.state,
+              city: editForm.city.trim(),
             })
             .eq("user_id", user.id);
 
@@ -231,7 +266,10 @@ export default function Profile() {
             ...profile,
             nickname: editForm.nickname,
             email: editForm.email,
-            avatar_url: finalAvatarUrl
+            avatar_url: finalAvatarUrl,
+            phone: editForm.phone,
+            state: editForm.state,
+            city: editForm.city,
           });
 
           setIsEditing(false);
@@ -248,8 +286,11 @@ export default function Profile() {
           .from("profiles")
           .update({
             nickname: editForm.nickname.trim(),
-            email: editForm.email.trim(),
-            avatar_url: finalAvatarUrl
+            email: editForm.email.trim() || null,
+            avatar_url: finalAvatarUrl,
+            phone: editForm.phone.replace(/\D/g, ""),
+            state: editForm.state,
+            city: editForm.city.trim(),
           })
           .eq("user_id", user.id);
 
@@ -259,7 +300,10 @@ export default function Profile() {
           ...profile,
           nickname: editForm.nickname,
           email: editForm.email,
-          avatar_url: finalAvatarUrl
+          avatar_url: finalAvatarUrl,
+          phone: editForm.phone,
+          state: editForm.state,
+          city: editForm.city,
         });
 
         setIsEditing(false);
@@ -395,10 +439,24 @@ export default function Profile() {
         <CardContent className="space-y-4">
           {!isEditing ? (
             <>
-              <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                <Mail className="w-4 h-4" />
-                <span>{profile.email}</span>
-              </div>
+              {profile.email && (
+                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                  <Mail className="w-4 h-4" />
+                  <span>{profile.email}</span>
+                </div>
+              )}
+              {profile.phone && (
+                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                  <span className="text-base">📱</span>
+                  <span>{profile.phone}</span>
+                </div>
+              )}
+              {(profile.city || profile.state) && (
+                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                  <span className="text-base">📍</span>
+                  <span>{[profile.city, profile.state].filter(Boolean).join(" - ")}</span>
+                </div>
+              )}
               <div className="flex items-center space-x-3 text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" />
                 <span>Membro desde {formatDate(profile.created_at)}</span>
@@ -423,7 +481,42 @@ export default function Profile() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>E-mail</Label>
+                <Label>WhatsApp</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/\D/g, "") })}
+                  placeholder="11999999999"
+                  maxLength={11}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-2 col-span-1">
+                  <Label>Estado</Label>
+                  <select
+                    value={editForm.state}
+                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">UF</option>
+                    {BR_STATES.map((uf) => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Cidade</Label>
+                  <Input
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    placeholder="Sua cidade"
+                    maxLength={80}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail (opcional)</Label>
                 <Input
                   type="email"
                   value={editForm.email}
@@ -451,7 +544,10 @@ export default function Profile() {
                     setEditForm({
                       nickname: profile.nickname,
                       email: profile.email,
-                      avatar_url: profile.avatar_url
+                      avatar_url: profile.avatar_url,
+                      phone: profile.phone,
+                      state: profile.state,
+                      city: profile.city,
                     });
                     setAvatarPreview(profile.avatar_url);
                     setAvatarFile(null);

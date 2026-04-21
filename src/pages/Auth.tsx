@@ -23,7 +23,14 @@ export default function Auth() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [state, setState] = useState("");
+  const [city, setCity] = useState("");
   const [loginEmail, setLoginEmail] = useState("");
+
+  const BR_STATES = [
+    "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+    "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+  ];
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -90,6 +97,19 @@ export default function Auth() {
         if (name.length < 2) {
           throw new Error("Nome deve ter no mínimo 2 caracteres.");
         }
+        const cleanedPhone = phone.replace(/\D/g, "");
+        if (cleanedPhone.length < 10 || cleanedPhone.length > 11) {
+          throw new Error("Informe um WhatsApp válido (DDD + número).");
+        }
+        if (!state) {
+          throw new Error("Selecione o seu estado.");
+        }
+        if (city.trim().length < 2) {
+          throw new Error("Informe a sua cidade.");
+        }
+        if (email && !email.includes("@")) {
+          throw new Error("E-mail inválido.");
+        }
 
         const internalEmail = cpfToInternalEmail(cleanedCpf);
         const trialStart = new Date().toISOString().split('T')[0];
@@ -113,14 +133,16 @@ export default function Auth() {
           throw signUpError;
         }
 
-        // Update profile with CPF, phone, email, and trial info
+        // Update profile with CPF, phone, email, location and trial info
         if (signUpData?.user) {
           await supabase.from("profiles").upsert({
             user_id: signUpData.user.id,
             nickname: name,
             cpf: cleanedCpf,
-            phone: phone || null,
-            email: email || null,
+            phone: cleanedPhone,
+            email: email.trim() || null,
+            state,
+            city: city.trim(),
             trial_start: trialStart,
             trial_end: trialEnd,
             is_trial_active: true,
@@ -260,7 +282,7 @@ export default function Auth() {
             {!isLogin && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Celular (opcional)</Label>
+                  <Label htmlFor="phone">WhatsApp</Label>
                   <Input
                     id="phone"
                     type="text"
@@ -268,9 +290,40 @@ export default function Auth() {
                     placeholder="11999999999"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    required
                     maxLength={11}
                     className="bg-background"
                   />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2 col-span-1">
+                    <Label htmlFor="state">Estado</Label>
+                    <select
+                      id="state"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      required
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">UF</option>
+                      {BR_STATES.map((uf) => (
+                        <option key={uf} value={uf}>{uf}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      placeholder="Sua cidade"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      required
+                      maxLength={80}
+                      className="bg-background"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail (opcional)</Label>
