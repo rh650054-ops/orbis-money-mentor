@@ -239,14 +239,38 @@ export default function Products() {
   };
 
   // ---------- Pix accounts CRUD ----------
-  const openPixManager = () => {
+  const resetPixForm = () => {
     setEditingPix(null);
-    setPixForm(emptyPixForm);
+    setSelectedBankId(null);
+    setPixForm({
+      ...emptyPixForm,
+      merchant_name: profileDefaults.name,
+      merchant_city: profileDefaults.city,
+    });
+  };
+
+  const openPixManager = () => {
+    resetPixForm();
     setPixManagerOpen(true);
+  };
+
+  const selectBankToAdd = (bankId: string) => {
+    const bank = getBankById(bankId);
+    setSelectedBankId(bankId);
+    setEditingPix(null);
+    setPixForm({
+      bank_name: bank.name,
+      pix_key: "",
+      pix_key_type: "cpf",
+      merchant_name: profileDefaults.name,
+      merchant_city: profileDefaults.city,
+    });
   };
 
   const editPixAccount = (a: PixAccount) => {
     setEditingPix(a);
+    const matched = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name);
+    setSelectedBankId(matched?.id || "outro");
     setPixForm({
       bank_name: a.bank_name,
       pix_key: a.pix_key,
@@ -259,7 +283,7 @@ export default function Products() {
   const savePixAccount = async () => {
     if (!user) return;
     if (!pixForm.bank_name.trim() || !pixForm.pix_key.trim() || !pixForm.merchant_name.trim() || !pixForm.merchant_city.trim()) {
-      toast({ title: "Preencha todos os campos", variant: "destructive" });
+      toast({ title: "Preencha chave, nome e cidade", variant: "destructive" });
       return;
     }
     const payload = {
@@ -268,7 +292,7 @@ export default function Products() {
       pix_key: pixForm.pix_key.trim(),
       pix_key_type: pixForm.pix_key_type,
       merchant_name: pixForm.merchant_name.trim(),
-      merchant_city: pixForm.merchant_city.trim(),
+      merchant_city: pixForm.merchant_city.trim().toUpperCase(),
       is_default: editingPix?.is_default ?? pixAccounts.length === 0,
     };
     const { error } = editingPix
@@ -277,9 +301,8 @@ export default function Products() {
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: editingPix ? "Conta atualizada" : "Conta Pix adicionada" });
-      setEditingPix(null);
-      setPixForm(emptyPixForm);
+      toast({ title: editingPix ? "Conta atualizada" : "✅ Banco adicionado" });
+      resetPixForm();
       loadAll();
     }
   };
@@ -294,6 +317,7 @@ export default function Products() {
   const deletePixAccount = async (id: string) => {
     if (!confirm("Excluir esta conta Pix?")) return;
     await supabase.from("pix_accounts").delete().eq("id", id);
+    if (editingPix?.id === id) resetPixForm();
     loadAll();
   };
 
