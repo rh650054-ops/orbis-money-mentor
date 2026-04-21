@@ -183,11 +183,10 @@ export default function Layout({ children }: LayoutProps) {
               {user && (
                 <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="flex items-center gap-1.5 h-9 px-2">
+                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-full">
                       <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
                         <User className="w-4 h-4 text-primary" />
                       </div>
-                      <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
