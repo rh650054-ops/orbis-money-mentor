@@ -137,68 +137,67 @@ export function DefconSmartNotification({
     }
 
     if (newSale) {
-      // TRIGGER 1 — First sale of the day
+      // TRIGGER 1 — Primeira venda
       if (prevSalesRef.current === 0 && totalSalesCount > 0 && !shownTriggersRef.current.has("first_sale")) {
         shownTriggersRef.current.add("first_sale");
-        const avgStr = historicalAvg.toFixed(0);
-        showNotification(
-          "⚡",
-          `Primeira venda! ${totalApproaches} abordagens até aqui. Seu histórico: 1 venda a cada ${avgStr} abordagens. ${totalApproaches <= historicalAvg ? "Mais rápido que o normal. Mantém esse ritmo." : "Dentro do esperado. Segue firme."}`
-        );
+        const avgInt = Math.round(historicalAvg);
+        if (totalApproaches <= historicalAvg) {
+          showNotification("⚡", `PRIMEIRA VENDA em ${totalApproaches} abordagens.\nMais rápido que sua média (${avgInt}).\nMantém o ritmo.`);
+        } else {
+          showNotification("⚡", `PRIMEIRA VENDA.\nSua média: 1 venda a cada ${avgInt} abordagens.\nSegue firme.`);
+        }
       }
 
-      // Reset dry streak on sale
       approachesSinceLastSaleRef.current = 0;
 
-      // TRIGGER 2/3 — Performance comparison (every 2 sales after the 2nd)
+      // TRIGGER 2/3 — Comparação de performance
       if (totalSalesCount >= 2) {
         const currentAvg = totalApproaches / totalSalesCount;
         const triggerKey = `perf_check_${totalSalesCount}`;
         if (!shownTriggersRef.current.has(triggerKey)) {
           shownTriggersRef.current.add(triggerKey);
-          const pctDiff = Math.abs(((currentAvg - historicalAvg) / historicalAvg) * 100).toFixed(0);
-          
+          const currentInt = Math.round(currentAvg);
+          const histInt = Math.round(historicalAvg);
+
           if (currentAvg < historicalAvg * 0.85) {
-            showNotification(
-              "🔥",
-              `${totalSalesCount} vendas em ${totalApproaches} abordagens. ${(totalSalesCount / totalApproaches * 100).toFixed(0)}% de conversão. Histórico: 1 a cada ${historicalAvg.toFixed(0)}. Hoje: 1 a cada ${currentAvg.toFixed(0)}. Você tá ${pctDiff}% acima do normal. O que fez diferente? Repete.`
-            );
+            const pctDiff = Math.round(((historicalAvg - currentAvg) / historicalAvg) * 100);
+            showNotification("🔥", `VOCÊ TÁ ${pctDiff}% ACIMA DO NORMAL.\n1 venda a cada ${currentInt} abordagens (média: ${histInt}).\nO que tá funcionando? Repete.`);
           } else if (currentAvg > historicalAvg * 1.4) {
-            showNotification(
-              "🧠",
-              `${totalSalesCount} vendas em ${totalApproaches} abordagens — 1 a cada ${currentAvg.toFixed(0)}. Histórico: ${historicalAvg.toFixed(0)}. Faltam ${Math.max(0, Math.round(historicalAvg - approachesSinceLastSaleRef.current))} abordagens pro próximo "sim" estatístico. Cada "não" te aproxima.`
-            );
+            const needed = Math.max(1, Math.round(historicalAvg - approachesSinceLastSaleRef.current));
+            showNotification("🎯", `ABORDA MAIS ${needed} PESSOAS.\nÉ o que falta pra próxima venda na sua média.\nCada "não" te aproxima.`);
           }
         }
       }
     }
 
-    // TRIGGER 4 — Every 10 approaches milestone
+    // TRIGGER 4 — Marco a cada 10 abordagens
     if (totalApproaches > 0 && totalApproaches % 10 === 0 && newApproach) {
       const triggerKey = `milestone_${totalApproaches}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
         const expectedSales = Math.round(totalApproaches / historicalAvg);
-        const currentConversion = totalSalesCount > 0 ? (totalSalesCount / totalApproaches * 100).toFixed(0) : "0";
-        showNotification(
-          "📊",
-          `${totalApproaches} abordagens, ${totalSalesCount} vendas (${currentConversion}%). Se seu padrão se mantiver, ~${expectedSales} vendas previstas. ${totalSalesCount >= expectedSales ? "Você tá acima da previsão. Segue." : `Faltam ~${Math.max(0, expectedSales - totalSalesCount)} vendas pra igualar sua média.`}`
-        );
+        if (totalSalesCount >= expectedSales) {
+          showNotification("📊", `${totalApproaches} ABORDAGENS, ${totalSalesCount} VENDAS.\nVocê tá acima da previsão (${expectedSales}).\nNão para agora.`);
+        } else {
+          const missing = Math.max(1, expectedSales - totalSalesCount);
+          showNotification("📊", `${totalApproaches} ABORDAGENS, ${totalSalesCount} VENDAS.\nFALTAM ${missing} VENDAS pra bater sua média.\nAcelera.`);
+        }
       }
     }
 
-    // TRIGGER 5 — 5+ approaches without a sale
+    // TRIGGER 5 — 5+ abordagens sem vender
     if (approachesSinceLastSaleRef.current >= 5 && newApproach) {
       const dryCount = approachesSinceLastSaleRef.current;
       const triggerKey = `dry_${Math.floor(dryCount / 5) * 5}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        const maxDry = Math.max(longestDryStreak, dryCount);
-        const remaining = maxDry - dryCount;
-        showNotification(
-          "🧠",
-          `${dryCount} abordagens sem vender. Seu recorde de sequência sem venda: ${maxDry}. ${remaining > 0 ? `Faltam ${remaining} pro recorde — e depois dele você sempre vendeu.` : "Você igualou o recorde. A próxima venda tá na esquina."}`
-        );
+        const histInt = Math.round(historicalAvg);
+        const remaining = Math.max(1, histInt - dryCount);
+        if (dryCount >= histInt) {
+          showNotification("💪", `${dryCount} ABORDAGENS SEM VENDER.\nVocê passou da sua média (${histInt}).\nA próxima venda tá perto. Continua.`);
+        } else {
+          showNotification("🧠", `${dryCount} SEM VENDER.\nFALTAM ~${remaining} ABORDAGENS pra próxima venda na sua média.\nNão para.`);
+        }
       }
     }
 
