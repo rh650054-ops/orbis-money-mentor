@@ -402,8 +402,8 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
           </div>
         )}
 
-        {/* Estado: metas sem percentual */}
-        {goals.length > 0 && Math.round(totalPercent) !== 100 && !alreadyDistributed && (
+        {/* Estado: nenhum % configurado ainda */}
+        {goals.length > 0 && totalPercent <= 0 && !alreadyDistributed && (
           <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
             <div className="text-xs">
@@ -411,14 +411,27 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                 Configure os percentuais
               </p>
               <p className="text-muted-foreground mt-1">
-                A soma dos % precisa fechar 100% pra ativar a distribuição. Atual: {totalPercent.toFixed(0)}%.
+                Toque em <b>Configurar %</b> e defina quanto do líquido vai pra cada meta. Pode ser 30%, 50%, o que você quiser — não precisa fechar 100%.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Estado: passou de 100% */}
+        {goals.length > 0 && totalPercent > 100 && !alreadyDistributed && (
+          <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
+            <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+            <div className="text-xs">
+              <p className="font-semibold text-destructive">Passou de 100%</p>
+              <p className="text-muted-foreground mt-1">
+                Soma atual: {totalPercent.toFixed(0)}%. Ajuste em <b>Configurar %</b> antes de distribuir.
               </p>
             </div>
           </div>
         )}
 
         {/* Preview do dia */}
-        {goals.length > 0 && Math.round(totalPercent) === 100 && !alreadyDistributed && (
+        {goals.length > 0 && totalPercent > 0 && totalPercent <= 100 && !alreadyDistributed && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               📦 Caixinhas de hoje
@@ -445,6 +458,22 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                 </div>
               </div>
             ))}
+            {totalPercent < 100 && (
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-dashed border-border/60">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">💸</span>
+                  <div>
+                    <p className="font-semibold text-sm">Livre pra você</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {(100 - totalPercent).toFixed(0)}% do líquido — usa como quiser
+                    </p>
+                  </div>
+                </div>
+                <p className="font-bold text-foreground whitespace-nowrap">
+                  {formatCurrency((liquidoHoje * (100 - totalPercent)) / 100)}
+                </p>
+              </div>
+            )}
             <Button
               onClick={handleApplyToday}
               disabled={saving || liquidoHoje <= 0}
