@@ -30,7 +30,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
-  { name: "Nova Venda", href: "/transactions", icon: TrendingUp, tourId: "" },
+  
   { name: "Ritmo", href: "/daily-goals", icon: CheckSquare, tourId: "nav-ritmo" },
   { name: "Ranking", href: "/ranking", icon: Trophy, tourId: "nav-ranking" },
   { name: "Rotina", href: "/routine", icon: Clock, tourId: "nav-rotina" },
