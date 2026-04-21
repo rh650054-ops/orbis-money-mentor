@@ -161,14 +161,22 @@ export function DefconRunning({
     setShowAddTip(false);
   };
 
+  // Frase de impacto inteligente — empurra ação concreta
+  const avgTicket =
+    totalSalesCount > 0 ? totalSold / totalSalesCount : saleHistory.length > 0 ? saleHistory[saleHistory.length - 1] : 0;
+  const salesNeeded = avgTicket > 0 ? Math.ceil(remaining / avgTicket) : 0;
   const impactPhrase =
     remaining <= 0
       ? "Meta batida. Continue empilhando."
       : totalSold === 0
       ? "Sem ação, sem dinheiro."
+      : isUrgent
+      ? "Acelera esse bloco."
+      : salesNeeded > 0 && avgTicket > 0
+      ? `Faltam ${salesNeeded} ${salesNeeded === 1 ? "venda" : "vendas"} de ${formatCurrency(Math.round(avgTicket))}`
       : conversionRate > 0 && conversionRate < 15
       ? "Mais abordagem = mais venda."
-      : `Você está a ${formatCurrency(remaining)} da meta.`;
+      : "Mais 1 venda agora.";
 
   // Confirm end screen
   if (showConfirmEnd) {
@@ -211,15 +219,15 @@ export function DefconRunning({
         phase="running"
         currentBlockIndex={currentBlockIndex}
       />
-      {/* Mission header */}
-      <div className="pt-10 pb-3 px-6 text-center">
-        <div className="text-[10px] font-mono text-[#A1A1A1] tracking-[0.3em] uppercase mb-1.5">
+      {/* Mission header — compacto para dar espaço ao timer */}
+      <div className="pt-7 pb-2 px-6 text-center">
+        <div className="text-[10px] font-mono text-[#A1A1A1] tracking-[0.3em] uppercase mb-1">
           🔥 MISSÃO
         </div>
         <div className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
           Faltam <span className="text-[#F5B400]">{formatCurrency(Math.max(0, remaining))}</span> para a meta
         </div>
-        <div className="mt-1.5 text-[11px] font-mono text-[#A1A1A1]">
+        <div className="mt-1 text-[11px] font-mono text-[#A1A1A1]">
           Meta: {formatCurrency(dailyGoal)} • Feito: <span className="text-[#22C55E]">{formatCurrency(totalSold)}</span>
         </div>
       </div>
@@ -246,49 +254,49 @@ export function DefconRunning({
           Bloco #{currentBlockIndex + 1} • {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
         </div>
 
-        {/* Timer - foco visual absoluto */}
-        <div className="flex flex-col items-center gap-2 my-1">
+        {/* Timer — elemento dominante */}
+        <div className="flex flex-col items-center gap-3 -my-1">
           <div
-            className={`text-[88px] md:text-9xl font-black font-mono tabular-nums tracking-tighter leading-none ${
+            className={`text-[104px] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
               isUrgent ? "text-red-500 animate-pulse" : "text-white"
             }`}
             style={{
               textShadow: isUrgent
-                ? "0 0 40px rgba(239,68,68,0.5)"
-                : "0 0 32px rgba(245,180,0,0.18)",
+                ? "0 0 50px rgba(239,68,68,0.55), 0 0 90px rgba(239,68,68,0.3)"
+                : "0 0 36px rgba(245,180,0,0.28), 0 0 70px rgba(245,180,0,0.12)",
             }}
           >
             {String(minutes).padStart(2, "0")}
-            <span className={isUrgent ? "text-red-500/50" : "text-[#F5B400]/40"}>:</span>
+            <span className={isUrgent ? "text-red-500/50" : "text-[#F5B400]/50"}>:</span>
             {String(seconds).padStart(2, "0")}
           </div>
 
-          {/* Progress bar */}
-          <div className="w-56 h-[3px] bg-white/5 rounded-full overflow-hidden">
+          {/* Progress bar — mais visível, reforça ritmo */}
+          <div className="w-64 h-1.5 bg-white/8 rounded-full overflow-hidden border border-white/5">
             <div
               className={`h-full transition-all duration-1000 ease-linear rounded-full ${
-                isUrgent ? "bg-red-500" : "bg-[#F5B400]"
+                isUrgent ? "bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.7)]" : "bg-[#F5B400] shadow-[0_0_10px_rgba(245,180,0,0.5)]"
               }`}
               style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
-        {/* Bloco info compacto - linha única */}
-        <div className="flex items-center justify-center gap-3 text-[13px] font-mono">
+        {/* Bloco info — linha legível em movimento */}
+        <div className="flex items-center justify-center gap-4 text-[15px] font-mono">
           <span className="font-black text-[#22C55E]">{formatCurrency(blockSold)}</span>
           <span className="text-white/15">•</span>
-          <span className="text-white/80">
-            <span className="font-bold text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1]">vendas</span>
+          <span className="text-white/85">
+            <span className="font-black text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1] text-[13px]">vendas</span>
           </span>
           <span className="text-white/15">•</span>
-          <span className={`text-white/80 ${approachPulse ? "scale-110" : ""} transition-transform`}>
-            <span className="font-bold text-white">{blockApproaches}</span> <span className="text-[#A1A1A1]">abord.</span>
+          <span className={`text-white/85 ${approachPulse ? "scale-110" : ""} transition-transform`}>
+            <span className="font-black text-white">{blockApproaches}</span> <span className="text-[#A1A1A1] text-[13px]">abord.</span>
           </span>
           {blockApproaches > 0 && (
             <>
               <span className="text-white/15">•</span>
-              <span className="text-[#F5B400] font-bold">{conversionRate}%</span>
+              <span className="text-[#F5B400] font-black">{conversionRate}%</span>
             </>
           )}
         </div>
@@ -299,72 +307,72 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
-        {/* Botões de ação - linha horizontal com hierarquia */}
-        <div className="w-full flex items-stretch justify-center gap-2.5 px-1">
-          {/* Abordagem - neutro */}
+        {/* Botões de ação — alvos grandes para uso na rua */}
+        <div className="w-full flex items-stretch justify-center gap-3 px-1">
+          {/* Abordagem — neutro mas visível */}
           <button
             onClick={handleApproachClick}
-            className={`flex-1 h-14 rounded-2xl bg-[#1A1A1A] border border-white/10 flex items-center justify-center gap-2 active:scale-95 transition-all ${
-              approachPulse ? "ring-2 ring-white/30" : ""
+            className={`flex-1 h-[64px] rounded-2xl bg-[#1A1A1A] border border-white/15 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#2A2A2A] transition-all ${
+              approachPulse ? "ring-2 ring-white/40 bg-[#2A2A2A]" : ""
             }`}
           >
-            <UserRound className="w-4 h-4 text-[#A1A1A1]" strokeWidth={2.5} />
-            <span className="text-[13px] font-bold text-[#A1A1A1]">Abordagem</span>
+            <UserRound className="w-5 h-5 text-white/90" strokeWidth={2.5} />
+            <span className="text-[12px] font-bold text-white/90 leading-none">Abordagem</span>
           </button>
 
-          {/* Venda - destaque dourado */}
+          {/* Venda — destaque dourado, alvo maior */}
           <button
             onClick={() => setShowAddSale(true)}
-            className="flex-[1.4] h-14 rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_8px_28px_-8px_rgba(245,180,0,0.7)]"
+            className="flex-[1.5] h-[64px] rounded-2xl bg-[#F5B400] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-[0_10px_32px_-6px_rgba(245,180,0,0.75)]"
           >
-            <Plus className="w-5 h-5 text-black" strokeWidth={3} />
-            <span className="text-[15px] font-black text-black tracking-tight">Venda</span>
+            <Plus className="w-6 h-6 text-black" strokeWidth={3.5} />
+            <span className="text-[17px] font-black text-black tracking-tight">Venda</span>
           </button>
 
-          {/* Gorjeta - outline discreto */}
+          {/* Gorjeta — outline mesmo tamanho */}
           <button
             onClick={() => setShowAddTip(true)}
-            className="flex-1 h-14 rounded-2xl bg-transparent border border-[#F5B400]/40 flex items-center justify-center gap-2 active:scale-95 transition-all"
+            className="flex-1 h-[64px] rounded-2xl bg-transparent border-2 border-[#F5B400]/50 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-[#F5B400]/10 transition-all"
           >
-            <Coins className="w-4 h-4 text-[#F5B400]" strokeWidth={2.5} />
-            <span className="text-[13px] font-bold text-[#F5B400]">Gorjeta</span>
+            <Coins className="w-5 h-5 text-[#F5B400]" strokeWidth={2.5} />
+            <span className="text-[12px] font-bold text-[#F5B400] leading-none">Gorjeta</span>
           </button>
         </div>
 
-        {/* Frase de impacto */}
-        <p className="text-[12px] text-[#A1A1A1] font-mono text-center">
+        {/* Frase de impacto — acionável */}
+        <p className="text-[13px] text-white/70 font-mono text-center font-semibold">
           {impactPhrase}
         </p>
       </div>
 
-      {/* Footer - controles discretos */}
-      <div className="pb-5 pt-2 px-6 flex justify-between items-center border-t border-white/5">
-        <span className="text-[10px] font-mono text-[#A1A1A1]/50 tracking-widest uppercase">
-          {currentBlockIndex + 1}/{totalBlocks}
-        </span>
-        <div className="flex items-center gap-5">
+      {/* Footer — controles com tap target adequado, sem competir com ações */}
+      <div className="pb-5 pt-3 px-4 border-t border-white/5">
+        <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setShowOccurrence(true)}
-            className="text-[10px] font-mono text-[#A1A1A1]/60 active:text-white transition-colors flex items-center gap-1"
+            className="flex-1 h-12 rounded-xl bg-[#0F0F0F] border border-white/10 flex items-center justify-center gap-1.5 active:scale-95 active:bg-[#1A1A1A] transition-all"
           >
-            <FileText className="w-3 h-3" />
-            ocorrência
+            <FileText className="w-3.5 h-3.5 text-[#A1A1A1]" />
+            <span className="text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase">Ocorrência</span>
           </button>
           {!lunchPauseUsed && (
             <button
               onClick={() => setShowLunchPicker(true)}
-              className="text-[10px] font-mono text-[#A1A1A1]/60 active:text-[#F5B400] transition-colors flex items-center gap-1"
+              className="flex-1 h-12 rounded-xl bg-[#0F0F0F] border border-white/10 flex items-center justify-center gap-1.5 active:scale-95 active:bg-[#1A1A1A] transition-all"
             >
-              <UtensilsCrossed className="w-3 h-3" />
-              almoço
+              <UtensilsCrossed className="w-3.5 h-3.5 text-[#A1A1A1]" />
+              <span className="text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase">Almoço</span>
             </button>
           )}
           <button
             onClick={() => setShowConfirmEnd(true)}
-            className="text-[10px] font-mono text-[#A1A1A1]/40 active:text-red-500 transition-colors"
+            className="flex-1 h-12 rounded-xl bg-[#0F0F0F] border border-red-500/25 flex items-center justify-center gap-1.5 active:scale-95 active:bg-red-500/10 transition-all"
           >
-            encerrar
+            <span className="text-[11px] font-mono text-red-500/80 tracking-wider uppercase font-bold">Encerrar</span>
           </button>
+        </div>
+        <div className="mt-2 text-center text-[9px] font-mono text-[#A1A1A1]/40 tracking-[0.3em] uppercase">
+          Bloco {currentBlockIndex + 1}/{totalBlocks}
         </div>
       </div>
 
