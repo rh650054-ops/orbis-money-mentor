@@ -250,48 +250,79 @@ export default function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Mobile bottom navigation - Fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-end justify-around h-16 px-2">
-          {navigation.map((item) => {
-            const isActive = location.pathname === item.href;
-            const Icon = item.icon;
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        {/* Notch SVG para o botão central */}
+        <div className="relative">
+          <svg
+            className="absolute -top-[1px] left-1/2 -translate-x-1/2 pointer-events-none"
+            width="88"
+            height="32"
+            viewBox="0 0 88 32"
+            fill="none"
+          >
+            <path
+              d="M0 0 C 18 0, 22 32, 44 32 C 66 32, 70 0, 88 0 Z"
+              fill="hsl(var(--background))"
+            />
+          </svg>
+        </div>
 
-            // Center CTA - sifrão dourado destacado
-            if (item.isCenter) {
+        <div className="border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90">
+          <div className="grid grid-cols-5 items-end h-16 px-1 relative">
+            {navigation.map((item, idx) => {
+              const isActive = location.pathname === item.href;
+              const Icon = item.icon;
+
+              // Center CTA - sifrão dourado flutuante
+              if (item.isCenter) {
+                return (
+                  <div key={item.name} className="flex justify-center">
+                    <Link
+                      to={item.href}
+                      {...(item.tourId ? { "data-tour": item.tourId } : {})}
+                      className="absolute left-1/2 -translate-x-1/2 -top-7 group"
+                      aria-label={item.name}
+                    >
+                      <div className="relative">
+                        {/* Halo externo */}
+                        <div className="absolute inset-0 rounded-full bg-primary/30 blur-xl scale-110 group-hover:scale-125 transition-transform" />
+                        {/* Anel sutil */}
+                        <div className="absolute -inset-1 rounded-full border border-primary/40" />
+                        {/* Botão principal */}
+                        <div
+                          className={cn(
+                            "relative w-16 h-16 rounded-full flex items-center justify-center",
+                            "bg-gradient-to-br from-primary to-[hsl(45_100%_38%)]",
+                            "shadow-[0_8px_24px_-4px_hsl(var(--primary)/0.6),inset_0_1px_0_hsl(0_0%_100%/0.25)]",
+                            "transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
+                          )}
+                        >
+                          <Icon className="h-7 w-7 text-primary-foreground" strokeWidth={2.75} />
+                        </div>
+                      </div>
+                    </Link>
+                  </div>
+                );
+              }
+
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   {...(item.tourId ? { "data-tour": item.tourId } : {})}
-                  className="relative flex flex-col items-center justify-center -mt-6"
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-all",
+                    isActive
+                      ? "text-primary"
+                      : "text-muted-foreground hover:text-primary"
+                  )}
                 >
-                  <div className={cn(
-                    "w-14 h-14 rounded-full flex items-center justify-center shadow-[var(--glow-primary)] transition-all",
-                    "bg-primary text-primary-foreground hover:scale-105"
-                  )}>
-                    <Icon className="h-6 w-6" strokeWidth={2.5} />
-                  </div>
+                  <Icon className={cn("h-5 w-5", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.6)]")} />
+                  <span className="text-[10px]">{item.name}</span>
                 </Link>
               );
-            }
-
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                {...(item.tourId ? { "data-tour": item.tourId } : {})}
-                className={cn(
-                  "flex flex-col items-center justify-center gap-1 px-3 py-2 text-xs font-medium transition-all rounded-lg flex-1",
-                  isActive
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-primary"
-                )}
-              >
-                <Icon className="h-5 w-5" />
-                <span className="text-[10px]">{item.name}</span>
-              </Link>
-            );
-          })}
+            })}
+          </div>
         </div>
       </nav>
 
