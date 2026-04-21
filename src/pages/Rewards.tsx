@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
 
+const formatThreshold = (v: number) =>
+  v >= 1_000_000 ? `R$ ${v / 1_000_000}M` : `R$ ${v / 1_000}K`;
+
 type Tier = {
   name: string;
   threshold: number;
