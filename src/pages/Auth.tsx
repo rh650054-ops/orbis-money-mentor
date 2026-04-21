@@ -150,18 +150,8 @@ export default function Auth() {
     <div className="min-h-[100dvh] flex flex-col items-center justify-center p-6 bg-gradient-to-b from-black via-[#1A1A1A] to-black" style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}>
       <div className="text-center mb-8 space-y-1">
         <div className="flex justify-center mb-6">
-          <img src={orbisLogo} alt="Orbis Logo" className="w-32 h-32 object-contain" />
+          <img src="/orbis-logo.png" alt="Orbis Logo" className="w-32 h-32 object-contain" />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold tracking-tight">
-          <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-            Domine seus números.
-          </span>
-        </h1>
-        <h2 className="text-4xl md:text-5xl font-bold tracking-tight">
-          <span className="block bg-gradient-to-r from-primary via-secondary to-primary bg-clip-text text-transparent">
-            Domine seu futuro.
-          </span>
-        </h2>
       </div>
 
       <Card className="w-full max-w-md bg-card/50 backdrop-blur-sm border-primary/20 shadow-2xl">
