@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus } from "lucide-react";
+import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -298,9 +298,14 @@ export default function Profile() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-8 max-w-2xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-bold gradient-text">Perfil</h1>
-        <p className="text-muted-foreground mt-1">Gerencie sua conta e assinatura</p>
+      <div className="flex items-center gap-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold gradient-text">Minha Conta</h1>
+          <p className="text-sm text-muted-foreground">Gerencie sua conta e assinatura</p>
+        </div>
       </div>
 
       {/* Faixa Demo */}
