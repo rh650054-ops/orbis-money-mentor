@@ -282,21 +282,46 @@ export function DefconRunning({
           </div>
         </div>
 
-        {/* Bloco info — linha legível em movimento */}
-        <div className="flex items-center justify-center gap-5 text-[17px] font-mono">
-          <span className="font-black text-[#22C55E]">{formatCurrency(blockSold)}</span>
-          <span className="text-white/20">•</span>
-          <span className="text-white/90">
-            <span className="font-black text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1] text-[14px]">vendas</span>
-          </span>
-          <span className="text-white/20">•</span>
-          <span className={`text-white/90 ${approachPulse ? "scale-110" : ""} transition-transform`}>
-            <span className="font-black text-white">{blockApproaches}</span> <span className="text-[#A1A1A1] text-[14px]">abord.</span>
-          </span>
+        {/* Bloco info — métricas em colunas com label */}
+        <div className="flex items-center justify-center gap-6 px-2">
+          {/* Faturado */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[9px] font-mono text-[#A1A1A1]/70 tracking-[0.2em] uppercase">Bloco</span>
+            <span className="font-black text-[#22C55E] text-[20px] font-mono tabular-nums leading-none">
+              {formatCurrency(blockSold)}
+            </span>
+          </div>
+
+          <span className="w-px h-8 bg-white/10" />
+
+          {/* Vendas */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[9px] font-mono text-[#A1A1A1]/70 tracking-[0.2em] uppercase">Vendas</span>
+            <span className="font-black text-white text-[20px] font-mono tabular-nums leading-none">
+              {blockSalesCount}
+            </span>
+          </div>
+
+          <span className="w-px h-8 bg-white/10" />
+
+          {/* Abordagens */}
+          <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
+            <span className="text-[9px] font-mono text-[#A1A1A1]/70 tracking-[0.2em] uppercase">Abord.</span>
+            <span className="font-black text-white text-[20px] font-mono tabular-nums leading-none">
+              {blockApproaches}
+            </span>
+          </div>
+
           {blockApproaches > 0 && (
             <>
-              <span className="text-white/20">•</span>
-              <span className="text-[#F5B400] font-black">{conversionRate}%</span>
+              <span className="w-px h-8 bg-white/10" />
+              {/* Conversão */}
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-[9px] font-mono text-[#A1A1A1]/70 tracking-[0.2em] uppercase">Conv.</span>
+                <span className="font-black text-[#F5B400] text-[20px] font-mono tabular-nums leading-none">
+                  {conversionRate}%
+                </span>
+              </div>
             </>
           )}
         </div>
