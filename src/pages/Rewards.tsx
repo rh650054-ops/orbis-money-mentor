@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, Gem, Medal, Award, Flame, Shield, Sword, Rocket, Diamond, ChevronRight, TrendingUp, Gift } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
