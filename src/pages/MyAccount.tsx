@@ -54,12 +54,18 @@ export default function Profile() {
     avatar_url: "",
     is_demo: false,
     billing_exempt: false,
-    plan_status: "trial"
+    plan_status: "trial",
+    phone: "",
+    state: "",
+    city: "",
   });
   const [editForm, setEditForm] = useState({
     nickname: "",
     email: "",
-    avatar_url: ""
+    avatar_url: "",
+    phone: "",
+    state: "",
+    city: "",
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
