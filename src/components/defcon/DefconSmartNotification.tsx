@@ -21,7 +21,7 @@ interface DefconSmartNotificationProps {
   currentBlockIndex: number;
 }
 
-const NOTIFICATION_DURATION = 7000; // 7 seconds
+const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
 
 export function DefconSmartNotification({
