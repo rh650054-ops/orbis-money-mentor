@@ -38,47 +38,136 @@ export default function Insights() {
     }
   }, [user, authLoading, navigate]);
 
+  const generateLocalInsights = async (): Promise<InsightWithIcon[]> => {
+    if (!user) return [];
+
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split("T")[0];
+
+    const [salesRes, profileRes] = await Promise.all([
+      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", firstDayOfMonth).order("date", { ascending: false }),
+      supabase.from("profiles").select("base_daily_goal, monthly_goal, streak_days, vision_points").eq("user_id", user.id).single(),
+    ]);
+
+    const sales = salesRes.data || [];
+    const profile = profileRes.data;
+
+    const result: InsightWithIcon[] = [];
+
+    if (sales.length === 0) {
+      result.push({ id: "i0", type: "info", title: "Registre suas primeiras vendas", description: "Ainda não há dados deste mês. Registre suas vendas diárias para ver insights personalizados sobre seu desempenho.", impact: "Alta prioridade", icon: Lightbulb });
+      return result;
+    }
+
+    const totalLucro = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
+    const totalCalote = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
+    const mediaLucro = totalLucro / sales.length;
+    const metaMensal = profile?.monthly_goal || 0;
+    const metaDiaria = profile?.base_daily_goal || 0;
+    const streak = profile?.streak_days || 0;
+
+    // Insight 1: progresso vs meta mensal
+    if (metaMensal > 0) {
+      const pct = Math.round((totalLucro / metaMensal) * 100);
+      const diasNoMes = today.getDate();
+      const diasTotais = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      const progEsperado = Math.round((diasNoMes / diasTotais) * 100);
+      if (pct >= progEsperado + 10) {
+        result.push({ id: "i1", type: "success", title: "Acima da meta mensal", description: `Você está em ${pct}% da meta mensal (esperado: ${progEsperado}%). Continue assim para bater a meta com folga!`, impact: "Ótimo", icon: TrendingUp });
+      } else if (pct < progEsperado - 10) {
+        result.push({ id: "i1", type: "warning", title: "Abaixo do ritmo esperado", description: `Você está em ${pct}% da meta mensal, mas já estamos a ${progEsperado}% do mês. É hora de acelerar o ritmo.`, impact: "Atenção", icon: AlertTriangle });
+      } else {
+        result.push({ id: "i1", type: "info", title: "No ritmo certo", description: `Você está em ${pct}% da meta mensal. No ritmo atual você deve bater a meta ao fim do mês.`, impact: "Bom", icon: Lightbulb });
+      }
+    }
+
+    // Insight 2: calotes
+    if (totalCalote > 0) {
+      const pctCalote = Math.round((totalCalote / (totalLucro + totalCalote)) * 100);
+      if (pctCalote > 15) {
+        result.push({ id: "i2", type: "warning", title: "Alto índice de calotes", description: `${pctCalote}% das suas vendas resultaram em calote (R$${totalCalote.toFixed(2)}). Revise sua política de crédito e prefira pagamentos à vista ou Pix.`, impact: "Crítico", icon: AlertTriangle });
+      } else {
+        result.push({ id: "i2", type: "success", title: "Controle de calotes saudável", description: `Apenas ${pctCalote}% de calote esse mês (R$${totalCalote.toFixed(2)}). Bom controle de crédito!`, impact: "Positivo", icon: TrendingUp });
+      }
+    }
+
+    // Insight 3: consistência
+    if (streak >= 7) {
+      result.push({ id: "i3", type: "success", title: `${streak} dias consecutivos!`, description: `Você está registrando vendas há ${streak} dias seguidos. Consistência é o segredo para bater metas todos os meses.`, impact: "Excelente", icon: TrendingUp });
+    } else if (streak < 3 && sales.length > 3) {
+      result.push({ id: "i3", type: "warning", title: "Registros inconsistentes", description: "Você tem dias sem registros. Registre todos os dias — mesmo os ruins — para ter um histórico real do seu negócio.", impact: "Melhorar", icon: AlertTriangle });
+    }
+
+    // Insight 4: melhor dia da semana
+    const byWeekday: Record<number, number[]> = {};
+    for (const d of sales) {
+      const dow = new Date(d.date).getDay();
+      if (!byWeekday[dow]) byWeekday[dow] = [];
+      byWeekday[dow].push(d.total_profit || 0);
+    }
+    const avgByDay = Object.entries(byWeekday).map(([dow, vals]) => ({ dow: parseInt(dow), avg: vals.reduce((a, b) => a + b, 0) / vals.length }));
+    if (avgByDay.length >= 3) {
+      const best = avgByDay.sort((a, b) => b.avg - a.avg)[0];
+      const days = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+      result.push({ id: "i4", type: "info", title: `Seu melhor dia: ${days[best.dow]}`, description: `Sua média de vendas às ${days[best.dow]}s é R$${best.avg.toFixed(2)}. Planeje mais abordagens nesse dia para maximizar seus resultados.`, impact: "Estratégia", icon: Target });
+    }
+
+    // Insight 5: meta diária
+    if (metaDiaria > 0) {
+      const diasBatiram = sales.filter(d => (d.total_profit || 0) >= metaDiaria).length;
+      const pctDias = Math.round((diasBatiram / sales.length) * 100);
+      if (pctDias >= 60) {
+        result.push({ id: "i5", type: "success", title: "Meta diária sendo batida", description: `Você bateu a meta diária em ${pctDias}% dos dias esse mês. Continue nesse ritmo!`, impact: "Ótimo", icon: Target });
+      } else {
+        result.push({ id: "i5", type: "goal", title: "Meta diária abaixo do ideal", description: `Você bateu a meta diária em apenas ${pctDias}% dos dias. Tente bater a meta pelo menos em 60% dos seus dias de trabalho.`, impact: "Objetivo", icon: Target });
+      }
+    }
+
+    return result;
+  };
+
   const loadInsights = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase.functions.invoke("generate-insights");
 
-      if (error) {
-        console.error("Edge function error:", error);
-        throw error;
-      }
-
-      if (data.error) {
-        console.error("AI error response:", data.error);
-        toast({
-          title: "Erro ao gerar insights",
-          description: data.error,
-          variant: "destructive",
-        });
-        setInsights([]);
+      if (!error && data && !data.error) {
+        if (data.message) {
+          setMessage(data.message);
+          setInsights([]);
+        } else if (data.insights) {
+          const insightsWithIcons = data.insights.map((insight: Insight, index: number) => ({
+            ...insight,
+            id: `insight-${index}`,
+            icon: getIconForType(insight.type)
+          }));
+          setInsights(insightsWithIcons);
+          setMessage("");
+        }
         return;
       }
 
-      if (data.message) {
-        setMessage(data.message);
-        setInsights([]);
-      } else if (data.insights) {
-        const insightsWithIcons = data.insights.map((insight: Insight, index: number) => ({
-          ...insight,
-          id: `insight-${index}`,
-          icon: getIconForType(insight.type)
-        }));
-        setInsights(insightsWithIcons);
+      // Fallback: generate insights locally from user data
+      console.log("AI not available, generating local insights...");
+      const localInsights = await generateLocalInsights();
+      if (localInsights.length > 0) {
+        setInsights(localInsights);
         setMessage("");
+      } else {
+        setMessage("Registre suas vendas para começar a ver insights personalizados aqui.");
       }
     } catch (error) {
       console.error("Error loading insights:", error);
-      toast({
-        title: "Erro ao carregar insights",
-        description: "Não foi possível gerar insights. Verifique sua conexão e tente novamente.",
-        variant: "destructive",
-      });
-      setInsights([]);
+      try {
+        const localInsights = await generateLocalInsights();
+        setInsights(localInsights.length > 0 ? localInsights : []);
+        if (localInsights.length === 0) {
+          setMessage("Registre suas vendas para começar a ver insights personalizados aqui.");
+        }
+      } catch {
+        toast({ title: "Erro ao carregar insights", description: "Verifique sua conexão e tente novamente.", variant: "destructive" });
+        setInsights([]);
+      }
     } finally {
       setLoading(false);
     }

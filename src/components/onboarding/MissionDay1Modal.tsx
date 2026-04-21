@@ -27,6 +27,12 @@ export default function MissionDay1Modal({ onDone }: Props) {
         >
           Aceitar a missão →
         </button>
+        <button
+          onClick={() => { localStorage.setItem("missao_dia1_vista", "true"); onDone(); }}
+          className="text-sm text-[#888888] hover:text-white transition-colors"
+        >
+          Pular
+        </button>
       </div>
     </div>
   );

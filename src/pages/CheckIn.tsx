@@ -50,7 +50,15 @@ export default function CheckIn() {
     }
   };
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    // Mark today as checked-in so the page doesn't re-appear
+    if (user) {
+      const today = getBrazilDate();
+      await supabase
+        .from("profiles")
+        .update({ last_check_in_date: today })
+        .eq("user_id", user.id);
+    }
     navigate("/");
   };
 

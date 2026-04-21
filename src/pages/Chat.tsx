@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Send, Sparkles, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,9 @@ import { useOfflineGuard } from "@/hooks/useOfflineGuard";
 
 export default function Chat() {
   const [inputMessage, setInputMessage] = useState("");
+  const [searchParams] = useSearchParams();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const insightSentRef = useRef(false);
   
   const {
     messages,
@@ -24,6 +27,15 @@ export default function Chat() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Auto-send insight from Insights page navigation
+  useEffect(() => {
+    const insight = searchParams.get("insight");
+    if (insight && !insightSentRef.current && !isLoading) {
+      insightSentRef.current = true;
+      sendMessage(`Me explique mais sobre esse insight: "${insight}". Como posso melhorar nisso?`);
+    }
+  }, [searchParams, isLoading]);
 
   const { requireOnline } = useOfflineGuard();
 
