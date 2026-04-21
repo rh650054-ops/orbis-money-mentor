@@ -433,6 +433,42 @@ export function DefconRunning({
           onClose={() => setShowOccurrence(false)}
         />
       )}
+
+      {/* Add tip modal */}
+      {showAddTip && onAddTip && (
+        <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
+          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
+              <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
+                <X className="w-6 h-6 text-neutral-500" />
+              </button>
+            </div>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
+                R$
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={tipValue}
+                onChange={(e) => setTipValue(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddTip()}
+                placeholder="0"
+                autoFocus
+                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-[#F5B400] transition-colors placeholder:text-neutral-700"
+              />
+            </div>
+            <button
+              onClick={handleAddTip}
+              disabled={!tipValue || parseFloat(tipValue) <= 0}
+              className="w-full h-16 bg-[#F5B400] text-black font-black text-xl rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
+            >
+              + REGISTRAR GORJETA
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
