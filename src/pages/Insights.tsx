@@ -375,6 +375,30 @@ export default function Insights() {
             />
           </section>
 
+          {/* Totais do período */}
+          <SectionTitle>Totais do período</SectionTitle>
+          <section className="grid grid-cols-2 gap-3">
+            <MetricCell
+              label="Custos totais"
+              value={formatCurrency(summary.custos)}
+            />
+            <MetricCell
+              label="Abordagens totais"
+              value={summary.totalAbordagens.toString()}
+              valueClassName="text-primary"
+            />
+            <MetricCell
+              label="Gorjetas totais"
+              value={formatCurrency(summary.gorjetas)}
+              valueClassName="text-emerald-400"
+            />
+            <MetricCell
+              label="Kits não pagos"
+              value={formatCurrency(summary.calotes)}
+              valueClassName="text-red-400"
+            />
+          </section>
+
           {/* Period analysis block */}
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
             <p className="text-[11px] uppercase tracking-wider text-primary font-semibold">
