@@ -116,29 +116,16 @@ export default function DefconChallenge() {
     case "finished":
     case "abandoned":
       return (
-        <div className="min-h-screen bg-black flex flex-col items-center">
-          <DefconEndScreen
-            phase={defcon.phase}
-            totalSold={defcon.totalSold}
-            dailyGoal={defcon.dailyGoal}
-            totalBlocks={defcon.currentBlockIndex + 1}
-            onSaveBreakdown={defcon.savePaymentBreakdown}
-            onExit={handleExit}
-          />
-          {/* Day report with approaches */}
-          {(defcon.totalApproaches > 0 || defcon.totalSalesCount > 0) && (
-            <div className="px-6 pb-10">
-              <DefconDayReport
-                totalApproaches={defcon.totalApproaches}
-                totalSales={defcon.totalSalesCount}
-                totalSold={defcon.totalSold}
-                dailyGoal={defcon.dailyGoal}
-                userId={user.id}
-                onDismiss={() => navigate('/daily-goals')}
-              />
-            </div>
-          )}
-        </div>
+        <DefconEndScreen
+          phase={defcon.phase}
+          totalSold={defcon.totalSold}
+          dailyGoal={defcon.dailyGoal}
+          totalBlocks={defcon.currentBlockIndex + 1}
+          totalApproaches={defcon.totalApproaches}
+          totalSalesCount={defcon.totalSalesCount}
+          onSaveBreakdown={defcon.savePaymentBreakdown}
+          onExit={handleExit}
+        />
       );
 
     default:
