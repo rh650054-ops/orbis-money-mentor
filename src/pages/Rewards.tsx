@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, Lock, Check, Sparkles } from "lucide-react";
+import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/lib/utils";
+
+const formatThreshold = (v: number) =>
+  v >= 1_000_000 ? `R$ ${v / 1_000_000}M` : `R$ ${v / 1_000}K`;
 
 type Tier = {
   name: string;
@@ -11,14 +14,32 @@ type Tier = {
   tagline: string;
   rewards: string[];
   accent: string;
+  emoji: string;
+  icon: React.ReactNode;
+  level: number;
+  colorClass: string;
+  glowColor: string;
+  rarity: string;
+  rarityColor: string;
+  bgGradient: string;
+  xpRequired: number;
 };
 
 const TIERS: Tier[] = [
   {
     name: "Semente",
+    level: 1,
     threshold: 10_000,
+    xpRequired: 1000,
     tagline: "O começo de tudo",
-    accent: "hsl(140 60% 50%)",
+    accent: "hsl(140 70% 45%)",
+    emoji: "🌱",
+    icon: <Target className="h-5 w-5" />,
+    colorClass: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
+    glowColor: "shadow-emerald-500/20",
+    rarity: "Comum",
+    rarityColor: "text-emerald-400",
+    bgGradient: "from-emerald-500/10 via-transparent to-transparent",
     rewards: [
       "Selo Semente no perfil",
       "Acesso à comunidade Orbis",
@@ -27,9 +48,18 @@ const TIERS: Tier[] = [
   },
   {
     name: "Brasa",
+    level: 2,
     threshold: 50_000,
+    xpRequired: 5000,
     tagline: "O fogo está aceso",
     accent: "hsl(25 95% 55%)",
+    emoji: "🔥",
+    icon: <Zap className="h-5 w-5" />,
+    colorClass: "from-orange-500/20 to-orange-600/10 border-orange-500/30",
+    glowColor: "shadow-orange-500/20",
+    rarity: "Incomum",
+    rarityColor: "text-orange-400",
+    bgGradient: "from-orange-500/10 via-transparent to-transparent",
     rewards: [
       "1 mês grátis de assinatura",
       "Selo Brasa exclusivo",
@@ -38,9 +68,18 @@ const TIERS: Tier[] = [
   },
   {
     name: "Forja",
+    level: 3,
     threshold: 100_000,
+    xpRequired: 10000,
     tagline: "Você está moldando seu futuro",
     accent: "hsl(45 95% 55%)",
+    emoji: "⚒️",
+    icon: <Trophy className="h-5 w-5" />,
+    colorClass: "from-amber-500/20 to-amber-600/10 border-amber-500/30",
+    glowColor: "shadow-amber-500/20",
+    rarity: "Raro",
+    rarityColor: "text-amber-400",
+    bgGradient: "from-amber-500/10 via-transparent to-transparent",
     rewards: [
       "3 meses grátis de assinatura",
       "Convite para grupo VIP",
@@ -49,9 +88,18 @@ const TIERS: Tier[] = [
   },
   {
     name: "Império",
+    level: 4,
     threshold: 500_000,
+    xpRequired: 50000,
     tagline: "Reconhecido entre os melhores",
     accent: "hsl(280 70% 60%)",
+    emoji: "👑",
+    icon: <Crown className="h-5 w-5" />,
+    colorClass: "from-purple-500/20 to-purple-600/10 border-purple-500/30",
+    glowColor: "shadow-purple-500/20",
+    rarity: "Épico",
+    rarityColor: "text-purple-400",
+    bgGradient: "from-purple-500/10 via-transparent to-transparent",
     rewards: [
       "Plano anual grátis",
       "Selo Império holográfico",
@@ -60,9 +108,18 @@ const TIERS: Tier[] = [
   },
   {
     name: "Lenda",
+    level: 5,
     threshold: 1_000_000,
+    xpRequired: 100000,
     tagline: "Top 1% — você é referência",
     accent: "hsl(200 90% 60%)",
+    emoji: "⭐",
+    icon: <Star className="h-5 w-5" />,
+    colorClass: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30",
+    glowColor: "shadow-cyan-500/20",
+    rarity: "Lendário",
+    rarityColor: "text-cyan-400",
+    bgGradient: "from-cyan-500/10 via-transparent to-transparent",
     rewards: [
       "Mentoria 1:1 com fundador",
       "Acesso vitalício ao Orbis",
@@ -70,9 +127,6 @@ const TIERS: Tier[] = [
     ],
   },
 ];
-
-const formatThreshold = (v: number) =>
-  v >= 1_000_000 ? `R$ ${v / 1_000_000}M` : `R$ ${v / 1_000}K`;
 
 export default function Rewards() {
   const navigate = useNavigate();
