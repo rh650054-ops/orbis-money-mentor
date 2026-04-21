@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sparkles, TrendingUp, AlertTriangle, Lightbulb, Target, Loader2 } from "lucide-react";
+import { Sparkles, TrendingUp, AlertTriangle, Lightbulb, Target, Loader2, Trophy, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useLeaderboard } from "@/hooks/useLeaderboard";
 
 interface Insight {
   type: "success" | "warning" | "info" | "goal";
@@ -23,6 +25,7 @@ export default function Insights() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { currentUserStats, hasParticipated } = useLeaderboard(user?.id);
   const [insights, setInsights] = useState<InsightWithIcon[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -222,11 +225,41 @@ export default function Insights() {
   return (
     <div className="space-y-6 pb-20 md:pb-8">
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Insights IA</h1>
+        <h1 className="text-3xl font-bold gradient-text">Dados</h1>
         <p className="text-muted-foreground mt-1">
-          Análises inteligentes para melhorar seus resultados
+          Análises inteligentes e seu desempenho no ranking
         </p>
       </div>
+
+      {/* Ranking Block */}
+      <Card
+        className="glass border-primary/30 bg-gradient-to-br from-primary/10 via-background to-secondary/10 cursor-pointer hover:scale-[1.01] transition-all"
+        onClick={() => navigate("/ranking")}
+      >
+        <CardContent className="p-5">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-primary flex-shrink-0">
+              <Trophy className="w-6 h-6 text-primary-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-base">Ranking Mensal</p>
+              {hasParticipated && currentUserStats ? (
+                <p className="text-xs text-muted-foreground">
+                  Faturamento: <span className="text-primary font-semibold">#{currentUserStats.posicao_faturamento ?? "-"}</span>
+                  {" · "}
+                  Constância: <span className="text-secondary font-semibold">#{currentUserStats.posicao_constancia ?? "-"}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Comece a trabalhar para entrar no ranking</p>
+              )}
+            </div>
+            <Button variant="ghost" size="sm" className="flex-shrink-0">
+              Ver completo
+              <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* AI Status Card */}
       <Card className="glass card-gradient-border overflow-hidden">
