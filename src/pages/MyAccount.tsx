@@ -439,10 +439,24 @@ export default function Profile() {
         <CardContent className="space-y-4">
           {!isEditing ? (
             <>
-              <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                <Mail className="w-4 h-4" />
-                <span>{profile.email}</span>
-              </div>
+              {profile.email && (
+                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                  <Mail className="w-4 h-4" />
+                  <span>{profile.email}</span>
+                </div>
+              )}
+              {profile.phone && (
+                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                  <span className="text-base">📱</span>
+                  <span>{profile.phone}</span>
+                </div>
+              )}
+              {(profile.city || profile.state) && (
+                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                  <span className="text-base">📍</span>
+                  <span>{[profile.city, profile.state].filter(Boolean).join(" - ")}</span>
+                </div>
+              )}
               <div className="flex items-center space-x-3 text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" />
                 <span>Membro desde {formatDate(profile.created_at)}</span>
@@ -467,7 +481,42 @@ export default function Profile() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>E-mail</Label>
+                <Label>WhatsApp</Label>
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value.replace(/\D/g, "") })}
+                  placeholder="11999999999"
+                  maxLength={11}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-2 col-span-1">
+                  <Label>Estado</Label>
+                  <select
+                    value={editForm.state}
+                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value })}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">UF</option>
+                    {BR_STATES.map((uf) => (
+                      <option key={uf} value={uf}>{uf}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Cidade</Label>
+                  <Input
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    placeholder="Sua cidade"
+                    maxLength={80}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail (opcional)</Label>
                 <Input
                   type="email"
                   value={editForm.email}
@@ -495,7 +544,10 @@ export default function Profile() {
                     setEditForm({
                       nickname: profile.nickname,
                       email: profile.email,
-                      avatar_url: profile.avatar_url
+                      avatar_url: profile.avatar_url,
+                      phone: profile.phone,
+                      state: profile.state,
+                      city: profile.city,
                     });
                     setAvatarPreview(profile.avatar_url);
                     setAvatarFile(null);
