@@ -132,22 +132,23 @@ export function DefconEndScreen({
     const TITLE_SIZE = 72;
     const VALUE_SIZE = 160;
     const SPACING = 12;
+    const VALUE_COLOR = "#0D0D0D"; // preto — legível em qualquer fundo do Story
 
-    // Faturamento — título dourado + valor branco
+    // Faturamento
     centerText("FATURAMENTO", 200, TITLE_SIZE, "800", "#F4A100", SPACING);
-    centerText(formatCurrency(totalSold), 360, VALUE_SIZE, "900", "#FFFFFF");
+    centerText(formatCurrency(totalSold), 360, VALUE_SIZE, "900", VALUE_COLOR);
     drawDivider(560);
 
-    // Vendas — título verde + valor branco
+    // Vendas
     centerText("VENDAS", 700, TITLE_SIZE, "800", "#22C55E", SPACING);
-    centerText(String(totalSalesCount || 0), 860, VALUE_SIZE, "900", "#FFFFFF");
+    centerText(String(totalSalesCount || 0), 860, VALUE_SIZE, "900", VALUE_COLOR);
     drawDivider(1080);
 
-    // Conversão — título colorido + valor branco
+    // Conversão
     const convColor =
       conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F4A100" : "#EF4444";
     centerText("CONVERSÃO", 1220, TITLE_SIZE, "800", convColor, SPACING);
-    centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", "#FFFFFF");
+    centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", VALUE_COLOR);
 
     // Orbis watermark sutil no rodapé
     try {
@@ -162,13 +163,13 @@ export function DefconEndScreen({
       const ratio = logo.height / logo.width;
       const logoH = logoW * ratio;
       ctx.save();
-      ctx.globalAlpha = 0.15;
+      ctx.globalAlpha = 0.55;
       ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 160, logoW, logoH);
       ctx.restore();
     } catch {
       ctx.save();
-      ctx.globalAlpha = 0.15;
-      centerText("ORBIS", H - 220, 90, "900", "#FFFFFF", 16);
+      ctx.globalAlpha = 0.55;
+      centerText("ORBIS", H - 220, 90, "900", "#0D0D0D", 16);
       ctx.restore();
     }
 
