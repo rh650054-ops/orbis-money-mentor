@@ -8,55 +8,56 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Orbis Dark Theme - Futuristic Financial App */
-    --background: 240 10% 3.9%;
-    --foreground: 210 40% 98%;
+    /* Orbis Dark Theme - Premium Financial App */
+    --background: 0 0% 4.3%;          /* #0B0B0B */
+    --foreground: 0 0% 100%;          /* #FFFFFF */
 
-    --card: 240 10% 6%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 7%;                  /* #121212 */
+    --card-foreground: 0 0% 100%;
 
-    --popover: 240 10% 6%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 100%;
 
-    /* Purple primary - vibrant and motivational */
-    --primary: 271 91% 65%;
-    --primary-foreground: 210 40% 98%;
-    
-    /* Cyan accent - tech and futuristic */
-    --secondary: 189 94% 43%;
-    --secondary-foreground: 210 40% 98%;
+    /* Gold primary - premium accent */
+    --primary: 44 100% 48%;           /* #F5B700 */
+    --primary-foreground: 0 0% 6%;
 
-    --muted: 240 5% 15%;
-    --muted-foreground: 240 5% 64.9%;
+    /* Subtle secondary (kept neutral, no longer cyan) */
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 100%;
 
-    --accent: 189 94% 43%;
-    --accent-foreground: 210 40% 98%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 62%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --accent: 44 100% 48%;
+    --accent-foreground: 0 0% 6%;
 
-    --border: 240 5% 15%;
-    --input: 240 5% 15%;
-    --ring: 271 91% 65%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --radius: 0.75rem;
+    --border: 0 0% 14%;
+    --input: 0 0% 12%;
+    --ring: 44 100% 48%;
 
-    /* Success color for positive financial data */
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
+    --radius: 1rem;
+
+    /* Positive financial values */
+    --success: 142 71% 45%;           /* #22C55E */
+    --success-foreground: 0 0% 6%;
 
     /* Warning for alerts */
     --warning: 38 92% 50%;
-    --warning-foreground: 240 10% 3.9%;
+    --warning-foreground: 0 0% 6%;
 
-    /* Gradients for visual impact */
-    --gradient-primary: linear-gradient(135deg, hsl(271 91% 65%) 0%, hsl(189 94% 43%) 100%);
-    --gradient-card: linear-gradient(135deg, hsl(240 10% 8%) 0%, hsl(240 10% 5%) 100%);
-    
-    /* Glow effects */
-    --glow-primary: 0 0 20px hsl(271 91% 65% / 0.3);
-    --glow-secondary: 0 0 20px hsl(189 94% 43% / 0.3);
-    --glow-success: 0 0 20px hsl(142 76% 36% / 0.3);
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(44 100% 55%) 0%, hsl(44 100% 45%) 100%);
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 8%) 0%, hsl(0 0% 6%) 100%);
+    --gradient-gold-soft: linear-gradient(135deg, hsl(44 100% 48% / 0.12) 0%, hsl(44 100% 48% / 0.02) 100%);
+
+    /* Soft glow effects */
+    --glow-primary: 0 8px 32px -8px hsl(44 100% 48% / 0.35);
+    --glow-secondary: 0 4px 20px -6px hsl(0 0% 0% / 0.6);
+    --glow-success: 0 8px 24px -10px hsl(142 71% 45% / 0.35);
 
     /* Smooth transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
