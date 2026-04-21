@@ -252,8 +252,11 @@ export default function Profile() {
             .from("profiles")
             .update({
               nickname: editForm.nickname.trim(),
-              email: editForm.email.trim(),
-              avatar_url: finalAvatarUrl
+              email: editForm.email.trim() || null,
+              avatar_url: finalAvatarUrl,
+              phone: editForm.phone.replace(/\D/g, ""),
+              state: editForm.state,
+              city: editForm.city.trim(),
             })
             .eq("user_id", user.id);
 
@@ -263,7 +266,10 @@ export default function Profile() {
             ...profile,
             nickname: editForm.nickname,
             email: editForm.email,
-            avatar_url: finalAvatarUrl
+            avatar_url: finalAvatarUrl,
+            phone: editForm.phone,
+            state: editForm.state,
+            city: editForm.city,
           });
 
           setIsEditing(false);
@@ -280,8 +286,11 @@ export default function Profile() {
           .from("profiles")
           .update({
             nickname: editForm.nickname.trim(),
-            email: editForm.email.trim(),
-            avatar_url: finalAvatarUrl
+            email: editForm.email.trim() || null,
+            avatar_url: finalAvatarUrl,
+            phone: editForm.phone.replace(/\D/g, ""),
+            state: editForm.state,
+            city: editForm.city.trim(),
           })
           .eq("user_id", user.id);
 
@@ -291,7 +300,10 @@ export default function Profile() {
           ...profile,
           nickname: editForm.nickname,
           email: editForm.email,
-          avatar_url: finalAvatarUrl
+          avatar_url: finalAvatarUrl,
+          phone: editForm.phone,
+          state: editForm.state,
+          city: editForm.city,
         });
 
         setIsEditing(false);
