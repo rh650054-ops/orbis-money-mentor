@@ -323,7 +323,7 @@ export function DefconRunning({
 
           {/* Gorjeta - outline discreto */}
           <button
-            onClick={() => (onAddTip ? setShowAddTip(true) : pushFloater("+1 🎯", "tip"))}
+            onClick={() => setShowAddTip(true)}
             className="flex-1 h-14 rounded-2xl bg-transparent border border-[#F5B400]/40 flex items-center justify-center gap-2 active:scale-95 transition-all"
           >
             <Coins className="w-4 h-4 text-[#F5B400]" strokeWidth={2.5} />
