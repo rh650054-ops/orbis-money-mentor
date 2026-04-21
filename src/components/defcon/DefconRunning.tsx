@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -26,6 +26,7 @@ interface DefconRunningProps {
   onAddOccurrence: (description: string) => void;
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
+  onAddTip?: (amount: number) => void;
 }
 
 export function DefconRunning({
