@@ -23,6 +23,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import orbisLogo from "@/assets/orbis-logo.png";
+import orbisWordmark from "@/assets/orbis-wordmark.png";
 
 interface LayoutProps {
   children: ReactNode;
@@ -137,11 +139,9 @@ export default function Layout({ children }: LayoutProps) {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <span className="text-lg font-bold">O</span>
-                </div>
-                <span className="text-xl font-bold gradient-text">Orbis</span>
+              <Link to="/" className="flex items-center gap-2">
+                <img src={orbisLogo} alt="Orbis" className="w-9 h-9 object-contain" />
+                <img src={orbisWordmark} alt="ORBIS" className="h-5 object-contain" />
               </Link>
               {isAdmin && (
                 <span className={cn(
