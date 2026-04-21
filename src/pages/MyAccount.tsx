@@ -14,6 +14,11 @@ import { z } from "zod";
 import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 
+const BR_STATES = [
+  "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
+  "PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO",
+];
+
 const profileSchema = z.object({
   nickname: z.string()
     .trim()
@@ -21,8 +26,17 @@ const profileSchema = z.object({
     .max(100, { message: "Apelido deve ter no máximo 100 caracteres" }),
   email: z.string()
     .trim()
-    .email({ message: "E-mail inválido" })
     .max(255, { message: "E-mail deve ter no máximo 255 caracteres" })
+    .optional()
+    .or(z.literal("")),
+  phone: z.string()
+    .trim()
+    .refine((v) => {
+      const d = v.replace(/\D/g, "");
+      return d.length >= 10 && d.length <= 11;
+    }, { message: "WhatsApp inválido (DDD + número)" }),
+  state: z.string().min(2, { message: "Selecione o estado" }).max(2),
+  city: z.string().trim().min(2, { message: "Informe a cidade" }).max(80),
 });
 
 export default function Profile() {
