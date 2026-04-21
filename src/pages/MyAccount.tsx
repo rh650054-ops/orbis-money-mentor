@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import { useBrazilCities } from "@/hooks/useBrazilCities";
 
 const BR_STATES = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
