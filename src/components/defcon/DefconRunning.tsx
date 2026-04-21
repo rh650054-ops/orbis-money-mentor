@@ -49,6 +49,7 @@ export function DefconRunning({
   onAddOccurrence,
   onEnd,
   onLunchPause,
+  onAddTip,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -57,6 +58,10 @@ export function DefconRunning({
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
   const [showOccurrence, setShowOccurrence] = useState(false);
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
+  const [showAddTip, setShowAddTip] = useState(false);
+  const [tipValue, setTipValue] = useState("");
+  const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
+  const [approachPulse, setApproachPulse] = useState(false);
 
   const minutes = Math.floor(remainingSeconds / 60);
   const seconds = remainingSeconds % 60;
@@ -73,6 +78,7 @@ export function DefconRunning({
   const registerSale = (amount: number) => {
     onAddSale(amount);
     setSaleHistory((prev) => [...prev, amount]);
+    pushFloater(`+${formatCurrency(amount)}`, "sale");
   };
 
   const handleAddSale = () => {
@@ -87,6 +93,40 @@ export function DefconRunning({
   const blockSold = currentBlock
     ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
     : 0;
+
+  const conversionRate = blockApproaches > 0 ? Math.round((blockSalesCount / blockApproaches) * 100) : 0;
+
+  const pushFloater = (text: string, tone: "sale" | "tip" | "approach") => {
+    const id = Date.now() + Math.random();
+    setFloaters((p) => [...p, { id, text, tone }]);
+    setTimeout(() => setFloaters((p) => p.filter((f) => f.id !== id)), 1100);
+  };
+
+  const handleApproachClick = () => {
+    onAddApproach();
+    setApproachPulse(true);
+    setTimeout(() => setApproachPulse(false), 280);
+    pushFloater("+1", "approach");
+  };
+
+  const handleAddTip = () => {
+    const amount = parseFloat(tipValue) || 0;
+    if (amount > 0 && onAddTip) {
+      onAddTip(amount);
+      pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
+      setTipValue("");
+      setShowAddTip(false);
+    }
+  };
+
+  const impactPhrase =
+    remaining <= 0
+      ? "Meta batida. Continue empilhando."
+      : totalSold === 0
+      ? "Sem ação, sem dinheiro."
+      : conversionRate > 0 && conversionRate < 15
+      ? "Mais abordagem = mais venda."
+      : `Você está a ${formatCurrency(remaining)} da meta.`;
 
   // Confirm end screen
   if (showConfirmEnd) {
