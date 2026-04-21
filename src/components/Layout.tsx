@@ -30,10 +30,10 @@ interface LayoutProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
-  
-  { name: "Ritmo", href: "/daily-goals", icon: CheckSquare, tourId: "nav-ritmo" },
-  { name: "Ranking", href: "/ranking", icon: Trophy, tourId: "nav-ranking" },
-  { name: "Rotina", href: "/routine", icon: Clock, tourId: "nav-rotina" },
+  { name: "Ritmo", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
+  { name: "Banco", href: "/bank-connections", icon: DollarSign, tourId: "nav-banco", isCenter: true },
+  { name: "Dados", href: "/insights", icon: BarChart3, tourId: "nav-dados" },
+  { name: "Chat", href: "/chat", icon: MessageCircle, tourId: "nav-chat" },
 ];
 
 export default function Layout({ children }: LayoutProps) {
