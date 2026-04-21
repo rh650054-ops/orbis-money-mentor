@@ -134,7 +134,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Offline Indicator */}
       <OfflineIndicator />
       <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/80" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link to="/" className="flex items-center space-x-2">
