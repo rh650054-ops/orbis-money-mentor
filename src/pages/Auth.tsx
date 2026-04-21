@@ -282,7 +282,7 @@ export default function Auth() {
             {!isLogin && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Celular (opcional)</Label>
+                  <Label htmlFor="phone">WhatsApp</Label>
                   <Input
                     id="phone"
                     type="text"
@@ -290,9 +290,40 @@ export default function Auth() {
                     placeholder="11999999999"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    required
                     maxLength={11}
                     className="bg-background"
                   />
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-2 col-span-1">
+                    <Label htmlFor="state">Estado</Label>
+                    <select
+                      id="state"
+                      value={state}
+                      onChange={(e) => setState(e.target.value)}
+                      required
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">UF</option>
+                      {BR_STATES.map((uf) => (
+                        <option key={uf} value={uf}>{uf}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2 col-span-2">
+                    <Label htmlFor="city">Cidade</Label>
+                    <Input
+                      id="city"
+                      type="text"
+                      placeholder="Sua cidade"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                      required
+                      maxLength={80}
+                      className="bg-background"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail (opcional)</Label>
