@@ -185,6 +185,8 @@ export default function Insights() {
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
+    // Gorjetas ainda não possuem campo dedicado no banco — exibido como 0 até criarmos o registro.
+    const gorjetas = 0;
 
     return {
       faturamento,
@@ -195,6 +197,9 @@ export default function Insights() {
       totalVendas,
       abordagensPorVenda,
       mediaDiaria,
+      custos,
+      calotes,
+      gorjetas,
     };
   }, [sales, blocks, rangeDays]);
 
@@ -367,6 +372,30 @@ export default function Insights() {
               label="Conversão"
               value={`${summary.conversao.toFixed(1)}%`}
               valueClassName="text-primary"
+            />
+          </section>
+
+          {/* Totais do período */}
+          <SectionTitle>Totais do período</SectionTitle>
+          <section className="grid grid-cols-2 gap-3">
+            <MetricCell
+              label="Custos totais"
+              value={formatCurrency(summary.custos)}
+            />
+            <MetricCell
+              label="Abordagens totais"
+              value={summary.totalAbordagens.toString()}
+              valueClassName="text-primary"
+            />
+            <MetricCell
+              label="Gorjetas totais"
+              value={formatCurrency(summary.gorjetas)}
+              valueClassName="text-emerald-400"
+            />
+            <MetricCell
+              label="Kits não pagos"
+              value={formatCurrency(summary.calotes)}
+              valueClassName="text-red-400"
             />
           </section>
 
