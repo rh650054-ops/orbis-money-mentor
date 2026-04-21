@@ -1,11 +1,16 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { Share2, AlertTriangle, Sparkles } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
+import orbisLogo from "@/assets/orbis-logo-share.png";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
   totalSold: number;
   dailyGoal: number;
   totalBlocks: number;
+  totalApproaches?: number;
+  totalSalesCount?: number;
   onSaveBreakdown: (dinheiro: number, cartao: number, pix: number) => Promise<void>;
   onExit: () => void;
 }
@@ -15,206 +20,342 @@ export function DefconEndScreen({
   totalSold,
   dailyGoal,
   totalBlocks,
+  totalApproaches = 0,
+  totalSalesCount = 0,
   onSaveBreakdown,
   onExit,
 }: DefconEndScreenProps) {
-  const [showBreakdown, setShowBreakdown] = useState(true);
-  const [dinheiro, setDinheiro] = useState("");
-  const [cartao, setCartao] = useState("");
   const [pix, setPix] = useState("");
+  const [cartao, setCartao] = useState("");
+  const [dinheiro, setDinheiro] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
+  const [caloteAcknowledged, setCaloteAcknowledged] = useState(false);
 
-  const dinheiroNum = parseFloat(dinheiro) || 0;
-  const cartaoNum = parseFloat(cartao) || 0;
   const pixNum = parseFloat(pix) || 0;
-  const totalInformado = dinheiroNum + cartaoNum + pixNum;
-  const calote = Math.max(0, totalSold - totalInformado);
+  const cartaoNum = parseFloat(cartao) || 0;
+  const dinheiroNum = parseFloat(dinheiro) || 0;
+  const totalRecebido = pixNum + cartaoNum + dinheiroNum;
+  const calote = Math.max(0, totalSold - totalRecebido);
+  const hasCalote = calote > 0 && totalRecebido > 0;
+  const fullyReceived = totalRecebido >= totalSold && totalSold > 0;
 
   const percentage = dailyGoal > 0 ? (totalSold / dailyGoal) * 100 : 0;
-  const goalReached = totalSold >= dailyGoal;
+  const goalReached = totalSold >= dailyGoal && totalSold > 0;
+  const conversionRate = totalApproaches > 0 ? (totalSalesCount / totalApproaches) * 100 : 0;
 
-  const handleSaveBreakdown = async () => {
-    setSaving(true);
-    await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
-    setSaving(false);
-    setShowBreakdown(false);
+  const subText = useMemo(() => {
+    if (phase === "abandoned") return "Desafio encerrado antes do tempo";
+    if (totalSold === 0) return "Nada vendido hoje. Amanhã tem mais.";
+    if (goalReached) return `Você bateu ${percentage.toFixed(0)}% da meta`;
+    return `Você atingiu ${percentage.toFixed(0)}% da meta`;
+  }, [phase, totalSold, goalReached, percentage]);
+
+  const insight = useMemo(() => {
+    if (totalApproaches === 0) return null;
+    if (conversionRate >= 30) return "Conversão alta. Aumente o número de abordagens para escalar.";
+    if (conversionRate >= 15) return "Bom ritmo. Mantenha a frequência de abordagens.";
+    return "Conversão baixa. Aborde com mais confiança e firmeza.";
+  }, [conversionRate, totalApproaches]);
+
+  // Generate Instagram Story image (1080x1920, transparent)
+  const generateStoryImage = async (): Promise<Blob | null> => {
+    const W = 1080;
+    const H = 1920;
+    const canvas = document.createElement("canvas");
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, W, H);
+
+    const centerText = (
+      text: string,
+      y: number,
+      size: number,
+      weight: string,
+      color: string,
+      letterSpacing = 0
+    ) => {
+      ctx.fillStyle = color;
+      ctx.font = `${weight} ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      if (letterSpacing > 0) {
+        const chars = text.split("");
+        const widths = chars.map((c) => ctx.measureText(c).width);
+        const total = widths.reduce((a, b) => a + b, 0) + letterSpacing * (chars.length - 1);
+        let x = W / 2 - total / 2;
+        chars.forEach((c, i) => {
+          ctx.textAlign = "left";
+          ctx.fillText(c, x, y);
+          x += widths[i] + letterSpacing;
+        });
+        ctx.textAlign = "center";
+      } else {
+        ctx.fillText(text, W / 2, y);
+      }
+    };
+
+    let y = 520;
+    const drawStat = (label: string, value: string, valueColor = "#FFFFFF") => {
+      centerText(label.toUpperCase(), y, 72, "700", "rgba(255,255,255,0.85)", 10);
+      y += 130;
+      centerText(value, y, 180, "900", valueColor);
+      y += 230;
+    };
+
+    drawStat("Faturamento", formatCurrency(totalSold), "#FFFFFF");
+    drawStat("Vendas", String(totalSalesCount || 0), "#22C55E");
+    const convColor =
+      conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F4A100" : "#EF4444";
+    drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
+
+    try {
+      const logo = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = orbisLogo;
+      });
+      const logoW = 460;
+      const ratio = logo.height / logo.width;
+      const logoH = logoW * ratio;
+      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 120, logoW, logoH);
+    } catch {
+      centerText("ORBIS", H - 180, 80, "900", "#FFFFFF", 16);
+    }
+
+    return new Promise((resolve) =>
+      canvas.toBlob((blob) => resolve(blob), "image/png")
+    );
   };
 
-  // Payment breakdown form
-  if (showBreakdown && totalSold > 0) {
-    return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
-        <div className="text-center mb-8">
-          <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-3">
-            {phase === "abandoned" ? "Desafio encerrado" : "Desafio concluído"}
+  const handleShare = async () => {
+    try {
+      setSharing(true);
+      const blob = await generateStoryImage();
+      if (!blob) throw new Error("Falha ao gerar imagem");
+      const file = new File([blob], `orbis-resultado.png`, { type: "image/png" });
+      const nav = navigator as Navigator & {
+        canShare?: (data: { files: File[] }) => boolean;
+        share?: (data: { files: File[]; title?: string; text?: string }) => Promise<void>;
+      };
+      if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
+        await nav.share({
+          files: [file],
+          title: "Meu resultado no Orbis",
+          text: `${formatCurrency(totalSold)} • ${percentage.toFixed(0)}% da meta`,
+        });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `orbis-resultado.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast({
+          title: "Imagem baixada",
+          description: "Abra o Instagram Stories e poste como adesivo transparente.",
+        });
+      }
+    } catch (err) {
+      const error = err as Error;
+      if (error.name !== "AbortError") {
+        toast({
+          title: "Erro ao compartilhar",
+          description: error.message || "Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (totalRecebido > totalSold) {
+      toast({
+        title: "Valor inválido",
+        description: "O total recebido excede o vendido.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (hasCalote && !caloteAcknowledged) {
+      toast({
+        title: "Você tem calote pendente",
+        description: "Toque em 'Registrar depois' ou 'Ignorar' antes de finalizar.",
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      if (totalRecebido > 0) {
+        await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
+      }
+      onExit();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const valueColor = goalReached ? "text-green-500" : totalSold > 0 ? "text-white" : "text-neutral-500";
+  const subTextColor = goalReached ? "text-green-500" : "text-neutral-400";
+
+  return (
+    <div className="min-h-screen bg-black text-white px-6 pt-12 pb-10 select-none">
+      <div className="max-w-sm mx-auto space-y-8">
+        {/* 1. HEADER — RESULTADO */}
+        <div className="text-center space-y-3">
+          <div className="text-xs font-mono text-neutral-500 tracking-[0.25em] uppercase">
+            🔥 Desafio encerrado
           </div>
-          <div className="text-3xl font-black text-white mb-2">
+          <div className={`text-6xl font-black tracking-tight ${valueColor}`}>
             {formatCurrency(totalSold)}
           </div>
-          <p className="text-sm font-mono text-neutral-500">
-            Informe como recebeu esse valor
-          </p>
+          <div className={`text-sm font-medium ${subTextColor}`}>
+            {subText}
+          </div>
         </div>
 
-        <div className="w-full max-w-sm space-y-4 mb-6">
-          {/* Dinheiro */}
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <label className="text-xs font-mono text-green-500 tracking-widest uppercase mb-2 block">
-              💵 Dinheiro
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-neutral-600 font-bold">R$</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={dinheiro}
-                onChange={(e) => setDinheiro(e.target.value)}
-                placeholder="0"
-                className="w-full h-14 bg-black border border-neutral-700 rounded-lg text-right text-2xl font-black text-white pr-4 pl-12 focus:outline-none focus:border-green-500 transition-colors placeholder:text-neutral-700"
-              />
-            </div>
+        {/* 2. SHARE — Dourado, prioridade alta */}
+        {totalSold > 0 && (
+          <button
+            onClick={handleShare}
+            disabled={sharing}
+            className="w-full h-14 rounded-2xl bg-[#F4A100] text-black font-bold text-base flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <Share2 className="w-5 h-5" />
+            {sharing ? "Gerando imagem..." : "Compartilhar resultado"}
+          </button>
+        )}
+
+        {/* 3. RECEBIMENTOS */}
+        {totalSold > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-sm font-semibold text-neutral-300 px-1">
+              Confira seus recebimentos
+            </h2>
+
+            <PaymentInput
+              label="Pix"
+              value={pix}
+              onChange={setPix}
+              accent="text-neutral-400"
+            />
+            <PaymentInput
+              label="Cartão"
+              value={cartao}
+              onChange={setCartao}
+              accent="text-neutral-400"
+            />
+            <PaymentInput
+              label="Dinheiro"
+              value={dinheiro}
+              onChange={setDinheiro}
+              accent="text-neutral-400"
+            />
+
+            {/* 4. CALOTE — condicional */}
+            {fullyReceived && (
+              <div className="text-xs text-green-500 font-medium text-center pt-1">
+                ✔ 100% recebido
+              </div>
+            )}
+
+            {hasCalote && (
+              <div className="mt-2 rounded-xl bg-red-950/30 border border-red-900/40 px-4 py-3 flex items-start gap-3">
+                <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-red-300">
+                    <span className="font-semibold">{formatCurrency(calote)}</span> não foram recebidos
+                  </div>
+                  {!caloteAcknowledged && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => setCaloteAcknowledged(true)}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-red-900/40 text-red-200 font-medium active:scale-95 transition-transform"
+                      >
+                        Registrar depois
+                      </button>
+                      <button
+                        onClick={() => setCaloteAcknowledged(true)}
+                        className="text-xs px-3 py-1.5 rounded-lg bg-neutral-800 text-neutral-300 font-medium active:scale-95 transition-transform"
+                      >
+                        Ignorar
+                      </button>
+                    </div>
+                  )}
+                  {caloteAcknowledged && (
+                    <div className="text-xs text-neutral-500 mt-1">Anotado.</div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Cartão */}
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <label className="text-xs font-mono text-blue-500 tracking-widest uppercase mb-2 block">
-              💳 Cartão
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-neutral-600 font-bold">R$</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={cartao}
-                onChange={(e) => setCartao(e.target.value)}
-                placeholder="0"
-                className="w-full h-14 bg-black border border-neutral-700 rounded-lg text-right text-2xl font-black text-white pr-4 pl-12 focus:outline-none focus:border-blue-500 transition-colors placeholder:text-neutral-700"
-              />
-            </div>
+        {/* 5. RELATÓRIO — compacto horizontal */}
+        {(totalApproaches > 0 || totalSalesCount > 0) && (
+          <div className="text-center text-sm text-neutral-300 font-mono">
+            <span className="text-white font-semibold">{totalApproaches}</span> abordagens
+            <span className="text-neutral-600 mx-2">•</span>
+            <span className="text-white font-semibold">{totalSalesCount}</span> vendas
+            <span className="text-neutral-600 mx-2">•</span>
+            <span className="text-[#F4A100] font-semibold">{conversionRate.toFixed(0)}%</span> conversão
           </div>
+        )}
 
-          {/* Pix */}
-          <div className="bg-neutral-900 rounded-xl p-4">
-            <label className="text-xs font-mono text-purple-500 tracking-widest uppercase mb-2 block">
-              📱 Pix
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-neutral-600 font-bold">R$</span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={pix}
-                onChange={(e) => setPix(e.target.value)}
-                placeholder="0"
-                className="w-full h-14 bg-black border border-neutral-700 rounded-lg text-right text-2xl font-black text-white pr-4 pl-12 focus:outline-none focus:border-purple-500 transition-colors placeholder:text-neutral-700"
-              />
-            </div>
+        {/* 6. INSIGHT IA */}
+        {insight && (
+          <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-4 py-3 flex items-start gap-2">
+            <Sparkles className="w-4 h-4 text-[#F4A100] mt-0.5 shrink-0" />
+            <p className="text-sm text-neutral-300 leading-snug">{insight}</p>
           </div>
+        )}
 
-          {/* Calote auto-calculated */}
-          <div className="bg-neutral-900 border border-red-900/30 rounded-xl p-4">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-mono text-red-500 tracking-widest uppercase">
-                ⚠️ Calote
-              </span>
-              <span className={`text-2xl font-black ${calote > 0 ? "text-red-500" : "text-neutral-600"}`}>
-                {formatCurrency(calote)}
-              </span>
-            </div>
-            <p className="text-xs text-neutral-700 font-mono mt-1">
-              Calculado automaticamente
-            </p>
-          </div>
-
-          {/* Validation hint */}
-          {totalInformado > totalSold && (
-            <p className="text-xs text-red-500 font-mono text-center">
-              Total informado ({formatCurrency(totalInformado)}) excede o vendido ({formatCurrency(totalSold)})
-            </p>
-          )}
-        </div>
-
+        {/* 7. CTA FINAL */}
         <button
-          onClick={handleSaveBreakdown}
-          disabled={saving || totalInformado > totalSold}
-          className="w-full max-w-sm h-14 bg-white text-black font-black text-lg rounded-xl active:scale-95 transition-transform disabled:opacity-30"
+          onClick={handleFinalize}
+          disabled={saving}
+          className="w-full h-14 rounded-2xl bg-white text-black font-bold text-base active:scale-[0.98] transition-transform disabled:opacity-50"
         >
-          {saving ? "SALVANDO..." : "SALVAR E FINALIZAR"}
+          {saving ? "Finalizando..." : "Finalizar dia"}
         </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // Summary screen after breakdown
+interface PaymentInputProps {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  accent: string;
+}
+
+function PaymentInput({ label, value, onChange, accent }: PaymentInputProps) {
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
-      {/* Status */}
-      <div className="text-center mb-10">
-        <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-4">
-          {phase === "abandoned" ? "Desafio encerrado" : "Desafio concluído"}
-        </div>
-
-        {phase === "abandoned" ? (
-          <div className="text-6xl mb-4">⛔</div>
-        ) : goalReached ? (
-          <div className="text-6xl mb-4">🏆</div>
-        ) : (
-          <div className="text-6xl mb-4">📊</div>
-        )}
-      </div>
-
-      {/* Stats */}
-      <div className="w-full max-w-sm space-y-6 mb-10">
-        <div className="bg-neutral-900 rounded-xl p-6 space-y-4">
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-mono text-neutral-500">Total vendido</span>
-            <span className="text-2xl font-black text-white">
-              {formatCurrency(totalSold)}
-            </span>
-          </div>
-
-          <div className="h-px bg-neutral-800" />
-
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-mono text-neutral-500">Meta</span>
-            <span className="text-lg font-bold text-neutral-400">
-              {formatCurrency(dailyGoal)}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-mono text-neutral-500">Progresso</span>
-            <span className={`text-lg font-bold ${
-              goalReached ? "text-green-500" : "text-red-500"
-            }`}>
-              {percentage.toFixed(0)}%
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <span className="text-sm font-mono text-neutral-500">Blocos completados</span>
-            <span className="text-lg font-bold text-white">{totalBlocks}</span>
-          </div>
-        </div>
-
-        {/* Cold message */}
-        <p className="text-center text-sm text-neutral-600 font-mono">
-          {phase === "abandoned"
-            ? "Você encerrou antes do tempo. Streak perdida."
-            : goalReached
-            ? "Missão cumprida. Sem mais o que dizer."
-            : "Números não mentem. Amanhã tem mais."
-          }
-        </p>
-      </div>
-
-      {/* Exit */}
-      <button
-        onClick={onExit}
-        className="w-full max-w-sm h-14 bg-neutral-900 border border-neutral-800 text-white font-bold text-lg rounded-xl active:scale-95 transition-transform"
-      >
-        SAIR
-      </button>
+    <div className="relative h-14 rounded-xl bg-neutral-950 border border-neutral-900 focus-within:border-neutral-700 transition-colors">
+      <span className={`absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium ${accent}`}>
+        {label}
+      </span>
+      <span className="absolute right-[88px] top-1/2 -translate-y-1/2 text-xs text-neutral-600">
+        R$
+      </span>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        className="w-full h-full bg-transparent text-right text-lg font-bold text-white pr-4 pl-24 focus:outline-none placeholder:text-neutral-700"
+      />
     </div>
   );
 }
