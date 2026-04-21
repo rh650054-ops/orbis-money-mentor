@@ -283,19 +283,19 @@ export function DefconRunning({
         </div>
 
         {/* Bloco info — linha legível em movimento */}
-        <div className="flex items-center justify-center gap-4 text-[15px] font-mono">
+        <div className="flex items-center justify-center gap-5 text-[17px] font-mono">
           <span className="font-black text-[#22C55E]">{formatCurrency(blockSold)}</span>
-          <span className="text-white/15">•</span>
-          <span className="text-white/85">
-            <span className="font-black text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1] text-[13px]">vendas</span>
+          <span className="text-white/20">•</span>
+          <span className="text-white/90">
+            <span className="font-black text-white">{blockSalesCount}</span> <span className="text-[#A1A1A1] text-[14px]">vendas</span>
           </span>
-          <span className="text-white/15">•</span>
-          <span className={`text-white/85 ${approachPulse ? "scale-110" : ""} transition-transform`}>
-            <span className="font-black text-white">{blockApproaches}</span> <span className="text-[#A1A1A1] text-[13px]">abord.</span>
+          <span className="text-white/20">•</span>
+          <span className={`text-white/90 ${approachPulse ? "scale-110" : ""} transition-transform`}>
+            <span className="font-black text-white">{blockApproaches}</span> <span className="text-[#A1A1A1] text-[14px]">abord.</span>
           </span>
           {blockApproaches > 0 && (
             <>
-              <span className="text-white/15">•</span>
+              <span className="text-white/20">•</span>
               <span className="text-[#F5B400] font-black">{conversionRate}%</span>
             </>
           )}
