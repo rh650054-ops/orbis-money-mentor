@@ -367,7 +367,26 @@ export default function Index() {
   const totalSalesToday = todaySales?.entry_count || 0;
   const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost;
 
+  // Saudação dinâmica baseada no fuso horário (Brasília UTC-3)
+  const getGreeting = () => {
+    const hourBrasilia = Number(
+      new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false })
+    );
+    if (hourBrasilia >= 5 && hourBrasilia < 12) return "Bom dia";
+    if (hourBrasilia >= 12 && hourBrasilia < 18) return "Boa tarde";
+    return "Boa noite";
+  };
+  const greeting = getGreeting();
+
   return <div className="min-h-screen bg-background px-5 pt-4 pb-24 space-y-6 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+      {/* Saudação */}
+      <div className="space-y-1">
+        <p className="text-2xl font-semibold tracking-tight text-foreground">
+          {greeting}, <span className="text-primary">vendedor</span>
+        </p>
+        <p className="text-sm text-muted-foreground">Vamos dominar o dia.</p>
+      </div>
+
       {/* Mensagem de descanso (discreta) */}
       {isRestDay && (
         <div className="px-4 py-3 bg-card rounded-2xl text-center border border-border">
