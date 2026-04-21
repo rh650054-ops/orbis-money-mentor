@@ -319,26 +319,41 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                 ))}
                 {goals.length > 0 && (
                   <div
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      Math.round(draftTotal) === 100
+                    className={`flex flex-col gap-1 p-3 rounded-lg border ${
+                      draftTotal > 100
+                        ? "bg-destructive/10 border-destructive/30"
+                        : Math.round(draftTotal) === 100
                         ? "bg-green-500/10 border-green-500/30"
-                        : "bg-yellow-500/10 border-yellow-500/30"
+                        : "bg-primary/10 border-primary/30"
                     }`}
                   >
-                    <span className="text-sm font-medium">Soma total</span>
-                    <span
-                      className={`font-bold ${
-                        Math.round(draftTotal) === 100 ? "text-green-500" : "text-yellow-500"
-                      }`}
-                    >
-                      {draftTotal.toFixed(0)}% / 100%
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Soma total</span>
+                      <span
+                        className={`font-bold ${
+                          draftTotal > 100
+                            ? "text-destructive"
+                            : Math.round(draftTotal) === 100
+                            ? "text-green-500"
+                            : "text-primary"
+                        }`}
+                      >
+                        {draftTotal.toFixed(0)}% / 100%
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">
+                      {draftTotal > 100
+                        ? "Passou de 100% — reduza algum valor pra salvar."
+                        : Math.round(draftTotal) === 100
+                        ? "Tudo distribuído ✓"
+                        : `Sobra ${(100 - draftTotal).toFixed(0)}% livre — esse pedaço fica pra você usar como quiser.`}
                     </span>
                   </div>
                 )}
               </div>
               <Button
                 onClick={handleSavePercentages}
-                disabled={saving || goals.length === 0}
+                disabled={saving || goals.length === 0 || draftTotal > 100}
                 className="w-full mt-2"
               >
                 Salvar divisão
