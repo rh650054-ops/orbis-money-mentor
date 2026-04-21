@@ -189,10 +189,18 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
       });
       return;
     }
-    if (Math.round(totalPercent) !== 100) {
+    if (totalPercent <= 0) {
       toast({
         title: "Configure os percentuais",
-        description: "A soma dos percentuais das metas precisa ser 100%.",
+        description: "Defina pelo menos 1 meta com % maior que 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (totalPercent > 100) {
+      toast({
+        title: "Passou de 100%",
+        description: `Soma atual: ${totalPercent.toFixed(0)}%. Ajuste antes de distribuir.`,
         variant: "destructive",
       });
       return;
