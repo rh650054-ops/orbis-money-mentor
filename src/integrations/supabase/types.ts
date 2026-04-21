@@ -860,6 +860,51 @@ export type Database = {
         }
         Relationships: []
       }
+      products: {
+        Row: {
+          cost: number
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          photo_url: string | null
+          sale_price: number
+          stock_min: number
+          stock_quantity: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cost?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          photo_url?: string | null
+          sale_price?: number
+          stock_min?: number
+          stock_quantity?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cost?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          photo_url?: string | null
+          sale_price?: number
+          stock_min?: number
+          stock_quantity?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           audio_input_enabled: boolean | null
@@ -892,6 +937,10 @@ export type Database = {
           nickname: string | null
           payment_status: string | null
           phone: string | null
+          pix_key: string | null
+          pix_key_type: string | null
+          pix_merchant_city: string | null
+          pix_merchant_name: string | null
           plan_status: string | null
           plan_type: string | null
           speech_rate: string | null
@@ -942,6 +991,10 @@ export type Database = {
           nickname?: string | null
           payment_status?: string | null
           phone?: string | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          pix_merchant_city?: string | null
+          pix_merchant_name?: string | null
           plan_status?: string | null
           plan_type?: string | null
           speech_rate?: string | null
@@ -992,6 +1045,10 @@ export type Database = {
           nickname?: string | null
           payment_status?: string | null
           phone?: string | null
+          pix_key?: string | null
+          pix_key_type?: string | null
+          pix_merchant_city?: string | null
+          pix_merchant_name?: string | null
           plan_status?: string | null
           plan_type?: string | null
           speech_rate?: string | null
