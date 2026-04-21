@@ -1,6 +1,6 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Zap, DollarSign, BarChart3, MessageCircle, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText, Building2 } from "lucide-react";
+import { Home, Zap, DollarSign, BarChart3, MessageCircle, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText, Building2, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -31,9 +31,9 @@ interface LayoutProps {
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
   { name: "Ritmo", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
-  { name: "Banco", href: "/bank-connections", icon: DollarSign, tourId: "nav-banco", isCenter: true },
+  { name: "Vender", href: "/bank-connections", icon: DollarSign, tourId: "nav-banco", isCenter: true },
   { name: "Dados", href: "/insights", icon: BarChart3, tourId: "nav-dados" },
-  { name: "Chat", href: "/chat", icon: MessageCircle, tourId: "nav-chat" },
+  { name: "Perfil", href: "/profile", icon: UserCircle, tourId: "nav-perfil" },
 ];
 
 export default function Layout({ children }: LayoutProps) {
@@ -179,43 +179,6 @@ export default function Layout({ children }: LayoutProps) {
                 })}
               </nav>
               <PWAInstallButton />
-              {/* User Profile Dropdown - direita */}
-              {user && (
-                <DropdownMenu open={isProfileOpen} onOpenChange={setIsProfileOpen}>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-9 w-9 p-0 rounded-full">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="w-4 h-4 text-primary" />
-                      </div>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/profile"); }}>
-                      <User className="w-4 h-4 mr-2" />
-                      Perfil
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/finances"); }}>
-                      <Wallet className="w-4 h-4 mr-2" />
-                      Financeiro
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/history"); }}>
-                      <FileText className="w-4 h-4 mr-2" />
-                      Histórico
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => { setIsProfileOpen(false); navigate("/bank-connections"); }}>
-                      <Building2 className="w-4 h-4 mr-2" />
-                      Contas Bancárias
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleSignOut} className="text-red-500">
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Sair
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
             </div>
           </div>
         </div>
