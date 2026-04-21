@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Instagram, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import orbisLogo from "@/assets/orbis-logo.jpeg";
 
 interface DefconBlockReportProps {
   blockIndex: number;
