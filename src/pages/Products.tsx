@@ -9,16 +9,17 @@ import {
   QrCode,
   AlertTriangle,
   Image as ImageIcon,
-  X,
   Copy,
   Check,
-  Settings,
+  Landmark,
+  Star,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -29,7 +30,10 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase as supabaseTyped } from "@/integrations/supabase/client";
+// pix_accounts/products.open_price ainda não estão nos types gerados
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const supabase = supabaseTyped as any;
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
@@ -44,14 +48,18 @@ interface Product {
   sale_price: number;
   stock_quantity: number;
   stock_min: number;
+  open_price: boolean;
+  pix_account_id: string | null;
 }
 
-interface PixProfile {
-  pix_key: string | null;
-  pix_key_type: string | null;
-  pix_merchant_name: string | null;
-  pix_merchant_city: string | null;
-  nickname: string | null;
+interface PixAccount {
+  id: string;
+  bank_name: string;
+  pix_key: string;
+  pix_key_type: string;
+  merchant_name: string;
+  merchant_city: string;
+  is_default: boolean;
 }
 
 const emptyForm = {
@@ -62,6 +70,16 @@ const emptyForm = {
   stock_quantity: "",
   stock_min: "",
   photo_url: "",
+  open_price: false,
+  pix_account_id: "",
+};
+
+const emptyPixForm = {
+  bank_name: "",
+  pix_key: "",
+  pix_key_type: "cpf",
+  merchant_name: "",
+  merchant_city: "",
 };
 
 export default function Products() {
@@ -70,10 +88,10 @@ export default function Products() {
   const { toast } = useToast();
 
   const [products, setProducts] = useState<Product[]>([]);
-  const [pixProfile, setPixProfile] = useState<PixProfile | null>(null);
+  const [pixAccounts, setPixAccounts] = useState<PixAccount[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Form modal
+  // Product form
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyForm);
@@ -82,16 +100,13 @@ export default function Products() {
 
   // QR modal
   const [qrProduct, setQrProduct] = useState<Product | null>(null);
+  const [customAmount, setCustomAmount] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Pix config modal
-  const [pixOpen, setPixOpen] = useState(false);
-  const [pixForm, setPixForm] = useState({
-    pix_key: "",
-    pix_key_type: "cpf",
-    pix_merchant_name: "",
-    pix_merchant_city: "",
-  });
+  // Pix accounts manager
+  const [pixManagerOpen, setPixManagerOpen] = useState(false);
+  const [editingPix, setEditingPix] = useState<PixAccount | null>(null);
+  const [pixForm, setPixForm] = useState(emptyPixForm);
 
   useEffect(() => {
     if (!user) return;
@@ -101,7 +116,7 @@ export default function Products() {
   const loadAll = async () => {
     if (!user) return;
     setLoading(true);
-    const [prodRes, profRes] = await Promise.all([
+    const [prodRes, pixRes] = await Promise.all([
       supabase
         .from("products")
         .select("*")
@@ -109,27 +124,25 @@ export default function Products() {
         .eq("is_active", true)
         .order("created_at", { ascending: false }),
       supabase
-        .from("profiles")
-        .select("pix_key, pix_key_type, pix_merchant_name, pix_merchant_city, nickname")
+        .from("pix_accounts")
+        .select("*")
         .eq("user_id", user.id)
-        .maybeSingle(),
+        .order("is_default", { ascending: false })
+        .order("created_at", { ascending: true }),
     ]);
     if (prodRes.data) setProducts(prodRes.data as Product[]);
-    if (profRes.data) {
-      setPixProfile(profRes.data as PixProfile);
-      setPixForm({
-        pix_key: profRes.data.pix_key || "",
-        pix_key_type: profRes.data.pix_key_type || "cpf",
-        pix_merchant_name: profRes.data.pix_merchant_name || profRes.data.nickname || "",
-        pix_merchant_city: profRes.data.pix_merchant_city || "",
-      });
-    }
+    if (pixRes.data) setPixAccounts(pixRes.data as PixAccount[]);
     setLoading(false);
   };
 
+  const defaultPixAccount = pixAccounts.find((a) => a.is_default) || pixAccounts[0] || null;
+
   const openCreate = () => {
     setEditing(null);
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      pix_account_id: defaultPixAccount?.id || "",
+    });
     setFormOpen(true);
   };
 
@@ -143,6 +156,8 @@ export default function Products() {
       stock_quantity: String(p.stock_quantity),
       stock_min: String(p.stock_min),
       photo_url: p.photo_url || "",
+      open_price: p.open_price,
+      pix_account_id: p.pix_account_id || defaultPixAccount?.id || "",
     });
     setFormOpen(true);
   };
@@ -182,9 +197,11 @@ export default function Products() {
       description: form.description.trim() || null,
       photo_url: form.photo_url || null,
       cost: parseFloat(form.cost) || 0,
-      sale_price: parseFloat(form.sale_price) || 0,
+      sale_price: form.open_price ? 0 : parseFloat(form.sale_price) || 0,
       stock_quantity: parseInt(form.stock_quantity) || 0,
       stock_min: parseInt(form.stock_min) || 0,
+      open_price: form.open_price,
+      pix_account_id: form.pix_account_id || null,
     };
     const { error } = editing
       ? await supabase.from("products").update(payload).eq("id", editing.id)
@@ -209,44 +226,96 @@ export default function Products() {
     }
   };
 
-  const savePixConfig = async () => {
+  // ---------- Pix accounts CRUD ----------
+  const openPixManager = () => {
+    setEditingPix(null);
+    setPixForm(emptyPixForm);
+    setPixManagerOpen(true);
+  };
+
+  const editPixAccount = (a: PixAccount) => {
+    setEditingPix(a);
+    setPixForm({
+      bank_name: a.bank_name,
+      pix_key: a.pix_key,
+      pix_key_type: a.pix_key_type,
+      merchant_name: a.merchant_name,
+      merchant_city: a.merchant_city,
+    });
+  };
+
+  const savePixAccount = async () => {
     if (!user) return;
-    if (!pixForm.pix_key.trim() || !pixForm.pix_merchant_name.trim() || !pixForm.pix_merchant_city.trim()) {
-      toast({ title: "Preencha todos os campos do Pix", variant: "destructive" });
+    if (!pixForm.bank_name.trim() || !pixForm.pix_key.trim() || !pixForm.merchant_name.trim() || !pixForm.merchant_city.trim()) {
+      toast({ title: "Preencha todos os campos", variant: "destructive" });
       return;
     }
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        pix_key: pixForm.pix_key.trim(),
-        pix_key_type: pixForm.pix_key_type,
-        pix_merchant_name: pixForm.pix_merchant_name.trim(),
-        pix_merchant_city: pixForm.pix_merchant_city.trim(),
-      })
-      .eq("user_id", user.id);
+    const payload = {
+      user_id: user.id,
+      bank_name: pixForm.bank_name.trim(),
+      pix_key: pixForm.pix_key.trim(),
+      pix_key_type: pixForm.pix_key_type,
+      merchant_name: pixForm.merchant_name.trim(),
+      merchant_city: pixForm.merchant_city.trim(),
+      is_default: editingPix?.is_default ?? pixAccounts.length === 0,
+    };
+    const { error } = editingPix
+      ? await supabase.from("pix_accounts").update(payload).eq("id", editingPix.id)
+      : await supabase.from("pix_accounts").insert(payload);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Pix configurado!" });
-      setPixOpen(false);
+      toast({ title: editingPix ? "Conta atualizada" : "Conta Pix adicionada" });
+      setEditingPix(null);
+      setPixForm(emptyPixForm);
       loadAll();
     }
   };
 
-  const pixPayload = (p: Product) => {
-    if (!pixProfile?.pix_key) return "";
+  const setDefaultPix = async (id: string) => {
+    if (!user) return;
+    await supabase.from("pix_accounts").update({ is_default: false }).eq("user_id", user.id);
+    await supabase.from("pix_accounts").update({ is_default: true }).eq("id", id);
+    loadAll();
+  };
+
+  const deletePixAccount = async (id: string) => {
+    if (!confirm("Excluir esta conta Pix?")) return;
+    await supabase.from("pix_accounts").delete().eq("id", id);
+    loadAll();
+  };
+
+  // ---------- QR Code ----------
+  const getProductPixAccount = (p: Product) =>
+    pixAccounts.find((a) => a.id === p.pix_account_id) || defaultPixAccount;
+
+  const buildPayload = (p: Product, amountOverride?: number) => {
+    const acc = getProductPixAccount(p);
+    if (!acc) return "";
+    const amount = p.open_price ? amountOverride : p.sale_price;
     return generatePixPayload({
-      pixKey: pixProfile.pix_key,
-      amount: p.sale_price,
-      merchantName: pixProfile.pix_merchant_name || pixProfile.nickname || "Vendedor",
-      merchantCity: pixProfile.pix_merchant_city || "BRASIL",
+      pixKey: acc.pix_key,
+      amount: amount && amount > 0 ? amount : undefined,
+      merchantName: acc.merchant_name,
+      merchantCity: acc.merchant_city,
       txid: p.id.slice(0, 8),
     });
   };
 
+  const openQr = (p: Product) => {
+    setQrProduct(p);
+    setCustomAmount("");
+  };
+
+  const currentQrAmount = qrProduct?.open_price
+    ? parseFloat(customAmount) || 0
+    : qrProduct?.sale_price || 0;
+
+  const currentPayload = qrProduct ? buildPayload(qrProduct, currentQrAmount) : "";
+
   const copyPayload = async () => {
-    if (!qrProduct) return;
-    await navigator.clipboard.writeText(pixPayload(qrProduct));
+    if (!currentPayload) return;
+    await navigator.clipboard.writeText(currentPayload);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -254,6 +323,7 @@ export default function Products() {
   // Stats
   const lowStock = products.filter((p) => p.stock_quantity <= p.stock_min);
   const totalStockValue = products.reduce((s, p) => s + p.cost * p.stock_quantity, 0);
+  const hasNoPix = pixAccounts.length === 0;
 
   return (
     <div className="space-y-6 pb-20 md:pb-8 max-w-2xl mx-auto px-4">
@@ -264,25 +334,27 @@ export default function Products() {
           </Button>
           <div className="min-w-0">
             <h1 className="text-xl font-bold gradient-text truncate">Produtos & Estoque</h1>
-            <p className="text-xs text-muted-foreground">Catálogo com QR Pix por produto</p>
+            <p className="text-xs text-muted-foreground">
+              {pixAccounts.length} conta{pixAccounts.length !== 1 ? "s" : ""} Pix • QR por produto
+            </p>
           </div>
         </div>
-        <Button size="icon" variant="outline" onClick={() => setPixOpen(true)} title="Configurar Pix">
-          <Settings className="w-4 h-4" />
+        <Button size="icon" variant="outline" onClick={openPixManager} title="Contas Pix">
+          <Landmark className="w-4 h-4" />
         </Button>
       </div>
 
-      {!pixProfile?.pix_key && (
+      {hasNoPix && (
         <Card className="border-warning/40 bg-warning/5">
           <CardContent className="p-4 flex items-start gap-3">
             <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
             <div className="flex-1 text-sm">
-              <p className="font-semibold">Configure seu Pix</p>
+              <p className="font-semibold">Cadastre uma conta Pix</p>
               <p className="text-muted-foreground text-xs mt-0.5">
-                Cadastre sua chave para gerar QR Code de pagamento em cada produto.
+                Adicione seus bancos (Nubank, Itaú, Bradesco…) para gerar QR Code em cada produto.
               </p>
-              <Button size="sm" variant="outline" className="mt-2 h-8" onClick={() => setPixOpen(true)}>
-                Configurar agora
+              <Button size="sm" variant="outline" className="mt-2 h-8" onClick={openPixManager}>
+                <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar conta Pix
               </Button>
             </div>
           </CardContent>
@@ -316,6 +388,7 @@ export default function Products() {
             products.map((p) => {
               const margin = p.sale_price - p.cost;
               const marginPct = p.sale_price > 0 ? (margin / p.sale_price) * 100 : 0;
+              const acc = getProductPixAccount(p);
               return (
                 <Card key={p.id} className="overflow-hidden">
                   <CardContent className="p-3">
@@ -332,24 +405,37 @@ export default function Products() {
                         {p.description && (
                           <p className="text-xs text-muted-foreground line-clamp-1">{p.description}</p>
                         )}
-                        <div className="flex items-baseline gap-2 mt-1">
-                          <span className="text-base font-bold text-primary">
-                            {formatCurrency(p.sale_price)}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            custo {formatCurrency(p.cost)} • {marginPct.toFixed(0)}%
-                          </span>
+                        <div className="flex items-baseline gap-2 mt-1 flex-wrap">
+                          {p.open_price ? (
+                            <span className="text-base font-bold text-primary">A combinar</span>
+                          ) : (
+                            <>
+                              <span className="text-base font-bold text-primary">
+                                {formatCurrency(p.sale_price)}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground">
+                                custo {formatCurrency(p.cost)} • {marginPct.toFixed(0)}%
+                              </span>
+                            </>
+                          )}
                         </div>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          Estoque:{" "}
-                          <span
-                            className={
-                              p.stock_quantity <= p.stock_min ? "text-warning font-semibold" : "font-semibold"
-                            }
-                          >
-                            {p.stock_quantity}
-                          </span>
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <p className="text-[11px] text-muted-foreground">
+                            Estoque:{" "}
+                            <span
+                              className={
+                                p.stock_quantity <= p.stock_min ? "text-warning font-semibold" : "font-semibold"
+                              }
+                            >
+                              {p.stock_quantity}
+                            </span>
+                          </p>
+                          {acc && (
+                            <span className="text-[10px] text-muted-foreground">
+                              • {acc.bank_name}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
@@ -357,8 +443,8 @@ export default function Products() {
                         size="sm"
                         variant="outline"
                         className="flex-1"
-                        onClick={() => setQrProduct(p)}
-                        disabled={!pixProfile?.pix_key}
+                        onClick={() => openQr(p)}
+                        disabled={hasNoPix}
                       >
                         <QrCode className="w-3.5 h-3.5 mr-1.5" /> QR Pix
                       </Button>
@@ -452,7 +538,7 @@ export default function Products() {
         </TabsContent>
       </Tabs>
 
-      {/* FORM MODAL */}
+      {/* PRODUCT FORM MODAL */}
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -491,6 +577,24 @@ export default function Products() {
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
             </div>
+
+            {/* Preço aberto toggle */}
+            <Card className="bg-muted/30 border-border/50">
+              <CardContent className="p-3 flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <Label htmlFor="open-price" className="font-medium">Preço aberto</Label>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Para vendas com valor combinado na hora. O QR Pix vai sem valor — o cliente digita.
+                  </p>
+                </div>
+                <Switch
+                  id="open-price"
+                  checked={form.open_price}
+                  onCheckedChange={(v) => setForm({ ...form, open_price: v })}
+                />
+              </CardContent>
+            </Card>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Custo (R$)</Label>
@@ -502,11 +606,15 @@ export default function Products() {
                 />
               </div>
               <div>
-                <Label>Venda (R$)</Label>
+                <Label className={form.open_price ? "text-muted-foreground" : ""}>
+                  Venda (R$)
+                </Label>
                 <Input
                   type="number"
                   step="0.01"
-                  value={form.sale_price}
+                  value={form.open_price ? "" : form.sale_price}
+                  disabled={form.open_price}
+                  placeholder={form.open_price ? "—" : ""}
                   onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
                 />
               </div>
@@ -527,6 +635,41 @@ export default function Products() {
                 />
               </div>
             </div>
+
+            {/* Conta Pix */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <Label>Receber Pix em</Label>
+                <button
+                  type="button"
+                  className="text-[11px] text-primary hover:underline"
+                  onClick={openPixManager}
+                >
+                  + Nova conta
+                </button>
+              </div>
+              {pixAccounts.length === 0 ? (
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
+                  Cadastre uma conta Pix primeiro para gerar QR Code.
+                </p>
+              ) : (
+                <Select
+                  value={form.pix_account_id}
+                  onValueChange={(v) => setForm({ ...form, pix_account_id: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Escolha o banco" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {pixAccounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.bank_name} {a.is_default && "⭐"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setFormOpen(false)}>
@@ -545,85 +688,164 @@ export default function Products() {
           <DialogHeader>
             <DialogTitle>{qrProduct?.name}</DialogTitle>
           </DialogHeader>
-          {qrProduct && pixProfile?.pix_key && (
+          {qrProduct && (
             <div className="space-y-4 text-center">
-              <div className="bg-white p-4 rounded-xl mx-auto inline-block">
-                <QRCodeSVG value={pixPayload(qrProduct)} size={220} level="M" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Valor a receber</p>
-                <p className="text-2xl font-bold text-primary">{formatCurrency(qrProduct.sale_price)}</p>
-              </div>
-              <Button onClick={copyPayload} variant="outline" className="w-full">
-                {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-                {copied ? "Copiado!" : "Copiar Pix Copia e Cola"}
-              </Button>
-              <p className="text-[10px] text-muted-foreground">
-                Pix de {pixProfile.pix_merchant_name} • {pixProfile.pix_merchant_city}
-              </p>
+              {qrProduct.open_price && (
+                <div className="text-left">
+                  <Label>Valor desta venda (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    autoFocus
+                    placeholder="Digite o valor combinado"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {currentPayload ? (
+                <>
+                  <div className="bg-white p-4 rounded-xl mx-auto inline-block">
+                    <QRCodeSVG value={currentPayload} size={220} level="M" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Valor a receber</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {currentQrAmount > 0 ? formatCurrency(currentQrAmount) : "Cliente digita"}
+                    </p>
+                  </div>
+                  <Button onClick={copyPayload} variant="outline" className="w-full">
+                    {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                    {copied ? "Copiado!" : "Copiar Pix Copia e Cola"}
+                  </Button>
+                  {(() => {
+                    const acc = getProductPixAccount(qrProduct);
+                    return acc ? (
+                      <p className="text-[10px] text-muted-foreground">
+                        {acc.bank_name} • {acc.merchant_name} • {acc.merchant_city}
+                      </p>
+                    ) : null;
+                  })()}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground py-8">
+                  {qrProduct.open_price ? "Digite o valor para gerar o QR" : "Configure uma conta Pix"}
+                </p>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* PIX CONFIG MODAL */}
-      <Dialog open={pixOpen} onOpenChange={setPixOpen}>
-        <DialogContent className="max-w-md">
+      {/* PIX ACCOUNTS MANAGER */}
+      <Dialog open={pixManagerOpen} onOpenChange={setPixManagerOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Configurar Pix</DialogTitle>
+            <DialogTitle>Contas Pix</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Tipo de chave</Label>
-              <Select
-                value={pixForm.pix_key_type}
-                onValueChange={(v) => setPixForm({ ...pixForm, pix_key_type: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cpf">CPF</SelectItem>
-                  <SelectItem value="cnpj">CNPJ</SelectItem>
-                  <SelectItem value="email">E-mail</SelectItem>
-                  <SelectItem value="phone">Telefone</SelectItem>
-                  <SelectItem value="random">Chave aleatória</SelectItem>
-                </SelectContent>
-              </Select>
+
+          {/* Lista */}
+          {pixAccounts.length > 0 && !editingPix && (
+            <div className="space-y-2">
+              {pixAccounts.map((a) => (
+                <Card key={a.id} className={a.is_default ? "border-primary/50" : ""}>
+                  <CardContent className="p-3 flex items-center gap-2">
+                    <Landmark className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-medium text-sm truncate">{a.bank_name}</p>
+                        {a.is_default && <Star className="w-3 h-3 text-primary fill-primary" />}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {a.pix_key_type.toUpperCase()} • {a.pix_key}
+                      </p>
+                    </div>
+                    {!a.is_default && (
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
+                        <Star className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => editPixAccount(a)}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deletePixAccount(a.id)}>
+                      <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
+          )}
+
+          {/* Form */}
+          <div className="space-y-3 pt-2 border-t border-border/40">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              {editingPix ? "Editar conta" : "Adicionar nova conta"}
+            </p>
             <div>
-              <Label>Chave Pix</Label>
+              <Label>Apelido / Banco</Label>
               <Input
-                value={pixForm.pix_key}
-                onChange={(e) => setPixForm({ ...pixForm, pix_key: e.target.value })}
-                placeholder="Ex: 12345678900"
+                placeholder="Ex: Nubank, Itaú, Bradesco"
+                value={pixForm.bank_name}
+                onChange={(e) => setPixForm({ ...pixForm, bank_name: e.target.value })}
               />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label>Tipo</Label>
+                <Select
+                  value={pixForm.pix_key_type}
+                  onValueChange={(v) => setPixForm({ ...pixForm, pix_key_type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cpf">CPF</SelectItem>
+                    <SelectItem value="cnpj">CNPJ</SelectItem>
+                    <SelectItem value="email">E-mail</SelectItem>
+                    <SelectItem value="phone">Telefone</SelectItem>
+                    <SelectItem value="random">Aleatória</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Chave</Label>
+                <Input
+                  value={pixForm.pix_key}
+                  onChange={(e) => setPixForm({ ...pixForm, pix_key: e.target.value })}
+                />
+              </div>
             </div>
             <div>
               <Label>Nome do recebedor</Label>
               <Input
-                value={pixForm.pix_merchant_name}
-                onChange={(e) => setPixForm({ ...pixForm, pix_merchant_name: e.target.value })}
-                placeholder="Como aparecerá no app do pagador"
                 maxLength={25}
+                value={pixForm.merchant_name}
+                onChange={(e) => setPixForm({ ...pixForm, merchant_name: e.target.value })}
               />
             </div>
             <div>
               <Label>Cidade</Label>
               <Input
-                value={pixForm.pix_merchant_city}
-                onChange={(e) => setPixForm({ ...pixForm, pix_merchant_city: e.target.value })}
-                placeholder="Ex: SAO PAULO"
                 maxLength={15}
+                placeholder="Ex: SAO PAULO"
+                value={pixForm.merchant_city}
+                onChange={(e) => setPixForm({ ...pixForm, merchant_city: e.target.value })}
               />
             </div>
+            <div className="flex gap-2">
+              {editingPix && (
+                <Button variant="ghost" className="flex-1" onClick={() => { setEditingPix(null); setPixForm(emptyPixForm); }}>
+                  Cancelar
+                </Button>
+              )}
+              <Button className="flex-1" onClick={savePixAccount}>
+                {editingPix ? "Atualizar" : "Adicionar"}
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setPixOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={savePixConfig}>Salvar</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
