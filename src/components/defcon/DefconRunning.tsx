@@ -507,12 +507,15 @@ export function DefconRunning({
       )}
 
       {/* Add tip modal */}
-      {showAddTip && onAddTip && (
+      {showAddTip && (
         <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
-          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200">
+          <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-5 animate-in slide-in-from-bottom duration-200">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
-              <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
+              <div>
+                <h3 className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
+                <p className="text-[11px] font-mono text-[#A1A1A1] mt-0.5">Conta como venda no faturamento</p>
+              </div>
+              <button onClick={() => { setShowAddTip(false); setTipValue(""); setTipPhone(""); }}>
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
@@ -531,13 +534,41 @@ export function DefconRunning({
                 className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-[#F5B400] transition-colors placeholder:text-neutral-700"
               />
             </div>
-            <button
-              onClick={handleAddTip}
-              disabled={!tipValue || parseFloat(tipValue) <= 0}
-              className="w-full h-16 bg-[#F5B400] text-black font-black text-xl rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
-            >
-              + REGISTRAR GORJETA
-            </button>
+            <div>
+              <label className="block text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase mb-2">
+                WhatsApp do cliente (opcional)
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  value={tipPhone}
+                  onChange={(e) => setTipPhone(e.target.value)}
+                  placeholder="(11) 99999-9999"
+                  className="w-full h-12 bg-black border-2 border-neutral-700 rounded-xl text-base font-mono text-white pl-12 pr-4 focus:outline-none focus:border-[#F5B400] transition-colors placeholder:text-neutral-700"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleAddTip}
+                disabled={!tipValue || parseFloat(tipValue) <= 0}
+                className="flex-[1.4] h-14 bg-[#F5B400] text-black font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" strokeWidth={3} />
+                REGISTRAR
+              </button>
+              <button
+                onClick={handleTipAndCharge}
+                disabled={!tipValue || parseFloat(tipValue) <= 0 || sanitizePhone(tipPhone).length < 10}
+                className="flex-1 h-14 bg-[#25D366] text-black font-black text-[13px] rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-1.5"
+                title="Registrar e cobrar via WhatsApp"
+              >
+                <MessageCircle className="w-4 h-4" strokeWidth={3} />
+                COBRAR
+              </button>
+            </div>
           </div>
         </div>
       )}
