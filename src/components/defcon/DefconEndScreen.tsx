@@ -129,22 +129,25 @@ export function DefconEndScreen({
       ctx.restore();
     };
 
-    const TITLE_SIZE = 110;
-    const TITLE_WEIGHT = "900";
-    const SPACING = 18;
+    const TITLE_SIZE = 72;
+    const VALUE_SIZE = 160;
+    const SPACING = 12;
 
-    // Faturamento — dourado
-    centerText("FATURAMENTO", 240, TITLE_SIZE, TITLE_WEIGHT, "#F4A100", SPACING);
+    // Faturamento — título dourado + valor branco
+    centerText("FATURAMENTO", 200, TITLE_SIZE, "800", "#F4A100", SPACING);
+    centerText(formatCurrency(totalSold), 360, VALUE_SIZE, "900", "#FFFFFF");
     drawDivider(560);
 
-    // Vendas — verde
-    centerText("VENDAS", 760, TITLE_SIZE, TITLE_WEIGHT, "#22C55E", SPACING);
+    // Vendas — título verde + valor branco
+    centerText("VENDAS", 700, TITLE_SIZE, "800", "#22C55E", SPACING);
+    centerText(String(totalSalesCount || 0), 860, VALUE_SIZE, "900", "#FFFFFF");
     drawDivider(1080);
 
-    // Conversão — vermelho (ou ajustada por desempenho)
+    // Conversão — título colorido + valor branco
     const convColor =
       conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F4A100" : "#EF4444";
-    centerText("CONVERSÃO", 1280, TITLE_SIZE, TITLE_WEIGHT, convColor, SPACING);
+    centerText("CONVERSÃO", 1220, TITLE_SIZE, "800", convColor, SPACING);
+    centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", "#FFFFFF");
 
     // Orbis watermark sutil no rodapé
     try {
