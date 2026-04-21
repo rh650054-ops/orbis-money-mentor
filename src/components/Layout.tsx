@@ -138,9 +138,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Link to="/" className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-                  <span className="text-lg font-bold">O</span>
-                </div>
+                <img src="/orbis-logo.png" alt="Orbis" className="w-8 h-8 object-contain" />
                 <span className="text-xl font-bold gradient-text">Orbis</span>
               </Link>
               {isAdmin && (
