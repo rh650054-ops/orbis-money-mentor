@@ -345,33 +345,37 @@ export function DefconRunning({
         </p>
       </div>
 
-      {/* Footer — controles com tap target adequado, sem competir com ações */}
-      <div className="pb-5 pt-3 px-4 border-t border-white/5">
-        <div className="flex items-center justify-between gap-3">
+      {/* Footer — discreto, não compete com ações */}
+      <div className="pb-4 pt-2 px-4">
+        <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setShowOccurrence(true)}
-            className="flex-1 h-[48px] rounded-xl bg-[#1A1A1A] border border-white/15 flex items-center justify-center gap-2 active:scale-95 active:bg-[#2A2A2A] transition-all"
+            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-white/5 transition-all"
           >
-            <FileText className="w-4 h-4 text-[#A1A1A1]" />
-            <span className="text-[12px] font-mono text-[#A1A1A1] tracking-wider uppercase">Ocorrência</span>
+            <FileText className="w-3 h-3 text-[#A1A1A1]/60" />
+            <span className="text-[10px] font-mono text-[#A1A1A1]/70 tracking-wider uppercase">Ocorrência</span>
           </button>
           {!lunchPauseUsed && (
-            <button
-              onClick={() => setShowLunchPicker(true)}
-              className="flex-1 h-[48px] rounded-xl bg-[#1A1A1A] border border-white/15 flex items-center justify-center gap-2 active:scale-95 active:bg-[#2A2A2A] transition-all"
-            >
-              <UtensilsCrossed className="w-4 h-4 text-[#A1A1A1]" />
-              <span className="text-[12px] font-mono text-[#A1A1A1] tracking-wider uppercase">Almoço</span>
-            </button>
+            <>
+              <span className="text-white/10">|</span>
+              <button
+                onClick={() => setShowLunchPicker(true)}
+                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-white/5 transition-all"
+              >
+                <UtensilsCrossed className="w-3 h-3 text-[#A1A1A1]/60" />
+                <span className="text-[10px] font-mono text-[#A1A1A1]/70 tracking-wider uppercase">Almoço</span>
+              </button>
+            </>
           )}
+          <span className="text-white/10">|</span>
           <button
             onClick={() => setShowConfirmEnd(true)}
-            className="flex-1 h-[48px] rounded-xl bg-[#1A1A1A] border border-red-500/30 flex items-center justify-center gap-2 active:scale-95 active:bg-red-500/15 transition-all"
+            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-red-500/10 transition-all"
           >
-            <span className="text-[12px] font-mono text-red-500/90 tracking-wider uppercase font-bold">Encerrar</span>
+            <span className="text-[10px] font-mono text-red-500/70 tracking-wider uppercase font-bold">Encerrar</span>
           </button>
         </div>
-        <div className="mt-2 text-center text-[9px] font-mono text-[#A1A1A1]/40 tracking-[0.3em] uppercase">
+        <div className="mt-1.5 text-center text-[9px] font-mono text-[#A1A1A1]/30 tracking-[0.3em] uppercase">
           Bloco {currentBlockIndex + 1}/{totalBlocks}
         </div>
       </div>
