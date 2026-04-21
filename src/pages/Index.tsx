@@ -41,6 +41,7 @@ export default function Index() {
     variation: 0
   });
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
+  const [nickname, setNickname] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
