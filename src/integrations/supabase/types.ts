@@ -41,6 +41,68 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       auth_audit: {
         Row: {
           cpf: string
@@ -159,6 +221,45 @@ export type Database = {
           total_blocks?: number
           total_sold?: number
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      chat_messages: {
+        Row: {
+          avatar_url: string | null
+          channel: string
+          city: string | null
+          content: string
+          created_at: string
+          id: string
+          is_deleted: boolean
+          nickname: string | null
+          state: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          channel: string
+          city?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          nickname?: string | null
+          state?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          channel?: string
+          city?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          is_deleted?: boolean
+          nickname?: string | null
+          state?: string | null
           user_id?: string
         }
         Relationships: []
@@ -769,6 +870,7 @@ export type Database = {
           check_in_focus: string | null
           check_in_mood: string | null
           check_in_start_time: string | null
+          city: string | null
           cpf: string | null
           created_at: string
           daily_sales_goal: number | null
@@ -794,6 +896,7 @@ export type Database = {
           plan_type: string | null
           speech_rate: string | null
           speech_volume: string | null
+          state: string | null
           streak_days: number | null
           subscription_id: string | null
           trial_days_remaining: number | null
@@ -817,6 +920,7 @@ export type Database = {
           check_in_focus?: string | null
           check_in_mood?: string | null
           check_in_start_time?: string | null
+          city?: string | null
           cpf?: string | null
           created_at?: string
           daily_sales_goal?: number | null
@@ -842,6 +946,7 @@ export type Database = {
           plan_type?: string | null
           speech_rate?: string | null
           speech_volume?: string | null
+          state?: string | null
           streak_days?: number | null
           subscription_id?: string | null
           trial_days_remaining?: number | null
@@ -865,6 +970,7 @@ export type Database = {
           check_in_focus?: string | null
           check_in_mood?: string | null
           check_in_start_time?: string | null
+          city?: string | null
           cpf?: string | null
           created_at?: string
           daily_sales_goal?: number | null
@@ -890,6 +996,7 @@ export type Database = {
           plan_type?: string | null
           speech_rate?: string | null
           speech_volume?: string | null
+          state?: string | null
           streak_days?: number | null
           subscription_id?: string | null
           trial_days_remaining?: number | null
@@ -1174,6 +1281,7 @@ export type Database = {
     Functions: {
       check_trial_expired: { Args: { user_uuid: string }; Returns: boolean }
       cleanup_old_rate_limits: { Args: never; Returns: undefined }
+      filter_profanity: { Args: { input_text: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
