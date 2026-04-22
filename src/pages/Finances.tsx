@@ -68,6 +68,14 @@ interface FinancialSummary {
   personalBalance: number;
   monthlyBudget: number;
   budgetRemaining: number;
+  // Hoje
+  grossToday: number;
+  costToday: number;
+  debtToday: number;
+  expensesToday: number;
+  netToday: number;
+  // Mês
+  monthlyNetProfit: number;
 }
 
 const EXPENSE_CATEGORIES = [
@@ -93,7 +101,13 @@ export default function Finances() {
     totalReinvestment: 0,
     personalBalance: 0,
     monthlyBudget: 0,
-    budgetRemaining: 0
+    budgetRemaining: 0,
+    grossToday: 0,
+    costToday: 0,
+    debtToday: 0,
+    expensesToday: 0,
+    netToday: 0,
+    monthlyNetProfit: 0,
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
@@ -167,7 +181,7 @@ export default function Finances() {
       
       const { data: salesData, error: salesError } = await supabase
         .from("daily_sales")
-        .select("total_profit, cost, reinvestment")
+        .select("date, total_profit, cost, reinvestment, cash_sales, pix_sales, card_sales, total_debt")
         .eq("user_id", user.id)
         .gte("date", `${currentMonth}-01`)
         .lte("date", `${currentMonth}-${String(lastDay).padStart(2, '0')}`);
@@ -192,13 +206,38 @@ export default function Finances() {
         return sum;
       }, 0) || 0;
 
+      // Hoje (UTC-3)
+      const { getBrazilDate } = await import("@/lib/dateUtils");
+      const today = getBrazilDate();
+      const todaySale = salesData?.find((s) => s.date === today);
+      const grossToday =
+        Number(todaySale?.cash_sales || 0) +
+        Number(todaySale?.pix_sales || 0) +
+        Number(todaySale?.card_sales || 0);
+      const costToday = Number(todaySale?.cost || 0);
+      const debtToday = Number(todaySale?.total_debt || 0);
+      const expensesToday = (expensesData || []).reduce(
+        (sum, e: any) => (e.date === today ? sum + (Number(e.amount) || 0) : sum),
+        0
+      );
+      const netToday = Math.max(0, grossToday - costToday - debtToday - expensesToday);
+
+      // Lucro líquido do mês (já desconta despesas pessoais do mês)
+      const monthlyNetProfit = Math.max(0, totalProfit - totalExpenses);
+
       setSummary({
         totalProfit,
         totalExpenses,
         totalReinvestment,
         personalBalance: totalProfit - totalExpenses - totalReinvestment,
         monthlyBudget,
-        budgetRemaining: monthlyBudget - totalExpenses
+        budgetRemaining: monthlyBudget - totalExpenses,
+        grossToday,
+        costToday: costToday + debtToday,
+        debtToday,
+        expensesToday,
+        netToday,
+        monthlyNetProfit,
       });
 
     } catch (error) {
@@ -492,15 +531,15 @@ export default function Finances() {
         </p>
       </div>
 
-      {/* Financial Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Resumo do dia */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="card-gradient-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Lucro do Mês</p>
+                <p className="text-sm text-muted-foreground">Lucro do dia</p>
                 <p className="text-2xl font-bold text-green-500 whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalProfit)}
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
@@ -512,26 +551,15 @@ export default function Finances() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Despesas</p>
+                <p className="text-sm text-muted-foreground">Custos do dia</p>
                 <p className="text-2xl font-bold text-red-500 whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalExpenses)}
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  mercadoria + calotes + despesas
                 </p>
               </div>
               <TrendingDown className="w-8 h-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Reinvestimento</p>
-                <p className="text-2xl font-bold text-blue-500 whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalReinvestment)}
-                </p>
-              </div>
-              <ShoppingCart className="w-8 h-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -540,9 +568,9 @@ export default function Finances() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">💎 Saldo Visionário</p>
+                <p className="text-sm text-muted-foreground">💎 Lucro líquido do dia</p>
                 <p className="text-2xl font-bold text-primary whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.personalBalance)}
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.netToday)}
                 </p>
               </div>
               <Wallet className="w-8 h-8 text-primary" />
@@ -551,103 +579,97 @@ export default function Finances() {
         </Card>
       </div>
 
-      {/* Monthly Budget Card */}
-      <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              Orçamento Mensal
-            </CardTitle>
-            <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Editar
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Definir Orçamento Mensal</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <Label>Valor do Orçamento (R$)</Label>
-                    <div className="mt-2 p-4 bg-muted rounded-lg">
-                      <p className="text-3xl font-bold text-center">
-                        R$ {budgetInput || "0.00"}
-                      </p>
+      {/* Meta Mensal */}
+      {(() => {
+        const goalPct = summary.monthlyBudget > 0
+          ? (summary.monthlyNetProfit / summary.monthlyBudget) * 100
+          : 0;
+        const remainingToGoal = Math.max(0, summary.monthlyBudget - summary.monthlyNetProfit);
+        const goalColor =
+          goalPct >= 100 ? "text-green-500" : goalPct >= 60 ? "text-primary" : "text-yellow-500";
+        return (
+          <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Meta Mensal
+                </CardTitle>
+                <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Editar
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Definir Meta Mensal</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div>
+                        <Label>Valor da meta (R$)</Label>
+                        <div className="mt-2 p-4 bg-muted rounded-lg">
+                          <p className="text-3xl font-bold text-center">
+                            R$ {budgetInput || "0.00"}
+                          </p>
+                        </div>
+                      </div>
+                      <NumericKeyboard
+                        onNumberClick={handleBudgetNumberClick}
+                        onDelete={handleBudgetDelete}
+                        onClear={handleBudgetClear}
+                      />
+                      <Button onClick={handleUpdateBudget} className="w-full">
+                        Salvar meta
+                      </Button>
                     </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Meta do mês</p>
+                    <p className="text-2xl font-bold whitespace-nowrap">
+                      {formatCurrency(summary.monthlyBudget)}
+                    </p>
                   </div>
-                  <NumericKeyboard
-                    onNumberClick={handleBudgetNumberClick}
-                    onDelete={handleBudgetDelete}
-                    onClear={handleBudgetClear}
-                  />
-                  <Button onClick={handleUpdateBudget} className="w-full">
-                    Salvar Orçamento
-                  </Button>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">
+                      {goalPct >= 100 ? "Meta batida 🎉" : "Faltam"}
+                    </p>
+                    <p className={`text-2xl font-bold whitespace-nowrap ${goalColor}`}>
+                      {goalPct >= 100 ? formatCurrency(summary.monthlyNetProfit) : formatCurrency(remainingToGoal)}
+                    </p>
+                  </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Orçamento Definido</p>
-                <p className="text-2xl font-bold whitespace-nowrap">
-                  {formatCurrency(summary.monthlyBudget)}
-                </p>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Progresso (líquido do mês)</span>
+                    <span className={`font-bold ${goalColor}`}>
+                      {goalPct.toFixed(0)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(goalPct, 100)}
+                    className="h-3"
+                  />
+                </div>
+                {summary.monthlyBudget === 0 && (
+                  <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                      Defina sua meta mensal pra acompanhar o quanto você já avançou.
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Restante</p>
-                <p className={`text-2xl font-bold whitespace-nowrap ${getBudgetColor()}`}>
-                  {formatCurrency(summary.budgetRemaining)}
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Uso do orçamento</span>
-                <span className={`font-bold ${getBudgetColor()}`}>
-                  {budgetPercentage.toFixed(0)}%
-                </span>
-              </div>
-              <Progress 
-                value={Math.min(budgetPercentage, 100)} 
-                className={`h-3 ${budgetPercentage >= 90 ? 'bg-red-500/20' : budgetPercentage >= 60 ? 'bg-yellow-500/20' : 'bg-green-500/20'}`}
-              />
-            </div>
-            {budgetPercentage >= 85 && (
-              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                  ⚠️ Atenção! Você está perto do limite do seu orçamento mensal.
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Alert if expenses exceed 50% of profit */}
-      {expensePercentage > 50 && (
-        <Card className="border-yellow-500/50 bg-yellow-500/10">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-              <div>
-                <p className="font-semibold text-yellow-500">⚠️ Cuidado, Visionário</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Seus gastos estão em {expensePercentage.toFixed(0)}% do seu lucro. 
-                  Considere reduzir despesas para aumentar seu saldo final.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Distribuição automática do líquido diário */}
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
