@@ -68,6 +68,14 @@ interface FinancialSummary {
   personalBalance: number;
   monthlyBudget: number;
   budgetRemaining: number;
+  // Hoje
+  grossToday: number;
+  costToday: number;
+  debtToday: number;
+  expensesToday: number;
+  netToday: number;
+  // Mês
+  monthlyNetProfit: number;
 }
 
 const EXPENSE_CATEGORIES = [
