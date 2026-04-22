@@ -181,7 +181,7 @@ export default function Finances() {
       
       const { data: salesData, error: salesError } = await supabase
         .from("daily_sales")
-        .select("total_profit, cost, reinvestment")
+        .select("date, total_profit, cost, reinvestment, cash_sales, pix_sales, card_sales, total_debt")
         .eq("user_id", user.id)
         .gte("date", `${currentMonth}-01`)
         .lte("date", `${currentMonth}-${String(lastDay).padStart(2, '0')}`);
@@ -206,13 +206,38 @@ export default function Finances() {
         return sum;
       }, 0) || 0;
 
+      // Hoje (UTC-3)
+      const { getBrazilDate } = await import("@/lib/dateUtils");
+      const today = getBrazilDate();
+      const todaySale = salesData?.find((s) => s.date === today);
+      const grossToday =
+        Number(todaySale?.cash_sales || 0) +
+        Number(todaySale?.pix_sales || 0) +
+        Number(todaySale?.card_sales || 0);
+      const costToday = Number(todaySale?.cost || 0);
+      const debtToday = Number(todaySale?.total_debt || 0);
+      const expensesToday = (expensesData || []).reduce(
+        (sum, e: any) => (e.date === today ? sum + (Number(e.amount) || 0) : sum),
+        0
+      );
+      const netToday = Math.max(0, grossToday - costToday - debtToday - expensesToday);
+
+      // Lucro líquido do mês (já desconta despesas pessoais do mês)
+      const monthlyNetProfit = Math.max(0, totalProfit - totalExpenses);
+
       setSummary({
         totalProfit,
         totalExpenses,
         totalReinvestment,
         personalBalance: totalProfit - totalExpenses - totalReinvestment,
         monthlyBudget,
-        budgetRemaining: monthlyBudget - totalExpenses
+        budgetRemaining: monthlyBudget - totalExpenses,
+        grossToday,
+        costToday: costToday + debtToday,
+        debtToday,
+        expensesToday,
+        netToday,
+        monthlyNetProfit,
       });
 
     } catch (error) {
