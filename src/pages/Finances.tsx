@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import NumericKeyboard from "@/components/NumericKeyboard";
 import AutoDistribution from "@/components/AutoDistribution";
+import FeatureErrorBoundary from "@/components/FeatureErrorBoundary";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from "recharts";
@@ -649,7 +650,9 @@ export default function Finances() {
       )}
 
       {/* Distribuição automática do líquido diário */}
-      <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
+      <FeatureErrorBoundary title="A distribuição automática deu uma travada">
+        <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
+      </FeatureErrorBoundary>
 
       <Tabs defaultValue="expenses" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
