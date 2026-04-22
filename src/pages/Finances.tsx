@@ -101,7 +101,13 @@ export default function Finances() {
     totalReinvestment: 0,
     personalBalance: 0,
     monthlyBudget: 0,
-    budgetRemaining: 0
+    budgetRemaining: 0,
+    grossToday: 0,
+    costToday: 0,
+    debtToday: 0,
+    expensesToday: 0,
+    netToday: 0,
+    monthlyNetProfit: 0,
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
