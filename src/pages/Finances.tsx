@@ -531,15 +531,15 @@ export default function Finances() {
         </p>
       </div>
 
-      {/* Financial Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-4">
+      {/* Resumo do dia */}
+      <div className="grid gap-4 md:grid-cols-3">
         <Card className="card-gradient-border">
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Lucro do Mês</p>
+                <p className="text-sm text-muted-foreground">Lucro do dia</p>
                 <p className="text-2xl font-bold text-green-500 whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalProfit)}
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
                 </p>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
@@ -551,26 +551,15 @@ export default function Finances() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Despesas</p>
+                <p className="text-sm text-muted-foreground">Custos do dia</p>
                 <p className="text-2xl font-bold text-red-500 whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalExpenses)}
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
+                </p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  mercadoria + calotes + despesas
                 </p>
               </div>
               <TrendingDown className="w-8 h-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="card-gradient-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Reinvestimento</p>
-                <p className="text-2xl font-bold text-blue-500 whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.totalReinvestment)}
-                </p>
-              </div>
-              <ShoppingCart className="w-8 h-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -579,9 +568,9 @@ export default function Finances() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">💎 Saldo Visionário</p>
+                <p className="text-sm text-muted-foreground">💎 Lucro líquido do dia</p>
                 <p className="text-2xl font-bold text-primary whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.personalBalance)}
+                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.netToday)}
                 </p>
               </div>
               <Wallet className="w-8 h-8 text-primary" />
