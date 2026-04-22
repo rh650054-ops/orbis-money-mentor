@@ -579,103 +579,97 @@ export default function Finances() {
         </Card>
       </div>
 
-      {/* Monthly Budget Card */}
-      <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              Orçamento Mensal
-            </CardTitle>
-            <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm">
-                  Editar
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Definir Orçamento Mensal</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <Label>Valor do Orçamento (R$)</Label>
-                    <div className="mt-2 p-4 bg-muted rounded-lg">
-                      <p className="text-3xl font-bold text-center">
-                        R$ {budgetInput || "0.00"}
-                      </p>
+      {/* Meta Mensal */}
+      {(() => {
+        const goalPct = summary.monthlyBudget > 0
+          ? (summary.monthlyNetProfit / summary.monthlyBudget) * 100
+          : 0;
+        const remainingToGoal = Math.max(0, summary.monthlyBudget - summary.monthlyNetProfit);
+        const goalColor =
+          goalPct >= 100 ? "text-green-500" : goalPct >= 60 ? "text-primary" : "text-yellow-500";
+        return (
+          <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Meta Mensal
+                </CardTitle>
+                <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      Editar
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Definir Meta Mensal</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 pt-4">
+                      <div>
+                        <Label>Valor da meta (R$)</Label>
+                        <div className="mt-2 p-4 bg-muted rounded-lg">
+                          <p className="text-3xl font-bold text-center">
+                            R$ {budgetInput || "0.00"}
+                          </p>
+                        </div>
+                      </div>
+                      <NumericKeyboard
+                        onNumberClick={handleBudgetNumberClick}
+                        onDelete={handleBudgetDelete}
+                        onClear={handleBudgetClear}
+                      />
+                      <Button onClick={handleUpdateBudget} className="w-full">
+                        Salvar meta
+                      </Button>
                     </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Meta do mês</p>
+                    <p className="text-2xl font-bold whitespace-nowrap">
+                      {formatCurrency(summary.monthlyBudget)}
+                    </p>
                   </div>
-                  <NumericKeyboard
-                    onNumberClick={handleBudgetNumberClick}
-                    onDelete={handleBudgetDelete}
-                    onClear={handleBudgetClear}
-                  />
-                  <Button onClick={handleUpdateBudget} className="w-full">
-                    Salvar Orçamento
-                  </Button>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">
+                      {goalPct >= 100 ? "Meta batida 🎉" : "Faltam"}
+                    </p>
+                    <p className={`text-2xl font-bold whitespace-nowrap ${goalColor}`}>
+                      {goalPct >= 100 ? formatCurrency(summary.monthlyNetProfit) : formatCurrency(remainingToGoal)}
+                    </p>
+                  </div>
                 </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Orçamento Definido</p>
-                <p className="text-2xl font-bold whitespace-nowrap">
-                  {formatCurrency(summary.monthlyBudget)}
-                </p>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Progresso (líquido do mês)</span>
+                    <span className={`font-bold ${goalColor}`}>
+                      {goalPct.toFixed(0)}%
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(goalPct, 100)}
+                    className="h-3"
+                  />
+                </div>
+                {summary.monthlyBudget === 0 && (
+                  <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                      Defina sua meta mensal pra acompanhar o quanto você já avançou.
+                    </p>
+                  </div>
+                )}
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Restante</p>
-                <p className={`text-2xl font-bold whitespace-nowrap ${getBudgetColor()}`}>
-                  {formatCurrency(summary.budgetRemaining)}
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Uso do orçamento</span>
-                <span className={`font-bold ${getBudgetColor()}`}>
-                  {budgetPercentage.toFixed(0)}%
-                </span>
-              </div>
-              <Progress 
-                value={Math.min(budgetPercentage, 100)} 
-                className={`h-3 ${budgetPercentage >= 90 ? 'bg-red-500/20' : budgetPercentage >= 60 ? 'bg-yellow-500/20' : 'bg-green-500/20'}`}
-              />
-            </div>
-            {budgetPercentage >= 85 && (
-              <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-yellow-600 dark:text-yellow-400">
-                  ⚠️ Atenção! Você está perto do limite do seu orçamento mensal.
-                </p>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Alert if expenses exceed 50% of profit */}
-      {expensePercentage > 50 && (
-        <Card className="border-yellow-500/50 bg-yellow-500/10">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5" />
-              <div>
-                <p className="font-semibold text-yellow-500">⚠️ Cuidado, Visionário</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Seus gastos estão em {expensePercentage.toFixed(0)}% do seu lucro. 
-                  Considere reduzir despesas para aumentar seu saldo final.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Distribuição automática do líquido diário */}
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
