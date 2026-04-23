@@ -15,6 +15,7 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
 import MorningCommitModal from "@/components/MorningCommitModal";
+import BackButton from "@/components/BackButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
