@@ -38,6 +38,7 @@ import {
   Calendar
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { getBrazilDate } from "@/lib/dateUtils";
 
 interface Expense {
   id: string;
@@ -207,7 +208,6 @@ export default function Finances() {
       }, 0) || 0;
 
       // Hoje (UTC-3)
-      const { getBrazilDate } = await import("@/lib/dateUtils");
       const today = getBrazilDate();
       const todaySale = salesData?.find((s) => s.date === today);
       const grossToday =
@@ -538,9 +538,9 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lucro do dia</p>
-                <p className="text-2xl font-bold text-green-500 whitespace-nowrap">
+                <div className="text-2xl font-bold text-green-500 whitespace-nowrap">
                   {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
-                </p>
+                </div>
               </div>
               <TrendingUp className="w-8 h-8 text-green-500" />
             </div>
@@ -552,9 +552,9 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Custos do dia</p>
-                <p className="text-2xl font-bold text-red-500 whitespace-nowrap">
+                <div className="text-2xl font-bold text-red-500 whitespace-nowrap">
                   {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
-                </p>
+                </div>
                 <p className="text-[10px] text-muted-foreground mt-1">
                   mercadoria + calotes + despesas
                 </p>
@@ -569,9 +569,9 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">💎 Lucro líquido do dia</p>
-                <p className="text-2xl font-bold text-primary whitespace-nowrap">
+                <div className="text-2xl font-bold text-primary whitespace-nowrap">
                   {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.netToday)}
-                </p>
+                </div>
               </div>
               <Wallet className="w-8 h-8 text-primary" />
             </div>
