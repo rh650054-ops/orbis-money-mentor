@@ -694,7 +694,7 @@ export default function Finances() {
                   Nova Despesa
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] max-w-md sm:max-w-lg p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>Adicionar Despesa</DialogTitle>
                 </DialogHeader>
