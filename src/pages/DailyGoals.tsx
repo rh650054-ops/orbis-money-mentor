@@ -509,22 +509,20 @@ export default function DailyGoals() {
       </Link>
 
       <div className="text-center space-y-2">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-blue-600 bg-clip-text text-transparent">
-          ⚡ Ritmo
-        </h1>
+        <h1 className="text-4xl font-bold gradient-text">⚡ Ritmo</h1>
         <p className="text-muted-foreground">Acompanhe seu progresso hora a hora</p>
       </div>
 
-      <Card className="overflow-hidden border-white/10 bg-gradient-to-br from-blue-500/10 to-purple-600/10 backdrop-blur-sm">
+      <Card className="card-gradient-border overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm">
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Meta do Dia</p>
-              <p className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-600 bg-clip-text text-transparent">
+              <p className="text-4xl font-bold gradient-text">
                 {formatCurrency(plan.daily_goal)}
               </p>
               {sessionStartTime && (
-                <p className="text-sm text-blue-400 font-semibold mt-2">
+                <p className="text-sm text-primary font-semibold mt-2">
                   ⏱️ Tempo decorrido: {formatElapsedTime(elapsedTime)}
                 </p>
               )}
@@ -544,8 +542,8 @@ export default function DailyGoals() {
                 className={cn(
                   "text-xl px-6 py-3 font-bold",
                   progressPercentage >= 100 
-                    ? "bg-gradient-to-r from-green-500 to-emerald-600" 
-                    : "bg-gradient-to-r from-blue-500 to-purple-600"
+                    ? "bg-gradient-to-r from-green-500 to-emerald-600 text-white"
+                    : "bg-primary text-primary-foreground"
                 )}
               >
                 {progressPercentage.toFixed(0)}%
@@ -568,7 +566,7 @@ export default function DailyGoals() {
             {dayStatus === 'not_started' && (
               <Button 
                 onClick={startDay} 
-                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg shadow-blue-500/50 hover:shadow-xl hover:shadow-blue-500/60 transition-all"
+                className="flex-1 h-14 text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 glow-primary transition-smooth"
                 size="lg"
               >
                 🚀 Iniciar Meu Dia
@@ -578,7 +576,7 @@ export default function DailyGoals() {
             {dayStatus === 'in_progress' && (
               <Button 
                 onClick={finishDay}
-                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 shadow-lg shadow-green-500/50 hover:shadow-xl hover:shadow-green-500/60 transition-all"
+                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white glow-success transition-smooth"
                 size="lg"
               >
                 <Flag className="w-5 h-5 mr-2" />
@@ -589,7 +587,7 @@ export default function DailyGoals() {
             {dayStatus === 'finished' && (
               <Button 
                 onClick={() => setShowReportModal(true)}
-                className="flex-1 h-14 text-lg font-semibold bg-gradient-to-r from-purple-500 to-blue-600"
+                className="flex-1 h-14 text-lg font-semibold bg-primary text-primary-foreground hover:bg-primary/90 glow-primary"
                 size="lg"
               >
                 📊 Ver Relatório
@@ -599,7 +597,7 @@ export default function DailyGoals() {
             <Button
               onClick={resetDay}
               variant="outline"
-              className="h-14 px-6 border-white/10 hover:bg-white/5"
+              className="h-14 px-6 border-border hover:bg-muted/50"
             >
               <RotateCcw className="w-4 h-4" />
             </Button>
