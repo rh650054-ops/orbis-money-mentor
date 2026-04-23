@@ -90,8 +90,14 @@ All colors MUST be HSL.
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  /* Gradient text */
+  /* Headings - clean white for fintech authority. Gold reserved for CTAs only. */
   .gradient-text {
+    color: hsl(var(--foreground));
+    letter-spacing: -0.02em;
+  }
+
+  /* Use this only when you really want the gold accent on a heading */
+  .gradient-text-gold {
     background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -129,7 +135,7 @@ All colors MUST be HSL.
     inset: 0;
     border-radius: var(--radius);
     padding: 1px;
-    background: var(--gradient-primary);
+    background: linear-gradient(135deg, hsl(0 0% 100% / 0.08), hsl(0 0% 100% / 0.02));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;
