@@ -185,6 +185,12 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+        {/* Back button - hidden on Dashboard (home) */}
+        {location.pathname !== "/" && (
+          <div className="mb-4 md:hidden">
+            <BackButton />
+          </div>
+        )}
         {/* Trial Warning Banner */}
         {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.isTrialActive && trialStatus.daysRemaining !== null && trialStatus.daysRemaining <= 3 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
