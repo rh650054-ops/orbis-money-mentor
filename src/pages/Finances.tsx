@@ -761,9 +761,14 @@ export default function Finances() {
                       placeholder="Detalhes adicionais..."
                     />
                   </div>
-                  <Button onClick={handleAddExpense} className="w-full">
-                    Adicionar Despesa
-                  </Button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setIsAddExpenseOpen(false)} className="w-full sm:flex-1">
+                      Voltar
+                    </Button>
+                    <Button onClick={handleAddExpense} className="w-full sm:flex-1">
+                      Adicionar Despesa
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
