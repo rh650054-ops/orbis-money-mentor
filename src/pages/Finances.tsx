@@ -694,7 +694,7 @@ export default function Finances() {
                   Nova Despesa
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] max-w-md sm:max-w-lg p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>Adicionar Despesa</DialogTitle>
                 </DialogHeader>
@@ -761,9 +761,14 @@ export default function Finances() {
                       placeholder="Detalhes adicionais..."
                     />
                   </div>
-                  <Button onClick={handleAddExpense} className="w-full">
-                    Adicionar Despesa
-                  </Button>
+                  <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+                    <Button variant="outline" onClick={() => setIsAddExpenseOpen(false)} className="w-full sm:flex-1">
+                      Voltar
+                    </Button>
+                    <Button onClick={handleAddExpense} className="w-full sm:flex-1">
+                      Adicionar Despesa
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
