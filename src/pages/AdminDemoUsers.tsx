@@ -297,7 +297,7 @@ export default function AdminDemoUsers() {
   }
 
   return (
-    <div className="space-y-6 pb-20 md:pb-8">
+    <div className="space-y-6 pb-4 md:pb-8">
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-primary" />
         <div>

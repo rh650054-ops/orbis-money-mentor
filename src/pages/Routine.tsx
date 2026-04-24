@@ -140,7 +140,7 @@ export default function Routine() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6 pb-24 space-y-6 animate-fade-in">
+    <div className="p-4 md:p-6 pb-4 md:pb-8 space-y-6 animate-fade-in">
       {/* Cinematic background */}
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-background via-background to-primary/5">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />

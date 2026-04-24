@@ -309,7 +309,7 @@ export default function Insights() {
   const maxHourAvg = bestHours[0]?.avg || 1;
 
   return (
-    <div className="space-y-6 pb-20 md:pb-8 text-foreground">
+    <div className="space-y-6 pb-4 md:pb-8 text-foreground">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Dados</h1>

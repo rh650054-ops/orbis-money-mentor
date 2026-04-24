@@ -199,7 +199,7 @@ export default function History() {
   const totals = calculateTotals();
 
   return (
-    <div className="min-h-screen p-4 md:p-6 space-y-6 animate-fade-in pb-20 md:pb-8">
+    <div className="p-4 md:p-6 space-y-6 animate-fade-in pb-4 md:pb-8">
       <div className="text-center space-y-2 mb-6">
         <h1 className="text-3xl md:text-4xl font-bold gradient-text">Histórico de Lançamentos</h1>
         <p className="text-muted-foreground">
