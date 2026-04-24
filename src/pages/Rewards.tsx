@@ -138,7 +138,7 @@ export default function Rewards() {
     : 100;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="bg-background pb-4 md:pb-8">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
         <div className="flex items-center justify-between px-5 py-4 max-w-2xl mx-auto">

@@ -343,7 +343,7 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-6 pb-20 md:pb-8 max-w-2xl mx-auto">
+    <div className="space-y-6 pb-4 md:pb-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
           <ArrowLeft className="w-5 h-5" />

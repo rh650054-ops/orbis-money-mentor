@@ -494,7 +494,7 @@ export default function DailyGoals() {
   const allBlocksCompleted = completedBlocksCount === blocks.length && blocks.length > 0;
 
   return (
-    <div className="space-y-6 pb-24 md:pb-8">
+    <div className="space-y-6 pb-4 md:pb-8">
       {/* DEFCON 4 Entry */}
       <Link
         to="/defcon"

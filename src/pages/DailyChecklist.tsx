@@ -316,7 +316,7 @@ export default function DailyChecklist() {
   const completedCount = checklist.filter(item => item.completed).length;
 
   return (
-    <div className="space-y-6 pb-20 md:pb-8">
+    <div className="space-y-6 pb-4 md:pb-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold gradient-text">Checklist Diário</h1>
