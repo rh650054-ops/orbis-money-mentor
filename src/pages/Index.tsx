@@ -383,7 +383,7 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="min-h-screen bg-background px-5 pt-0 pb-24 space-y-2 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+  return <div className="min-h-screen bg-background px-5 pt-0 pb-8 space-y-2 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
       {/* Saudação */}
       <div className="space-y-0.5">
         <p className="text-xl font-semibold tracking-tight text-foreground">
