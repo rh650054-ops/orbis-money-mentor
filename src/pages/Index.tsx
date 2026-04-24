@@ -19,6 +19,7 @@ import { getBrazilDate } from "@/lib/dateUtils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
+import RankingCard from "@/components/RankingCard";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 import {
   Collapsible,
@@ -612,6 +613,9 @@ export default function Index() {
           </button>
         );
       })()}
+
+      {/* 5.1 RANKING */}
+      {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
 
       {/* 6. GRÁFICO SEMANAL */}
       {weeklyData.length > 0 && (
