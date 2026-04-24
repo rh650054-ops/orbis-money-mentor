@@ -617,37 +617,7 @@ export default function Index() {
       {/* 5.1 RANKING */}
       {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
 
-      {/* 6. GRÁFICO SEMANAL */}
-      {weeklyData.length > 0 && (
-        <Card className="bg-card border border-border rounded-2xl">
-          <CardHeader className="pb-2 pt-5 px-5">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Últimos 7 dias</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[180px] px-2 pb-4">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={weeklyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                  }}
-                  formatter={value => [formatCurrency(Number(value)), 'Vendido']}
-                />
-                <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      )}
+      {/* 6. GRÁFICO SEMANAL — removido da dashboard */}
 
       {/* Anti-procrastination — mantido (não é gamificação visual extra) */}
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
