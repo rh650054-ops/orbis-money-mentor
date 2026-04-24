@@ -613,6 +613,9 @@ export default function Index() {
         );
       })()}
 
+      {/* 5.1 RANKING */}
+      {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
+
       {/* 6. GRÁFICO SEMANAL */}
       {weeklyData.length > 0 && (
         <Card className="bg-card border border-border rounded-2xl">
