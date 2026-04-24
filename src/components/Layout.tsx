@@ -184,10 +184,10 @@ export default function Layout({ children }: LayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 pb-24 md:pb-8">
+      <main className="container mx-auto px-4 pt-2 pb-24 md:pt-8 md:pb-8">
         {/* Back button - hidden on Dashboard (home) */}
         {location.pathname !== "/" && (
-          <div className="mb-4 md:hidden">
+          <div className="mb-2 md:hidden">
             <BackButton />
           </div>
         )}
