@@ -297,6 +297,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Floating Chat Button */}
       <FloatingChatButton />
+      <QuickExpenseButton />
 
 
       {/* Morning Commit Modal */}
