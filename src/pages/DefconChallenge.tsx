@@ -102,6 +102,7 @@ export default function DefconChallenge() {
           breakRemaining={defcon.breakRemaining}
           currentBlockIndex={defcon.currentBlockIndex}
           blockSold={defcon.currentBlock?.achieved_amount || 0}
+          onSkip={defcon.skipBreak}
         />
       );
 
@@ -110,6 +111,7 @@ export default function DefconChallenge() {
         <DefconLunchPause
           lunchPauseRemaining={defcon.lunchPauseRemaining}
           totalSold={defcon.totalSold}
+          onSkip={defcon.skipLunchPause}
         />
       );
 
