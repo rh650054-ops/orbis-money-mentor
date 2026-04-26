@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Wallet, X, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,10 +26,28 @@ interface DayExpense {
   category: string;
 }
 
-export default function QuickExpenseButton() {
+interface QuickExpenseButtonProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideFab?: boolean;
+  initialCategoryKey?: string;
+}
+
+export default function QuickExpenseButton({
+  open: controlledOpen,
+  onOpenChange,
+  hideFab = false,
+  initialCategoryKey,
+}: QuickExpenseButtonProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+  const setIsOpen = (o: boolean) => {
+    if (!isControlled) setInternalOpen(o);
+    onOpenChange?.(o);
+  };
   const [selected, setSelected] = useState<typeof QUICK_CATEGORIES[number] | null>(null);
   const [amount, setAmount] = useState("");
   const [customName, setCustomName] = useState("");
@@ -53,8 +71,14 @@ export default function QuickExpenseButton() {
   };
 
   useEffect(() => {
-    if (isOpen) fetchTodayExpenses();
-  }, [isOpen, user]);
+    if (isOpen) {
+      fetchTodayExpenses();
+      if (initialCategoryKey) {
+        const pre = QUICK_CATEGORIES.find((c) => c.key === initialCategoryKey);
+        if (pre) setSelected(pre);
+      }
+    }
+  }, [isOpen, user, initialCategoryKey]);
 
   const totalToday = todayExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
 
@@ -106,17 +130,23 @@ export default function QuickExpenseButton() {
   return (
     <>
       {/* Floating Button - posicionado acima do botão de chat */}
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-44 right-4 md:bottom-28 md:right-8 h-12 w-12 rounded-full shadow-lg bg-card border-2 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-all z-40"
-        size="icon"
-        aria-label="Registrar custo do dia"
-      >
-        <Wallet className="h-5 w-5" />
-      </Button>
+      {!hideFab && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-44 right-4 md:bottom-28 md:right-8 h-12 w-12 rounded-full shadow-lg bg-card border-2 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-all z-40"
+          size="icon"
+          aria-label="Registrar custo do dia"
+        >
+          <Wallet className="h-5 w-5" />
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) reset(); }}>
         <DialogContent className="max-w-md p-0 gap-0 bg-card border-border/60">
+          <DialogTitle className="sr-only">Custos de hoje</DialogTitle>
+          <DialogDescription className="sr-only">
+            Registre seus gastos do dia para contabilizar no relatório.
+          </DialogDescription>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
             <div>
