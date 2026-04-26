@@ -312,7 +312,7 @@ export default function Insights() {
     <div className="space-y-6 pb-4 md:pb-8 text-foreground">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Dados</h1>
+        <h1 className="text-3xl font-bold">Relatório</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Decisões claras a partir do seu desempenho
         </p>
