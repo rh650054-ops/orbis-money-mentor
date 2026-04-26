@@ -744,6 +744,8 @@ export function useDefconChallenge(userId: string | undefined) {
     endChallenge,
     savePaymentBreakdown,
     startLunchPause,
+    skipLunchPause,
+    skipBreak,
     dismissBlockReport,
   };
 }
