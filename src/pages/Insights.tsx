@@ -372,10 +372,10 @@ export default function Insights() {
               <div className="flex items-center gap-3 flex-wrap pt-1">
                 {(isSingleDay ? compareYesterday : comparePrev).valid && (
                   <div className={cn(
-                    "inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full",
+                    "inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border",
                     (isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : "bg-red-500/15 text-red-400"
+                      ? "bg-primary/20 text-primary border-primary/40"
+                      : "bg-foreground/10 text-foreground/70 border-foreground/20"
                   )}>
                     {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
                       ? <ArrowUpRight className="w-3 h-3" />
@@ -387,7 +387,7 @@ export default function Insights() {
                 )}
                 <span className="text-xs text-muted-foreground">
                   Lucro líquido:{" "}
-                  <span className={cn("font-semibold", summary.lucro >= 0 ? "text-emerald-400" : "text-red-400")}>
+                  <span className="font-bold text-primary">
                     {formatCurrency(summary.lucro)}
                   </span>
                 </span>
