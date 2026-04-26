@@ -40,9 +40,9 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold }: DefconLunch
         {/* Botão para registrar custo do almoço */}
         <button
           onClick={() => setExpenseOpen(true)}
-          className="mx-auto flex items-center gap-2 px-5 py-3 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-400 font-bold text-sm active:scale-95 transition-all hover:bg-amber-500/20"
+          className="mx-auto flex items-center gap-2 px-6 py-3.5 rounded-full bg-amber-500 text-black font-black text-sm tracking-wide shadow-lg shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-400"
         >
-          <Wallet className="w-4 h-4" />
+          <Wallet className="w-4 h-4" strokeWidth={3} />
           REGISTRAR CUSTO DO ALMOÇO
         </button>
 
