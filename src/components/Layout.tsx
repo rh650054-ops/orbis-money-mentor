@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
+import QuickExpenseButton from "@/components/QuickExpenseButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
@@ -296,6 +297,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Floating Chat Button */}
       <FloatingChatButton />
+      <QuickExpenseButton />
 
 
       {/* Morning Commit Modal */}

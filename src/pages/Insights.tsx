@@ -79,6 +79,7 @@ export default function Insights() {
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
+  const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
 
@@ -133,7 +134,7 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost")
@@ -159,10 +160,17 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("date", isoDate(prevStart))
           .lte("date", isoDate(prevEnd)),
+        supabase
+          .from("personal_expenses")
+          .select("category,amount,icon,name")
+          .eq("user_id", user.id)
+          .gte("date", startISO)
+          .lte("date", endISO),
       ]);
 
       setSales(salesRes.data || []);
       setBlocks(blocksRes.data || []);
+      setExpenses((expensesRes.data as any[]) || []);
       setYesterdayProfit(ydRes.data?.total_profit || 0);
       setPrevRangeProfit(
         (prevRes.data || []).reduce((s, d: any) => s + (d.total_profit || 0), 0),
@@ -175,7 +183,9 @@ export default function Insights() {
   const summary = useMemo(() => {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
     const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
-    const custos = sales.reduce((s, d) => s + (d.cost || 0), 0);
+    const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0);
+    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const custos = custoMercadoria + custosOperacionais;
     const lucro = faturamento - calotes - custos;
 
     const totalAbordagens = blocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
@@ -184,7 +194,6 @@ export default function Insights() {
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
-    // Gorjetas ainda não possuem campo dedicado no banco — exibido como 0 até criarmos o registro.
     const gorjetas = 0;
 
     return {
@@ -197,10 +206,27 @@ export default function Insights() {
       abordagensPorVenda,
       mediaDiaria,
       custos,
+      custoMercadoria,
+      custosOperacionais,
       calotes,
       gorjetas,
     };
-  }, [sales, blocks, rangeDays]);
+  }, [sales, blocks, expenses, rangeDays]);
+
+  const expensesByCategory = useMemo(() => {
+    const map = new Map<string, { total: number; icon: string; count: number }>();
+    for (const e of expenses) {
+      const key = e.category || "Outros";
+      const cur = map.get(key) || { total: 0, icon: e.icon || "💰", count: 0 };
+      cur.total += Number(e.amount || 0);
+      cur.count += 1;
+      if (e.icon && !map.has(key)) cur.icon = e.icon;
+      map.set(key, cur);
+    }
+    return Array.from(map.entries())
+      .map(([cat, v]) => ({ category: cat, total: v.total, icon: v.icon, count: v.count }))
+      .sort((a, b) => b.total - a.total);
+  }, [expenses]);
 
   const chartData = useMemo(() => {
     const map = new Map(sales.map((d) => [d.date, d.total_profit || 0]));
@@ -416,16 +442,50 @@ export default function Insights() {
             />
           </section>
 
-          {/* Detalhamento financeiro - cards com ícones e valores destacados */}
+          {/* Detalhamento financeiro */}
           <SectionTitle>Detalhamento financeiro</SectionTitle>
           <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
-            <FinanceRow label="Custos totais" value={`- ${formatCurrency(summary.custos)}`} tone="muted" />
+            <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
+            <FinanceRow label="Custos operacionais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
             <FinanceRow label="Kits não pagos" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
-            <FinanceRow label="Gorjetas" value={`+ ${formatCurrency(summary.gorjetas)}`} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
           </div>
+
+          {/* Breakdown de custos operacionais por categoria */}
+          {expensesByCategory.length > 0 && (
+            <>
+              <SectionTitle>Custos operacionais por categoria</SectionTitle>
+              <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-2.5">
+                {expensesByCategory.map((c) => {
+                  const pct = summary.custosOperacionais > 0
+                    ? (c.total / summary.custosOperacionais) * 100
+                    : 0;
+                  return (
+                    <div key={c.category} className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-base">{c.icon}</span>
+                        <span className="flex-1 text-foreground/90 font-medium">{c.category}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {c.count} {c.count === 1 ? "item" : "itens"}
+                        </span>
+                        <span className="font-bold text-primary w-24 text-right">
+                          {formatCurrency(c.total)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden ml-7">
+                        <div
+                          className="h-full bg-primary/70 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {/* Análise narrativa */}
           <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4">
