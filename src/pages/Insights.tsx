@@ -66,7 +66,7 @@ function fmtBR(d: Date): string {
 export default function Insights() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { currentUserStats, hasParticipated } = useLeaderboard(user?.id);
+  
 
   const [period, setPeriod] = useState<Period>("7d");
   const [customStart, setCustomStart] = useState<Date | undefined>(() => {
