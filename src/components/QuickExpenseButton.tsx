@@ -71,8 +71,14 @@ export default function QuickExpenseButton({
   };
 
   useEffect(() => {
-    if (isOpen) fetchTodayExpenses();
-  }, [isOpen, user]);
+    if (isOpen) {
+      fetchTodayExpenses();
+      if (initialCategoryKey) {
+        const pre = QUICK_CATEGORIES.find((c) => c.key === initialCategoryKey);
+        if (pre) setSelected(pre);
+      }
+    }
+  }, [isOpen, user, initialCategoryKey]);
 
   const totalToday = todayExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
 
