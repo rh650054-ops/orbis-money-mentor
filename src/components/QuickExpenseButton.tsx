@@ -26,10 +26,28 @@ interface DayExpense {
   category: string;
 }
 
-export default function QuickExpenseButton() {
+interface QuickExpenseButtonProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideFab?: boolean;
+  initialCategoryKey?: string;
+}
+
+export default function QuickExpenseButton({
+  open: controlledOpen,
+  onOpenChange,
+  hideFab = false,
+  initialCategoryKey,
+}: QuickExpenseButtonProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+  const setIsOpen = (o: boolean) => {
+    if (!isControlled) setInternalOpen(o);
+    onOpenChange?.(o);
+  };
   const [selected, setSelected] = useState<typeof QUICK_CATEGORIES[number] | null>(null);
   const [amount, setAmount] = useState("");
   const [customName, setCustomName] = useState("");
