@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
-  Trophy,
   ChevronRight,
   Loader2,
   ArrowUpRight,
