@@ -183,7 +183,9 @@ export default function Insights() {
   const summary = useMemo(() => {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
     const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
-    const custos = sales.reduce((s, d) => s + (d.cost || 0), 0);
+    const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0);
+    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const custos = custoMercadoria + custosOperacionais;
     const lucro = faturamento - calotes - custos;
 
     const totalAbordagens = blocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
@@ -192,7 +194,6 @@ export default function Insights() {
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
-    // Gorjetas ainda não possuem campo dedicado no banco — exibido como 0 até criarmos o registro.
     const gorjetas = 0;
 
     return {
@@ -205,10 +206,27 @@ export default function Insights() {
       abordagensPorVenda,
       mediaDiaria,
       custos,
+      custoMercadoria,
+      custosOperacionais,
       calotes,
       gorjetas,
     };
-  }, [sales, blocks, rangeDays]);
+  }, [sales, blocks, expenses, rangeDays]);
+
+  const expensesByCategory = useMemo(() => {
+    const map = new Map<string, { total: number; icon: string; count: number }>();
+    for (const e of expenses) {
+      const key = e.category || "Outros";
+      const cur = map.get(key) || { total: 0, icon: e.icon || "💰", count: 0 };
+      cur.total += Number(e.amount || 0);
+      cur.count += 1;
+      if (e.icon && !map.has(key)) cur.icon = e.icon;
+      map.set(key, cur);
+    }
+    return Array.from(map.entries())
+      .map(([cat, v]) => ({ category: cat, total: v.total, icon: v.icon, count: v.count }))
+      .sort((a, b) => b.total - a.total);
+  }, [expenses]);
 
   const chartData = useMemo(() => {
     const map = new Map(sales.map((d) => [d.date, d.total_profit || 0]));
