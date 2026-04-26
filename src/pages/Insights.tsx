@@ -731,15 +731,38 @@ function MetricCell({
   label,
   value,
   valueClassName = "",
+  accent,
 }: {
   label: string;
   value: string;
   valueClassName?: string;
+  accent?: "gold" | "green" | "blue" | "purple" | "red";
 }) {
+  const accentMap: Record<string, string> = {
+    gold: "border-primary/30 bg-gradient-to-br from-primary/10 to-transparent",
+    green: "border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 to-transparent",
+    blue: "border-sky-500/25 bg-gradient-to-br from-sky-500/10 to-transparent",
+    purple: "border-purple-500/25 bg-gradient-to-br from-purple-500/10 to-transparent",
+    red: "border-red-500/25 bg-gradient-to-br from-red-500/10 to-transparent",
+  };
+  const accentValueColor: Record<string, string> = {
+    gold: "text-primary",
+    green: "text-emerald-400",
+    blue: "text-sky-400",
+    purple: "text-purple-400",
+    red: "text-red-400",
+  };
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={cn("mt-1.5 text-xl font-semibold", valueClassName)}>{value}</p>
+    <div className={cn(
+      "rounded-2xl border p-4 transition-colors",
+      accent ? accentMap[accent] : "border-border/40 bg-card/50"
+    )}>
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+      <p className={cn(
+        "mt-1.5 text-xl font-bold tracking-tight",
+        accent && !valueClassName && accentValueColor[accent],
+        valueClassName
+      )}>{value}</p>
     </div>
   );
 }
