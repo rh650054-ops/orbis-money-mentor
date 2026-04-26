@@ -130,17 +130,23 @@ export default function QuickExpenseButton({
   return (
     <>
       {/* Floating Button - posicionado acima do botão de chat */}
-      <Button
-        onClick={() => setIsOpen(true)}
-        className="fixed bottom-44 right-4 md:bottom-28 md:right-8 h-12 w-12 rounded-full shadow-lg bg-card border-2 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-all z-40"
-        size="icon"
-        aria-label="Registrar custo do dia"
-      >
-        <Wallet className="h-5 w-5" />
-      </Button>
+      {!hideFab && (
+        <Button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-44 right-4 md:bottom-28 md:right-8 h-12 w-12 rounded-full shadow-lg bg-card border-2 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-all z-40"
+          size="icon"
+          aria-label="Registrar custo do dia"
+        >
+          <Wallet className="h-5 w-5" />
+        </Button>
+      )}
 
       <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) reset(); }}>
         <DialogContent className="max-w-md p-0 gap-0 bg-card border-border/60">
+          <DialogTitle className="sr-only">Custos de hoje</DialogTitle>
+          <DialogDescription className="sr-only">
+            Registre seus gastos do dia para contabilizar no relatório.
+          </DialogDescription>
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-border/60">
             <div>
