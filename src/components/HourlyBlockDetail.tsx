@@ -373,7 +373,7 @@ export function HourlyBlockDetail({
     <Card
       className={cn(
         "overflow-hidden border-2 transition-all duration-300 rounded-2xl",
-        isCurrentBlock && localBlock.timer_status === 'running' && "ring-2 ring-blue-500 shadow-xl shadow-blue-500/30 scale-[1.01]",
+        isCurrentBlock && localBlock.timer_status === 'running' && "ring-2 ring-amber-500 shadow-xl shadow-amber-500/30 scale-[1.01]",
         isCompleted && total >= block.target_amount && "bloco-verde",
         isCompleted && total < block.target_amount && "bloco-vermelho",
         isLocked && "opacity-50 border-white/5 bg-black/20",
@@ -388,7 +388,7 @@ export function HourlyBlockDetail({
               "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all shadow-lg relative",
               isCompleted && total >= block.target_amount && "bloco-verde-numero",
               isCompleted && total < block.target_amount && "bloco-vermelho-numero",
-              isCurrentBlock && localBlock.timer_status === 'running' && "bg-gradient-to-br from-blue-500 to-purple-600 text-white animate-pulse",
+              isCurrentBlock && localBlock.timer_status === 'running' && "bg-gradient-to-br from-amber-400 to-amber-600 text-black animate-pulse",
               isLocked && "bg-white/5 text-muted-foreground",
               !isCompleted && !isCurrentBlock && !isLocked && "bg-white/5 text-foreground"
             )}>
@@ -447,7 +447,7 @@ export function HourlyBlockDetail({
                       strokeDashoffset={`${2 * Math.PI * 28 * (1 - Math.max(0, timeRemaining) / 3600)}`}
                       className={cn(
                         "transition-all duration-1000",
-                        localBlock.timer_status === 'running' ? "text-blue-500" : "text-muted-foreground"
+                        localBlock.timer_status === 'running' ? "text-amber-500" : "text-muted-foreground"
                       )}
                       strokeLinecap="round"
                     />
@@ -455,7 +455,7 @@ export function HourlyBlockDetail({
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className={cn(
                       "text-xs font-mono font-bold",
-                      timeRemaining <= 0 ? "text-red-500" : localBlock.timer_status === 'running' ? "text-blue-400" : "text-muted-foreground"
+                      timeRemaining <= 0 ? "text-red-500" : localBlock.timer_status === 'running' ? "text-amber-400" : "text-muted-foreground"
                     )}>
                       {formatTime(timeRemaining)}
                     </span>
@@ -514,7 +514,7 @@ export function HourlyBlockDetail({
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <Banknote className="w-3 h-3 text-green-500" />
+                  <Banknote className="w-3 h-3 text-amber-500" />
                   Dinheiro
                 </Label>
                 <Input
@@ -525,14 +525,14 @@ export function HourlyBlockDetail({
                   value={dinheiro}
                   onChange={(e) => setDinheiro(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setDinheiro("")}
-                  className="h-9 text-sm border-green-500/30 focus:border-green-500"
+                  className="h-9 text-sm border-amber-500/30 focus:border-amber-500"
                   placeholder="0,00"
                 />
               </div>
               
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <CreditCard className="w-3 h-3 text-blue-500" />
+                  <CreditCard className="w-3 h-3 text-amber-500" />
                   Cartão
                 </Label>
                 <Input
@@ -543,14 +543,14 @@ export function HourlyBlockDetail({
                   value={cartao}
                   onChange={(e) => setCartao(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setCartao("")}
-                  className="h-9 text-sm border-blue-500/30 focus:border-blue-500"
+                  className="h-9 text-sm border-amber-500/30 focus:border-amber-500"
                   placeholder="0,00"
                 />
               </div>
               
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <Smartphone className="w-3 h-3 text-purple-500" />
+                  <Smartphone className="w-3 h-3 text-amber-500" />
                   Pix
                 </Label>
                 <Input
@@ -561,7 +561,7 @@ export function HourlyBlockDetail({
                   value={pix}
                   onChange={(e) => setPix(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setPix("")}
-                  className="h-9 text-sm border-purple-500/30 focus:border-purple-500"
+                  className="h-9 text-sm border-amber-500/30 focus:border-amber-500"
                   placeholder="0,00"
                 />
               </div>
@@ -587,23 +587,23 @@ export function HourlyBlockDetail({
 
             {/* Calculated Fields: Bruto (Total da Hora) and Líquido */}
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
-              <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20">
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <Calculator className="w-4 h-4 text-blue-400" />
+                  <Calculator className="w-4 h-4 text-amber-400" />
                   <span className="text-xs text-muted-foreground">Bruto (Vendido)</span>
                 </div>
-                <p className="text-lg font-bold text-blue-400">
+                <p className="text-lg font-bold text-amber-400">
                   {formatCurrency(total)}
                 </p>
               </div>
-              <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20">
+              <div className="p-3 rounded-xl bg-white/5 border border-white/15">
                 <div className="flex items-center gap-2 mb-1">
-                  <TrendingUp className="w-4 h-4 text-green-400" />
+                  <TrendingUp className="w-4 h-4 text-white" />
                   <span className="text-xs text-muted-foreground">Líquido (Recebido)</span>
                 </div>
                 <p className={cn(
                   "text-lg font-bold",
-                  saldoLiquido >= 0 ? "text-green-400" : "text-red-400"
+                  saldoLiquido >= 0 ? "text-white" : "text-red-400"
                 )}>
                   {formatCurrency(saldoLiquido)}
                 </p>
@@ -616,7 +616,7 @@ export function HourlyBlockDetail({
                 <Button 
                   onClick={handleSaveEdit}
                   disabled={isSaving}
-                  className="flex-1 h-11 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                  className="flex-1 h-11 bg-amber-500 hover:bg-amber-400 text-black font-bold"
                 >
                   {isSaving ? "Salvando..." : "💾 Salvar Alterações"}
                 </Button>
@@ -635,7 +635,7 @@ export function HourlyBlockDetail({
               <Button 
                 onClick={() => handleCompleteHour(false)}
                 disabled={isSaving}
-                className="w-full h-11 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+                className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-black font-bold"
               >
                 {isSaving ? "Concluindo..." : "✅ Concluir Hora"}
               </Button>
@@ -667,15 +667,15 @@ export function HourlyBlockDetail({
             </div>
             {/* Bruto and Líquido */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20 text-center">
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
                 <p className="text-xs text-muted-foreground">Bruto (Vendido)</p>
-                <p className="text-sm font-bold text-blue-400">{formatCurrency((block.achieved_amount || 0) + (block.valor_calote || 0))}</p>
+                <p className="text-sm font-bold text-amber-400">{formatCurrency((block.achieved_amount || 0) + (block.valor_calote || 0))}</p>
               </div>
-              <div className="p-2 rounded-lg bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 text-center">
+              <div className="p-2 rounded-lg bg-white/5 border border-white/15 text-center">
                 <p className="text-xs text-muted-foreground">Líquido (Recebido)</p>
                 <p className={cn(
                   "text-sm font-bold",
-                  (block.achieved_amount || 0) >= 0 ? "text-green-400" : "text-red-400"
+                  (block.achieved_amount || 0) >= 0 ? "text-white" : "text-red-400"
                 )}>
                   {formatCurrency(block.achieved_amount || 0)}
                 </p>
