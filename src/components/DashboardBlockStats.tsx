@@ -70,28 +70,28 @@ export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
 
           <div className="grid grid-cols-4 gap-2">
             {/* Dinheiro */}
-            <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20 text-center">
-              <Banknote className="w-4 h-4 text-green-500 mx-auto mb-1" />
+            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+              <Banknote className="w-4 h-4 text-amber-500 mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Dinheiro</p>
-              <p className="text-sm font-bold text-green-500">
+              <p className="text-sm font-bold text-amber-500">
                 {formatCurrency(stats.totalDinheiro)}
               </p>
             </div>
 
             {/* Cartão */}
-            <div className="p-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-center">
-              <CreditCard className="w-4 h-4 text-blue-500 mx-auto mb-1" />
+            <div className="p-2 rounded-lg bg-white/5 border border-white/15 text-center">
+              <CreditCard className="w-4 h-4 text-white mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Cartão</p>
-              <p className="text-sm font-bold text-blue-500">
+              <p className="text-sm font-bold text-white">
                 {formatCurrency(stats.totalCartao)}
               </p>
             </div>
 
             {/* Pix */}
-            <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center">
-              <Smartphone className="w-4 h-4 text-purple-500 mx-auto mb-1" />
+            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+              <Smartphone className="w-4 h-4 text-amber-400 mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Pix</p>
-              <p className="text-sm font-bold text-purple-500">
+              <p className="text-sm font-bold text-amber-400">
                 {formatCurrency(stats.totalPix)}
               </p>
             </div>
