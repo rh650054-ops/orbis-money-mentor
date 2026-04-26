@@ -79,6 +79,7 @@ export default function Insights() {
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
+  const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
 
