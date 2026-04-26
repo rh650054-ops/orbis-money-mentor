@@ -33,7 +33,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
   { name: "Ritmo", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
   { name: "Vender", href: "/bank-connections", icon: DollarSign, tourId: "nav-banco", isCenter: true },
-  { name: "Dados", href: "/insights", icon: BarChart3, tourId: "nav-dados" },
+  { name: "Relatório", href: "/insights", icon: BarChart3, tourId: "nav-dados" },
   { name: "Perfil", href: "/profile", icon: UserCircle, tourId: "nav-perfil" },
 ];
 
