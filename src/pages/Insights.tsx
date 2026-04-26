@@ -309,10 +309,10 @@ export default function Insights() {
   const maxHourAvg = bestHours[0]?.avg || 1;
 
   return (
-    <div className="space-y-6 pb-4 md:pb-8 text-foreground">
+    <div className="space-y-5 pb-4 md:pb-8 text-foreground">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Relatório</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Relatório</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Decisões claras a partir do seu desempenho
         </p>
@@ -326,10 +326,10 @@ export default function Insights() {
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                "px-3 py-1.5 text-xs rounded-full border transition-colors",
+                "px-3.5 py-1.5 text-xs font-medium rounded-full border transition-all",
                 period === p
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card/40 border-border/60 text-muted-foreground hover:text-foreground",
+                  ? "bg-primary text-primary-foreground border-primary shadow-[0_4px_14px_-2px_hsl(var(--primary)/0.5)]"
+                  : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
               )}
             >
               {PERIOD_LABELS[p]}
@@ -359,36 +359,72 @@ export default function Insights() {
         </div>
       ) : (
         <>
-          {/* 1. Resumo */}
+          {/* HERO - destaque principal */}
+          <section className="relative overflow-hidden rounded-3xl border border-primary/30 p-5 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent">
+            <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="relative space-y-1">
+              <p className="text-[11px] uppercase tracking-wider text-primary font-bold">
+                Faturamento do período
+              </p>
+              <p className="text-4xl font-bold tracking-tight text-foreground">
+                {formatCurrency(summary.faturamento)}
+              </p>
+              <div className="flex items-center gap-3 flex-wrap pt-1">
+                {(isSingleDay ? compareYesterday : comparePrev).valid && (
+                  <div className={cn(
+                    "inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full",
+                    (isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
+                      ? "bg-emerald-500/15 text-emerald-400"
+                      : "bg-red-500/15 text-red-400"
+                  )}>
+                    {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
+                      ? <ArrowUpRight className="w-3 h-3" />
+                      : <ArrowDownRight className="w-3 h-3" />}
+                    {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0 ? "+" : ""}
+                    {(isSingleDay ? compareYesterday.pct : comparePrev.pct).toFixed(0)}%{" "}
+                    {isSingleDay ? "vs ontem" : "vs anterior"}
+                  </div>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  Lucro líquido:{" "}
+                  <span className={cn("font-semibold", summary.lucro >= 0 ? "text-emerald-400" : "text-red-400")}>
+                    {formatCurrency(summary.lucro)}
+                  </span>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Resumo principal */}
           <section className="grid grid-cols-2 gap-3">
-            <MetricCell label="Faturamento" value={formatCurrency(summary.faturamento)} />
             <MetricCell
-              label="Lucro líquido"
-              value={formatCurrency(summary.lucro)}
-              valueClassName={summary.lucro >= 0 ? "text-emerald-400" : "text-red-400"}
+              label="Ticket médio"
+              value={formatCurrency(summary.ticketMedio)}
+              accent="blue"
             />
-            <MetricCell label="Ticket médio" value={formatCurrency(summary.ticketMedio)} />
             <MetricCell
               label="Conversão"
               value={`${summary.conversao.toFixed(1)}%`}
-              valueClassName="text-primary"
+              accent="gold"
+            />
+            <MetricCell
+              label="Abordagens"
+              value={summary.totalAbordagens.toString()}
+              accent="purple"
+            />
+            <MetricCell
+              label="Vendas"
+              value={summary.totalVendas.toString()}
+              accent="green"
             />
           </section>
 
-          {/* Totais do período */}
-          <SectionTitle>Totais do período</SectionTitle>
+          {/* Totais detalhados */}
+          <SectionTitle>Detalhamento financeiro</SectionTitle>
           <section className="grid grid-cols-2 gap-3">
+            <MetricCell label="Custos totais" value={formatCurrency(summary.custos)} />
             <MetricCell
-              label="Custos totais"
-              value={formatCurrency(summary.custos)}
-            />
-            <MetricCell
-              label="Abordagens totais"
-              value={summary.totalAbordagens.toString()}
-              valueClassName="text-primary"
-            />
-            <MetricCell
-              label="Gorjetas totais"
+              label="Gorjetas"
               value={formatCurrency(summary.gorjetas)}
               valueClassName="text-emerald-400"
             />
@@ -397,14 +433,18 @@ export default function Insights() {
               value={formatCurrency(summary.calotes)}
               valueClassName="text-red-400"
             />
+            <MetricCell
+              label="Média diária"
+              value={formatCurrency(summary.mediaDiaria)}
+            />
           </section>
 
           {/* Period analysis block */}
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/8 to-transparent p-4 space-y-2">
             <p className="text-[11px] uppercase tracking-wider text-primary font-semibold">
               Análise do período
             </p>
-            <p className="text-sm text-foreground/90">
+            <p className="text-sm text-foreground/90 leading-relaxed">
               Entre <span className="font-semibold">{fmtBR(range.start)}</span> e{" "}
               <span className="font-semibold">{fmtBR(range.end)}</span>:{" "}
               {isSingleDay ? (
@@ -413,20 +453,6 @@ export default function Insights() {
                   <span className="text-emerald-400 font-semibold">
                     {formatCurrency(summary.faturamento)}
                   </span>
-                  {compareYesterday.valid && (
-                    <>
-                      {" "}
-                      ·{" "}
-                      <span
-                        className={
-                          compareYesterday.pct >= 0 ? "text-emerald-400" : "text-red-400"
-                        }
-                      >
-                        {compareYesterday.pct >= 0 ? "+" : ""}
-                        {compareYesterday.pct.toFixed(0)}% vs ontem
-                      </span>
-                    </>
-                  )}
                   .
                 </>
               ) : (
@@ -434,10 +460,6 @@ export default function Insights() {
                   total de{" "}
                   <span className="text-emerald-400 font-semibold">
                     {formatCurrency(summary.faturamento)}
-                  </span>
-                  , média diária{" "}
-                  <span className="font-semibold">
-                    {formatCurrency(summary.mediaDiaria)}
                   </span>
                   , conversão{" "}
                   <span className="text-primary font-semibold">
