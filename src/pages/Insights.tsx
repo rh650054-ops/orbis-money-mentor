@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useLeaderboard } from "@/hooks/useLeaderboard";
+
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
