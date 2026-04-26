@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
-  Trophy,
   ChevronRight,
   Loader2,
   ArrowUpRight,
@@ -14,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useLeaderboard } from "@/hooks/useLeaderboard";
+
 import { formatCurrency, cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -67,7 +66,7 @@ function fmtBR(d: Date): string {
 export default function Insights() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { currentUserStats, hasParticipated } = useLeaderboard(user?.id);
+  
 
   const [period, setPeriod] = useState<Period>("7d");
   const [customStart, setCustomStart] = useState<Date | undefined>(() => {
@@ -372,10 +371,10 @@ export default function Insights() {
               <div className="flex items-center gap-3 flex-wrap pt-1">
                 {(isSingleDay ? compareYesterday : comparePrev).valid && (
                   <div className={cn(
-                    "inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full",
+                    "inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border",
                     (isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
-                      ? "bg-emerald-500/15 text-emerald-400"
-                      : "bg-red-500/15 text-red-400"
+                      ? "bg-primary/20 text-primary border-primary/40"
+                      : "bg-foreground/10 text-foreground/70 border-foreground/20"
                   )}>
                     {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
                       ? <ArrowUpRight className="w-3 h-3" />
@@ -387,7 +386,7 @@ export default function Insights() {
                 )}
                 <span className="text-xs text-muted-foreground">
                   Lucro líquido:{" "}
-                  <span className={cn("font-semibold", summary.lucro >= 0 ? "text-emerald-400" : "text-red-400")}>
+                  <span className="font-bold text-primary">
                     {formatCurrency(summary.lucro)}
                   </span>
                 </span>
@@ -395,12 +394,11 @@ export default function Insights() {
             </div>
           </section>
 
-          {/* Resumo principal */}
+          {/* KPIs principais - paleta dourada/branca */}
           <section className="grid grid-cols-2 gap-3">
             <MetricCell
               label="Ticket médio"
               value={formatCurrency(summary.ticketMedio)}
-              accent="blue"
             />
             <MetricCell
               label="Conversão"
@@ -410,38 +408,28 @@ export default function Insights() {
             <MetricCell
               label="Abordagens"
               value={summary.totalAbordagens.toString()}
-              accent="purple"
             />
             <MetricCell
               label="Vendas"
               value={summary.totalVendas.toString()}
-              accent="green"
+              accent="gold"
             />
           </section>
 
-          {/* Totais detalhados */}
+          {/* Detalhamento financeiro - cards com ícones e valores destacados */}
           <SectionTitle>Detalhamento financeiro</SectionTitle>
-          <section className="grid grid-cols-2 gap-3">
-            <MetricCell label="Custos totais" value={formatCurrency(summary.custos)} />
-            <MetricCell
-              label="Gorjetas"
-              value={formatCurrency(summary.gorjetas)}
-              valueClassName="text-emerald-400"
-            />
-            <MetricCell
-              label="Kits não pagos"
-              value={formatCurrency(summary.calotes)}
-              valueClassName="text-red-400"
-            />
-            <MetricCell
-              label="Média diária"
-              value={formatCurrency(summary.mediaDiaria)}
-            />
-          </section>
+          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
+            <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
+            <FinanceRow label="Custos totais" value={`- ${formatCurrency(summary.custos)}`} tone="muted" />
+            <FinanceRow label="Kits não pagos" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
+            <FinanceRow label="Gorjetas" value={`+ ${formatCurrency(summary.gorjetas)}`} tone="muted" />
+            <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
+            <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
+          </div>
 
-          {/* Period analysis block */}
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/8 to-transparent p-4 space-y-2">
-            <p className="text-[11px] uppercase tracking-wider text-primary font-semibold">
+          {/* Análise narrativa */}
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4">
+            <p className="text-[11px] uppercase tracking-wider text-primary font-bold mb-2">
               Análise do período
             </p>
             <p className="text-sm text-foreground/90 leading-relaxed">
@@ -450,34 +438,25 @@ export default function Insights() {
               {isSingleDay ? (
                 <>
                   faturamento de{" "}
-                  <span className="text-emerald-400 font-semibold">
+                  <span className="text-primary font-semibold">
                     {formatCurrency(summary.faturamento)}
-                  </span>
-                  .
+                  </span>.
                 </>
               ) : (
                 <>
                   total de{" "}
-                  <span className="text-emerald-400 font-semibold">
+                  <span className="text-primary font-semibold">
                     {formatCurrency(summary.faturamento)}
-                  </span>
-                  , conversão{" "}
+                  </span>, conversão{" "}
                   <span className="text-primary font-semibold">
                     {summary.conversao.toFixed(1)}%
-                  </span>
-                  .
+                  </span>.
                   {bestWorstDay && (
                     <>
-                      {" "}
-                      Melhor dia:{" "}
-                      <span className="text-emerald-400 font-semibold">
-                        {bestWorstDay.best.label}
-                      </span>{" "}
-                      · Pior:{" "}
-                      <span className="text-red-400 font-semibold">
-                        {bestWorstDay.worst.label}
-                      </span>
-                      .
+                      {" "}Melhor dia:{" "}
+                      <span className="text-primary font-semibold">{bestWorstDay.best.label}</span>
+                      {" "}· Pior:{" "}
+                      <span className="text-foreground/60 font-semibold">{bestWorstDay.worst.label}</span>.
                     </>
                   )}
                 </>
@@ -485,19 +464,19 @@ export default function Insights() {
             </p>
           </div>
 
-          {/* 2. Gráfico */}
+          {/* Gráfico de faturamento */}
           <SectionTitle>Faturamento</SectionTitle>
-          <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
-            <div className="h-44">
+          <div className="rounded-2xl border border-border/60 bg-card p-4">
+            <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.45} />
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
                       <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.15} vertical={false} />
+                  <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.2} vertical={false} />
                   <XAxis
                     dataKey="label"
                     stroke="hsl(var(--muted-foreground))"
@@ -515,10 +494,11 @@ export default function Insights() {
                   />
                   <Tooltip
                     contentStyle={{
-                      background: "hsl(var(--background))",
-                      border: "1px solid hsl(var(--border))",
+                      background: "hsl(var(--card))",
+                      border: "1px solid hsl(var(--primary) / 0.4)",
                       borderRadius: 12,
                       fontSize: 12,
+                      color: "hsl(var(--foreground))",
                     }}
                     formatter={(v: number) => [formatCurrency(v), "Faturamento"]}
                   />
@@ -526,7 +506,7 @@ export default function Insights() {
                     type="monotone"
                     dataKey="valor"
                     stroke="hsl(var(--primary))"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
                     fill="url(#goldFill)"
                   />
                 </AreaChart>
@@ -534,19 +514,19 @@ export default function Insights() {
             </div>
           </div>
 
-          {/* 3. Performance */}
+          {/* Performance */}
           <SectionTitle>Performance</SectionTitle>
-          <div className="rounded-2xl border border-border/40 bg-card/30 p-4 space-y-3">
+          <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-4">
             <div className="grid grid-cols-3 gap-3">
               <MiniStat label="Abordagens" value={summary.totalAbordagens.toString()} />
-              <MiniStat label="Vendas" value={summary.totalVendas.toString()} />
-              <MiniStat label="Conversão" value={`${summary.conversao.toFixed(0)}%`} />
+              <MiniStat label="Vendas" value={summary.totalVendas.toString()} highlight />
+              <MiniStat label="Conversão" value={`${summary.conversao.toFixed(0)}%`} highlight />
             </div>
-            <div className="text-sm text-muted-foreground border-t border-border/40 pt-3">
+            <div className="text-sm text-muted-foreground border-t border-border/60 pt-4 leading-relaxed">
               {summary.abordagensPorVenda > 0 ? (
                 <>
                   Você precisa de{" "}
-                  <span className="text-primary font-semibold">
+                  <span className="text-primary font-bold">
                     {summary.abordagensPorVenda.toFixed(1)}
                   </span>{" "}
                   abordagens para gerar 1 venda · ticket médio{" "}
@@ -560,7 +540,7 @@ export default function Insights() {
             </div>
           </div>
 
-          {/* 4. Comparação */}
+          {/* Comparação */}
           <SectionTitle>Comparação</SectionTitle>
           <div className="grid grid-cols-2 gap-3">
             {isSingleDay ? (
@@ -584,34 +564,38 @@ export default function Insights() {
             )}
           </div>
 
-          {/* 5. Melhores horários */}
+          {/* Melhores horários */}
           <SectionTitle>Melhores horários</SectionTitle>
-          <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
+          <div className="rounded-2xl border border-border/60 bg-card p-5">
             {bestHours.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 Sem dados de horários no período.
               </p>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {bestHours.slice(0, 5).map((h, i) => (
                   <div key={h.hour} className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground w-16 shrink-0">
+                    <span className={cn(
+                      "text-xs w-16 shrink-0 font-medium",
+                      i === 0 ? "text-primary" : "text-muted-foreground"
+                    )}>
                       {h.label}
                     </span>
-                    <div className="flex-1 h-2 rounded-full bg-muted/30 overflow-hidden">
+                    <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
                       <div
                         className={cn(
-                          "h-full rounded-full",
+                          "h-full rounded-full transition-all",
                           i === 0
-                            ? "bg-emerald-400"
-                            : i === bestHours.length - 1
-                              ? "bg-red-400/70"
-                              : "bg-primary/70",
+                            ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                            : "bg-primary/40",
                         )}
                         style={{ width: `${(h.avg / maxHourAvg) * 100}%` }}
                       />
                     </div>
-                    <span className="text-xs text-foreground font-medium w-20 text-right">
+                    <span className={cn(
+                      "text-xs font-semibold w-20 text-right",
+                      i === 0 ? "text-primary" : "text-foreground/80"
+                    )}>
                       {formatCurrency(h.avg)}
                     </span>
                   </div>
@@ -619,38 +603,6 @@ export default function Insights() {
               </div>
             )}
           </div>
-
-          {/* 6. Ranking */}
-          <SectionTitle>Ranking</SectionTitle>
-          <button
-            onClick={() => navigate("/ranking")}
-            className="w-full rounded-2xl border border-border/40 bg-card/30 p-4 flex items-center gap-4 hover:bg-card/50 transition-colors text-left"
-          >
-            <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <Trophy className="w-5 h-5 text-primary" />
-            </div>
-            <div className="flex-1 min-w-0">
-              {hasParticipated && currentUserStats ? (
-                <>
-                  <p className="text-sm font-semibold">
-                    Faturamento: #{currentUserStats.posicao_faturamento ?? "-"} · Constância: #
-                    {currentUserStats.posicao_constancia ?? "-"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Cidade · estado · global
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm font-semibold">Você ainda não está no ranking</p>
-                  <p className="text-xs text-muted-foreground">Registre vendas para entrar</p>
-                </>
-              )}
-            </div>
-            <span className="text-xs text-primary inline-flex items-center">
-              Ver completo <ChevronRight className="w-4 h-4 ml-0.5" />
-            </span>
-          </button>
 
           {/* 7. Insights da IA */}
           <SectionTitle>Insights da IA</SectionTitle>
@@ -736,42 +688,67 @@ function MetricCell({
   label: string;
   value: string;
   valueClassName?: string;
-  accent?: "gold" | "green" | "blue" | "purple" | "red";
+  accent?: "gold";
 }) {
-  const accentMap: Record<string, string> = {
-    gold: "border-primary/30 bg-gradient-to-br from-primary/10 to-transparent",
-    green: "border-emerald-500/25 bg-gradient-to-br from-emerald-500/10 to-transparent",
-    blue: "border-sky-500/25 bg-gradient-to-br from-sky-500/10 to-transparent",
-    purple: "border-purple-500/25 bg-gradient-to-br from-purple-500/10 to-transparent",
-    red: "border-red-500/25 bg-gradient-to-br from-red-500/10 to-transparent",
-  };
-  const accentValueColor: Record<string, string> = {
-    gold: "text-primary",
-    green: "text-emerald-400",
-    blue: "text-sky-400",
-    purple: "text-purple-400",
-    red: "text-red-400",
-  };
   return (
     <div className={cn(
       "rounded-2xl border p-4 transition-colors",
-      accent ? accentMap[accent] : "border-border/40 bg-card/50"
+      accent === "gold"
+        ? "border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5"
+        : "border-border/60 bg-card"
     )}>
       <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
       <p className={cn(
         "mt-1.5 text-xl font-bold tracking-tight",
-        accent && !valueClassName && accentValueColor[accent],
+        accent === "gold" && !valueClassName && "text-primary",
         valueClassName
       )}>{value}</p>
     </div>
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function FinanceRow({
+  label,
+  value,
+  tone = "muted",
+  bold = false,
+}: {
+  label: string;
+  value: string;
+  tone?: "white" | "gold" | "muted";
+  bold?: boolean;
+}) {
+  const valueColor =
+    tone === "gold" ? "text-primary" : tone === "white" ? "text-foreground" : "text-foreground/70";
   return (
-    <div>
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className="mt-1 text-lg font-semibold">{value}</p>
+    <div className={cn(
+      "flex items-center justify-between px-4 py-3",
+      tone === "gold" && "bg-primary/5"
+    )}>
+      <span className={cn(
+        "text-sm",
+        tone === "gold" ? "text-foreground font-semibold" : "text-muted-foreground"
+      )}>
+        {label}
+      </span>
+      <span className={cn(
+        bold ? "text-base font-bold" : "text-sm font-semibold",
+        valueColor
+      )}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
+  return (
+    <div className="text-center">
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+      <p className={cn(
+        "mt-1.5 text-2xl font-bold tracking-tight",
+        highlight ? "text-primary" : "text-foreground"
+      )}>{value}</p>
     </div>
   );
 }
@@ -787,17 +764,20 @@ function ComparisonCell({
 }) {
   const positive = pct >= 0;
   const Icon = positive ? ArrowUpRight : ArrowDownRight;
-  const color = !valid
-    ? "text-muted-foreground"
-    : positive
-      ? "text-emerald-400"
-      : "text-red-400";
   return (
-    <div className="rounded-2xl border border-border/40 bg-card/30 p-4">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+    <div className={cn(
+      "rounded-2xl border p-4",
+      valid && positive
+        ? "border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5"
+        : "border-border/60 bg-card"
+    )}>
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
       {valid ? (
-        <div className={cn("mt-1.5 flex items-center gap-1 text-lg font-semibold", color)}>
-          <Icon className="w-4 h-4" />
+        <div className={cn(
+          "mt-1.5 flex items-center gap-1 text-xl font-bold",
+          positive ? "text-primary" : "text-foreground/60"
+        )}>
+          <Icon className="w-5 h-5" />
           {positive ? "+" : ""}
           {pct.toFixed(0)}%
         </div>
