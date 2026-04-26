@@ -134,7 +134,7 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost")
@@ -160,10 +160,17 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("date", isoDate(prevStart))
           .lte("date", isoDate(prevEnd)),
+        supabase
+          .from("personal_expenses")
+          .select("category,amount,icon,name")
+          .eq("user_id", user.id)
+          .gte("date", startISO)
+          .lte("date", endISO),
       ]);
 
       setSales(salesRes.data || []);
       setBlocks(blocksRes.data || []);
+      setExpenses((expensesRes.data as any[]) || []);
       setYesterdayProfit(ydRes.data?.total_profit || 0);
       setPrevRangeProfit(
         (prevRes.data || []).reduce((s, d: any) => s + (d.total_profit || 0), 0),
