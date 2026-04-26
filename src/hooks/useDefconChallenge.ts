@@ -424,6 +424,16 @@ export function useDefconChallenge(userId: string | undefined) {
     setPhase("running");
   }, [pausedBlockRemaining, clearTimer]);
 
+  const skipBreak = useCallback(() => {
+    clearTimer();
+    advanceToNextBlock();
+  }, [clearTimer, advanceToNextBlock]);
+
+  const skipLunchPause = useCallback(() => {
+    clearTimer();
+    resumeFromLunch();
+  }, [clearTimer, resumeFromLunch]);
+
   useEffect(() => {
     loadData();
   }, [loadData]);
