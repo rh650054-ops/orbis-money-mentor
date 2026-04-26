@@ -23,12 +23,12 @@ export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
         {/* Header with Bruto/Calote/Líquido Summary */}
         <div className="grid grid-cols-3 gap-2">
           {/* Faturamento Bruto */}
-          <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-primary/20 text-center">
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <Calculator className="w-4 h-4 text-blue-400" />
+              <Calculator className="w-4 h-4 text-amber-400" />
             </div>
             <p className="text-xs text-muted-foreground">Bruto</p>
-            <p className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            <p className="text-lg font-bold text-amber-400">
               {formatCurrency(faturamentoBruto)}
             </p>
           </div>
@@ -45,12 +45,12 @@ export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
           </div>
 
           {/* Faturamento Líquido */}
-          <div className="p-3 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 text-center">
+          <div className="p-3 rounded-xl bg-white/5 border border-white/15 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <Wallet className="w-4 h-4 text-green-400" />
+              <Wallet className="w-4 h-4 text-white" />
             </div>
             <p className="text-xs text-muted-foreground">Líquido</p>
-            <p className="text-lg font-bold text-green-400">
+            <p className="text-lg font-bold text-white">
               {formatCurrency(faturamentoLiquido)}
             </p>
           </div>
