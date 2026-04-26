@@ -1,12 +1,14 @@
+import { FastForward } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 interface DefconBreakProps {
   breakRemaining: number;
   currentBlockIndex: number;
   blockSold: number;
+  onSkip?: () => void;
 }
 
-export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold }: DefconBreakProps) {
+export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold, onSkip }: DefconBreakProps) {
   const minutes = Math.floor(breakRemaining / 60);
   const seconds = breakRemaining % 60;
 
@@ -35,6 +37,16 @@ export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold }: De
           {blockSold > 0 && ` • ${formatCurrency(blockSold)} vendido`}
         </div>
 
+        {onSkip && (
+          <button
+            onClick={onSkip}
+            className="mx-auto flex items-center gap-2 px-6 py-3 rounded-full bg-amber-500 text-black font-black text-sm tracking-wide shadow-lg shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-400"
+          >
+            <FastForward className="w-4 h-4" strokeWidth={3} />
+            INICIAR PRÓXIMO BLOCO
+          </button>
+        )}
+
         <div className="text-xs font-mono text-neutral-700">
           Próximo bloco inicia automaticamente
         </div>
@@ -42,3 +54,4 @@ export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold }: De
     </div>
   );
 }
+
