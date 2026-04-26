@@ -38,14 +38,26 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: Def
           Vendido até agora: {formatCurrency(totalSold)}
         </div>
 
-        {/* Botão para registrar custo do almoço */}
-        <button
-          onClick={() => setExpenseOpen(true)}
-          className="mx-auto flex items-center gap-2 px-6 py-3.5 rounded-full bg-amber-500 text-black font-black text-sm tracking-wide shadow-lg shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-400"
-        >
-          <Wallet className="w-4 h-4" strokeWidth={3} />
-          REGISTRAR CUSTO DO ALMOÇO
-        </button>
+        {/* Ações */}
+        <div className="flex flex-col items-center gap-3">
+          <button
+            onClick={() => setExpenseOpen(true)}
+            className="flex items-center gap-2 px-6 py-3.5 rounded-full bg-amber-500 text-black font-black text-sm tracking-wide shadow-lg shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-400"
+          >
+            <Wallet className="w-4 h-4" strokeWidth={3} />
+            REGISTRAR CUSTO DO ALMOÇO
+          </button>
+
+          {onSkip && (
+            <button
+              onClick={onSkip}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-white/20 bg-white/5 text-white/80 font-bold text-xs tracking-wide active:scale-95 transition-all hover:bg-white/10 hover:text-white"
+            >
+              <FastForward className="w-3.5 h-3.5" strokeWidth={3} />
+              VOLTAR AO DESAFIO AGORA
+            </button>
+          )}
+        </div>
 
         <div className="text-xs font-mono text-neutral-700">
           O desafio volta automaticamente
