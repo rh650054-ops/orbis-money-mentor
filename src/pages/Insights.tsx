@@ -442,16 +442,50 @@ export default function Insights() {
             />
           </section>
 
-          {/* Detalhamento financeiro - cards com ícones e valores destacados */}
+          {/* Detalhamento financeiro */}
           <SectionTitle>Detalhamento financeiro</SectionTitle>
           <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
-            <FinanceRow label="Custos totais" value={`- ${formatCurrency(summary.custos)}`} tone="muted" />
+            <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
+            <FinanceRow label="Custos operacionais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
             <FinanceRow label="Kits não pagos" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
-            <FinanceRow label="Gorjetas" value={`+ ${formatCurrency(summary.gorjetas)}`} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
           </div>
+
+          {/* Breakdown de custos operacionais por categoria */}
+          {expensesByCategory.length > 0 && (
+            <>
+              <SectionTitle>Custos operacionais por categoria</SectionTitle>
+              <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-2.5">
+                {expensesByCategory.map((c) => {
+                  const pct = summary.custosOperacionais > 0
+                    ? (c.total / summary.custosOperacionais) * 100
+                    : 0;
+                  return (
+                    <div key={c.category} className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-base">{c.icon}</span>
+                        <span className="flex-1 text-foreground/90 font-medium">{c.category}</span>
+                        <span className="text-[11px] text-muted-foreground">
+                          {c.count} {c.count === 1 ? "item" : "itens"}
+                        </span>
+                        <span className="font-bold text-primary w-24 text-right">
+                          {formatCurrency(c.total)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden ml-7">
+                        <div
+                          className="h-full bg-primary/70 rounded-full"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           {/* Análise narrativa */}
           <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4">
