@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { Wallet } from "lucide-react";
+import { Wallet, FastForward } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 
 interface DefconLunchPauseProps {
   lunchPauseRemaining: number;
   totalSold: number;
+  onSkip?: () => void;
 }
 
-export function DefconLunchPause({ lunchPauseRemaining, totalSold }: DefconLunchPauseProps) {
+export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: DefconLunchPauseProps) {
   const minutes = Math.floor(lunchPauseRemaining / 60);
   const seconds = lunchPauseRemaining % 60;
   const [expenseOpen, setExpenseOpen] = useState(false);
