@@ -63,7 +63,7 @@ export function DefconRunning({
   const [tipValue, setTipValue] = useState("");
   const [showExpense, setShowExpense] = useState(false);
   const [salePhone, setSalePhone] = useState("");
-  const [tipPhone, setTipPhone] = useState("");
+  
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
 
@@ -145,22 +145,8 @@ export function DefconRunning({
       onAddTip?.(amount);
       pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
       setTipValue("");
-      setTipPhone("");
       setShowAddTip(false);
     }
-  };
-
-  const handleTipAndCharge = () => {
-    const amount = parseFloat(tipValue) || 0;
-    if (amount <= 0) return;
-    onAddSale(amount);
-    setSaleHistory((prev) => [...prev, amount]);
-    onAddTip?.(amount);
-    pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
-    openWhatsAppCharge(tipPhone, amount);
-    setTipValue("");
-    setTipPhone("");
-    setShowAddTip(false);
   };
 
   // Frase de impacto inteligente — empurra ação concreta
@@ -571,7 +557,7 @@ export function DefconRunning({
                 <h3 className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
                 <p className="text-[11px] font-mono text-[#A1A1A1] mt-0.5">Conta como venda no faturamento</p>
               </div>
-              <button onClick={() => { setShowAddTip(false); setTipValue(""); setTipPhone(""); }}>
+              <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
@@ -590,41 +576,14 @@ export function DefconRunning({
                 className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-[#F5B400] transition-colors placeholder:text-neutral-700"
               />
             </div>
-            <div>
-              <label className="block text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase mb-2">
-                WhatsApp do cliente (opcional)
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={tipPhone}
-                  onChange={(e) => setTipPhone(e.target.value)}
-                  placeholder="(11) 99999-9999"
-                  className="w-full h-12 bg-black border-2 border-neutral-700 rounded-xl text-base font-mono text-white pl-12 pr-4 focus:outline-none focus:border-[#F5B400] transition-colors placeholder:text-neutral-700"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleAddTip}
-                disabled={!tipValue || parseFloat(tipValue) <= 0}
-                className="flex-[1.4] h-14 bg-[#F5B400] text-black font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
-              >
-                <Plus className="w-5 h-5" strokeWidth={3} />
-                REGISTRAR
-              </button>
-              <button
-                onClick={handleTipAndCharge}
-                disabled={!tipValue || parseFloat(tipValue) <= 0 || sanitizePhone(tipPhone).length < 10}
-                className="flex-1 h-14 bg-[#25D366] text-black font-black text-[13px] rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-                title="Registrar e cobrar via WhatsApp"
-              >
-                <MessageCircle className="w-4 h-4" strokeWidth={3} />
-                COBRAR
-              </button>
-            </div>
+            <button
+              onClick={handleAddTip}
+              disabled={!tipValue || parseFloat(tipValue) <= 0}
+              className="w-full h-14 bg-[#F5B400] text-black font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+            >
+              <Plus className="w-5 h-5" strokeWidth={3} />
+              REGISTRAR
+            </button>
           </div>
         </div>
       )}
