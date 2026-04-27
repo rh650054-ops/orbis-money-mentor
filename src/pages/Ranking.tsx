@@ -412,17 +412,17 @@ function FaturamentoLeague({
             </div>
             
             <div className="flex items-center justify-center gap-2 mt-5 pt-4 border-t border-primary/15">
-              <div className="px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 flex items-center gap-1.5">
-                <Trophy className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-bold text-primary tracking-wide">LÍDER</span>
+              <div className="px-2.5 py-1 rounded-full bg-primary border border-primary flex items-center gap-1.5">
+                <Trophy className="w-3 h-3 text-primary-foreground" />
+                <span className="text-[10px] font-bold text-primary-foreground tracking-wide">LÍDER</span>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-bold text-primary tracking-wide">ELITE</span>
+              <div className="px-2.5 py-1 rounded-full bg-foreground/10 border border-foreground/30 flex items-center gap-1.5">
+                <Zap className="w-3 h-3 text-foreground" />
+                <span className="text-[10px] font-bold text-foreground tracking-wide">ELITE</span>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 flex items-center gap-1.5">
-                <Star className="w-3 h-3 text-primary fill-primary" />
-                <span className="text-[10px] font-bold text-primary tracking-wide">DESTAQUE</span>
+              <div className="px-2.5 py-1 rounded-full bg-background border border-foreground/20 flex items-center gap-1.5">
+                <Star className="w-3 h-3 text-foreground fill-foreground" />
+                <span className="text-[10px] font-bold text-foreground tracking-wide">DESTAQUE</span>
               </div>
             </div>
           </CardContent>
@@ -458,25 +458,25 @@ function FaturamentoLeague({
           )}
 
           {top3 && (
-            <Card className="relative overflow-hidden border border-primary/30 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+            <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card">
+              <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
               <CardContent className="relative p-4 text-center">
                 <div className="flex justify-center mb-2">
                   <div className="relative">
-                    <Medal className="w-7 h-7 text-primary/80" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-primary/80">3</span>
+                    <Medal className="w-7 h-7 text-[#a8703a]" />
+                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
                   </div>
                 </div>
                 <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-primary/40 mx-auto shadow-md")}
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
                 </div>
                 <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-primary/90 mt-0.5">
+                <p className="text-base font-black text-foreground mt-0.5">
                   {formatCurrency(top3.faturamento_total_mes)}
                 </p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/25 inline-flex items-center gap-1">
-                  <Star className="w-2.5 h-2.5 text-primary fill-primary" />
-                  <span className="text-[9px] font-semibold text-primary tracking-wider">BRONZE</span>
+                <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
+                  <Star className="w-2.5 h-2.5 text-[#a8703a] fill-[#a8703a]" />
+                  <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
                 </div>
               </CardContent>
             </Card>
@@ -534,8 +534,8 @@ function FaturamentoLeague({
               className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300"
             >
               <CardContent className="relative p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-black text-primary">
+                <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-black text-foreground/80">
                     {index + 4}
                   </span>
                 </div>
@@ -548,7 +548,7 @@ function FaturamentoLeague({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary text-sm">{formatCurrency(user.faturamento_total_mes)}</p>
+                  <p className="font-bold text-foreground text-sm">{formatCurrency(user.faturamento_total_mes)}</p>
                 </div>
               </CardContent>
             </Card>
@@ -706,26 +706,26 @@ function ConstanciaLeague({
           )}
 
           {top3 && (
-            <Card className="relative overflow-hidden border border-primary/30 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+            <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card">
+              <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
               <CardContent className="relative p-4 text-center">
                 <div className="flex justify-center mb-2">
                   <div className="relative">
-                    <Medal className="w-7 h-7 text-primary/80" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-primary/80">3</span>
+                    <Medal className="w-7 h-7 text-[#a8703a]" />
+                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
                   </div>
                 </div>
                 <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-primary/40 mx-auto shadow-md")}
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
                 </div>
                 <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-primary/90 mt-0.5">
+                <p className="text-base font-black text-foreground mt-0.5">
                   {top3.dias_trabalhados_mes} dias
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{top3.constancia_streak_atual} seguidos</p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/25 inline-flex items-center gap-1">
-                  <Flame className="w-2.5 h-2.5 text-primary" />
-                  <span className="text-[9px] font-semibold text-primary tracking-wider">BRONZE</span>
+                <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
+                  <Flame className="w-2.5 h-2.5 text-[#a8703a]" />
+                  <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
                 </div>
               </CardContent>
             </Card>
@@ -784,8 +784,8 @@ function ConstanciaLeague({
               className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300"
             >
               <CardContent className="relative p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-black text-primary">
+                <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-black text-foreground/80">
                     {index + 4}
                   </span>
                 </div>
@@ -793,12 +793,12 @@ function ConstanciaLeague({
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm text-foreground truncate">{user.nome_usuario || 'Usuário'}</p>
                   <div className="flex items-center gap-1 mt-0.5">
-                    <Flame className="w-3 h-3 text-primary/70" />
+                    <Flame className="w-3 h-3 text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground">{user.constancia_streak_atual} seguidos</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary text-sm">{user.dias_trabalhados_mes} dias</p>
+                  <p className="font-bold text-foreground text-sm">{user.dias_trabalhados_mes} dias</p>
                 </div>
               </CardContent>
             </Card>
