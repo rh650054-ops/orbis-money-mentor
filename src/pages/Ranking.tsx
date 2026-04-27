@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
+import PublicProfileModal from "@/components/PublicProfileModal";
 import confetti from "canvas-confetti";
 
 const motivationalPhrases = [
@@ -32,39 +33,18 @@ function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "
     md: "w-14 h-14 text-xl",
     lg: "w-20 h-20 text-3xl"
   };
-  
   if (isEmojiAvatar(avatar)) {
     return (
-      <div className={cn(
-        "rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 flex items-center justify-center shadow-lg",
-        sizeClasses[size],
-        className
-      )}>
+      <div className={cn("rounded-full bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/30 flex items-center justify-center shadow-lg", sizeClasses[size], className)}>
         {avatar}
       </div>
     );
   }
-  
   if (avatar) {
-    return (
-      <img 
-        src={avatar} 
-        alt={name || ''} 
-        className={cn(
-          "rounded-full object-cover",
-          sizeClasses[size],
-          className
-        )}
-      />
-    );
+    return <img src={avatar} alt={name || ''} className={cn("rounded-full object-cover", sizeClasses[size], className)} />;
   }
-  
   return (
-    <div className={cn(
-      "rounded-full bg-gradient-to-br from-primary/40 to-primary/10 border border-primary/30 flex items-center justify-center font-bold text-primary",
-      sizeClasses[size],
-      className
-    )}>
+    <div className={cn("rounded-full bg-gradient-to-br from-primary/40 to-primary/10 border border-primary/30 flex items-center justify-center font-bold text-primary", sizeClasses[size], className)}>
       {(name || 'U').charAt(0).toUpperCase()}
     </div>
   );
@@ -72,17 +52,14 @@ function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "
 
 export default function Ranking() {
   const { user } = useAuth();
-  const { 
-    faturamentoRanking, 
-    constanciaRanking, 
-    currentUserStats, 
-    isLoading,
-    hasParticipated,
-    loadLeaderboard
+  const {
+    faturamentoRanking, constanciaRanking, currentUserStats,
+    isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
-  
+
   const [activeTab, setActiveTab] = useState<"faturamento" | "constancia">("faturamento");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -97,75 +74,40 @@ export default function Ranking() {
       .select("nickname, avatar_url")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (data) {
-      setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
-    }
+    if (data) setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
   };
 
   useEffect(() => {
     if (!currentUserStats) return;
-    
-    const currentFaturamentoPos = currentUserStats.posicao_faturamento;
-    const currentConstanciaPos = currentUserStats.posicao_constancia;
-    
-    if (prevFaturamentoPosition.current !== null && 
-        currentFaturamentoPos !== null && 
-        currentFaturamentoPos < prevFaturamentoPosition.current) {
-      triggerConfetti();
-    }
-    
-    if (prevConstanciaPosition.current !== null && 
-        currentConstanciaPos !== null && 
-        currentConstanciaPos < prevConstanciaPosition.current) {
-      triggerConfetti();
-    }
-    
-    prevFaturamentoPosition.current = currentFaturamentoPos;
-    prevConstanciaPosition.current = currentConstanciaPos;
+    const cf = currentUserStats.posicao_faturamento;
+    const cc = currentUserStats.posicao_constancia;
+    if (prevFaturamentoPosition.current !== null && cf !== null && cf < prevFaturamentoPosition.current) triggerConfetti();
+    if (prevConstanciaPosition.current !== null && cc !== null && cc < prevConstanciaPosition.current) triggerConfetti();
+    prevFaturamentoPosition.current = cf;
+    prevConstanciaPosition.current = cc;
   }, [currentUserStats?.posicao_faturamento, currentUserStats?.posicao_constancia]);
 
   const triggerConfetti = () => {
     const duration = 3000;
     const animationEnd = Date.now() + duration;
-    const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
-
+    const r = (min: number, max: number) => Math.random() * (max - min) + min;
     const interval = setInterval(() => {
-      const timeLeft = animationEnd - Date.now();
-      if (timeLeft <= 0) return clearInterval(interval);
-      const particleCount = 50 * (timeLeft / duration);
-
-      confetti({
-        particleCount,
-        startVelocity: 30,
-        spread: 360,
-        origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
-        colors: ['#F4A100', '#FFD27A', '#FFFFFF', '#C77E00']
-      });
-      confetti({
-        particleCount,
-        startVelocity: 30,
-        spread: 360,
-        origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
-        colors: ['#F4A100', '#FFD27A', '#FFFFFF', '#C77E00']
-      });
+      const left = animationEnd - Date.now();
+      if (left <= 0) return clearInterval(interval);
+      const particleCount = 50 * (left / duration);
+      const colors = ['#F4A100', '#FFD27A', '#FFFFFF', '#C77E00'];
+      confetti({ particleCount, startVelocity: 30, spread: 360, origin: { x: r(0.1, 0.3), y: Math.random() - 0.2 }, colors });
+      confetti({ particleCount, startVelocity: 30, spread: 360, origin: { x: r(0.7, 0.9), y: Math.random() - 0.2 }, colors });
     }, 250);
   };
 
-  useEffect(() => {
-    loadUserProfile();
-  }, [user?.id]);
+  useEffect(() => { loadUserProfile(); }, [user?.id]);
 
-  const getPositionStyle = (position: number) => {
-    switch (position) {
-      case 1: return "bg-card/80 border-primary/50";
-      case 2: return "bg-card/80 border-foreground/20";
-      case 3: return "bg-card/80 border-primary/30";
-      default: return "bg-card/50 border-border/50";
-    }
-  };
+  const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const openPublicProfile = (uid: string) => {
+    if (!uid) return;
+    setPublicProfileUserId(uid);
   };
 
   if (isLoading) {
@@ -178,17 +120,18 @@ export default function Ranking() {
           <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
         </div>
         <div className="space-y-4">
-          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-20 w-full" />
           <Skeleton className="h-48 w-full" />
-          <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />
         </div>
       </div>
     );
   }
 
+  const isFaturamento = activeTab === "faturamento";
+
   return (
-    <div className="min-h-screen pb-8 space-y-6">
+    <div className="min-h-screen pb-8 space-y-5">
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">
@@ -197,35 +140,75 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex gap-2 p-1 bg-card/60 rounded-xl border border-border/50 backdrop-blur-sm">
-        <Button
-          variant="ghost"
+      {/* Unified League Tabs — botão = liga inteira (não há mais título separado) */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
           onClick={() => setActiveTab("faturamento")}
           className={cn(
-            "flex-1 gap-2 h-11 rounded-lg transition-all",
-            activeTab === "faturamento"
-              ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
-              : "text-muted-foreground hover:bg-card/80"
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300",
+            "border",
+            isFaturamento
+              ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
+              : "bg-card/40 border-border/50 hover:border-primary/30"
           )}
         >
-          <Trophy className="w-4 h-4" />
-          Faturamento
-        </Button>
-        <Button
-          variant="ghost"
+          {isFaturamento && (
+            <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+          )}
+          <div className="relative flex items-center gap-2.5">
+            <div className={cn(
+              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+              isFaturamento ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground"
+            )}>
+              <Trophy className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", isFaturamento ? "text-primary" : "text-muted-foreground")}>
+                Liga
+              </p>
+              <p className={cn("text-sm font-black truncate", isFaturamento ? "text-foreground" : "text-foreground/70")}>
+                Faturamento
+              </p>
+            </div>
+          </div>
+        </button>
+
+        <button
           onClick={() => setActiveTab("constancia")}
           className={cn(
-            "flex-1 gap-2 h-11 rounded-lg transition-all",
-            activeTab === "constancia"
-              ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90"
-              : "text-muted-foreground hover:bg-card/80"
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300",
+            "border",
+            !isFaturamento
+              ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
+              : "bg-card/40 border-border/50 hover:border-primary/30"
           )}
         >
-          <Flame className="w-4 h-4" />
-          Constância
-        </Button>
+          {!isFaturamento && (
+            <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+          )}
+          <div className="relative flex items-center gap-2.5">
+            <div className={cn(
+              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+              !isFaturamento ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground"
+            )}>
+              <Flame className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", !isFaturamento ? "text-primary" : "text-muted-foreground")}>
+                Liga
+              </p>
+              <p className={cn("text-sm font-black truncate", !isFaturamento ? "text-foreground" : "text-foreground/70")}>
+                Constância
+              </p>
+            </div>
+          </div>
+        </button>
       </div>
+
+      {/* Subtítulo da liga ativa */}
+      <p className="text-center text-xs text-muted-foreground -mt-2">
+        {isFaturamento ? "Maiores vendedores do mês" : "Os mais disciplinados do mês"}
+      </p>
 
       {/* Not Participated Message */}
       {!hasParticipated && (
@@ -234,36 +217,28 @@ export default function Ranking() {
             <AlertCircle className="w-10 h-10 mx-auto text-primary" />
             <h3 className="text-lg font-semibold text-foreground">Você ainda não entrou na liga</h3>
             <p className="text-muted-foreground text-sm">
-              Conclua seu primeiro dia de vendas para aparecer no ranking e competir com outros vendedores!
+              Conclua seu primeiro dia de vendas para aparecer no ranking!
             </p>
           </CardContent>
         </Card>
       )}
 
-      {activeTab === "faturamento" ? (
+      {isFaturamento ? (
         <FaturamentoLeague
           ranking={faturamentoRanking}
           currentUserStats={currentUserStats}
           hasParticipated={hasParticipated}
           formatCurrency={formatCurrency}
-          getPositionStyle={getPositionStyle}
-          onEditProfile={() => {
-            loadUserProfile();
-            setProfileModalOpen(true);
-          }}
-          userId={user?.id}
+          onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+          onOpenProfile={openPublicProfile}
         />
       ) : (
         <ConstanciaLeague
           ranking={constanciaRanking}
           currentUserStats={currentUserStats}
           hasParticipated={hasParticipated}
-          getPositionStyle={getPositionStyle}
-          onEditProfile={() => {
-            loadUserProfile();
-            setProfileModalOpen(true);
-          }}
-          userId={user?.id}
+          onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+          onOpenProfile={openPublicProfile}
         />
       )}
 
@@ -274,33 +249,32 @@ export default function Ranking() {
           userId={user.id}
           currentNickname={userProfile.nickname}
           currentAvatar={userProfile.avatar}
-          onProfileUpdated={() => {
-            loadUserProfile();
-            loadLeaderboard();
-          }}
+          onProfileUpdated={() => { loadUserProfile(); loadLeaderboard(); }}
         />
       )}
+
+      <PublicProfileModal
+        open={!!publicProfileUserId}
+        onOpenChange={(o) => { if (!o) setPublicProfileUserId(null); }}
+        userId={publicProfileUserId}
+      />
     </div>
   );
 }
 
-interface FaturamentoLeagueProps {
+interface LeagueProps {
   ranking: LeaderboardEntry[];
   currentUserStats: LeaderboardEntry | null;
   hasParticipated: boolean;
-  formatCurrency: (value: number) => string;
-  getPositionStyle: (position: number) => string;
   onEditProfile: () => void;
-  userId?: string;
+  onOpenProfile: (uid: string) => void;
 }
 
-function FaturamentoLeague({ 
-  ranking, 
-  currentUserStats, 
-  hasParticipated,
-  formatCurrency, 
-  onEditProfile,
-}: FaturamentoLeagueProps) {
+interface FaturamentoLeagueProps extends LeagueProps {
+  formatCurrency: (value: number) => string;
+}
+
+function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile }: FaturamentoLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
   const top3 = ranking[2];
@@ -309,65 +283,34 @@ function FaturamentoLeague({
   const currentPosition = currentUserStats?.posicao_faturamento || 0;
   const currentValue = currentUserStats?.faturamento_total_mes || 0;
   const nextPositionIndex = currentPosition > 1 ? currentPosition - 2 : -1;
-  const nextPositionValue = nextPositionIndex >= 0 && ranking[nextPositionIndex] 
-    ? ranking[nextPositionIndex].faturamento_total_mes 
-    : 0;
-  const progressToNext = nextPositionValue > 0 
-    ? Math.min((currentValue / nextPositionValue) * 100, 100)
-    : 0;
+  const nextPositionValue = nextPositionIndex >= 0 && ranking[nextPositionIndex]
+    ? ranking[nextPositionIndex].faturamento_total_mes : 0;
+  const progressToNext = nextPositionValue > 0 ? Math.min((currentValue / nextPositionValue) * 100, 100) : 0;
 
   if (ranking.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
-            <Trophy className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Liga de Faturamento</h2>
-            <p className="text-xs text-muted-foreground">Maiores vendedores do mês</p>
-          </div>
-        </div>
-        
-        <Card className="border border-dashed border-border/50 bg-card/30">
-          <CardContent className="p-8 text-center">
-            <Trophy className="w-14 h-14 mx-auto mb-4 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">
-              Nenhum vendedor no ranking ainda. Seja o primeiro a concluir um dia de vendas!
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border border-dashed border-border/50 bg-card/30">
+        <CardContent className="p-8 text-center">
+          <Trophy className="w-14 h-14 mx-auto mb-4 text-muted-foreground/30" />
+          <p className="text-muted-foreground text-sm">
+            Nenhum vendedor ainda. Seja o primeiro!
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* League Title */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-primary/15 border border-primary/30 shadow-lg shadow-primary/10">
-          <Trophy className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-foreground">
-            Liga de <span className="text-primary">Faturamento</span>
-          </h2>
-          <p className="text-xs text-muted-foreground">Maiores vendedores do mês</p>
-        </div>
-      </div>
-
-      {/* Top 1 - Premium Card */}
+    <div className="space-y-4">
+      {/* Top 1 */}
       {top1 && (
         <Card className="relative overflow-hidden border border-primary/40 bg-card">
-          {/* Subtle gold glow */}
           <div className="absolute -top-32 -right-32 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
           <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-          
-          {/* Shine sweep */}
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute inset-0 w-1/2 bg-gradient-to-r from-transparent via-primary/10 to-transparent skew-x-12 animate-shine-sweep" />
           </div>
-          
+
           <CardContent className="relative p-6">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
@@ -376,41 +319,33 @@ function FaturamentoLeague({
                   <Sparkles className="w-4 h-4 text-primary absolute -top-1 -right-1 animate-pulse" />
                 </div>
                 <div>
-                  <span className="text-base font-black text-primary tracking-wider">
-                    TOP 1
-                  </span>
+                  <span className="text-base font-black text-primary tracking-wider">TOP 1</span>
                   <p className="text-[10px] text-primary/70 uppercase tracking-widest">Campeão do Mês</p>
                 </div>
               </div>
               <div className="flex items-center gap-0.5">
-                {[...Array(5)].map((_, i) => (
-                  <Star key={i} className="w-4 h-4 text-primary fill-primary" />
-                ))}
+                {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 text-primary fill-primary" />)}
               </div>
             </div>
 
             <div className="flex items-center gap-5">
-              <div className="relative">
+              <button onClick={() => onOpenProfile(top1.user_id)} className="relative shrink-0 transition-transform active:scale-95">
                 <div className="absolute -inset-1.5 bg-primary rounded-full blur-md opacity-50 animate-pulse" />
                 {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-2xl shadow-primary/40 border-2 border-primary relative z-10 w-20 h-20 text-3xl")}
                 <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg z-20 border-2 border-background">
                   <Crown className="w-4 h-4 text-primary-foreground" />
                 </div>
-              </div>
-              <div className="flex-1 min-w-0 space-y-1">
-                <h3 className="text-xl font-bold text-foreground truncate">{top1.nome_usuario || 'Usuário'}</h3>
-                <p className="text-2xl font-black text-primary">
-                  {formatCurrency(top1.faturamento_total_mes)}
-                </p>
+              </button>
+              <button onClick={() => onOpenProfile(top1.user_id)} className="flex-1 min-w-0 space-y-1 text-left">
+                <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
+                <p className="text-2xl font-black text-primary">{formatCurrency(top1.faturamento_total_mes)}</p>
                 <div className="flex items-center gap-1.5 pt-0.5">
                   <Sparkles className="w-3 h-3 text-primary/70 shrink-0" />
-                  <p className="text-[11px] text-muted-foreground italic truncate">
-                    "{motivationalPhrases[0]}"
-                  </p>
+                  <p className="text-[11px] text-muted-foreground italic truncate">"{motivationalPhrases[0]}"</p>
                 </div>
-              </div>
+              </button>
             </div>
-            
+
             <div className="flex items-center justify-center gap-2 mt-5 pt-4 border-t border-primary/15">
               <div className="px-2.5 py-1 rounded-full bg-primary border border-primary flex items-center gap-1.5">
                 <Trophy className="w-3 h-3 text-primary-foreground" />
@@ -433,53 +368,53 @@ function FaturamentoLeague({
       {(top2 || top3) && (
         <div className="grid grid-cols-2 gap-3">
           {top2 && (
-            <Card className="relative overflow-hidden border border-foreground/20 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-foreground/10 rounded-full blur-2xl" />
-              <CardContent className="relative p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <div className="relative">
-                    <Medal className="w-7 h-7 text-foreground/70" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-foreground/70">2</span>
+            <button onClick={() => onOpenProfile(top2.user_id)} className="text-left">
+              <Card className="relative overflow-hidden border border-foreground/20 bg-card hover:border-foreground/40 transition-colors">
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-foreground/10 rounded-full blur-2xl" />
+                <CardContent className="relative p-4 text-center">
+                  <div className="flex justify-center mb-2">
+                    <div className="relative">
+                      <Medal className="w-7 h-7 text-foreground/70" />
+                      <span className="absolute -top-1 -right-1 text-[10px] font-black text-foreground/70">2</span>
+                    </div>
                   </div>
-                </div>
-                <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-foreground/30 mx-auto shadow-md")}
-                </div>
-                <h4 className="font-bold text-xs truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-foreground mt-0.5">
-                  {formatCurrency(top2.faturamento_total_mes)}
-                </p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-foreground/10 border border-foreground/20 inline-flex items-center gap-1">
-                  <Star className="w-2.5 h-2.5 text-foreground/70 fill-foreground/70" />
-                  <span className="text-[9px] font-semibold text-foreground/70 tracking-wider">PRATA</span>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="relative mx-auto mb-2 w-fit">
+                    {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-foreground/30 mx-auto shadow-md")}
+                  </div>
+                  <h4 className="font-bold text-xs truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
+                  <p className="text-base font-black text-foreground mt-0.5">{formatCurrency(top2.faturamento_total_mes)}</p>
+                  <div className="mt-2 px-2 py-0.5 rounded-full bg-foreground/10 border border-foreground/20 inline-flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 text-foreground/70 fill-foreground/70" />
+                    <span className="text-[9px] font-semibold text-foreground/70 tracking-wider">PRATA</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
           )}
 
           {top3 && (
-            <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
-              <CardContent className="relative p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <div className="relative">
-                    <Medal className="w-7 h-7 text-[#a8703a]" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
+            <button onClick={() => onOpenProfile(top3.user_id)} className="text-left">
+              <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card hover:border-[#a8703a]/70 transition-colors">
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
+                <CardContent className="relative p-4 text-center">
+                  <div className="flex justify-center mb-2">
+                    <div className="relative">
+                      <Medal className="w-7 h-7 text-[#a8703a]" />
+                      <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
+                    </div>
                   </div>
-                </div>
-                <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
-                </div>
-                <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-foreground mt-0.5">
-                  {formatCurrency(top3.faturamento_total_mes)}
-                </p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
-                  <Star className="w-2.5 h-2.5 text-[#a8703a] fill-[#a8703a]" />
-                  <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="relative mx-auto mb-2 w-fit">
+                    {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
+                  </div>
+                  <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
+                  <p className="text-base font-black text-foreground mt-0.5">{formatCurrency(top3.faturamento_total_mes)}</p>
+                  <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 text-[#a8703a] fill-[#a8703a]" />
+                    <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
           )}
         </div>
       )}
@@ -500,23 +435,18 @@ function FaturamentoLeague({
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold tracking-wider">
-                    VOCÊ
-                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold tracking-wider">VOCÊ</span>
                   <span className="text-muted-foreground text-sm">#{currentUserStats.posicao_faturamento}</span>
                 </div>
                 <p className="text-lg font-bold text-foreground">{formatCurrency(currentUserStats.faturamento_total_mes)}</p>
               </div>
               <Zap className="w-5 h-5 text-primary" />
             </div>
-            
             {currentPosition > 1 && nextPositionValue > currentValue && (
               <div className="space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Para #{currentPosition - 1}</span>
-                  <span className="text-primary font-medium">
-                    Faltam {formatCurrency(nextPositionValue - currentValue)}
-                  </span>
+                  <span className="text-primary font-medium">Faltam {formatCurrency(nextPositionValue - currentValue)}</span>
                 </div>
                 <Progress value={progressToNext} className="h-1.5" />
               </div>
@@ -528,30 +458,27 @@ function FaturamentoLeague({
       {/* Rest of Top 10 */}
       {restRanking.length > 0 && (
         <div className="space-y-2">
-          {restRanking.map((user, index) => (
-            <Card 
-              key={user.id} 
-              className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300"
-            >
-              <CardContent className="relative p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-black text-foreground/80">
-                    {index + 4}
-                  </span>
-                </div>
-                {renderAvatar(user.avatar_url, user.nome_usuario, "sm", "border border-border/50")}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground truncate">{user.nome_usuario || 'Usuário'}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground">Top 10</span>
+          {restRanking.map((u, index) => (
+            <button key={u.id} onClick={() => onOpenProfile(u.user_id)} className="w-full text-left">
+              <Card className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300">
+                <CardContent className="relative p-3.5 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-black text-foreground/80">{index + 4}</span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-foreground text-sm">{formatCurrency(user.faturamento_total_mes)}</p>
-                </div>
-              </CardContent>
-            </Card>
+                  {renderAvatar(u.avatar_url, u.nome_usuario, "sm", "border border-border/50")}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground truncate">{u.nome_usuario || 'Usuário'}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <TrendingUp className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">Top 10</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-foreground text-sm">{formatCurrency(u.faturamento_total_mes)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
           ))}
         </div>
       )}
@@ -566,21 +493,7 @@ function FaturamentoLeague({
   );
 }
 
-interface ConstanciaLeagueProps {
-  ranking: LeaderboardEntry[];
-  currentUserStats: LeaderboardEntry | null;
-  hasParticipated: boolean;
-  getPositionStyle: (position: number) => string;
-  onEditProfile: () => void;
-  userId?: string;
-}
-
-function ConstanciaLeague({ 
-  ranking, 
-  currentUserStats, 
-  hasParticipated,
-  onEditProfile,
-}: ConstanciaLeagueProps) {
+function ConstanciaLeague({ ranking, currentUserStats, hasParticipated, onEditProfile, onOpenProfile }: LeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
   const top3 = ranking[2];
@@ -589,59 +502,29 @@ function ConstanciaLeague({
   const currentPosition = currentUserStats?.posicao_constancia || 0;
   const currentDays = currentUserStats?.dias_trabalhados_mes || 0;
   const nextPositionIndex = currentPosition > 1 ? currentPosition - 2 : -1;
-  const nextPositionDays = nextPositionIndex >= 0 && ranking[nextPositionIndex] 
-    ? ranking[nextPositionIndex].dias_trabalhados_mes 
-    : 0;
-  const progressToNext = nextPositionDays > 0 
-    ? Math.min((currentDays / nextPositionDays) * 100, 100)
-    : 0;
+  const nextPositionDays = nextPositionIndex >= 0 && ranking[nextPositionIndex]
+    ? ranking[nextPositionIndex].dias_trabalhados_mes : 0;
+  const progressToNext = nextPositionDays > 0 ? Math.min((currentDays / nextPositionDays) * 100, 100) : 0;
 
   if (ranking.length === 0) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10 border border-primary/30">
-            <Flame className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h2 className="text-xl font-bold text-foreground">Liga de Constância</h2>
-            <p className="text-xs text-muted-foreground">Mais disciplinados do mês</p>
-          </div>
-        </div>
-        
-        <Card className="border border-dashed border-border/50 bg-card/30">
-          <CardContent className="p-8 text-center">
-            <Flame className="w-14 h-14 mx-auto mb-4 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">
-              Nenhum vendedor no ranking ainda. Seja o primeiro a concluir um dia de vendas!
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border border-dashed border-border/50 bg-card/30">
+        <CardContent className="p-8 text-center">
+          <Flame className="w-14 h-14 mx-auto mb-4 text-muted-foreground/30" />
+          <p className="text-muted-foreground text-sm">Nenhum vendedor ainda. Seja o primeiro!</p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-5">
-      {/* League Title */}
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-primary/15 border border-primary/30 shadow-lg shadow-primary/10">
-          <Flame className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-foreground">
-            Liga de <span className="text-primary">Constância</span>
-          </h2>
-          <p className="text-xs text-muted-foreground">Mais disciplinados do mês</p>
-        </div>
-      </div>
-
+    <div className="space-y-4">
       {/* Top 1 */}
       {top1 && (
         <Card className="relative overflow-hidden border border-primary/40 bg-card">
           <div className="absolute -top-32 -right-32 w-64 h-64 bg-primary/20 rounded-full blur-3xl" />
           <div className="absolute -bottom-32 -left-32 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
-          
+
           <CardContent className="relative p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -655,22 +538,18 @@ function ConstanciaLeague({
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="relative">
+              <button onClick={() => onOpenProfile(top1.user_id)} className="relative shrink-0 active:scale-95 transition-transform">
                 <div className="absolute -inset-1.5 bg-primary rounded-full blur-md opacity-40 animate-pulse" />
                 {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-2xl shadow-primary/40 border-2 border-primary relative z-10")}
                 <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg border-2 border-background z-20">
                   <Flame className="w-4 h-4 text-primary-foreground" />
                 </div>
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-xl font-bold text-foreground truncate">{top1.nome_usuario || 'Usuário'}</h3>
-                <p className="text-2xl font-black text-primary">
-                  {top1.dias_trabalhados_mes} dias
-                </p>
-                <p className="text-[11px] text-muted-foreground italic mt-0.5">
-                  "Disciplina é o caminho da vitória!"
-                </p>
-              </div>
+              </button>
+              <button onClick={() => onOpenProfile(top1.user_id)} className="flex-1 min-w-0 text-left">
+                <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
+                <p className="text-2xl font-black text-primary">{top1.dias_trabalhados_mes} dias</p>
+                <p className="text-[11px] text-muted-foreground italic mt-0.5">"Disciplina é o caminho da vitória!"</p>
+              </button>
             </div>
           </CardContent>
         </Card>
@@ -680,55 +559,55 @@ function ConstanciaLeague({
       {(top2 || top3) && (
         <div className="grid grid-cols-2 gap-3">
           {top2 && (
-            <Card className="relative overflow-hidden border border-foreground/20 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-foreground/10 rounded-full blur-2xl" />
-              <CardContent className="relative p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <div className="relative">
-                    <Medal className="w-7 h-7 text-foreground/70" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-foreground/70">2</span>
+            <button onClick={() => onOpenProfile(top2.user_id)} className="text-left">
+              <Card className="relative overflow-hidden border border-foreground/20 bg-card hover:border-foreground/40 transition-colors">
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-foreground/10 rounded-full blur-2xl" />
+                <CardContent className="relative p-4 text-center">
+                  <div className="flex justify-center mb-2">
+                    <div className="relative">
+                      <Medal className="w-7 h-7 text-foreground/70" />
+                      <span className="absolute -top-1 -right-1 text-[10px] font-black text-foreground/70">2</span>
+                    </div>
                   </div>
-                </div>
-                <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-foreground/30 mx-auto shadow-md")}
-                </div>
-                <h4 className="font-bold text-xs truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-foreground mt-0.5">
-                  {top2.dias_trabalhados_mes} dias
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{top2.constancia_streak_atual} seguidos</p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-foreground/10 border border-foreground/20 inline-flex items-center gap-1">
-                  <Flame className="w-2.5 h-2.5 text-foreground/70" />
-                  <span className="text-[9px] font-semibold text-foreground/70 tracking-wider">PRATA</span>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="relative mx-auto mb-2 w-fit">
+                    {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-foreground/30 mx-auto shadow-md")}
+                  </div>
+                  <h4 className="font-bold text-xs truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
+                  <p className="text-base font-black text-foreground mt-0.5">{top2.dias_trabalhados_mes} dias</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{top2.constancia_streak_atual} seguidos</p>
+                  <div className="mt-2 px-2 py-0.5 rounded-full bg-foreground/10 border border-foreground/20 inline-flex items-center gap-1">
+                    <Flame className="w-2.5 h-2.5 text-foreground/70" />
+                    <span className="text-[9px] font-semibold text-foreground/70 tracking-wider">PRATA</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
           )}
 
           {top3 && (
-            <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
-              <CardContent className="relative p-4 text-center">
-                <div className="flex justify-center mb-2">
-                  <div className="relative">
-                    <Medal className="w-7 h-7 text-[#a8703a]" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
+            <button onClick={() => onOpenProfile(top3.user_id)} className="text-left">
+              <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card hover:border-[#a8703a]/70 transition-colors">
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
+                <CardContent className="relative p-4 text-center">
+                  <div className="flex justify-center mb-2">
+                    <div className="relative">
+                      <Medal className="w-7 h-7 text-[#a8703a]" />
+                      <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
+                    </div>
                   </div>
-                </div>
-                <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
-                </div>
-                <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-foreground mt-0.5">
-                  {top3.dias_trabalhados_mes} dias
-                </p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{top3.constancia_streak_atual} seguidos</p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
-                  <Flame className="w-2.5 h-2.5 text-[#a8703a]" />
-                  <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
-                </div>
-              </CardContent>
-            </Card>
+                  <div className="relative mx-auto mb-2 w-fit">
+                    {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
+                  </div>
+                  <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
+                  <p className="text-base font-black text-foreground mt-0.5">{top3.dias_trabalhados_mes} dias</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{top3.constancia_streak_atual} seguidos</p>
+                  <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
+                    <Flame className="w-2.5 h-2.5 text-[#a8703a]" />
+                    <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
           )}
         </div>
       )}
@@ -749,9 +628,7 @@ function ConstanciaLeague({
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold tracking-wider">
-                    VOCÊ
-                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold tracking-wider">VOCÊ</span>
                   <span className="text-muted-foreground text-sm">#{currentUserStats.posicao_constancia}</span>
                 </div>
                 <p className="text-lg font-bold text-foreground">{currentUserStats.dias_trabalhados_mes} dias trabalhados</p>
@@ -759,14 +636,11 @@ function ConstanciaLeague({
               </div>
               <Flame className="w-5 h-5 text-primary" />
             </div>
-            
             {currentPosition > 1 && nextPositionDays > currentDays && (
               <div className="space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Para #{currentPosition - 1}</span>
-                  <span className="text-primary font-medium">
-                    Faltam {nextPositionDays - currentDays} dias
-                  </span>
+                  <span className="text-primary font-medium">Faltam {nextPositionDays - currentDays} dias</span>
                 </div>
                 <Progress value={progressToNext} className="h-1.5" />
               </div>
@@ -778,30 +652,27 @@ function ConstanciaLeague({
       {/* Rest of Top 10 */}
       {restRanking.length > 0 && (
         <div className="space-y-2">
-          {restRanking.map((user, index) => (
-            <Card 
-              key={user.id} 
-              className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300"
-            >
-              <CardContent className="relative p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-black text-foreground/80">
-                    {index + 4}
-                  </span>
-                </div>
-                {renderAvatar(user.avatar_url, user.nome_usuario, "sm", "border border-border/50")}
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm text-foreground truncate">{user.nome_usuario || 'Usuário'}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <Flame className="w-3 h-3 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground">{user.constancia_streak_atual} seguidos</span>
+          {restRanking.map((u, index) => (
+            <button key={u.id} onClick={() => onOpenProfile(u.user_id)} className="w-full text-left">
+              <Card className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300">
+                <CardContent className="relative p-3.5 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-black text-foreground/80">{index + 4}</span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-foreground text-sm">{user.dias_trabalhados_mes} dias</p>
-                </div>
-              </CardContent>
-            </Card>
+                  {renderAvatar(u.avatar_url, u.nome_usuario, "sm", "border border-border/50")}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground truncate">{u.nome_usuario || 'Usuário'}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <Flame className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">{u.constancia_streak_atual} seguidos</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-foreground text-sm">{u.dias_trabalhados_mes} dias</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
           ))}
         </div>
       )}
