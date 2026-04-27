@@ -9,7 +9,7 @@ interface DefconStartScreenProps {
 
 export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: DefconStartScreenProps) {
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       {/* Title */}
       <div className="text-center mb-12">
         <div className="text-xs font-mono text-red-500 tracking-[0.5em] uppercase mb-4">

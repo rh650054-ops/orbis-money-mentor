@@ -175,7 +175,7 @@ export function DefconBlockReport({
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       <div className="text-center mb-8">
         <div className="text-6xl mb-4">{getEmoji()}</div>
         <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-2">
