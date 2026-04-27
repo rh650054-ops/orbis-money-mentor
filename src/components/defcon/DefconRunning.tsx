@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
+import QuickExpenseButton from "@/components/QuickExpenseButton";
 
 interface DefconRunningProps {
   userId: string;
@@ -60,6 +61,7 @@ export function DefconRunning({
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
   const [showAddTip, setShowAddTip] = useState(false);
   const [tipValue, setTipValue] = useState("");
+  const [showExpense, setShowExpense] = useState(false);
   const [salePhone, setSalePhone] = useState("");
   const [tipPhone, setTipPhone] = useState("");
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
@@ -330,6 +332,23 @@ export function DefconRunning({
         <DefconQuickSaleButtons
           saleHistory={saleHistory}
           onQuickSale={registerSale}
+        />
+
+        {/* Botão de custo rápido — discreto, alinhado ao tom DEFCON */}
+        <div className="w-full flex justify-center px-1">
+          <button
+            onClick={() => setShowExpense(true)}
+            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-[#1A1A1A] border border-white/10 active:scale-95 active:bg-[#2A2A2A] transition-all"
+          >
+            <Minus className="w-3.5 h-3.5 text-red-400" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold text-white/70 tracking-wide uppercase">Custo</span>
+          </button>
+        </div>
+
+        <QuickExpenseButton
+          open={showExpense}
+          onOpenChange={setShowExpense}
+          hideFab
         />
 
         {/* Botões de ação — venda elevada acima dos laterais */}
