@@ -91,11 +91,22 @@ export default {
           "0%": { transform: "rotate(0deg) scale(0.4)", opacity: "0" },
           "100%": { transform: "rotate(540deg) scale(1)", opacity: "1" },
         },
+        "orbis-splash-spin": {
+          "0%": { transform: "rotate(0deg) scale(0.6)", opacity: "0" },
+          "40%": { opacity: "1" },
+          "100%": { transform: "rotate(360deg) scale(1)", opacity: "1" },
+        },
+        "orbis-splash-out": {
+          "0%": { opacity: "1" },
+          "100%": { opacity: "0", visibility: "hidden" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "orbis-spin-in": "orbis-spin-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "orbis-splash-spin": "orbis-splash-spin 0.85s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "orbis-splash-out": "orbis-splash-out 0.18s ease-out",
       },
     },
   },

@@ -16,6 +16,9 @@ import Chat from "./pages/Chat";
 import Routine from "./pages/Routine";
 import Finances from "./pages/Finances";
 import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
+import SplashScreen from "./components/SplashScreen";
 import Payment from "./pages/Payment";
 import Benefits from "./pages/Benefits";
 import AdminDemoUsers from "./pages/AdminDemoUsers";
@@ -36,9 +39,12 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner position="top-center" />
+      <SplashScreen />
       <BrowserRouter>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/check-in" element={<CheckIn />} />
