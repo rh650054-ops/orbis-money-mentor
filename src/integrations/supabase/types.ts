@@ -1012,6 +1012,7 @@ export type Database = {
           avatar_url: string | null
           base_daily_goal: number | null
           billing_exempt: boolean | null
+          bio: string | null
           check_in_focus: string | null
           check_in_mood: string | null
           check_in_start_time: string | null
@@ -1027,6 +1028,7 @@ export type Database = {
           goal_timer_active: boolean | null
           goal_timer_started_at: string | null
           id: string
+          instagram: string | null
           is_demo: boolean | null
           is_trial_active: boolean | null
           last_check_in_date: string | null
@@ -1043,6 +1045,9 @@ export type Database = {
           pix_merchant_name: string | null
           plan_status: string | null
           plan_type: string | null
+          show_city: boolean
+          show_instagram: boolean
+          show_whatsapp: boolean
           speech_rate: string | null
           speech_volume: string | null
           state: string | null
@@ -1058,6 +1063,9 @@ export type Database = {
           week_start_date: string | null
           weekly_goal: number | null
           weekly_work_days: number | null
+          what_i_sell: string | null
+          whatsapp_public: string | null
+          where_i_sell: string | null
           working_days: string[] | null
         }
         Insert: {
@@ -1066,6 +1074,7 @@ export type Database = {
           avatar_url?: string | null
           base_daily_goal?: number | null
           billing_exempt?: boolean | null
+          bio?: string | null
           check_in_focus?: string | null
           check_in_mood?: string | null
           check_in_start_time?: string | null
@@ -1081,6 +1090,7 @@ export type Database = {
           goal_timer_active?: boolean | null
           goal_timer_started_at?: string | null
           id?: string
+          instagram?: string | null
           is_demo?: boolean | null
           is_trial_active?: boolean | null
           last_check_in_date?: string | null
@@ -1097,6 +1107,9 @@ export type Database = {
           pix_merchant_name?: string | null
           plan_status?: string | null
           plan_type?: string | null
+          show_city?: boolean
+          show_instagram?: boolean
+          show_whatsapp?: boolean
           speech_rate?: string | null
           speech_volume?: string | null
           state?: string | null
@@ -1112,6 +1125,9 @@ export type Database = {
           week_start_date?: string | null
           weekly_goal?: number | null
           weekly_work_days?: number | null
+          what_i_sell?: string | null
+          whatsapp_public?: string | null
+          where_i_sell?: string | null
           working_days?: string[] | null
         }
         Update: {
@@ -1120,6 +1136,7 @@ export type Database = {
           avatar_url?: string | null
           base_daily_goal?: number | null
           billing_exempt?: boolean | null
+          bio?: string | null
           check_in_focus?: string | null
           check_in_mood?: string | null
           check_in_start_time?: string | null
@@ -1135,6 +1152,7 @@ export type Database = {
           goal_timer_active?: boolean | null
           goal_timer_started_at?: string | null
           id?: string
+          instagram?: string | null
           is_demo?: boolean | null
           is_trial_active?: boolean | null
           last_check_in_date?: string | null
@@ -1151,6 +1169,9 @@ export type Database = {
           pix_merchant_name?: string | null
           plan_status?: string | null
           plan_type?: string | null
+          show_city?: boolean
+          show_instagram?: boolean
+          show_whatsapp?: boolean
           speech_rate?: string | null
           speech_volume?: string | null
           state?: string | null
@@ -1166,6 +1187,9 @@ export type Database = {
           week_start_date?: string | null
           weekly_goal?: number | null
           weekly_work_days?: number | null
+          what_i_sell?: string | null
+          whatsapp_public?: string | null
+          where_i_sell?: string | null
           working_days?: string[] | null
         }
         Relationships: []
@@ -1433,7 +1457,54 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          city: string | null
+          instagram: string | null
+          nickname: string | null
+          show_city: boolean | null
+          show_instagram: boolean | null
+          show_whatsapp: boolean | null
+          state: string | null
+          user_id: string | null
+          what_i_sell: string | null
+          whatsapp_public: string | null
+          where_i_sell: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          city?: never
+          instagram?: never
+          nickname?: string | null
+          show_city?: boolean | null
+          show_instagram?: boolean | null
+          show_whatsapp?: boolean | null
+          state?: never
+          user_id?: string | null
+          what_i_sell?: string | null
+          whatsapp_public?: never
+          where_i_sell?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          city?: never
+          instagram?: never
+          nickname?: string | null
+          show_city?: boolean | null
+          show_instagram?: boolean | null
+          show_whatsapp?: boolean | null
+          state?: never
+          user_id?: string | null
+          what_i_sell?: string | null
+          whatsapp_public?: never
+          where_i_sell?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       check_trial_expired: { Args: { user_uuid: string }; Returns: boolean }
