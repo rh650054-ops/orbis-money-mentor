@@ -138,14 +138,19 @@ export default function Layout({ children }: LayoutProps) {
       <header className="sticky top-0 z-50 border-b border-border/40 backdrop-blur-xl bg-background/80" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Link to="/" className="flex items-center space-x-2">
-                <img src="/orbis-logo.png" alt="" className="w-8 h-8 object-contain" />
-                <img src="/orbis-wordmark.png" alt="Orbis" className="h-5 object-contain" />
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Mobile: sem logo, header limpo. Desktop: logo discreta */}
+              <Link to="/" className="hidden md:flex items-center space-x-2">
+                <img src="/orbis-logo.png" alt="" className="w-7 h-7 object-contain opacity-80" />
+                <img src="/orbis-wordmark.png" alt="Orbis" className="h-4 object-contain opacity-80" />
+              </Link>
+              {/* Mobile: ícone pequeno só como âncora para Dashboard */}
+              <Link to="/" className="md:hidden flex items-center" aria-label="Início">
+                <img src="/orbis-logo.png" alt="" className="w-6 h-6 object-contain opacity-60" />
               </Link>
               {isAdmin && (
                 <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0",
                   adminRole === "admin"
                     ? "bg-primary/20 text-primary border border-primary/30"
                     : "bg-muted text-muted-foreground border border-border"
@@ -183,6 +188,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </header>
+
 
       {/* Main Content */}
       <main className="container mx-auto px-4 pt-2 pb-24 md:pt-8 md:pb-8">
