@@ -384,16 +384,15 @@ export default function Index() {
   const greeting = getGreeting();
 
   return <div className="min-h-screen bg-background px-5 pt-4 pb-8 space-y-2 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
-      {/* Saudação com logo girando atrás */}
-      <div className="relative space-y-0.5 py-2">
+      {/* Saudação com logo ao lado */}
+      <div className="flex items-center gap-3 py-2">
         <img
           src="/orbis-logo.png"
-          alt=""
-          aria-hidden="true"
-          className="pointer-events-none select-none absolute -right-2 -top-2 w-24 h-24 object-contain opacity-[0.10] animate-orbis-spin-in"
+          alt="Orbis"
+          className="w-11 h-11 object-contain shrink-0 animate-orbis-spin-in"
         />
-        <div className="relative">
-          <p className="text-xl font-semibold tracking-tight text-foreground">
+        <div className="min-w-0 flex-1">
+          <p className="text-xl font-semibold tracking-tight text-foreground truncate">
             {greeting}, <span className="text-primary">{nickname || "vendedor"}</span>
           </p>
           <p className="text-xs text-muted-foreground">Vamos dominar o dia.</p>
