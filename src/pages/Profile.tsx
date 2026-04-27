@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut } from "lucide-react";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { EditPlanningModal } from "@/components/EditPlanningModal";
 
 interface MenuItem {
   icon: React.ElementType;
   label: string;
   description: string;
-  path: string;
+  path?: string;
+  action?: string;
   color: string;
 }
 
@@ -19,6 +22,13 @@ const menuItems: MenuItem[] = [
     label: "Minha Conta",
     description: "Dados pessoais e assinatura",
     path: "/my-account",
+    color: "text-primary",
+  },
+  {
+    icon: Target,
+    label: "Editar Planejamento",
+    description: "Meta do mês, horas e dias por semana",
+    action: "edit-planning",
     color: "text-primary",
   },
   {
@@ -53,13 +63,22 @@ const menuItems: MenuItem[] = [
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const [planningOpen, setPlanningOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
     toast({ title: "Logout realizado", description: "Até logo!" });
     navigate("/auth");
+  };
+
+  const handleItemClick = (item: MenuItem) => {
+    if (item.action === "edit-planning") {
+      setPlanningOpen(true);
+    } else if (item.path) {
+      navigate(item.path);
+    }
   };
 
   return (
@@ -74,9 +93,9 @@ export default function Profile() {
           const Icon = item.icon;
           return (
             <Card
-              key={item.path}
+              key={item.label}
               className="glass cursor-pointer hover:border-primary/30 transition-all hover:scale-[1.01]"
-              onClick={() => navigate(item.path)}
+              onClick={() => handleItemClick(item)}
             >
               <CardContent className="p-4 flex items-center gap-4">
                 <div className={`w-11 h-11 rounded-full bg-muted/40 flex items-center justify-center ${item.color}`}>
@@ -101,6 +120,14 @@ export default function Profile() {
         <LogOut className="w-4 h-4 mr-2" />
         Sair da conta
       </Button>
+
+      {user && (
+        <EditPlanningModal
+          userId={user.id}
+          isOpen={planningOpen}
+          onClose={() => setPlanningOpen(false)}
+        />
+      )}
     </div>
   );
 }
