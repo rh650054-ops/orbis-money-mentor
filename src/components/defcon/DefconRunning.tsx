@@ -431,7 +431,7 @@ export function DefconRunning({
                 inputMode="decimal"
                 value={saleValue}
                 onChange={(e) => setSaleValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddSale()}
+                onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
                 placeholder="0"
                 autoFocus
                 className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-green-500 transition-colors placeholder:text-neutral-700"
