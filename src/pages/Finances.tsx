@@ -1004,37 +1004,52 @@ export default function Finances() {
                 <CardDescription>Distribuição das suas despesas mensais</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <PieChart margin={{ top: 16, right: 48, bottom: 16, left: 48 }}>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent, x, y, cx }) => (
-                        <text
-                          x={x}
-                          y={y}
-                          fill="hsl(var(--foreground))"
-                          textAnchor={x > cx ? "start" : "end"}
-                          dominantBaseline="central"
-                          fontSize={12}
-                          fontWeight={600}
-                        >
-                          {`${name} ${(percent * 100).toFixed(0)}%`}
-                        </text>
-                      )}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <div className="flex flex-col items-center gap-4">
+                  <ResponsiveContainer width="100%" height={200}>
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        dataKey="value"
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="hsl(var(--card))" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: "hsl(var(--card))",
+                          border: "1px solid hsl(var(--border))",
+                          borderRadius: 8,
+                          color: "hsl(var(--foreground))",
+                        }}
+                        formatter={(value: number) => [`R$ ${Number(value).toFixed(2)}`, ""]}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="w-full grid grid-cols-2 gap-x-3 gap-y-2">
+                    {(() => {
+                      const total = categoryData.reduce((s, c) => s + Number(c.value || 0), 0) || 1;
+                      return categoryData.map((entry, index) => {
+                        const pct = (Number(entry.value || 0) / total) * 100;
+                        return (
+                          <div key={index} className="flex items-center gap-2 min-w-0">
+                            <span
+                              className="w-3 h-3 rounded-sm flex-shrink-0"
+                              style={{ backgroundColor: entry.color }}
+                            />
+                            <span className="text-xs text-foreground truncate flex-1">{entry.name}</span>
+                            <span className="text-xs font-semibold text-foreground">{pct.toFixed(0)}%</span>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           ) : (
