@@ -87,10 +87,20 @@ export default {
             height: "0",
           },
         },
+        "orbis-spin-in": {
+          "0%": { transform: "rotate(-180deg) scale(0.6)", opacity: "0" },
+          "60%": { opacity: "0.10" },
+          "100%": { transform: "rotate(360deg) scale(1)", opacity: "0.10" },
+        },
+        "orbis-drift": {
+          "0%": { transform: "rotate(0deg)" },
+          "100%": { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "orbis-spin-in": "orbis-spin-in 1.2s cubic-bezier(0.22, 1, 0.36, 1) both, orbis-drift 40s linear 1.2s infinite",
       },
     },
   },
