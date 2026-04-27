@@ -79,16 +79,17 @@ export function DefconRunning({
     return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
-  const registerSale = (amount: number) => {
-    onAddSale(amount);
+  const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+    onAddSale(amount, method);
     setSaleHistory((prev) => [...prev, amount]);
-    pushFloater(`+${formatCurrency(amount)}`, "sale");
+    const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
+    pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
   };
 
-  const handleAddSale = () => {
+  const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
-      registerSale(amount);
+      registerSale(amount, method);
       setSaleValue("");
       setSalePhone("");
       setShowAddSale(false);
