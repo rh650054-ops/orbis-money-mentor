@@ -334,6 +334,23 @@ export function DefconRunning({
           onQuickSale={registerSale}
         />
 
+        {/* Botão de custo rápido — discreto, alinhado ao tom DEFCON */}
+        <div className="w-full flex justify-center px-1">
+          <button
+            onClick={() => setShowExpense(true)}
+            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-[#1A1A1A] border border-white/10 active:scale-95 active:bg-[#2A2A2A] transition-all"
+          >
+            <Minus className="w-3.5 h-3.5 text-red-400" strokeWidth={2.5} />
+            <span className="text-[11px] font-bold text-white/70 tracking-wide uppercase">Custo</span>
+          </button>
+        </div>
+
+        <QuickExpenseButton
+          open={showExpense}
+          onOpenChange={setShowExpense}
+          hideFab
+        />
+
         {/* Botões de ação — venda elevada acima dos laterais */}
         <div className="w-full flex items-end justify-center gap-2.5 px-1">
           {/* Abordagem — esquerda, mais baixo */}
