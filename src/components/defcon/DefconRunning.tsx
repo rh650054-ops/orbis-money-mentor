@@ -22,7 +22,7 @@ interface DefconRunningProps {
   totalApproaches: number;
   totalSalesCount: number;
   blockSalesCount: number;
-  onAddSale: (amount: number) => void;
+  onAddSale: (amount: number, method?: "dinheiro" | "pix" | "cartao") => void;
   onAddApproach: () => void;
   onAddOccurrence: (description: string) => void;
   onEnd: () => void;
