@@ -189,7 +189,7 @@ export default function Layout({ children }: LayoutProps) {
         {/* Back button - hidden on Dashboard and pages that already have their own back button */}
         {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits"].includes(location.pathname) && (
           <div className="mb-2 md:hidden">
-            <BackButton />
+            <BackButton to={location.pathname === "/profile" ? "/" : undefined} />
           </div>
         )}
         {/* Trial Warning Banner */}
