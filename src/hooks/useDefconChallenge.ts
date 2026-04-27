@@ -573,19 +573,26 @@ export function useDefconChallenge(userId: string | undefined) {
     celebrationSounds.playDefconActivation();
   };
 
-  const addSale = async (amount: number) => {
+  const addSale = async (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     if (!userId || phase !== "running" || amount <= 0) return;
 
     const currentBlock = blocks[currentBlockIndex];
     if (!currentBlock) return;
 
-    const newDinheiro = currentBlock.valor_dinheiro + amount;
-    const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
+    const newDinheiro = currentBlock.valor_dinheiro + (method === "dinheiro" ? amount : 0);
+    const newPix = currentBlock.valor_pix + (method === "pix" ? amount : 0);
+    const newCartao = currentBlock.valor_cartao + (method === "cartao" ? amount : 0);
+    const newAchieved = newDinheiro + newCartao + newPix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
 
     await supabase
       .from("hourly_goal_blocks")
-      .update({ achieved_amount: newAchieved, valor_dinheiro: newDinheiro })
+      .update({
+        achieved_amount: newAchieved,
+        valor_dinheiro: newDinheiro,
+        valor_pix: newPix,
+        valor_cartao: newCartao,
+      })
       .eq("id", currentBlock.id);
 
     if (sessionId) {
@@ -598,7 +605,7 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
-          ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro }
+          ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao }
           : b
       )
     );

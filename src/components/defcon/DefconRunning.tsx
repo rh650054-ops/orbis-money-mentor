@@ -22,7 +22,7 @@ interface DefconRunningProps {
   totalApproaches: number;
   totalSalesCount: number;
   blockSalesCount: number;
-  onAddSale: (amount: number) => void;
+  onAddSale: (amount: number, method?: "dinheiro" | "pix" | "cartao") => void;
   onAddApproach: () => void;
   onAddOccurrence: (description: string) => void;
   onEnd: () => void;
@@ -79,16 +79,17 @@ export function DefconRunning({
     return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
-  const registerSale = (amount: number) => {
-    onAddSale(amount);
+  const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+    onAddSale(amount, method);
     setSaleHistory((prev) => [...prev, amount]);
-    pushFloater(`+${formatCurrency(amount)}`, "sale");
+    const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
+    pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
   };
 
-  const handleAddSale = () => {
+  const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
-      registerSale(amount);
+      registerSale(amount, method);
       setSaleValue("");
       setSalePhone("");
       setShowAddSale(false);
@@ -430,48 +431,28 @@ export function DefconRunning({
                 inputMode="decimal"
                 value={saleValue}
                 onChange={(e) => setSaleValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddSale()}
+                onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
                 placeholder="0"
                 autoFocus
                 className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-green-500 transition-colors placeholder:text-neutral-700"
               />
             </div>
 
-            {/* WhatsApp opcional para cobrança */}
-            <div>
-              <label className="block text-[11px] font-mono text-[#A1A1A1] tracking-wider uppercase mb-2">
-                WhatsApp do cliente (opcional)
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
-                <input
-                  type="tel"
-                  inputMode="tel"
-                  value={salePhone}
-                  onChange={(e) => setSalePhone(e.target.value)}
-                  placeholder="(11) 99999-9999"
-                  className="w-full h-12 bg-black border-2 border-neutral-700 rounded-xl text-base font-mono text-white pl-12 pr-4 focus:outline-none focus:border-[#22C55E] transition-colors placeholder:text-neutral-700"
-                />
-              </div>
-            </div>
-
             <div className="flex gap-2">
               <button
-                onClick={handleAddSale}
+                onClick={() => handleAddSale("dinheiro")}
                 disabled={!saleValue || parseFloat(saleValue) <= 0}
-                className="flex-[1.4] h-14 bg-green-600 text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                className="flex-1 h-16 bg-green-600 text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
               >
-                <Plus className="w-5 h-5" strokeWidth={3} />
-                REGISTRAR
+                <Coins className="w-5 h-5" strokeWidth={2.5} />
+                DINHEIRO
               </button>
               <button
-                onClick={handleSaleAndCharge}
-                disabled={!saleValue || parseFloat(saleValue) <= 0 || sanitizePhone(salePhone).length < 10}
-                className="flex-1 h-14 bg-[#25D366] text-black font-black text-[13px] rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-1.5"
-                title="Registrar venda e enviar cobrança via WhatsApp"
+                onClick={() => handleAddSale("pix")}
+                disabled={!saleValue || parseFloat(saleValue) <= 0}
+                className="flex-1 h-16 bg-[#32BCAD] text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
               >
-                <MessageCircle className="w-4 h-4" strokeWidth={3} />
-                COBRAR
+                <span className="text-lg font-black">PIX</span>
               </button>
             </div>
           </div>
