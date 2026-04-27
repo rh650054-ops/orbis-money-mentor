@@ -61,6 +61,7 @@ export function DefconRunning({
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
   const [showAddTip, setShowAddTip] = useState(false);
   const [tipValue, setTipValue] = useState("");
+  const [showExpense, setShowExpense] = useState(false);
   const [salePhone, setSalePhone] = useState("");
   const [tipPhone, setTipPhone] = useState("");
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
