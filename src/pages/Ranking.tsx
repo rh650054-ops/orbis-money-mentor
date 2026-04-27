@@ -706,26 +706,26 @@ function ConstanciaLeague({
           )}
 
           {top3 && (
-            <Card className="relative overflow-hidden border border-primary/30 bg-card">
-              <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary/10 rounded-full blur-2xl" />
+            <Card className="relative overflow-hidden border border-[#a8703a]/50 bg-card">
+              <div className="absolute -top-12 -right-12 w-24 h-24 bg-[#a8703a]/15 rounded-full blur-2xl" />
               <CardContent className="relative p-4 text-center">
                 <div className="flex justify-center mb-2">
                   <div className="relative">
-                    <Medal className="w-7 h-7 text-primary/80" />
-                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-primary/80">3</span>
+                    <Medal className="w-7 h-7 text-[#a8703a]" />
+                    <span className="absolute -top-1 -right-1 text-[10px] font-black text-[#a8703a]">3</span>
                   </div>
                 </div>
                 <div className="relative mx-auto mb-2 w-fit">
-                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-primary/40 mx-auto shadow-md")}
+                  {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-[#a8703a]/60 mx-auto shadow-md")}
                 </div>
                 <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
-                <p className="text-base font-black text-primary/90 mt-0.5">
+                <p className="text-base font-black text-foreground mt-0.5">
                   {top3.dias_trabalhados_mes} dias
                 </p>
                 <p className="text-[10px] text-muted-foreground mt-0.5">{top3.constancia_streak_atual} seguidos</p>
-                <div className="mt-2 px-2 py-0.5 rounded-full bg-primary/10 border border-primary/25 inline-flex items-center gap-1">
-                  <Flame className="w-2.5 h-2.5 text-primary" />
-                  <span className="text-[9px] font-semibold text-primary tracking-wider">BRONZE</span>
+                <div className="mt-2 px-2 py-0.5 rounded-full bg-[#a8703a]/15 border border-[#a8703a]/40 inline-flex items-center gap-1">
+                  <Flame className="w-2.5 h-2.5 text-[#a8703a]" />
+                  <span className="text-[9px] font-semibold text-[#a8703a] tracking-wider">BRONZE</span>
                 </div>
               </CardContent>
             </Card>
