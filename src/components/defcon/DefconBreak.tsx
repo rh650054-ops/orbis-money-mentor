@@ -13,7 +13,7 @@ export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold, onSk
   const seconds = breakRemaining % 60;
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       <div className="text-center space-y-8">
         <div className="text-6xl">☕</div>
 

@@ -21,7 +21,7 @@ export default function DefconChallenge() {
 
   if (authLoading || defcon.loading || !user) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex items-center justify-center">
         <div className="text-2xl font-mono text-red-500 animate-pulse">
           CARREGANDO DEFCON 4...
         </div>
@@ -31,7 +31,7 @@ export default function DefconChallenge() {
 
   if (!defcon.hasPlan) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6">
+      <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6">
         <div className="text-6xl mb-6">⚠️</div>
         <h1 className="text-2xl font-bold text-white mb-3">Sem plano hoje</h1>
         <p className="text-sm text-neutral-500 font-mono text-center mb-8">

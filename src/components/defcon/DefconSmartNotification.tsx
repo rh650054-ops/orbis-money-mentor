@@ -208,7 +208,10 @@ export function DefconSmartNotification({
   if (notifications.length === 0) return null;
 
   return (
-    <div className="fixed top-4 left-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none">
+    <div
+      className="fixed left-4 right-4 z-[60] flex flex-col gap-2 pointer-events-none"
+      style={{ top: 'calc(env(safe-area-inset-top) + 16px)' }}
+    >
       {notifications.map((n) => (
         <NotificationCard
           key={n.id}

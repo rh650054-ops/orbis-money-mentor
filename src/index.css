@@ -82,6 +82,19 @@ All colors MUST be HSL.
 }
 
 @layer utilities {
+  /* Safe area helpers (iPhone notch / Dynamic Island / home indicator) */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  .top-safe { top: env(safe-area-inset-top); }
+  .bottom-safe { bottom: env(safe-area-inset-bottom); }
+  .min-h-screen-safe {
+    min-height: 100dvh;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
   /* Glass morphism effect */
   .glass {
     background: rgba(255, 255, 255, 0.05);
