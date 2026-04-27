@@ -204,176 +204,163 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="w-[calc(100vw-1rem)] max-w-[500px] sm:w-full p-0 gap-0 bg-[#0D0D0D] border border-[#F4A100]/20 rounded-2xl overflow-hidden flex flex-col max-h-[calc(100dvh-2rem)]"
+        className="w-[calc(100vw-1.5rem)] max-w-[420px] sm:max-w-[440px] p-0 gap-0 bg-card border border-border rounded-2xl overflow-hidden"
       >
-        <DialogHeader
-          className="px-5 pt-5 pb-3 border-b border-white/5 shrink-0"
-          style={{ paddingTop: "calc(env(safe-area-inset-top) + 1.25rem)" }}
-        >
-          <DialogTitle className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-[#F4A100] to-[#6B21A8] bg-clip-text text-transparent leading-tight">
+        <DialogHeader className="px-5 pt-5 pb-3">
+          <DialogTitle className="text-lg font-bold text-primary leading-tight">
             {getTitle()}
           </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
+          <DialogDescription className="text-xs text-muted-foreground mt-1">
             {getDescription()}
           </DialogDescription>
         </DialogHeader>
 
-        <div
-          className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 space-y-5"
-        >
+        <div className="px-5 pb-5 space-y-3">
           {isRequired && (
-            <div className="p-3 rounded-xl bg-[#F4A100]/10 border border-[#F4A100]/30 flex items-start gap-2">
-              <AlertTriangle className="w-5 h-5 text-[#F4A100] mt-0.5 shrink-0" />
-              <p className="text-sm text-[#F4A100]/90">
+            <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/30 flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-primary/90">
                 {requiredReason === "first_time"
-                  ? "Configure seu planejamento para começar a usar o Orbis."
-                  : "Defina suas metas para este novo mês antes de continuar."}
+                  ? "Configure seu planejamento para começar."
+                  : "Defina suas metas para este novo mês."}
               </p>
             </div>
           )}
 
-          {/* Meta Mensal */}
-          <div className="space-y-2">
-            <Label htmlFor="monthlyGoal" className="flex items-center gap-2 text-sm">
-              <Target className="w-4 h-4 text-[#F4A100]" />
-              Meta Mensal (R$)
-            </Label>
-            <Input
-              id="monthlyGoal"
-              type="number"
-              inputMode="numeric"
-              value={monthlyGoal || ''}
-              onChange={(e) => setMonthlyGoal(e.target.value === '' ? 0 : Number(e.target.value))}
-              onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-              min={1}
-              placeholder="Ex: 4200"
-              className="h-12 rounded-xl border-white/10 bg-[#1A1A1A] focus-visible:border-[#F4A100] focus-visible:ring-[#F4A100]/20"
-            />
-          </div>
+          {/* Inputs em grid compacto */}
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="monthlyGoal" className="flex items-center gap-1.5 text-xs">
+                <Target className="w-3.5 h-3.5 text-primary" />
+                Meta Mensal (R$)
+              </Label>
+              <Input
+                id="monthlyGoal"
+                type="number"
+                inputMode="numeric"
+                value={monthlyGoal || ''}
+                onChange={(e) => setMonthlyGoal(e.target.value === '' ? 0 : Number(e.target.value))}
+                onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
+                min={1}
+                placeholder="Ex: 4200"
+                className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
+              />
+            </div>
 
-          {/* Dias por semana */}
-          <div className="space-y-2">
-            <Label htmlFor="workDays" className="flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-[#6B21A8]" />
-              Dias de trabalho por semana
-            </Label>
-            <Input
-              id="workDays"
-              type="number"
-              inputMode="numeric"
-              value={workDaysPerWeek || ''}
-              onChange={(e) => setWorkDaysPerWeek(e.target.value === '' ? 0 : Number(e.target.value))}
-              onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-              min={1}
-              max={7}
-              placeholder="Ex: 5"
-              className="h-12 rounded-xl border-white/10 bg-[#1A1A1A] focus-visible:border-[#6B21A8] focus-visible:ring-[#6B21A8]/20"
-            />
-          </div>
-
-          {/* Horas por dia */}
-          <div className="space-y-2">
-            <Label htmlFor="workHours" className="flex items-center gap-2 text-sm">
-              <Clock className="w-4 h-4 text-[#F4A100]" />
-              Horas de trabalho por dia
-            </Label>
-            <Input
-              id="workHours"
-              type="number"
-              inputMode="numeric"
-              value={workHours || ''}
-              onChange={(e) => setWorkHours(e.target.value === '' ? 0 : Number(e.target.value))}
-              onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-              min={1}
-              max={24}
-              placeholder="Ex: 8"
-              className="h-12 rounded-xl border-white/10 bg-[#1A1A1A] focus-visible:border-[#F4A100] focus-visible:ring-[#F4A100]/20"
-            />
-          </div>
-
-          {/* Preview das metas */}
-          <div className="p-4 rounded-xl bg-gradient-to-br from-[#F4A100]/10 to-[#6B21A8]/10 border border-[#F4A100]/20 space-y-3">
-            <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">📊 Resumo Calculado</p>
-            <div className="grid grid-cols-3 gap-2 text-xs sm:text-sm">
-              <div className="min-w-0">
-                <p className="text-muted-foreground text-[10px] sm:text-xs">Semanal</p>
-                <p className="font-bold text-[#F4A100] truncate">{formatCurrency(weeklyGoal)}</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="workDays" className="flex items-center gap-1.5 text-xs">
+                  <Calendar className="w-3.5 h-3.5 text-primary" />
+                  Dias/semana
+                </Label>
+                <Input
+                  id="workDays"
+                  type="number"
+                  inputMode="numeric"
+                  value={workDaysPerWeek || ''}
+                  onChange={(e) => setWorkDaysPerWeek(e.target.value === '' ? 0 : Number(e.target.value))}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
+                  min={1}
+                  max={7}
+                  placeholder="5"
+                  className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
+                />
               </div>
-              <div className="min-w-0">
-                <p className="text-muted-foreground text-[10px] sm:text-xs">Diária</p>
-                <p className="font-bold text-white truncate">{formatCurrency(dailyGoal)}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-muted-foreground text-[10px] sm:text-xs">Por Hora</p>
-                <p className="font-bold text-[#6B21A8] truncate">{formatCurrency(hourlyGoal)}</p>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="workHours" className="flex items-center gap-1.5 text-xs">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  Horas/dia
+                </Label>
+                <Input
+                  id="workHours"
+                  type="number"
+                  inputMode="numeric"
+                  value={workHours || ''}
+                  onChange={(e) => setWorkHours(e.target.value === '' ? 0 : Number(e.target.value))}
+                  onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
+                  min={1}
+                  max={24}
+                  placeholder="8"
+                  className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
+                />
               </div>
             </div>
           </div>
 
-          {/* Google Calendar Integration */}
-          {!isRequired && (
-            <div className="p-4 rounded-xl bg-[#1A1A1A] border border-[#6B21A8]/20 space-y-3">
-              <div className="flex items-center gap-2">
-                <CalendarCheck className="w-4 h-4 text-[#6B21A8]" />
-                <p className="text-[10px] sm:text-xs text-muted-foreground uppercase tracking-wider">Google Calendar</p>
+          {/* Resumo compacto */}
+          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="min-w-0">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Semanal</p>
+                <p className="text-xs font-bold text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
               </div>
+              <div className="min-w-0 border-x border-border">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Diária</p>
+                <p className="text-xs font-bold text-primary truncate">{formatCurrency(dailyGoal)}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Por Hora</p>
+                <p className="text-xs font-bold text-foreground truncate">{formatCurrency(hourlyGoal)}</p>
+              </div>
+            </div>
+          </div>
 
+          {/* Google Calendar — link discreto */}
+          {!isRequired && (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <CalendarCheck className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground">Google Calendar</p>
+                  {isConnected && (
+                    <p className="text-[10px] text-muted-foreground truncate">{googleEmail}</p>
+                  )}
+                </div>
+              </div>
               {isConnected ? (
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-white">Conectado</p>
-                    <p className="text-xs text-muted-foreground truncate">{googleEmail}</p>
-                  </div>
-                  <Button
-                    onClick={disconnect}
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 border-red-500/30 text-red-400 hover:bg-red-500/10"
-                  >
-                    Desconectar
-                  </Button>
-                </div>
+                <Button
+                  onClick={disconnect}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[10px] text-destructive hover:bg-destructive/10"
+                >
+                  Desconectar
+                </Button>
               ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Sincronize automaticamente suas metas e lembretes
-                  </p>
-                  <Button
-                    onClick={connect}
-                    disabled={calendarLoading}
-                    size="sm"
-                    className="w-full bg-[#6B21A8] hover:bg-[#6B21A8]/80 text-white"
-                  >
-                    {calendarLoading ? "Conectando..." : "🔗 Conectar Google Calendar"}
-                  </Button>
-                </div>
+                <Button
+                  onClick={connect}
+                  disabled={calendarLoading}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[10px] text-primary hover:bg-primary/10"
+                >
+                  {calendarLoading ? "..." : "Conectar"}
+                </Button>
               )}
             </div>
           )}
-        </div>
 
-        {/* Botões fixos no rodapé */}
-        <div
-          className="px-5 py-4 border-t border-white/5 bg-[#0D0D0D] shrink-0 flex gap-3"
-          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}
-        >
-          {!isRequired && (
+          {/* Botões */}
+          <div className="flex gap-2 pt-1">
+            {!isRequired && (
+              <Button
+                onClick={onClose}
+                variant="outline"
+                className="flex-1 h-10 rounded-lg border-border"
+                disabled={loading}
+              >
+                Cancelar
+              </Button>
+            )}
             <Button
-              onClick={onClose}
-              variant="outline"
-              className="flex-1 h-12 rounded-xl border-white/10 bg-transparent hover:bg-white/5"
+              onClick={handleSave}
+              className="flex-1 h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               disabled={loading}
             >
-              Cancelar
+              {loading ? "Salvando..." : isRequired ? "Começar" : "Salvar"}
             </Button>
-          )}
-          <Button
-            onClick={handleSave}
-            className="flex-1 h-12 rounded-xl bg-[#F4A100] hover:bg-[#F4A100]/90 text-black font-semibold"
-            disabled={loading}
-          >
-            {loading ? "Salvando..." : isRequired ? "🚀 Começar" : "Salvar"}
-          </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
