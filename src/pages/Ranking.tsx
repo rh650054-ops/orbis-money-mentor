@@ -534,8 +534,8 @@ function FaturamentoLeague({
               className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-all duration-300"
             >
               <CardContent className="relative p-3.5 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                  <span className="text-sm font-black text-primary">
+                <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
+                  <span className="text-sm font-black text-foreground/80">
                     {index + 4}
                   </span>
                 </div>
@@ -548,7 +548,7 @@ function FaturamentoLeague({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-bold text-primary text-sm">{formatCurrency(user.faturamento_total_mes)}</p>
+                  <p className="font-bold text-foreground text-sm">{formatCurrency(user.faturamento_total_mes)}</p>
                 </div>
               </CardContent>
             </Card>
