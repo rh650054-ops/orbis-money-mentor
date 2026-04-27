@@ -254,7 +254,7 @@ export function DefconEndScreen({
   const subTextColor = goalReached ? "text-green-500" : "text-neutral-400";
 
   return (
-    <div className="min-h-screen bg-black text-white px-6 pt-12 pb-10 select-none">
+    <div className="min-h-[100dvh] bg-black text-white px-6 pb-10 select-none">
       <div className="max-w-sm mx-auto space-y-8">
         {/* 1. HEADER — RESULTADO */}
         <div className="text-center space-y-3">

@@ -170,7 +170,7 @@ export function DefconRunning({
   // Confirm end screen
   if (showConfirmEnd) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 select-none">
+      <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
         <div className="text-center space-y-3 mb-8">
           <div className="text-6xl">⚠️</div>
           <div className="text-xl font-bold text-white">Encerrar o desafio?</div>
@@ -197,7 +197,7 @@ export function DefconRunning({
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col select-none">
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col select-none">
       {/* Smart approach notifications */}
       <DefconSmartNotification
         userId={userId}
