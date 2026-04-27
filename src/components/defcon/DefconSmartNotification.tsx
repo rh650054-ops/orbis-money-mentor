@@ -234,16 +234,18 @@ function NotificationCard({
   onHoldEnd: () => void;
 }) {
   const [progress, setProgress] = useState(100);
+  const [dragX, setDragX] = useState(0);
+  const [dismissing, setDismissing] = useState(false);
   const startTimeRef = useRef(Date.now());
   const holdingRef = useRef(false);
   const pausedAtRef = useRef<number | null>(null);
   const elapsedBeforePauseRef = useRef(0);
+  const dragStartXRef = useRef<number | null>(null);
+  const draggingRef = useRef(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
       if (holdingRef.current) return;
-      
-      const elapsed = elapsedBeforePauseRef.current + (Date.now() - (pausedAtRef.current !== null ? Date.now() : startTimeRef.current));
       const realElapsed = elapsedBeforePauseRef.current + (Date.now() - startTimeRef.current);
       const pct = Math.max(0, 100 - (realElapsed / NOTIFICATION_DURATION) * 100);
       setProgress(pct);
@@ -252,26 +254,57 @@ function NotificationCard({
     return () => clearInterval(interval);
   }, []);
 
-  const handleTouchStart = () => {
+  const handlePressStart = (clientX: number) => {
     holdingRef.current = true;
     elapsedBeforePauseRef.current += Date.now() - startTimeRef.current;
+    dragStartXRef.current = clientX;
+    draggingRef.current = false;
     onHoldStart();
   };
 
-  const handleTouchEnd = () => {
+  const handlePressMove = (clientX: number) => {
+    if (dragStartXRef.current === null) return;
+    const delta = clientX - dragStartXRef.current;
+    if (Math.abs(delta) > 5) draggingRef.current = true;
+    setDragX(delta);
+  };
+
+  const handlePressEnd = () => {
+    const delta = dragX;
+    const threshold = 80;
+    if (Math.abs(delta) > threshold) {
+      // Swipe out
+      setDismissing(true);
+      setDragX(delta > 0 ? 500 : -500);
+      setTimeout(() => onDismiss(), 200);
+      return;
+    }
+    // Snap back
+    setDragX(0);
     holdingRef.current = false;
     startTimeRef.current = Date.now();
+    dragStartXRef.current = null;
+    draggingRef.current = false;
     onHoldEnd();
   };
 
+  const opacity = dismissing ? 0 : Math.max(0.3, 1 - Math.abs(dragX) / 200);
+
   return (
     <div
-      className="pointer-events-auto bg-neutral-900/95 backdrop-blur-sm border border-neutral-700/50 rounded-xl overflow-hidden animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50"
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleTouchStart}
-      onMouseUp={handleTouchEnd}
-      onMouseLeave={() => { if (holdingRef.current) handleTouchEnd(); }}
+      className="pointer-events-auto bg-neutral-900/95 backdrop-blur-sm border border-neutral-700/50 rounded-xl overflow-hidden animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50 touch-pan-y"
+      style={{
+        transform: `translateX(${dragX}px)`,
+        opacity,
+        transition: dragStartXRef.current === null || dismissing ? "transform 0.2s ease, opacity 0.2s ease" : "none",
+      }}
+      onTouchStart={(e) => handlePressStart(e.touches[0].clientX)}
+      onTouchMove={(e) => handlePressMove(e.touches[0].clientX)}
+      onTouchEnd={handlePressEnd}
+      onMouseDown={(e) => handlePressStart(e.clientX)}
+      onMouseMove={(e) => { if (dragStartXRef.current !== null) handlePressMove(e.clientX); }}
+      onMouseUp={handlePressEnd}
+      onMouseLeave={() => { if (dragStartXRef.current !== null) handlePressEnd(); }}
     >
       <div className="px-4 py-3 flex items-start gap-3">
         <span className="text-xl flex-shrink-0 mt-0.5">{notification.icon}</span>
@@ -280,6 +313,8 @@ function NotificationCard({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
           className="flex-shrink-0 mt-0.5"
         >
           <X className="w-4 h-4 text-neutral-600 active:text-neutral-300" />
