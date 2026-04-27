@@ -1005,14 +1005,26 @@ export default function Finances() {
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
-                  <PieChart>
+                  <PieChart margin={{ top: 16, right: 48, bottom: 16, left: 48 }}>
                     <Pie
                       data={categoryData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={100}
+                      label={({ name, percent, x, y, cx }) => (
+                        <text
+                          x={x}
+                          y={y}
+                          fill="hsl(var(--foreground))"
+                          textAnchor={x > cx ? "start" : "end"}
+                          dominantBaseline="central"
+                          fontSize={12}
+                          fontWeight={600}
+                        >
+                          {`${name} ${(percent * 100).toFixed(0)}%`}
+                        </text>
+                      )}
+                      outerRadius={80}
                       fill="#8884d8"
                       dataKey="value"
                     >
