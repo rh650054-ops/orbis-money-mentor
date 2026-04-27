@@ -63,7 +63,7 @@ export function DefconRunning({
   const [tipValue, setTipValue] = useState("");
   const [showExpense, setShowExpense] = useState(false);
   const [salePhone, setSalePhone] = useState("");
-  const [tipPhone, setTipPhone] = useState("");
+  
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
 
