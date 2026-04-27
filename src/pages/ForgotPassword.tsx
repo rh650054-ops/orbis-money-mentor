@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Mail, MessageCircle, KeyRound } from "lucide-react";
 
-const SUPPORT_WHATSAPP = "5511999999999"; // TODO: substituir pelo número real
+const SUPPORT_WHATSAPP = "5551992525965";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
