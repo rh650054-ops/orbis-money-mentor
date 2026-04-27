@@ -145,22 +145,8 @@ export function DefconRunning({
       onAddTip?.(amount);
       pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
       setTipValue("");
-      setTipPhone("");
       setShowAddTip(false);
     }
-  };
-
-  const handleTipAndCharge = () => {
-    const amount = parseFloat(tipValue) || 0;
-    if (amount <= 0) return;
-    onAddSale(amount);
-    setSaleHistory((prev) => [...prev, amount]);
-    onAddTip?.(amount);
-    pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
-    openWhatsAppCharge(tipPhone, amount);
-    setTipValue("");
-    setTipPhone("");
-    setShowAddTip(false);
   };
 
   // Frase de impacto inteligente — empurra ação concreta
