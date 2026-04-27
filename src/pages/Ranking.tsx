@@ -412,17 +412,17 @@ function FaturamentoLeague({
             </div>
             
             <div className="flex items-center justify-center gap-2 mt-5 pt-4 border-t border-primary/15">
-              <div className="px-2.5 py-1 rounded-full bg-primary/15 border border-primary/30 flex items-center gap-1.5">
-                <Trophy className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-bold text-primary tracking-wide">LÍDER</span>
+              <div className="px-2.5 py-1 rounded-full bg-primary border border-primary flex items-center gap-1.5">
+                <Trophy className="w-3 h-3 text-primary-foreground" />
+                <span className="text-[10px] font-bold text-primary-foreground tracking-wide">LÍDER</span>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-primary" />
-                <span className="text-[10px] font-bold text-primary tracking-wide">ELITE</span>
+              <div className="px-2.5 py-1 rounded-full bg-foreground/10 border border-foreground/30 flex items-center gap-1.5">
+                <Zap className="w-3 h-3 text-foreground" />
+                <span className="text-[10px] font-bold text-foreground tracking-wide">ELITE</span>
               </div>
-              <div className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/25 flex items-center gap-1.5">
-                <Star className="w-3 h-3 text-primary fill-primary" />
-                <span className="text-[10px] font-bold text-primary tracking-wide">DESTAQUE</span>
+              <div className="px-2.5 py-1 rounded-full bg-background border border-foreground/20 flex items-center gap-1.5">
+                <Star className="w-3 h-3 text-foreground fill-foreground" />
+                <span className="text-[10px] font-bold text-foreground tracking-wide">DESTAQUE</span>
               </div>
             </div>
           </CardContent>
