@@ -155,9 +155,6 @@ export default function QuickExpenseButton({
                 Total: <span className="text-primary font-bold">{formatCurrency(totalToday)}</span>
               </p>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
           <div className="p-5 space-y-5">
