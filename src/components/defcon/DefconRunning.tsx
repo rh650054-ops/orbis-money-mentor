@@ -557,7 +557,7 @@ export function DefconRunning({
                 <h3 className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
                 <p className="text-[11px] font-mono text-[#A1A1A1] mt-0.5">Conta como venda no faturamento</p>
               </div>
-              <button onClick={() => { setShowAddTip(false); setTipValue(""); setTipPhone(""); }}>
+              <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
