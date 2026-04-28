@@ -355,22 +355,37 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Faixa Demo - chip compacto */}
+      {/* Faixa Demo - destaque para que o usuário entenda seu status */}
       {profile.is_demo && profile.billing_exempt && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 animate-fade-in">
-          <span className="text-base leading-none">🧪</span>
-          <p className="text-xs font-medium text-foreground/90 flex-1 min-w-0 truncate">
-            Conta Demo · acesso completo liberado
-          </p>
-          <Badge className="bg-primary/15 text-primary border border-primary/30 text-[10px] px-1.5 py-0 h-5 font-semibold">
-            DEMO
-          </Badge>
+        <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_20px_-8px_hsl(var(--primary)/0.5)]">
+          <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.25),transparent_60%)]" />
+          <div className="relative flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/20 border border-primary/40 text-lg shrink-0">
+              🧪
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-primary leading-tight">Conta Demo</p>
+              <p className="text-[11px] text-foreground/80 leading-tight mt-0.5">
+                Acesso completo liberado · vire BLACK para remover este aviso
+              </p>
+            </div>
+            <Badge className="bg-primary text-primary-foreground border-0 text-[10px] px-2 py-0 h-5 font-bold tracking-wider shrink-0">
+              DEMO
+            </Badge>
+          </div>
         </div>
       )}
 
       {/* User Info Card - compacto e clean */}
-      <Card className="glass">
-        <CardContent className="p-4 space-y-3">
+      <Card className={`glass relative overflow-hidden ${
+        profile.plan_status === "active"
+          ? "border-primary/40 shadow-[0_0_30px_-10px_hsl(var(--primary)/0.6)]"
+          : ""
+      }`}>
+        {profile.plan_status === "active" && (
+          <div className="absolute inset-0 pointer-events-none opacity-60 bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.18),transparent_55%)]" />
+        )}
+        <CardContent className="p-4 space-y-3 relative">
           {/* Linha de identidade */}
           <div className="flex items-center gap-3">
             <div className="relative shrink-0">
@@ -380,14 +395,18 @@ export default function Profile() {
                   alt="Avatar"
                   className={`w-14 h-14 rounded-full object-cover border ${
                     profile.plan_status === "active"
-                      ? "border-primary/40 ring-1 ring-primary/20"
+                      ? "border-primary/60 ring-2 ring-primary/30 shadow-[0_0_18px_-2px_hsl(var(--primary)/0.7)]"
+                      : profile.is_demo
+                      ? "border-border opacity-80 grayscale-[20%]"
                       : "border-border"
                   }`}
                 />
               ) : (
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-semibold ${
                   profile.plan_status === "active"
-                    ? "bg-gradient-primary text-primary-foreground"
+                    ? "bg-gradient-primary text-primary-foreground shadow-[0_0_18px_-2px_hsl(var(--primary)/0.7)] ring-2 ring-primary/30"
+                    : profile.is_demo
+                    ? "bg-muted/60 text-muted-foreground"
                     : "bg-muted text-foreground"
                 }`}>
                   {profile.nickname ? profile.nickname.charAt(0).toUpperCase() : "U"}
@@ -403,18 +422,24 @@ export default function Profile() {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h2 className="text-base font-semibold leading-tight truncate">
+                <h2 className={`text-base font-semibold leading-tight truncate ${
+                  profile.plan_status === "active"
+                    ? "gradient-text-gold drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
+                    : profile.is_demo
+                    ? "text-foreground/70"
+                    : "text-foreground"
+                }`}>
                   {profile.nickname || "Usuário"}
                 </h2>
                 {profile.plan_status === "active" && (
-                  <Badge className="bg-primary/15 text-primary border border-primary/30 text-[10px] px-1.5 py-0 h-5 font-semibold">
+                  <Badge className="bg-primary text-primary-foreground border-0 text-[10px] px-1.5 py-0 h-5 font-bold tracking-wider shadow-[0_0_12px_-2px_hsl(var(--primary)/0.8)]">
                     <Crown className="w-2.5 h-2.5 mr-0.5" />
                     BLACK
                   </Badge>
                 )}
               </div>
               {profile.email && (
-                <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
+                <p className={`text-xs truncate ${profile.is_demo && profile.plan_status !== "active" ? "text-muted-foreground/70" : "text-muted-foreground"}`}>{profile.email}</p>
               )}
             </div>
 
@@ -455,7 +480,13 @@ export default function Profile() {
               {/* Meta mensal - linha única */}
               <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/60">
                 <span className="text-xs font-medium text-muted-foreground">Meta Mensal</span>
-                <span className="text-base font-semibold text-foreground">
+                <span className={`text-base font-semibold ${
+                  profile.plan_status === "active"
+                    ? "gradient-text-gold drop-shadow-[0_0_6px_hsl(var(--primary)/0.4)]"
+                    : profile.is_demo
+                    ? "text-foreground/70"
+                    : "text-foreground"
+                }`}>
                   R$ {profile.monthly_goal.toFixed(2)}
                 </span>
               </div>
