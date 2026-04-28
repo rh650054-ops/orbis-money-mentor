@@ -355,16 +355,24 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Faixa Demo - chip compacto */}
+      {/* Faixa Demo - destaque para que o usuário entenda seu status */}
       {profile.is_demo && profile.billing_exempt && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 animate-fade-in">
-          <span className="text-base leading-none">🧪</span>
-          <p className="text-xs font-medium text-foreground/90 flex-1 min-w-0 truncate">
-            Conta Demo · acesso completo liberado
-          </p>
-          <Badge className="bg-primary/15 text-primary border border-primary/30 text-[10px] px-1.5 py-0 h-5 font-semibold">
-            DEMO
-          </Badge>
+        <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_20px_-8px_hsl(var(--primary)/0.5)]">
+          <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.25),transparent_60%)]" />
+          <div className="relative flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/20 border border-primary/40 text-lg shrink-0">
+              🧪
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-primary leading-tight">Conta Demo</p>
+              <p className="text-[11px] text-foreground/80 leading-tight mt-0.5">
+                Acesso completo liberado · vire BLACK para remover este aviso
+              </p>
+            </div>
+            <Badge className="bg-primary text-primary-foreground border-0 text-[10px] px-2 py-0 h-5 font-bold tracking-wider shrink-0">
+              DEMO
+            </Badge>
+          </div>
         </div>
       )}
 
