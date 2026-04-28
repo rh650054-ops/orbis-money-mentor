@@ -13,6 +13,7 @@ interface Particle {
 export default function GoldParticles() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
+  const particlesRef = useRef<Particle[]>([]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -20,12 +21,13 @@ export default function GoldParticles() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     const resize = () => {
-      canvas.width = window.innerWidth * window.devicePixelRatio;
-      canvas.height = window.innerHeight * window.devicePixelRatio;
+      canvas.width = window.innerWidth * pixelRatio;
+      canvas.height = window.innerHeight * pixelRatio;
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
-      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+      ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
     };
     resize();
     window.addEventListener("resize", resize);
@@ -33,15 +35,19 @@ export default function GoldParticles() {
     const W = () => window.innerWidth;
     const H = () => window.innerHeight;
 
-    const particles: Particle[] = Array.from({ length: 60 }, () => ({
-      x: Math.random() * W(),
-      y: Math.random() * H(),
-      vx: (Math.random() - 0.5) * 0.3,
-      vy: (Math.random() - 0.5) * 0.3,
-      size: Math.random() * 1.5 + 1,
-      opacity: Math.random() * 0.4 + 0.4,
-      phase: Math.random() * Math.PI * 2,
-    }));
+    if (particlesRef.current.length === 0) {
+      const isSmallMobile = window.innerWidth <= 430;
+      particlesRef.current = Array.from({ length: isSmallMobile ? 28 : 46 }, () => ({
+        x: Math.random() * W(),
+        y: Math.random() * H(),
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: (Math.random() - 0.5) * 0.22,
+        size: Math.random() * 1.3 + 0.9,
+        opacity: Math.random() * 0.35 + 0.35,
+        phase: Math.random() * Math.PI * 2,
+      }));
+    }
+    const particles = particlesRef.current;
 
     let t = 0;
     const draw = () => {
