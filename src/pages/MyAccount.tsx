@@ -480,7 +480,13 @@ export default function Profile() {
               {/* Meta mensal - linha única */}
               <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/60">
                 <span className="text-xs font-medium text-muted-foreground">Meta Mensal</span>
-                <span className="text-base font-semibold text-foreground">
+                <span className={`text-base font-semibold ${
+                  profile.plan_status === "active"
+                    ? "gradient-text-gold drop-shadow-[0_0_6px_hsl(var(--primary)/0.4)]"
+                    : profile.is_demo
+                    ? "text-foreground/70"
+                    : "text-foreground"
+                }`}>
                   R$ {profile.monthly_goal.toFixed(2)}
                 </span>
               </div>
