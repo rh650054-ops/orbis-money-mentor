@@ -343,132 +343,121 @@ export default function Profile() {
   }
 
   return (
-    <div className="space-y-6 pb-4 md:pb-8 max-w-2xl mx-auto">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
+    <div className="space-y-3 pb-4 md:pb-8 max-w-2xl mx-auto">
+      {/* Header compacto */}
+      <div className="flex items-center gap-2">
+        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate("/profile")}>
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div>
-          <h1 className="text-2xl font-bold gradient-text">Minha Conta</h1>
-          <p className="text-sm text-muted-foreground">Gerencie sua conta e assinatura</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-xl font-bold tracking-tight">Minha Conta</h1>
+          <p className="text-xs text-muted-foreground">Dados pessoais e assinatura</p>
         </div>
       </div>
 
-      {/* Faixa Demo */}
+      {/* Faixa Demo - chip compacto */}
       {profile.is_demo && profile.billing_exempt && (
-        <Card className="glass border-2 border-primary/30 bg-gradient-to-r from-primary/10 to-secondary/10 animate-fade-in">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center">
-                <Crown className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-lg">🧪 Conta Demo Orbis</p>
-                <p className="text-sm text-muted-foreground">
-                  Acesso completo liberado • Sem limitações
-                </p>
-              </div>
-              <Badge className="bg-gradient-to-r from-primary to-secondary text-primary-foreground px-3 py-1 text-sm shadow-lg">
-                DEMO
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-primary/20 bg-primary/5 animate-fade-in">
+          <span className="text-base leading-none">🧪</span>
+          <p className="text-xs font-medium text-foreground/90 flex-1 min-w-0 truncate">
+            Conta Demo · acesso completo liberado
+          </p>
+          <Badge className="bg-primary/15 text-primary border border-primary/30 text-[10px] px-1.5 py-0 h-5 font-semibold">
+            DEMO
+          </Badge>
+        </div>
       )}
 
-      {/* User Info Card */}
+      {/* User Info Card - compacto e clean */}
       <Card className="glass">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                {avatarPreview || profile.avatar_url ? (
-                  <img 
-                    src={avatarPreview || profile.avatar_url} 
-                    alt="Avatar" 
-                    className={`w-16 h-16 rounded-full object-cover border-2 ${
-                      profile.plan_status === "active" 
-                        ? "shadow-glow-primary border-purple-500/50 ring-2 ring-purple-500/30" 
-                        : "shadow-glow-primary border-primary/20"
-                    }`}
-                  />
-                ) : (
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold ${
-                    profile.plan_status === "active" 
-                      ? "bg-gradient-to-br from-purple-600 via-primary to-blue-600 shadow-glow-primary ring-2 ring-purple-500/30" 
-                      : "bg-gradient-primary shadow-glow-primary"
-                  }`}>
-                    {profile.nickname ? profile.nickname.charAt(0).toUpperCase() : "U"}
-                  </div>
-                )}
-                {isEditing && (
-                  <label className="absolute bottom-0 right-0 bg-primary rounded-full p-1.5 cursor-pointer hover:bg-primary/80 transition-colors shadow-lg">
-                    <Camera className="h-3 w-3 text-primary-foreground" />
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleAvatarChange}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <CardTitle>{profile.nickname || "Usuário"}</CardTitle>
-                  {profile.plan_status === "active" && (
-                    <Badge className="bg-gradient-to-r from-purple-600 to-blue-600 text-white border-none shadow-glow-primary">
-                      <Crown className="w-3 h-3 mr-1 text-yellow-400" />
-                      BLACK
-                    </Badge>
-                  )}
+        <CardContent className="p-4 space-y-3">
+          {/* Linha de identidade */}
+          <div className="flex items-center gap-3">
+            <div className="relative shrink-0">
+              {avatarPreview || profile.avatar_url ? (
+                <img
+                  src={avatarPreview || profile.avatar_url}
+                  alt="Avatar"
+                  className={`w-14 h-14 rounded-full object-cover border ${
+                    profile.plan_status === "active"
+                      ? "border-primary/40 ring-1 ring-primary/20"
+                      : "border-border"
+                  }`}
+                />
+              ) : (
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-semibold ${
+                  profile.plan_status === "active"
+                    ? "bg-gradient-primary text-primary-foreground"
+                    : "bg-muted text-foreground"
+                }`}>
+                  {profile.nickname ? profile.nickname.charAt(0).toUpperCase() : "U"}
                 </div>
-                <CardDescription>{profile.email}</CardDescription>
-              </div>
+              )}
+              {isEditing && (
+                <label className="absolute -bottom-0.5 -right-0.5 bg-primary rounded-full p-1 cursor-pointer hover:bg-primary/80 transition-colors shadow">
+                  <Camera className="h-3 w-3 text-primary-foreground" />
+                  <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
+                </label>
+              )}
             </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h2 className="text-base font-semibold leading-tight truncate">
+                  {profile.nickname || "Usuário"}
+                </h2>
+                {profile.plan_status === "active" && (
+                  <Badge className="bg-primary/15 text-primary border border-primary/30 text-[10px] px-1.5 py-0 h-5 font-semibold">
+                    <Crown className="w-2.5 h-2.5 mr-0.5" />
+                    BLACK
+                  </Badge>
+                )}
+              </div>
+              {profile.email && (
+                <p className="text-xs text-muted-foreground truncate">{profile.email}</p>
+              )}
+            </div>
+
             {!isEditing && (
-              <Button 
-                variant="outline" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => setIsEditing(true)}
-                className="hover:bg-primary/10"
+                className="h-8 w-8 shrink-0 hover:bg-primary/10"
               >
                 <Edit2 className="h-4 w-4" />
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+
           {!isEditing ? (
             <>
-              {profile.email && (
-                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  <span>{profile.email}</span>
+              {/* Detalhes em grid compacto */}
+              <div className="grid gap-1.5 pt-1 text-xs text-muted-foreground">
+                {profile.phone && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">📱</span>
+                    <span>{profile.phone}</span>
+                  </div>
+                )}
+                {(profile.city || profile.state) && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">📍</span>
+                    <span>{[profile.city, profile.state].filter(Boolean).join(" - ")}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Membro desde {formatDate(profile.created_at)}</span>
                 </div>
-              )}
-              {profile.phone && (
-                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                  <span className="text-base">📱</span>
-                  <span>{profile.phone}</span>
-                </div>
-              )}
-              {(profile.city || profile.state) && (
-                <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                  <span className="text-base">📍</span>
-                  <span>{[profile.city, profile.state].filter(Boolean).join(" - ")}</span>
-                </div>
-              )}
-              <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                <Calendar className="w-4 h-4" />
-                <span>Membro desde {formatDate(profile.created_at)}</span>
               </div>
-              <Separator />
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold">Meta Mensal</Label>
-                <p className="text-2xl font-bold gradient-text">
+
+              {/* Meta mensal - linha única */}
+              <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/60">
+                <span className="text-xs font-medium text-muted-foreground">Meta Mensal</span>
+                <span className="text-base font-semibold text-foreground">
                   R$ {profile.monthly_goal.toFixed(2)}
-                </p>
+                </span>
               </div>
             </>
           ) : (
