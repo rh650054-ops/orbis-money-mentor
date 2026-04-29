@@ -49,6 +49,14 @@ export default function Layout({ children }: LayoutProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { phase, setPhase, markDone } = useOnboarding();
   const onboardingCompleto = localStorage.getItem('orbis_onboarding_completo') === 'true';
+  const [trialModalDismissed, setTrialModalDismissed] = useState(
+    () => sessionStorage.getItem('trialModalDismissed') === 'true'
+  );
+
+  const handleDismissTrialModal = () => {
+    sessionStorage.setItem('trialModalDismissed', 'true');
+    setTrialModalDismissed(true);
+  };
 
   // Show trial reminder during trial period
   useEffect(() => {
@@ -92,8 +100,9 @@ export default function Layout({ children }: LayoutProps) {
     const allowedPaths = ['/payment', '/benefits', '/auth', '/check-in'];
     
     // Fast redirect for expired trial WITHOUT active subscription (admins are exempt)
+    // Skip redirect if user explicitly dismissed the trial modal
     const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed && !isAdmin;
-    if (needsSubscription && !allowedPaths.includes(currentPath)) {
+    if (needsSubscription && !trialModalDismissed && !allowedPaths.includes(currentPath)) {
       navigate("/payment", { replace: true });
       return;
     }
@@ -102,20 +111,11 @@ export default function Layout({ children }: LayoutProps) {
     if (currentPath !== '/check-in' && !trialStatus.isExpired) {
       checkNeedsCheckIn();
     }
-  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto]);
+  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto, trialModalDismissed]);
 
   const checkNeedsCheckIn = async () => {
     // Check-in desativado: não redirecionar mais para a tela de "Bom dia, Visionário"
     return;
-  };
-
-  const [trialModalDismissed, setTrialModalDismissed] = useState(
-    () => sessionStorage.getItem('trialModalDismissed') === 'true'
-  );
-
-  const handleDismissTrialModal = () => {
-    sessionStorage.setItem('trialModalDismissed', 'true');
-    setTrialModalDismissed(true);
   };
 
   const shouldShowTrialExpiredModal =
