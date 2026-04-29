@@ -28,6 +28,8 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Não autenticado");
 
+      await supabase.functions.invoke("check-admin-access");
+
       const { data: sub } = await supabase
         .from("subscriptions")
         .select("status, grace_until")

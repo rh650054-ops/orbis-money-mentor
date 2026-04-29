@@ -47,13 +47,19 @@ export default function Payment() {
     setIsChecking(true);
 
     try {
+      await supabase.functions.invoke("check-admin-access");
+
       const { data: profile } = await supabase
         .from("profiles")
-        .select("plan_status")
+        .select("plan_status, billing_exempt, is_demo")
         .eq("user_id", user.id)
         .single();
 
-      if (profile?.plan_status === "active") {
+      const hasAccess =
+        profile?.plan_status === "active" ||
+        (profile?.is_demo && profile?.billing_exempt);
+
+      if (hasAccess) {
         toast({
           title: "✅ Acesso liberado!",
           description: "Seu plano foi ativado. Redirecionando...",
