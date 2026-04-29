@@ -1,6 +1,6 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check } from "lucide-react";
+import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -180,9 +180,18 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
             </Button>
 
             <Button
-              onClick={handleLogout}
+              onClick={onClose}
               variant="ghost"
               className="w-full h-9 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 mr-2" />
+              Voltar ao app
+            </Button>
+
+            <Button
+              onClick={handleLogout}
+              variant="ghost"
+              className="w-full h-9 text-xs text-muted-foreground/50 hover:text-foreground"
             >
               <LogOut className="w-3.5 h-3.5 mr-2" />
               Sair
