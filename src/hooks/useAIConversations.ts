@@ -35,7 +35,8 @@ export const useAIConversations = () => {
       .eq("user_id", user.id)
       .order("last_message_at", { ascending: false });
     if (error) {
-      console.error("Failed to load conversations", error);
+      // Silently ignore if table doesn't exist yet (42P01)
+      if (error.code !== '42P01') console.error("Failed to load conversations", error);
       return;
     }
     setConversations(data || []);

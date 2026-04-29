@@ -45,35 +45,12 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       }
     };
     init();
-    
-    // Listen for work_sessions updates
-    const sessionChannel = supabase
-      .channel(`session-changes-popup-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'work_sessions',
-          filter: `user_id=eq.${userId}`
-        },
-        () => {
-          console.log('[DayStartPopup] Session changed, reloading...');
-          loadGoalsAndStatus();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(sessionChannel);
-    };
   }, [userId]);
 
   const loadGoalsAndStatus = async () => {
     setIsLoading(true);
     const today = getBrazilDate();
     
-    console.log('[DayStartPopup] Loading status for date:', today, 'user:', userId);
     
     // Check work session status for today FIRST - this is the SOURCE OF TRUTH
     const { data: session, error: sessionError } = await supabase
@@ -83,7 +60,6 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       .eq("planning_date", today)
       .maybeSingle();
 
-    console.log('[DayStartPopup] Session data:', session, 'error:', sessionError);
 
     // Load profile goals
     const { data: profile } = await supabase
@@ -102,21 +78,17 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     // Determine day status based on session
     if (session) {
       if (session.status === 'finished') {
-        console.log('[DayStartPopup] Setting status to finished');
         setDayStatus('finished');
         setTotalSold(session.total_vendido || 0);
         if (profile?.base_daily_goal) {
           setPercentageAchieved(((session.total_vendido || 0) / profile.base_daily_goal) * 100);
         }
       } else if (session.status === 'active') {
-        console.log('[DayStartPopup] Setting status to in_progress');
         setDayStatus('in_progress');
       } else {
-        console.log('[DayStartPopup] Session exists but status is:', session.status);
         setDayStatus('not_started');
       }
     } else {
-      console.log('[DayStartPopup] No session found, setting not_started');
       setDayStatus('not_started');
     }
     
@@ -169,7 +141,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) markSeenToday(); setIsOpen(open); }}>
       <DialogContent className="sm:max-w-[480px] bg-black/95 backdrop-blur-xl border border-white/10 shadow-2xl">
         <DialogHeader>
           <DialogTitle className="text-3xl font-bold gradient-text text-center pb-2">
