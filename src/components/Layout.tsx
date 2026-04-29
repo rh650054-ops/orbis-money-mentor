@@ -109,10 +109,19 @@ export default function Layout({ children }: LayoutProps) {
     return;
   };
 
-  const shouldShowTrialExpiredModal = 
+  const [trialModalDismissed, setTrialModalDismissed] = useState(
+    () => sessionStorage.getItem('trialModalDismissed') === 'true'
+  );
+
+  const handleDismissTrialModal = () => {
+    sessionStorage.setItem('trialModalDismissed', 'true');
+    setTrialModalDismissed(true);
+  };
+
+  const shouldShowTrialExpiredModal =
     onboardingCompleto &&
-    !trialLoading && 
-    trialStatus.isExpired && 
+    !trialLoading &&
+    trialStatus.isExpired &&
     trialStatus.planStatus === 'expired' &&
     !isAdmin &&
     location.pathname !== '/payment';
@@ -315,10 +324,10 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
-      {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
-        <TrialExpiredModal 
-          isOpen={true} 
-          onClose={() => navigate('/payment', { replace: true })} 
+      {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !trialModalDismissed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
+        <TrialExpiredModal
+          isOpen={true}
+          onClose={handleDismissTrialModal}
         />
       )}
     </div>

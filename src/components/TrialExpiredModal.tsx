@@ -57,6 +57,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
           description: "Aguarde alguns minutos. Se já pagou, em breve será liberado.",
           variant: "destructive",
         });
+        onClose();
       }
     } catch {
       toast({
@@ -77,9 +78,8 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="p-0 gap-0 max-w-[420px] w-[calc(100vw-1.5rem)] max-h-[92dvh] overflow-hidden border border-primary/30 bg-background rounded-2xl [&>button]:hidden"
+        className="p-0 gap-0 max-w-[420px] w-[calc(100vw-1.5rem)] max-h-[92dvh] overflow-hidden border border-primary/30 bg-background rounded-2xl"
         onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Glow decorations */}
         <div className="absolute -top-24 -right-24 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
