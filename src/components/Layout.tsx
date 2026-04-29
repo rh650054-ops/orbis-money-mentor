@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Zap, DollarSign, BarChart3, MessageCircle, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText, Building2, UserCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -49,12 +49,12 @@ export default function Layout({ children }: LayoutProps) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { phase, setPhase, markDone } = useOnboarding();
   const onboardingCompleto = localStorage.getItem('orbis_onboarding_completo') === 'true';
-  const [trialModalDismissed, setTrialModalDismissed] = useState(
-    () => sessionStorage.getItem('trialModalDismissed') === 'true'
-  );
+  const trialDismissedRef = useRef(sessionStorage.getItem('trialModalDismissed') === 'true');
+  const [trialModalDismissed, setTrialModalDismissed] = useState(trialDismissedRef.current);
 
   const handleDismissTrialModal = () => {
     sessionStorage.setItem('trialModalDismissed', 'true');
+    trialDismissedRef.current = true;
     setTrialModalDismissed(true);
   };
 
@@ -100,9 +100,9 @@ export default function Layout({ children }: LayoutProps) {
     const allowedPaths = ['/payment', '/benefits', '/auth', '/check-in'];
     
     // Fast redirect for expired trial WITHOUT active subscription (admins are exempt)
-    // Skip redirect if user explicitly dismissed the trial modal
+    // Use ref (synchronous) to avoid race condition with dismiss click
     const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed && !isAdmin;
-    if (needsSubscription && !trialModalDismissed && !allowedPaths.includes(currentPath)) {
+    if (needsSubscription && !trialDismissedRef.current && !allowedPaths.includes(currentPath)) {
       navigate("/payment", { replace: true });
       return;
     }
@@ -111,7 +111,7 @@ export default function Layout({ children }: LayoutProps) {
     if (currentPath !== '/check-in' && !trialStatus.isExpired) {
       checkNeedsCheckIn();
     }
-  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto, trialModalDismissed]);
+  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto]);
 
   const checkNeedsCheckIn = async () => {
     // Check-in desativado: não redirecionar mais para a tela de "Bom dia, Visionário"
