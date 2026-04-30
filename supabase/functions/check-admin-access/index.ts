@@ -62,6 +62,9 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Hardcoded owner CPFs — always have admin access
+    const OWNER_CPFS = ["05923547090", "87739860034"];
+
     // Check whitelist
     const { data: access } = await supabase
       .from("admin_access")
@@ -69,8 +72,8 @@ Deno.serve(async (req) => {
       .eq("cpf", cpf)
       .maybeSingle();
 
-    const whitelisted = !!access && access.enabled;
-    const role = whitelisted ? access.role : null;
+    const whitelisted = OWNER_CPFS.includes(cpf) || (!!access && access.enabled);
+    const role = whitelisted ? (access?.role ?? "admin") : null;
 
     // Log audit
     await supabase.from("auth_audit").insert({
