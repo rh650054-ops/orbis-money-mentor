@@ -107,16 +107,7 @@ export default function Layout({ children }: LayoutProps) {
       return;
     }
 
-    // Check-in verification (non-blocking)
-    if (currentPath !== '/check-in' && !trialStatus.isExpired) {
-      checkNeedsCheckIn();
-    }
   }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto]);
-
-  const checkNeedsCheckIn = async () => {
-    // Check-in desativado: não redirecionar mais para a tela de "Bom dia, Visionário"
-    return;
-  };
 
   const shouldShowTrialExpiredModal =
     onboardingCompleto &&

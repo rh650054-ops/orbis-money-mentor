@@ -170,10 +170,10 @@ export default function Insights() {
 
       setSales(salesRes.data || []);
       setBlocks(blocksRes.data || []);
-      setExpenses((expensesRes.data as any[]) || []);
+      setExpenses((expensesRes.data as { category: string; amount: number; icon: string | null; name: string }[]) || []);
       setYesterdayProfit(ydRes.data?.total_profit || 0);
       setPrevRangeProfit(
-        (prevRes.data || []).reduce((s, d: any) => s + (d.total_profit || 0), 0),
+        (prevRes.data || []).reduce((s, d) => s + (d.total_profit || 0), 0),
       );
     } finally {
       setLoading(false);

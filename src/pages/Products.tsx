@@ -30,10 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QRCodeSVG } from "qrcode.react";
-import { supabase as supabaseTyped } from "@/integrations/supabase/client";
-// pix_accounts/products.open_price ainda não estão nos types gerados
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const supabase = supabaseTyped as any;
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";

@@ -62,6 +62,10 @@ export const useAIConversations = () => {
         if (error) console.error(error);
         setMessages((data as AIMessage[]) || []);
         setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load messages", err);
+        setIsLoading(false);
       });
   }, [activeId]);
 
@@ -73,7 +77,12 @@ export const useAIConversations = () => {
       .select()
       .single();
     if (error || !data) {
-      toast({ title: "Erro ao criar conversa", variant: "destructive" });
+      console.error("Erro ao criar conversa:", error?.code, error?.message, error?.details);
+      if (error?.code === '42P01') {
+        toast({ title: "Tabela de conversas não encontrada", description: "Execute as migrations no painel do Supabase.", variant: "destructive" });
+      } else {
+        toast({ title: "Erro ao criar conversa", description: error?.message ?? "Tente novamente.", variant: "destructive" });
+      }
       return null;
     }
     await loadConversations();

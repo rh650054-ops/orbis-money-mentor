@@ -212,10 +212,10 @@ export function useDailyBlockStats(userId: string | undefined, date?: string) {
         .eq("plan_id", planData.id);
 
       if (blocksData) {
-        const totalDinheiro = blocksData.reduce((sum, b) => sum + ((b as any).valor_dinheiro || 0), 0);
-        const totalCartao = blocksData.reduce((sum, b) => sum + ((b as any).valor_cartao || 0), 0);
-        const totalPix = blocksData.reduce((sum, b) => sum + ((b as any).valor_pix || 0), 0);
-        const totalCalote = blocksData.reduce((sum, b) => sum + ((b as any).valor_calote || 0), 0);
+        const totalDinheiro = blocksData.reduce((sum, b) => sum + (b.valor_dinheiro || 0), 0);
+        const totalCartao = blocksData.reduce((sum, b) => sum + (b.valor_cartao || 0), 0);
+        const totalPix = blocksData.reduce((sum, b) => sum + (b.valor_pix || 0), 0);
+        const totalCalote = blocksData.reduce((sum, b) => sum + (b.valor_calote || 0), 0);
         // Bruto = tudo que foi vendido (incluindo calotes)
         const totalVendido = totalDinheiro + totalCartao + totalPix + totalCalote;
         const blocksCompleted = blocksData.filter(b => b.is_completed).length;

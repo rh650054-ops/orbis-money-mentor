@@ -197,60 +197,51 @@ serve(async (req) => {
     } catch (webhookError) {
       console.error("Erro ao chamar webhook do n8n, usando fallback de IA nativa:", webhookError);
 
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      if (!LOVABLE_API_KEY) {
-        throw new Error("LOVABLE_API_KEY não está configurada no backend");
+      const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!ANTHROPIC_API_KEY) {
+        throw new Error("ANTHROPIC_API_KEY não está configurada no backend. Adicione a variável de ambiente no painel do Supabase.");
       }
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const systemPrompt = [
+        "Você é o Orbis, um assistente financeiro e de produtividade para vendedores autônomos brasileiros. Responda sempre em português do Brasil, com tom motivador, direto e prático. Use exemplos de vendas do dia a dia, ajude a bater metas e melhorar constância.",
+        userContext
+          ? `Dados recentes do usuário para contexto:\n${userContext}\nUse esses dados para personalizar os conselhos e a motivação.`
+          : "Sem dados financeiros recentes disponíveis. Dê conselhos gerais de vendas, disciplina e constância.",
+      ].join("\n\n");
+
+      const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "system",
-              content:
-                "Você é o Orbis, um assistente financeiro e de produtividade para vendedores autônomos brasileiros. Responda sempre em português do Brasil, com tom motivador, direto e prático. Use exemplos de vendas do dia a dia, ajude a bater metas e melhorar constância.",
-            },
-            {
-              role: "system",
-              content:
-                userContext
-                  ? `Dados recentes do usuário para contexto:\n${userContext}\nUse esses dados para personalizar os conselhos e a motivação.`
-                  : "Sem dados financeiros recentes disponíveis. Dê conselhos gerais de vendas, disciplina e constância.",
-            },
-            ...messages,
-          ],
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: sanitizedMessages.filter((m: { role: string }) => m.role !== "system"),
         }),
       });
 
       if (!aiResponse.ok) {
         const errorText = await aiResponse.text();
-        console.error("Erro na Lovable AI:", aiResponse.status, errorText);
-
+        console.error("Erro na Anthropic API:", aiResponse.status, errorText);
         if (aiResponse.status === 429) {
           throw new Error("Limite de uso da IA excedido. Tente novamente em alguns minutos.");
         }
-        if (aiResponse.status === 402) {
-          throw new Error("Créditos de IA esgotados. Adicione créditos ao seu workspace do Lovable.");
-        }
-
-        throw new Error("Erro ao gerar resposta da IA de fallback");
+        throw new Error(`Erro ao gerar resposta da IA (${aiResponse.status})`);
       }
 
       const aiJson = await aiResponse.json();
-      const content = aiJson.choices?.[0]?.message?.content;
+      const content = aiJson.content?.[0]?.text;
       if (!content || typeof content !== "string") {
-        console.error("Resposta inesperada da Lovable AI:", JSON.stringify(aiJson).substring(0, 200));
-        throw new Error("A IA de fallback retornou uma resposta inválida");
+        console.error("Resposta inesperada da Anthropic API:", JSON.stringify(aiJson).substring(0, 200));
+        throw new Error("A IA retornou uma resposta inválida");
       }
 
       assistantMessage = content;
-      console.log("AI response received successfully from Lovable AI fallback");
+      console.log("AI response received successfully from Anthropic API");
     }
 
     return new Response(
