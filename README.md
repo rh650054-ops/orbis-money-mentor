@@ -1,73 +1,53 @@
-# Welcome to your Lovable project
+# Orbis — Gestão Financeira Inteligente
 
-## Project info
+App de gestão financeira para vendedores e empreendedores autônomos.
 
-**URL**: https://lovable.dev/projects/af7c11e0-a31b-4740-9ee8-bb370c06636f
+## Stack
 
-## How can I edit this code?
+- React + TypeScript + Vite
+- Tailwind CSS + shadcn/ui
+- Supabase (banco, auth, edge functions)
+- Capacitor (Android)
 
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/af7c11e0-a31b-4740-9ee8-bb370c06636f) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Desenvolvimento local
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# Instalar dependências
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Rodar servidor de desenvolvimento
 npm run dev
+
+# Build de produção
+npm run build
 ```
 
-**Edit a file directly in GitHub**
+## Variáveis de ambiente
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Crie um arquivo `.env.local` com:
 
-**Use GitHub Codespaces**
+```
+VITE_SUPABASE_URL=https://<seu-projeto>.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<sua-anon-key>
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Edge Functions — variáveis necessárias no Supabase
 
-## What technologies are used for this project?
+| Variável | Onde usar |
+|----------|-----------|
+| `ANTHROPIC_API_KEY` | chat-with-ai, generate-insights |
+| `HOTMART_HOTTOK` | hotmart-webhook |
+| `PLUGGY_CLIENT_ID` | pluggy-connect-token, pluggy-webhook |
+| `PLUGGY_CLIENT_SECRET` | pluggy-connect-token, pluggy-webhook |
+| `GOOGLE_CLIENT_ID` | google-calendar-auth, google-calendar-callback |
+| `GOOGLE_CLIENT_SECRET` | google-calendar-callback, google-calendar-refresh |
+| `ADMIN_OWNER_CPFS` | check-admin-access (formato: `cpf1,cpf2`) |
+| `N8N_WEBHOOK_URL` | chat-with-ai (opcional — fallback para Anthropic se ausente) |
 
-This project is built with:
+## Deploy Android
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/af7c11e0-a31b-4740-9ee8-bb370c06636f) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project? 
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```sh
+npm run build
+npx cap sync android
+npx cap open android
+```

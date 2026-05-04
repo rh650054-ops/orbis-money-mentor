@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
 import { useNavigate } from "react-router-dom";
 import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -335,7 +336,7 @@ export default function Profile() {
   };
 
   const handleUpgrade = () => {
-    window.open("https://pay.hotmart.com/N104683123F", "_blank");
+    window.open(HOTMART_CHECKOUT_URL, "_blank");
   };
 
   if (loading || !user) {

@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Hardcoded owner CPFs — always have admin access
-    const OWNER_CPFS = ["05923547090", "87739860034"];
+    // Owner CPFs loaded from env — set ADMIN_OWNER_CPFS="cpf1,cpf2" in Supabase dashboard
+    const OWNER_CPFS = (Deno.env.get("ADMIN_OWNER_CPFS") ?? "").split(",").map(s => s.trim()).filter(Boolean);
 
     // Check whitelist
     const { data: access } = await supabase

@@ -123,10 +123,10 @@ serve(async (req) => {
     let assistantMessage = "";
 
     try {
-      // Call n8n webhook - URL from environment
       const N8N_WEBHOOK_URL = Deno.env.get("N8N_WEBHOOK_URL");
       if (!N8N_WEBHOOK_URL) {
-        throw new Error("N8N_WEBHOOK_URL not configured");
+        // N8N não configurado — vai direto para o fallback Anthropic
+        throw new Error("N8N_WEBHOOK_URL not configured, using Anthropic fallback");
       }
       console.log("Chamando webhook n8n");
       

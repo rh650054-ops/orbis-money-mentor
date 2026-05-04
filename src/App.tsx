@@ -28,7 +28,6 @@ const AdminDemoUsers = lazy(() => import("./pages/AdminDemoUsers"));
 const AdminSubscriptions = lazy(() => import("./pages/AdminSubscriptions"));
 const Install = lazy(() => import("./pages/Install"));
 const NotFound = lazy(() => import("./pages/NotFound"));
-const CheckIn = lazy(() => import("./pages/CheckIn"));
 const DailyGoals = lazy(() => import("./pages/DailyGoals"));
 const Ranking = lazy(() => import("./pages/Ranking"));
 const Rewards = lazy(() => import("./pages/Rewards"));
@@ -60,7 +59,6 @@ const App = () => (
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/payment" element={<Payment />} />
               <Route path="/benefits" element={<Benefits />} />
-              <Route path="/check-in" element={<CheckIn />} />
               <Route path="/install" element={<Install />} />
               <Route path="/defcon" element={<DefconChallenge />} />
               <Route path="/*" element={

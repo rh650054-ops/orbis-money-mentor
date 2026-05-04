@@ -7,7 +7,7 @@ import { CreditCard, Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame,
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-const HOTMART_CHECKOUT_URL = "https://pay.hotmart.com/N104683123F";
+import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
 
 export default function Payment() {
   const navigate = useNavigate();

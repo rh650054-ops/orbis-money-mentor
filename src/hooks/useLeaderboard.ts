@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
 
 export interface LeaderboardEntry {
   id: string;
@@ -225,7 +225,7 @@ export function useLeaderboard(userId: string | undefined) {
 
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const yesterdayStr = formatBrazilDate(yesterday);
 
     const { data } = await supabase
       .from("work_sessions")

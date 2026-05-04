@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
-const HOTMART_CHECKOUT_URL = "https://pay.hotmart.com/N104683123F";
+import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
