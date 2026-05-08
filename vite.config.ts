@@ -30,25 +30,25 @@ export default defineConfig(({ mode }) => ({
         start_url: "/",
         icons: [
           {
-            src: "/pwa-192x192.png",
+            src: "/orbis-logo.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any"
           },
           {
-            src: "/pwa-512x512.png",
+            src: "/orbis-full-logo.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any"
           },
           {
-            src: "/pwa-192x192.png",
+            src: "/orbis-logo.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "maskable"
           },
           {
-            src: "/pwa-512x512.png",
+            src: "/orbis-full-logo.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable"

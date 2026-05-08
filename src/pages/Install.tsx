@@ -76,7 +76,7 @@ export default function Install() {
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-20 h-20 mx-auto mb-4">
-            <img src="/pwa-192x192.png" alt="Orbis Logo" className="w-full h-full rounded-2xl" />
+            <img src="/orbis-logo.png" alt="Orbis Logo" className="w-full h-full rounded-2xl" />
           </div>
           <h1 className="text-3xl font-bold gradient-text">Instale o App Orbis</h1>
           <p className="text-muted-foreground">
