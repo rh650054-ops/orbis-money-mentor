@@ -207,8 +207,6 @@ export default function Ranking() {
     );
   }
 
-  const isFaturamento = activeTab === "faturamento";
-
   return (
     <div className="min-h-screen pb-8 space-y-5">
       {/* Header */}
