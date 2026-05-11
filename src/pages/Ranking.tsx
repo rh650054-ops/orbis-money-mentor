@@ -367,6 +367,20 @@ export default function Ranking() {
         onOpenChange={(o) => { if (!o) setPublicProfileUserId(null); }}
         userId={publicProfileUserId}
       />
+
+      {/* Off-screen Instagram Story Card (1080x1920) */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          top: 0,
+          left: -99999,
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+      >
+        <RankingShareCard ref={shareCardRef} {...shareData} />
+      </div>
     </div>
   );
 }
