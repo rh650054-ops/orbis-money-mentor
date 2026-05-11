@@ -287,6 +287,38 @@ export default function Ranking() {
         {isFaturamento ? "Maiores vendedores do mês" : "Os mais disciplinados do mês"}
       </p>
 
+      {/* Compartilhar no Instagram */}
+      {hasParticipated && currentUserStats && (
+        <button
+          onClick={handleShare}
+          disabled={isSharing}
+          className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-all active:scale-[0.98] disabled:opacity-60"
+          style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+        >
+          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+            <div
+              className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
+              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)" }}
+            />
+          </div>
+          <div className="relative flex items-center justify-center gap-2.5">
+            {isSharing ? (
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            ) : (
+              <Share2 className="w-5 h-5 text-primary" />
+            )}
+            <div className="text-left">
+              <p className="text-sm font-black text-foreground tracking-wide">
+                {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
+              </p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                Story 9:16 · pronto pra postar
+              </p>
+            </div>
+          </div>
+        </button>
+      )}
+
       {/* Not Participated Message */}
       {!hasParticipated && (
         <Card className="border border-dashed border-primary/30 bg-card/50">
