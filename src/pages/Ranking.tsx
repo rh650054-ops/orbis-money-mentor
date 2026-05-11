@@ -115,6 +115,80 @@ export default function Ranking() {
     setPublicProfileUserId(uid);
   };
 
+  const isFaturamento = activeTab === "faturamento";
+
+  const handleShare = async () => {
+    if (!shareCardRef.current || isSharing) return;
+    setIsSharing(true);
+    try {
+      // Pequeno delay para garantir que o card off-screen foi renderizado
+      await new Promise((r) => setTimeout(r, 50));
+      const dataUrl = await toPng(shareCardRef.current, {
+        cacheBust: true,
+        pixelRatio: 1,
+        width: 1080,
+        height: 1920,
+        backgroundColor: "#000000",
+      });
+
+      // Tenta Web Share API com arquivo (mobile)
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `orbis-ranking-${activeTab}.png`, { type: "image/png" });
+
+      const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
+      if (nav.canShare && nav.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: "Meu ranking no Orbis",
+          text: "Veja minha posição no ranking do Orbis 🏆",
+        });
+      } else {
+        // Fallback: download
+        const link = document.createElement("a");
+        link.download = `orbis-ranking-${activeTab}.png`;
+        link.href = dataUrl;
+        link.click();
+        toast({
+          title: "Imagem baixada!",
+          description: "Compartilhe agora no seu Instagram 📲",
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao compartilhar:", err);
+      toast({
+        title: "Não foi possível compartilhar",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // Dados para o share card
+  const shareData = (() => {
+    const totalParticipants = isFaturamento ? faturamentoRanking.length : constanciaRanking.length;
+    const position = isFaturamento
+      ? currentUserStats?.posicao_faturamento ?? null
+      : currentUserStats?.posicao_constancia ?? null;
+    const primaryValue = isFaturamento
+      ? formatCurrency(currentUserStats?.faturamento_total_mes ?? 0)
+      : `${currentUserStats?.dias_trabalhados_mes ?? 0} dias`;
+    const secondaryValue = isFaturamento
+      ? `${currentUserStats?.dias_trabalhados_mes ?? 0} dias trabalhados`
+      : `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
+    return {
+      league: activeTab,
+      position,
+      totalParticipants,
+      nickname: userProfile.nickname || currentUserStats?.nome_usuario || "Vendedor",
+      avatarUrl: userProfile.avatar || currentUserStats?.avatar_url || null,
+      primaryValue,
+      secondaryValue,
+      monthLabel: currentMonth,
+    };
+  })();
+
   if (isLoading) {
     return (
       <div className="min-h-screen pb-8 space-y-6">
