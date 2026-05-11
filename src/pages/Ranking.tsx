@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles } from "lucide-react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles, Share2, Download, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -9,6 +9,9 @@ import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
+import { RankingShareCard } from "@/components/RankingShareCard";
+import { toPng } from "html-to-image";
+import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 
 const motivationalPhrases = [
