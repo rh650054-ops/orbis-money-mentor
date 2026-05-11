@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles } from "lucide-react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles, Share2, Download, Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -9,6 +9,9 @@ import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
+import { RankingShareCard } from "@/components/RankingShareCard";
+import { toPng } from "html-to-image";
+import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
 
 const motivationalPhrases = [
@@ -60,6 +63,8 @@ export default function Ranking() {
   const [activeTab, setActiveTab] = useState<"faturamento" | "constancia">("faturamento");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef<HTMLDivElement>(null);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -110,6 +115,80 @@ export default function Ranking() {
     setPublicProfileUserId(uid);
   };
 
+  const isFaturamento = activeTab === "faturamento";
+
+  const handleShare = async () => {
+    if (!shareCardRef.current || isSharing) return;
+    setIsSharing(true);
+    try {
+      // Pequeno delay para garantir que o card off-screen foi renderizado
+      await new Promise((r) => setTimeout(r, 50));
+      const dataUrl = await toPng(shareCardRef.current, {
+        cacheBust: true,
+        pixelRatio: 1,
+        width: 1080,
+        height: 1920,
+        backgroundColor: "#000000",
+      });
+
+      // Tenta Web Share API com arquivo (mobile)
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `orbis-ranking-${activeTab}.png`, { type: "image/png" });
+
+      const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
+      if (nav.canShare && nav.canShare({ files: [file] }) && navigator.share) {
+        await navigator.share({
+          files: [file],
+          title: "Meu ranking no Orbis",
+          text: "Veja minha posição no ranking do Orbis 🏆",
+        });
+      } else {
+        // Fallback: download
+        const link = document.createElement("a");
+        link.download = `orbis-ranking-${activeTab}.png`;
+        link.href = dataUrl;
+        link.click();
+        toast({
+          title: "Imagem baixada!",
+          description: "Compartilhe agora no seu Instagram 📲",
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao compartilhar:", err);
+      toast({
+        title: "Não foi possível compartilhar",
+        description: "Tente novamente em instantes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  // Dados para o share card
+  const shareData = (() => {
+    const totalParticipants = isFaturamento ? faturamentoRanking.length : constanciaRanking.length;
+    const position = isFaturamento
+      ? currentUserStats?.posicao_faturamento ?? null
+      : currentUserStats?.posicao_constancia ?? null;
+    const primaryValue = isFaturamento
+      ? formatCurrency(currentUserStats?.faturamento_total_mes ?? 0)
+      : `${currentUserStats?.dias_trabalhados_mes ?? 0} dias`;
+    const secondaryValue = isFaturamento
+      ? `${currentUserStats?.dias_trabalhados_mes ?? 0} dias trabalhados`
+      : `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
+    return {
+      league: activeTab,
+      position,
+      totalParticipants,
+      nickname: userProfile.nickname || currentUserStats?.nome_usuario || "Vendedor",
+      avatarUrl: userProfile.avatar || currentUserStats?.avatar_url || null,
+      primaryValue,
+      secondaryValue,
+      monthLabel: currentMonth,
+    };
+  })();
+
   if (isLoading) {
     return (
       <div className="min-h-screen pb-8 space-y-6">
@@ -127,8 +206,6 @@ export default function Ranking() {
       </div>
     );
   }
-
-  const isFaturamento = activeTab === "faturamento";
 
   return (
     <div className="min-h-screen pb-8 space-y-5">
@@ -210,6 +287,38 @@ export default function Ranking() {
         {isFaturamento ? "Maiores vendedores do mês" : "Os mais disciplinados do mês"}
       </p>
 
+      {/* Compartilhar no Instagram */}
+      {hasParticipated && currentUserStats && (
+        <button
+          onClick={handleShare}
+          disabled={isSharing}
+          className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-all active:scale-[0.98] disabled:opacity-60"
+          style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+        >
+          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+            <div
+              className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
+              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)" }}
+            />
+          </div>
+          <div className="relative flex items-center justify-center gap-2.5">
+            {isSharing ? (
+              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+            ) : (
+              <Share2 className="w-5 h-5 text-primary" />
+            )}
+            <div className="text-left">
+              <p className="text-sm font-black text-foreground tracking-wide">
+                {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
+              </p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                Story 9:16 · pronto pra postar
+              </p>
+            </div>
+          </div>
+        </button>
+      )}
+
       {/* Not Participated Message */}
       {!hasParticipated && (
         <Card className="border border-dashed border-primary/30 bg-card/50">
@@ -258,6 +367,20 @@ export default function Ranking() {
         onOpenChange={(o) => { if (!o) setPublicProfileUserId(null); }}
         userId={publicProfileUserId}
       />
+
+      {/* Off-screen Instagram Story Card (1080x1920) */}
+      <div
+        aria-hidden
+        style={{
+          position: "fixed",
+          top: 0,
+          left: -99999,
+          pointerEvents: "none",
+          opacity: 0,
+        }}
+      >
+        <RankingShareCard ref={shareCardRef} {...shareData} />
+      </div>
     </div>
   );
 }
