@@ -63,6 +63,8 @@ export default function Ranking() {
   const [activeTab, setActiveTab] = useState<"faturamento" | "constancia">("faturamento");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const shareCardRef = useRef<HTMLDivElement>(null);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
