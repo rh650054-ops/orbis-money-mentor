@@ -142,117 +142,119 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) markSeenToday(); setIsOpen(open); }}>
-      <DialogContent className="sm:max-w-[480px] bg-black/95 backdrop-blur-xl border border-white/10 shadow-2xl">
-        <DialogHeader>
-          <DialogTitle className="text-3xl font-bold gradient-text text-center pb-2">
-            {getTitle()}
-          </DialogTitle>
-        </DialogHeader>
+      <DialogContent
+        className="w-[88vw] max-w-[360px] p-0 gap-0 overflow-hidden border border-primary/25 bg-card rounded-2xl shadow-[0_20px_60px_-20px_hsl(var(--primary)/0.5)]"
+      >
+        {/* Glow header */}
+        <div className="relative px-5 pt-5 pb-4 overflow-hidden">
+          <div className="absolute -top-16 -right-12 w-40 h-40 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+          <DialogHeader className="space-y-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
+              {dayStatus === 'finished' ? 'Resumo' : dayStatus === 'in_progress' ? 'Em andamento' : 'Plano de hoje'}
+            </p>
+            <DialogTitle className="text-xl font-black text-foreground leading-tight">
+              {getTitle().replace(/^[^\s]+\s/, '')}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4 py-4">
-          {/* Show report summary if day is finished */}
+        <div className="px-5 pb-5 space-y-3">
+          {/* Resumo do dia (se finalizado) */}
           {dayStatus === 'finished' && (
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-success/10 to-success/5 border border-success/30 backdrop-blur-sm">
-              <div className="text-center space-y-2">
-                <p className="text-sm text-muted-foreground uppercase tracking-wide">Total Vendido</p>
-                <p className="text-3xl font-bold text-success">{formatCurrency(totalSold)}</p>
-                <p className="text-lg text-muted-foreground">
-                  {percentageAchieved.toFixed(0)}% da meta
-                </p>
+            <div className="rounded-xl border border-success/30 bg-success/5 px-4 py-3 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total vendido</p>
+                <p className="text-xl font-black text-success leading-tight">{formatCurrency(totalSold)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">da meta</p>
+                <p className="text-xl font-black text-foreground leading-tight">{percentageAchieved.toFixed(0)}%</p>
               </div>
             </div>
           )}
 
-          {/* Meta Diária */}
-          <div className="p-5 rounded-2xl bg-gradient-gold-soft border border-primary/30 backdrop-blur-sm">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-                <Target className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Meta de Hoje</p>
-                <p className="text-2xl font-bold whitespace-nowrap">{formatCurrency(dailyGoal)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Meta Semanal e Mensal - Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Meta Semanal */}
-            <div className="p-4 rounded-xl bg-card/60 border border-border backdrop-blur-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap className="w-5 h-5 text-primary" />
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Semana</p>
-              </div>
-              <p className="text-lg font-bold whitespace-nowrap">{formatCurrency(weeklyGoal)}</p>
-            </div>
-
-            {/* Meta Mensal */}
-            <div className="p-4 rounded-xl bg-card/60 border border-border backdrop-blur-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-primary" />
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Mês</p>
-              </div>
-              <p className="text-lg font-bold whitespace-nowrap">{formatCurrency(monthlyGoal)}</p>
-            </div>
-          </div>
-
-          {/* Horas de Trabalho */}
-          <div className="p-5 rounded-2xl bg-card/60 border border-border backdrop-blur-sm">
+          {/* Meta de hoje — destaque */}
+          <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent px-4 py-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-                <Clock className="w-5 h-5 text-primary-foreground" />
+              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
+                <Target className="w-4 h-4 text-primary-foreground" />
               </div>
-              <div className="flex-1">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Horas Planejadas</p>
-                <p className="text-2xl font-bold">{workHours}h de trabalho</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-primary/80 font-bold">Meta de hoje</p>
+                <p className="text-2xl font-black text-foreground leading-tight truncate">{formatCurrency(dailyGoal)}</p>
               </div>
             </div>
           </div>
 
-          {/* Botões baseados no status */}
-          <div className="flex gap-3 pt-4">
+          {/* Semana · Mês · Horas — linha compacta */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Zap className="w-3 h-3 text-primary" />
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Semana</p>
+              </div>
+              <p className="text-xs font-bold text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <TrendingUp className="w-3 h-3 text-primary" />
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Mês</p>
+              </div>
+              <p className="text-xs font-bold text-foreground truncate">{formatCurrency(monthlyGoal)}</p>
+            </div>
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+              <div className="flex items-center gap-1 mb-0.5">
+                <Clock className="w-3 h-3 text-primary" />
+                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Horas</p>
+              </div>
+              <p className="text-xs font-bold text-foreground truncate">{workHours}h</p>
+            </div>
+          </div>
+
+          {/* Botões */}
+          <div className="flex gap-2 pt-1">
             <Button
               onClick={handleClose}
-              variant="outline"
-              className="flex-1 h-12 border-border hover:bg-muted/50"
+              variant="ghost"
+              className="h-10 px-3 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40"
             >
-              ❌ Fechar
+              Depois
             </Button>
-            
+
             {!isLoading && dayStatus === 'not_started' && (
               <Button
                 onClick={handleStartDay}
-                className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
+                className="flex-1 h-10 bg-gradient-primary text-primary-foreground hover:opacity-90 font-bold text-sm rounded-lg"
+                style={{ boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.6)" }}
               >
-                🚀 Iniciar Meu Dia
+                🚀 Iniciar meu dia
               </Button>
             )}
-            
+
             {!isLoading && dayStatus === 'in_progress' && (
               <Button
                 onClick={handleViewReport}
-                className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
+                className="flex-1 h-10 bg-gradient-primary text-primary-foreground hover:opacity-90 font-bold text-sm rounded-lg"
+                style={{ boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.6)" }}
               >
-                ⚡ Continuar Trabalhando
+                ⚡ Continuar
               </Button>
             )}
-            
+
             {!isLoading && dayStatus === 'finished' && (
               <Button
                 onClick={handleViewReport}
-                className="flex-1 h-12 bg-gradient-primary text-primary-foreground hover:opacity-90 font-semibold glow-primary"
+                className="flex-1 h-10 bg-gradient-primary text-primary-foreground hover:opacity-90 font-bold text-sm rounded-lg"
+                style={{ boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.6)" }}
               >
-                <FileText className="w-4 h-4 mr-2" />
-                Ver Relatório
+                <FileText className="w-3.5 h-3.5 mr-1.5" />
+                Ver relatório
               </Button>
             )}
-            
+
             {isLoading && (
-              <Button
-                disabled
-                className="flex-1 h-12 bg-muted text-muted-foreground font-semibold"
-              >
+              <Button disabled className="flex-1 h-10 bg-muted text-muted-foreground font-semibold text-sm rounded-lg">
                 Carregando...
               </Button>
             )}
