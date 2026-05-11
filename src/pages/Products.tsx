@@ -135,10 +135,7 @@ export default function Products() {
         .select("nickname, city")
         .eq("user_id", user.id)
         .maybeSingle(),
-      supabase
-        .from("bank_connections")
-        .select("institution_name")
-        .eq("user_id", user.id),
+      Promise.resolve({ data: [] as { institution_name: string }[] }),
     ]);
     if (prodRes.data) setProducts(prodRes.data as Product[]);
     if (pixRes.data) setPixAccounts(pixRes.data as PixAccount[]);
