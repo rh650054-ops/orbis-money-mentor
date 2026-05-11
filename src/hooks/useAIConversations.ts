@@ -63,7 +63,7 @@ export const useAIConversations = () => {
         setMessages((data as AIMessage[]) || []);
         setIsLoading(false);
       })
-      .catch((err) => {
+      .then(undefined, (err) => {
         console.error("Failed to load messages", err);
         setIsLoading(false);
       });
