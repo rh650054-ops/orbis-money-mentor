@@ -201,6 +201,9 @@ export default function Products() {
       photo_url: p.photo_url || "",
       open_price: p.open_price,
       pix_account_id: p.pix_account_id || defaultPixAccount?.id || "",
+      recipe_mode: (p.recipe_mode ?? "none") as "none" | "per_unit" | "batch",
+      batch_yield: Number(p.batch_yield ?? 0),
+      low_stock_alerts_enabled: p.low_stock_alerts_enabled ?? true,
     });
     setFormOpen(true);
   };
