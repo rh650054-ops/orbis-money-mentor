@@ -440,13 +440,32 @@ export default function Products() {
         </Card>
       )}
 
+      {lowStockIngredients.length > 0 && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="p-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs">
+              <p className="font-semibold">Mercadoria acabando</p>
+              <p className="text-muted-foreground">{lowStockIngredients.map((i) => i.name).join(", ")}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="products">Produtos</TabsTrigger>
+          <TabsTrigger value="ingredients">
+            Mercadoria {lowStockIngredients.length > 0 && <span className="ml-1.5 text-warning">●</span>}
+          </TabsTrigger>
           <TabsTrigger value="stock">
             Estoque {lowStock.length > 0 && <span className="ml-1.5 text-warning">●</span>}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ingredients" className="mt-4">
+          <IngredientsManager />
+        </TabsContent>
 
         {/* PRODUTOS */}
         <TabsContent value="products" className="space-y-3 mt-4">
