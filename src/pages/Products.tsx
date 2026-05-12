@@ -108,6 +108,8 @@ export default function Products() {
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [actionsProduct, setActionsProduct] = useState<Product | null>(null);
+  const { lowStock: lowStockIngredients } = useIngredients();
 
   // QR modal
   const [qrProduct, setQrProduct] = useState<Product | null>(null);
