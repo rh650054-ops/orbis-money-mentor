@@ -1085,6 +1085,11 @@ export default function Products() {
           )}
         </DialogContent>
       </Dialog>
+      <ProductActionsModal
+        product={actionsProduct}
+        onClose={() => setActionsProduct(null)}
+        onChanged={loadAll}
+      />
     </div>
   );
 }
