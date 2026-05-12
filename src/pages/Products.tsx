@@ -13,7 +13,13 @@ import {
   Check,
   Landmark,
   Star,
+  ShoppingCart,
+  ChefHat,
 } from "lucide-react";
+import IngredientsManager from "@/components/products/IngredientsManager";
+import RecipeEditor from "@/components/products/RecipeEditor";
+import ProductActionsModal from "@/components/products/ProductActionsModal";
+import { useIngredients } from "@/hooks/useIngredients";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +54,9 @@ interface Product {
   stock_min: number;
   open_price: boolean;
   pix_account_id: string | null;
+  recipe_mode?: "none" | "per_unit" | "batch";
+  batch_yield?: number;
+  low_stock_alerts_enabled?: boolean;
 }
 
 interface PixAccount {
@@ -70,6 +79,9 @@ const emptyForm = {
   photo_url: "",
   open_price: false,
   pix_account_id: "",
+  recipe_mode: "none" as "none" | "per_unit" | "batch",
+  batch_yield: 0,
+  low_stock_alerts_enabled: true,
 };
 
 const emptyPixForm = {
@@ -96,6 +108,8 @@ export default function Products() {
   const [form, setForm] = useState(emptyForm);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [actionsProduct, setActionsProduct] = useState<Product | null>(null);
+  const { lowStock: lowStockIngredients } = useIngredients();
 
   // QR modal
   const [qrProduct, setQrProduct] = useState<Product | null>(null);
@@ -189,6 +203,9 @@ export default function Products() {
       photo_url: p.photo_url || "",
       open_price: p.open_price,
       pix_account_id: p.pix_account_id || defaultPixAccount?.id || "",
+      recipe_mode: (p.recipe_mode ?? "none") as "none" | "per_unit" | "batch",
+      batch_yield: Number(p.batch_yield ?? 0),
+      low_stock_alerts_enabled: p.low_stock_alerts_enabled ?? true,
     });
     setFormOpen(true);
   };
@@ -233,10 +250,17 @@ export default function Products() {
       stock_min: parseInt(form.stock_min) || 0,
       open_price: form.open_price,
       pix_account_id: form.pix_account_id || null,
+      recipe_mode: form.recipe_mode,
+      batch_yield: form.batch_yield || 0,
+      low_stock_alerts_enabled: form.low_stock_alerts_enabled,
     };
-    const { error } = editing
-      ? await supabase.from("products").update(payload).eq("id", editing.id)
-      : await supabase.from("products").insert(payload);
+    const { data: saved, error } = editing
+      ? await supabase.from("products").update(payload).eq("id", editing.id).select().single()
+      : await supabase.from("products").insert(payload).select().single();
+    if (saved && !editing) {
+      // mantém o produto recém-criado em "editing" pra permitir adicionar receita logo em seguida
+      setEditing(saved as Product);
+    }
 
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
@@ -416,13 +440,32 @@ export default function Products() {
         </Card>
       )}
 
+      {lowStockIngredients.length > 0 && (
+        <Card className="border-warning/40 bg-warning/5">
+          <CardContent className="p-3 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+            <div className="flex-1 text-xs">
+              <p className="font-semibold">Mercadoria acabando</p>
+              <p className="text-muted-foreground">{lowStockIngredients.map((i) => i.name).join(", ")}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Tabs defaultValue="products" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="products">Produtos</TabsTrigger>
+          <TabsTrigger value="ingredients">
+            Mercadoria {lowStockIngredients.length > 0 && <span className="ml-1.5 text-warning">●</span>}
+          </TabsTrigger>
           <TabsTrigger value="stock">
             Estoque {lowStock.length > 0 && <span className="ml-1.5 text-warning">●</span>}
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ingredients" className="mt-4">
+          <IngredientsManager />
+        </TabsContent>
 
         {/* PRODUTOS */}
         <TabsContent value="products" className="space-y-3 mt-4">
@@ -496,12 +539,18 @@ export default function Products() {
                     <div className="flex gap-2 mt-3">
                       <Button
                         size="sm"
-                        variant="outline"
                         className="flex-1"
+                        onClick={() => setActionsProduct(p)}
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Vender
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => openQr(p)}
                         disabled={hasNoPix}
                       >
-                        <QrCode className="w-3.5 h-3.5 mr-1.5" /> QR Pix
+                        <QrCode className="w-3.5 h-3.5" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(p)}>
                         <Pencil className="w-4 h-4" />
@@ -510,6 +559,12 @@ export default function Products() {
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
+                    {p.recipe_mode && p.recipe_mode !== "none" && (
+                      <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <ChefHat className="w-3 h-3" />
+                        Receita {p.recipe_mode === "per_unit" ? "por unidade" : `por lote (rende ${p.batch_yield ?? 0})`}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -690,6 +745,15 @@ export default function Products() {
                 />
               </div>
             </div>
+
+            {/* Receita / estoque por ingredientes */}
+            <RecipeEditor
+              productId={editing?.id ?? null}
+              recipeMode={form.recipe_mode}
+              batchYield={form.batch_yield}
+              onChangeMode={(m) => setForm({ ...form, recipe_mode: m })}
+              onChangeBatchYield={(n) => setForm({ ...form, batch_yield: n })}
+            />
 
             {/* Conta Pix */}
             <div>
@@ -1021,6 +1085,11 @@ export default function Products() {
           )}
         </DialogContent>
       </Dialog>
+      <ProductActionsModal
+        product={actionsProduct}
+        onClose={() => setActionsProduct(null)}
+        onChanged={loadAll}
+      />
     </div>
   );
 }
