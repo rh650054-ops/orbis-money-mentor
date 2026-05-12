@@ -746,6 +746,15 @@ export default function Products() {
               </div>
             </div>
 
+            {/* Receita / estoque por ingredientes */}
+            <RecipeEditor
+              productId={editing?.id ?? null}
+              recipeMode={form.recipe_mode}
+              batchYield={form.batch_yield}
+              onChangeMode={(m) => setForm({ ...form, recipe_mode: m })}
+              onChangeBatchYield={(n) => setForm({ ...form, batch_yield: n })}
+            />
+
             {/* Conta Pix */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
