@@ -769,6 +769,51 @@ export type Database = {
           },
         ]
       }
+      ingredients: {
+        Row: {
+          alerts_enabled: boolean
+          cost_per_unit: number
+          created_at: string
+          id: string
+          name: string
+          notes: string | null
+          photo_url: string | null
+          stock_min: number
+          stock_quantity: number
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alerts_enabled?: boolean
+          cost_per_unit?: number
+          created_at?: string
+          id?: string
+          name: string
+          notes?: string | null
+          photo_url?: string | null
+          stock_min?: number
+          stock_quantity?: number
+          unit?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alerts_enabled?: boolean
+          cost_per_unit?: number
+          created_at?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          photo_url?: string | null
+          stock_min?: number
+          stock_quantity?: number
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leaderboard_stats: {
         Row: {
           avatar_url: string | null
@@ -946,17 +991,104 @@ export type Database = {
         }
         Relationships: []
       }
+      product_recipes: {
+        Row: {
+          created_at: string
+          id: string
+          ingredient_id: string
+          product_id: string
+          quantity: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ingredient_id: string
+          product_id: string
+          quantity?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ingredient_id?: string
+          product_id?: string
+          quantity?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      product_sales_log: {
+        Row: {
+          created_at: string
+          id: string
+          product_id: string
+          quantity: number
+          total_amount: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_id: string
+          quantity?: number
+          total_amount?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_id?: string
+          quantity?: number
+          total_amount?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      production_batches: {
+        Row: {
+          batches_count: number
+          created_at: string
+          id: string
+          notes: string | null
+          product_id: string
+          units_produced: number
+          user_id: string
+        }
+        Insert: {
+          batches_count?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id: string
+          units_produced?: number
+          user_id: string
+        }
+        Update: {
+          batches_count?: number
+          created_at?: string
+          id?: string
+          notes?: string | null
+          product_id?: string
+          units_produced?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
+          batch_yield: number
           cost: number
           created_at: string
           description: string | null
           id: string
           is_active: boolean
+          low_stock_alerts_enabled: boolean
           name: string
           open_price: boolean
           photo_url: string | null
           pix_account_id: string | null
+          recipe_mode: string
           sale_price: number
           stock_min: number
           stock_quantity: number
@@ -964,15 +1096,18 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          batch_yield?: number
           cost?: number
           created_at?: string
           description?: string | null
           id?: string
           is_active?: boolean
+          low_stock_alerts_enabled?: boolean
           name: string
           open_price?: boolean
           photo_url?: string | null
           pix_account_id?: string | null
+          recipe_mode?: string
           sale_price?: number
           stock_min?: number
           stock_quantity?: number
@@ -980,15 +1115,18 @@ export type Database = {
           user_id: string
         }
         Update: {
+          batch_yield?: number
           cost?: number
           created_at?: string
           description?: string | null
           id?: string
           is_active?: boolean
+          low_stock_alerts_enabled?: boolean
           name?: string
           open_price?: boolean
           photo_url?: string | null
           pix_account_id?: string | null
+          recipe_mode?: string
           sale_price?: number
           stock_min?: number
           stock_quantity?: number
