@@ -143,14 +143,13 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) markSeenToday(); setIsOpen(open); }}>
       <DialogContent
-        className="w-[88vw] max-w-[360px] p-0 gap-0 overflow-hidden border border-primary/25 bg-card rounded-2xl shadow-[0_20px_60px_-20px_hsl(var(--primary)/0.5)]"
+        className="w-[88vw] max-w-[360px] p-0 gap-0 overflow-hidden border border-border/60 bg-card rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.8)]"
       >
-        {/* Glow header */}
+        {/* Header */}
         <div className="relative px-5 pt-5 pb-4 overflow-hidden">
-          <div className="absolute -top-16 -right-12 w-40 h-40 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
-          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
           <DialogHeader className="space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
               {dayStatus === 'finished' ? 'Resumo' : dayStatus === 'in_progress' ? 'Em andamento' : 'Plano de hoje'}
             </p>
             <DialogTitle className="text-xl font-black text-foreground leading-tight">
@@ -174,14 +173,15 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             </div>
           )}
 
-          {/* Meta de hoje — destaque */}
-          <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent px-4 py-3">
+          {/* Meta de hoje — destaque sóbrio */}
+          <div className="relative overflow-hidden rounded-xl border border-border/70 bg-muted/20 px-4 py-3">
+            <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary/70" />
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center shrink-0">
-                <Target className="w-4 h-4 text-primary-foreground" />
+              <div className="w-9 h-9 rounded-lg bg-muted/60 border border-border/60 flex items-center justify-center shrink-0">
+                <Target className="w-4 h-4 text-foreground" strokeWidth={2.2} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-wider text-primary/80 font-bold">Meta de hoje</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Meta de hoje</p>
                 <p className="text-2xl font-black text-foreground leading-tight truncate">{formatCurrency(dailyGoal)}</p>
               </div>
             </div>
@@ -189,23 +189,23 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
 
           {/* Semana · Mês · Horas — linha compacta */}
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-0.5">
-                <Zap className="w-3 h-3 text-primary" />
+                <Zap className="w-3 h-3 text-muted-foreground" />
                 <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Semana</p>
               </div>
               <p className="text-xs font-bold text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-0.5">
-                <TrendingUp className="w-3 h-3 text-primary" />
+                <TrendingUp className="w-3 h-3 text-muted-foreground" />
                 <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Mês</p>
               </div>
               <p className="text-xs font-bold text-foreground truncate">{formatCurrency(monthlyGoal)}</p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-muted/30 px-2.5 py-2">
+            <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-0.5">
-                <Clock className="w-3 h-3 text-primary" />
+                <Clock className="w-3 h-3 text-muted-foreground" />
                 <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Horas</p>
               </div>
               <p className="text-xs font-bold text-foreground truncate">{workHours}h</p>
@@ -225,10 +225,11 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             {!isLoading && dayStatus === 'not_started' && (
               <Button
                 onClick={handleStartDay}
-                className="flex-1 h-10 bg-gradient-primary text-primary-foreground hover:opacity-90 font-bold text-sm rounded-lg"
-                style={{ boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.6)" }}
+                className="relative overflow-hidden flex-1 h-10 bg-gradient-primary text-primary-foreground hover:opacity-95 font-bold text-sm rounded-lg group"
+                style={{ boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.5)" }}
               >
-                🚀 Iniciar meu dia
+                <span className="relative z-10">Iniciar meu dia</span>
+                <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 animate-shine-sweep" />
               </Button>
             )}
 
