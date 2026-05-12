@@ -539,12 +539,18 @@ export default function Products() {
                     <div className="flex gap-2 mt-3">
                       <Button
                         size="sm"
-                        variant="outline"
                         className="flex-1"
+                        onClick={() => setActionsProduct(p)}
+                      >
+                        <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Vender
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => openQr(p)}
                         disabled={hasNoPix}
                       >
-                        <QrCode className="w-3.5 h-3.5 mr-1.5" /> QR Pix
+                        <QrCode className="w-3.5 h-3.5" />
                       </Button>
                       <Button size="icon" variant="ghost" onClick={() => openEdit(p)}>
                         <Pencil className="w-4 h-4" />
@@ -553,6 +559,12 @@ export default function Products() {
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
+                    {p.recipe_mode && p.recipe_mode !== "none" && (
+                      <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <ChefHat className="w-3 h-3" />
+                        Receita {p.recipe_mode === "per_unit" ? "por unidade" : `por lote (rende ${p.batch_yield ?? 0})`}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
