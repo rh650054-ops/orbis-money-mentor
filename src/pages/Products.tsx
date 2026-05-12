@@ -248,10 +248,17 @@ export default function Products() {
       stock_min: parseInt(form.stock_min) || 0,
       open_price: form.open_price,
       pix_account_id: form.pix_account_id || null,
+      recipe_mode: form.recipe_mode,
+      batch_yield: form.batch_yield || 0,
+      low_stock_alerts_enabled: form.low_stock_alerts_enabled,
     };
-    const { error } = editing
-      ? await supabase.from("products").update(payload).eq("id", editing.id)
-      : await supabase.from("products").insert(payload);
+    const { data: saved, error } = editing
+      ? await supabase.from("products").update(payload).eq("id", editing.id).select().single()
+      : await supabase.from("products").insert(payload).select().single();
+    if (saved && !editing) {
+      // mantém o produto recém-criado em "editing" pra permitir adicionar receita logo em seguida
+      setEditing(saved as Product);
+    }
 
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
