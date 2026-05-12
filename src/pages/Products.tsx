@@ -13,7 +13,13 @@ import {
   Check,
   Landmark,
   Star,
+  ShoppingCart,
+  ChefHat,
 } from "lucide-react";
+import IngredientsManager from "@/components/products/IngredientsManager";
+import RecipeEditor from "@/components/products/RecipeEditor";
+import ProductActionsModal from "@/components/products/ProductActionsModal";
+import { useIngredients } from "@/hooks/useIngredients";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,6 +54,9 @@ interface Product {
   stock_min: number;
   open_price: boolean;
   pix_account_id: string | null;
+  recipe_mode?: "none" | "per_unit" | "batch";
+  batch_yield?: number;
+  low_stock_alerts_enabled?: boolean;
 }
 
 interface PixAccount {
@@ -70,6 +79,9 @@ const emptyForm = {
   photo_url: "",
   open_price: false,
   pix_account_id: "",
+  recipe_mode: "none" as "none" | "per_unit" | "batch",
+  batch_yield: 0,
+  low_stock_alerts_enabled: true,
 };
 
 const emptyPixForm = {
