@@ -125,6 +125,7 @@ export default function DefconChallenge() {
           totalBlocks={defcon.currentBlockIndex + 1}
           totalApproaches={defcon.totalApproaches}
           totalSalesCount={defcon.totalSalesCount}
+          userId={user.id}
           onSaveBreakdown={defcon.savePaymentBreakdown}
           onExit={handleExit}
         />
