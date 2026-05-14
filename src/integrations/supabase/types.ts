@@ -660,6 +660,45 @@ export type Database = {
         }
         Relationships: []
       }
+      defcon_clients: {
+        Row: {
+          amount: number
+          created_at: string
+          customer_name: string | null
+          customer_phone: string | null
+          date: string
+          id: string
+          method: string
+          notes: string | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          date?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          customer_name?: string | null
+          customer_phone?: string | null
+          date?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       defcon_occurrences: {
         Row: {
           block_index: number
