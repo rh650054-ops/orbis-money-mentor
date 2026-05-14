@@ -483,6 +483,18 @@ export function DefconEndScreen({
           </div>
         )}
 
+        {/* 6.5 PDF de clientes — só aparece se houver registros */}
+        {clientsCount > 0 && (
+          <button
+            onClick={exportClientsPdf}
+            disabled={exportingPdf}
+            className="w-full h-12 rounded-2xl bg-neutral-950 border border-[#F4A100]/40 text-[#F4A100] font-semibold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <FileDown className="w-4 h-4" />
+            {exportingPdf ? "Gerando PDF..." : `Baixar PDF de ${clientsCount} cliente(s)`}
+          </button>
+        )}
+
         {/* 7. CTA FINAL */}
         <button
           onClick={handleFinalize}
