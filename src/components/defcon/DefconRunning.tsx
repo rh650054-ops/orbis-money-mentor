@@ -82,6 +82,25 @@ export function DefconRunning({
     return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
   };
 
+  const sanitizePhone = (raw: string) => raw.replace(/\D/g, "");
+
+  const persistClient = async (amount: number, method: "dinheiro" | "pix" | "cartao") => {
+    const name = saleName.trim();
+    const phone = sanitizePhone(salePhone);
+    if (!name && !phone) return;
+    try {
+      await supabase.from("defcon_clients").insert({
+        user_id: userId,
+        amount,
+        method,
+        customer_name: name || null,
+        customer_phone: phone || null,
+      });
+    } catch (e) {
+      console.warn("[defcon] failed to save client", e);
+    }
+  };
+
   const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     onAddSale(amount, method);
     setSaleHistory((prev) => [...prev, amount]);
@@ -89,37 +108,44 @@ export function DefconRunning({
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
   };
 
+  const resetSaleForm = () => {
+    setSaleValue("");
+    setSalePhone("");
+    setSaleName("");
+    setShowClientFields(false);
+  };
+
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
       registerSale(amount, method);
-      setSaleValue("");
-      setSalePhone("");
+      persistClient(amount, method);
+      resetSaleForm();
       setShowAddSale(false);
     }
   };
 
-  const sanitizePhone = (raw: string) => raw.replace(/\D/g, "");
-
-  const openWhatsAppCharge = (rawPhone: string, amount: number) => {
+  const openWhatsAppCharge = (rawPhone: string, amount: number, name: string) => {
     const digits = sanitizePhone(rawPhone);
     if (!digits || amount <= 0) return;
     const phone = digits.length <= 11 ? `55${digits}` : digits;
+    const greeting = name ? `Olá, ${name}!` : "Olá!";
     const msg = encodeURIComponent(
-      `Olá! Passando para confirmar sua compra no valor de ${formatCurrency(amount)}. Pode me enviar o comprovante por aqui? Obrigado! 🙏`
+      `${greeting} Passando para confirmar sua compra no valor de ${formatCurrency(amount)}. Pode me enviar o comprovante por aqui? Obrigado! 🙏`
     );
     window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   };
 
-  const handleSaleAndCharge = () => {
+  const handleSaleAndCharge = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
     if (amount <= 0) return;
-    registerSale(amount);
-    openWhatsAppCharge(salePhone, amount);
-    setSaleValue("");
-    setSalePhone("");
+    registerSale(amount, method);
+    persistClient(amount, method);
+    openWhatsAppCharge(salePhone, amount, saleName.trim());
+    resetSaleForm();
     setShowAddSale(false);
   };
+
 
   const blockSold = currentBlock
     ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
