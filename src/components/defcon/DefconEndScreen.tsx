@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Share2, AlertTriangle, Sparkles, FileDown } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
 
