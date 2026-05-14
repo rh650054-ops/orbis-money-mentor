@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
+import { supabase } from "@/integrations/supabase/client";
 
 interface DefconRunningProps {
   userId: string;
