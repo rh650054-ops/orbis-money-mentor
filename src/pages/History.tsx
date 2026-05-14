@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { AIInsightsReport } from "@/components/AIInsightsReport";
+import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -503,6 +504,9 @@ export default function History() {
                         </p>
                       </div>
                     )}
+
+                    {/* Vendas por hora / minuto */}
+                    <HourlyBreakdown userId={user.id} date={sale.date} />
                   </div>
                 </CardContent>
               </Card>
