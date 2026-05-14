@@ -446,7 +446,7 @@ export function DefconRunning({
           <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-5 animate-in slide-in-from-bottom duration-200">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-white">Registrar venda</h3>
-              <button onClick={() => { setShowAddSale(false); setSaleValue(""); setSalePhone(""); }}>
+              <button onClick={() => { setShowAddSale(false); resetSaleForm(); }}>
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
@@ -466,6 +466,62 @@ export function DefconRunning({
                 className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus:outline-none focus:border-green-500 transition-colors placeholder:text-neutral-700"
               />
             </div>
+
+            {/* Cliente — opcional */}
+            {!showClientFields ? (
+              <button
+                onClick={() => setShowClientFields(true)}
+                className="w-full h-11 rounded-xl bg-neutral-800/60 border border-dashed border-neutral-700 text-neutral-400 text-xs font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              >
+                <User className="w-3.5 h-3.5" />
+                Adicionar cliente <span className="text-neutral-600">(opcional)</span>
+              </button>
+            ) : (
+              <div className="space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-[10px] font-mono text-neutral-500 tracking-wider uppercase">Cliente (opcional)</span>
+                  <button
+                    onClick={() => { setSaleName(""); setSalePhone(""); setShowClientFields(false); }}
+                    className="text-[10px] text-neutral-500 hover:text-neutral-300 underline"
+                  >
+                    remover
+                  </button>
+                </div>
+                <div className="relative">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
+                  <input
+                    type="text"
+                    value={saleName}
+                    onChange={(e) => setSaleName(e.target.value)}
+                    placeholder="Nome do cliente"
+                    maxLength={80}
+                    className="w-full h-11 bg-black border border-neutral-700 rounded-xl pl-10 pr-3 text-sm text-white focus:outline-none focus:border-neutral-500 placeholder:text-neutral-700"
+                  />
+                </div>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    value={salePhone}
+                    onChange={(e) => setSalePhone(e.target.value)}
+                    placeholder="WhatsApp (DDD + número)"
+                    maxLength={20}
+                    className="w-full h-11 bg-black border border-neutral-700 rounded-xl pl-10 pr-3 text-sm text-white focus:outline-none focus:border-neutral-500 placeholder:text-neutral-700"
+                  />
+                </div>
+
+                {sanitizePhone(salePhone).length >= 10 && parseFloat(saleValue) > 0 && (
+                  <button
+                    onClick={() => handleSaleAndCharge("dinheiro")}
+                    className="w-full h-11 rounded-xl bg-[#25D366] text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-8px_rgba(37,211,102,0.6)]"
+                  >
+                    <MessageCircle className="w-4 h-4" strokeWidth={2.5} />
+                    Registrar e enviar cobrança no WhatsApp
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button
