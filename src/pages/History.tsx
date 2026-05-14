@@ -503,6 +503,9 @@ export default function History() {
                         </p>
                       </div>
                     )}
+
+                    {/* Vendas por hora / minuto */}
+                    <HourlyBreakdown userId={user.id} date={sale.date} />
                   </div>
                 </CardContent>
               </Card>
