@@ -14,6 +14,7 @@ interface DefconEndScreenProps {
   totalBlocks: number;
   totalApproaches?: number;
   totalSalesCount?: number;
+  userId?: string;
   onSaveBreakdown: (dinheiro: number, cartao: number, pix: number) => Promise<void>;
   onExit: () => void;
 }
@@ -25,6 +26,7 @@ export function DefconEndScreen({
   totalBlocks,
   totalApproaches = 0,
   totalSalesCount = 0,
+  userId,
   onSaveBreakdown,
   onExit,
 }: DefconEndScreenProps) {
@@ -34,6 +36,114 @@ export function DefconEndScreen({
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [caloteAcknowledged, setCaloteAcknowledged] = useState(false);
+  const [clientsCount, setClientsCount] = useState(0);
+  const [exportingPdf, setExportingPdf] = useState(false);
+
+  // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF
+  useEffect(() => {
+    if (!userId) return;
+    const today = new Date().toISOString().slice(0, 10);
+    supabase
+      .from("defcon_clients")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("date", today)
+      .then(({ count }) => setClientsCount(count ?? 0));
+  }, [userId]);
+
+  const exportClientsPdf = async () => {
+    if (!userId) return;
+    setExportingPdf(true);
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const { data, error } = await supabase
+        .from("defcon_clients")
+        .select("amount, method, customer_name, customer_phone, created_at")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({ title: "Nenhum cliente registrado hoje" });
+        return;
+      }
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      let y = 56;
+
+      // Cabeçalho
+      doc.setFillColor(13, 13, 13);
+      doc.rect(0, 0, pageWidth, 88, "F");
+      doc.setTextColor(244, 161, 0);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("Relatório de Clientes — Orbis", margin, 40);
+      doc.setTextColor(220, 220, 220);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const dateLabel = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+      doc.text(`Data: ${dateLabel}  •  ${data.length} registro(s)`, margin, 64);
+
+      y = 120;
+      doc.setTextColor(40, 40, 40);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Hora", margin, y);
+      doc.text("Cliente", margin + 60, y);
+      doc.text("WhatsApp", margin + 230, y);
+      doc.text("Pagamento", margin + 360, y);
+      doc.text("Valor", pageWidth - margin, y, { align: "right" });
+      doc.setDrawColor(200);
+      doc.line(margin, y + 6, pageWidth - margin, y + 6);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      y += 22;
+
+      const total = data.reduce((s, r) => s + Number(r.amount || 0), 0);
+      for (const r of data) {
+        if (y > 780) {
+          doc.addPage();
+          y = 60;
+        }
+        const time = new Date(r.created_at as string).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        doc.setTextColor(80, 80, 80);
+        doc.text(time, margin, y);
+        doc.setTextColor(20, 20, 20);
+        doc.text((r.customer_name || "—").slice(0, 30), margin + 60, y);
+        doc.setTextColor(80, 80, 80);
+        doc.text(r.customer_phone || "—", margin + 230, y);
+        doc.text(String(r.method || "—"), margin + 360, y);
+        doc.setTextColor(20, 20, 20);
+        doc.setFont("helvetica", "bold");
+        doc.text(formatCurrency(Number(r.amount || 0)), pageWidth - margin, y, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        y += 18;
+      }
+
+      // Total
+      y += 10;
+      doc.setDrawColor(180);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 22;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(244, 161, 0);
+      doc.text("Total", margin, y);
+      doc.setTextColor(20, 20, 20);
+      doc.text(formatCurrency(total), pageWidth - margin, y, { align: "right" });
+
+      doc.save(`orbis-clientes-${today}.pdf`);
+      toast({ title: "PDF gerado", description: `${data.length} cliente(s) exportado(s).` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   const pixNum = parseFloat(pix) || 0;
   const cartaoNum = parseFloat(cartao) || 0;
