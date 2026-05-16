@@ -67,7 +67,16 @@ export function DefconRunning({
   const [salePhone, setSalePhone] = useState("");
   const [saleName, setSaleName] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
-  
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  const { loadout, incrementSold } = useDefconLoadout(userId);
+
+  // Auto-seleciona se houver só 1 produto no loadout
+  useEffect(() => {
+    if (loadout.length === 1) setSelectedProductId(loadout[0].product_id);
+    else if (loadout.length === 0) setSelectedProductId(null);
+  }, [loadout]);
+
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
 
