@@ -116,6 +116,12 @@ export function DefconRunning({
     setSaleHistory((prev) => [...prev, amount]);
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
+    // Debita do loadout/estoque se houver produto selecionado
+    if (selectedProductId) {
+      incrementSold(selectedProductId, 1).catch((e) =>
+        console.warn("[defcon] failed to debit loadout", e)
+      );
+    }
   };
 
   const resetSaleForm = () => {
@@ -123,6 +129,8 @@ export function DefconRunning({
     setSalePhone("");
     setSaleName("");
     setShowClientFields(false);
+    // Mantém o produto selecionado se houver só 1; reseta se múltiplos
+    if (loadout.length > 1) setSelectedProductId(null);
   };
 
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
