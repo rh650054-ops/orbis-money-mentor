@@ -699,6 +699,42 @@ export type Database = {
         }
         Relationships: []
       }
+      defcon_daily_loadout: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          product_id: string
+          product_name: string
+          qty_initial: number
+          qty_sold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          product_id: string
+          product_name: string
+          qty_initial?: number
+          qty_sold?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          product_id?: string
+          product_name?: string
+          qty_initial?: number
+          qty_sold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       defcon_occurrences: {
         Row: {
           block_index: number

@@ -384,6 +384,20 @@ export function DefconEndScreen({
           </div>
         </div>
 
+        {/* Celebração — bateu/ultrapassou a meta */}
+        {goalReached && (
+          <div className="rounded-2xl bg-gradient-to-br from-green-600/25 via-green-500/15 to-emerald-900/20 border border-green-500/40 p-5 text-center space-y-2 shadow-[0_12px_50px_-10px_rgba(34,197,94,0.5)]">
+            <div className="text-4xl">🎉</div>
+            <div className="text-base font-black text-green-400 tracking-tight">
+              {percentage >= 150 ? "VOCÊ EXPLODIU A META!" : percentage >= 110 ? "ULTRAPASSOU A META!" : "META BATIDA!"}
+            </div>
+            <div className="text-xs text-green-200/80 font-mono">
+              {percentage.toFixed(0)}% · {formatCurrency(Math.max(0, totalSold - dailyGoal))} acima
+            </div>
+          </div>
+        )}
+
+
         {/* 2. SHARE — Dourado, prioridade alta */}
         {totalSold > 0 && (
           <button

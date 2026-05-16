@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatCurrency } from "@/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
+import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 
 interface DefconRunningProps {
   userId: string;
@@ -66,7 +67,16 @@ export function DefconRunning({
   const [salePhone, setSalePhone] = useState("");
   const [saleName, setSaleName] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
-  
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+
+  const { loadout, incrementSold } = useDefconLoadout(userId);
+
+  // Auto-seleciona se houver só 1 produto no loadout
+  useEffect(() => {
+    if (loadout.length === 1) setSelectedProductId(loadout[0].product_id);
+    else if (loadout.length === 0) setSelectedProductId(null);
+  }, [loadout]);
+
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
 
@@ -106,6 +116,12 @@ export function DefconRunning({
     setSaleHistory((prev) => [...prev, amount]);
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
+    // Debita do loadout/estoque se houver produto selecionado
+    if (selectedProductId) {
+      incrementSold(selectedProductId, 1).catch((e) =>
+        console.warn("[defcon] failed to debit loadout", e)
+      );
+    }
   };
 
   const resetSaleForm = () => {
@@ -113,6 +129,8 @@ export function DefconRunning({
     setSalePhone("");
     setSaleName("");
     setShowClientFields(false);
+    // Mantém o produto selecionado se houver só 1; reseta se múltiplos
+    if (loadout.length > 1) setSelectedProductId(null);
   };
 
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
@@ -450,6 +468,53 @@ export function DefconRunning({
                 <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
+
+            {/* Seletor de produto — só aparece se loadout tem 2+ produtos */}
+            {loadout.length >= 2 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-mono text-neutral-500 tracking-wider uppercase">
+                  Qual produto?
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {loadout.map((item) => {
+                    const restante = Math.max(0, Number(item.qty_initial) - Number(item.qty_sold));
+                    const selected = selectedProductId === item.product_id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setSelectedProductId(item.product_id)}
+                        className={`p-3 rounded-xl border text-left active:scale-95 transition-all ${
+                          selected
+                            ? "bg-[#F4A100]/15 border-[#F4A100] text-white"
+                            : "bg-black/40 border-white/10 text-neutral-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Package className={`w-3.5 h-3.5 ${selected ? "text-[#F4A100]" : "text-neutral-500"}`} />
+                          <span className="text-xs font-bold truncate">{item.product_name}</span>
+                        </div>
+                        <p className={`text-[10px] mt-1 font-mono ${selected ? "text-[#F4A100]" : "text-neutral-500"}`}>
+                          {restante} restantes
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Mostra info do produto único */}
+            {loadout.length === 1 && selectedProductId && (
+              <div className="rounded-xl bg-[#F4A100]/10 border border-[#F4A100]/30 px-3 py-2 flex items-center gap-2">
+                <Package className="w-4 h-4 text-[#F4A100]" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{loadout[0].product_name}</p>
+                  <p className="text-[10px] text-[#F4A100] font-mono">
+                    {Math.max(0, Number(loadout[0].qty_initial) - Number(loadout[0].qty_sold))} restantes
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
