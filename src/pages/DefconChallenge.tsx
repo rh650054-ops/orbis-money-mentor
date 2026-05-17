@@ -78,6 +78,7 @@ export default function DefconChallenge() {
           totalSalesCount={defcon.totalSalesCount}
           blockSalesCount={defcon.blockSalesCount}
           onAddSale={defcon.addSale}
+          onAddTip={defcon.addTip}
           onAddApproach={defcon.addApproach}
           onAddOccurrence={defcon.addOccurrence}
           onEnd={defcon.endChallenge}
