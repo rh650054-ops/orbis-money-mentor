@@ -20,6 +20,7 @@ export interface DefconBlock {
   valor_cartao: number;
   valor_pix: number;
   valor_calote: number;
+  valor_gorjeta: number;
 }
 
 export interface BlockReportData {
