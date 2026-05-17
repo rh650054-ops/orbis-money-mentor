@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown } from "lucide-react";
+import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
@@ -218,15 +218,39 @@ export default function DefconHub() {
       {/* LOADOUT */}
       <DefconLoadoutManager userId={user.id} />
 
-      {/* RESUMO POR PAGAMENTO */}
+      {/* RESUMO POR PAGAMENTO — visual rico */}
       {totalVendido > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs text-neutral-400 font-medium px-1">Como você recebeu</h3>
-          <div className="grid grid-cols-3 gap-2">
-            <PayCard icon={<Banknote className="w-3.5 h-3.5" />} label="Dinheiro" value={totals.cash} color="#22C55E" />
-            <PayCard icon={<CreditCard className="w-3.5 h-3.5" />} label="Cartão" value={totals.card} color="#A78BFA" />
-            <PayCard icon={<Smartphone className="w-3.5 h-3.5" />} label="Pix" value={totals.pix} color="#32BCAD" />
+          <div className="flex items-end justify-between px-1">
+            <h3 className="text-sm font-semibold text-white">Como você recebeu</h3>
+            <span className="text-[10px] text-neutral-500 tabular-nums">
+              Total <span className="text-[#F4A100] font-bold">{formatCurrency(totalVendido)}</span>
+            </span>
           </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color="#22C55E" />
+            <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color="#A78BFA" />
+            <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color="#32BCAD" />
+          </div>
+
+          {/* Gorjeta — destaque dourado quando > 0 */}
+          {totals.tips > 0 && (
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/30 px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#F4A100]/20 flex items-center justify-center shrink-0">
+                <Coins className="w-4 h-4 text-[#F4A100]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] uppercase tracking-wider text-[#F4A100] font-semibold">Gorjetas</p>
+                  <Sparkles className="w-3 h-3 text-[#F4A100]" />
+                </div>
+                <p className="text-[10px] text-neutral-500">Já incluso no dinheiro recebido</p>
+              </div>
+              <p className="text-lg font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totals.tips)}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
             {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
