@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles, FileDown } from "lucide-react";
+import { Share2, AlertTriangle, Sparkles, FileDown, Coins } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,8 +38,9 @@ export function DefconEndScreen({
   const [caloteAcknowledged, setCaloteAcknowledged] = useState(false);
   const [clientsCount, setClientsCount] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [totalTips, setTotalTips] = useState(0);
 
-  // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF
+  // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF + gorjetas
   useEffect(() => {
     if (!userId) return;
     const today = new Date().toISOString().slice(0, 10);
@@ -49,6 +50,13 @@ export function DefconEndScreen({
       .eq("user_id", userId)
       .eq("date", today)
       .then(({ count }) => setClientsCount(count ?? 0));
+    supabase
+      .from("daily_sales")
+      .select("tip_sales")
+      .eq("user_id", userId)
+      .eq("date", today)
+      .maybeSingle()
+      .then(({ data }) => setTotalTips(Number((data as any)?.tip_sales || 0)));
   }, [userId]);
 
   const exportClientsPdf = async () => {
