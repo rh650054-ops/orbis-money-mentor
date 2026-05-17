@@ -12,7 +12,7 @@ import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 
 interface DayTotals {
-  cash: number; card: number; pix: number; debt: number; profit: number; cost: number;
+  cash: number; card: number; pix: number; debt: number; profit: number; cost: number; tips: number;
 }
 
 export default function DefconHub() {
@@ -21,7 +21,7 @@ export default function DefconHub() {
   const { toast } = useToast();
   const [dailyGoal, setDailyGoal] = useState(0);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0 });
+  const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0 });
   const [hasSession, setHasSession] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [quickCost, setQuickCost] = useState("");
