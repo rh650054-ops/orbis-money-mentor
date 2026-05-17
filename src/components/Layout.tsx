@@ -32,7 +32,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
-  { name: "Ritmo", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
+  { name: "DEFCON 4", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
   { name: "Vender", href: "/bank-connections", icon: DollarSign, tourId: "nav-banco", isCenter: true },
   { name: "Relatório", href: "/insights", icon: BarChart3, tourId: "nav-dados" },
   { name: "Perfil", href: "/profile", icon: UserCircle, tourId: "nav-perfil" },
