@@ -44,7 +44,7 @@ export default function DefconHub() {
         .maybeSingle(),
       supabase
         .from("daily_sales")
-        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost")
+        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost, tip_sales")
         .eq("user_id", user.id)
         .eq("date", today)
         .maybeSingle(),
@@ -89,12 +89,13 @@ export default function DefconHub() {
     }
 
     setTotals({
-      cash: Number(sales?.cash_sales || 0),
-      card: Number(sales?.card_sales || 0),
-      pix: Number(sales?.pix_sales || 0),
-      debt: Number(sales?.total_debt || 0),
-      profit: Number(sales?.total_profit || 0),
-      cost: Number(sales?.cost || 0),
+      cash: Number((sales as any)?.cash_sales || 0),
+      card: Number((sales as any)?.card_sales || 0),
+      pix: Number((sales as any)?.pix_sales || 0),
+      debt: Number((sales as any)?.total_debt || 0),
+      profit: Number((sales as any)?.total_profit || 0),
+      cost: Number((sales as any)?.cost || 0),
+      tips: Number((sales as any)?.tip_sales || 0),
     });
     setHasSession(!!session);
   };
