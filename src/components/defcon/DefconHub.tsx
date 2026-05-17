@@ -328,17 +328,55 @@ export default function DefconHub() {
   );
 }
 
-function PayCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+function PayCard({
+  icon,
+  label,
+  value,
+  total,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  const active = value > 0;
   return (
     <div
-      className="rounded-xl bg-[#0F0F0F] border border-white/10 p-2.5 space-y-1"
-      style={{ boxShadow: value > 0 ? `0 4px 14px -6px ${color}44` : undefined }}
+      className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#141414] to-[#0A0A0A] border p-2.5 space-y-1.5 transition-all"
+      style={{
+        borderColor: active ? `${color}55` : "rgba(255,255,255,0.06)",
+        boxShadow: active ? `0 6px 18px -8px ${color}66, inset 0 1px 0 0 ${color}15` : undefined,
+      }}
     >
-      <div className="flex items-center gap-1" style={{ color }}>
+      {/* glow corner sutil */}
+      {active && (
+        <div
+          className="absolute -top-6 -right-6 w-14 h-14 rounded-full blur-2xl opacity-40 pointer-events-none"
+          style={{ background: color }}
+        />
+      )}
+      <div className="relative flex items-center gap-1.5" style={{ color: active ? color : "#525252" }}>
         {icon}
-        <span className="text-[10px] font-medium">{label}</span>
+        <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
       </div>
-      <p className="text-sm font-bold text-white tabular-nums truncate">{formatCurrency(value)}</p>
+      <p className="relative text-base font-bold text-white tabular-nums truncate leading-tight">
+        {formatCurrency(value)}
+      </p>
+      {/* mini barra com % do total */}
+      <div className="relative h-0.5 bg-white/5 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: active ? color : "transparent",
+            boxShadow: active ? `0 0 8px ${color}99` : undefined,
+          }}
+        />
+      </div>
+      <p className="relative text-[9px] text-neutral-500 tabular-nums">{pct}% do total</p>
     </div>
   );
 }
