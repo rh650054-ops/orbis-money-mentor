@@ -783,6 +783,7 @@ export function useDefconChallenge(userId: string | undefined) {
     blockReportData,
     startChallenge,
     addSale,
+    addTip,
     addApproach,
     addOccurrence,
     endChallenge,
