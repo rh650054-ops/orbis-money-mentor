@@ -425,6 +425,20 @@ export function DefconEndScreen({
               Confira seus recebimentos
             </h2>
 
+            {/* Gorjetas — destaque dourado */}
+            {totalTips > 0 && (
+              <div className="rounded-xl bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/35 px-4 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#F4A100]/20 flex items-center justify-center shrink-0">
+                  <Coins className="w-4 h-4 text-[#F4A100]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] uppercase tracking-wider text-[#F4A100] font-bold">Gorjetas recebidas</p>
+                  <p className="text-[10px] text-neutral-500">Já incluídas no dinheiro abaixo</p>
+                </div>
+                <p className="text-lg font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totalTips)}</p>
+              </div>
+            )}
+
             <PaymentInput
               iconSrc={pixLogo}
               label="Pix"
