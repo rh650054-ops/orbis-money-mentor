@@ -628,6 +628,41 @@ export function useDefconChallenge(userId: string | undefined) {
     await syncBlocksToDailySales(userId);
   };
 
+  const addTip = async (amount: number) => {
+    if (!userId || phase !== "running" || amount <= 0) return;
+    const currentBlock = blocks[currentBlockIndex];
+    if (!currentBlock) return;
+
+    const newDinheiro = currentBlock.valor_dinheiro + amount;
+    const newGorjeta = (currentBlock.valor_gorjeta || 0) + amount;
+    const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
+    const newTotal = totalSold + amount;
+
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({
+        achieved_amount: newAchieved,
+        valor_dinheiro: newDinheiro,
+        valor_gorjeta: newGorjeta,
+      } as any)
+      .eq("id", currentBlock.id);
+
+    if (sessionId) {
+      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+    }
+
+    setBlocks(prev =>
+      prev.map((b, i) =>
+        i === currentBlockIndex
+          ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_gorjeta: newGorjeta }
+          : b
+      )
+    );
+    setTotalSold(newTotal);
+
+    await syncBlocksToDailySales(userId);
+  };
+
   const addApproach = () => {
     if (phase !== "running") return;
     const newApproaches = blockApproaches + 1;
