@@ -578,6 +578,7 @@ export type Database = {
           notes: string | null
           pix_sales: number | null
           reinvestment: number | null
+          tip_sales: number | null
           total_debt: number | null
           total_profit: number | null
           unpaid_sales: number | null
@@ -594,6 +595,7 @@ export type Database = {
           notes?: string | null
           pix_sales?: number | null
           reinvestment?: number | null
+          tip_sales?: number | null
           total_debt?: number | null
           total_profit?: number | null
           unpaid_sales?: number | null
@@ -610,6 +612,7 @@ export type Database = {
           notes?: string | null
           pix_sales?: number | null
           reinvestment?: number | null
+          tip_sales?: number | null
           total_debt?: number | null
           total_profit?: number | null
           unpaid_sales?: number | null
@@ -913,6 +916,7 @@ export type Database = {
           valor_calote: number | null
           valor_cartao: number | null
           valor_dinheiro: number | null
+          valor_gorjeta: number | null
           valor_pix: number | null
         }
         Insert: {
@@ -935,6 +939,7 @@ export type Database = {
           valor_calote?: number | null
           valor_cartao?: number | null
           valor_dinheiro?: number | null
+          valor_gorjeta?: number | null
           valor_pix?: number | null
         }
         Update: {
@@ -957,6 +962,7 @@ export type Database = {
           valor_calote?: number | null
           valor_cartao?: number | null
           valor_dinheiro?: number | null
+          valor_gorjeta?: number | null
           valor_pix?: number | null
         }
         Relationships: [

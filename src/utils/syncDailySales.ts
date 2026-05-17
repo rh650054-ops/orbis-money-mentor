@@ -22,7 +22,7 @@ export async function syncBlocksToDailySales(userId: string) {
   // Aggregate all hourly blocks
   const { data: blocks } = await supabase
     .from("hourly_goal_blocks")
-    .select("valor_dinheiro, valor_cartao, valor_pix, valor_calote")
+    .select("valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta")
     .eq("plan_id", planData.id);
 
   if (!blocks || blocks.length === 0) return;
@@ -31,6 +31,7 @@ export async function syncBlocksToDailySales(userId: string) {
   const totalCartao = blocks.reduce((sum, b) => sum + (b.valor_cartao || 0), 0);
   const totalPix = blocks.reduce((sum, b) => sum + (b.valor_pix || 0), 0);
   const totalCalote = blocks.reduce((sum, b) => sum + (b.valor_calote || 0), 0);
+  const totalGorjeta = blocks.reduce((sum, b) => sum + ((b as any).valor_gorjeta || 0), 0);
   const totalLiquido = totalDinheiro + totalCartao + totalPix;
 
   // Upsert daily_sales record (avoids race conditions with concurrent calls)
@@ -44,8 +45,9 @@ export async function syncBlocksToDailySales(userId: string) {
       cash_sales: totalDinheiro,
       pix_sales: totalPix,
       card_sales: totalCartao,
+      tip_sales: totalGorjeta,
       unpaid_sales: totalCalote > 0 ? 1 : 0,
-    }, { onConflict: 'user_id,date' });
+    } as any, { onConflict: 'user_id,date' });
 
   // Also update leaderboard revenue in real-time
   await syncLeaderboardRevenue(userId);

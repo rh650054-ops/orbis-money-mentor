@@ -17,7 +17,7 @@ export async function generateDefconDayPDF(userId: string, date?: string) {
     await Promise.all([
       supabase
         .from("daily_sales")
-        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost")
+        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost, tip_sales")
         .eq("user_id", userId)
         .eq("date", day)
         .maybeSingle(),
@@ -49,7 +49,7 @@ export async function generateDefconDayPDF(userId: string, date?: string) {
   if (plan?.id) {
     const { data } = await supabase
       .from("hourly_goal_blocks")
-      .select("hour_label, achieved_amount, valor_dinheiro, valor_cartao, valor_pix, valor_calote")
+      .select("hour_label, achieved_amount, valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta")
       .eq("plan_id", plan.id)
       .order("hour_index");
     blocks = data ?? [];
@@ -101,18 +101,20 @@ export async function generateDefconDayPDF(userId: string, date?: string) {
 
   // Resumo financeiro
   section("Resumo do dia");
-  const totalDin = Number(sales?.cash_sales || 0);
-  const totalCar = Number(sales?.card_sales || 0);
-  const totalPix = Number(sales?.pix_sales || 0);
-  const totalCalote = Number(sales?.total_debt || 0);
+  const totalDin = Number((sales as any)?.cash_sales || 0);
+  const totalCar = Number((sales as any)?.card_sales || 0);
+  const totalPix = Number((sales as any)?.pix_sales || 0);
+  const totalCalote = Number((sales as any)?.total_debt || 0);
+  const totalTips = Number((sales as any)?.tip_sales || 0);
   const total = totalDin + totalCar + totalPix;
-  const lucro = Number(sales?.total_profit || 0);
-  const custo = Number(sales?.cost || 0);
+  const lucro = Number((sales as any)?.total_profit || 0);
+  const custo = Number((sales as any)?.cost || 0);
   row("Meta do dia", formatCurrency(Number(plan?.daily_goal || 0)));
   row("Total vendido", formatCurrency(total));
   row("Dinheiro", formatCurrency(totalDin));
   row("Cartão", formatCurrency(totalCar));
   row("Pix", formatCurrency(totalPix));
+  if (totalTips > 0) row("Gorjetas (incluso no dinheiro)", formatCurrency(totalTips));
   if (totalCalote > 0) row("Calotes", formatCurrency(totalCalote));
   if (custo > 0) row("Custos", formatCurrency(custo));
   row("Lucro estimado", formatCurrency(lucro));
@@ -124,7 +126,9 @@ export async function generateDefconDayPDF(userId: string, date?: string) {
     for (const b of blocks) {
       const amt = Number(b.achieved_amount || 0);
       if (amt === 0) continue;
-      row(b.hour_label, formatCurrency(amt));
+      const tip = Number(b.valor_gorjeta || 0);
+      const label = tip > 0 ? `${b.hour_label}  (gorjeta ${formatCurrency(tip)})` : b.hour_label;
+      row(label, formatCurrency(amt));
     }
   }
 

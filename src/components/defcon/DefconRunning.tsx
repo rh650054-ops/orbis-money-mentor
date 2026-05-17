@@ -187,10 +187,9 @@ export function DefconRunning({
   const handleAddTip = () => {
     const amount = parseFloat(tipValue) || 0;
     if (amount > 0) {
-      // gorjeta entra no faturamento como venda
-      onAddSale(amount);
-      setSaleHistory((prev) => [...prev, amount]);
+      // gorjeta entra em valor_gorjeta + dinheiro (separada para relatório)
       onAddTip?.(amount);
+      setSaleHistory((prev) => [...prev, amount]);
       pushFloater(`+${formatCurrency(amount)} 🎯`, "tip");
       setTipValue("");
       setShowAddTip(false);

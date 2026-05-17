@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown } from "lucide-react";
+import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
@@ -12,7 +12,7 @@ import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 
 interface DayTotals {
-  cash: number; card: number; pix: number; debt: number; profit: number; cost: number;
+  cash: number; card: number; pix: number; debt: number; profit: number; cost: number; tips: number;
 }
 
 export default function DefconHub() {
@@ -21,7 +21,7 @@ export default function DefconHub() {
   const { toast } = useToast();
   const [dailyGoal, setDailyGoal] = useState(0);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0 });
+  const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0 });
   const [hasSession, setHasSession] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [quickCost, setQuickCost] = useState("");
@@ -44,7 +44,7 @@ export default function DefconHub() {
         .maybeSingle(),
       supabase
         .from("daily_sales")
-        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost")
+        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost, tip_sales")
         .eq("user_id", user.id)
         .eq("date", today)
         .maybeSingle(),
@@ -89,12 +89,13 @@ export default function DefconHub() {
     }
 
     setTotals({
-      cash: Number(sales?.cash_sales || 0),
-      card: Number(sales?.card_sales || 0),
-      pix: Number(sales?.pix_sales || 0),
-      debt: Number(sales?.total_debt || 0),
-      profit: Number(sales?.total_profit || 0),
-      cost: Number(sales?.cost || 0),
+      cash: Number((sales as any)?.cash_sales || 0),
+      card: Number((sales as any)?.card_sales || 0),
+      pix: Number((sales as any)?.pix_sales || 0),
+      debt: Number((sales as any)?.total_debt || 0),
+      profit: Number((sales as any)?.total_profit || 0),
+      cost: Number((sales as any)?.cost || 0),
+      tips: Number((sales as any)?.tip_sales || 0),
     });
     setHasSession(!!session);
   };
@@ -217,15 +218,39 @@ export default function DefconHub() {
       {/* LOADOUT */}
       <DefconLoadoutManager userId={user.id} />
 
-      {/* RESUMO POR PAGAMENTO */}
+      {/* RESUMO POR PAGAMENTO — visual rico */}
       {totalVendido > 0 && (
         <div className="space-y-3">
-          <h3 className="text-xs text-neutral-400 font-medium px-1">Como você recebeu</h3>
-          <div className="grid grid-cols-3 gap-2">
-            <PayCard icon={<Banknote className="w-3.5 h-3.5" />} label="Dinheiro" value={totals.cash} color="#22C55E" />
-            <PayCard icon={<CreditCard className="w-3.5 h-3.5" />} label="Cartão" value={totals.card} color="#A78BFA" />
-            <PayCard icon={<Smartphone className="w-3.5 h-3.5" />} label="Pix" value={totals.pix} color="#32BCAD" />
+          <div className="flex items-end justify-between px-1">
+            <h3 className="text-sm font-semibold text-white">Como você recebeu</h3>
+            <span className="text-[10px] text-neutral-500 tabular-nums">
+              Total <span className="text-[#F4A100] font-bold">{formatCurrency(totalVendido)}</span>
+            </span>
           </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color="#22C55E" />
+            <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color="#A78BFA" />
+            <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color="#32BCAD" />
+          </div>
+
+          {/* Gorjeta — destaque dourado quando > 0 */}
+          {totals.tips > 0 && (
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/30 px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#F4A100]/20 flex items-center justify-center shrink-0">
+                <Coins className="w-4 h-4 text-[#F4A100]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] uppercase tracking-wider text-[#F4A100] font-semibold">Gorjetas</p>
+                  <Sparkles className="w-3 h-3 text-[#F4A100]" />
+                </div>
+                <p className="text-[10px] text-neutral-500">Já incluso no dinheiro recebido</p>
+              </div>
+              <p className="text-lg font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totals.tips)}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2">
             <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
             {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
@@ -303,17 +328,55 @@ export default function DefconHub() {
   );
 }
 
-function PayCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
+function PayCard({
+  icon,
+  label,
+  value,
+  total,
+  color,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: number;
+  total: number;
+  color: string;
+}) {
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+  const active = value > 0;
   return (
     <div
-      className="rounded-xl bg-[#0F0F0F] border border-white/10 p-2.5 space-y-1"
-      style={{ boxShadow: value > 0 ? `0 4px 14px -6px ${color}44` : undefined }}
+      className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#141414] to-[#0A0A0A] border p-2.5 space-y-1.5 transition-all"
+      style={{
+        borderColor: active ? `${color}55` : "rgba(255,255,255,0.06)",
+        boxShadow: active ? `0 6px 18px -8px ${color}66, inset 0 1px 0 0 ${color}15` : undefined,
+      }}
     >
-      <div className="flex items-center gap-1" style={{ color }}>
+      {/* glow corner sutil */}
+      {active && (
+        <div
+          className="absolute -top-6 -right-6 w-14 h-14 rounded-full blur-2xl opacity-40 pointer-events-none"
+          style={{ background: color }}
+        />
+      )}
+      <div className="relative flex items-center gap-1.5" style={{ color: active ? color : "#525252" }}>
         {icon}
-        <span className="text-[10px] font-medium">{label}</span>
+        <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
       </div>
-      <p className="text-sm font-bold text-white tabular-nums truncate">{formatCurrency(value)}</p>
+      <p className="relative text-base font-bold text-white tabular-nums truncate leading-tight">
+        {formatCurrency(value)}
+      </p>
+      {/* mini barra com % do total */}
+      <div className="relative h-0.5 bg-white/5 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{
+            width: `${pct}%`,
+            background: active ? color : "transparent",
+            boxShadow: active ? `0 0 8px ${color}99` : undefined,
+          }}
+        />
+      </div>
+      <p className="relative text-[9px] text-neutral-500 tabular-nums">{pct}% do total</p>
     </div>
   );
 }

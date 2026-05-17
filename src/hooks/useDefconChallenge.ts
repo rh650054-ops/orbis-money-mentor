@@ -20,6 +20,7 @@ export interface DefconBlock {
   valor_cartao: number;
   valor_pix: number;
   valor_calote: number;
+  valor_gorjeta: number;
 }
 
 export interface BlockReportData {
@@ -251,11 +252,11 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const { data: blocksData } = await supabase
       .from("hourly_goal_blocks")
-      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, timer_started_at")
+      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta, timer_started_at")
       .eq("plan_id", planData.id)
       .order("hour_index");
 
-    const loadedBlocks: DefconBlock[] = (blocksData || []).map(b => ({
+    const loadedBlocks: DefconBlock[] = (blocksData || []).map((b: any) => ({
       id: b.id,
       hour_index: b.hour_index,
       hour_label: b.hour_label,
@@ -266,6 +267,7 @@ export function useDefconChallenge(userId: string | undefined) {
       valor_cartao: b.valor_cartao || 0,
       valor_pix: b.valor_pix || 0,
       valor_calote: b.valor_calote || 0,
+      valor_gorjeta: b.valor_gorjeta || 0,
     }));
 
     setBlocks(loadedBlocks);
@@ -626,6 +628,41 @@ export function useDefconChallenge(userId: string | undefined) {
     await syncBlocksToDailySales(userId);
   };
 
+  const addTip = async (amount: number) => {
+    if (!userId || phase !== "running" || amount <= 0) return;
+    const currentBlock = blocks[currentBlockIndex];
+    if (!currentBlock) return;
+
+    const newDinheiro = currentBlock.valor_dinheiro + amount;
+    const newGorjeta = (currentBlock.valor_gorjeta || 0) + amount;
+    const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
+    const newTotal = totalSold + amount;
+
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({
+        achieved_amount: newAchieved,
+        valor_dinheiro: newDinheiro,
+        valor_gorjeta: newGorjeta,
+      } as any)
+      .eq("id", currentBlock.id);
+
+    if (sessionId) {
+      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+    }
+
+    setBlocks(prev =>
+      prev.map((b, i) =>
+        i === currentBlockIndex
+          ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_gorjeta: newGorjeta }
+          : b
+      )
+    );
+    setTotalSold(newTotal);
+
+    await syncBlocksToDailySales(userId);
+  };
+
   const addApproach = () => {
     if (phase !== "running") return;
     const newApproaches = blockApproaches + 1;
@@ -746,6 +783,7 @@ export function useDefconChallenge(userId: string | undefined) {
     blockReportData,
     startChallenge,
     addSale,
+    addTip,
     addApproach,
     addOccurrence,
     endChallenge,
