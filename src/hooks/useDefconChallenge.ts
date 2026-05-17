@@ -252,11 +252,11 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const { data: blocksData } = await supabase
       .from("hourly_goal_blocks")
-      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, timer_started_at")
+      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta, timer_started_at")
       .eq("plan_id", planData.id)
       .order("hour_index");
 
-    const loadedBlocks: DefconBlock[] = (blocksData || []).map(b => ({
+    const loadedBlocks: DefconBlock[] = (blocksData || []).map((b: any) => ({
       id: b.id,
       hour_index: b.hour_index,
       hour_label: b.hour_label,
@@ -267,6 +267,7 @@ export function useDefconChallenge(userId: string | undefined) {
       valor_cartao: b.valor_cartao || 0,
       valor_pix: b.valor_pix || 0,
       valor_calote: b.valor_calote || 0,
+      valor_gorjeta: b.valor_gorjeta || 0,
     }));
 
     setBlocks(loadedBlocks);
