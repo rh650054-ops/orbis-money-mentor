@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
 import { formatCurrency } from "@/lib/utils";
-import { Zap, FileDown, History, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown } from "lucide-react";
+import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
@@ -56,7 +56,6 @@ export default function DefconHub() {
         .maybeSingle(),
     ]);
 
-    // Cria plano automático se não houver
     if (!plan) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -104,7 +103,6 @@ export default function DefconHub() {
     if (user) loadAll();
   }, [user, today]);
 
-  // Realtime: atualiza resumo quando vendas mudam
   useEffect(() => {
     if (!user) return;
     const ch = supabase
@@ -157,87 +155,78 @@ export default function DefconHub() {
   if (loading || !user) return null;
 
   return (
-    <div className="space-y-5 pb-8 max-w-2xl mx-auto">
-      {/* HEADER */}
-      <div className="text-center pt-2">
-        <div className="text-[10px] font-mono text-red-500 tracking-[0.4em] uppercase mb-1">
-          ⚡ MODO DESAFIO
-        </div>
-        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter">
-          DEFCON 4
-        </h1>
-        <p className="text-xs text-neutral-500 mt-2 font-mono">
-          Foco total. Blocos de 60 min. Apenas vendas.
-        </p>
+    <div className="space-y-4 pb-8 max-w-2xl mx-auto px-1">
+      {/* HEADER discreto */}
+      <div className="pt-1 pb-1">
+        <p className="text-[11px] text-red-500/80 tracking-[0.25em] uppercase">⚡ Modo desafio</p>
+        <h1 className="text-2xl font-bold text-white tracking-tight mt-0.5">DEFCON 4</h1>
       </div>
 
-      {/* META DO DIA — Card dourado */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#F4A100]/15 via-[#1A1A1A] to-[#0D0D0D] border border-[#F4A100]/25 p-6 space-y-4 shadow-[0_8px_40px_-12px_rgba(244,161,0,0.3)]">
-        <div className="flex items-start justify-between">
+      {/* BLOCO UNIFICADO — Meta + Botão */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A1A1A] via-[#141414] to-[#0D0D0D] border border-white/10 p-5 space-y-5 shadow-[0_8px_30px_-12px_rgba(244,161,0,0.25)]">
+        {/* glow sutil */}
+        <div className="absolute -top-20 -right-20 w-56 h-56 bg-[#F4A100]/10 blur-3xl rounded-full pointer-events-none" />
+
+        <div className="relative flex items-start justify-between">
           <div>
-            <p className="text-[10px] font-mono text-[#F4A100] tracking-[0.3em] uppercase mb-1">Meta do dia</p>
-            <p className="text-5xl font-black text-white tracking-tighter">
+            <p className="text-[11px] text-neutral-500 tracking-wider uppercase mb-1">Meta do dia</p>
+            <p className="text-3xl font-bold text-white tracking-tight tabular-nums">
               {formatCurrency(dailyGoal)}
+            </p>
+            <p className="text-xs text-neutral-500 mt-1">
+              {goalReached ? (
+                <span className="text-green-400">🎉 Meta batida!</span>
+              ) : (
+                <>Vendido <span className="text-white font-medium">{formatCurrency(totalVendido)}</span> · falta <span className="text-[#F4A100]">{formatCurrency(falta)}</span></>
+              )}
             </p>
           </div>
           <button
             onClick={() => setShowEdit(true)}
-            className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-neutral-400 active:scale-95"
+            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-neutral-400 active:scale-95 transition"
             aria-label="Editar meta"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-3.5 h-3.5" />
           </button>
         </div>
 
-        {/* Progress */}
-        <div className="space-y-2">
-          <div className="h-2 bg-black/40 rounded-full overflow-hidden border border-white/5">
-            <div
-              className={`h-full transition-all duration-500 rounded-full ${
-                goalReached ? "bg-green-500 shadow-[0_0_18px_rgba(34,197,94,0.7)]" : "bg-[#F4A100] shadow-[0_0_18px_rgba(244,161,0,0.6)]"
-              }`}
-              style={{ width: `${progresso}%` }}
-            />
-          </div>
-          <div className="flex justify-between text-[11px] font-mono">
-            <span className={goalReached ? "text-green-500" : "text-neutral-400"}>
-              {formatCurrency(totalVendido)} vendido
-            </span>
-            <span className="text-neutral-500">
-              {goalReached ? "🎉 Meta batida!" : `Falta ${formatCurrency(falta)}`}
-            </span>
-          </div>
+        {/* Progress fino */}
+        <div className="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-700 rounded-full ${
+              goalReached
+                ? "bg-gradient-to-r from-green-500 to-emerald-400 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
+                : "bg-gradient-to-r from-[#F4A100] to-[#FFB733] shadow-[0_0_12px_rgba(244,161,0,0.5)]"
+            }`}
+            style={{ width: `${progresso}%` }}
+          />
         </div>
+
+        {/* CTA — botão grande mas refinado */}
+        <button
+          onClick={() => navigate("/defcon")}
+          data-tour="defcon-banner"
+          className="relative w-full h-14 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-6px_rgba(239,68,68,0.55)] overflow-hidden group"
+        >
+          <span className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition" />
+          <Zap className="w-5 h-5 fill-white" />
+          {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
+        </button>
       </div>
 
-      {/* BOTÃO INICIAR DEFCON — GIGANTE */}
-      <button
-        onClick={() => navigate("/defcon")}
-        data-tour="defcon-banner"
-        className="w-full relative overflow-hidden h-20 rounded-2xl bg-gradient-to-r from-red-700 via-red-600 to-red-700 text-white font-black text-2xl tracking-wide flex items-center justify-center gap-3 active:scale-[0.98] transition-transform shadow-[0_12px_50px_-10px_rgba(239,68,68,0.7)] animate-pulse-slow"
-        style={{ animation: "pulse 2.5s ease-in-out infinite" }}
-      >
-        <Zap className="w-7 h-7 fill-white" />
-        {hasSession ? "CONTINUAR DEFCON 4" : "INICIAR DEFCON 4"}
-      </button>
-
-      {/* LOADOUT — Produtos de hoje */}
+      {/* LOADOUT */}
       <DefconLoadoutManager userId={user.id} />
 
-      {/* RESUMO POR PAGAMENTO — Cards bonitos */}
+      {/* RESUMO POR PAGAMENTO */}
       {totalVendido > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <h3 className="text-sm font-mono text-neutral-400 tracking-[0.2em] uppercase">
-              Como você recebeu
-            </h3>
+          <h3 className="text-xs text-neutral-400 font-medium px-1">Como você recebeu</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <PayCard icon={<Banknote className="w-3.5 h-3.5" />} label="Dinheiro" value={totals.cash} color="#22C55E" />
+            <PayCard icon={<CreditCard className="w-3.5 h-3.5" />} label="Cartão" value={totals.card} color="#A78BFA" />
+            <PayCard icon={<Smartphone className="w-3.5 h-3.5" />} label="Pix" value={totals.pix} color="#32BCAD" />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
-            <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} color="#22C55E" />
-            <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} color="#A78BFA" />
-            <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} color="#32BCAD" />
-          </div>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2">
             <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
             {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
             {totals.cost > 0 && <MiniStat label="Custos" value={formatCurrency(totals.cost)} />}
@@ -245,73 +234,63 @@ export default function DefconHub() {
         </div>
       )}
 
-      {/* VENDAS POR HORA — collapse */}
+      {/* VENDAS POR HORA */}
       {planId && totalVendido > 0 && (
         <div className="rounded-2xl bg-[#0F0F0F] border border-white/10 p-4">
           <HourlyBreakdown userId={user.id} date={today} />
         </div>
       )}
 
-      {/* CUSTOS RÁPIDOS */}
-      <div className="rounded-2xl bg-[#0F0F0F] border border-white/10 p-5 space-y-3">
+      {/* CUSTO RÁPIDO — responsivo */}
+      <div className="rounded-2xl bg-[#0F0F0F] border border-white/10 p-4 space-y-3">
         <div className="flex items-center gap-2">
           <TrendingDown className="w-4 h-4 text-red-400" />
-          <h3 className="text-sm font-mono text-neutral-300 tracking-[0.2em] uppercase">
-            Custo rápido
-          </h3>
+          <h3 className="text-sm font-semibold text-white">Custo rápido</h3>
         </div>
-        <p className="text-[11px] text-neutral-500">
-          Mercadoria, transporte, lanche. Soma no lucro do dia.
+        <p className="text-xs text-neutral-500 -mt-1">
+          Mercadoria, transporte, lanche. Vai entrar no lucro do dia.
         </p>
-        <div className="flex gap-2">
+        <div className="space-y-2">
           <input
             value={quickCostLabel}
             onChange={(e) => setQuickCostLabel(e.target.value)}
             placeholder="Descrição (opcional)"
-            className="flex-1 h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#F4A100] placeholder:text-neutral-600"
+            className="w-full h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#F4A100] placeholder:text-neutral-600"
           />
-          <input
-            type="number"
-            inputMode="decimal"
-            value={quickCost}
-            onChange={(e) => setQuickCost(e.target.value)}
-            placeholder="R$"
-            className="w-24 h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white text-center focus:outline-none focus:border-[#F4A100] placeholder:text-neutral-600"
-          />
-          <button
-            onClick={handleAddCost}
-            disabled={!quickCost || parseFloat(quickCost) <= 0}
-            className="h-11 px-4 rounded-xl bg-[#F4A100] text-black font-bold text-sm disabled:opacity-40 active:scale-95"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              inputMode="decimal"
+              value={quickCost}
+              onChange={(e) => setQuickCost(e.target.value)}
+              placeholder="R$ 0,00"
+              className="flex-1 min-w-0 h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#F4A100] placeholder:text-neutral-600"
+            />
+            <button
+              onClick={handleAddCost}
+              disabled={!quickCost || parseFloat(quickCost) <= 0}
+              className="shrink-0 h-11 px-4 rounded-xl bg-[#F4A100] text-black font-bold text-sm flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
+            >
+              <Plus className="w-4 h-4" />
+              Adicionar
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => navigate("/history")}
-          className="text-[11px] text-[#F4A100] underline"
-        >
-          Ver custos de 3 / 7 / 30 dias →
-        </button>
       </div>
 
-      {/* AÇÕES — PDF / Histórico */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <button
-          onClick={handlePDF}
-          disabled={exporting}
-          className="h-12 rounded-xl bg-[#0F0F0F] border border-[#F4A100]/40 text-[#F4A100] text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50"
-        >
-          <FileDown className="w-4 h-4" />
-          {exporting ? "Gerando..." : "PDF do dia"}
-        </button>
-        <button
-          onClick={() => navigate("/history")}
-          className="h-12 rounded-xl bg-[#0F0F0F] border border-white/10 text-neutral-300 text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2 active:scale-95"
-        >
-          <History className="w-4 h-4" />
-          Histórico
-        </button>
-      </div>
+      {/* PDF do dia */}
+      <button
+        onClick={handlePDF}
+        disabled={exporting}
+        className="w-full h-12 rounded-xl bg-[#0F0F0F] border border-[#F4A100]/30 hover:border-[#F4A100]/60 text-[#F4A100] text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-50"
+      >
+        <FileDown className="w-4 h-4" />
+        {exporting ? "Gerando..." : "Baixar PDF do dia"}
+      </button>
+
+      <p className="text-center text-[11px] text-neutral-600">
+        Os relatórios completos e filtros do DEFCON 4 estão na aba <span className="text-[#F4A100]">Relatório</span>.
+      </p>
 
       {user && (
         <EditPlanningModal
@@ -327,14 +306,14 @@ export default function DefconHub() {
 function PayCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: number; color: string }) {
   return (
     <div
-      className="rounded-xl bg-[#0F0F0F] border border-white/10 p-3 space-y-1.5"
-      style={{ boxShadow: value > 0 ? `0 4px 18px -6px ${color}55` : undefined }}
+      className="rounded-xl bg-[#0F0F0F] border border-white/10 p-2.5 space-y-1"
+      style={{ boxShadow: value > 0 ? `0 4px 14px -6px ${color}44` : undefined }}
     >
-      <div className="flex items-center gap-1.5" style={{ color }}>
+      <div className="flex items-center gap-1" style={{ color }}>
         {icon}
-        <span className="text-[9px] font-mono tracking-[0.15em] uppercase font-bold">{label}</span>
+        <span className="text-[10px] font-medium">{label}</span>
       </div>
-      <p className="text-base font-black text-white tabular-nums">{formatCurrency(value)}</p>
+      <p className="text-sm font-bold text-white tabular-nums truncate">{formatCurrency(value)}</p>
     </div>
   );
 }
@@ -346,14 +325,14 @@ function MiniStat({ label, value, highlight, danger }: { label: string; value: s
         danger
           ? "bg-red-950/20 border-red-900/40"
           : highlight
-          ? "bg-[#F4A100]/10 border-[#F4A100]/30"
+          ? "bg-[#F4A100]/10 border-[#F4A100]/25"
           : "bg-[#0F0F0F] border-white/10"
       }`}
     >
-      <p className={`text-[9px] font-mono tracking-[0.15em] uppercase ${danger ? "text-red-400" : highlight ? "text-[#F4A100]" : "text-neutral-500"}`}>
+      <p className={`text-[10px] font-medium ${danger ? "text-red-400" : highlight ? "text-[#F4A100]" : "text-neutral-500"}`}>
         {label}
       </p>
-      <p className="text-base font-black text-white tabular-nums mt-1">{value}</p>
+      <p className="text-base font-bold text-white tabular-nums mt-0.5">{value}</p>
     </div>
   );
 }
