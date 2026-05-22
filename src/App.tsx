@@ -26,6 +26,7 @@ const Payment = lazy(() => import("./pages/Payment"));
 const Benefits = lazy(() => import("./pages/Benefits"));
 const AdminDemoUsers = lazy(() => import("./pages/AdminDemoUsers"));
 const AdminSubscriptions = lazy(() => import("./pages/AdminSubscriptions"));
+const AdminCompetitions = lazy(() => import("./pages/AdminCompetitions"));
 const Install = lazy(() => import("./pages/Install"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const DailyGoals = lazy(() => import("./pages/DailyGoals"));
@@ -82,6 +83,7 @@ const App = () => (
                       <Route path="/bank-connections" element={<BankConnections />} />
                       <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                       <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
+                      <Route path="/admin/competitions" element={<AdminCompetitions />} />
                       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                       <Route path="*" element={<NotFound />} />
                     </Routes>
