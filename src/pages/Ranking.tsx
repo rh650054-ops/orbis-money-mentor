@@ -295,13 +295,14 @@ export default function Ranking() {
           : "Torneios semanais e mensais com prêmios reais"}
       </p>
 
-      {isAdmin && !isGlobal && (
+      {isAdmin && (
         <button
           onClick={() => navigate("/admin/competitions")}
-          className="w-full rounded-xl border border-primary/40 bg-primary/10 px-3 py-2.5 flex items-center justify-center gap-2 text-sm font-bold text-primary hover:bg-primary/15 transition"
+          className="w-full rounded-xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-3 py-3 flex items-center justify-center gap-2 text-sm font-black text-primary hover:from-primary/25 hover:to-primary/25 transition"
+          style={{ boxShadow: "0 6px 20px -8px hsl(var(--primary) / 0.5)" }}
         >
           <Shield className="w-4 h-4" />
-          Painel admin · gerenciar competições
+          Admin · Criar / gerenciar competições
         </button>
       )}
 
