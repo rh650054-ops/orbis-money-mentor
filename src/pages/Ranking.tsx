@@ -477,8 +477,11 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
               <button onClick={() => onOpenProfile(top1.user_id)} className="flex-1 min-w-0 space-y-1 text-left">
                 <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
                 <p className="text-2xl font-black text-primary">{formatCurrency(top1.faturamento_total_mes)}</p>
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <Sparkles className="w-3 h-3 text-primary/70 shrink-0" />
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30">
+                    <Flame className="w-3 h-3 text-orange-400" />
+                    <span className="text-[10px] font-bold text-orange-300">{top1.constancia_streak_atual} dias</span>
+                  </div>
                   <p className="text-[11px] text-muted-foreground italic truncate">"{motivationalPhrases[0]}"</p>
                 </div>
               </button>
