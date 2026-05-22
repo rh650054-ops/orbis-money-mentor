@@ -64,7 +64,11 @@ export default function Ranking() {
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
-  const [activeTab, setActiveTab] = useState<"faturamento" | "constancia">("faturamento");
+  const [activeTab, setActiveTab] = useState<"global" | "competicoes">("global");
+  const navigate = useNavigate();
+  const { whitelisted, role } = useAdminAccess(user?.id);
+  const isAdmin = whitelisted && role === "admin";
+  const [userPhone, setUserPhone] = useState<string>("");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -78,12 +82,15 @@ export default function Ranking() {
 
   const loadUserProfile = async () => {
     if (!user?.id) return;
-    const { data } = await (await import("@/integrations/supabase/client")).supabase
+    const { data } = await supabase
       .from("profiles")
-      .select("nickname, avatar_url")
+      .select("nickname, avatar_url, phone, whatsapp_public")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (data) setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
+    if (data) {
+      setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
+      setUserPhone(data.phone || data.whatsapp_public || '');
+    }
   };
 
   useEffect(() => {
