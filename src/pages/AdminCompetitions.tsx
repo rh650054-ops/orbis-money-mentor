@@ -322,6 +322,47 @@ export default function AdminCompetitions() {
                 placeholder="Ex: envie PIX para X e avise no WhatsApp..."
               />
             </div>
+
+            {/* Quem pode participar */}
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+              <p className="text-[11px] font-black uppercase tracking-wider text-primary">
+                Quem pode participar
+              </p>
+              <div>
+                <Label>Público</Label>
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={form.audience_type}
+                  onChange={(e) => setForm({ ...form, audience_type: e.target.value })}
+                >
+                  <option value="open">Aberto a todos</option>
+                  <option value="city">Restrito a cidades</option>
+                  <option value="invite">Apenas convidados (por CPF)</option>
+                </select>
+              </div>
+              {form.audience_type === "city" && (
+                <div>
+                  <Label>Cidades permitidas (separadas por vírgula)</Label>
+                  <Input
+                    placeholder="São Paulo, Rio de Janeiro"
+                    value={form.audience_cities}
+                    onChange={(e) => setForm({ ...form, audience_cities: e.target.value })}
+                  />
+                </div>
+              )}
+              {form.audience_type === "invite" && (
+                <div>
+                  <Label>CPFs convidados (vírgula ou uma linha cada)</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="12345678900, 98765432100"
+                    value={form.invited_cpfs}
+                    onChange={(e) => setForm({ ...form, invited_cpfs: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+
             <Button onClick={create}>Criar competição</Button>
           </div>
         </CardContent>
