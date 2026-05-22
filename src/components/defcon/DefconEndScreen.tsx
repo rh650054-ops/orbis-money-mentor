@@ -375,31 +375,31 @@ export function DefconEndScreen({
 
   return (
     <div
-      className="min-h-[100dvh] bg-black text-white px-6 pb-10 select-none"
-      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 24px)' }}
+      className="h-[100dvh] overflow-hidden bg-black text-white px-5 pb-4 select-none"
+      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
     >
-      <div className="max-w-sm mx-auto space-y-8">
+      <div className="max-w-sm mx-auto h-full flex flex-col">
         {/* 1. HEADER — RESULTADO */}
-        <div className="text-center space-y-3">
-          <div className="text-xs font-mono text-neutral-500 tracking-[0.25em] uppercase">
+        <div className="text-center space-y-1 shrink-0">
+          <div className="text-[10px] font-mono text-neutral-500 tracking-[0.25em] uppercase">
             🔥 Desafio encerrado
           </div>
-          <div className={`text-6xl font-black tracking-tight ${valueColor}`}>
+          <div className={`text-4xl font-black tracking-tight ${valueColor}`}>
             {formatCurrency(totalSold)}
           </div>
-          <div className={`text-sm font-medium ${subTextColor}`}>
+          <div className={`text-xs font-medium ${subTextColor}`}>
             {subText}
           </div>
         </div>
 
         {/* Celebração — bateu/ultrapassou a meta */}
         {goalReached && (
-          <div className="rounded-2xl bg-gradient-to-br from-green-600/25 via-green-500/15 to-emerald-900/20 border border-green-500/40 p-5 text-center space-y-2 shadow-[0_12px_50px_-10px_rgba(34,197,94,0.5)]">
-            <div className="text-4xl">🎉</div>
-            <div className="text-base font-black text-green-400 tracking-tight">
+          <div className="shrink-0 rounded-xl bg-gradient-to-br from-green-600/25 via-green-500/15 to-emerald-900/20 border border-green-500/40 p-3 text-center space-y-1 shadow-[0_8px_30px_-8px_rgba(34,197,94,0.4)]">
+            <div className="text-2xl">🎉</div>
+            <div className="text-sm font-black text-green-400 tracking-tight">
               {percentage >= 150 ? "VOCÊ EXPLODIU A META!" : percentage >= 110 ? "ULTRAPASSOU A META!" : "META BATIDA!"}
             </div>
-            <div className="text-xs text-green-200/80 font-mono">
+            <div className="text-[10px] text-green-200/80 font-mono">
               {percentage.toFixed(0)}% · {formatCurrency(Math.max(0, totalSold - dailyGoal))} acima
             </div>
           </div>
