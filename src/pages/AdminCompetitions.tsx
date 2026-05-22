@@ -109,6 +109,37 @@ export default function AdminCompetitions() {
       toast({ title: "Preencha nome e prêmio", variant: "destructive" });
       return;
     }
+
+    // Resolve invited CPFs -> user_ids
+    let invited_user_ids: string[] = [];
+    if (form.audience_type === "invite" && form.invited_cpfs.trim()) {
+      const cpfs = form.invited_cpfs
+        .split(/[,\n]/)
+        .map((s) => s.replace(/\D/g, ""))
+        .filter((s) => s.length === 11);
+      if (cpfs.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id,cpf")
+          .in("cpf", cpfs);
+        invited_user_ids = (profs || []).map((p: any) => p.user_id);
+        if (invited_user_ids.length < cpfs.length) {
+          toast({
+            title: "Alguns CPFs não foram encontrados",
+            description: `${invited_user_ids.length}/${cpfs.length} cadastrados serão convidados.`,
+          });
+        }
+      }
+    }
+
+    const audience_cities =
+      form.audience_type === "city"
+        ? form.audience_cities
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+
     const { error } = await supabase.from("competitions" as any).insert({
       name: form.name,
       description: form.description || null,
@@ -123,12 +154,24 @@ export default function AdminCompetitions() {
       entry_instructions: form.entry_instructions || null,
       status: "active",
       created_by: user.id,
+      audience_type: form.audience_type,
+      audience_cities,
+      invited_user_ids,
     });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Competição criada!" });
-      setForm({ ...form, name: "", description: "", prize_label: "", prize_value: "0", entry_instructions: "" });
+      setForm({
+        ...form,
+        name: "",
+        description: "",
+        prize_label: "",
+        prize_value: "0",
+        entry_instructions: "",
+        audience_cities: "",
+        invited_cpfs: "",
+      });
       load();
     }
   };
