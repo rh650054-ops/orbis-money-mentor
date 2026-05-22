@@ -20,6 +20,9 @@ export interface Competition {
   created_by: string;
   created_at: string;
   updated_at: string;
+  audience_type: "open" | "invite" | "city";
+  audience_cities: string[];
+  invited_user_ids: string[];
 }
 
 export interface CompetitionParticipant {
@@ -29,6 +32,9 @@ export interface CompetitionParticipant {
   joined_at: string;
   paid: boolean;
   score: number;
+  nickname?: string | null;
+  avatar_url?: string | null;
+  city?: string | null;
 }
 
 export interface CompetitionWinner {
@@ -45,6 +51,7 @@ export interface CompetitionWinner {
 export function useCompetitions(userId: string | undefined) {
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [myParticipations, setMyParticipations] = useState<CompetitionParticipant[]>([]);
+  const [participantsByComp, setParticipantsByComp] = useState<Record<string, CompetitionParticipant[]>>({});
   const [myWins, setMyWins] = useState<CompetitionWinner[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,15 +62,62 @@ export function useCompetitions(userId: string | undefined) {
       .select("*")
       .in("status", ["active", "finished"])
       .order("ends_at", { ascending: true });
-    setCompetitions((comps as any) || []);
+    const compsList = ((comps as any) || []) as Competition[];
+    setCompetitions(compsList);
 
-    if (userId) {
-      const { data: parts } = await supabase
+    // Recalc scores for active competitions (best-effort, server-side)
+    const activeIds = compsList.filter((c) => c.status === "active").map((c) => c.id);
+    await Promise.all(
+      activeIds.map((id) =>
+        supabase.rpc("recalculate_competition_scores" as any, { _competition_id: id }),
+      ),
+    );
+
+    // Load all participants for active+finished competitions
+    if (compsList.length) {
+      const ids = compsList.map((c) => c.id);
+      const { data: allParts } = await supabase
         .from("competition_participants" as any)
         .select("*")
-        .eq("user_id", userId);
-      setMyParticipations((parts as any) || []);
+        .in("competition_id", ids);
+      const parts = (allParts as any[]) || [];
 
+      // Enrich with profile info
+      const uids = Array.from(new Set(parts.map((p) => p.user_id)));
+      const profMap: Record<string, { nickname: string | null; avatar_url: string | null; city: string | null }> = {};
+      if (uids.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id,nickname,avatar_url,city")
+          .in("user_id", uids);
+        profs?.forEach((p: any) => {
+          profMap[p.user_id] = { nickname: p.nickname, avatar_url: p.avatar_url, city: p.city };
+        });
+      }
+
+      const grouped: Record<string, CompetitionParticipant[]> = {};
+      parts.forEach((p) => {
+        const enriched = {
+          ...p,
+          nickname: profMap[p.user_id]?.nickname,
+          avatar_url: profMap[p.user_id]?.avatar_url,
+          city: profMap[p.user_id]?.city,
+        };
+        (grouped[p.competition_id] ||= []).push(enriched);
+      });
+      // Sort each by score desc
+      Object.values(grouped).forEach((arr) => arr.sort((a, b) => Number(b.score) - Number(a.score)));
+      setParticipantsByComp(grouped);
+
+      if (userId) {
+        setMyParticipations(parts.filter((p) => p.user_id === userId) as any);
+      }
+    } else {
+      setParticipantsByComp({});
+      setMyParticipations([]);
+    }
+
+    if (userId) {
       const { data: wins } = await supabase
         .from("competition_winners" as any)
         .select("*")
@@ -107,5 +161,22 @@ export function useCompetitions(userId: string | undefined) {
     return { error };
   };
 
-  return { competitions, myParticipations, myWins, loading, load, join, leave, acknowledgeWin };
+  const getMyPosition = (competitionId: string) => {
+    const list = participantsByComp[competitionId] || [];
+    const idx = list.findIndex((p) => p.user_id === userId);
+    return idx >= 0 ? { position: idx + 1, total: list.length, score: Number(list[idx].score) } : null;
+  };
+
+  return {
+    competitions,
+    myParticipations,
+    participantsByComp,
+    myWins,
+    loading,
+    load,
+    join,
+    leave,
+    acknowledgeWin,
+    getMyPosition,
+  };
 }

@@ -57,6 +57,9 @@ export default function AdminCompetitions() {
     entry_rule: "free",
     entry_fee: "0",
     entry_instructions: "",
+    audience_type: "open", // open | invite | city
+    audience_cities: "", // comma-separated
+    invited_cpfs: "", // comma or newline separated
   });
 
   const isAdmin = whitelisted && role === "admin";
@@ -106,6 +109,37 @@ export default function AdminCompetitions() {
       toast({ title: "Preencha nome e prêmio", variant: "destructive" });
       return;
     }
+
+    // Resolve invited CPFs -> user_ids
+    let invited_user_ids: string[] = [];
+    if (form.audience_type === "invite" && form.invited_cpfs.trim()) {
+      const cpfs = form.invited_cpfs
+        .split(/[,\n]/)
+        .map((s) => s.replace(/\D/g, ""))
+        .filter((s) => s.length === 11);
+      if (cpfs.length) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id,cpf")
+          .in("cpf", cpfs);
+        invited_user_ids = (profs || []).map((p: any) => p.user_id);
+        if (invited_user_ids.length < cpfs.length) {
+          toast({
+            title: "Alguns CPFs não foram encontrados",
+            description: `${invited_user_ids.length}/${cpfs.length} cadastrados serão convidados.`,
+          });
+        }
+      }
+    }
+
+    const audience_cities =
+      form.audience_type === "city"
+        ? form.audience_cities
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+        : [];
+
     const { error } = await supabase.from("competitions" as any).insert({
       name: form.name,
       description: form.description || null,
@@ -120,12 +154,24 @@ export default function AdminCompetitions() {
       entry_instructions: form.entry_instructions || null,
       status: "active",
       created_by: user.id,
+      audience_type: form.audience_type,
+      audience_cities,
+      invited_user_ids,
     });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Competição criada!" });
-      setForm({ ...form, name: "", description: "", prize_label: "", prize_value: "0", entry_instructions: "" });
+      setForm({
+        ...form,
+        name: "",
+        description: "",
+        prize_label: "",
+        prize_value: "0",
+        entry_instructions: "",
+        audience_cities: "",
+        invited_cpfs: "",
+      });
       load();
     }
   };
@@ -276,6 +322,47 @@ export default function AdminCompetitions() {
                 placeholder="Ex: envie PIX para X e avise no WhatsApp..."
               />
             </div>
+
+            {/* Quem pode participar */}
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
+              <p className="text-[11px] font-black uppercase tracking-wider text-primary">
+                Quem pode participar
+              </p>
+              <div>
+                <Label>Público</Label>
+                <select
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
+                  value={form.audience_type}
+                  onChange={(e) => setForm({ ...form, audience_type: e.target.value })}
+                >
+                  <option value="open">Aberto a todos</option>
+                  <option value="city">Restrito a cidades</option>
+                  <option value="invite">Apenas convidados (por CPF)</option>
+                </select>
+              </div>
+              {form.audience_type === "city" && (
+                <div>
+                  <Label>Cidades permitidas (separadas por vírgula)</Label>
+                  <Input
+                    placeholder="São Paulo, Rio de Janeiro"
+                    value={form.audience_cities}
+                    onChange={(e) => setForm({ ...form, audience_cities: e.target.value })}
+                  />
+                </div>
+              )}
+              {form.audience_type === "invite" && (
+                <div>
+                  <Label>CPFs convidados (vírgula ou uma linha cada)</Label>
+                  <Textarea
+                    rows={3}
+                    placeholder="12345678900, 98765432100"
+                    value={form.invited_cpfs}
+                    onChange={(e) => setForm({ ...form, invited_cpfs: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+
             <Button onClick={create}>Criar competição</Button>
           </div>
         </CardContent>

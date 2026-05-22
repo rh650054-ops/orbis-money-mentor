@@ -1,10 +1,11 @@
-import { useMemo } from "react";
-import { Trophy, Gift, Calendar, Users, Sparkles, CheckCircle2, AlertCircle, Phone } from "lucide-react";
+import { useMemo, useEffect, useRef } from "react";
+import { Trophy, Gift, Calendar, Users, Sparkles, CheckCircle2, AlertCircle, Phone, MapPin, Lock, TrendingUp, Crown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useCompetitions, Competition } from "@/hooks/useCompetitions";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import CompetitionLeaderboard from "./CompetitionLeaderboard";
 
 interface Props {
   userId: string | undefined;
@@ -32,13 +33,32 @@ function entryLabel(c: Competition) {
 }
 
 export default function CompetitionsTab({ userId, hasPhone }: Props) {
-  const { competitions, myParticipations, myWins, loading, join, leave, acknowledgeWin } =
+  const { competitions, myParticipations, participantsByComp, myWins, loading, join, leave, acknowledgeWin, getMyPosition } =
     useCompetitions(userId);
 
   const active = useMemo(() => competitions.filter((c) => c.status === "active"), [competitions]);
   const finished = useMemo(() => competitions.filter((c) => c.status === "finished"), [competitions]);
 
   const isJoined = (id: string) => myParticipations.some((p) => p.competition_id === id);
+
+  // Notificação de posição: dispara uma única vez por sessão por competição
+  const notifiedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    active.forEach((c) => {
+      if (!isJoined(c.id) || notifiedRef.current.has(c.id)) return;
+      const pos = getMyPosition(c.id);
+      if (!pos) return;
+      notifiedRef.current.add(c.id);
+      const msg =
+        pos.position === 1
+          ? `🏆 Você está em 1º em "${c.name}"! Segura o topo.`
+          : pos.position <= 3
+          ? `🔥 Top ${pos.position} em "${c.name}"! Bora pro pódio.`
+          : `Você está em #${pos.position}/${pos.total} em "${c.name}". Vai pra cima!`;
+      toast({ title: "Sua posição na competição", description: msg });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.length, participantsByComp]);
 
   const handleJoin = async (c: Competition) => {
     if (!hasPhone) {
@@ -163,6 +183,15 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
 
         {active.map((c) => {
           const joined = isJoined(c.id);
+          const myPos = joined ? getMyPosition(c.id) : null;
+          const partsList = participantsByComp[c.id] || [];
+          const audienceBadge =
+            c.audience_type === "city" && c.audience_cities.length
+              ? { icon: MapPin, label: c.audience_cities.join(", ") }
+              : c.audience_type === "invite"
+              ? { icon: Lock, label: "Apenas convidados" }
+              : null;
+
           return (
             <Card
               key={c.id}
@@ -192,6 +221,38 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
 
                 {c.description && (
                   <p className="text-sm text-foreground/75 leading-snug">{c.description}</p>
+                )}
+
+                {/* Posição do usuário */}
+                {joined && myPos && (
+                  <div
+                    className="relative overflow-hidden rounded-xl border border-primary/50 bg-gradient-to-r from-primary/25 via-primary/10 to-transparent p-3 flex items-center gap-3"
+                    style={{ boxShadow: "0 4px 18px -8px hsl(var(--primary) / 0.5)" }}
+                  >
+                    <div className="w-11 h-11 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                      {myPos.position === 1 ? (
+                        <Crown className="w-5 h-5 text-primary" />
+                      ) : (
+                        <TrendingUp className="w-5 h-5 text-primary" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-widest text-primary/80 font-black">
+                        Sua posição
+                      </p>
+                      <p className="text-lg font-black text-foreground leading-tight">
+                        #{myPos.position}{" "}
+                        <span className="text-xs font-bold text-muted-foreground">
+                          de {myPos.total}
+                        </span>
+                      </p>
+                    </div>
+                    {myPos.position > 1 && (
+                      <p className="text-[10px] text-primary font-bold uppercase tracking-wider shrink-0 text-right leading-tight">
+                        Vai pra<br />cima 🔥
+                      </p>
+                    )}
+                  </div>
                 )}
 
                 {/* Bloco prêmio dourado */}
@@ -229,6 +290,15 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
                   </div>
                 </div>
 
+                {audienceBadge && (
+                  <div className="rounded-lg bg-primary/10 border border-primary/30 px-2.5 py-2 flex items-center gap-1.5 text-[11px]">
+                    <audienceBadge.icon className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-foreground/90 font-bold truncate">
+                      Restrita: {audienceBadge.label}
+                    </span>
+                  </div>
+                )}
+
                 <div className="rounded-lg bg-background/40 border border-border/40 px-2.5 py-2 text-[11px] text-foreground/80">
                   <span className="text-muted-foreground font-semibold">Critério: </span>
                   <span className="font-bold text-foreground/90">{metricLabel(c.metric)}</span>
@@ -238,6 +308,17 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
                   <p className="text-[11px] text-muted-foreground leading-snug px-0.5">
                     {c.entry_instructions}
                   </p>
+                )}
+
+                {/* Placar ao vivo */}
+                {(joined || partsList.length > 0) && (
+                  <div className="pt-1">
+                    <CompetitionLeaderboard
+                      competition={c}
+                      participants={partsList}
+                      currentUserId={userId}
+                    />
+                  </div>
                 )}
 
                 {joined ? (
