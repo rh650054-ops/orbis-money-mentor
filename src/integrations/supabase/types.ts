@@ -473,6 +473,8 @@ export type Database = {
       }
       competitions: {
         Row: {
+          audience_cities: string[]
+          audience_type: string
           cover_url: string | null
           created_at: string
           created_by: string
@@ -482,6 +484,7 @@ export type Database = {
           entry_instructions: string | null
           entry_rule: string
           id: string
+          invited_user_ids: string[]
           metric: string
           name: string
           period_type: string
@@ -493,6 +496,8 @@ export type Database = {
           winner_user_id: string | null
         }
         Insert: {
+          audience_cities?: string[]
+          audience_type?: string
           cover_url?: string | null
           created_at?: string
           created_by: string
@@ -502,6 +507,7 @@ export type Database = {
           entry_instructions?: string | null
           entry_rule?: string
           id?: string
+          invited_user_ids?: string[]
           metric?: string
           name: string
           period_type?: string
@@ -513,6 +519,8 @@ export type Database = {
           winner_user_id?: string | null
         }
         Update: {
+          audience_cities?: string[]
+          audience_type?: string
           cover_url?: string | null
           created_at?: string
           created_by?: string
@@ -522,6 +530,7 @@ export type Database = {
           entry_instructions?: string | null
           entry_rule?: string
           id?: string
+          invited_user_ids?: string[]
           metric?: string
           name?: string
           period_type?: string
@@ -2008,6 +2017,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalculate_competition_scores: {
+        Args: { _competition_id: string }
+        Returns: undefined
       }
       recalculate_ranking_positions: {
         Args: { target_month: string }
