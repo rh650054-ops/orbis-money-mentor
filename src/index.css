@@ -299,3 +299,18 @@ All colors MUST be HSL.
     animation: float-gentle 3s ease-in-out infinite;
   }
 }
+
+/* Battery saver: disable expensive animations, gradients and backdrop blurs */
+body.battery-saver *,
+body.battery-saver *::before,
+body.battery-saver *::after {
+  animation: none !important;
+  transition-duration: 0.05s !important;
+}
+body.battery-saver .backdrop-blur-sm,
+body.battery-saver .backdrop-blur,
+body.battery-saver .backdrop-blur-md,
+body.battery-saver .backdrop-blur-lg,
+body.battery-saver .backdrop-blur-xl {
+  backdrop-filter: none !important;
+}
