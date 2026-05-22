@@ -1,15 +1,19 @@
 import { useState, useEffect, useRef } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles, Share2, Download, Loader2 } from "lucide-react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles, Share2, Download, Loader2, Gift, Shield } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
+import CompetitionsTab from "@/components/ranking/CompetitionsTab";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { toPng } from "html-to-image";
 import { toast } from "@/hooks/use-toast";
 import confetti from "canvas-confetti";
@@ -60,7 +64,11 @@ export default function Ranking() {
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
-  const [activeTab, setActiveTab] = useState<"faturamento" | "constancia">("faturamento");
+  const [activeTab, setActiveTab] = useState<"global" | "competicoes">("global");
+  const navigate = useNavigate();
+  const { whitelisted, role } = useAdminAccess(user?.id);
+  const isAdmin = whitelisted && role === "admin";
+  const [userPhone, setUserPhone] = useState<string>("");
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
@@ -74,12 +82,15 @@ export default function Ranking() {
 
   const loadUserProfile = async () => {
     if (!user?.id) return;
-    const { data } = await (await import("@/integrations/supabase/client")).supabase
+    const { data } = await supabase
       .from("profiles")
-      .select("nickname, avatar_url")
+      .select("nickname, avatar_url, phone, whatsapp_public")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (data) setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
+    if (data) {
+      setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
+      setUserPhone(data.phone || data.whatsapp_public || '');
+    }
   };
 
   useEffect(() => {
@@ -115,7 +126,7 @@ export default function Ranking() {
     setPublicProfileUserId(uid);
   };
 
-  const isFaturamento = activeTab === "faturamento";
+  const isGlobal = activeTab === "global";
 
   const handleShare = async () => {
     if (!shareCardRef.current || isSharing) return;
@@ -165,20 +176,14 @@ export default function Ranking() {
     }
   };
 
-  // Dados para o share card
+  // Dados para o share card (sempre Liga Global = faturamento)
   const shareData = (() => {
-    const totalParticipants = isFaturamento ? faturamentoRanking.length : constanciaRanking.length;
-    const position = isFaturamento
-      ? currentUserStats?.posicao_faturamento ?? null
-      : currentUserStats?.posicao_constancia ?? null;
-    const primaryValue = isFaturamento
-      ? formatCurrency(currentUserStats?.faturamento_total_mes ?? 0)
-      : `${currentUserStats?.dias_trabalhados_mes ?? 0} dias`;
-    const secondaryValue = isFaturamento
-      ? `${currentUserStats?.dias_trabalhados_mes ?? 0} dias trabalhados`
-      : `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
+    const totalParticipants = faturamentoRanking.length;
+    const position = currentUserStats?.posicao_faturamento ?? null;
+    const primaryValue = formatCurrency(currentUserStats?.faturamento_total_mes ?? 0);
+    const secondaryValue = `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
     return {
-      league: activeTab,
+      league: "faturamento" as const,
       position,
       totalParticipants,
       nickname: userProfile.nickname || currentUserStats?.nome_usuario || "Vendedor",
@@ -217,138 +222,148 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
-      {/* Unified League Tabs — botão = liga inteira (não há mais título separado) */}
+      {/* Tabs: Liga Global + Competições */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
-          onClick={() => setActiveTab("faturamento")}
+          onClick={() => setActiveTab("global")}
           className={cn(
-            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300",
-            "border",
-            isFaturamento
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300 border",
+            isGlobal
               ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
-              : "bg-card/40 border-border/50 hover:border-primary/30"
+              : "bg-card/40 border-border/50 hover:border-primary/30",
           )}
         >
-          {isFaturamento && (
+          {isGlobal && (
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
           )}
           <div className="relative flex items-center gap-2.5">
-            <div className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-              isFaturamento ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground"
-            )}>
+            <div
+              className={cn(
+                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+              )}
+            >
               <Trophy className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className={cn("text-[9px] font-bold uppercase tracking-widest", isFaturamento ? "text-primary" : "text-muted-foreground")}>
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", isGlobal ? "text-primary" : "text-muted-foreground")}>
                 Liga
               </p>
-              <p className={cn("text-sm font-black truncate", isFaturamento ? "text-foreground" : "text-foreground/70")}>
-                Faturamento
+              <p className={cn("text-sm font-black truncate", isGlobal ? "text-foreground" : "text-foreground/70")}>
+                Global
               </p>
             </div>
           </div>
         </button>
 
         <button
-          onClick={() => setActiveTab("constancia")}
+          onClick={() => setActiveTab("competicoes")}
           className={cn(
-            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300",
-            "border",
-            !isFaturamento
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300 border",
+            !isGlobal
               ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
-              : "bg-card/40 border-border/50 hover:border-primary/30"
+              : "bg-card/40 border-border/50 hover:border-primary/30",
           )}
         >
-          {!isFaturamento && (
+          {!isGlobal && (
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
           )}
           <div className="relative flex items-center gap-2.5">
-            <div className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-              !isFaturamento ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground"
-            )}>
-              <Flame className="w-4 h-4" />
+            <div
+              className={cn(
+                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                !isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+              )}
+            >
+              <Gift className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className={cn("text-[9px] font-bold uppercase tracking-widest", !isFaturamento ? "text-primary" : "text-muted-foreground")}>
-                Liga
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", !isGlobal ? "text-primary" : "text-muted-foreground")}>
+                Competições
               </p>
-              <p className={cn("text-sm font-black truncate", !isFaturamento ? "text-foreground" : "text-foreground/70")}>
-                Constância
+              <p className={cn("text-sm font-black truncate", !isGlobal ? "text-foreground" : "text-foreground/70")}>
+                Com prêmios
               </p>
             </div>
           </div>
         </button>
       </div>
 
-      {/* Subtítulo da liga ativa */}
       <p className="text-center text-xs text-muted-foreground -mt-2">
-        {isFaturamento ? "Maiores vendedores do mês" : "Os mais disciplinados do mês"}
+        {isGlobal
+          ? "Maiores vendedores do mês · ofensiva 🔥 incluída"
+          : "Torneios semanais e mensais com prêmios reais"}
       </p>
 
-      {/* Compartilhar no Instagram */}
-      {hasParticipated && currentUserStats && (
+      {isAdmin && !isGlobal && (
         <button
-          onClick={handleShare}
-          disabled={isSharing}
-          className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-all active:scale-[0.98] disabled:opacity-60"
-          style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+          onClick={() => navigate("/admin/competitions")}
+          className="w-full rounded-xl border border-primary/40 bg-primary/10 px-3 py-2.5 flex items-center justify-center gap-2 text-sm font-bold text-primary hover:bg-primary/15 transition"
         >
-          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-            <div
-              className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
-              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)" }}
-            />
-          </div>
-          <div className="relative flex items-center justify-center gap-2.5">
-            {isSharing ? (
-              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-            ) : (
-              <Share2 className="w-5 h-5 text-primary" />
-            )}
-            <div className="text-left">
-              <p className="text-sm font-black text-foreground tracking-wide">
-                {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                Story 9:16 · pronto pra postar
-              </p>
-            </div>
-          </div>
+          <Shield className="w-4 h-4" />
+          Painel admin · gerenciar competições
         </button>
       )}
 
-      {/* Not Participated Message */}
-      {!hasParticipated && (
-        <Card className="border border-dashed border-primary/30 bg-card/50">
-          <CardContent className="p-6 text-center space-y-3">
-            <AlertCircle className="w-10 h-10 mx-auto text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Você ainda não entrou na liga</h3>
-            <p className="text-muted-foreground text-sm">
-              Conclua seu primeiro dia de vendas para aparecer no ranking!
-            </p>
-          </CardContent>
-        </Card>
+      {isGlobal && (
+        <>
+          {/* Compartilhar no Instagram */}
+          {hasParticipated && currentUserStats && (
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-all active:scale-[0.98] disabled:opacity-60"
+              style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+            >
+              <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                <div
+                  className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
+                  style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)" }}
+                />
+              </div>
+              <div className="relative flex items-center justify-center gap-2.5">
+                {isSharing ? (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                ) : (
+                  <Share2 className="w-5 h-5 text-primary" />
+                )}
+                <div className="text-left">
+                  <p className="text-sm font-black text-foreground tracking-wide">
+                    {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Story 9:16 · pronto pra postar
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
+
+          {!hasParticipated && (
+            <Card className="border border-dashed border-primary/30 bg-card/50">
+              <CardContent className="p-6 text-center space-y-3">
+                <AlertCircle className="w-10 h-10 mx-auto text-primary" />
+                <h3 className="text-lg font-semibold text-foreground">Você ainda não entrou na liga</h3>
+                <p className="text-muted-foreground text-sm">
+                  Conclua seu primeiro dia de vendas para aparecer no ranking!
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <FaturamentoLeague
+            ranking={faturamentoRanking}
+            currentUserStats={currentUserStats}
+            hasParticipated={hasParticipated}
+            formatCurrency={formatCurrency}
+            onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+            onOpenProfile={openPublicProfile}
+          />
+        </>
       )}
 
-      {isFaturamento ? (
-        <FaturamentoLeague
-          ranking={faturamentoRanking}
-          currentUserStats={currentUserStats}
-          hasParticipated={hasParticipated}
-          formatCurrency={formatCurrency}
-          onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
-          onOpenProfile={openPublicProfile}
-        />
-      ) : (
-        <ConstanciaLeague
-          ranking={constanciaRanking}
-          currentUserStats={currentUserStats}
-          hasParticipated={hasParticipated}
-          onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
-          onOpenProfile={openPublicProfile}
-        />
+      {!isGlobal && (
+        <CompetitionsTab userId={user?.id} hasPhone={!!userPhone} />
       )}
 
       {user && (
@@ -462,8 +477,11 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
               <button onClick={() => onOpenProfile(top1.user_id)} className="flex-1 min-w-0 space-y-1 text-left">
                 <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
                 <p className="text-2xl font-black text-primary">{formatCurrency(top1.faturamento_total_mes)}</p>
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <Sparkles className="w-3 h-3 text-primary/70 shrink-0" />
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30">
+                    <Flame className="w-3 h-3 text-orange-400" />
+                    <span className="text-[10px] font-bold text-orange-300">{top1.constancia_streak_atual} dias</span>
+                  </div>
                   <p className="text-[11px] text-muted-foreground italic truncate">"{motivationalPhrases[0]}"</p>
                 </div>
               </button>
@@ -598,6 +616,10 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-foreground text-sm">{formatCurrency(u.faturamento_total_mes)}</p>
+                    <div className="inline-flex items-center gap-0.5 mt-0.5">
+                      <Flame className="w-3 h-3 text-orange-400" />
+                      <span className="text-[10px] font-bold text-orange-300">{u.constancia_streak_atual}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

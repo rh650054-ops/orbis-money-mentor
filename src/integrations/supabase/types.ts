@@ -389,6 +389,151 @@ export type Database = {
         }
         Relationships: []
       }
+      competition_participants: {
+        Row: {
+          competition_id: string
+          id: string
+          joined_at: string
+          paid: boolean
+          score: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          competition_id: string
+          id?: string
+          joined_at?: string
+          paid?: boolean
+          score?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          competition_id?: string
+          id?: string
+          joined_at?: string
+          paid?: boolean
+          score?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_participants_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competition_winners: {
+        Row: {
+          awarded_at: string
+          claim_acknowledged_at: string | null
+          claimed: boolean
+          competition_id: string
+          id: string
+          notes: string | null
+          prize_label: string
+          prize_value: number
+          user_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          claim_acknowledged_at?: string | null
+          claimed?: boolean
+          competition_id: string
+          id?: string
+          notes?: string | null
+          prize_label: string
+          prize_value?: number
+          user_id: string
+        }
+        Update: {
+          awarded_at?: string
+          claim_acknowledged_at?: string | null
+          claimed?: boolean
+          competition_id?: string
+          id?: string
+          notes?: string | null
+          prize_label?: string
+          prize_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competition_winners_competition_id_fkey"
+            columns: ["competition_id"]
+            isOneToOne: false
+            referencedRelation: "competitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitions: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          ends_at: string
+          entry_fee: number | null
+          entry_instructions: string | null
+          entry_rule: string
+          id: string
+          metric: string
+          name: string
+          period_type: string
+          prize_label: string
+          prize_value: number
+          starts_at: string
+          status: string
+          updated_at: string
+          winner_user_id: string | null
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          ends_at: string
+          entry_fee?: number | null
+          entry_instructions?: string | null
+          entry_rule?: string
+          id?: string
+          metric?: string
+          name: string
+          period_type?: string
+          prize_label: string
+          prize_value?: number
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          winner_user_id?: string | null
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          ends_at?: string
+          entry_fee?: number | null
+          entry_instructions?: string | null
+          entry_rule?: string
+          id?: string
+          metric?: string
+          name?: string
+          period_type?: string
+          prize_label?: string
+          prize_value?: number
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          winner_user_id?: string | null
+        }
+        Relationships: []
+      }
       daily_checklist: {
         Row: {
           activity_name: string
@@ -1027,6 +1172,7 @@ export type Database = {
           constancia_streak_atual: number
           created_at: string
           dias_trabalhados_mes: number
+          faturamento_pix_mes: number
           faturamento_total_mes: number
           id: string
           mes_referencia: string
@@ -1042,6 +1188,7 @@ export type Database = {
           constancia_streak_atual?: number
           created_at?: string
           dias_trabalhados_mes?: number
+          faturamento_pix_mes?: number
           faturamento_total_mes?: number
           id?: string
           mes_referencia: string
@@ -1057,6 +1204,7 @@ export type Database = {
           constancia_streak_atual?: number
           created_at?: string
           dias_trabalhados_mes?: number
+          faturamento_pix_mes?: number
           faturamento_total_mes?: number
           id?: string
           mes_referencia?: string
