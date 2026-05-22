@@ -57,6 +57,9 @@ export default function AdminCompetitions() {
     entry_rule: "free",
     entry_fee: "0",
     entry_instructions: "",
+    audience_type: "open", // open | invite | city
+    audience_cities: "", // comma-separated
+    invited_cpfs: "", // comma or newline separated
   });
 
   const isAdmin = whitelisted && role === "admin";
