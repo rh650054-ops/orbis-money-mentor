@@ -478,9 +478,9 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
                 <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
                 <p className="text-2xl font-black text-primary">{formatCurrency(top1.faturamento_total_mes)}</p>
                 <div className="flex items-center gap-2 pt-1">
-                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/15 border border-orange-500/30">
-                    <Flame className="w-3 h-3 text-orange-400" />
-                    <span className="text-[10px] font-bold text-orange-300">{top1.constancia_streak_atual} dias</span>
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-primary/25 to-primary/10 border border-primary/40">
+                    <Flame className="w-3 h-3 text-primary fill-primary/40" />
+                    <span className="text-[10px] font-bold text-primary">{top1.constancia_streak_atual} dias</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground italic truncate">"{motivationalPhrases[0]}"</p>
                 </div>
@@ -562,8 +562,9 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
 
       {/* Your Position */}
       {hasParticipated && currentUserStats && (
-        <Card className="border border-primary/40 bg-card">
-          <CardContent className="p-4">
+        <Card className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
+          <CardContent className="relative p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="relative">
                 {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50")}
@@ -574,20 +575,23 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
                   <Edit2 className="w-2.5 h-2.5 text-primary-foreground" />
                 </button>
               </div>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold tracking-wider">VOCÊ</span>
-                  <span className="text-muted-foreground text-sm">#{currentUserStats.posicao_faturamento}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary text-primary-foreground font-black tracking-widest">VOCÊ</span>
+                  <span className="text-muted-foreground text-sm font-semibold">#{currentUserStats.posicao_faturamento}</span>
                 </div>
-                <p className="text-lg font-bold text-foreground">{formatCurrency(currentUserStats.faturamento_total_mes)}</p>
+                <p className="text-lg font-black text-foreground mt-0.5">{formatCurrency(currentUserStats.faturamento_total_mes)}</p>
               </div>
-              <Zap className="w-5 h-5 text-primary" />
+              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-r from-primary/25 to-primary/10 border border-primary/40 shrink-0">
+                <Flame className="w-3.5 h-3.5 text-primary fill-primary/40" />
+                <span className="text-xs font-black text-primary">{currentUserStats.constancia_streak_atual}</span>
+              </div>
             </div>
             {currentPosition > 1 && nextPositionValue > currentValue && (
-              <div className="space-y-2">
+              <div className="space-y-2 pt-2 border-t border-primary/15">
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Para #{currentPosition - 1}</span>
-                  <span className="text-primary font-medium">Faltam {formatCurrency(nextPositionValue - currentValue)}</span>
+                  <span className="text-muted-foreground">Para subir para #{currentPosition - 1}</span>
+                  <span className="text-primary font-bold">+{formatCurrency(nextPositionValue - currentValue)}</span>
                 </div>
                 <Progress value={progressToNext} className="h-1.5" />
               </div>
@@ -616,9 +620,9 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-foreground text-sm">{formatCurrency(u.faturamento_total_mes)}</p>
-                    <div className="inline-flex items-center gap-0.5 mt-0.5">
-                      <Flame className="w-3 h-3 text-orange-400" />
-                      <span className="text-[10px] font-bold text-orange-300">{u.constancia_streak_atual}</span>
+                    <div className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/25">
+                      <Flame className="w-2.5 h-2.5 text-primary fill-primary/40" />
+                      <span className="text-[10px] font-black text-primary">{u.constancia_streak_atual}</span>
                     </div>
                   </div>
                 </CardContent>

@@ -73,40 +73,50 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
   return (
     <div className="space-y-5">
       {/* Aviso PIX */}
-      <div className="rounded-xl border border-primary/25 bg-primary/5 p-3 flex items-start gap-2.5">
+      <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-3 flex items-start gap-2.5">
         <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-        <p className="text-[12px] text-foreground/80 leading-snug">
-          Apenas vendas pagas em <span className="font-bold text-primary">PIX</span> contam para
-          competições e prêmios. Vendas em dinheiro continuam no seu relatório, mas não somam aqui.
+        <p className="text-[12px] text-foreground/85 leading-snug">
+          Apenas vendas em <span className="font-black text-primary">PIX</span> contam para
+          competições e prêmios. Dinheiro continua no seu relatório, mas não soma aqui.
         </p>
       </div>
 
       {/* Prêmios não resgatados */}
       {myWins.map((w) => (
-        <Card key={w.id} className="border-2 border-primary bg-gradient-to-br from-primary/15 to-transparent">
-          <CardContent className="p-4 space-y-2">
+        <Card
+          key={w.id}
+          className="relative overflow-hidden border-2 border-primary bg-gradient-to-br from-primary/20 via-primary/5 to-transparent"
+          style={{ boxShadow: "0 10px 40px -10px hsl(var(--primary) / 0.4)" }}
+        >
+          <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div
+              className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
+              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.25), transparent)" }}
+            />
+          </div>
+          <CardContent className="relative p-4 space-y-2.5">
             <div className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-primary" />
-              <p className="text-sm font-black text-primary uppercase tracking-wider">
+              <Trophy className="w-5 h-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]" />
+              <p className="text-sm font-black text-primary uppercase tracking-widest">
                 Você ganhou!
               </p>
             </div>
             <p className="text-lg font-bold text-foreground">{w.prize_label}</p>
             {w.prize_value > 0 && (
-              <p className="text-xl font-black text-primary">{formatCurrency(w.prize_value)}</p>
+              <p className="text-2xl font-black text-primary">{formatCurrency(w.prize_value)}</p>
             )}
-            <div className="rounded-lg bg-background/40 border border-primary/20 p-3 flex items-start gap-2">
+            <div className="rounded-lg bg-background/50 border border-primary/25 p-3 flex items-start gap-2">
               <Phone className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-              <p className="text-xs text-foreground/80 leading-snug">
-                Nosso suporte entrará em contato pelo WhatsApp cadastrado para entregar seu prêmio.
-                Se preferir, chame você mesmo o suporte.
+              <p className="text-xs text-foreground/85 leading-snug">
+                Nosso suporte vai te chamar no WhatsApp cadastrado para entregar seu prêmio.
               </p>
             </div>
             {!w.claimed && (
               <Button
                 size="sm"
                 variant="outline"
-                className="w-full"
+                className="w-full border-primary/40 text-primary hover:bg-primary/10"
                 onClick={() => acknowledgeWin(w.id)}
               >
                 <CheckCircle2 className="w-4 h-4 mr-2" /> Marcar como visto
@@ -119,19 +129,26 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
       {!hasPhone && (
         <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 flex items-start gap-2.5">
           <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-          <p className="text-[12px] text-foreground/80 leading-snug">
-            Adicione seu WhatsApp no perfil para poder participar de competições e receber prêmios.
+          <p className="text-[12px] text-foreground/85 leading-snug">
+            Adicione seu WhatsApp no perfil para participar de competições e receber prêmios.
           </p>
         </div>
       )}
 
       {/* Ativas */}
       <div className="space-y-3">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-1">
-          Competições ativas
-        </p>
+        <div className="flex items-center gap-2 px-1">
+          <div className="w-1 h-3.5 bg-primary rounded-full" />
+          <p className="text-[11px] font-black uppercase tracking-widest text-foreground/90">
+            Competições ativas
+          </p>
+        </div>
 
-        {loading && <Card className="bg-card/40 border-border/40"><CardContent className="p-6 text-center text-sm text-muted-foreground">Carregando…</CardContent></Card>}
+        {loading && (
+          <Card className="bg-card/40 border-border/40">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">Carregando…</CardContent>
+          </Card>
+        )}
 
         {!loading && active.length === 0 && (
           <Card className="border border-dashed border-border/50 bg-card/30">
@@ -150,76 +167,91 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
             <Card
               key={c.id}
               className={cn(
-                "relative overflow-hidden border bg-card",
-                joined ? "border-primary/60 shadow-lg shadow-primary/10" : "border-border/50",
+                "relative overflow-hidden border bg-card transition-all",
+                joined
+                  ? "border-primary/60 shadow-lg shadow-primary/15"
+                  : "border-border/50 hover:border-primary/30",
               )}
             >
-              <div className="absolute -top-16 -right-16 w-40 h-40 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-              <CardContent className="relative p-4 space-y-3">
+              <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+              <CardContent className="relative p-4 space-y-3.5">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">
                       {c.period_type === "weekly" ? "Semanal" : c.period_type === "monthly" ? "Mensal" : "Especial"}
                     </p>
                     <h3 className="text-lg font-black text-foreground leading-tight">{c.name}</h3>
                   </div>
-                  <div className="shrink-0 rounded-lg bg-primary/15 border border-primary/30 px-2.5 py-1 flex items-center gap-1">
-                    <Gift className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-[11px] font-bold text-primary">PRÊMIO</span>
-                  </div>
+                  {joined && (
+                    <div className="shrink-0 rounded-full bg-primary/15 border border-primary/40 px-2 py-1 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-primary" />
+                      <span className="text-[10px] font-black text-primary uppercase tracking-wider">Dentro</span>
+                    </div>
+                  )}
                 </div>
 
                 {c.description && (
                   <p className="text-sm text-foreground/75 leading-snug">{c.description}</p>
                 )}
 
-                <div className="rounded-lg bg-primary/10 border border-primary/25 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-primary/80 font-bold">
-                    Prêmio
-                  </p>
-                  <p className="text-base font-black text-foreground mt-0.5">{c.prize_label}</p>
-                  {c.prize_value > 0 && (
-                    <p className="text-lg font-black text-primary">{formatCurrency(c.prize_value)}</p>
-                  )}
+                {/* Bloco prêmio dourado */}
+                <div
+                  className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-3.5"
+                  style={{ boxShadow: "inset 0 1px 0 0 hsl(var(--primary) / 0.2)" }}
+                >
+                  <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+                  <div className="relative flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                      <Gift className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] uppercase tracking-widest text-primary/80 font-black">
+                        Prêmio
+                      </p>
+                      <p className="text-base font-black text-foreground leading-tight">{c.prize_label}</p>
+                      {c.prize_value > 0 && (
+                        <p className="text-lg font-black text-primary leading-tight">{formatCurrency(c.prize_value)}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-[11px]">
-                  <div className="rounded-lg bg-background/40 border border-border/40 p-2 flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-foreground/80">
+                  <div className="rounded-lg bg-background/50 border border-border/40 px-2.5 py-2 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-primary/80 shrink-0" />
+                    <span className="text-foreground/85 truncate font-semibold">
                       {formatDate(c.starts_at)} → {formatDate(c.ends_at)}
                     </span>
                   </div>
-                  <div className="rounded-lg bg-background/40 border border-border/40 p-2 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-muted-foreground" />
-                    <span className="text-foreground/80">{entryLabel(c)}</span>
+                  <div className="rounded-lg bg-background/50 border border-border/40 px-2.5 py-2 flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-primary/80 shrink-0" />
+                    <span className="text-foreground/85 truncate font-semibold">{entryLabel(c)}</span>
                   </div>
                 </div>
 
-                <div className="rounded-lg bg-background/40 border border-border/40 p-2 text-[11px] text-foreground/80">
-                  <span className="text-muted-foreground">Critério: </span>
-                  {metricLabel(c.metric)}
+                <div className="rounded-lg bg-background/40 border border-border/40 px-2.5 py-2 text-[11px] text-foreground/80">
+                  <span className="text-muted-foreground font-semibold">Critério: </span>
+                  <span className="font-bold text-foreground/90">{metricLabel(c.metric)}</span>
                 </div>
 
                 {c.entry_instructions && (
-                  <p className="text-[11px] text-muted-foreground leading-snug">
+                  <p className="text-[11px] text-muted-foreground leading-snug px-0.5">
                     {c.entry_instructions}
                   </p>
                 )}
 
                 {joined ? (
-                  <div className="flex gap-2">
-                    <div className="flex-1 rounded-lg bg-primary/15 border border-primary/40 px-3 py-2 flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-primary" />
-                      <span className="text-xs font-bold text-primary">Você está dentro</span>
-                    </div>
-                    <Button size="sm" variant="outline" onClick={() => handleLeave(c)}>
-                      Sair
-                    </Button>
-                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full border-border/50 text-muted-foreground hover:text-foreground"
+                    onClick={() => handleLeave(c)}
+                  >
+                    Sair da competição
+                  </Button>
                 ) : (
                   <Button
-                    className="w-full"
+                    className="w-full h-11 font-black tracking-wide bg-primary hover:bg-primary/90 text-primary-foreground"
                     onClick={() => handleJoin(c)}
                     disabled={c.entry_rule === "invite"}
                   >
@@ -235,16 +267,21 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
       {/* Finalizadas */}
       {finished.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-1">
-            Encerradas
-          </p>
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-1 h-3.5 bg-muted-foreground/40 rounded-full" />
+            <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+              Encerradas
+            </p>
+          </div>
           {finished.map((c) => (
-            <Card key={c.id} className="bg-card/40 border-border/40">
+            <Card key={c.id} className="bg-card/40 border-border/30">
               <CardContent className="p-3 flex items-center gap-3">
-                <Trophy className="w-5 h-5 text-muted-foreground" />
+                <div className="w-8 h-8 rounded-full bg-muted/40 border border-border/40 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4 text-muted-foreground" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{c.prize_label}</p>
+                  <p className="text-sm font-bold text-foreground/90 truncate">{c.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{c.prize_label}</p>
                 </div>
               </CardContent>
             </Card>
