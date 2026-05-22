@@ -559,22 +559,22 @@ interface PaymentInputProps {
 function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: PaymentInputProps) {
   const hasIcon = !!emoji || !!iconSrc;
   return (
-    <div className="relative h-14 rounded-xl bg-neutral-950 border border-neutral-900 focus-within:border-neutral-700 transition-colors">
+    <div className="relative h-11 rounded-lg bg-neutral-950 border border-neutral-900 focus-within:border-neutral-700 transition-colors">
       {iconSrc ? (
         <img
           src={iconSrc}
           alt=""
-          className="absolute left-4 top-1/2 -translate-y-1/2 w-6 h-6 object-contain"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
         />
       ) : emoji ? (
-        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base">
           {emoji}
         </span>
       ) : null}
-      <span className={`absolute ${hasIcon ? 'left-12' : 'left-4'} top-1/2 -translate-y-1/2 text-sm font-medium ${accent}`}>
+      <span className={`absolute ${hasIcon ? 'left-10' : 'left-3'} top-1/2 -translate-y-1/2 text-xs font-medium ${accent}`}>
         {label}
       </span>
-      <span className="absolute right-[88px] top-1/2 -translate-y-1/2 text-xs text-neutral-600">
+      <span className="absolute right-[72px] top-1/2 -translate-y-1/2 text-[10px] text-neutral-600">
         R$
       </span>
       <input
@@ -583,7 +583,7 @@ function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: Paymen
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
-        className="w-full h-full bg-transparent text-right text-lg font-bold text-white pr-4 pl-32 focus:outline-none placeholder:text-neutral-700"
+        className="w-full h-full bg-transparent text-right text-base font-bold text-white pr-3 pl-28 focus:outline-none placeholder:text-neutral-700"
       />
     </div>
   );
