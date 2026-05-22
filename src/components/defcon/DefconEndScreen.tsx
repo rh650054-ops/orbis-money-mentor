@@ -375,170 +375,167 @@ export function DefconEndScreen({
 
   return (
     <div
-      className="h-[100dvh] overflow-hidden bg-black text-white px-5 pb-4 select-none"
-      style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}
+      className="min-h-[100dvh] bg-black text-white select-none"
+      style={{
+        paddingTop: 'calc(env(safe-area-inset-top) + 20px)',
+        paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
+      }}
     >
-      <div className="max-w-sm mx-auto h-full flex flex-col">
+      <div className="max-w-sm mx-auto px-5 flex flex-col gap-5">
         {/* 1. HEADER — RESULTADO */}
-        <div className="text-center space-y-1 shrink-0">
-          <div className="text-[10px] font-mono text-neutral-500 tracking-[0.25em] uppercase">
+        <div className="text-center space-y-2">
+          <div className="text-[11px] font-mono text-neutral-500 tracking-[0.3em] uppercase">
             🔥 Desafio encerrado
           </div>
-          <div className={`text-4xl font-black tracking-tight ${valueColor}`}>
+          <div className={`text-5xl font-black tracking-tight ${valueColor}`}>
             {formatCurrency(totalSold)}
           </div>
-          <div className={`text-xs font-medium ${subTextColor}`}>
+          <div className={`text-sm font-medium ${subTextColor}`}>
             {subText}
           </div>
         </div>
 
         {/* Celebração — bateu/ultrapassou a meta */}
         {goalReached && (
-          <div className="shrink-0 rounded-xl bg-gradient-to-br from-green-600/25 via-green-500/15 to-emerald-900/20 border border-green-500/40 p-3 text-center space-y-1 shadow-[0_8px_30px_-8px_rgba(34,197,94,0.4)]">
-            <div className="text-2xl">🎉</div>
-            <div className="text-sm font-black text-green-400 tracking-tight">
+          <div className="rounded-2xl bg-gradient-to-br from-green-600/25 via-green-500/15 to-emerald-900/20 border border-green-500/40 p-4 text-center space-y-1 shadow-[0_8px_30px_-8px_rgba(34,197,94,0.4)]">
+            <div className="text-3xl">🎉</div>
+            <div className="text-base font-black text-green-400 tracking-tight">
               {percentage >= 150 ? "VOCÊ EXPLODIU A META!" : percentage >= 110 ? "ULTRAPASSOU A META!" : "META BATIDA!"}
             </div>
-            <div className="text-[10px] text-green-200/80 font-mono">
+            <div className="text-[11px] text-green-200/80 font-mono">
               {percentage.toFixed(0)}% · {formatCurrency(Math.max(0, totalSold - dailyGoal))} acima
             </div>
           </div>
         )}
 
+        {/* 2. SHARE — Dourado, prioridade alta */}
+        {totalSold > 0 && (
+          <button
+            onClick={handleShare}
+            disabled={sharing}
+            className="w-full py-3.5 rounded-2xl bg-[#F4A100] text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 shadow-[0_8px_24px_-10px_rgba(244,161,0,0.6)]"
+          >
+            <Share2 className="w-4 h-4" />
+            {sharing ? "Gerando..." : "Compartilhar resultado"}
+          </button>
+        )}
 
-        {/* Scrollable content area */}
-        <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
-          {/* 2. SHARE — Dourado, prioridade alta */}
-          {totalSold > 0 && (
-            <button
-              onClick={handleShare}
-              disabled={sharing}
-              className="w-full h-11 rounded-xl bg-[#F4A100] text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
-            >
-              <Share2 className="w-4 h-4" />
-              {sharing ? "Gerando..." : "Compartilhar resultado"}
-            </button>
-          )}
+        {/* 3. RECEBIMENTOS */}
+        {totalSold > 0 && (
+          <div className="space-y-2.5">
+            <h2 className="text-[11px] font-semibold text-neutral-400 px-1 uppercase tracking-wider">
+              Confira seus recebimentos
+            </h2>
 
-          {/* 3. RECEBIMENTOS */}
-          {totalSold > 0 && (
-            <div className="space-y-2">
-              <h2 className="text-xs font-semibold text-neutral-400 px-1">
-                Confira seus recebimentos
-              </h2>
-
-              {/* Gorjetas — destaque dourado */}
-              {totalTips > 0 && (
-                <div className="rounded-lg bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/35 px-3 py-2 flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-md bg-[#F4A100]/20 flex items-center justify-center shrink-0">
-                    <Coins className="w-3.5 h-3.5 text-[#F4A100]" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] uppercase tracking-wider text-[#F4A100] font-bold">Gorjetas</p>
-                    <p className="text-[9px] text-neutral-500">Já incluídas no dinheiro</p>
-                  </div>
-                  <p className="text-sm font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totalTips)}</p>
+            {/* Gorjetas — destaque dourado */}
+            {totalTips > 0 && (
+              <div className="rounded-xl bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/35 px-3.5 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#F4A100]/20 flex items-center justify-center shrink-0">
+                  <Coins className="w-4 h-4 text-[#F4A100]" />
                 </div>
-              )}
-
-              <PaymentInput
-                iconSrc={pixLogo}
-                label="Pix"
-                value={pix}
-                onChange={setPix}
-                accent="text-neutral-400"
-              />
-              <PaymentInput
-                emoji="💳"
-                label="Cartão"
-                value={cartao}
-                onChange={setCartao}
-                accent="text-neutral-400"
-              />
-              <PaymentInput
-                emoji="💵"
-                label="Dinheiro"
-                value={dinheiro}
-                onChange={setDinheiro}
-                accent="text-neutral-400"
-              />
-
-              {/* 4. CALOTE — condicional */}
-              {fullyReceived && (
-                <div className="text-[10px] text-green-500 font-medium text-center pt-0.5">
-                  ✔ 100% recebido
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] uppercase tracking-wider text-[#F4A100] font-bold">Gorjetas</p>
+                  <p className="text-[10px] text-neutral-500">Já incluídas no dinheiro</p>
                 </div>
-              )}
+                <p className="text-base font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totalTips)}</p>
+              </div>
+            )}
 
-              {hasCalote && (
-                <div className="rounded-lg bg-red-950/30 border border-red-900/40 px-3 py-2 flex items-start gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-red-300">
-                      <span className="font-semibold">{formatCurrency(calote)}</span> não recebidos
+            <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={setPix} accent="text-neutral-400" />
+            <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={setCartao} accent="text-neutral-400" />
+            <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={setDinheiro} accent="text-neutral-400" />
+
+            {/* Resumo total recebido vs vendido */}
+            {totalRecebido > 0 && (
+              <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-3.5 py-2.5 flex items-center justify-between">
+                <span className="text-[11px] text-neutral-500 uppercase tracking-wider font-semibold">Total recebido</span>
+                <span className={`text-sm font-bold tabular-nums ${fullyReceived ? 'text-green-400' : hasCalote ? 'text-red-300' : 'text-white'}`}>
+                  {formatCurrency(totalRecebido)} <span className="text-neutral-600 font-normal">/ {formatCurrency(totalSold)}</span>
+                </span>
+              </div>
+            )}
+
+            {fullyReceived && (
+              <div className="text-[11px] text-green-500 font-semibold text-center pt-0.5">
+                ✔ 100% recebido
+              </div>
+            )}
+
+            {hasCalote && (
+              <div className="rounded-xl bg-red-950/30 border border-red-900/40 px-3.5 py-3 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-red-300">
+                    <span className="font-semibold">{formatCurrency(calote)}</span> não recebidos
+                  </div>
+                  {!caloteAcknowledged && (
+                    <div className="flex gap-2 mt-2">
+                      <button
+                        onClick={() => setCaloteAcknowledged(true)}
+                        className="text-[11px] px-3 py-1.5 rounded-md bg-red-900/40 text-red-200 font-medium active:scale-95 transition-transform"
+                      >
+                        Registrar depois
+                      </button>
+                      <button
+                        onClick={() => setCaloteAcknowledged(true)}
+                        className="text-[11px] px-3 py-1.5 rounded-md bg-neutral-800 text-neutral-300 font-medium active:scale-95 transition-transform"
+                      >
+                        Ignorar
+                      </button>
                     </div>
-                    {!caloteAcknowledged && (
-                      <div className="flex gap-2 mt-1.5">
-                        <button
-                          onClick={() => setCaloteAcknowledged(true)}
-                          className="text-[10px] px-2.5 py-1 rounded-md bg-red-900/40 text-red-200 font-medium active:scale-95 transition-transform"
-                        >
-                          Registrar depois
-                        </button>
-                        <button
-                          onClick={() => setCaloteAcknowledged(true)}
-                          className="text-[10px] px-2.5 py-1 rounded-md bg-neutral-800 text-neutral-300 font-medium active:scale-95 transition-transform"
-                        >
-                          Ignorar
-                        </button>
-                      </div>
-                    )}
-                    {caloteAcknowledged && (
-                      <div className="text-[10px] text-neutral-500 mt-0.5">Anotado.</div>
-                    )}
-                  </div>
+                  )}
+                  {caloteAcknowledged && (
+                    <div className="text-[10px] text-neutral-500 mt-1">Anotado.</div>
+                  )}
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
+        )}
 
-          {/* 5. RELATÓRIO — compacto horizontal */}
-          {(totalApproaches > 0 || totalSalesCount > 0) && (
-            <div className="text-center text-xs text-neutral-300 font-mono">
-              <span className="text-white font-semibold">{totalApproaches}</span> abordagens
-              <span className="text-neutral-600 mx-1.5">•</span>
-              <span className="text-white font-semibold">{totalSalesCount}</span> vendas
-              <span className="text-neutral-600 mx-1.5">•</span>
-              <span className="text-[#F4A100] font-semibold">{conversionRate.toFixed(0)}%</span> conversão
+        {/* 5. RELATÓRIO — cards de performance */}
+        {(totalApproaches > 0 || totalSalesCount > 0) && (
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-2 py-3 text-center">
+              <div className="text-lg font-black text-white tabular-nums">{totalApproaches}</div>
+              <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Abordagens</div>
             </div>
-          )}
-
-          {/* 6. INSIGHT IA */}
-          {insight && (
-            <div className="rounded-lg bg-neutral-950 border border-neutral-900 px-3 py-2 flex items-start gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-[#F4A100] mt-0.5 shrink-0" />
-              <p className="text-xs text-neutral-300 leading-snug">{insight}</p>
+            <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-2 py-3 text-center">
+              <div className="text-lg font-black text-white tabular-nums">{totalSalesCount}</div>
+              <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Vendas</div>
             </div>
-          )}
+            <div className="rounded-xl bg-neutral-950 border border-[#F4A100]/30 px-2 py-3 text-center">
+              <div className="text-lg font-black text-[#F4A100] tabular-nums">{conversionRate.toFixed(0)}%</div>
+              <div className="text-[9px] uppercase tracking-wider text-[#F4A100]/70 font-semibold mt-0.5">Conversão</div>
+            </div>
+          </div>
+        )}
 
-          {/* 6.5 PDF de clientes — só aparece se houver registros */}
-          {clientsCount > 0 && (
-            <button
-              onClick={exportClientsPdf}
-              disabled={exportingPdf}
-              className="w-full h-9 rounded-xl bg-neutral-950 border border-[#F4A100]/40 text-[#F4A100] font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
-            >
-              <FileDown className="w-3.5 h-3.5" />
-              {exportingPdf ? "Gerando..." : `PDF de ${clientsCount} cliente(s)`}
-            </button>
-          )}
-        </div>
+        {/* 6. INSIGHT IA */}
+        {insight && (
+          <div className="rounded-xl bg-gradient-to-br from-neutral-950 to-neutral-900/40 border border-neutral-800 px-3.5 py-3 flex items-start gap-2.5">
+            <Sparkles className="w-4 h-4 text-[#F4A100] mt-0.5 shrink-0" />
+            <p className="text-xs text-neutral-300 leading-relaxed">{insight}</p>
+          </div>
+        )}
+
+        {/* 6.5 PDF de clientes */}
+        {clientsCount > 0 && (
+          <button
+            onClick={exportClientsPdf}
+            disabled={exportingPdf}
+            className="w-full h-11 rounded-xl bg-neutral-950 border border-[#F4A100]/40 text-[#F4A100] font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            {exportingPdf ? "Gerando..." : `PDF de ${clientsCount} cliente(s)`}
+          </button>
+        )}
 
         {/* 7. CTA FINAL */}
         <button
           onClick={handleFinalize}
           disabled={saving}
-          className="w-full h-12 rounded-xl bg-white text-black font-bold text-sm active:scale-[0.98] transition-transform disabled:opacity-50 shrink-0"
+          className="w-full h-14 rounded-2xl bg-white text-black font-bold text-base active:scale-[0.98] transition-transform disabled:opacity-50 mt-1"
         >
           {saving ? "Finalizando..." : "Finalizar dia"}
         </button>
