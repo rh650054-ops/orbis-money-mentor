@@ -267,16 +267,21 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
       {/* Finalizadas */}
       {finished.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground px-1">
-            Encerradas
-          </p>
+          <div className="flex items-center gap-2 px-1">
+            <div className="w-1 h-3.5 bg-muted-foreground/40 rounded-full" />
+            <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+              Encerradas
+            </p>
+          </div>
           {finished.map((c) => (
-            <Card key={c.id} className="bg-card/40 border-border/40">
+            <Card key={c.id} className="bg-card/40 border-border/30">
               <CardContent className="p-3 flex items-center gap-3">
-                <Trophy className="w-5 h-5 text-muted-foreground" />
+                <div className="w-8 h-8 rounded-full bg-muted/40 border border-border/40 flex items-center justify-center shrink-0">
+                  <Trophy className="w-4 h-4 text-muted-foreground" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{c.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{c.prize_label}</p>
+                  <p className="text-sm font-bold text-foreground/90 truncate">{c.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{c.prize_label}</p>
                 </div>
               </CardContent>
             </Card>
