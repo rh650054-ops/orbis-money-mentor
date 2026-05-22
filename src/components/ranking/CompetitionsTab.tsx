@@ -33,13 +33,32 @@ function entryLabel(c: Competition) {
 }
 
 export default function CompetitionsTab({ userId, hasPhone }: Props) {
-  const { competitions, myParticipations, myWins, loading, join, leave, acknowledgeWin } =
+  const { competitions, myParticipations, participantsByComp, myWins, loading, join, leave, acknowledgeWin, getMyPosition } =
     useCompetitions(userId);
 
   const active = useMemo(() => competitions.filter((c) => c.status === "active"), [competitions]);
   const finished = useMemo(() => competitions.filter((c) => c.status === "finished"), [competitions]);
 
   const isJoined = (id: string) => myParticipations.some((p) => p.competition_id === id);
+
+  // Notificação de posição: dispara uma única vez por sessão por competição
+  const notifiedRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    active.forEach((c) => {
+      if (!isJoined(c.id) || notifiedRef.current.has(c.id)) return;
+      const pos = getMyPosition(c.id);
+      if (!pos) return;
+      notifiedRef.current.add(c.id);
+      const msg =
+        pos.position === 1
+          ? `🏆 Você está em 1º em "${c.name}"! Segura o topo.`
+          : pos.position <= 3
+          ? `🔥 Top ${pos.position} em "${c.name}"! Bora pro pódio.`
+          : `Você está em #${pos.position}/${pos.total} em "${c.name}". Vai pra cima!`;
+      toast({ title: "Sua posição na competição", description: msg });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.length, participantsByComp]);
 
   const handleJoin = async (c: Competition) => {
     if (!hasPhone) {
