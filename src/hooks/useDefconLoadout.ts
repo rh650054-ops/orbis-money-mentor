@@ -81,12 +81,51 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
       .from("defcon_daily_loadout")
       .update({ qty_sold: Number(item.qty_sold) + qty })
       .eq("id", item.id);
-    // debita estoque do produto também
+
+    // debita estoque do produto
     const prod = products.find((p) => p.id === productId);
     if (prod) {
       const newStock = Math.max(0, Number(prod.stock_quantity) - qty);
       await supabase.from("products").update({ stock_quantity: newStock }).eq("id", productId);
     }
+
+    // se produto tem receita per_unit, debita ingredientes proporcionalmente
+    const { data: prodMeta } = await supabase
+      .from("products")
+      .select("recipe_mode")
+      .eq("id", productId)
+      .maybeSingle();
+
+    if (prodMeta?.recipe_mode === "per_unit") {
+      const { data: recipe } = await supabase
+        .from("product_recipes")
+        .select("ingredient_id, quantity")
+        .eq("product_id", productId);
+
+      if (recipe && recipe.length > 0) {
+        const ids = recipe.map((r: any) => r.ingredient_id);
+        const { data: ings } = await supabase
+          .from("ingredients")
+          .select("id, stock_quantity")
+          .in("id", ids);
+
+        for (const r of recipe as any[]) {
+          const ing = ings?.find((i: any) => i.id === r.ingredient_id);
+          if (!ing) continue;
+          const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * qty);
+          await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
+        }
+      }
+    }
+
+    // log da venda do produto (alimenta histórico/análises)
+    await supabase.from("product_sales_log").insert({
+      user_id: userId,
+      product_id: productId,
+      quantity: qty,
+      total_amount: 0,
+    });
+
     await load();
   };
 
