@@ -616,6 +616,10 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-foreground text-sm">{formatCurrency(u.faturamento_total_mes)}</p>
+                    <div className="inline-flex items-center gap-0.5 mt-0.5">
+                      <Flame className="w-3 h-3 text-orange-400" />
+                      <span className="text-[10px] font-bold text-orange-300">{u.constancia_streak_atual}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
