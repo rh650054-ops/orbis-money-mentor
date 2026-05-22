@@ -14,15 +14,22 @@ window.addEventListener("unhandledrejection", (event) => {
 // Setup offline sync listeners globally
 setupOfflineSyncListeners();
 
-// Cleanup of the old vite-plugin-pwa service worker that was caching a
-// broken build (tela preta no app publicado). We force the kill-switch
-// /sw.js to install — it then unregisters itself and clears all caches.
+// One-time cleanup of the old vite-plugin-pwa service worker that was caching
+// a broken build (tela preta no app publicado). We only register the
+// kill-switch /sw.js when an old service worker is actually present —
+// otherwise new visitors would get caught in a register → navigate → reload
+// loop and never see the app.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-    .register("/sw.js", { scope: "/" })
+    .getRegistrations()
+    .then((registrations) => {
+      if (registrations.length === 0) return;
+      return navigator.serviceWorker.register("/sw.js", { scope: "/" });
+    })
     .catch(() => {
       // ignore — best-effort cleanup
     });
 }
+
 
 createRoot(document.getElementById("root")!).render(<App />);
