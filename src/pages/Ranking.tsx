@@ -126,7 +126,7 @@ export default function Ranking() {
     setPublicProfileUserId(uid);
   };
 
-  const isFaturamento = activeTab === "faturamento";
+  const isGlobal = activeTab === "global";
 
   const handleShare = async () => {
     if (!shareCardRef.current || isSharing) return;
@@ -176,20 +176,14 @@ export default function Ranking() {
     }
   };
 
-  // Dados para o share card
+  // Dados para o share card (sempre Liga Global = faturamento)
   const shareData = (() => {
-    const totalParticipants = isFaturamento ? faturamentoRanking.length : constanciaRanking.length;
-    const position = isFaturamento
-      ? currentUserStats?.posicao_faturamento ?? null
-      : currentUserStats?.posicao_constancia ?? null;
-    const primaryValue = isFaturamento
-      ? formatCurrency(currentUserStats?.faturamento_total_mes ?? 0)
-      : `${currentUserStats?.dias_trabalhados_mes ?? 0} dias`;
-    const secondaryValue = isFaturamento
-      ? `${currentUserStats?.dias_trabalhados_mes ?? 0} dias trabalhados`
-      : `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
+    const totalParticipants = faturamentoRanking.length;
+    const position = currentUserStats?.posicao_faturamento ?? null;
+    const primaryValue = formatCurrency(currentUserStats?.faturamento_total_mes ?? 0);
+    const secondaryValue = `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
     return {
-      league: activeTab,
+      league: "faturamento" as const,
       position,
       totalParticipants,
       nickname: userProfile.nickname || currentUserStats?.nome_usuario || "Vendedor",
@@ -228,138 +222,148 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
-      {/* Unified League Tabs — botão = liga inteira (não há mais título separado) */}
+      {/* Tabs: Liga Global + Competições */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
-          onClick={() => setActiveTab("faturamento")}
+          onClick={() => setActiveTab("global")}
           className={cn(
-            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300",
-            "border",
-            isFaturamento
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300 border",
+            isGlobal
               ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
-              : "bg-card/40 border-border/50 hover:border-primary/30"
+              : "bg-card/40 border-border/50 hover:border-primary/30",
           )}
         >
-          {isFaturamento && (
+          {isGlobal && (
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
           )}
           <div className="relative flex items-center gap-2.5">
-            <div className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-              isFaturamento ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground"
-            )}>
+            <div
+              className={cn(
+                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+              )}
+            >
               <Trophy className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className={cn("text-[9px] font-bold uppercase tracking-widest", isFaturamento ? "text-primary" : "text-muted-foreground")}>
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", isGlobal ? "text-primary" : "text-muted-foreground")}>
                 Liga
               </p>
-              <p className={cn("text-sm font-black truncate", isFaturamento ? "text-foreground" : "text-foreground/70")}>
-                Faturamento
+              <p className={cn("text-sm font-black truncate", isGlobal ? "text-foreground" : "text-foreground/70")}>
+                Global
               </p>
             </div>
           </div>
         </button>
 
         <button
-          onClick={() => setActiveTab("constancia")}
+          onClick={() => setActiveTab("competicoes")}
           className={cn(
-            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300",
-            "border",
-            !isFaturamento
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-all duration-300 border",
+            !isGlobal
               ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
-              : "bg-card/40 border-border/50 hover:border-primary/30"
+              : "bg-card/40 border-border/50 hover:border-primary/30",
           )}
         >
-          {!isFaturamento && (
+          {!isGlobal && (
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
           )}
           <div className="relative flex items-center gap-2.5">
-            <div className={cn(
-              "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-              !isFaturamento ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground"
-            )}>
-              <Flame className="w-4 h-4" />
+            <div
+              className={cn(
+                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                !isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+              )}
+            >
+              <Gift className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className={cn("text-[9px] font-bold uppercase tracking-widest", !isFaturamento ? "text-primary" : "text-muted-foreground")}>
-                Liga
+              <p className={cn("text-[9px] font-bold uppercase tracking-widest", !isGlobal ? "text-primary" : "text-muted-foreground")}>
+                Competições
               </p>
-              <p className={cn("text-sm font-black truncate", !isFaturamento ? "text-foreground" : "text-foreground/70")}>
-                Constância
+              <p className={cn("text-sm font-black truncate", !isGlobal ? "text-foreground" : "text-foreground/70")}>
+                Com prêmios
               </p>
             </div>
           </div>
         </button>
       </div>
 
-      {/* Subtítulo da liga ativa */}
       <p className="text-center text-xs text-muted-foreground -mt-2">
-        {isFaturamento ? "Maiores vendedores do mês" : "Os mais disciplinados do mês"}
+        {isGlobal
+          ? "Maiores vendedores do mês · ofensiva 🔥 incluída"
+          : "Torneios semanais e mensais com prêmios reais"}
       </p>
 
-      {/* Compartilhar no Instagram */}
-      {hasParticipated && currentUserStats && (
+      {isAdmin && !isGlobal && (
         <button
-          onClick={handleShare}
-          disabled={isSharing}
-          className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-all active:scale-[0.98] disabled:opacity-60"
-          style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+          onClick={() => navigate("/admin/competitions")}
+          className="w-full rounded-xl border border-primary/40 bg-primary/10 px-3 py-2.5 flex items-center justify-center gap-2 text-sm font-bold text-primary hover:bg-primary/15 transition"
         >
-          <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-            <div
-              className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
-              style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)" }}
-            />
-          </div>
-          <div className="relative flex items-center justify-center gap-2.5">
-            {isSharing ? (
-              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-            ) : (
-              <Share2 className="w-5 h-5 text-primary" />
-            )}
-            <div className="text-left">
-              <p className="text-sm font-black text-foreground tracking-wide">
-                {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
-              </p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                Story 9:16 · pronto pra postar
-              </p>
-            </div>
-          </div>
+          <Shield className="w-4 h-4" />
+          Painel admin · gerenciar competições
         </button>
       )}
 
-      {/* Not Participated Message */}
-      {!hasParticipated && (
-        <Card className="border border-dashed border-primary/30 bg-card/50">
-          <CardContent className="p-6 text-center space-y-3">
-            <AlertCircle className="w-10 h-10 mx-auto text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">Você ainda não entrou na liga</h3>
-            <p className="text-muted-foreground text-sm">
-              Conclua seu primeiro dia de vendas para aparecer no ranking!
-            </p>
-          </CardContent>
-        </Card>
+      {isGlobal && (
+        <>
+          {/* Compartilhar no Instagram */}
+          {hasParticipated && currentUserStats && (
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-all active:scale-[0.98] disabled:opacity-60"
+              style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+            >
+              <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                <div
+                  className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
+                  style={{ background: "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.3), transparent)" }}
+                />
+              </div>
+              <div className="relative flex items-center justify-center gap-2.5">
+                {isSharing ? (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                ) : (
+                  <Share2 className="w-5 h-5 text-primary" />
+                )}
+                <div className="text-left">
+                  <p className="text-sm font-black text-foreground tracking-wide">
+                    {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                    Story 9:16 · pronto pra postar
+                  </p>
+                </div>
+              </div>
+            </button>
+          )}
+
+          {!hasParticipated && (
+            <Card className="border border-dashed border-primary/30 bg-card/50">
+              <CardContent className="p-6 text-center space-y-3">
+                <AlertCircle className="w-10 h-10 mx-auto text-primary" />
+                <h3 className="text-lg font-semibold text-foreground">Você ainda não entrou na liga</h3>
+                <p className="text-muted-foreground text-sm">
+                  Conclua seu primeiro dia de vendas para aparecer no ranking!
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <FaturamentoLeague
+            ranking={faturamentoRanking}
+            currentUserStats={currentUserStats}
+            hasParticipated={hasParticipated}
+            formatCurrency={formatCurrency}
+            onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+            onOpenProfile={openPublicProfile}
+          />
+        </>
       )}
 
-      {isFaturamento ? (
-        <FaturamentoLeague
-          ranking={faturamentoRanking}
-          currentUserStats={currentUserStats}
-          hasParticipated={hasParticipated}
-          formatCurrency={formatCurrency}
-          onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
-          onOpenProfile={openPublicProfile}
-        />
-      ) : (
-        <ConstanciaLeague
-          ranking={constanciaRanking}
-          currentUserStats={currentUserStats}
-          hasParticipated={hasParticipated}
-          onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
-          onOpenProfile={openPublicProfile}
-        />
+      {!isGlobal && (
+        <CompetitionsTab userId={user?.id} hasPhone={!!userPhone} />
       )}
 
       {user && (
