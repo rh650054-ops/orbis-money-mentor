@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target } from "lucide-react";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
