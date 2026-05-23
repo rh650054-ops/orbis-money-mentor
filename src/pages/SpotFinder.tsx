@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import SpotMap from "@/components/spotfinder/SpotMap";
 
 type Spot = {
   id: string;
@@ -51,7 +52,9 @@ export default function SpotFinder() {
   const [productContext, setProductContext] = useState("");
   const [loading, setLoading] = useState(false);
   const [spots, setSpots] = useState<Spot[]>([]);
+  const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [cached, setCached] = useState(false);
+  const [highlighted, setHighlighted] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -80,6 +83,7 @@ export default function SpotFinder() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setSpots(data?.spots ?? []);
+      setCenter(data?.center ? { lat: data.center.lat, lng: data.center.lng } : null);
       setCached(!!data?.cached);
       if ((data?.spots ?? []).length === 0) {
         toast({ title: "Nenhum ponto encontrado", description: "Tente aumentar o raio." });
