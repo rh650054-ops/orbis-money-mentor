@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target } from "lucide-react";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -29,6 +29,13 @@ const menuItems: MenuItem[] = [
     label: "Editar Planejamento",
     description: "Meta do mês, horas e dias por semana",
     action: "edit-planning",
+    color: "text-primary",
+  },
+  {
+    icon: Radar,
+    label: "Caça-Sinal",
+    description: "Melhores sinais e avenidas pra vender (IA + Maps)",
+    path: "/spot-finder",
     color: "text-primary",
   },
   {

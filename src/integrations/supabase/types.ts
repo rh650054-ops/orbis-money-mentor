@@ -1809,6 +1809,30 @@ export type Database = {
         }
         Relationships: []
       }
+      spot_finder_cache: {
+        Row: {
+          cache_key: string
+          created_at: string
+          expires_at: string
+          id: string
+          result: Json
+        }
+        Insert: {
+          cache_key: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          result: Json
+        }
+        Update: {
+          cache_key?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          result?: Json
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
