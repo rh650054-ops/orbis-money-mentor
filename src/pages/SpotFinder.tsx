@@ -160,9 +160,24 @@ export default function SpotFinder() {
         </div>
       )}
 
+      {!loading && center && spots.length > 0 && (
+        <SpotMap
+          center={center}
+          spots={spots.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, score: s.score }))}
+          onSelect={(id) => {
+            setHighlighted(id);
+            document.getElementById(`spot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
+      )}
+
       <div className="space-y-3">
         {spots.map((s, i) => (
-          <Card key={s.id} className="glass overflow-hidden">
+          <Card
+            key={s.id}
+            id={`spot-${s.id}`}
+            className={`glass overflow-hidden transition-all ${highlighted === s.id ? "ring-2 ring-primary" : ""}`}
+          >
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
