@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Radar, Navigation, Clock, Users, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, Radar, Navigation, Clock, Users, Sparkles, Loader2, TrafficCone, Zap, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import SpotMap from "@/components/spotfinder/SpotMap";
+import SpotFeedback from "@/components/spotfinder/SpotFeedback";
 
 type Spot = {
   id: string;
@@ -19,6 +20,11 @@ type Spot = {
   lat: number;
   lng: number;
   distance_km: number;
+  spot_type?: "avenida" | "cruzamento" | "shopping" | "terminal" | "centro" | "outro";
+  semaforo_duracao?: "longo" | "medio" | "curto" | "desconhecido";
+  peak_morning?: string;
+  peak_afternoon?: string;
+  weekend_better?: boolean;
   traffic_level?: "alto" | "medio" | "baixo";
   best_hours?: string;
   audience_profile?: "nobre" | "media" | "popular" | "misto";
@@ -26,12 +32,29 @@ type Spot = {
   score?: number;
   reason?: string;
   recommended_product?: string;
+  feedback_summary?: { good: number; medium: number; bad: number; total: number } | null;
 };
 
 const trafficColor: Record<string, string> = {
   alto: "bg-red-500/20 text-red-300 border-red-500/40",
   medio: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40",
   baixo: "bg-green-500/20 text-green-300 border-green-500/40",
+};
+
+const semaforoLabel: Record<string, string> = {
+  longo: "🟥 Sinal longo (>60s)",
+  medio: "🟧 Sinal médio",
+  curto: "🟨 Sinal curto",
+  desconhecido: "❔ Sinal não medido",
+};
+
+const spotTypeLabel: Record<string, string> = {
+  avenida: "🛣️ Avenida",
+  cruzamento: "✚ Cruzamento",
+  shopping: "🛍️ Shopping",
+  terminal: "🚌 Terminal",
+  centro: "🏙️ Centro",
+  outro: "📍 Outro",
 };
 
 const audienceLabel: Record<string, string> = {
@@ -69,7 +92,7 @@ export default function SpotFinder() {
       });
   }, [user]);
 
-  const search = async () => {
+  const search = async (force = false) => {
     if (!city || !state) {
       toast({ title: "Preencha cidade e estado", variant: "destructive" });
       return;
@@ -78,7 +101,7 @@ export default function SpotFinder() {
     setSpots([]);
     try {
       const { data, error } = await supabase.functions.invoke("find-good-spots", {
-        body: { city, state, radius_km: radius[0], product_context: productContext },
+        body: { city, state, radius_km: radius[0], product_context: productContext, force_refresh: force },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -106,7 +129,7 @@ export default function SpotFinder() {
             <Radar className="w-6 h-6" /> Caça-Sinal
           </h1>
           <p className="text-xs text-muted-foreground">
-            Os melhores pontos da sua região pra vender, escolhidos por IA + Google Maps
+            Avenidas, cruzamentos e picos de trânsito + feedback de outros vendedores
           </p>
         </div>
       </div>
@@ -116,11 +139,11 @@ export default function SpotFinder() {
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
               <Label className="text-xs">Cidade</Label>
-              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="São Paulo" />
+              <Input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Porto Alegre" />
             </div>
             <div>
               <Label className="text-xs">UF</Label>
-              <Input value={state} onChange={(e) => setState(e.target.value.toUpperCase())} maxLength={2} placeholder="SP" />
+              <Input value={state} onChange={(e) => setState(e.target.value.toUpperCase())} maxLength={2} placeholder="RS" />
             </div>
           </div>
 
@@ -141,14 +164,17 @@ export default function SpotFinder() {
             <Slider value={radius} onValueChange={setRadius} min={1} max={20} step={1} />
           </div>
 
-          <Button onClick={search} disabled={loading} className="w-full">
+          <Button onClick={() => search(false)} disabled={loading} className="w-full">
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Radar className="w-4 h-4 mr-2" />}
             {loading ? "Caçando sinais bons..." : "Encontrar bons sinais"}
           </Button>
           {cached && (
-            <p className="text-[10px] text-muted-foreground text-center">
-              Resultados do cache (atualiza a cada 24h pra economizar)
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] text-muted-foreground">Resultados do cache (24h)</p>
+              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => search(true)} disabled={loading}>
+                Forçar nova busca
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -156,7 +182,9 @@ export default function SpotFinder() {
       {loading && (
         <div className="flex flex-col items-center py-12 gap-3">
           <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-          <p className="text-sm text-muted-foreground">Analisando avenidas, fluxo e perfil da região…</p>
+          <p className="text-sm text-muted-foreground text-center px-4">
+            Analisando avenidas, cruzamentos, picos de trânsito e feedback dos outros vendedores…
+          </p>
         </div>
       )}
 
@@ -181,17 +209,22 @@ export default function SpotFinder() {
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-lg font-bold text-primary">#{i + 1}</span>
                     {typeof s.score === "number" && (
                       <Badge className="bg-primary/20 text-primary border-primary/40">
                         ⭐ {s.score.toFixed(1)}/10
                       </Badge>
                     )}
+                    {s.spot_type && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {spotTypeLabel[s.spot_type]}
+                      </Badge>
+                    )}
                   </div>
                   <h3 className="font-semibold text-base leading-tight">{s.name}</h3>
                   <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                    <MapPin className="w-3 h-3" /> {s.address}
+                    <MapPin className="w-3 h-3 shrink-0" /> {s.address}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -206,12 +239,36 @@ export default function SpotFinder() {
                     🚦 Fluxo {s.traffic_level}
                   </Badge>
                 )}
+                {s.semaforo_duracao && s.semaforo_duracao !== "desconhecido" && (
+                  <Badge variant="outline" className="border-muted text-[10px]">
+                    {semaforoLabel[s.semaforo_duracao]}
+                  </Badge>
+                )}
                 {s.audience_profile && (
-                  <Badge variant="outline" className="border-muted">
+                  <Badge variant="outline" className="border-muted text-[10px]">
                     {audienceLabel[s.audience_profile]}
                   </Badge>
                 )}
+                {s.weekend_better && (
+                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">
+                    <Calendar className="w-3 h-3 mr-1" /> Melhor fim de semana
+                  </Badge>
+                )}
               </div>
+
+              {(s.peak_morning || s.peak_afternoon) && (
+                <div className="bg-card/40 rounded-lg p-2 space-y-1 border border-border/40">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                    <TrafficCone className="w-3 h-3" /> Picos de trânsito
+                  </p>
+                  {s.peak_morning && (
+                    <p className="text-xs">🌅 <span className="text-muted-foreground">Manhã:</span> {s.peak_morning}</p>
+                  )}
+                  {s.peak_afternoon && (
+                    <p className="text-xs">🌆 <span className="text-muted-foreground">Tarde:</span> {s.peak_afternoon}</p>
+                  )}
+                </div>
+              )}
 
               {s.best_hours && (
                 <div className="text-sm flex items-start gap-2">
@@ -227,7 +284,7 @@ export default function SpotFinder() {
               )}
               {s.recommended_product && (
                 <div className="text-sm flex items-start gap-2">
-                  <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                  <Zap className="w-4 h-4 text-primary mt-0.5 shrink-0" />
                   <span><span className="text-muted-foreground">Vende bem aqui:</span> {s.recommended_product}</span>
                 </div>
               )}
@@ -251,6 +308,15 @@ export default function SpotFinder() {
                 <Navigation className="w-4 h-4 mr-2" />
                 Abrir rota no Google Maps
               </Button>
+
+              <SpotFeedback
+                placeId={s.id}
+                placeName={s.name}
+                city={city}
+                state={state}
+                summary={s.feedback_summary ?? null}
+                onChange={() => search(false)}
+              />
             </CardContent>
           </Card>
         ))}
@@ -259,7 +325,7 @@ export default function SpotFinder() {
       {!loading && spots.length === 0 && (
         <Card className="glass">
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Preencha sua cidade e toque em <strong>Encontrar bons sinais</strong> pra ver os melhores pontos pra vender perto de você.
+            Preencha sua cidade e toque em <strong>Encontrar bons sinais</strong>.
           </CardContent>
         </Card>
       )}
