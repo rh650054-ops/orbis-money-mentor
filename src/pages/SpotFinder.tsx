@@ -57,13 +57,12 @@ export default function SpotFinder() {
     if (!user) return;
     supabase
       .from("profiles")
-      .select("city, state, product_name")
+      .select("city, state")
       .eq("user_id", user.id)
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data }: any) => {
         if (data?.city) setCity(data.city);
         if (data?.state) setState(data.state);
-        if ((data as any)?.product_name) setProductContext((data as any).product_name);
       });
   }, [user]);
 
