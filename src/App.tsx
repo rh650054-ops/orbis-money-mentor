@@ -34,6 +34,7 @@ const Ranking = lazy(() => import("./pages/Ranking"));
 const Rewards = lazy(() => import("./pages/Rewards"));
 const DefconChallenge = lazy(() => import("./pages/DefconChallenge"));
 const BankConnections = lazy(() => import("./pages/BankConnections"));
+const SpotFinder = lazy(() => import("./pages/SpotFinder"));
 
 function PageLoader() {
   return (
