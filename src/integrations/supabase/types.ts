@@ -1809,6 +1809,45 @@ export type Database = {
         }
         Relationships: []
       }
+      spot_feedback: {
+        Row: {
+          city: string | null
+          comment: string | null
+          created_at: string
+          id: string
+          place_id: string
+          place_name: string
+          rating: string
+          state: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          city?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          place_id: string
+          place_name: string
+          rating: string
+          state?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          city?: string | null
+          comment?: string | null
+          created_at?: string
+          id?: string
+          place_id?: string
+          place_name?: string
+          rating?: string
+          state?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       spot_finder_cache: {
         Row: {
           cache_key: string
