@@ -32,6 +32,13 @@ const menuItems: MenuItem[] = [
     color: "text-primary",
   },
   {
+    icon: Radar,
+    label: "Caça-Sinal",
+    description: "Melhores sinais e avenidas pra vender (IA + Maps)",
+    path: "/spot-finder",
+    color: "text-primary",
+  },
+  {
     icon: Wallet,
     label: "Financeiro",
     description: "Metas, contas e transações",
