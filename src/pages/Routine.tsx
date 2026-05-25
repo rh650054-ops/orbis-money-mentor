@@ -257,11 +257,11 @@ function RoutineConfigPanel({ userId, onBack, onResetOnboarding }: { userId: str
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold gradient-text">Configurar Rotina</h2>
+        <h2 className="text-xl font-bold text-foreground tracking-tight">Configurar Rotina</h2>
         <Button variant="ghost" onClick={onBack}>← Voltar</Button>
       </div>
 
-      <Card className="glass border-primary/20">
+      <Card className="border-primary/20">
         <CardContent className="p-6 space-y-4">
           {fields.map(({ icon, label, key }) => (
             <div key={key} className="flex items-center gap-3">
@@ -286,7 +286,7 @@ function RoutineConfigPanel({ userId, onBack, onResetOnboarding }: { userId: str
         </CardContent>
       </Card>
 
-      <Card className="glass border-border/30">
+      <Card className="border-border/30">
         <CardContent className="p-4 text-center">
           <p className="text-muted-foreground text-sm mb-3">Quer refazer o onboarding do zero?</p>
           <Button

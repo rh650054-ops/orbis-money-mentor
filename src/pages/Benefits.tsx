@@ -88,7 +88,7 @@ export default function Benefits() {
             <span className="text-sm font-semibold">Plano Visionário</span>
           </div>
           
-          <h1 className="text-5xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold mb-4 text-primary">
             Desbloqueie seu Potencial
           </h1>
           
@@ -108,7 +108,7 @@ export default function Benefits() {
           {benefits.map((benefit, index) => (
             <Card 
               key={index} 
-              className="p-5 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 border-2 hover:border-primary/20"
+              className="p-5 hover:shadow-xl hover:scale-[1.02] transition-[colors,transform,opacity] duration-200 border-2 hover:border-primary/20"
             >
               <div className="flex flex-col gap-3">
                 <div className="flex items-center gap-3">

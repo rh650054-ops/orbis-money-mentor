@@ -99,7 +99,7 @@ export default function ForgotPassword() {
                       className="h-11 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
                       required
                     />
-                    <p className="text-[10px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       Vamos enviar um link para você criar uma nova senha.
                     </p>
                   </div>
@@ -118,7 +118,7 @@ export default function ForgotPassword() {
                     <div className="w-full border-t border-border" />
                   </div>
                   <div className="relative flex justify-center">
-                    <span className="bg-card px-2 text-[10px] text-muted-foreground uppercase tracking-wider">
+                    <span className="bg-card px-2 text-xs text-muted-foreground uppercase tracking-wider">
                       ou
                     </span>
                   </div>
@@ -150,7 +150,7 @@ export default function ForgotPassword() {
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Acesse <span className="text-foreground font-medium">{email}</span> e clique no link que enviamos para criar sua nova senha.
                 </p>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Não chegou em alguns minutos? Veja no spam ou fale com o suporte.
                 </p>
                 <Button

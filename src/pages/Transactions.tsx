@@ -21,7 +21,7 @@ export default function Transactions() {
   return (
     <div className="space-y-6 pb-4 md:pb-8">
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Nova Venda</h1>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Nova Venda</h1>
         <p className="text-muted-foreground mt-1">
           Registre suas vendas diárias
         </p>

@@ -188,7 +188,7 @@ export default function Auth() {
                   <button
                     type="button"
                     onClick={() => setLoginMethod("cpf")}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-[colors,transform,opacity] ${
                       loginMethod === "cpf"
                         ? "bg-primary text-primary-foreground shadow"
                         : "text-muted-foreground"
@@ -199,7 +199,7 @@ export default function Auth() {
                   <button
                     type="button"
                     onClick={() => setLoginMethod("email")}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-[colors,transform,opacity] ${
                       loginMethod === "email"
                         ? "bg-primary text-primary-foreground shadow"
                         : "text-muted-foreground"
@@ -294,7 +294,7 @@ export default function Auth() {
                 <div className="flex justify-end -mt-1">
                   <Link
                     to="/forgot-password"
-                    className="text-[11px] text-primary hover:underline"
+                    className="text-xs text-primary hover:underline"
                   >
                     Esqueci minha senha
                   </Link>
@@ -332,7 +332,7 @@ export default function Auth() {
                         value={state}
                         onChange={(e) => { setState(e.target.value); setCity(""); }}
                         required
-                        className="col-span-1 h-10 rounded-lg border border-border bg-input px-3 text-sm focus:border-primary outline-none"
+                        className="col-span-1 h-10 rounded-lg border border-border bg-input px-3 text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       >
                         <option value="">UF</option>
                         {BR_STATES.map((uf) => (
@@ -344,7 +344,7 @@ export default function Auth() {
                         onChange={(e) => setCity(e.target.value)}
                         required
                         disabled={!state || loadingCities}
-                        className="col-span-2 h-10 rounded-lg border border-border bg-input px-3 text-sm focus:border-primary outline-none disabled:opacity-60"
+                        className="col-span-2 h-10 rounded-lg border border-border bg-input px-3 text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
                       >
                         <option value="">
                           {!state ? "Selecione UF" : loadingCities ? "Carregando..." : "Cidade"}

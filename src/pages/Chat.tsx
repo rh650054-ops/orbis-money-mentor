@@ -149,7 +149,7 @@ export default function Chat() {
             <div>
               <Label>Cidade (opcional)</Label>
               <Input value={editCity} onChange={(e) => setEditCity(e.target.value)} placeholder="Ex: São Paulo" />
-              <p className="text-[11px] text-muted-foreground mt-1">Sem cidade, você verá o feed estadual.</p>
+              <p className="text-xs text-muted-foreground mt-1">Sem cidade, você verá o feed estadual.</p>
             </div>
           </div>
           <DialogFooter>

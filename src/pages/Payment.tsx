@@ -142,11 +142,11 @@ export default function Payment() {
             </p>
           </div>
 
-          <Card className="border border-primary/30 bg-card/80 backdrop-blur-sm overflow-hidden">
+          <Card className="border border-primary/30 bg-card overflow-hidden">
             <CardContent className="p-5 space-y-4">
               {/* What you LOSE */}
               <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
                   <X className="w-3.5 h-3.5" />
                   Sem assinatura você perde
                 </p>
@@ -172,7 +172,7 @@ export default function Payment() {
 
               {/* What you GET */}
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
+                <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5" />
                   Continuando no Orbis você
                 </p>
@@ -202,7 +202,7 @@ export default function Payment() {
                   <span className="text-4xl font-black text-primary leading-none">R$ 19,90</span>
                   <span className="text-sm text-muted-foreground">/mês</span>
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
+                <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
               </div>
 
               {/* Actions */}
@@ -235,10 +235,10 @@ export default function Payment() {
               </div>
 
               <div className="pt-1 space-y-1">
-                <p className="text-[10px] text-center text-muted-foreground/70">
+                <p className="text-xs text-center text-muted-foreground/70">
                   🔒 Pagamento seguro via Hotmart
                 </p>
-                <p className="text-[10px] text-center text-muted-foreground/70">
+                <p className="text-xs text-center text-muted-foreground/70">
                   💳 Cartão • Boleto • PIX
                 </p>
               </div>

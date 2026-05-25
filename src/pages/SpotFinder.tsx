@@ -36,9 +36,9 @@ type Spot = {
 };
 
 const trafficColor: Record<string, string> = {
-  alto: "bg-red-500/20 text-red-300 border-red-500/40",
-  medio: "bg-yellow-500/20 text-yellow-300 border-yellow-500/40",
-  baixo: "bg-green-500/20 text-green-300 border-green-500/40",
+  alto: "bg-destructive/20 text-destructive border-destructive/40",
+  medio: "bg-warning/20 text-warning border-warning/40",
+  baixo: "bg-success/20 text-success border-success/40",
 };
 
 const semaforoLabel: Record<string, string> = {
@@ -125,7 +125,7 @@ export default function SpotFinder() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold gradient-text flex items-center gap-2">
+          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
             <Radar className="w-6 h-6" /> Caça-Sinal
           </h1>
           <p className="text-xs text-muted-foreground">
@@ -134,7 +134,7 @@ export default function SpotFinder() {
         </div>
       </div>
 
-      <Card className="glass">
+      <Card>
         <CardContent className="p-4 space-y-4">
           <div className="grid grid-cols-3 gap-2">
             <div className="col-span-2">
@@ -170,8 +170,8 @@ export default function SpotFinder() {
           </Button>
           {cached && (
             <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] text-muted-foreground">Resultados do cache (24h)</p>
-              <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => search(true)} disabled={loading}>
+              <p className="text-xs text-muted-foreground">Resultados do cache (24h)</p>
+              <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => search(true)} disabled={loading}>
                 Forçar nova busca
               </Button>
             </div>
@@ -204,7 +204,7 @@ export default function SpotFinder() {
           <Card
             key={s.id}
             id={`spot-${s.id}`}
-            className={`glass overflow-hidden transition-all ${highlighted === s.id ? "ring-2 ring-primary" : ""}`}
+            className={`overflow-hidden transition-[colors,transform,opacity] ${highlighted === s.id ? "ring-2 ring-primary" : ""}`}
           >
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
@@ -217,7 +217,7 @@ export default function SpotFinder() {
                       </Badge>
                     )}
                     {s.spot_type && (
-                      <Badge variant="outline" className="text-[10px]">
+                      <Badge variant="outline" className="text-xs">
                         {spotTypeLabel[s.spot_type]}
                       </Badge>
                     )}
@@ -240,17 +240,17 @@ export default function SpotFinder() {
                   </Badge>
                 )}
                 {s.semaforo_duracao && s.semaforo_duracao !== "desconhecido" && (
-                  <Badge variant="outline" className="border-muted text-[10px]">
+                  <Badge variant="outline" className="border-muted text-xs">
                     {semaforoLabel[s.semaforo_duracao]}
                   </Badge>
                 )}
                 {s.audience_profile && (
-                  <Badge variant="outline" className="border-muted text-[10px]">
+                  <Badge variant="outline" className="border-muted text-xs">
                     {audienceLabel[s.audience_profile]}
                   </Badge>
                 )}
                 {s.weekend_better && (
-                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/40 text-[10px]">
+                  <Badge className="bg-primary/20 text-primary border-primary/40 text-xs">
                     <Calendar className="w-3 h-3 mr-1" /> Melhor fim de semana
                   </Badge>
                 )}
@@ -258,7 +258,7 @@ export default function SpotFinder() {
 
               {(s.peak_morning || s.peak_afternoon) && (
                 <div className="bg-card/40 rounded-lg p-2 space-y-1 border border-border/40">
-                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground flex items-center gap-1">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground flex items-center gap-1">
                     <TrafficCone className="w-3 h-3" /> Picos de trânsito
                   </p>
                   {s.peak_morning && (
@@ -289,7 +289,7 @@ export default function SpotFinder() {
                 </div>
               )}
               {s.reason && (
-                <p className="text-xs text-muted-foreground italic border-l-2 border-primary/40 pl-2">
+                <p className="text-xs text-muted-foreground italic bg-primary/5 rounded-md px-2 py-1.5">
                   {s.reason}
                 </p>
               )}
@@ -323,7 +323,7 @@ export default function SpotFinder() {
       </div>
 
       {!loading && spots.length === 0 && (
-        <Card className="glass">
+        <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
             Preencha sua cidade e toque em <strong>Encontrar bons sinais</strong>.
           </CardContent>

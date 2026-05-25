@@ -319,7 +319,7 @@ export default function DailyChecklist() {
     <div className="space-y-6 pb-4 md:pb-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Checklist Diário</h1>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Checklist Diário</h1>
         <p className="text-muted-foreground mt-1">
           Acompanhe suas atividades e mantenha a constância
         </p>
@@ -329,12 +329,12 @@ export default function DailyChecklist() {
       <GoalTimer userId={user?.id || ""} />
 
       {/* Progress Card */}
-      <Card className="glass card-gradient-border shadow-glow-primary animate-fade-in">
+      <Card className="card-gradient-border shadow-glow-primary animate-fade-in">
         <CardContent className="p-6">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary animate-pulse" />
+                <Calendar className="w-5 h-5 text-primary" />
                 <input
                   type="date"
                   value={selectedDate}
@@ -351,15 +351,13 @@ export default function DailyChecklist() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Progresso do dia</span>
-                <span className="font-bold text-primary text-lg animate-pulse">{completionPercentage}%</span>
+                <span className="font-bold text-primary text-lg">{completionPercentage}%</span>
               </div>
               <div className="h-4 bg-muted rounded-full overflow-hidden shadow-inner relative">
                 <div
-                  className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-all duration-700 ease-out shadow-glow-primary relative"
+                  className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-[colors,transform,opacity] duration-700 ease-out shadow-glow-primary relative"
                   style={{ width: `${completionPercentage}%` }}
-                >
-                  <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                </div>
+                />
               </div>
             </div>
 
@@ -387,7 +385,7 @@ export default function DailyChecklist() {
 
       {/* Checklist Items */}
       {checklist.length === 0 ? (
-        <Card className="glass">
+        <Card>
           <CardContent className="p-8 text-center">
             <TrendingUp className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
             <p className="text-muted-foreground mb-4">
@@ -404,7 +402,7 @@ export default function DailyChecklist() {
           {checklist.map((item, index) => (
             <Card
               key={item.id}
-              className={`glass transition-all duration-300 transform hover:scale-[1.02] hover:-translate-y-1 animate-fade-in ${
+              className={`transition-[colors,transform,opacity] duration-300 transform hover:scale-[1.02] hover:-translate-y-1 animate-fade-in ${
                 item.completed 
                   ? "bg-gradient-to-r from-success/10 to-success/5 border-success/30 shadow-glow-success" 
                   : "hover:shadow-glow-primary hover:border-primary/30"
@@ -413,11 +411,15 @@ export default function DailyChecklist() {
             >
               <CardContent className="p-4">
                 <div className="flex items-center gap-4">
-                  <div className={`transition-transform duration-300 ${item.completed ? "scale-110" : ""}`}>
+                  <div
+                    className={`h-11 w-11 flex items-center justify-center shrink-0 cursor-pointer transition-transform duration-300 ${item.completed ? "scale-110" : ""}`}
+                    onClick={() => toggleComplete(item.id, item.completed)}
+                    role="presentation"
+                  >
                     <Checkbox
                       checked={item.completed}
                       onCheckedChange={() => toggleComplete(item.id, item.completed)}
-                      className="h-6 w-6 border-2"
+                      className="h-6 w-6 border-2 pointer-events-none"
                     />
                   </div>
                   
@@ -432,7 +434,7 @@ export default function DailyChecklist() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <p className={`font-semibold text-base transition-all duration-300 ${
+                      <p className={`font-semibold text-base transition-[colors,transform,opacity] duration-300 ${
                         item.completed ? "line-through text-muted-foreground" : "text-foreground"
                       }`}>
                         {item.activity_name}
@@ -465,7 +467,7 @@ export default function DailyChecklist() {
       )}
 
       {/* Action Card */}
-      <Card className="glass border-primary/20 bg-primary/5">
+      <Card className="border-primary/20 bg-primary/5">
         <CardContent className="p-6">
           <div className="flex items-start space-x-4">
             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">

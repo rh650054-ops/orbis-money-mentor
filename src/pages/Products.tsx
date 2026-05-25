@@ -412,7 +412,7 @@ export default function Products() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold gradient-text truncate">Produtos & Estoque</h1>
+            <h1 className="text-xl font-bold text-foreground tracking-tight truncate">Produtos & Estoque</h1>
             <p className="text-xs text-muted-foreground">
               {pixAccounts.length} conta{pixAccounts.length !== 1 ? "s" : ""} Pix • QR por produto
             </p>
@@ -476,7 +476,7 @@ export default function Products() {
           {loading ? (
             <p className="text-center text-sm text-muted-foreground py-8">Carregando...</p>
           ) : products.length === 0 ? (
-            <Card className="glass">
+            <Card>
               <CardContent className="p-8 text-center space-y-2">
                 <Package className="w-10 h-10 text-muted-foreground mx-auto" />
                 <p className="text-sm text-muted-foreground">Nenhum produto cadastrado</p>
@@ -493,7 +493,7 @@ export default function Products() {
                     <div className="flex gap-3">
                       <div className="w-20 h-20 rounded-xl bg-muted overflow-hidden shrink-0 flex items-center justify-center">
                         {p.photo_url ? (
-                          <img src={p.photo_url} alt={p.name} className="w-full h-full object-cover" />
+                          <img loading="lazy" src={p.photo_url} alt={p.name} className="w-full h-full object-cover" />
                         ) : (
                           <ImageIcon className="w-6 h-6 text-muted-foreground" />
                         )}
@@ -511,14 +511,14 @@ export default function Products() {
                               <span className="text-base font-bold text-primary">
                                 {formatCurrency(p.sale_price)}
                               </span>
-                              <span className="text-[11px] text-muted-foreground">
+                              <span className="text-xs text-muted-foreground">
                                 custo {formatCurrency(p.cost)} • {marginPct.toFixed(0)}%
                               </span>
                             </>
                           )}
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                          <p className="text-[11px] text-muted-foreground">
+                          <p className="text-xs text-muted-foreground">
                             Estoque:{" "}
                             <span
                               className={
@@ -529,7 +529,7 @@ export default function Products() {
                             </span>
                           </p>
                           {acc && (
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               • {acc.bank_name}
                             </span>
                           )}
@@ -560,7 +560,7 @@ export default function Products() {
                       </Button>
                     </div>
                     {p.recipe_mode && p.recipe_mode !== "none" && (
-                      <div className="mt-2 flex items-center gap-1 text-[10px] text-muted-foreground">
+                      <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                         <ChefHat className="w-3 h-3" />
                         Receita {p.recipe_mode === "per_unit" ? "por unidade" : `por lote (rende ${p.batch_yield ?? 0})`}
                       </div>
@@ -640,7 +640,7 @@ export default function Products() {
                   >
                     {p.stock_quantity}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">un</p>
+                  <p className="text-xs text-muted-foreground">un</p>
                 </div>
               </CardContent>
             </Card>
@@ -693,7 +693,7 @@ export default function Products() {
               <CardContent className="p-3 flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <Label htmlFor="open-price" className="font-medium">Preço aberto</Label>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                  <p className="text-xs text-muted-foreground mt-0.5">
                     Para vendas com valor combinado na hora. O QR Pix vai sem valor — o cliente digita.
                   </p>
                 </div>
@@ -761,7 +761,7 @@ export default function Products() {
                 <Label>Receber Pix em</Label>
                 <button
                   type="button"
-                  className="text-[11px] text-primary hover:underline"
+                  className="text-xs text-primary hover:underline"
                   onClick={openPixManager}
                 >
                   + Nova conta
@@ -800,7 +800,7 @@ export default function Products() {
                         <div className="flex-1 min-w-0 text-left">
                           <p className="text-xs font-medium truncate">{a.bank_name}</p>
                           {a.is_default && (
-                            <p className="text-[9px] text-primary">★ Padrão</p>
+                            <p className="text-xs text-primary">★ Padrão</p>
                           )}
                         </div>
                         {selected && <Check className="w-4 h-4 text-primary shrink-0" />}
@@ -862,7 +862,7 @@ export default function Products() {
                   {(() => {
                     const acc = getProductPixAccount(qrProduct);
                     return acc ? (
-                      <p className="text-[10px] text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {acc.bank_name} • {acc.merchant_name} • {acc.merchant_city}
                       </p>
                     ) : null;
@@ -907,19 +907,19 @@ export default function Products() {
                           <p className="font-medium text-sm truncate">{a.bank_name}</p>
                           {a.is_default && <Star className="w-3 h-3 text-primary fill-primary" />}
                         </div>
-                        <p className="text-[11px] text-muted-foreground truncate">
+                        <p className="text-xs text-muted-foreground truncate">
                           {a.pix_key_type.toUpperCase()} • {a.pix_key}
                         </p>
                       </div>
                       {!a.is_default && (
-                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
+                        <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => setDefaultPix(a.id)} title="Tornar padrão">
                           <Star className="w-3.5 h-3.5" />
                         </Button>
                       )}
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => editPixAccount(a)}>
+                      <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => editPixAccount(a)} aria-label="Editar Pix">
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => deletePixAccount(a.id)}>
+                      <Button size="icon" variant="ghost" className="h-11 w-11" onClick={() => deletePixAccount(a.id)} aria-label="Excluir Pix">
                         <Trash2 className="w-3.5 h-3.5 text-destructive" />
                       </Button>
                     </CardContent>
@@ -977,7 +977,7 @@ export default function Products() {
                         >
                           {b.emoji}
                         </div>
-                        <span className="text-[10px] font-medium text-center leading-tight line-clamp-2">
+                        <span className="text-xs font-medium text-center leading-tight line-clamp-2">
                           {b.name}
                         </span>
                         {alreadyAdded && (
@@ -1008,11 +1008,11 @@ export default function Products() {
                 })()}
                 <div className="flex-1">
                   <p className="font-semibold">{pixForm.bank_name}</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     {editingPix ? "Editando chave Pix" : "Adicionar chave Pix deste banco"}
                   </p>
                 </div>
-                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={resetPixForm}>
+                <Button variant="ghost" size="icon" className="h-11 w-11" onClick={resetPixForm} aria-label="Fechar">
                   ✕
                 </Button>
               </div>

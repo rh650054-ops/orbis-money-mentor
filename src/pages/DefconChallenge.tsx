@@ -22,7 +22,7 @@ export default function DefconChallenge() {
   if (authLoading || defcon.loading || !user) {
     return (
       <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex items-center justify-center">
-        <div className="text-2xl font-mono text-red-500 animate-pulse">
+        <div className="text-2xl font-mono text-destructive animate-pulse">
           CARREGANDO DEFCON 4...
         </div>
       </div>

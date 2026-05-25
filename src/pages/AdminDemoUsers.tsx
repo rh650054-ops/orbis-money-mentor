@@ -258,7 +258,7 @@ export default function AdminDemoUsers() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md glass border-destructive/30">
+        <Card className="w-full max-w-md border-destructive/30">
           <CardHeader>
             <CardTitle className="flex flex-col items-center gap-3 text-center">
               <Shield className="w-12 h-12 text-destructive" />
@@ -301,7 +301,7 @@ export default function AdminDemoUsers() {
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold gradient-text">Gerenciar Contas Demo</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Gerenciar Contas Demo</h1>
           <p className="text-muted-foreground mt-1">
             Crie e gerencie contas de demonstração ilimitadas
           </p>
@@ -309,7 +309,7 @@ export default function AdminDemoUsers() {
       </div>
 
       {/* Formulário de Criação */}
-      <Card className="glass card-gradient-border shadow-glow-primary">
+      <Card className="card-gradient-border shadow-glow-primary">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <UserPlus className="w-5 h-5 text-primary" />
@@ -359,7 +359,7 @@ export default function AdminDemoUsers() {
 
       {/* Credenciais Criadas */}
       {createdCredentials && (
-        <Card className="glass border-success/30 bg-success/5">
+        <Card className="border-success/30 bg-success/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-success">
               <Check className="w-5 h-5" />
@@ -432,7 +432,7 @@ export default function AdminDemoUsers() {
       )}
 
       {/* Lista de Usuários Demo */}
-      <Card className="glass">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5 text-primary" />

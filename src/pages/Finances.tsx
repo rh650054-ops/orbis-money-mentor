@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { getBrazilDate } from "@/lib/dateUtils";
+import { CATEGORY_COLORS, CATEGORY_DEFAULT_COLOR } from "@/lib/theme-colors";
 
 interface Expense {
   id: string;
@@ -80,14 +81,14 @@ interface FinancialSummary {
 }
 
 const EXPENSE_CATEGORIES = [
-  { value: "food", label: "Alimentação", icon: "🍕", color: "#F59E0B" },
-  { value: "housing", label: "Moradia", icon: "🏠", color: "#3B82F6" },
-  { value: "transport", label: "Transporte", icon: "🚗", color: "#10B981" },
-  { value: "education", label: "Educação", icon: "🧠", color: "#8B5CF6" },
-  { value: "health", label: "Saúde", icon: "❤️", color: "#EF4444" },
-  { value: "leisure", label: "Lazer", icon: "🎮", color: "#EC4899" },
-  { value: "merchandise", label: "Mercadoria", icon: "🧃", color: "#6366F1" },
-  { value: "other", label: "Outros", icon: "💰", color: "#64748B" }
+  { value: "food", label: "Alimentação", icon: "🍕", color: CATEGORY_COLORS.food },
+  { value: "housing", label: "Moradia", icon: "🏠", color: CATEGORY_COLORS.housing },
+  { value: "transport", label: "Transporte", icon: "🚗", color: CATEGORY_COLORS.transport },
+  { value: "education", label: "Educação", icon: "🧠", color: CATEGORY_COLORS.education },
+  { value: "health", label: "Saúde", icon: "❤️", color: CATEGORY_COLORS.health },
+  { value: "leisure", label: "Lazer", icon: "🎮", color: CATEGORY_COLORS.leisure },
+  { value: "merchandise", label: "Mercadoria", icon: "🧃", color: CATEGORY_COLORS.merchandise },
+  { value: "other", label: "Outros", icon: "💰", color: CATEGORY_COLORS.other }
 ];
 
 export default function Finances() {
@@ -274,7 +275,7 @@ export default function Finances() {
           amount: parseFloat(newExpense.amount),
           type: newExpense.type,
           icon: selectedCategory?.icon || "💰",
-          color: selectedCategory?.color || "#3B82F6",
+          color: selectedCategory?.color || CATEGORY_DEFAULT_COLOR,
           notes: newExpense.notes || null
         });
 
@@ -498,7 +499,7 @@ export default function Finances() {
       return {
         name: cat?.label || category,
         value: amount,
-        color: cat?.color || "#3B82F6"
+        color: cat?.color || CATEGORY_DEFAULT_COLOR
       };
     });
   };
@@ -517,15 +518,15 @@ export default function Finances() {
     : 0;
 
   const getBudgetColor = () => {
-    if (budgetPercentage < 60) return "text-green-500";
-    if (budgetPercentage < 90) return "text-yellow-500";
-    return "text-red-500";
+    if (budgetPercentage < 60) return "text-success";
+    if (budgetPercentage < 90) return "text-warning";
+    return "text-destructive";
   };
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
       <div>
-        <h1 className="text-3xl font-bold gradient-text">💰 Minhas Finanças</h1>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">💰 Minhas Finanças</h1>
         <p className="text-muted-foreground mt-1">
           Controle total do seu dinheiro — quanto ganhou, gastou e guardou
         </p>
@@ -538,11 +539,11 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Lucro do dia</p>
-                <div className="text-2xl font-bold text-green-500 whitespace-nowrap">
+                <div className="text-2xl font-bold text-success whitespace-nowrap">
                   {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
                 </div>
               </div>
-              <TrendingUp className="w-8 h-8 text-green-500" />
+              <TrendingUp className="w-8 h-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -552,14 +553,14 @@ export default function Finances() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Custos do dia</p>
-                <div className="text-2xl font-bold text-red-500 whitespace-nowrap">
+                <div className="text-2xl font-bold text-destructive whitespace-nowrap">
                   {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   mercadoria + calotes + despesas
                 </p>
               </div>
-              <TrendingDown className="w-8 h-8 text-red-500" />
+              <TrendingDown className="w-8 h-8 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -586,7 +587,7 @@ export default function Finances() {
           : 0;
         const remainingToGoal = Math.max(0, summary.monthlyBudget - summary.monthlyNetProfit);
         const goalColor =
-          goalPct >= 100 ? "text-green-500" : goalPct >= 60 ? "text-primary" : "text-yellow-500";
+          goalPct >= 100 ? "text-success" : goalPct >= 60 ? "text-primary" : "text-warning";
         return (
           <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
             <CardHeader>
@@ -658,9 +659,9 @@ export default function Finances() {
                   />
                 </div>
                 {summary.monthlyBudget === 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                  <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+                    <AlertCircle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-warning">
                       Defina sua meta mensal pra acompanhar o quanto você já avançou.
                     </p>
                   </div>
@@ -811,7 +812,7 @@ export default function Finances() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <p className="text-lg font-bold text-red-500 whitespace-nowrap">
+                        <p className="text-lg font-bold text-destructive whitespace-nowrap">
                           {formatCurrency(-Number(expense.amount))}
                         </p>
                         <Button
@@ -819,7 +820,7 @@ export default function Finances() {
                           size="sm"
                           onClick={() => handleDeleteExpense(expense.id)}
                         >
-                          <Trash2 className="w-4 h-4 text-red-500" />
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
                     </div>
@@ -979,8 +980,8 @@ export default function Finances() {
                       )}
                       
                       {goal.status === "completed" && (
-                        <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 text-center">
-                          <p className="text-green-600 dark:text-green-400 font-semibold">
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-center">
+                          <p className="text-success font-semibold">
                             🎉 Meta Concluída!
                           </p>
                         </div>

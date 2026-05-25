@@ -202,7 +202,7 @@ export default function History() {
   return (
     <div className="p-4 md:p-6 space-y-6 animate-fade-in pb-4 md:pb-8">
       <div className="text-center space-y-2 mb-6">
-        <h1 className="text-3xl md:text-4xl font-bold gradient-text">Histórico de Lançamentos</h1>
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-tight">Histórico de Lançamentos</h1>
         <p className="text-muted-foreground">
           Todos os seus lançamentos individuais • {filteredHistory.length} {filteredHistory.length === 1 ? 'lançamento' : 'lançamentos'}
         </p>
@@ -273,7 +273,7 @@ export default function History() {
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs text-muted-foreground">⚡ Lucro líquido</p>
-                  <p className="text-lg font-bold gradient-text">R$ {totals.netProfit.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-foreground tracking-tight">R$ {totals.netProfit.toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -323,7 +323,7 @@ export default function History() {
       {/* Lançamentos */}
       <div className="space-y-4">
         {filteredHistory.length === 0 ? (
-          <Card className="glass">
+          <Card>
             <CardContent className="p-8 text-center">
               <Calendar className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
               <p className="text-muted-foreground">
@@ -342,7 +342,7 @@ export default function History() {
             const isGoalReached = percentage >= 100;
 
             return (
-              <Card key={sale.id} className="glass hover:shadow-glow-primary transition-smooth">
+              <Card key={sale.id} className="hover:shadow-glow-primary transition-smooth">
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {/* Header com data e hora */}
@@ -379,10 +379,10 @@ export default function History() {
                         {/* Delete Button */}
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button 
-                              variant="ghost" 
+                            <Button
+                              variant="ghost"
                               size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              className="h-11 w-11 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -463,7 +463,7 @@ export default function History() {
                       </div>
                       <div className="h-2 bg-muted rounded-full overflow-hidden">
                         <div 
-                          className="h-full bg-gradient-to-r from-primary to-secondary transition-all"
+                          className="h-full bg-gradient-to-r from-primary to-secondary transition-[colors,transform,opacity]"
                           style={{ width: `${percentage}%` }}
                         />
                       </div>

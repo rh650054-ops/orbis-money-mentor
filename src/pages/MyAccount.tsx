@@ -366,11 +366,11 @@ export default function Profile() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-primary leading-tight">Conta Demo</p>
-              <p className="text-[11px] text-foreground/80 leading-tight mt-0.5">
+              <p className="text-xs text-foreground/80 leading-tight mt-0.5">
                 Acesso completo liberado · vire BLACK para remover este aviso
               </p>
             </div>
-            <Badge className="bg-primary text-primary-foreground border-0 text-[10px] px-2 py-0 h-5 font-bold tracking-wider shrink-0">
+            <Badge className="bg-primary text-primary-foreground border-0 text-xs px-2 py-0 h-5 font-bold tracking-wider shrink-0">
               DEMO
             </Badge>
           </div>
@@ -378,7 +378,7 @@ export default function Profile() {
       )}
 
       {/* User Info Card - compacto e clean */}
-      <Card className={`glass relative overflow-hidden ${
+      <Card className={`relative overflow-hidden ${
         profile.plan_status === "active"
           ? "border-primary/40 shadow-[0_0_30px_-10px_hsl(var(--primary)/0.6)]"
           : ""
@@ -425,7 +425,7 @@ export default function Profile() {
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h2 className={`text-base font-semibold leading-tight truncate ${
                   profile.plan_status === "active"
-                    ? "gradient-text-gold drop-shadow-[0_0_8px_hsl(var(--primary)/0.5)]"
+                    ? "text-primary"
                     : profile.is_demo
                     ? "text-foreground/70"
                     : "text-foreground"
@@ -433,7 +433,7 @@ export default function Profile() {
                   {profile.nickname || "Usuário"}
                 </h2>
                 {profile.plan_status === "active" && (
-                  <Badge className="bg-primary text-primary-foreground border-0 text-[10px] px-1.5 py-0 h-5 font-bold tracking-wider shadow-[0_0_12px_-2px_hsl(var(--primary)/0.8)]">
+                  <Badge className="bg-primary text-primary-foreground border-0 text-xs px-1.5 py-0 h-5 font-bold tracking-wider shadow-[0_0_12px_-2px_hsl(var(--primary)/0.8)]">
                     <Crown className="w-2.5 h-2.5 mr-0.5" />
                     BLACK
                   </Badge>
@@ -449,7 +449,8 @@ export default function Profile() {
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsEditing(true)}
-                className="h-8 w-8 shrink-0 hover:bg-primary/10"
+                className="h-11 w-11 shrink-0 hover:bg-primary/10"
+                aria-label="Editar perfil"
               >
                 <Edit2 className="h-4 w-4" />
               </Button>
@@ -483,7 +484,7 @@ export default function Profile() {
                 <span className="text-xs font-medium text-muted-foreground">Meta Mensal</span>
                 <span className={`text-base font-semibold ${
                   profile.plan_status === "active"
-                    ? "gradient-text-gold drop-shadow-[0_0_6px_hsl(var(--primary)/0.4)]"
+                    ? "text-primary"
                     : profile.is_demo
                     ? "text-foreground/70"
                     : "text-foreground"
@@ -598,7 +599,7 @@ export default function Profile() {
 
       {/* Admin Panel Access Card - apenas para admins */}
       {isAdmin && (
-        <Card className="glass border-primary/20">
+        <Card className="border-primary/20">
           <CardContent className="p-4 space-y-2">
             <div className="flex items-center gap-2 mb-1">
               <Shield className="w-4 h-4 text-primary" />
@@ -628,7 +629,7 @@ export default function Profile() {
 
       {/* Subscription Card - Apenas para não assinantes */}
       {profile.plan_status !== 'active' && !profile.billing_exempt && (
-        <Card className="glass overflow-hidden relative border-primary/30">
+        <Card className="overflow-hidden relative border-primary/30">
           <div className="absolute -top-12 -right-12 w-40 h-40 bg-primary/10 blur-3xl rounded-full pointer-events-none" />
           <CardContent className="p-4 space-y-4 relative z-10">
             {/* Cabeçalho compacto */}
@@ -642,7 +643,7 @@ export default function Profile() {
                   <p className="text-xs text-muted-foreground">Plano Mensal Premium</p>
                 </div>
               </div>
-              <Badge className="bg-success/15 text-success border border-success/30 text-[10px] px-1.5 py-0 h-5 font-semibold shrink-0">
+              <Badge className="bg-success/15 text-success border border-success/30 text-xs px-1.5 py-0 h-5 font-semibold shrink-0">
                 3 dias grátis
               </Badge>
             </div>
@@ -672,7 +673,7 @@ export default function Profile() {
               {isUpgrading ? "Processando..." : "Assinar Agora"}
             </Button>
 
-            <p className="text-[10px] text-center text-muted-foreground">
+            <p className="text-xs text-center text-muted-foreground">
               🔒 Cancele quando quiser. Sem taxas escondidas.
             </p>
           </CardContent>
@@ -681,7 +682,7 @@ export default function Profile() {
 
       {/* Status PRO - Para assinantes ativos */}
       {profile.plan_status === 'active' && !profile.is_demo && (
-        <Card className="glass border-primary/30">
+        <Card className="border-primary/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -693,7 +694,7 @@ export default function Profile() {
                   <p className="text-xs text-muted-foreground truncate">Acesso completo aos recursos premium</p>
                 </div>
               </div>
-              <Badge className="bg-primary/15 text-primary border border-primary/30 text-[10px] px-1.5 py-0 h-5 font-semibold shrink-0">
+              <Badge className="bg-primary/15 text-primary border border-primary/30 text-xs px-1.5 py-0 h-5 font-semibold shrink-0">
                 PRO
               </Badge>
             </div>
@@ -705,7 +706,7 @@ export default function Profile() {
       {user && <MonthlyChallengeCard userId={user.id} />}
 
       {/* Stats Card - compacto */}
-      <Card className="glass">
+      <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <TrendingUp className="w-4 h-4 text-muted-foreground" />
@@ -714,15 +715,15 @@ export default function Profile() {
           <div className="grid grid-cols-3 gap-2 text-center">
             <div className="rounded-lg bg-muted/30 py-2.5">
               <p className="text-lg font-bold text-foreground">{stats.transactions}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Vendas</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Vendas</p>
             </div>
             <div className="rounded-lg bg-muted/30 py-2.5">
               <p className="text-lg font-bold text-foreground">{stats.goals}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Rotinas</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Rotinas</p>
             </div>
             <div className="rounded-lg bg-muted/30 py-2.5">
               <p className="text-lg font-bold text-foreground">{stats.insights}</p>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Atividades</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide">Atividades</p>
             </div>
           </div>
         </CardContent>

@@ -91,7 +91,7 @@ export default function Profile() {
   return (
     <div className="space-y-6 pb-4 md:pb-8 max-w-2xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold gradient-text">Perfil</h1>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Perfil</h1>
         <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
       </div>
 
@@ -101,7 +101,7 @@ export default function Profile() {
           return (
             <Card
               key={item.label}
-              className="glass cursor-pointer hover:border-primary/30 transition-all hover:scale-[1.01]"
+              className="cursor-pointer hover:border-primary/30 transition-[colors,transform,opacity] hover:scale-[1.01]"
               onClick={() => handleItemClick(item)}
             >
               <CardContent className="p-4 flex items-center gap-4">

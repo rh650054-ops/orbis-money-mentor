@@ -134,7 +134,7 @@ export default function AdminSubscriptions() {
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="w-full max-w-md glass border-destructive/30">
+        <Card className="w-full max-w-md border-destructive/30">
           <CardHeader>
             <CardTitle className="flex flex-col items-center gap-3 text-center">
               <Shield className="w-12 h-12 text-destructive" />
@@ -159,7 +159,7 @@ export default function AdminSubscriptions() {
       <div className="flex items-center gap-3">
         <Shield className="w-8 h-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold gradient-text">Gerenciar Assinaturas</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Gerenciar Assinaturas</h1>
           <p className="text-muted-foreground mt-1">
             Ative ou desative assinaturas manualmente (provider: Hotmart)
           </p>
@@ -167,7 +167,7 @@ export default function AdminSubscriptions() {
       </div>
 
       {/* Search */}
-      <Card className="glass">
+      <Card>
         <CardContent className="pt-6">
           <div className="flex gap-3">
             <div className="flex-1 space-y-2">
@@ -192,7 +192,7 @@ export default function AdminSubscriptions() {
       </Card>
 
       {/* Link CPF */}
-      <Card className="glass border-primary/30">
+      <Card className="border-primary/30">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Link2 className="w-5 h-5 text-primary" />
@@ -267,7 +267,7 @@ export default function AdminSubscriptions() {
       </Card>
 
       {/* Users list */}
-      <Card className="glass">
+      <Card>
         <CardHeader>
           <CardTitle>Usuários ({filteredUsers.length})</CardTitle>
         </CardHeader>
@@ -293,10 +293,10 @@ export default function AdminSubscriptions() {
                         <Badge
                           className={
                             u.plan_status === "active"
-                              ? "bg-green-600 text-white text-xs"
+                              ? "bg-success text-success-foreground text-xs"
                               : u.plan_status === "trial"
-                              ? "bg-yellow-600 text-white text-xs"
-                              : "bg-red-600 text-white text-xs"
+                              ? "bg-warning text-warning-foreground text-xs"
+                              : "bg-destructive text-destructive-foreground text-xs"
                           }
                         >
                           {u.plan_status || "trial"}

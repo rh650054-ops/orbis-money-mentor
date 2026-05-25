@@ -351,7 +351,7 @@ export default function Insights() {
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                "px-3.5 py-1.5 text-xs font-medium rounded-full border transition-all",
+                "px-3.5 py-1.5 text-xs font-medium rounded-full border transition-[colors,transform,opacity]",
                 period === p
                   ? "bg-primary text-primary-foreground border-primary shadow-[0_4px_14px_-2px_hsl(var(--primary)/0.5)]"
                   : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
@@ -370,7 +370,7 @@ export default function Insights() {
           </div>
         )}
 
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Período: <span className="text-foreground font-medium">
             {fmtBR(range.start)} → {fmtBR(range.end)}
           </span>{" "}
@@ -388,7 +388,7 @@ export default function Insights() {
           <section className="relative overflow-hidden rounded-3xl border border-primary/30 p-5 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent">
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
             <div className="relative space-y-1">
-              <p className="text-[11px] uppercase tracking-wider text-primary font-bold">
+              <p className="text-xs uppercase tracking-wider text-primary font-bold">
                 Faturamento do período
               </p>
               <p className="text-4xl font-bold tracking-tight text-foreground">
@@ -467,7 +467,7 @@ export default function Insights() {
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-base">{c.icon}</span>
                         <span className="flex-1 text-foreground/90 font-medium">{c.category}</span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {c.count} {c.count === 1 ? "item" : "itens"}
                         </span>
                         <span className="font-bold text-primary w-24 text-right">
@@ -489,7 +489,7 @@ export default function Insights() {
 
           {/* Análise narrativa */}
           <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4">
-            <p className="text-[11px] uppercase tracking-wider text-primary font-bold mb-2">
+            <p className="text-xs uppercase tracking-wider text-primary font-bold mb-2">
               Análise do período
             </p>
             <p className="text-sm text-foreground/90 leading-relaxed">
@@ -644,7 +644,7 @@ export default function Insights() {
                     <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
                       <div
                         className={cn(
-                          "h-full rounded-full transition-all",
+                          "h-full rounded-full transition-[colors,transform,opacity]",
                           i === 0
                             ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
                             : "bg-primary/40",
@@ -757,7 +757,7 @@ function MetricCell({
         ? "border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5"
         : "border-border/60 bg-card"
     )}>
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
       <p className={cn(
         "mt-1.5 text-xl font-bold tracking-tight",
         accent === "gold" && !valueClassName && "text-primary",
@@ -804,7 +804,7 @@ function FinanceRow({
 function MiniStat({ label, value, highlight = false }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="text-center">
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
       <p className={cn(
         "mt-1.5 text-2xl font-bold tracking-tight",
         highlight ? "text-primary" : "text-foreground"
@@ -831,7 +831,7 @@ function ComparisonCell({
         ? "border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5"
         : "border-border/60 bg-card"
     )}>
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
+      <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</p>
       {valid ? (
         <div className={cn(
           "mt-1.5 flex items-center gap-1 text-xl font-bold",

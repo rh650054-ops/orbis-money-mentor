@@ -69,7 +69,7 @@ export default function Settings() {
           <ArrowLeft className="w-5 h-5" />
         </Button>
         <div>
-          <h1 className="text-2xl font-bold gradient-text">Configurações</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Configurações</h1>
           <p className="text-sm text-muted-foreground">Preferências do app</p>
         </div>
       </div>
@@ -78,7 +78,7 @@ export default function Settings() {
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Geral</p>
 
-        <Card className="glass">
+        <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-muted/40 flex items-center justify-center text-primary">
               <Bell className="w-5 h-5" />
@@ -99,7 +99,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="glass">
+        <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-muted/40 flex items-center justify-center text-primary">
               <Volume2 className="w-5 h-5" />
@@ -117,7 +117,7 @@ export default function Settings() {
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Informações</p>
 
-        <Card className="glass cursor-pointer hover:bg-muted/10 transition-colors" onClick={handleSupport}>
+        <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={handleSupport}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-muted/40 flex items-center justify-center text-primary">
               <HelpCircle className="w-5 h-5" />
@@ -130,7 +130,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="glass">
+        <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-muted/40 flex items-center justify-center text-primary">
               <Shield className="w-5 h-5" />
@@ -143,7 +143,7 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        <Card className="glass">
+        <Card>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="w-10 h-10 rounded-full bg-muted/40 flex items-center justify-center text-primary">
               <Info className="w-5 h-5" />

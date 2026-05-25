@@ -325,7 +325,7 @@ export default function AdminCompetitions() {
 
             {/* Quem pode participar */}
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-3">
-              <p className="text-[11px] font-black uppercase tracking-wider text-primary">
+              <p className="text-xs font-black uppercase tracking-wider text-primary">
                 Quem pode participar
               </p>
               <div>
@@ -375,7 +375,7 @@ export default function AdminCompetitions() {
             <CardContent className="p-4 space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-primary font-bold">
+                  <p className="text-xs uppercase tracking-widest text-primary font-bold">
                     {c.status} · {c.period_type}
                   </p>
                   <h3 className="font-bold text-foreground">{c.name}</h3>
@@ -387,7 +387,7 @@ export default function AdminCompetitions() {
               </div>
 
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">
                   Participantes ({(parts[c.id] || []).length})
                 </p>
                 <div className="space-y-1">
@@ -409,7 +409,7 @@ export default function AdminCompetitions() {
                     </div>
                   ))}
                   {(parts[c.id] || []).length === 0 && (
-                    <p className="text-[11px] text-muted-foreground italic">Sem participantes ainda.</p>
+                    <p className="text-xs text-muted-foreground italic">Sem participantes ainda.</p>
                   )}
                 </div>
               </div>

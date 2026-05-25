@@ -35,11 +35,11 @@ const TIERS: Tier[] = [
     accent: "hsl(140 70% 45%)",
     emoji: "🌱",
     icon: <Target className="h-5 w-5" />,
-    colorClass: "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
-    glowColor: "shadow-emerald-500/20",
+    colorClass: "from-success/20 to-success/10 border-success/30",
+    glowColor: "shadow-success/20",
     rarity: "Comum",
-    rarityColor: "text-emerald-400",
-    bgGradient: "from-emerald-500/10 via-transparent to-transparent",
+    rarityColor: "text-success",
+    bgGradient: "from-success/10 via-transparent to-transparent",
     rewards: [
       "Selo Semente no perfil",
       "Acesso à comunidade Orbis",
@@ -55,11 +55,11 @@ const TIERS: Tier[] = [
     accent: "hsl(25 95% 55%)",
     emoji: "🔥",
     icon: <Zap className="h-5 w-5" />,
-    colorClass: "from-orange-500/20 to-orange-600/10 border-orange-500/30",
-    glowColor: "shadow-orange-500/20",
+    colorClass: "from-tier-bronze/20 to-tier-bronze/10 border-tier-bronze/30",
+    glowColor: "shadow-tier-bronze/20",
     rarity: "Incomum",
-    rarityColor: "text-orange-400",
-    bgGradient: "from-orange-500/10 via-transparent to-transparent",
+    rarityColor: "text-tier-bronze",
+    bgGradient: "from-tier-bronze/10 via-transparent to-transparent",
     rewards: [
       "1 mês grátis de assinatura",
       "Selo Brasa exclusivo",
@@ -75,11 +75,11 @@ const TIERS: Tier[] = [
     accent: "hsl(45 95% 55%)",
     emoji: "⚒️",
     icon: <Trophy className="h-5 w-5" />,
-    colorClass: "from-amber-500/20 to-amber-600/10 border-amber-500/30",
-    glowColor: "shadow-amber-500/20",
+    colorClass: "from-tier-gold/20 to-tier-gold/10 border-tier-gold/30",
+    glowColor: "shadow-tier-gold/20",
     rarity: "Raro",
-    rarityColor: "text-amber-400",
-    bgGradient: "from-amber-500/10 via-transparent to-transparent",
+    rarityColor: "text-tier-gold",
+    bgGradient: "from-tier-gold/10 via-transparent to-transparent",
     rewards: [
       "3 meses grátis de assinatura",
       "Convite para grupo VIP",
@@ -95,11 +95,11 @@ const TIERS: Tier[] = [
     accent: "hsl(200 90% 60%)",
     emoji: "⭐",
     icon: <Star className="h-5 w-5" />,
-    colorClass: "from-cyan-500/20 to-cyan-600/10 border-cyan-500/30",
-    glowColor: "shadow-cyan-500/20",
+    colorClass: "from-tier-legendary/20 to-tier-legendary/10 border-tier-legendary/30",
+    glowColor: "shadow-tier-legendary/20",
     rarity: "Lendário",
-    rarityColor: "text-cyan-400",
-    bgGradient: "from-cyan-500/10 via-transparent to-transparent",
+    rarityColor: "text-tier-legendary",
+    bgGradient: "from-tier-legendary/10 via-transparent to-transparent",
     rewards: [
       "Mentoria 1:1 com fundador",
       "Acesso vitalício ao Orbis",
@@ -186,7 +186,7 @@ export default function Rewards() {
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all"
+                  className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-[colors,transform,opacity]"
                   style={{ width: `${progressToNext}%` }}
                 />
               </div>
@@ -229,7 +229,7 @@ export default function Rewards() {
                 className="w-full text-left group"
               >
                 <div
-                  className="relative overflow-hidden rounded-2xl border transition-all"
+                  className="relative overflow-hidden rounded-2xl border transition-[colors,transform,opacity]"
                   style={{
                     background: isCurrent
                       ? `linear-gradient(135deg, ${tier.accent}2E 0%, hsl(var(--card)) 55%, hsl(var(--card)) 100%)`
@@ -248,19 +248,6 @@ export default function Rewards() {
                       : "none",
                   }}
                 >
-                  {(isUnlocked || isCurrent) && (
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                      <div
-                        className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
-                        style={{
-                          background: `linear-gradient(90deg, transparent, ${
-                            isCurrent ? tier.accent + "40" : tier.accent + "25"
-                          }, transparent)`,
-                        }}
-                      />
-                    </div>
-                  )}
-
                   {!isUnlocked && !isCurrent && (
                     <div
                       className="pointer-events-none absolute inset-0 rounded-2xl"
@@ -273,9 +260,7 @@ export default function Rewards() {
 
                   <div className="relative flex items-center gap-4 p-4">
                     <div
-                      className={`relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 ${
-                        isUnlocked ? "animate-float" : ""
-                      }`}
+                      className="relative w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
                       style={{
                         background: isUnlocked
                           ? `linear-gradient(135deg, ${tier.accent}, ${tier.accent}60)`
@@ -293,7 +278,7 @@ export default function Rewards() {
                     >
                       <span className="text-3xl leading-none drop-shadow-lg">{tier.emoji}</span>
                       <div
-                        className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black border-2 border-background"
+                        className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full flex items-center justify-center text-xs font-black border-2 border-background"
                         style={{
                           background: isUnlocked ? tier.accent : "hsl(var(--muted))",
                           color: isUnlocked ? "white" : "hsl(var(--muted-foreground))",
@@ -302,7 +287,7 @@ export default function Rewards() {
                         {tier.level}
                       </div>
                       {isUnlocked ? (
-                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-background flex items-center justify-center">
+                        <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-success border-2 border-background flex items-center justify-center">
                           <Check className="h-2.5 w-2.5 text-white" strokeWidth={4} />
                         </div>
                       ) : (
@@ -318,7 +303,7 @@ export default function Rewards() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span
-                          className="text-[10px] uppercase tracking-wider font-black px-1.5 py-0.5 rounded"
+                          className="text-xs uppercase tracking-wider font-black px-1.5 py-0.5 rounded"
                           style={{
                             background: isUnlocked || isCurrent ? `${tier.accent}20` : "hsl(var(--muted))",
                             color: isUnlocked || isCurrent ? tier.accent : "hsl(var(--muted-foreground))",
@@ -360,24 +345,15 @@ export default function Rewards() {
                     <div className="relative px-4 pb-4 -mt-1">
                       <div className="relative h-1.5 bg-muted/60 rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full transition-all duration-700 relative overflow-hidden"
+                          className="h-full rounded-full transition-[width] duration-300 ease-out"
                           style={{
                             width: `${tierProgress}%`,
                             background: `linear-gradient(90deg, ${tier.accent}, ${tier.accent}aa)`,
-                            boxShadow: `0 0 10px ${tier.accent}90`,
                           }}
-                        >
-                          <div
-                            className="absolute inset-0 animate-shine-sweep"
-                            style={{
-                              background:
-                                "linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.4), transparent)",
-                            }}
-                          />
-                        </div>
+                        />
                       </div>
                       <p
-                        className="text-[10px] font-bold text-right mt-1"
+                        className="text-xs font-bold text-right mt-1"
                         style={{ color: tier.accent }}
                       >
                         {tierProgress.toFixed(0)}% rumo a {tier.name}
@@ -388,7 +364,7 @@ export default function Rewards() {
                   {isExpanded && (
                     <div className="relative px-4 pb-4 pt-0 animate-fade-in">
                       <div
-                        className="rounded-xl p-4 space-y-2 backdrop-blur-sm"
+                        className="rounded-xl p-4 space-y-2"
                         style={{
                           background: isUnlocked ? `${tier.accent}12` : "hsl(var(--muted) / 0.4)",
                           border: `1px solid ${isUnlocked ? tier.accent + "35" : "hsl(var(--border))"}`,
@@ -396,7 +372,7 @@ export default function Rewards() {
                       >
                         <div className="flex items-center gap-2 mb-2">
                           {!isUnlocked && <Lock className="h-3 w-3 text-muted-foreground" />}
-                          <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                          <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">
                             {isUnlocked ? "Recompensas conquistadas" : "Você desbloqueia"}
                           </p>
                         </div>

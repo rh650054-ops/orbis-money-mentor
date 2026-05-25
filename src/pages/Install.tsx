@@ -54,11 +54,11 @@ export default function Install() {
   if (isStandalone) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="glass max-w-md w-full p-8 text-center space-y-4">
+        <Card className="max-w-md w-full p-8 text-center space-y-4">
           <div className="w-16 h-16 mx-auto bg-primary/20 rounded-full flex items-center justify-center">
             <Smartphone className="w-8 h-8 text-primary" />
           </div>
-          <h1 className="text-2xl font-bold gradient-text">App Já Instalado! ✓</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">App Já Instalado! ✓</h1>
           <p className="text-muted-foreground">
             O Orbis já está instalado no seu dispositivo. Você pode acessá-lo diretamente pela tela inicial.
           </p>
@@ -78,7 +78,7 @@ export default function Install() {
           <div className="w-20 h-20 mx-auto mb-4">
             <img src="/orbis-logo.png" alt="Orbis Logo" className="w-full h-full rounded-2xl" />
           </div>
-          <h1 className="text-3xl font-bold gradient-text">Instale o App Orbis</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Instale o App Orbis</h1>
           <p className="text-muted-foreground">
             Tenha acesso rápido, notificações e trabalhe offline
           </p>
@@ -86,7 +86,7 @@ export default function Install() {
 
         {/* Botão de instalação automática (Android Chrome) */}
         {isInstallable && (
-          <Card className="glass p-6 space-y-4 glow-primary">
+          <Card className="p-6 space-y-4 glow-primary">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
                 <ArrowDown className="w-6 h-6 text-primary" />
@@ -106,7 +106,7 @@ export default function Install() {
 
         {/* Instruções iOS Safari */}
         {isIOS && (
-          <Card className="glass p-6 space-y-4">
+          <Card className="p-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
                 <Smartphone className="w-6 h-6 text-primary" />
@@ -156,7 +156,7 @@ export default function Install() {
 
         {/* Instruções Android Chrome */}
         {!isIOS && !isInstallable && (
-          <Card className="glass p-6 space-y-4">
+          <Card className="p-6 space-y-4">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
                 <Monitor className="w-6 h-6 text-primary" />
@@ -205,7 +205,7 @@ export default function Install() {
         )}
 
         {/* Benefícios */}
-        <Card className="glass p-6">
+        <Card className="p-6">
           <h3 className="font-semibold text-lg mb-4">Por que instalar?</h3>
           <div className="space-y-3 text-sm">
             <div className="flex items-start gap-3">

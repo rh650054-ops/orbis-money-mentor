@@ -354,9 +354,10 @@ export default function BankConnections() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="text-destructive hover:text-destructive h-8 w-8"
+                      className="text-destructive hover:text-destructive h-11 w-11"
                       onClick={() => handleDisconnect(conn.id)}
                       title="Desconectar"
+                      aria-label="Desconectar"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -372,18 +373,18 @@ export default function BankConnections() {
       {!isLoading && pendingSales.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <Banknote className="w-5 h-5 text-green-400" />
+            <Banknote className="w-5 h-5 text-success" />
             Vendas Detectadas
-            <Badge className="ml-1 bg-green-600">{pendingSales.length}</Badge>
+            <Badge className="ml-1 bg-success">{pendingSales.length}</Badge>
           </h2>
 
           <div className="space-y-3">
             {pendingSales.map((sale) => (
-              <Card key={sale.id} className="border-green-500/20 bg-green-500/5">
+              <Card key={sale.id} className="border-success/20 bg-success/5">
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-2xl font-bold text-green-400">
+                      <p className="text-2xl font-bold text-success">
                         {formatCurrency(sale.amount)}
                       </p>
                       <p className="text-sm text-muted-foreground mt-0.5">
@@ -404,7 +405,7 @@ export default function BankConnections() {
                     </div>
                     <Badge
                       variant="outline"
-                      className="text-yellow-400 border-yellow-400/40 shrink-0"
+                      className="text-warning border-warning/40 shrink-0"
                     >
                       Pendente
                     </Badge>
@@ -413,7 +414,7 @@ export default function BankConnections() {
                   <div className="flex gap-2">
                     <Button
                       size="sm"
-                      className="flex-1 bg-green-600 hover:bg-green-700 gap-1.5"
+                      className="flex-1 bg-success hover:bg-success/90 gap-1.5"
                       onClick={() => handleConfirmSale(sale)}
                       disabled={confirming === sale.id}
                     >
@@ -445,7 +446,7 @@ export default function BankConnections() {
       {!isLoading && connections.length > 0 && pendingSales.length === 0 && (
         <Card>
           <CardContent className="p-6 text-center text-muted-foreground">
-            <Check className="w-10 h-10 mx-auto mb-3 text-green-500 opacity-60" />
+            <Check className="w-10 h-10 mx-auto mb-3 text-success opacity-60" />
             <p className="font-medium">Tudo em dia!</p>
             <p className="text-sm mt-1">Nenhuma venda pendente de confirmação</p>
           </CardContent>
