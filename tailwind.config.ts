@@ -55,6 +55,26 @@ export default {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",
         },
+        bronze: {
+          DEFAULT: "hsl(var(--bronze))",
+          foreground: "hsl(var(--bronze-foreground))",
+        },
+        violet: {
+          DEFAULT: "hsl(var(--violet))",
+          soft: "hsl(var(--violet-soft))",
+        },
+        tier: {
+          bronze: "hsl(var(--tier-bronze))",
+          silver: "hsl(var(--tier-silver))",
+          gold: "hsl(var(--tier-gold))",
+          platinum: "hsl(var(--tier-platinum))",
+          legendary: "hsl(var(--tier-legendary))",
+        },
+        streak: {
+          warm: "hsl(var(--streak-warm))",
+          strong: "hsl(var(--streak-strong))",
+          legendary: "hsl(var(--streak-legendary))",
+        },
       },
       backgroundImage: {
         'gradient-primary': 'var(--gradient-primary)',
@@ -64,6 +84,8 @@ export default {
         'glow-primary': 'var(--glow-primary)',
         'glow-secondary': 'var(--glow-secondary)',
         'glow-success': 'var(--glow-success)',
+        'glow-destructive': 'var(--glow-destructive)',
+        'glow-warning': 'var(--glow-warning)',
       },
       borderRadius: {
         lg: "var(--radius)",

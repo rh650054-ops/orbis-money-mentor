@@ -8,34 +8,34 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Orbis Dark Theme - Premium Fintech */
-    --background: 0 0% 0%;            /* #000000 pure black */
-    --foreground: 0 0% 100%;          /* #FFFFFF */
+    /* Orbis warm-dark theme - tinted toward brand hue to avoid pure-black AI reflex */
+    --background: 45 5% 5%;           /* warm-dark, not pure black */
+    --foreground: 0 0% 100%;
 
-    --card: 0 0% 6%;                  /* #0F0F0F */
+    --card: 45 5% 7%;
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 6%;
+    --popover: 45 5% 7%;
     --popover-foreground: 0 0% 100%;
 
     /* Gold primary - reserved for CTAs, progress, key accents */
-    --primary: 45 100% 48%;           /* #F5B400 */
+    --primary: 45 100% 48%;
     --primary-foreground: 0 0% 4%;
 
-    --secondary: 0 0% 12%;
+    --secondary: 45 5% 13%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 63%;     /* #A1A1A1 */
+    --muted: 45 5% 11%;
+    --muted-foreground: 0 0% 63%;
 
     --accent: 45 100% 48%;
     --accent-foreground: 0 0% 4%;
 
-    --destructive: 0 84% 60%;         /* #EF4444 */
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 12%;
-    --input: 0 0% 10%;
+    --border: 45 5% 14%;
+    --input: 45 5% 11%;
     --ring: 45 100% 48%;
 
     --radius: 1rem;
@@ -48,6 +48,26 @@ All colors MUST be HSL.
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 6%;
 
+    /* Podium bronze tier (3rd place) */
+    --bronze: 28 49% 45%;
+    --bronze-foreground: 0 0% 100%;
+
+    /* Tier scale for ranking, challenges, achievements */
+    --tier-bronze: 28 49% 45%;
+    --tier-silver: 0 0% 75%;
+    --tier-gold: 45 95% 58%;
+    --tier-platinum: 187 85% 65%;
+    --tier-legendary: 280 75% 60%;
+
+    /* Streak thresholds */
+    --streak-warm: 25 95% 55%;
+    --streak-strong: 142 71% 45%;
+    --streak-legendary: 280 75% 60%;
+
+    /* Secondary accent (per-minute rate, deep stats) */
+    --violet: 270 71% 40%;
+    --violet-soft: 252 93% 76%;
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(44 100% 55%) 0%, hsl(44 100% 45%) 100%);
     --gradient-card: linear-gradient(180deg, hsl(0 0% 8%) 0%, hsl(0 0% 6%) 100%);
@@ -57,6 +77,8 @@ All colors MUST be HSL.
     --glow-primary: 0 8px 32px -8px hsl(44 100% 48% / 0.35);
     --glow-secondary: 0 4px 20px -6px hsl(0 0% 0% / 0.6);
     --glow-success: 0 8px 24px -10px hsl(142 71% 45% / 0.35);
+    --glow-destructive: 0 8px 24px -10px hsl(0 84% 60% / 0.45);
+    --glow-warning: 0 8px 24px -10px hsl(38 92% 50% / 0.4);
 
     /* Smooth transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -95,26 +117,16 @@ All colors MUST be HSL.
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Glass morphism effect */
+  /* Glass morphism - neutered. Sticky header uses raw backdrop-blur-xl utilities directly. */
   .glass {
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
   }
 
-  /* Headings - clean white for fintech authority. Gold reserved for CTAs only. */
+  /* Display heading - clean foreground, weight-led hierarchy. */
   .gradient-text {
     color: hsl(var(--foreground));
     letter-spacing: -0.02em;
-  }
-
-  /* Use this only when you really want the gold accent on a heading */
-  .gradient-text-gold {
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
   }
 
   /* Glow effects */
@@ -128,6 +140,14 @@ All colors MUST be HSL.
 
   .glow-success {
     box-shadow: var(--glow-success);
+  }
+
+  .glow-destructive {
+    box-shadow: var(--glow-destructive);
+  }
+
+  .glow-warning {
+    box-shadow: var(--glow-warning);
   }
 
   /* Smooth transitions */
@@ -164,17 +184,25 @@ All colors MUST be HSL.
     min-height: 200px;
   }
 
-  /* Shadow glow effects on hover */
+  /* Shadow glow effects on hover - all tinted to brand gold (was leftover purple/cyan template). */
   .shadow-glow-primary:hover {
-    box-shadow: 0 0 25px hsl(271 91% 65% / 0.4);
+    box-shadow: 0 0 25px hsl(45 100% 48% / 0.4);
   }
 
   .shadow-glow-secondary:hover {
-    box-shadow: 0 0 25px hsl(189 94% 43% / 0.4);
+    box-shadow: 0 0 25px hsl(45 100% 48% / 0.25);
   }
 
   .shadow-glow-success:hover {
     box-shadow: 0 0 25px hsl(142 76% 36% / 0.4);
+  }
+
+  .shadow-glow-destructive:hover {
+    box-shadow: 0 0 25px hsl(0 84% 60% / 0.4);
+  }
+
+  .shadow-glow-warning:hover {
+    box-shadow: 0 0 25px hsl(38 92% 50% / 0.4);
   }
 
   /* Fade in animation */
@@ -195,36 +223,36 @@ All colors MUST be HSL.
 
   /* Bloco Verde - Meta batida */
   .bloco-verde {
-    @apply border-green-500 bg-gradient-to-br from-green-600/40 to-emerald-700/30 shadow-lg shadow-green-500/50;
+    @apply border-success bg-gradient-to-br from-success/40 to-success/20 shadow-lg shadow-success/50;
   }
 
   .bloco-verde-numero {
-    @apply bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-green-500/50;
+    @apply bg-gradient-to-br from-success to-success/80 text-success-foreground shadow-success/50;
   }
 
   .bloco-verde-texto {
-    @apply text-green-500;
+    @apply text-success;
   }
 
   .bloco-verde-progresso {
-    @apply [&>div]:bg-gradient-to-r [&>div]:from-green-500 [&>div]:to-emerald-600;
+    @apply [&>div]:bg-gradient-to-r [&>div]:from-success [&>div]:to-success/80;
   }
 
   /* Bloco Vermelho - Meta não batida */
   .bloco-vermelho {
-    @apply border-red-500 bg-gradient-to-br from-red-600/40 to-rose-700/30 shadow-lg shadow-red-500/50;
+    @apply border-destructive bg-gradient-to-br from-destructive/40 to-destructive/20 shadow-lg shadow-destructive/50;
   }
 
   .bloco-vermelho-numero {
-    @apply bg-gradient-to-br from-red-500 to-rose-600 text-white shadow-red-500/50;
+    @apply bg-gradient-to-br from-destructive to-destructive/80 text-destructive-foreground shadow-destructive/50;
   }
 
   .bloco-vermelho-texto {
-    @apply text-red-500;
+    @apply text-destructive;
   }
 
   .bloco-vermelho-progresso {
-    @apply [&>div]:bg-gradient-to-r [&>div]:from-red-500 [&>div]:to-rose-600;
+    @apply [&>div]:bg-gradient-to-r [&>div]:from-destructive [&>div]:to-destructive/80;
   }
 
   /* Fire effect animation */
@@ -250,54 +278,6 @@ All colors MUST be HSL.
     filter: drop-shadow(0 0 10px hsl(25 100% 50%)) drop-shadow(0 0 20px hsl(25 100% 50%));
   }
 
-  /* Premium holographic effect */
-  @keyframes holographic-shift {
-    0%, 100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
-
-  .holographic-premium {
-    background: linear-gradient(
-      135deg,
-      hsl(45 100% 60%) 0%,
-      hsl(280 100% 60%) 25%,
-      hsl(45 100% 70%) 50%,
-      hsl(280 100% 50%) 75%,
-      hsl(45 100% 60%) 100%
-    );
-    background-size: 400% 400%;
-    animation: holographic-shift 4s ease-in-out infinite;
-  }
-
-  @keyframes shine-sweep {
-    0% {
-      transform: translateX(-100%) rotate(25deg);
-    }
-    100% {
-      transform: translateX(200%) rotate(25deg);
-    }
-  }
-
-  .animate-shine-sweep {
-    animation: shine-sweep 3s ease-in-out infinite;
-  }
-
-  @keyframes float-gentle {
-    0%, 100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
-  }
-
-  .animate-float {
-    animation: float-gentle 3s ease-in-out infinite;
-  }
 }
 
 /* Battery saver: disable expensive animations, gradients and backdrop blurs */
