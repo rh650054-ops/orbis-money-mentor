@@ -30,3 +30,5 @@ dist-ssr
 
 # Capacitor Android project (generated, not needed in repo)
 android/
+.claude/
+skills-lock.json
