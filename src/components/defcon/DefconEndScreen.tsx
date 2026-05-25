@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
+import { readThemeColor, RANKING_TIER_COLORS } from "@/lib/theme-colors";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -239,7 +240,7 @@ export function DefconEndScreen({
       ctx.save();
       ctx.shadowColor = "rgba(244,161,0,0.9)";
       ctx.shadowBlur = 40;
-      ctx.fillStyle = "#FFD24A";
+      ctx.fillStyle = RANKING_TIER_COLORS.goldSoft;
       ctx.beginPath();
       ctx.moveTo(W / 2, y - 14);
       ctx.lineTo(W / 2 + 14, y);
@@ -253,21 +254,25 @@ export function DefconEndScreen({
     const TITLE_SIZE = 72;
     const VALUE_SIZE = 160;
     const SPACING = 12;
-    const VALUE_COLOR = "#FFFFFF"; // branco
+    const VALUE_COLOR = readThemeColor("--foreground");
+
+    const PRIMARY_COLOR = readThemeColor("--primary");
+    const SUCCESS_COLOR = readThemeColor("--success");
+    const DESTRUCTIVE_COLOR = readThemeColor("--destructive");
 
     // Faturamento
-    centerText("FATURAMENTO", 200, TITLE_SIZE, "800", "#F4A100", SPACING);
+    centerText("FATURAMENTO", 200, TITLE_SIZE, "800", PRIMARY_COLOR, SPACING);
     centerText(formatCurrency(totalSold), 360, VALUE_SIZE, "900", VALUE_COLOR);
     drawDivider(560);
 
     // Vendas
-    centerText("VENDAS", 700, TITLE_SIZE, "800", "#22C55E", SPACING);
+    centerText("VENDAS", 700, TITLE_SIZE, "800", SUCCESS_COLOR, SPACING);
     centerText(String(totalSalesCount || 0), 860, VALUE_SIZE, "900", VALUE_COLOR);
     drawDivider(1080);
 
     // Conversão
     const convColor =
-      conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F4A100" : "#EF4444";
+      conversionRate >= 30 ? SUCCESS_COLOR : conversionRate >= 15 ? PRIMARY_COLOR : DESTRUCTIVE_COLOR;
     centerText("CONVERSÃO", 1220, TITLE_SIZE, "800", convColor, SPACING);
     centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", VALUE_COLOR);
 
@@ -290,7 +295,7 @@ export function DefconEndScreen({
     } catch {
       ctx.save();
       ctx.globalAlpha = 0.55;
-      centerText("ORBIS", H - 220, 90, "900", "#0D0D0D", 16);
+      centerText("ORBIS", H - 220, 90, "900", readThemeColor("--background"), 16);
       ctx.restore();
     }
 
@@ -370,8 +375,8 @@ export function DefconEndScreen({
     }
   };
 
-  const valueColor = goalReached ? "text-green-500" : totalSold > 0 ? "text-white" : "text-neutral-500";
-  const subTextColor = goalReached ? "text-green-500" : "text-neutral-400";
+  const valueColor = goalReached ? "text-success" : totalSold > 0 ? "text-white" : "text-neutral-500";
+  const subTextColor = goalReached ? "text-success" : "text-neutral-400";
 
   return (
     <div
@@ -384,7 +389,7 @@ export function DefconEndScreen({
       <div className="max-w-sm mx-auto px-5 flex flex-col gap-5">
         {/* 1. HEADER — RESULTADO */}
         <div className="text-center space-y-2">
-          <div className="text-[11px] font-mono text-neutral-500 tracking-[0.3em] uppercase">
+          <div className="text-xs font-mono text-neutral-500 tracking-[0.3em] uppercase">
             🔥 Desafio encerrado
           </div>
           <div className={`text-5xl font-black tracking-tight ${valueColor}`}>
@@ -397,12 +402,12 @@ export function DefconEndScreen({
 
         {/* Celebração — bateu/ultrapassou a meta */}
         {goalReached && (
-          <div className="rounded-2xl bg-gradient-to-br from-green-600/25 via-green-500/15 to-emerald-900/20 border border-green-500/40 p-4 text-center space-y-1 shadow-[0_8px_30px_-8px_rgba(34,197,94,0.4)]">
+          <div className="rounded-2xl bg-gradient-to-br from-success/25 via-success/15 to-success/10 border border-success/40 p-4 text-center space-y-1 shadow-[0_8px_30px_-8px_hsl(var(--success)/0.4)]">
             <div className="text-3xl">🎉</div>
-            <div className="text-base font-black text-green-400 tracking-tight">
+            <div className="text-base font-black text-success tracking-tight">
               {percentage >= 150 ? "VOCÊ EXPLODIU A META!" : percentage >= 110 ? "ULTRAPASSOU A META!" : "META BATIDA!"}
             </div>
-            <div className="text-[11px] text-green-200/80 font-mono">
+            <div className="text-xs text-success/80 font-mono">
               {percentage.toFixed(0)}% · {formatCurrency(Math.max(0, totalSold - dailyGoal))} acima
             </div>
           </div>
@@ -413,7 +418,7 @@ export function DefconEndScreen({
           <button
             onClick={handleShare}
             disabled={sharing}
-            className="w-full py-3.5 rounded-2xl bg-[#F4A100] text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 shadow-[0_8px_24px_-10px_rgba(244,161,0,0.6)]"
+            className="w-full py-3.5 rounded-2xl bg-primary text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.6)]"
           >
             <Share2 className="w-4 h-4" />
             {sharing ? "Gerando..." : "Compartilhar resultado"}
@@ -423,21 +428,21 @@ export function DefconEndScreen({
         {/* 3. RECEBIMENTOS */}
         {totalSold > 0 && (
           <div className="space-y-2.5">
-            <h2 className="text-[11px] font-semibold text-neutral-400 px-1 uppercase tracking-wider">
+            <h2 className="text-xs font-semibold text-neutral-400 px-1 uppercase tracking-wider">
               Confira seus recebimentos
             </h2>
 
             {/* Gorjetas — destaque dourado */}
             {totalTips > 0 && (
-              <div className="rounded-xl bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/35 px-3.5 py-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#F4A100]/20 flex items-center justify-center shrink-0">
-                  <Coins className="w-4 h-4 text-[#F4A100]" />
+              <div className="rounded-xl bg-gradient-to-r from-primary/15 via-primary/8 to-transparent border border-primary/35 px-3.5 py-3 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                  <Coins className="w-4 h-4 text-primary" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[11px] uppercase tracking-wider text-[#F4A100] font-bold">Gorjetas</p>
-                  <p className="text-[10px] text-neutral-500">Já incluídas no dinheiro</p>
+                  <p className="text-xs uppercase tracking-wider text-primary font-bold">Gorjetas</p>
+                  <p className="text-xs text-neutral-500">Já incluídas no dinheiro</p>
                 </div>
-                <p className="text-base font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totalTips)}</p>
+                <p className="text-base font-bold text-primary tabular-nums">+{formatCurrency(totalTips)}</p>
               </div>
             )}
 
@@ -448,44 +453,44 @@ export function DefconEndScreen({
             {/* Resumo total recebido vs vendido */}
             {totalRecebido > 0 && (
               <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-3.5 py-2.5 flex items-center justify-between">
-                <span className="text-[11px] text-neutral-500 uppercase tracking-wider font-semibold">Total recebido</span>
-                <span className={`text-sm font-bold tabular-nums ${fullyReceived ? 'text-green-400' : hasCalote ? 'text-red-300' : 'text-white'}`}>
+                <span className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Total recebido</span>
+                <span className={`text-sm font-bold tabular-nums ${fullyReceived ? 'text-success' : hasCalote ? 'text-destructive/80' : 'text-white'}`}>
                   {formatCurrency(totalRecebido)} <span className="text-neutral-600 font-normal">/ {formatCurrency(totalSold)}</span>
                 </span>
               </div>
             )}
 
             {fullyReceived && (
-              <div className="text-[11px] text-green-500 font-semibold text-center pt-0.5">
+              <div className="text-xs text-success font-semibold text-center pt-0.5">
                 ✔ 100% recebido
               </div>
             )}
 
             {hasCalote && (
-              <div className="rounded-xl bg-red-950/30 border border-red-900/40 px-3.5 py-3 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+              <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-3.5 py-3 flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-red-300">
+                  <div className="text-xs text-destructive/80">
                     <span className="font-semibold">{formatCurrency(calote)}</span> não recebidos
                   </div>
                   {!caloteAcknowledged && (
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => setCaloteAcknowledged(true)}
-                        className="text-[11px] px-3 py-1.5 rounded-md bg-red-900/40 text-red-200 font-medium active:scale-95 transition-transform"
+                        className="text-xs px-3 py-1.5 rounded-md bg-destructive/20 text-destructive font-medium active:scale-95 transition-transform"
                       >
                         Registrar depois
                       </button>
                       <button
                         onClick={() => setCaloteAcknowledged(true)}
-                        className="text-[11px] px-3 py-1.5 rounded-md bg-neutral-800 text-neutral-300 font-medium active:scale-95 transition-transform"
+                        className="text-xs px-3 py-1.5 rounded-md bg-neutral-800 text-neutral-300 font-medium active:scale-95 transition-transform"
                       >
                         Ignorar
                       </button>
                     </div>
                   )}
                   {caloteAcknowledged && (
-                    <div className="text-[10px] text-neutral-500 mt-1">Anotado.</div>
+                    <div className="text-xs text-neutral-500 mt-1">Anotado.</div>
                   )}
                 </div>
               </div>
@@ -498,15 +503,15 @@ export function DefconEndScreen({
           <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-2 py-3 text-center">
               <div className="text-lg font-black text-white tabular-nums">{totalApproaches}</div>
-              <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Abordagens</div>
+              <div className="text-xs uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Abordagens</div>
             </div>
             <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-2 py-3 text-center">
               <div className="text-lg font-black text-white tabular-nums">{totalSalesCount}</div>
-              <div className="text-[9px] uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Vendas</div>
+              <div className="text-xs uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Vendas</div>
             </div>
-            <div className="rounded-xl bg-neutral-950 border border-[#F4A100]/30 px-2 py-3 text-center">
-              <div className="text-lg font-black text-[#F4A100] tabular-nums">{conversionRate.toFixed(0)}%</div>
-              <div className="text-[9px] uppercase tracking-wider text-[#F4A100]/70 font-semibold mt-0.5">Conversão</div>
+            <div className="rounded-xl bg-neutral-950 border border-primary/30 px-2 py-3 text-center">
+              <div className="text-lg font-black text-primary tabular-nums">{conversionRate.toFixed(0)}%</div>
+              <div className="text-xs uppercase tracking-wider text-primary/70 font-semibold mt-0.5">Conversão</div>
             </div>
           </div>
         )}
@@ -514,7 +519,7 @@ export function DefconEndScreen({
         {/* 6. INSIGHT IA */}
         {insight && (
           <div className="rounded-xl bg-gradient-to-br from-neutral-950 to-neutral-900/40 border border-neutral-800 px-3.5 py-3 flex items-start gap-2.5">
-            <Sparkles className="w-4 h-4 text-[#F4A100] mt-0.5 shrink-0" />
+            <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
             <p className="text-xs text-neutral-300 leading-relaxed">{insight}</p>
           </div>
         )}
@@ -524,7 +529,7 @@ export function DefconEndScreen({
           <button
             onClick={exportClientsPdf}
             disabled={exportingPdf}
-            className="w-full h-11 rounded-xl bg-neutral-950 border border-[#F4A100]/40 text-[#F4A100] font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+            className="w-full h-11 rounded-xl bg-neutral-950 border border-primary/40 text-primary font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
           >
             <FileDown className="w-3.5 h-3.5" />
             {exportingPdf ? "Gerando..." : `PDF de ${clientsCount} cliente(s)`}
@@ -571,7 +576,7 @@ function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: Paymen
       <span className={`absolute ${hasIcon ? 'left-10' : 'left-3'} top-1/2 -translate-y-1/2 text-xs font-medium ${accent}`}>
         {label}
       </span>
-      <span className="absolute right-[72px] top-1/2 -translate-y-1/2 text-[10px] text-neutral-600">
+      <span className="absolute right-[72px] top-1/2 -translate-y-1/2 text-xs text-neutral-600">
         R$
       </span>
       <input
@@ -580,7 +585,7 @@ function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: Paymen
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
-        className="w-full h-full bg-transparent text-right text-base font-bold text-white pr-3 pl-28 focus:outline-none placeholder:text-neutral-700"
+        className="w-full h-full bg-transparent text-right text-base font-bold text-foreground pr-3 pl-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded placeholder:text-muted-foreground"
       />
     </div>
   );

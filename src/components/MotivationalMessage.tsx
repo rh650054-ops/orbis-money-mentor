@@ -22,17 +22,17 @@ export const MotivationalMessage = ({ totalDayProfit, dailyGoal }: MotivationalM
   if (!show) return null;
 
   return (
-    <Alert className={`mb-4 ${goalAchieved ? 'bg-green-500/10 border-green-500/30' : 'bg-orange-500/10 border-orange-500/30'}`}>
+    <Alert className={`mb-4 ${goalAchieved ? 'bg-success/10 border-success/30' : 'bg-warning/10 border-warning/30'}`}>
       <div className="flex items-start gap-3">
         {goalAchieved ? (
-          <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <CheckCircle2 className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
         ) : (
-          <TrendingUp className="w-5 h-5 text-orange-500 flex-shrink-0 mt-0.5" />
+          <TrendingUp className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
         )}
         <AlertDescription className="text-sm">
           {goalAchieved ? (
             <div>
-              <p className="font-bold text-green-500">🔥 Visionário! Meta batida!</p>
+              <p className="font-bold text-success">🔥 Visionário! Meta batida!</p>
               <p className="text-muted-foreground">Isso aqui é disciplina de verdade!</p>
             </div>
           ) : (

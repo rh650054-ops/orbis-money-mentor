@@ -23,23 +23,23 @@ export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
         {/* Header with Bruto/Calote/Líquido Summary */}
         <div className="grid grid-cols-3 gap-2">
           {/* Faturamento Bruto */}
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center">
+          <div className="p-3 rounded-xl bg-warning/10 border border-warning/30 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <Calculator className="w-4 h-4 text-amber-400" />
+              <Calculator className="w-4 h-4 text-warning" />
             </div>
             <p className="text-xs text-muted-foreground">Bruto</p>
-            <p className="text-lg font-bold text-amber-400">
+            <p className="text-lg font-bold text-warning">
               {formatCurrency(faturamentoBruto)}
             </p>
           </div>
 
           {/* Calote do Dia */}
-          <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-center">
+          <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/20 text-center">
             <div className="flex items-center justify-center gap-1 mb-1">
-              <AlertTriangle className="w-4 h-4 text-red-400" />
+              <AlertTriangle className="w-4 h-4 text-destructive" />
             </div>
             <p className="text-xs text-muted-foreground">Calotes</p>
-            <p className="text-lg font-bold text-red-400">
+            <p className="text-lg font-bold text-destructive">
               {formatCurrency(caloteDoDia)}
             </p>
           </div>
@@ -70,10 +70,10 @@ export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
 
           <div className="grid grid-cols-4 gap-2">
             {/* Dinheiro */}
-            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
-              <Banknote className="w-4 h-4 text-amber-500 mx-auto mb-1" />
+            <div className="p-2 rounded-lg bg-warning/10 border border-warning/30 text-center">
+              <Banknote className="w-4 h-4 text-warning mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Dinheiro</p>
-              <p className="text-sm font-bold text-amber-500">
+              <p className="text-sm font-bold text-warning">
                 {formatCurrency(stats.totalDinheiro)}
               </p>
             </div>
@@ -88,19 +88,19 @@ export function DashboardBlockStats({ stats }: DashboardBlockStatsProps) {
             </div>
 
             {/* Pix */}
-            <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
-              <Smartphone className="w-4 h-4 text-amber-400 mx-auto mb-1" />
+            <div className="p-2 rounded-lg bg-warning/10 border border-warning/30 text-center">
+              <Smartphone className="w-4 h-4 text-warning mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Pix</p>
-              <p className="text-sm font-bold text-amber-400">
+              <p className="text-sm font-bold text-warning">
                 {formatCurrency(stats.totalPix)}
               </p>
             </div>
 
             {/* Calotes detail */}
-            <div className="p-2 rounded-lg bg-red-500/10 border border-red-500/20 text-center">
-              <AlertTriangle className="w-4 h-4 text-red-500 mx-auto mb-1" />
+            <div className="p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-center">
+              <AlertTriangle className="w-4 h-4 text-destructive mx-auto mb-1" />
               <p className="text-xs text-muted-foreground">Calotes</p>
-              <p className="text-sm font-bold text-red-500">
+              <p className="text-sm font-bold text-destructive">
                 {formatCurrency(stats.totalCalote)}
               </p>
             </div>

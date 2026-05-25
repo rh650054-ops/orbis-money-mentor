@@ -67,12 +67,12 @@ function formatPhone(value: string) {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
-// Shared styles
-const goldGradient = "linear-gradient(135deg, #C9A84C, #F5D78E)";
-const cardBg = "rgba(255,255,255,0.04)";
-const cardBorder = "rgba(201,168,76,0.25)";
-const cardBorderActive = "rgba(201,168,76,0.8)";
-const cardBgActive = "rgba(201,168,76,0.08)";
+// Shared styles - read tokens at render time via CSS vars
+const goldGradient = "var(--gradient-primary)";
+const cardBg = "hsl(var(--card) / 0.6)";
+const cardBorder = "hsl(var(--primary) / 0.25)";
+const cardBorderActive = "hsl(var(--primary) / 0.8)";
+const cardBgActive = "hsl(var(--primary) / 0.08)";
 
 function GoldButton({ children, onClick, disabled, className }: {
   children: React.ReactNode; onClick?: () => void; disabled?: boolean; className?: string;
@@ -82,13 +82,13 @@ function GoldButton({ children, onClick, disabled, className }: {
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "w-full py-4 rounded-[14px] font-bold text-black text-lg transition-all active:scale-[0.97]",
+        "w-full py-4 rounded-[14px] font-bold text-black text-lg transition-[colors,transform,opacity] active:scale-[0.97]",
         "disabled:opacity-40 disabled:cursor-not-allowed",
         className
       )}
       style={{
         background: goldGradient,
-        boxShadow: "0 0 20px rgba(201,168,76,0.4)",
+        boxShadow: "0 0 20px hsl(var(--primary) / 0.4)",
       }}
     >
       {children}
@@ -99,7 +99,7 @@ function GoldButton({ children, onClick, disabled, className }: {
 function GoldSeparator() {
   return (
     <div className="w-full h-px my-4" style={{
-      background: "linear-gradient(90deg, transparent, #C9A84C, transparent)"
+      background: "linear-gradient(90deg, transparent, hsl(var(--primary)), transparent)"
     }} />
   );
 }
@@ -107,9 +107,9 @@ function GoldSeparator() {
 function ProgressBar({ progress }: { progress: number }) {
   return (
     <div className="w-full px-6 pt-4">
-      <div className="h-[2px] w-full rounded-full" style={{ background: "rgba(201,168,76,0.2)" }}>
+      <div className="h-[2px] w-full rounded-full" style={{ background: "hsl(var(--primary) / 0.2)" }}>
         <div
-          className="h-full rounded-full transition-all duration-700"
+          className="h-full rounded-full transition-[colors,transform,opacity] duration-700"
           style={{ width: `${progress}%`, background: goldGradient }}
         />
       </div>
@@ -207,7 +207,7 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
   const reveal = profileReveals[profile] || profileReveals["A"];
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col overflow-hidden" style={{ background: "#000" }}>
+    <div className="fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-background" role="dialog" aria-modal="true" aria-label="Onboarding">
       <GoldParticles />
 
       {/* Progress bar */}
@@ -216,8 +216,8 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
       {/* Skip button */}
       <button
         onClick={handleSkip}
-        className="absolute top-4 right-4 z-10 text-xs px-3 py-1.5 rounded-full transition-colors"
-        style={{ color: "#888", border: "1px solid rgba(201,168,76,0.2)" }}
+        className="absolute top-4 right-4 z-10 text-xs px-3 py-1.5 rounded-full transition-colors text-muted-foreground"
+        style={{ border: "1px solid hsl(var(--primary) / 0.2)" }}
       >
         Pular
       </button>
@@ -227,7 +227,7 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
         className={cn(
           "flex-1 flex flex-col items-center justify-center px-6 overflow-y-auto relative z-10",
           animating ? "opacity-0 translate-x-8" : "opacity-100 translate-x-0",
-          "transition-all duration-300"
+          "transition-[colors,transform,opacity] duration-300"
         )}
       >
         {/* TELA 1 — BOAS-VINDAS */}
@@ -235,26 +235,21 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
           <div className="flex flex-col items-center text-center max-w-sm w-full gap-6">
             <div>
               <h1
-                className="text-[52px] font-bold"
-                style={{
-                  background: goldGradient,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  letterSpacing: "8px",
-                }}
+                className="text-[52px] font-bold text-primary"
+                style={{ letterSpacing: "8px" }}
               >
                 ORBIS
               </h1>
               <div className="mx-auto mt-2" style={{ width: 60, height: 1, background: goldGradient }} />
             </div>
 
-            <p className="text-[22px] font-bold text-white" style={{ letterSpacing: "1px" }}>
+            <p className="text-[22px] font-bold text-foreground" style={{ letterSpacing: "1px" }}>
               O app feito por vendedor,{"\n"}para vendedor.
             </p>
 
             <GoldSeparator />
 
-            <p className="text-[15px] italic leading-[1.7]" style={{ color: "#888" }}>
+            <p className="text-sm italic leading-[1.7] text-muted-foreground">
               Criado por quem vendeu na rua, tomou calote e precisava de controle.
               Cada funcionalidade resolve uma dor real.
             </p>
@@ -268,11 +263,11 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
         {/* TELA 2 — PERGUNTA DO PERFIL */}
         {screen === 2 && (
           <div className="flex flex-col items-center text-center max-w-sm w-full gap-6">
-            <p className="text-[11px] font-medium" style={{ color: "#C9A84C", letterSpacing: "3px" }}>
+            <p className="text-xs font-medium text-primary" style={{ letterSpacing: "3px" }}>
               IDENTIFIQUE SEU PERFIL
             </p>
 
-            <h2 className="text-[26px] font-bold text-white" style={{ letterSpacing: "1px" }}>
+            <h2 className="text-[26px] font-bold text-foreground" style={{ letterSpacing: "1px" }}>
               Qual é sua maior dor{"\n"}vendendo na rua?
             </h2>
 
@@ -281,7 +276,7 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
                 <button
                   key={opt.id}
                   onClick={() => handleProfileSelect(opt.id)}
-                  className="w-full p-5 rounded-[16px] text-left flex items-center gap-4 active:scale-[0.98] transition-all duration-200"
+                  className="w-full p-5 rounded-[16px] text-left flex items-center gap-4 active:scale-[0.98] transition-[colors,transform,opacity] duration-200"
                   style={{
                     background: cardBg,
                     border: `1px solid ${cardBorder}`,
@@ -299,14 +294,14 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
                     className="flex items-center justify-center rounded-full shrink-0"
                     style={{
                       width: 44, height: 44,
-                      background: "rgba(201,168,76,0.15)",
+                      background: "hsl(var(--primary) / 0.15)",
                     }}
                   >
                     <span className="text-2xl">{opt.emoji}</span>
                   </div>
                   <div>
-                    <p className="text-white font-bold text-[16px]">{opt.title}</p>
-                    <p className="text-[14px]" style={{ color: "#888" }}>{opt.subtitle}</p>
+                    <p className="text-foreground font-bold text-base">{opt.title}</p>
+                    <p className="text-sm text-muted-foreground">{opt.subtitle}</p>
                   </div>
                 </button>
               ))}
@@ -317,7 +312,7 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
         {/* TELA 3 — REVELAÇÃO DO PERFIL */}
         {screen === 3 && (
           <div className="flex flex-col items-center text-center max-w-sm w-full gap-5 animate-scale-in">
-            <p className="text-[11px] font-medium" style={{ color: "#C9A84C", letterSpacing: "3px" }}>
+            <p className="text-xs font-medium text-primary" style={{ letterSpacing: "3px" }}>
               SEU PERFIL
             </p>
 
@@ -325,50 +320,42 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
               className="flex items-center justify-center rounded-full"
               style={{
                 width: 80, height: 80,
-                border: "2px solid #C9A84C",
-                boxShadow: "0 0 30px rgba(201,168,76,0.3)",
-                animation: "pulse 2s ease-in-out infinite",
+                border: "2px solid hsl(var(--primary))",
+                boxShadow: "0 0 30px hsl(var(--primary) / 0.3)",
               }}
             >
               <span className="text-5xl">{reveal.emoji}</span>
             </div>
 
-            <h2
-              className="text-[30px] font-bold"
-              style={{
-                background: goldGradient,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
+            <h2 className="text-[30px] font-bold text-primary">
               {reveal.title}
             </h2>
 
             <div className="mx-auto" style={{ width: 60, height: 1, background: goldGradient }} />
 
-            <p className="text-[15px] leading-[1.7]" style={{ color: "#888" }}>
+            <p className="text-sm leading-[1.7] text-muted-foreground">
               {reveal.text}
             </p>
 
             <div
               className="w-full rounded-[16px] p-5 text-left space-y-3"
               style={{
-                background: "rgba(201,168,76,0.06)",
-                border: "1px solid rgba(201,168,76,0.3)",
+                background: "hsl(var(--primary) / 0.06)",
+                border: "1px solid hsl(var(--primary) / 0.3)",
               }}
             >
-              <p className="text-sm font-bold text-white" style={{ letterSpacing: "1px" }}>
+              <p className="text-sm font-bold text-foreground" style={{ letterSpacing: "1px" }}>
                 Seu plano no Orbis:
               </p>
               {reveal.features.map((f, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <span
                     className="flex items-center justify-center rounded-full shrink-0 text-sm"
-                    style={{ width: 28, height: 28, background: "rgba(201,168,76,0.15)" }}
+                    style={{ width: 28, height: 28, background: "hsl(var(--primary) / 0.15)" }}
                   >
                     {f.icon}
                   </span>
-                  <p className="text-sm" style={{ color: "#aaa" }}>{f.text}</p>
+                  <p className="text-sm text-muted-foreground">{f.text}</p>
                 </div>
               ))}
             </div>
@@ -380,18 +367,18 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
         {/* TELA 4 — CONFIGURAR METAS */}
         {screen === 4 && (
           <div className="flex flex-col items-center text-center max-w-sm w-full gap-4 pb-8">
-            <p className="text-[11px] font-medium" style={{ color: "#C9A84C", letterSpacing: "3px" }}>
+            <p className="text-xs font-medium text-primary" style={{ letterSpacing: "3px" }}>
               CONFIGURE SUAS METAS
             </p>
-            <h2 className="text-[24px] font-bold text-white" style={{ letterSpacing: "1px" }}>
+            <h2 className="text-[24px] font-bold text-foreground" style={{ letterSpacing: "1px" }}>
               Agora vamos configurar{"\n"}seu Orbis
             </h2>
-            <p className="text-[14px]" style={{ color: "#888" }}>Menos de 1 minuto.</p>
+            <p className="text-sm text-muted-foreground">Menos de 1 minuto.</p>
 
             <div className="w-full space-y-4 text-left">
               {/* Nome */}
               <div>
-                <label className="text-sm text-white font-medium mb-1.5 block" style={{ letterSpacing: "0.5px" }}>
+                <label className="text-sm text-foreground font-medium mb-1.5 block" style={{ letterSpacing: "0.5px" }}>
                   Seu nome
                 </label>
                 <input
@@ -399,40 +386,40 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
                   placeholder="Como quer ser chamado?"
                   value={nome}
                   onChange={(e) => setNome(e.target.value)}
-                  className="w-full text-white text-base placeholder:text-[#555] focus:outline-none transition-all"
+                  className="w-full text-foreground text-base placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
                   style={{
                     background: cardBg,
-                    border: `1px solid ${validationError && !nome.trim() ? "rgba(239,68,68,0.7)" : cardBorder}`,
+                    border: `1px solid ${validationError && !nome.trim() ? "hsl(var(--destructive) / 0.7)" : cardBorder}`,
                     borderRadius: 12, padding: 18,
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(201,168,76,0.7)"; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "hsl(var(--primary) / 0.7)"; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = cardBorder; }}
                 />
               </div>
 
               {/* Meta mensal */}
               <div>
-                <label className="text-sm text-white font-medium mb-1.5 block">Meta mensal (R$)</label>
+                <label className="text-sm text-foreground font-medium mb-1.5 block">Meta mensal (R$)</label>
                 <input
                   type="number"
                   inputMode="numeric"
                   placeholder="Ex: 3000"
                   value={meta}
                   onChange={(e) => setMeta(e.target.value)}
-                  className="w-full text-white text-base placeholder:text-[#555] focus:outline-none transition-all"
+                  className="w-full text-foreground text-base placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
                   style={{
                     background: cardBg,
-                    border: `1px solid ${validationError && !meta.trim() ? "rgba(239,68,68,0.7)" : cardBorder}`,
+                    border: `1px solid ${validationError && !meta.trim() ? "hsl(var(--destructive) / 0.7)" : cardBorder}`,
                     borderRadius: 12, padding: 18,
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(201,168,76,0.7)"; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "hsl(var(--primary) / 0.7)"; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = cardBorder; }}
                 />
               </div>
 
               {/* Dias da semana */}
               <div>
-                <label className="text-sm text-white font-medium mb-1.5 block">Dias de trabalho por semana</label>
+                <label className="text-sm text-foreground font-medium mb-1.5 block">Dias de trabalho por semana</label>
                 <div className="flex gap-2 justify-between">
                   {WEEK_DAYS.map((d) => {
                     const active = selectedDays.includes(d.key);
@@ -442,11 +429,11 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
                         onClick={() => setSelectedDays(prev =>
                           active ? prev.filter(k => k !== d.key) : [...prev, d.key]
                         )}
-                        className="flex-1 py-2.5 rounded-full text-xs font-bold transition-all"
+                        className="flex-1 py-2.5 rounded-full text-xs font-bold transition-colors"
                         style={{
-                          background: active ? "rgba(201,168,76,0.2)" : "rgba(255,255,255,0.04)",
-                          border: `1px solid ${active ? "rgba(201,168,76,0.8)" : "rgba(201,168,76,0.15)"}`,
-                          color: active ? "#F5D78E" : "#666",
+                          background: active ? "hsl(var(--primary) / 0.2)" : "hsl(var(--card) / 0.4)",
+                          border: `1px solid ${active ? "hsl(var(--primary) / 0.8)" : "hsl(var(--primary) / 0.15)"}`,
+                          color: active ? "hsl(var(--primary))" : "hsl(var(--muted-foreground))",
                         }}
                       >
                         {d.label}
@@ -458,23 +445,23 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
 
               {/* Horas por dia */}
               <div>
-                <label className="text-sm text-white font-medium mb-1.5 block">Horas de trabalho por dia</label>
+                <label className="text-sm text-foreground font-medium mb-1.5 block">Horas de trabalho por dia</label>
                 <div className="flex items-center justify-center gap-6">
                   <button
                     onClick={() => setHoursPerDay(Math.max(1, hoursPerDay - 1))}
-                    className="w-12 h-12 rounded-full text-xl font-bold transition-all"
+                    className="w-12 h-12 rounded-full text-xl font-bold text-primary transition-colors"
                     style={{
-                      background: cardBg, border: `1px solid ${cardBorder}`, color: "#C9A84C",
+                      background: cardBg, border: `1px solid ${cardBorder}`,
                     }}
                   >
                     −
                   </button>
-                  <span className="text-3xl font-bold text-white min-w-[48px] text-center">{hoursPerDay}</span>
+                  <span className="text-3xl font-bold text-foreground min-w-[48px] text-center">{hoursPerDay}</span>
                   <button
                     onClick={() => setHoursPerDay(Math.min(16, hoursPerDay + 1))}
-                    className="w-12 h-12 rounded-full text-xl font-bold transition-all"
+                    className="w-12 h-12 rounded-full text-xl font-bold text-primary transition-colors"
                     style={{
-                      background: cardBg, border: `1px solid ${cardBorder}`, color: "#C9A84C",
+                      background: cardBg, border: `1px solid ${cardBorder}`,
                     }}
                   >
                     +
@@ -486,23 +473,23 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
               {metaNum > 0 && diasSemana > 0 && (
                 <div
                   className="rounded-[16px] p-4 grid grid-cols-3 gap-3 text-center"
-                  style={{ background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.3)" }}
+                  style={{ background: "hsl(var(--primary) / 0.06)", border: "1px solid hsl(var(--primary) / 0.3)" }}
                 >
                   <div>
-                    <p className="text-[11px] mb-1" style={{ color: "#888" }}>Semanal</p>
-                    <p className="text-sm font-bold" style={{ color: "#4ade80" }}>
+                    <p className="text-xs mb-1 text-muted-foreground">Semanal</p>
+                    <p className="text-sm font-bold text-success">
                       R${metaSemanal.toFixed(0)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] mb-1" style={{ color: "#888" }}>Diária</p>
-                    <p className="text-sm font-bold" style={{ color: "#60a5fa" }}>
+                    <p className="text-xs mb-1 text-muted-foreground">Diária</p>
+                    <p className="text-sm font-bold text-foreground">
                       R${metaDiaria.toFixed(0)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-[11px] mb-1" style={{ color: "#888" }}>Por Hora</p>
-                    <p className="text-sm font-bold" style={{ color: "#C9A84C" }}>
+                    <p className="text-xs mb-1 text-muted-foreground">Por Hora</p>
+                    <p className="text-sm font-bold text-primary">
                       R${metaHora.toFixed(0)}
                     </p>
                   </div>
@@ -511,21 +498,21 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
 
               {/* WhatsApp */}
               <div>
-                <label className="text-sm text-white font-medium mb-1.5 block">Seu WhatsApp (opcional)</label>
+                <label className="text-sm text-foreground font-medium mb-1.5 block">Seu WhatsApp (opcional)</label>
                 <input
                   type="tel"
                   inputMode="tel"
                   placeholder="(11) 99999-9999"
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(formatPhone(e.target.value))}
-                  className="w-full text-white text-base placeholder:text-[#555] focus:outline-none transition-all"
+                  className="w-full text-foreground text-base placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
                   style={{
                     background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: 18,
                   }}
-                  onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(201,168,76,0.7)"; }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = "hsl(var(--primary) / 0.7)"; }}
                   onBlur={(e) => { e.currentTarget.style.borderColor = cardBorder; }}
                 />
-                <p className="text-xs mt-1.5" style={{ color: "#555" }}>
+                <p className="text-xs mt-1.5 text-muted-foreground/70">
                   Vou te enviar dicas personalizadas nos seus primeiros dias.
                 </p>
               </div>
@@ -542,21 +529,15 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
         {/* TELA 5 — INSTALAR PWA */}
         {screen === 5 && (
           <div className="flex flex-col items-center text-center max-w-sm w-full gap-5">
-            <p className="text-[11px] font-medium" style={{ color: "#C9A84C", letterSpacing: "3px" }}>
+            <p className="text-xs font-medium text-primary" style={{ letterSpacing: "3px" }}>
               ÚLTIMO PASSO
             </p>
 
-            <h2 className="text-[28px] font-bold">
-              <span style={{
-                background: goldGradient,
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}>
-                Salva o Orbis,{"\n"}{nome || "Vendedor"}
-              </span>
+            <h2 className="text-[28px] font-bold text-primary">
+              Salva o Orbis,{"\n"}{nome || "Vendedor"}
             </h2>
 
-            <p className="text-[15px]" style={{ color: "#888" }}>
+            <p className="text-sm text-muted-foreground">
               Você vai precisar dele todo dia.{"\n"}Ele precisa estar a 1 toque de distância.
             </p>
 
@@ -567,13 +548,13 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
               >
                 <div
                   className="flex items-center justify-center rounded-full shrink-0"
-                  style={{ width: 44, height: 44, background: "rgba(201,168,76,0.15)" }}
+                  style={{ width: 44, height: 44, background: "hsl(var(--primary) / 0.15)" }}
                 >
                   <span className="text-2xl">📱</span>
                 </div>
                 <div>
-                  <p className="text-white font-bold">iPhone</p>
-                  <p className="text-sm" style={{ color: "#888" }}>
+                  <p className="text-foreground font-bold">iPhone</p>
+                  <p className="text-sm text-muted-foreground">
                     Toque em Compartilhar → Adicionar à Tela de Início
                   </p>
                 </div>
@@ -585,13 +566,13 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
               >
                 <div
                   className="flex items-center justify-center rounded-full shrink-0"
-                  style={{ width: 44, height: 44, background: "rgba(201,168,76,0.15)" }}
+                  style={{ width: 44, height: 44, background: "hsl(var(--primary) / 0.15)" }}
                 >
                   <span className="text-2xl">🤖</span>
                 </div>
                 <div>
-                  <p className="text-white font-bold">Android</p>
-                  <p className="text-sm" style={{ color: "#888" }}>
+                  <p className="text-foreground font-bold">Android</p>
+                  <p className="text-sm text-muted-foreground">
                     Toque nos 3 pontos → Adicionar à tela inicial
                   </p>
                 </div>
@@ -599,10 +580,7 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
             </div>
 
             <div className="w-full mt-4">
-              <GoldButton
-                onClick={handleFinish}
-                className="animate-pulse"
-              >
+              <GoldButton onClick={handleFinish}>
                 Já salvei — entrar no Orbis 🚀
               </GoldButton>
             </div>

@@ -59,35 +59,33 @@ export default function StreakCard({ userId }: StreakCardProps) {
 
   return (
     <div className="space-y-3">
-      {/* Streak Card */}
-      <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-4">
+      <div className="bg-card border border-border rounded-xl p-4">
         <div className="flex items-center gap-3">
           <span className={getFireSize()}>🔥</span>
           <div className="flex-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold text-white">{streak}</span>
-              <span className="text-sm text-[#888888]">dias seguidos</span>
+              <span className="text-2xl font-bold text-foreground">{streak}</span>
+              <span className="text-sm text-muted-foreground">dias seguidos</span>
             </div>
-            <p className="text-xs text-[#888888] mt-0.5">{getMessage()}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{getMessage()}</p>
           </div>
         </div>
       </div>
 
-      {/* Routine Progress Card */}
       {routineProgress.total > 0 && (
         <button
           onClick={() => navigate("/routine")}
-          className="w-full bg-[#1A1A1A] border border-[#333333] rounded-xl p-4 text-left active:scale-[0.98] transition-transform"
+          className="w-full bg-card border border-border rounded-xl p-4 text-left active:scale-[0.98] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-white">
+            <span className="text-sm font-medium text-foreground">
               Rotina de hoje: {routineProgress.done}/{routineProgress.total} hábitos
             </span>
-            <span className="text-xs text-[#F4A100]">Ver →</span>
+            <span className="text-xs text-primary">Ver →</span>
           </div>
-          <div className="h-2 bg-[#333333] rounded-full overflow-hidden">
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-500"
+              className="h-full bg-primary rounded-full transition-[width] duration-300 ease-out"
               style={{ width: `${routinePercent}%` }}
             />
           </div>

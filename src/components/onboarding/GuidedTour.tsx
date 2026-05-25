@@ -90,6 +90,15 @@ export default function GuidedTour({ onComplete, onSkip, slideCount }: GuidedTou
     };
   }, [measureElement, step, location.pathname]);
 
+  // Allow Escape to skip the tour
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onSkip();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onSkip]);
+
   const handleNext = () => {
     if (step < tourSteps.length - 1) {
       setEntering(false);
@@ -120,11 +129,11 @@ export default function GuidedTour({ onComplete, onSkip, slideCount }: GuidedTou
   const tooltipBelow = rect ? rect.bottom + padding + 12 < window.innerHeight - 180 : true;
 
   return (
-    <div className="fixed inset-0 z-[9998]">
+    <div className="fixed inset-0 z-[9998]" role="dialog" aria-modal="true" aria-label="Tour guiado">
       {/* Progress bar */}
       <div className="fixed top-0 left-0 right-0 z-[10001] h-1 bg-muted">
         <div
-          className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
+          className="h-full bg-gradient-to-r from-primary to-secondary transition-[colors,transform,opacity] duration-500"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -132,7 +141,7 @@ export default function GuidedTour({ onComplete, onSkip, slideCount }: GuidedTou
       {/* Skip button */}
       <button
         onClick={onSkip}
-        className="fixed top-3 right-4 z-[10001] text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border/50 bg-background/80 backdrop-blur-sm"
+        className="fixed top-3 right-4 z-[10001] text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border bg-background"
       >
         Pular
       </button>
@@ -167,7 +176,7 @@ export default function GuidedTour({ onComplete, onSkip, slideCount }: GuidedTou
       {/* Highlight ring */}
       {highlightStyle && (
         <div
-          className="absolute border-2 border-primary/60 pointer-events-none transition-all duration-300"
+          className="absolute border-2 border-primary/60 pointer-events-none transition-[colors,transform,opacity] duration-300"
           style={{
             ...highlightStyle,
             boxShadow: "0 0 0 4px hsl(var(--primary) / 0.15)",
@@ -179,7 +188,7 @@ export default function GuidedTour({ onComplete, onSkip, slideCount }: GuidedTou
       {rect && (
         <div
           className={cn(
-            "fixed left-4 right-4 z-[10000] max-w-sm mx-auto transition-all duration-200",
+            "fixed left-4 right-4 z-[10000] max-w-sm mx-auto transition-[colors,transform,opacity] duration-200",
             entering ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
           )}
           style={{

@@ -13,28 +13,17 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
 
   return (
     <div className="space-y-2">
-      <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
         Ranking
       </p>
       <button
         onClick={onClick}
-        className="group relative w-full overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] via-card/60 to-card/30 p-4 flex items-center gap-4 hover:border-primary/40 transition-all text-left"
+        className="group relative w-full overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary/[0.06] via-card/60 to-card/30 p-4 flex items-center gap-4 hover:border-primary/40 transition-[colors,transform,opacity] text-left"
         style={{
           boxShadow:
             "0 4px 20px -8px hsl(var(--primary) / 0.25), inset 0 1px 0 hsl(var(--primary) / 0.08)",
         }}
       >
-        {/* Subtle shine sweep */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-          <div
-            className="absolute -top-1/2 -left-1/4 h-[200%] w-1/4 animate-shine-sweep opacity-60"
-            style={{
-              background:
-                "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.10), transparent)",
-            }}
-          />
-        </div>
-
         <div
           className="relative w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0"
           style={{ boxShadow: "0 0 16px -4px hsl(var(--primary) / 0.5)" }}

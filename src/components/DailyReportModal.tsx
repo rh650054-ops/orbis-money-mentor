@@ -25,17 +25,7 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[460px] bg-[#0D0D0D] border border-white/10 rounded-3xl p-0 overflow-hidden">
-        {/* Glow background */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div
-            className={cn(
-              "absolute -top-24 left-1/2 -translate-x-1/2 w-[420px] h-[420px] rounded-full blur-3xl opacity-30",
-              goalAchieved ? "bg-[#F4A100]" : "bg-[#6B21A8]"
-            )}
-          />
-        </div>
-
+      <DialogContent className="sm:max-w-[460px] bg-background border-border rounded-3xl p-0 overflow-hidden">
         <div className="relative p-6 space-y-5">
           <DialogHeader className="space-y-3">
             <div className="flex items-center justify-center">
@@ -43,56 +33,49 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
                 className={cn(
                   "w-14 h-14 rounded-2xl flex items-center justify-center border",
                   goalAchieved
-                    ? "bg-[#F4A100]/15 border-[#F4A100]/40"
-                    : "bg-[#6B21A8]/15 border-[#6B21A8]/40"
+                    ? "bg-primary/15 border-primary/40"
+                    : "bg-secondary border-border"
                 )}
               >
                 {goalAchieved ? (
-                  <Sparkles className="w-7 h-7 text-[#F4A100]" />
+                  <Sparkles className="w-7 h-7 text-primary" />
                 ) : (
-                  <Target className="w-7 h-7 text-[#A78BFA]" />
+                  <Target className="w-7 h-7 text-muted-foreground" />
                 )}
               </div>
             </div>
-            <DialogTitle className="text-center text-xl font-bold tracking-tight text-white">
+            <DialogTitle className="text-center text-xl font-bold tracking-tight text-foreground">
               Relatório do Dia
             </DialogTitle>
-            <p className="text-center text-xs text-neutral-500 -mt-1">
+            <p className="text-center text-xs text-muted-foreground -mt-1">
               {goalAchieved ? "Meta batida. Excelente execução." : "Continua firme. Cada dia é um passo."}
             </p>
           </DialogHeader>
 
-          {/* Hero: Total + % */}
-          <div className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-5 space-y-4">
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
             <div className="text-center space-y-1">
-              <p className="text-[10px] uppercase tracking-[0.2em] text-neutral-500">Total vendido</p>
-              <p className="text-4xl font-black text-white tabular-nums">
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Total vendido</p>
+              <p className="text-4xl font-black text-foreground tabular-nums">
                 {formatCurrency(report.totalSold)}
               </p>
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-muted-foreground">
                 Meta: {formatCurrency(report.dailyGoal)}
               </p>
             </div>
 
-            {/* Progress bar */}
             <div className="space-y-1.5">
-              <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
                 <div
-                  className={cn(
-                    "h-full rounded-full transition-all duration-700",
-                    goalAchieved
-                      ? "bg-gradient-to-r from-[#F4A100] to-[#FFB840]"
-                      : "bg-gradient-to-r from-[#6B21A8] to-[#A78BFA]"
-                  )}
+                  className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out"
                   style={{ width: `${pct}%` }}
                 />
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-[10px] text-neutral-500 uppercase tracking-wider">Progresso</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">Progresso</span>
                 <span
                   className={cn(
                     "text-sm font-bold tabular-nums",
-                    goalAchieved ? "text-[#F4A100]" : "text-[#A78BFA]"
+                    goalAchieved ? "text-primary" : "text-muted-foreground"
                   )}
                 >
                   {report.percentageAchieved.toFixed(0)}%
@@ -101,37 +84,35 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
             </div>
           </div>
 
-          {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
             {report.bestHour && (
-              <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-3.5">
+              <div className="bg-card border border-border rounded-xl p-3.5">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <TrendingUp className="w-3.5 h-3.5 text-[#F4A100]" />
-                  <p className="text-[10px] uppercase tracking-wider text-neutral-500">Melhor hora</p>
+                  <TrendingUp className="w-3.5 h-3.5 text-primary" />
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Melhor hora</p>
                 </div>
-                <p className="text-base font-bold text-white">H{report.bestHour.index + 1}</p>
-                <p className="text-xs text-[#F4A100] tabular-nums">{formatCurrency(report.bestHour.amount)}</p>
+                <p className="text-base font-bold text-foreground">H{report.bestHour.index + 1}</p>
+                <p className="text-xs text-primary tabular-nums">{formatCurrency(report.bestHour.amount)}</p>
               </div>
             )}
 
             {report.worstHour && (
-              <div className="bg-[#1A1A1A] border border-white/5 rounded-xl p-3.5">
+              <div className="bg-card border border-border rounded-xl p-3.5">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <TrendingDown className="w-3.5 h-3.5 text-neutral-500" />
-                  <p className="text-[10px] uppercase tracking-wider text-neutral-500">Pior hora</p>
+                  <TrendingDown className="w-3.5 h-3.5 text-muted-foreground" />
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground">Pior hora</p>
                 </div>
-                <p className="text-base font-bold text-white">H{report.worstHour.index + 1}</p>
-                <p className="text-xs text-neutral-400 tabular-nums">{formatCurrency(report.worstHour.amount)}</p>
+                <p className="text-base font-bold text-foreground">H{report.worstHour.index + 1}</p>
+                <p className="text-xs text-muted-foreground tabular-nums">{formatCurrency(report.worstHour.amount)}</p>
               </div>
             )}
           </div>
 
-          {/* Ritmo + Constância */}
           <div className="space-y-2.5">
-            <div className="flex items-center justify-between bg-[#1A1A1A] border border-white/5 rounded-xl px-4 py-3">
-              <span className="text-xs text-neutral-400">Ritmo médio</span>
-              <span className="text-sm font-bold text-white tabular-nums">
-                {formatCurrency(report.averageRhythm)}<span className="text-neutral-500 font-normal">/h</span>
+            <div className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3">
+              <span className="text-xs text-muted-foreground">Ritmo médio</span>
+              <span className="text-sm font-bold text-foreground tabular-nums">
+                {formatCurrency(report.averageRhythm)}<span className="text-muted-foreground font-normal">/h</span>
               </span>
             </div>
 
@@ -139,23 +120,23 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
               className={cn(
                 "flex items-center gap-3 rounded-xl px-4 py-3 border",
                 report.consistency
-                  ? "bg-[#F4A100]/8 border-[#F4A100]/30"
-                  : "bg-[#1A1A1A] border-white/5"
+                  ? "bg-primary/10 border-primary/30"
+                  : "bg-card border-border"
               )}
             >
               {report.consistency ? (
-                <CheckCircle2 className="w-5 h-5 text-[#F4A100] flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 text-primary flex-shrink-0" />
               ) : (
-                <XCircle className="w-5 h-5 text-neutral-500 flex-shrink-0" />
+                <XCircle className="w-5 h-5 text-muted-foreground flex-shrink-0" />
               )}
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   "text-xs font-semibold",
-                  report.consistency ? "text-[#F4A100]" : "text-neutral-300"
+                  report.consistency ? "text-primary" : "text-foreground"
                 )}>
                   {report.consistency ? "Constância atingida" : "Constância não atingida"}
                 </p>
-                <p className="text-[10px] text-neutral-500 leading-snug">
+                <p className="text-xs text-muted-foreground leading-snug">
                   {report.consistency
                     ? "Todos os blocos do dia preenchidos."
                     : "Complete todos os blocos pra manter."}
@@ -164,17 +145,16 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
             </div>
           </div>
 
-          {/* Conselho */}
-          <div className="bg-gradient-to-br from-[#6B21A8]/15 to-[#1A1A1A] border border-[#6B21A8]/25 rounded-xl p-4">
+          <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#6B21A8]/20 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-4 h-4 text-[#A78BFA]" />
+              <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-4 h-4 text-muted-foreground" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] uppercase tracking-wider text-[#A78BFA] font-semibold mb-1">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-1">
                   Conselho do dia
                 </p>
-                <p className="text-xs text-neutral-300 leading-relaxed">
+                <p className="text-xs text-foreground leading-relaxed">
                   {report.advice}
                 </p>
               </div>
@@ -183,10 +163,9 @@ export default function DailyReportModal({ isOpen, onClose, report }: DailyRepor
 
           <Button
             onClick={onClose}
-            className="relative w-full h-12 rounded-xl bg-[#F4A100] hover:bg-[#FFB840] text-black font-bold text-sm tracking-wide transition-all shadow-[0_0_24px_-4px_rgba(244,161,0,0.5)] overflow-hidden group"
+            className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm tracking-wide transition-colors"
           >
-            <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-            <span className="relative">Finalizar</span>
+            Finalizar
           </Button>
         </div>
       </DialogContent>

@@ -91,16 +91,16 @@ export default function RoutineOnboardingStep1({ onComplete }: Props) {
         </div>
         <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
+            className="h-full bg-gradient-to-r from-primary to-secondary transition-[colors,transform,opacity] duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
       </div>
 
       {/* Question card */}
-      <Card className="glass border-primary/20 w-full max-w-md shadow-[0_0_30px_hsl(var(--primary)/0.15)]">
+      <Card className="border-primary/20 w-full max-w-md shadow-[0_0_30px_hsl(var(--primary)/0.15)]">
         <CardContent className="p-8 text-center space-y-6">
-          <div className="text-5xl animate-bounce">{q.emoji}</div>
+          <div key={currentQ} className="text-5xl animate-in zoom-in-50 fade-in duration-300">{q.emoji}</div>
           <div>
             <h2 className="text-xl font-bold text-foreground">{q.title}</h2>
             <p className="text-muted-foreground text-sm mt-1">{q.subtitle}</p>

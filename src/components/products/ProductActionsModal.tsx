@@ -166,7 +166,7 @@ export default function ProductActionsModal({ product, onClose, onChanged }: Pro
             <div>
               <Label>Quantidade de lotes</Label>
               <Input type="number" inputMode="numeric" value={batches} onChange={(e) => setBatches(e.target.value)} />
-              <p className="text-[11px] text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1">
                 Cada lote rende <span className="font-semibold">{product.batch_yield ?? 0}</span> unidades.
                 Total: <span className="font-semibold">{(parseFloat(batches) || 0) * (product.batch_yield ?? 0)}</span> unidades.
               </p>

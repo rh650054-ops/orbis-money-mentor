@@ -295,7 +295,7 @@ function NotificationCard({
 
   return (
     <div
-      className="pointer-events-auto bg-neutral-900/95 backdrop-blur-sm border border-neutral-700/50 rounded-xl overflow-hidden animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50 touch-pan-y"
+      className="pointer-events-auto bg-card border border-border rounded-xl overflow-hidden animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50 touch-pan-y"
       style={{
         transform: `translateX(${dragX}px)`,
         opacity,

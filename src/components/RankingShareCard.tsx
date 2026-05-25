@@ -1,6 +1,9 @@
 import { forwardRef } from "react";
 import { Crown, Flame, Trophy, Sparkles, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RANKING_TIER_COLORS } from "@/lib/theme-colors";
+
+const C = RANKING_TIER_COLORS;
 
 interface RankingShareCardProps {
   league: "faturamento" | "constancia";
@@ -16,6 +19,8 @@ interface RankingShareCardProps {
 const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];
 const isEmoji = (a: string | null) => !!a && EXCLUSIVE_EMOJIS.includes(a);
 
+// Literal "#fff" usages below are intentional: html2canvas exports this surface to PNG
+// for IG Story sharing and resolves CSS vars unreliably. Token system does not apply here.
 /**
  * Card 1080x1920 (Instagram Story). Renderizado em escala via CSS no captura,
  * mas mantém proporção 9:16 fixa para print perfeito.
@@ -35,7 +40,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
         style={{
           width: 1080,
           height: 1920,
-          background: "radial-gradient(120% 80% at 50% 0%, #1a1100 0%, #000000 55%, #000000 100%)",
+          background: `radial-gradient(120% 80% at 50% 0%, ${C.shareCardBgDeep} 0%, ${C.shareCardBgBlack} 55%, ${C.shareCardBgBlack} 100%)`,
           fontFamily:
             "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
           color: "#fff",
@@ -104,18 +109,18 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                 marginBottom: 40,
               }}
             >
-              <Sparkles size={28} color="#F5B400" />
+              <Sparkles size={28} color={C.goldBright} />
               <span
                 style={{
                   fontSize: 28,
                   fontWeight: 800,
                   letterSpacing: 6,
-                  color: "#F5B400",
+                  color: C.goldBright,
                 }}
               >
                 ORBIS · RANKING
               </span>
-              <Sparkles size={28} color="#F5B400" />
+              <Sparkles size={28} color={C.goldBright} />
             </div>
 
             <div
@@ -138,7 +143,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                 lineHeight: 1,
                 letterSpacing: -2,
                 margin: "10px 0 0",
-                background: "linear-gradient(180deg, #FFE89A 0%, #F5B400 60%, #C77E00 100%)",
+                background: `linear-gradient(180deg, ${C.goldLight} 0%, ${C.goldBright} 60%, ${C.goldDeep} 100%)`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
               }}
@@ -164,14 +169,14 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                 width: 200,
                 height: 200,
                 borderRadius: "50%",
-                background: "linear-gradient(135deg, #F5B400, #C77E00)",
+                background: `linear-gradient(135deg, ${C.goldBright}, ${C.goldDeep})`,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 boxShadow: "0 0 80px rgba(245,180,0,0.6), inset 0 -20px 40px rgba(0,0,0,0.3)",
               }}
             >
-              <Icon size={110} color="#0a0a0a" strokeWidth={2.5} />
+              <Icon size={110} color={C.iconStroke} strokeWidth={2.5} />
             </div>
 
             {/* Position number */}
@@ -194,8 +199,8 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                   lineHeight: 0.9,
                   letterSpacing: -10,
                   background: isTop3
-                    ? "linear-gradient(180deg, #FFF1B8 0%, #F5B400 50%, #8B5A00 100%)"
-                    : "linear-gradient(180deg, #FFFFFF 0%, #BDBDBD 100%)",
+                    ? `linear-gradient(180deg, ${C.goldHighlight} 0%, ${C.goldBright} 50%, ${C.goldDark} 100%)`
+                    : `linear-gradient(180deg, ${C.podiumWhite} 0%, ${C.silverDark} 100%)`,
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   filter: "drop-shadow(0 10px 40px rgba(245,180,0,0.4))",
@@ -235,7 +240,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                   width: 140,
                   height: 140,
                   borderRadius: "50%",
-                  border: "4px solid #F5B400",
+                  border: `4px solid ${C.goldBright}`,
                   background: "linear-gradient(135deg, rgba(245,180,0,0.3), rgba(245,180,0,0.05))",
                   display: "flex",
                   alignItems: "center",
@@ -243,7 +248,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                   flexShrink: 0,
                   overflow: "hidden",
                   fontSize: 70,
-                  color: "#F5B400",
+                  color: C.goldBright,
                   fontWeight: 900,
                 }}
               >
@@ -274,7 +279,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                   style={{
                     fontSize: 56,
                     fontWeight: 900,
-                    color: "#F5B400",
+                    color: C.goldBright,
                     lineHeight: 1,
                   }}
                 >
@@ -308,7 +313,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
           >
             <div style={{ display: "flex", gap: 8 }}>
               {[...Array(5)].map((_, i) => (
-                <Star key={i} size={28} color="#F5B400" fill="#F5B400" />
+                <Star key={i} size={28} color={C.goldBright} fill={C.goldBright} />
               ))}
             </div>
             <div

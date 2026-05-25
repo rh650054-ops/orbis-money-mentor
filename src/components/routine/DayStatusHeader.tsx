@@ -66,9 +66,9 @@ export default function DayStatusHeader({
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
-    <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-primary/20 via-card to-card/80 backdrop-blur-xl">
+    <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-primary/20 via-card to-card/80">
       {/* Animated background glow */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-secondary/10 animate-pulse" />
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-secondary/10" />
       
       {/* Neon border effect */}
       <div className="absolute inset-0 rounded-lg p-[1px] bg-gradient-to-r from-primary via-secondary to-primary opacity-50" />
@@ -77,11 +77,11 @@ export default function DayStatusHeader({
         {/* Top row: Title and Time */}
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold gradient-text">Status do Dia</h2>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">Status do Dia</h2>
             <p className="text-muted-foreground text-sm mt-1 italic">"{motivationalPhrase}"</p>
           </div>
           <div className="flex items-center gap-2 bg-card/80 px-4 py-2 rounded-full border border-primary/30">
-            <Clock className="w-5 h-5 text-primary animate-pulse" />
+            <Clock className="w-5 h-5 text-primary" />
             <span className="text-xl font-mono font-bold text-primary">{currentTime}</span>
           </div>
         </div>
@@ -89,19 +89,19 @@ export default function DayStatusHeader({
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-4">
           {/* Activities completed */}
-          <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50 hover:border-primary/50 transition-all duration-300">
-            <div className="text-4xl font-bold gradient-text">{completedCount}/{totalCount}</div>
+          <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50 hover:border-primary/50 transition-[colors,transform,opacity] duration-300">
+            <div className="text-4xl font-bold text-foreground tracking-tight">{completedCount}/{totalCount}</div>
             <p className="text-xs text-muted-foreground mt-1">Atividades</p>
             <div className="mt-2 h-1 bg-muted rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-500"
+                className="h-full bg-gradient-to-r from-primary to-secondary transition-[colors,transform,opacity] duration-500"
                 style={{ width: `${percentage}%` }}
               />
             </div>
           </div>
 
           {/* Status */}
-          <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50 hover:border-primary/50 transition-all duration-300">
+          <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50 hover:border-primary/50 transition-[colors,transform,opacity] duration-300">
             <div className={`flex items-center justify-center gap-2 ${statusInfo.color}`}>
               <StatusIcon className="w-8 h-8" />
             </div>
@@ -120,15 +120,15 @@ export default function DayStatusHeader({
           </div>
 
           {/* Energy */}
-          <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50 hover:border-warning/50 transition-all duration-300">
+          <div className="text-center p-4 rounded-xl bg-card/50 border border-border/50 hover:border-warning/50 transition-[colors,transform,opacity] duration-300">
             <div className="flex items-center justify-center gap-1">
-              <Zap className="w-6 h-6 text-warning animate-pulse" />
+              <Zap className="w-6 h-6 text-warning" />
               <span className="text-4xl font-bold text-warning">{energy}</span>
             </div>
             <p className="text-xs text-muted-foreground mt-1">Energia</p>
             <div className="mt-2 h-1 bg-muted rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-warning to-warning/50 transition-all duration-500"
+                className="h-full bg-gradient-to-r from-warning to-warning/50 transition-[colors,transform,opacity] duration-500"
                 style={{ width: `${Math.min(energy, 100)}%` }}
               />
             </div>

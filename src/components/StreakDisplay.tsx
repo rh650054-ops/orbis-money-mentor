@@ -58,9 +58,9 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
   };
 
   const getConstancyColor = () => {
-    if (streak >= 30) return "text-purple-500";
-    if (streak >= 7) return "text-green-500";
-    if (streak >= 3) return "text-orange-500";
+    if (streak >= 30) return "text-streak-legendary";
+    if (streak >= 7) return "text-streak-strong";
+    if (streak >= 3) return "text-streak-warm";
     return "text-muted-foreground";
   };
 
@@ -83,7 +83,7 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
               <span className={getFireSize()}>🔥</span>
               <div className="flex-1">
                 <div className="flex items-center gap-1">
-                  <Flame className={`w-4 h-4 ${streak > 0 ? `${getConstancyColor()} animate-pulse` : "text-muted-foreground"}`} />
+                  <Flame className={`w-4 h-4 ${streak > 0 ? getConstancyColor() : "text-muted-foreground"}`} />
                   <span className="text-xs text-muted-foreground">Constância</span>
                 </div>
                 <div className="flex items-baseline gap-2">

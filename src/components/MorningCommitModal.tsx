@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/lib/dateUtils";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface Props {
   userId: string;
@@ -16,11 +17,9 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
 
   useEffect(() => {
     const check = async () => {
-      // Check if already dismissed today
       const today = getBrazilDate();
       if (localStorage.getItem("orbis_morning_commit_" + today)) return;
 
-      // Get routine wake/work time
       const { data: routine } = await supabase
         .from("routines")
         .select("work_start")
@@ -31,7 +30,6 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
 
       setConfiguredTime(routine.work_start);
 
-      // Check if 15+ minutes late
       const now = new Date();
       const [h, m] = routine.work_start.split(":").map(Number);
       const scheduled = new Date();
@@ -44,8 +42,6 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
     };
     check();
   }, [userId]);
-
-  if (!show) return null;
 
   const handleCommit = () => {
     const today = getBrazilDate();
@@ -62,26 +58,28 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
   };
 
   return (
-    <div className="fixed inset-0 z-[10000] bg-black/95 flex items-center justify-center p-6" style={{ pointerEvents: 'auto' }}>
-      <div className="max-w-sm w-full text-center space-y-5 animate-fade-in">
-        <span className="text-6xl block">🔥</span>
-        <p className="text-lg text-white leading-relaxed">
-          <span className="text-[#F4A100] font-bold">{nome}</span>. Você decidiu ontem que hoje começaria às{" "}
-          <span className="text-[#F4A100] font-bold">{configuredTime}</span>. Seu eu de ontem estava certo.
-        </p>
-        <button
-          onClick={handleCommit}
-          className="w-full py-4 rounded-xl font-bold text-black bg-[#F4A100] text-lg active:scale-[0.97] transition-transform"
-        >
-          Honrar meu compromisso →
-        </button>
-        <button
-          onClick={handleSkip}
-          className="text-sm text-[#888888] hover:text-white transition-colors"
-        >
-          Pular
-        </button>
-      </div>
-    </div>
+    <Dialog open={show} onOpenChange={(open) => { if (!open) handleSkip(); }}>
+      <DialogContent className="bg-card border-border max-w-sm rounded-2xl">
+        <div className="text-center space-y-5">
+          <DialogTitle className="sr-only">Honre seu compromisso de hoje</DialogTitle>
+          <DialogDescription className="text-base text-foreground leading-relaxed">
+            <span className="text-primary font-bold">{nome}</span>. Você decidiu ontem que hoje começaria às{" "}
+            <span className="text-primary font-bold">{configuredTime}</span>. Seu eu de ontem estava certo.
+          </DialogDescription>
+          <button
+            onClick={handleCommit}
+            className="w-full h-12 rounded-xl font-bold text-primary-foreground bg-primary text-base active:scale-[0.97] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Honrar meu compromisso →
+          </button>
+          <button
+            onClick={handleSkip}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+          >
+            Pular
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

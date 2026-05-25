@@ -72,17 +72,17 @@ export default function SpotFeedback({ placeId, placeName, city, state, summary,
           {total > 0 ? `${total} vendedor${total > 1 ? "es" : ""} avaliou` : "Seja o 1º a avaliar"}
         </span>
         {total > 0 && (
-          <span className="flex items-center gap-2 text-[11px]">
-            <span className="text-green-400">👍 {summary!.good}</span>
-            <span className="text-yellow-400">😐 {summary!.medium}</span>
-            <span className="text-red-400">👎 {summary!.bad}</span>
+          <span className="flex items-center gap-2 text-xs">
+            <span className="text-success">👍 {summary!.good}</span>
+            <span className="text-warning">😐 {summary!.medium}</span>
+            <span className="text-destructive">👎 {summary!.bad}</span>
           </span>
         )}
       </button>
 
       {open && (
         <div className="space-y-2 pt-1">
-          <p className="text-[11px] text-muted-foreground">Como é vender aqui?</p>
+          <p className="text-xs text-muted-foreground">Como é vender aqui?</p>
           <div className="grid grid-cols-3 gap-2">
             <Button
               size="sm"

@@ -138,7 +138,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
       {/* Aviso PIX — discreto */}
       <div className="rounded-lg border border-border/40 bg-card/40 p-2.5 flex items-start gap-2">
         <Sparkles className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-        <p className="text-[11px] text-foreground/75 leading-snug">
+        <p className="text-xs text-foreground/75 leading-snug">
           Apenas vendas em <span className="font-bold text-foreground">PIX</span> contam para
           competições e prêmios.
         </p>
@@ -151,16 +151,6 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
           className="relative overflow-hidden border-2 border-primary bg-gradient-to-br from-primary/20 via-primary/5 to-transparent"
           style={{ boxShadow: "0 10px 40px -10px hsl(var(--primary) / 0.4)" }}
         >
-          <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div
-              className="absolute -top-1/2 -left-1/4 h-[200%] w-1/3 animate-shine-sweep"
-              style={{
-                background:
-                  "linear-gradient(90deg, transparent, hsl(var(--primary) / 0.25), transparent)",
-              }}
-            />
-          </div>
           <CardContent className="relative p-4 space-y-2.5">
             <div className="flex items-center gap-2">
               <Trophy className="w-5 h-5 text-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]" />
@@ -195,7 +185,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
       {!hasPhone && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2.5 flex items-start gap-2">
           <AlertCircle className="w-3.5 h-3.5 text-destructive shrink-0 mt-0.5" />
-          <p className="text-[11px] text-foreground/80 leading-snug">
+          <p className="text-xs text-foreground/80 leading-snug">
             Adicione seu WhatsApp no perfil para participar e receber prêmios.
           </p>
         </div>
@@ -205,7 +195,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
       <div className="space-y-2.5">
         <div className="flex items-center gap-2 px-1">
           <div className="w-1 h-3.5 bg-primary rounded-full" />
-          <p className="text-[11px] font-black uppercase tracking-widest text-foreground/90">
+          <p className="text-xs font-black uppercase tracking-widest text-foreground/90">
             Competições ativas
           </p>
         </div>
@@ -266,7 +256,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                    <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
                       {c.period_type === "weekly"
                         ? "Semanal"
                         : c.period_type === "monthly"
@@ -274,7 +264,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
                         : "Especial"}
                     </p>
                     {joined && (
-                      <span className="text-[9px] font-black uppercase tracking-wider text-primary">
+                      <span className="text-xs font-black uppercase tracking-wider text-primary">
                         · Dentro
                       </span>
                     )}
@@ -283,11 +273,11 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
                     {c.name}
                   </h3>
                   {c.description && (
-                    <p className="text-[11px] text-muted-foreground leading-snug line-clamp-2 mt-0.5">
+                    <p className="text-xs text-muted-foreground leading-snug line-clamp-2 mt-0.5">
                       {c.description}
                     </p>
                   )}
-                  <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Users className="w-3 h-3" /> {count}
                     </span>
@@ -307,7 +297,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
         <div className="space-y-2">
           <div className="flex items-center gap-2 px-1">
             <div className="w-1 h-3.5 bg-muted-foreground/40 rounded-full" />
-            <p className="text-[11px] font-black uppercase tracking-widest text-muted-foreground">
+            <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">
               Encerradas
             </p>
           </div>
@@ -324,7 +314,7 @@ export default function CompetitionsTab({ userId, hasPhone }: Props) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-foreground/90 truncate">{c.name}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{c.prize_label}</p>
+                    <p className="text-xs text-muted-foreground truncate">{c.prize_label}</p>
                   </div>
                   <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                 </CardContent>
@@ -390,7 +380,7 @@ function CompetitionDetail({
     <div className="px-4 pt-5 pb-8 space-y-4">
       <SheetHeader className="flex flex-row items-start justify-between gap-3 space-y-0 text-left">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">
+          <p className="text-xs font-black uppercase tracking-widest text-primary mb-1">
             {c.period_type === "weekly"
               ? "Semanal"
               : c.period_type === "monthly"
@@ -425,7 +415,7 @@ function CompetitionDetail({
             <Gift className="w-5 h-5 text-primary" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-primary/80 font-black">
+            <p className="text-xs uppercase tracking-widest text-primary/80 font-black">
               Prêmio
             </p>
             <p className="text-base font-black text-foreground leading-tight">{c.prize_label}</p>
@@ -452,7 +442,7 @@ function CompetitionDetail({
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] uppercase tracking-widest text-primary/80 font-black">
+            <p className="text-xs uppercase tracking-widest text-primary/80 font-black">
               Sua posição
             </p>
             <p className="text-lg font-black text-foreground leading-tight">
@@ -463,7 +453,7 @@ function CompetitionDetail({
             </p>
           </div>
           {myPos.position > 1 && (
-            <p className="text-[10px] text-primary font-bold uppercase tracking-wider shrink-0 text-right leading-tight">
+            <p className="text-xs text-primary font-bold uppercase tracking-wider shrink-0 text-right leading-tight">
               Vai pra
               <br />
               cima
@@ -473,7 +463,7 @@ function CompetitionDetail({
       )}
 
       {/* Infos discretas */}
-      <div className="grid grid-cols-2 gap-2 text-[11px]">
+      <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="rounded-lg bg-card/40 border border-border/40 px-2.5 py-2 flex items-center gap-1.5">
           <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <span className="text-foreground/85 truncate font-semibold">
@@ -487,7 +477,7 @@ function CompetitionDetail({
       </div>
 
       {audienceBadge && (
-        <div className="rounded-lg bg-card/40 border border-border/40 px-2.5 py-2 flex items-center gap-1.5 text-[11px]">
+        <div className="rounded-lg bg-card/40 border border-border/40 px-2.5 py-2 flex items-center gap-1.5 text-xs">
           <audienceBadge.icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <span className="text-foreground/85 font-semibold truncate">
             Restrita: {audienceBadge.label}
@@ -495,13 +485,13 @@ function CompetitionDetail({
         </div>
       )}
 
-      <div className="rounded-lg bg-card/40 border border-border/40 px-2.5 py-2 text-[11px] text-foreground/80">
+      <div className="rounded-lg bg-card/40 border border-border/40 px-2.5 py-2 text-xs text-foreground/80">
         <span className="text-muted-foreground font-semibold">Critério: </span>
         <span className="font-bold text-foreground/90">{metricLabel(c.metric)}</span>
       </div>
 
       {c.entry_instructions && (
-        <p className="text-[11px] text-muted-foreground leading-snug px-0.5">
+        <p className="text-xs text-muted-foreground leading-snug px-0.5">
           {c.entry_instructions}
         </p>
       )}

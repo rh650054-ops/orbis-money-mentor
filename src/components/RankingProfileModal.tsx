@@ -223,7 +223,7 @@ export function RankingProfileModal({
         <div className="space-y-5 py-2">
           {/* Preview */}
           <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-primary mb-2 text-center">Como aparece no ranking</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2 text-center">Como aparece no ranking</p>
             <div className="flex items-center gap-3 justify-center">
               {renderPreviewAvatar()}
               <span className="text-lg font-semibold text-foreground">{nickname || 'Seu Nome'}</span>
@@ -267,7 +267,7 @@ export function RankingProfileModal({
                   type="button"
                   onClick={() => handleSelectEmoji(item.emoji)}
                   className={cn(
-                    "p-2 rounded-lg transition-all hover:scale-105 active:scale-95",
+                    "p-2 rounded-lg transition-[colors,transform,opacity] hover:scale-105 active:scale-95",
                     selectedEmoji === item.emoji
                       ? "bg-primary/20 border-2 border-primary shadow-lg shadow-primary/20"
                       : "bg-card/50 border border-border/50 hover:border-primary/50"
@@ -284,7 +284,7 @@ export function RankingProfileModal({
             <div className="flex items-center gap-2 mb-3">
               <Sparkles className="w-4 h-4 text-primary" />
               <h3 className="text-sm font-bold text-foreground">Perfil Público</h3>
-              <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold">NOVO</span>
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold">NOVO</span>
             </div>
             <p className="text-xs text-muted-foreground mb-4">Outros vendedores podem ver seu perfil pelo ranking. Você decide o que mostrar.</p>
 
@@ -299,7 +299,7 @@ export function RankingProfileModal({
                 rows={2}
                 className="bg-background/50 resize-none text-sm"
               />
-              <p className="text-[10px] text-muted-foreground text-right">{bio.length}/120</p>
+              <p className="text-xs text-muted-foreground text-right">{bio.length}/120</p>
             </div>
 
             {/* O que vendo */}
@@ -341,7 +341,7 @@ export function RankingProfileModal({
                     <p className="text-xs font-medium text-foreground truncate">
                       {[city, stateUF].filter(Boolean).join(" / ")}
                     </p>
-                    <p className="text-[10px] text-muted-foreground">Mostrar minha cidade</p>
+                    <p className="text-xs text-muted-foreground">Mostrar minha cidade</p>
                   </div>
                 </div>
                 <Switch checked={showCity} onCheckedChange={setShowCity} />
@@ -363,7 +363,7 @@ export function RankingProfileModal({
                   className="bg-background/50 text-sm flex-1"
                 />
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] text-muted-foreground">Mostrar</span>
+                  <span className="text-xs text-muted-foreground">Mostrar</span>
                   <Switch checked={showInstagram} onCheckedChange={setShowInstagram} />
                 </div>
               </div>
@@ -384,11 +384,11 @@ export function RankingProfileModal({
                   className="bg-background/50 text-sm flex-1"
                 />
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] text-muted-foreground">Mostrar</span>
+                  <span className="text-xs text-muted-foreground">Mostrar</span>
                   <Switch checked={showWhatsapp} onCheckedChange={setShowWhatsapp} />
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground">Se ligado, qualquer usuário do app poderá te chamar.</p>
+              <p className="text-xs text-muted-foreground">Se ligado, qualquer usuário do app poderá te chamar.</p>
             </div>
           </div>
         </div>

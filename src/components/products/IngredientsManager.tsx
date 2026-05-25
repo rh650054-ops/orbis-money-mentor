@@ -112,7 +112,7 @@ export default function IngredientsManager() {
       {loading ? (
         <p className="text-center text-sm text-muted-foreground py-6">Carregando...</p>
       ) : ingredients.length === 0 ? (
-        <Card className="glass">
+        <Card className="bg-card border-border">
           <CardContent className="p-6 text-center space-y-2">
             <Package2 className="w-8 h-8 text-muted-foreground mx-auto" />
             <p className="text-sm text-muted-foreground">Nenhuma mercadoria cadastrada</p>
@@ -130,13 +130,13 @@ export default function IngredientsManager() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold truncate">{i.name}</p>
-                    {low && <span className="text-[10px] px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">acabando</span>}
+                    {low && <span className="text-xs px-1.5 py-0.5 rounded bg-warning/15 text-warning font-medium">acabando</span>}
                   </div>
                   <div className="flex items-baseline gap-2 mt-0.5 flex-wrap">
                     <span className="text-sm font-medium">
                       {Number(i.stock_quantity).toLocaleString("pt-BR")} {i.unit}
                     </span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       mín {Number(i.stock_min).toLocaleString("pt-BR")} {i.unit}
                       {i.cost_per_unit > 0 && ` • ${formatCurrency(i.cost_per_unit)}/${i.unit}`}
                     </span>
@@ -195,7 +195,7 @@ export default function IngredientsManager() {
             <div className="flex items-center justify-between pt-1">
               <div>
                 <Label className="cursor-pointer">Alertar quando acabar</Label>
-                <p className="text-[11px] text-muted-foreground">Avisa quando ficar abaixo do mínimo</p>
+                <p className="text-xs text-muted-foreground">Avisa quando ficar abaixo do mínimo</p>
               </div>
               <Switch checked={form.alerts_enabled} onCheckedChange={(c) => setForm({ ...form, alerts_enabled: c })} />
             </div>

@@ -133,7 +133,7 @@ export default function QuickExpenseButton({
       {!hideFab && (
         <Button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-44 right-4 md:bottom-28 md:right-8 h-12 w-12 rounded-full shadow-lg bg-card border-2 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-all z-40"
+          className="fixed bottom-44 right-4 md:bottom-28 md:right-8 h-12 w-12 rounded-full shadow-lg bg-card border-2 border-primary/40 hover:border-primary text-primary hover:bg-primary/10 transition-[colors,transform,opacity] z-40"
           size="icon"
           aria-label="Registrar custo do dia"
         >
@@ -162,7 +162,7 @@ export default function QuickExpenseButton({
               <>
                 {/* Quick categories grid */}
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-3">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-3">
                     Registrar gasto
                   </p>
                   <div className="grid grid-cols-3 gap-2.5">
@@ -170,7 +170,7 @@ export default function QuickExpenseButton({
                       <button
                         key={cat.key}
                         onClick={() => setSelected(cat)}
-                        className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border/60 bg-background hover:border-primary hover:bg-primary/5 transition-all"
+                        className="flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border border-border/60 bg-background hover:border-primary hover:bg-primary/5 transition-[colors,transform,opacity]"
                       >
                         <span className="text-2xl">{cat.icon}</span>
                         <span className="text-xs font-medium">{cat.label}</span>
@@ -181,7 +181,7 @@ export default function QuickExpenseButton({
 
                 {/* Today's expenses list */}
                 <div>
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2">
                     Lançamentos de hoje
                   </p>
                   {loading ? (
@@ -203,7 +203,7 @@ export default function QuickExpenseButton({
                             <span className="text-lg">{e.icon || "💰"}</span>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{e.name}</p>
-                              <p className="text-[10px] text-muted-foreground">{e.category}</p>
+                              <p className="text-xs text-muted-foreground">{e.category}</p>
                             </div>
                             <span className="text-sm font-bold text-primary">
                               {formatCurrency(Number(e.amount))}
@@ -235,7 +235,7 @@ export default function QuickExpenseButton({
                   <span className="text-3xl">{selected.icon}</span>
                   <div>
                     <p className="text-sm font-semibold">{selected.label}</p>
-                    <p className="text-[11px] text-muted-foreground">{selected.category}</p>
+                    <p className="text-xs text-muted-foreground">{selected.category}</p>
                   </div>
                 </div>
 

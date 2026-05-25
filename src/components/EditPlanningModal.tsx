@@ -292,15 +292,15 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
           <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="min-w-0">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Semanal</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Semanal</p>
                 <p className="text-xs font-bold text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
               </div>
               <div className="min-w-0 border-x border-border">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Diária</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Diária</p>
                 <p className="text-xs font-bold text-primary truncate">{formatCurrency(dailyGoal)}</p>
               </div>
               <div className="min-w-0">
-                <p className="text-[9px] text-muted-foreground uppercase tracking-wide">Por Hora</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Por Hora</p>
                 <p className="text-xs font-bold text-foreground truncate">{formatCurrency(hourlyGoal)}</p>
               </div>
             </div>
@@ -314,7 +314,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-foreground">Google Calendar</p>
                   {isConnected && (
-                    <p className="text-[10px] text-muted-foreground truncate">{googleEmail}</p>
+                    <p className="text-xs text-muted-foreground truncate">{googleEmail}</p>
                   )}
                 </div>
               </div>
@@ -323,7 +323,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                   onClick={disconnect}
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-[10px] text-destructive hover:bg-destructive/10"
+                  className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
                 >
                   Desconectar
                 </Button>
@@ -333,7 +333,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                   disabled={calendarLoading}
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-[10px] text-primary hover:bg-primary/10"
+                  className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
                 >
                   {calendarLoading ? "..." : "Conectar"}
                 </Button>

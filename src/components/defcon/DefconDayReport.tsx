@@ -99,7 +99,7 @@ export function DefconDayReport({
 
         <div className="flex justify-between items-center">
           <span className="text-sm font-mono text-neutral-500">🛒 Vendas realizadas</span>
-          <span className="text-xl font-black text-green-500">{totalSales}</span>
+          <span className="text-xl font-black text-success">{totalSales}</span>
         </div>
 
         <div className="h-px bg-neutral-800" />
@@ -107,7 +107,7 @@ export function DefconDayReport({
         <div className="flex justify-between items-center">
           <span className="text-sm font-mono text-neutral-500">📊 Taxa de conversão</span>
           <span className={`text-xl font-black ${
-            conversionRate >= 30 ? "text-green-500" : conversionRate >= 15 ? "text-amber-500" : "text-red-500"
+            conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"
           }`}>
             {conversionRate.toFixed(0)}%
           </span>
@@ -127,7 +127,7 @@ export function DefconDayReport({
         <div className="h-px bg-neutral-800" />
             <div className="text-xs font-mono text-neutral-500 text-center">
               Hoje você abordou {totalApproaches} pessoas. Ontem foram {yesterdayApproaches}.{" "}
-              <span className={approachDiff >= 0 ? "text-green-500" : "text-red-500"}>
+              <span className={approachDiff >= 0 ? "text-success" : "text-destructive"}>
                 {approachDiff >= 0 ? "▲" : "▼"} {Math.abs(approachDiffPct || 0).toFixed(0)}%
               </span>
             </div>
@@ -142,8 +142,8 @@ export function DefconDayReport({
         </div>
       )}
       {aiTip && (
-        <div className="bg-neutral-900 border border-blue-900/30 rounded-xl p-4">
-          <div className="text-xs font-mono text-blue-500 tracking-widest uppercase mb-2">🤖 Dica da IA</div>
+        <div className="bg-neutral-900 border border-primary/30 rounded-xl p-4">
+          <div className="text-xs font-mono text-primary tracking-widest uppercase mb-2">🤖 Dica da IA</div>
           <p className="text-sm text-neutral-300 font-mono leading-relaxed">{aiTip}</p>
         </div>
       )}

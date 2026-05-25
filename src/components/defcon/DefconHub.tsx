@@ -10,6 +10,7 @@ import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import { BRAND_COLORS, readThemeColor } from "@/lib/theme-colors";
 
 interface DayTotals {
   cash: number; card: number; pix: number; debt: number; profit: number; cost: number; tips: number;
@@ -159,26 +160,26 @@ export default function DefconHub() {
     <div className="space-y-4 pb-8 max-w-2xl mx-auto px-1">
       {/* HEADER discreto */}
       <div className="pt-1 pb-1">
-        <p className="text-[11px] text-red-500/80 tracking-[0.25em] uppercase">⚡ Modo desafio</p>
+        <p className="text-xs text-destructive/80 tracking-[0.25em] uppercase">⚡ Modo desafio</p>
         <h1 className="text-2xl font-bold text-white tracking-tight mt-0.5">DEFCON 4</h1>
       </div>
 
       {/* BLOCO UNIFICADO — Meta + Botão */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1A1A1A] via-[#141414] to-[#0D0D0D] border border-white/10 p-5 space-y-5 shadow-[0_8px_30px_-12px_rgba(244,161,0,0.25)]">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-background border border-white/10 p-5 space-y-5 shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.25)]">
         {/* glow sutil */}
-        <div className="absolute -top-20 -right-20 w-56 h-56 bg-[#F4A100]/10 blur-3xl rounded-full pointer-events-none" />
+        <div className="absolute -top-20 -right-20 w-56 h-56 bg-primary/10 blur-3xl rounded-full pointer-events-none" />
 
         <div className="relative flex items-start justify-between">
           <div>
-            <p className="text-[11px] text-neutral-500 tracking-wider uppercase mb-1">Meta do dia</p>
+            <p className="text-xs text-neutral-500 tracking-wider uppercase mb-1">Meta do dia</p>
             <p className="text-3xl font-bold text-white tracking-tight tabular-nums">
               {formatCurrency(dailyGoal)}
             </p>
             <p className="text-xs text-neutral-500 mt-1">
               {goalReached ? (
-                <span className="text-green-400">🎉 Meta batida!</span>
+                <span className="text-success">🎉 Meta batida!</span>
               ) : (
-                <>Vendido <span className="text-white font-medium">{formatCurrency(totalVendido)}</span> · falta <span className="text-[#F4A100]">{formatCurrency(falta)}</span></>
+                <>Vendido <span className="text-white font-medium">{formatCurrency(totalVendido)}</span> · falta <span className="text-primary">{formatCurrency(falta)}</span></>
               )}
             </p>
           </div>
@@ -194,10 +195,10 @@ export default function DefconHub() {
         {/* Progress fino */}
         <div className="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
           <div
-            className={`h-full transition-all duration-700 rounded-full ${
+            className={`h-full transition-[colors,transform,opacity] duration-700 rounded-full ${
               goalReached
-                ? "bg-gradient-to-r from-green-500 to-emerald-400 shadow-[0_0_12px_rgba(34,197,94,0.6)]"
-                : "bg-gradient-to-r from-[#F4A100] to-[#FFB733] shadow-[0_0_12px_rgba(244,161,0,0.5)]"
+                ? "bg-gradient-to-r from-success to-success/80 shadow-[0_0_12px_hsl(var(--success)/0.6)]"
+                : "bg-gradient-to-r from-primary to-primary shadow-[0_0_12px_hsl(var(--primary)/0.5)]"
             }`}
             style={{ width: `${progresso}%` }}
           />
@@ -207,7 +208,7 @@ export default function DefconHub() {
         <button
           onClick={() => navigate("/defcon")}
           data-tour="defcon-banner"
-          className="relative w-full h-14 rounded-xl bg-gradient-to-r from-red-600 to-red-500 text-white font-bold text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-6px_rgba(239,68,68,0.55)] overflow-hidden group"
+          className="relative w-full h-14 rounded-xl bg-gradient-to-r from-destructive to-destructive/85 text-destructive-foreground font-bold text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-6px_hsl(var(--destructive)/0.55)] overflow-hidden group"
         >
           <span className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition" />
           <Zap className="w-5 h-5 fill-white" />
@@ -223,31 +224,31 @@ export default function DefconHub() {
         <div className="space-y-3">
           <div className="flex items-end justify-between px-1">
             <h3 className="text-sm font-semibold text-white">Como você recebeu</h3>
-            <span className="text-[10px] text-neutral-500 tabular-nums">
-              Total <span className="text-[#F4A100] font-bold">{formatCurrency(totalVendido)}</span>
+            <span className="text-xs text-neutral-500 tabular-nums">
+              Total <span className="text-primary font-bold">{formatCurrency(totalVendido)}</span>
             </span>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color="#22C55E" />
-            <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color="#A78BFA" />
-            <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color="#32BCAD" />
+            <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color={readThemeColor("--success")} />
+            <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color={readThemeColor("--violet-soft")} />
+            <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color={BRAND_COLORS.PIX} />
           </div>
 
           {/* Gorjeta — destaque dourado quando > 0 */}
           {totals.tips > 0 && (
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#F4A100]/15 via-[#F4A100]/8 to-transparent border border-[#F4A100]/30 px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#F4A100]/20 flex items-center justify-center shrink-0">
-                <Coins className="w-4 h-4 text-[#F4A100]" />
+            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/15 via-primary/8 to-transparent border border-primary/30 px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                <Coins className="w-4 h-4 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-[11px] uppercase tracking-wider text-[#F4A100] font-semibold">Gorjetas</p>
-                  <Sparkles className="w-3 h-3 text-[#F4A100]" />
+                  <p className="text-xs uppercase tracking-wider text-primary font-semibold">Gorjetas</p>
+                  <Sparkles className="w-3 h-3 text-primary" />
                 </div>
-                <p className="text-[10px] text-neutral-500">Já incluso no dinheiro recebido</p>
+                <p className="text-xs text-neutral-500">Já incluso no dinheiro recebido</p>
               </div>
-              <p className="text-lg font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totals.tips)}</p>
+              <p className="text-lg font-bold text-primary tabular-nums">+{formatCurrency(totals.tips)}</p>
             </div>
           )}
 
@@ -261,15 +262,15 @@ export default function DefconHub() {
 
       {/* VENDAS POR HORA */}
       {planId && totalVendido > 0 && (
-        <div className="rounded-2xl bg-[#0F0F0F] border border-white/10 p-4">
+        <div className="rounded-2xl bg-card border border-white/10 p-4">
           <HourlyBreakdown userId={user.id} date={today} />
         </div>
       )}
 
       {/* CUSTO RÁPIDO — responsivo */}
-      <div className="rounded-2xl bg-[#0F0F0F] border border-white/10 p-4 space-y-3">
+      <div className="rounded-2xl bg-card border border-white/10 p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <TrendingDown className="w-4 h-4 text-red-400" />
+          <TrendingDown className="w-4 h-4 text-destructive" />
           <h3 className="text-sm font-semibold text-white">Custo rápido</h3>
         </div>
         <p className="text-xs text-neutral-500 -mt-1">
@@ -280,7 +281,7 @@ export default function DefconHub() {
             value={quickCostLabel}
             onChange={(e) => setQuickCostLabel(e.target.value)}
             placeholder="Descrição (opcional)"
-            className="w-full h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#F4A100] placeholder:text-neutral-600"
+            className="w-full h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-600"
           />
           <div className="flex gap-2">
             <input
@@ -289,12 +290,12 @@ export default function DefconHub() {
               value={quickCost}
               onChange={(e) => setQuickCost(e.target.value)}
               placeholder="R$ 0,00"
-              className="flex-1 min-w-0 h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus:outline-none focus:border-[#F4A100] placeholder:text-neutral-600"
+              className="flex-1 min-w-0 h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-600"
             />
             <button
               onClick={handleAddCost}
               disabled={!quickCost || parseFloat(quickCost) <= 0}
-              className="shrink-0 h-11 px-4 rounded-xl bg-[#F4A100] text-black font-bold text-sm flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
+              className="shrink-0 h-11 px-4 rounded-xl bg-primary text-black font-bold text-sm flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
             >
               <Plus className="w-4 h-4" />
               Adicionar
@@ -307,14 +308,14 @@ export default function DefconHub() {
       <button
         onClick={handlePDF}
         disabled={exporting}
-        className="w-full h-12 rounded-xl bg-[#0F0F0F] border border-[#F4A100]/30 hover:border-[#F4A100]/60 text-[#F4A100] text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-50"
+        className="w-full h-12 rounded-xl bg-card border border-primary/30 hover:border-primary/60 text-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-50"
       >
         <FileDown className="w-4 h-4" />
         {exporting ? "Gerando..." : "Baixar PDF do dia"}
       </button>
 
-      <p className="text-center text-[11px] text-neutral-600">
-        Os relatórios completos e filtros do DEFCON 4 estão na aba <span className="text-[#F4A100]">Relatório</span>.
+      <p className="text-center text-xs text-neutral-600">
+        Os relatórios completos e filtros do DEFCON 4 estão na aba <span className="text-primary">Relatório</span>.
       </p>
 
       {user && (
@@ -345,7 +346,7 @@ function PayCard({
   const active = value > 0;
   return (
     <div
-      className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#141414] to-[#0A0A0A] border p-2.5 space-y-1.5 transition-all"
+      className="relative overflow-hidden rounded-xl bg-gradient-to-br from-card to-background border p-2.5 space-y-1.5 transition-[colors,transform,opacity]"
       style={{
         borderColor: active ? `${color}55` : "rgba(255,255,255,0.06)",
         boxShadow: active ? `0 6px 18px -8px ${color}66, inset 0 1px 0 0 ${color}15` : undefined,
@@ -358,9 +359,9 @@ function PayCard({
           style={{ background: color }}
         />
       )}
-      <div className="relative flex items-center gap-1.5" style={{ color: active ? color : "#525252" }}>
+      <div className="relative flex items-center gap-1.5 text-muted-foreground" style={active ? { color } : undefined}>
         {icon}
-        <span className="text-[10px] font-semibold tracking-wide uppercase">{label}</span>
+        <span className="text-xs font-semibold tracking-wide uppercase">{label}</span>
       </div>
       <p className="relative text-base font-bold text-white tabular-nums truncate leading-tight">
         {formatCurrency(value)}
@@ -368,7 +369,7 @@ function PayCard({
       {/* mini barra com % do total */}
       <div className="relative h-0.5 bg-white/5 rounded-full overflow-hidden">
         <div
-          className="h-full rounded-full transition-all duration-500"
+          className="h-full rounded-full transition-[colors,transform,opacity] duration-500"
           style={{
             width: `${pct}%`,
             background: active ? color : "transparent",
@@ -376,7 +377,7 @@ function PayCard({
           }}
         />
       </div>
-      <p className="relative text-[9px] text-neutral-500 tabular-nums">{pct}% do total</p>
+      <p className="relative text-xs text-neutral-500 tabular-nums">{pct}% do total</p>
     </div>
   );
 }
@@ -386,13 +387,13 @@ function MiniStat({ label, value, highlight, danger }: { label: string; value: s
     <div
       className={`rounded-xl border p-3 ${
         danger
-          ? "bg-red-950/20 border-red-900/40"
+          ? "bg-destructive/10 border-destructive/30"
           : highlight
-          ? "bg-[#F4A100]/10 border-[#F4A100]/25"
-          : "bg-[#0F0F0F] border-white/10"
+          ? "bg-primary/10 border-primary/25"
+          : "bg-card border-white/10"
       }`}
     >
-      <p className={`text-[10px] font-medium ${danger ? "text-red-400" : highlight ? "text-[#F4A100]" : "text-neutral-500"}`}>
+      <p className={`text-xs font-medium ${danger ? "text-destructive" : highlight ? "text-primary" : "text-neutral-500"}`}>
         {label}
       </p>
       <p className="text-base font-bold text-white tabular-nums mt-0.5">{value}</p>

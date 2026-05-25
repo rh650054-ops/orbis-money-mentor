@@ -112,7 +112,7 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
               <div key={c.id} className="flex gap-2.5">
                 <Avatar className="h-8 w-8 shrink-0">
                   <AvatarImage src={c.avatar_url ?? undefined} />
-                  <AvatarFallback className="bg-muted text-[10px]">
+                  <AvatarFallback className="bg-muted text-xs">
                     {(c.nickname ?? "?").slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
@@ -122,19 +122,19 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
                     <p className="text-sm whitespace-pre-wrap break-words">{c.content}</p>
                   </div>
                   <div className="flex items-center gap-3 mt-1 px-1">
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {formatDistanceToNow(new Date(c.created_at), { locale: ptBR, addSuffix: true })}
                     </span>
                     <button onClick={() => toggleLike(c)} className={cn(
-                      "flex items-center gap-1 text-[11px]",
-                      c.liked_by_me ? "text-red-500" : "text-muted-foreground hover:text-foreground"
-                    )}>
-                      <Heart className={cn("h-3 w-3", c.liked_by_me && "fill-current")} />
+                      "inline-flex items-center justify-center gap-1 min-h-11 min-w-11 -my-2 -mx-2 text-xs",
+                      c.liked_by_me ? "text-destructive" : "text-muted-foreground hover:text-foreground"
+                    )} aria-label={c.liked_by_me ? "Descurtir comentário" : "Curtir comentário"}>
+                      <Heart className={cn("h-4 w-4", c.liked_by_me && "fill-current")} />
                       {c.likes_count > 0 && c.likes_count}
                     </button>
                     {c.user_id === user?.id && (
-                      <button onClick={() => remove(c.id)} className="text-[11px] text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-3 w-3" />
+                      <button onClick={() => remove(c.id)} className="inline-flex items-center justify-center min-h-11 min-w-11 -my-2 -mx-2 text-xs text-muted-foreground hover:text-destructive" aria-label="Apagar comentário">
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     )}
                   </div>

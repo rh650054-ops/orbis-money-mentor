@@ -65,13 +65,13 @@ export default function NightSummary({
   const percentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
-    <Card className="relative overflow-hidden border-2 border-primary/50 bg-gradient-to-br from-primary/10 via-card to-secondary/10 backdrop-blur-xl shadow-[0_0_50px_hsl(var(--primary)/0.3)]">
+    <Card className="relative overflow-hidden border-2 border-primary/50 bg-gradient-to-br from-primary/10 via-card to-secondary/10 shadow-[0_0_50px_hsl(var(--primary)/0.3)]">
       {/* Animated stars background */}
       <div className="absolute inset-0 overflow-hidden">
         {[...Array(20)].map((_, i) => (
-          <Star 
-            key={i} 
-            className="absolute text-primary/20 animate-pulse" 
+          <Star
+            key={i}
+            className="absolute text-primary/20"
             style={{
               top: `${Math.random() * 100}%`,
               left: `${Math.random() * 100}%`,
@@ -88,7 +88,7 @@ export default function NightSummary({
             <Moon className="w-10 h-10 text-primary" />
           </div>
         </div>
-        <CardTitle className="text-2xl gradient-text">Fechamento do Dia</CardTitle>
+        <CardTitle className="text-2xl text-foreground tracking-tight">Fechamento do Dia</CardTitle>
         <p className="text-sm text-muted-foreground mt-1">Hora de descansar, visionário.</p>
       </CardHeader>
 
@@ -125,7 +125,7 @@ export default function NightSummary({
           </div>
           <div className="h-3 bg-muted rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-primary via-secondary to-success transition-all duration-1000"
+              className="h-full bg-gradient-to-r from-primary via-secondary to-success transition-[colors,transform,opacity] duration-1000"
               style={{ width: `${percentage}%` }}
             />
           </div>
@@ -134,7 +134,7 @@ export default function NightSummary({
         {/* Achievement badges */}
         <div className="flex flex-wrap justify-center gap-2">
           {completedCount === totalCount && (
-            <Badge className="bg-success/20 text-success border-success/50 animate-pulse">
+            <Badge className="bg-success/20 text-success border-success/50">
               ⭐ Dia Perfeito
             </Badge>
           )}
@@ -153,7 +153,7 @@ export default function NightSummary({
         {/* Save button */}
         <Button 
           onClick={handleSaveDay}
-          className="w-full h-14 text-lg font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-[0_0_30px_hsl(var(--primary)/0.4)] transition-all duration-300 hover:scale-[1.02]"
+          className="w-full h-14 text-lg font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 shadow-[0_0_30px_hsl(var(--primary)/0.4)] transition-[colors,transform,opacity] duration-300 hover:scale-[1.02]"
         >
           <Save className="w-5 h-5 mr-2" />
           Salvar Dia

@@ -143,30 +143,30 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                     <div className="text-center">
                       <div className="flex items-center justify-center gap-1 text-primary mb-0.5">
                         <Trophy className="w-3 h-3" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Mês</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Mês</span>
                       </div>
                       <p className="text-sm font-black text-foreground leading-tight">
                         {formatCurrency(stats.faturamento_total_mes)}
                       </p>
                       {stats.posicao_faturamento && (
-                        <p className="text-[10px] text-muted-foreground mt-0.5">#{stats.posicao_faturamento}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">#{stats.posicao_faturamento}</p>
                       )}
                     </div>
                     <div className="text-center border-x border-border/50">
                       <div className="flex items-center justify-center gap-1 text-primary mb-0.5">
                         <Flame className="w-3 h-3" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Dias</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Dias</span>
                       </div>
                       <p className="text-sm font-black text-foreground leading-tight">{stats.dias_trabalhados_mes}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">trabalhados</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">trabalhados</p>
                     </div>
                     <div className="text-center">
                       <div className="flex items-center justify-center gap-1 text-primary mb-0.5">
                         <Flame className="w-3 h-3" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider">Streak</span>
+                        <span className="text-xs font-bold uppercase tracking-wider">Streak</span>
                       </div>
                       <p className="text-sm font-black text-foreground leading-tight">{stats.constancia_streak_atual}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">seguidos</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">seguidos</p>
                     </div>
                   </div>
                 </div>
@@ -177,7 +177,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                 <div className="px-5 mt-4 space-y-2">
                   {profile.what_i_sell && (
                     <div className="rounded-xl border border-border/50 bg-card/40 p-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary mb-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary mb-1">
                         <Package className="w-3 h-3" />
                         O que vendo
                       </div>
@@ -186,7 +186,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                   )}
                   {profile.where_i_sell && (
                     <div className="rounded-xl border border-border/50 bg-card/40 p-3">
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-primary mb-1">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary mb-1">
                         <Store className="w-3 h-3" />
                         Onde vendo
                       </div>
@@ -199,7 +199,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
               {/* Social */}
               {(igHandle || waNumber) && (
                 <div className="px-5 mt-4 mb-5 space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground text-center">
                     Encontre nas redes
                   </p>
                   <div className="grid grid-cols-1 gap-2">

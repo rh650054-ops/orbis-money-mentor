@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface DefconOccurrenceModalProps {
   onSave: (description: string) => void;
@@ -23,21 +23,18 @@ export function DefconOccurrenceModal({ onSave, onClose }: DefconOccurrenceModal
   };
 
   return (
-    <div className="fixed inset-0 bg-black/90 flex items-end justify-center z-50">
-      <div className="w-full max-w-md bg-neutral-900 rounded-t-3xl p-6 pb-10 space-y-5 animate-in slide-in-from-bottom duration-200">
-        <div className="flex justify-between items-center">
-          <h3 className="text-lg font-bold text-white">📝 Marcar ocorrência</h3>
-          <button onClick={onClose}>
-            <X className="w-6 h-6 text-neutral-500" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="bg-card border-border max-w-md rounded-3xl">
+        <DialogHeader>
+          <DialogTitle className="text-foreground">Marcar ocorrência</DialogTitle>
+        </DialogHeader>
 
         <div className="flex flex-wrap gap-2">
           {SUGGESTED_CHIPS.map((chip) => (
             <button
               key={chip}
               onClick={() => handleChip(chip)}
-              className="px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-mono text-neutral-300 active:scale-95 active:bg-neutral-700 transition-all"
+              className="px-3 h-11 bg-secondary border border-border rounded-lg text-xs font-mono text-foreground active:scale-95 active:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {chip}
             </button>
@@ -49,7 +46,8 @@ export function DefconOccurrenceModal({ onSave, onClose }: DefconOccurrenceModal
           onChange={(e) => setText(e.target.value)}
           placeholder="Descreva o que aconteceu..."
           rows={3}
-          className="w-full bg-black border-2 border-neutral-700 rounded-xl p-4 text-sm text-white font-mono focus:outline-none focus:border-amber-500 transition-colors placeholder:text-neutral-700 resize-none"
+          aria-label="Descrição da ocorrência"
+          className="w-full bg-background border-2 border-border rounded-xl p-4 text-sm text-foreground font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors placeholder:text-muted-foreground resize-none"
         />
 
         <button
@@ -59,11 +57,11 @@ export function DefconOccurrenceModal({ onSave, onClose }: DefconOccurrenceModal
             }
           }}
           disabled={!text.trim()}
-          className="w-full h-14 bg-amber-600 text-white font-black text-lg rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
+          className="w-full h-12 bg-warning text-warning-foreground font-bold text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-          SALVAR OCORRÊNCIA
+          Salvar ocorrência
         </button>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

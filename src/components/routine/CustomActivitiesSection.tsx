@@ -187,7 +187,7 @@ export default function CustomActivitiesSection({
       <CardHeader className="relative">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-xl">
-            <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+            <Sparkles className="w-5 h-5 text-primary" />
             Atividades Personalizadas
           </CardTitle>
           {!isAdding && (
@@ -212,7 +212,7 @@ export default function CustomActivitiesSection({
                 key={activity.id}
                 className={`group relative flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r ${
                   CATEGORY_COLORS[activity.category] || CATEGORY_COLORS.outro
-                } border transition-all duration-300 hover:scale-[1.01]`}
+                } border transition-[colors,transform,opacity] duration-300 hover:scale-[1.01]`}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
                 {/* Drag handle */}
@@ -308,7 +308,7 @@ export default function CustomActivitiesSection({
                     key={option.emoji}
                     type="button"
                     onClick={() => setFormData({ ...formData, emoji: option.emoji })}
-                    className={`text-3xl p-2 rounded-xl border-2 transition-all duration-200 hover:scale-110 ${
+                    className={`text-3xl p-2 rounded-xl border-2 transition-[colors,transform,opacity] duration-200 hover:scale-110 ${
                       formData.emoji === option.emoji 
                         ? "border-primary bg-primary/20 shadow-[0_0_15px_hsl(var(--primary)/0.4)]" 
                         : "border-border/50 hover:border-primary/50"

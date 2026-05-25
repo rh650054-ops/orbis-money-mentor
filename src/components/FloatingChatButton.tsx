@@ -36,6 +36,24 @@ export default function FloatingChatButton() {
     }
   }, [messages, isSending]);
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen]);
+
+  useEffect(() => {
+    if (!isOpen || sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, sidebarOpen]);
+
   const handleSend = () => {
     if (!input.trim() || isSending) return;
     sendMessage(input.trim());
@@ -78,7 +96,12 @@ export default function FloatingChatButton() {
 
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-[60] bg-background flex flex-col animate-in fade-in duration-200">
+        <div
+          className="fixed inset-0 z-[60] bg-background flex flex-col animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="floating-chat-title"
+        >
           {/* Top bar */}
           <header className="flex items-center justify-between px-3 h-14 border-b border-border/60 bg-background/95 backdrop-blur safe-top">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Conversas">
@@ -88,7 +111,7 @@ export default function FloatingChatButton() {
               <div className="w-7 h-7 rounded-full bg-gradient-primary flex items-center justify-center">
                 <Sparkles className="w-3.5 h-3.5 text-primary-foreground" />
               </div>
-              <span className="font-semibold text-sm">Orbis IA</span>
+              <span id="floating-chat-title" className="font-semibold text-sm">Orbis IA</span>
             </div>
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Fechar">
               <X className="h-5 w-5" />
@@ -186,11 +209,17 @@ export default function FloatingChatButton() {
             <div
               className="fixed inset-0 z-[70] bg-black/60 animate-in fade-in"
               onClick={() => setSidebarOpen(false)}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="floating-chat-sidebar-title"
             >
               <aside
                 className="absolute left-0 top-0 bottom-0 w-[82%] max-w-xs bg-card border-r border-border/60 flex flex-col animate-in slide-in-from-left duration-200 safe-top safe-bottom"
                 onClick={(e) => e.stopPropagation()}
               >
+                <h2 id="floating-chat-sidebar-title" className="sr-only">
+                  Conversas
+                </h2>
                 <div className="p-3 border-b border-border/60 flex items-center gap-2">
                   <Button onClick={handleNewChat} className="flex-1 justify-start gap-2 bg-gradient-primary hover:opacity-90">
                     <Plus className="h-4 w-4" /> Nova conversa
@@ -255,7 +284,7 @@ export default function FloatingChatButton() {
                                   </button>
                                 </div>
                               </div>
-                              <p className="text-[10px] text-muted-foreground mt-0.5">
+                              <p className="text-xs text-muted-foreground mt-0.5">
                                 {formatDistanceToNow(new Date(c.last_message_at), { locale: ptBR, addSuffix: true })}
                               </p>
                             </>

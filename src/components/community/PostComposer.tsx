@@ -114,7 +114,7 @@ export function PostComposer({ channel, profile, onPosted }: Props) {
               onChange={(e) => pick(e.target.files?.[0] ?? null)}
             />
             <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground">{content.length}/1000</span>
+              <span className="text-xs text-muted-foreground">{content.length}/1000</span>
               <Button
                 size="sm"
                 onClick={submit}

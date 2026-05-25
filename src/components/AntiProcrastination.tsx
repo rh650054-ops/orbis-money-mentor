@@ -34,12 +34,11 @@ export default function AntiProcrastination({ visible }: AntiProcrastinationProp
 
   return (
     <div className="fixed bottom-20 left-4 right-4 z-[100] animate-fade-in">
-      <div className="bg-[#1A1A1A]/95 backdrop-blur-sm border border-[#333333] rounded-xl p-5 space-y-3">
+      <div className="bg-card/95 border border-border rounded-xl p-5 space-y-3">
         <div className="flex items-start gap-3">
-          <span className="text-2xl">⏱️</span>
           <div className="flex-1">
-            <h3 className="text-white font-bold text-base">Só 2 minutos.</h3>
-            <p className="text-sm text-[#888888] mt-1 leading-relaxed">
+            <h3 className="text-foreground font-bold text-base">Só 2 minutos.</h3>
+            <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
               Não precisa vender agora. Só aperta iniciar. Se em 2 minutos não quiser continuar, para.
             </p>
           </div>
@@ -51,7 +50,7 @@ export default function AntiProcrastination({ visible }: AntiProcrastinationProp
               setDismissed(true);
               navigate("/defcon");
             }}
-            className="flex-1 py-3 rounded-xl font-bold text-black bg-[#F4A100] text-sm active:scale-[0.97] transition-transform"
+            className="flex-1 h-11 rounded-xl font-bold text-primary-foreground bg-primary text-sm active:scale-[0.97] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Iniciar 2 minutos
           </button>
@@ -60,7 +59,7 @@ export default function AntiProcrastination({ visible }: AntiProcrastinationProp
               setShow(false);
               setDismissed(true);
             }}
-            className="px-4 py-3 rounded-xl text-[#888888] border border-[#333333] text-sm active:scale-[0.97] transition-transform"
+            className="px-4 h-11 rounded-xl text-muted-foreground border border-border text-sm active:scale-[0.97] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Agora não
           </button>

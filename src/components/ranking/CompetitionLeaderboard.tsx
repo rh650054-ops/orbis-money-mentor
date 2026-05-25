@@ -33,7 +33,7 @@ export default function CompetitionLeaderboard({ competition, participants, curr
     <div className="space-y-1.5">
       <div className="flex items-center gap-2 mb-1.5">
         <TrendingUp className="w-3.5 h-3.5 text-primary" />
-        <p className="text-[10px] font-black uppercase tracking-widest text-foreground/85">
+        <p className="text-xs font-black uppercase tracking-widest text-foreground/85">
           Placar ao vivo
         </p>
       </div>
@@ -48,7 +48,7 @@ export default function CompetitionLeaderboard({ competition, participants, curr
 
       {showMeBelow && (
         <>
-          <div className="text-center text-[10px] text-muted-foreground py-1">⋯</div>
+          <div className="text-center text-xs text-muted-foreground py-1">⋯</div>
           <Row
             pos={myIdx + 1}
             p={participants[myIdx]}
@@ -72,7 +72,7 @@ function Row({
   isMe: boolean;
   metric: Competition["metric"];
 }) {
-  const podiumIcon = pos === 1 ? <Crown className="w-3.5 h-3.5 text-primary" /> : pos === 2 ? <Medal className="w-3.5 h-3.5 text-foreground/70" /> : pos === 3 ? <Medal className="w-3.5 h-3.5 text-amber-700" /> : null;
+  const podiumIcon = pos === 1 ? <Crown className="w-3.5 h-3.5 text-primary" /> : pos === 2 ? <Medal className="w-3.5 h-3.5 text-foreground/70" /> : pos === 3 ? <Medal className="w-3.5 h-3.5 text-tier-bronze" /> : null;
   return (
     <div
       className={cn(
@@ -86,7 +86,7 @@ function Row({
     >
       <div
         className={cn(
-          "w-6 h-6 rounded-md flex items-center justify-center text-[11px] font-black shrink-0",
+          "w-6 h-6 rounded-md flex items-center justify-center text-xs font-black shrink-0",
           isMe ? "bg-primary text-primary-foreground" : "bg-card/60 border border-border/40 text-foreground/80",
         )}
       >
@@ -95,14 +95,14 @@ function Row({
       {p.avatar_url ? (
         <img src={p.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
       ) : (
-        <div className="w-7 h-7 rounded-full bg-card border border-border/40 flex items-center justify-center text-[11px] font-bold text-foreground/70 shrink-0">
+        <div className="w-7 h-7 rounded-full bg-card border border-border/40 flex items-center justify-center text-xs font-bold text-foreground/70 shrink-0">
           {(p.nickname || "?").charAt(0).toUpperCase()}
         </div>
       )}
       <div className="min-w-0 flex-1">
         <p className={cn("text-xs font-bold truncate", isMe ? "text-foreground" : "text-foreground/85")}>
           {isMe ? "Você" : p.nickname || "Vendedor"}
-          {p.city && <span className="text-[10px] text-muted-foreground font-normal"> · {p.city}</span>}
+          {p.city && <span className="text-xs text-muted-foreground font-normal"> · {p.city}</span>}
         </p>
       </div>
       <div className="flex items-center gap-1 shrink-0">

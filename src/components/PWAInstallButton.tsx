@@ -83,16 +83,16 @@ export default function PWAInstallButton() {
         onClick={handleInstallClick}
         variant="outline"
         size="sm"
-        className="border-white/20 hover:bg-white/5 backdrop-blur-sm"
+        className="border-border hover:bg-muted/30"
       >
         <Download className="w-4 h-4 mr-2" />
         Instalar Orbis
       </Button>
 
       <Dialog open={showIOSModal} onOpenChange={setShowIOSModal}>
-        <DialogContent className="bg-gradient-to-br from-black via-black/95 to-purple-950/30 border-purple-500/20 backdrop-blur-xl max-w-md">
+        <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-center bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            <DialogTitle className="text-2xl font-bold text-center text-primary">
               📲 Instalar o Orbis no seu iPhone
             </DialogTitle>
           </DialogHeader>
@@ -104,13 +104,13 @@ export default function PWAInstallButton() {
             </p>
 
             <div className="space-y-4">
-              <div className="flex gap-4 items-start p-4 bg-white/5 rounded-lg border border-purple-500/20">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center font-bold text-white">
+              <div className="flex gap-4 items-start p-4 bg-card border border-primary/20 rounded-lg">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center font-bold text-primary-foreground">
                   1
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Share2 className="w-5 h-5 text-blue-400" />
+                    <Share2 className="w-5 h-5 text-primary" />
                     <p className="text-white font-semibold">Toque em Compartilhar</p>
                   </div>
                   <p className="text-gray-400 text-sm">
@@ -119,13 +119,13 @@ export default function PWAInstallButton() {
                 </div>
               </div>
 
-              <div className="flex gap-4 items-start p-4 bg-white/5 rounded-lg border border-purple-500/20">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center font-bold text-white">
+              <div className="flex gap-4 items-start p-4 bg-card border border-primary/20 rounded-lg">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center font-bold text-primary-foreground">
                   2
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Plus className="w-5 h-5 text-blue-400" />
+                    <Plus className="w-5 h-5 text-primary" />
                     <p className="text-white font-semibold">Adicionar à Tela Inicial</p>
                   </div>
                   <p className="text-gray-400 text-sm">
@@ -134,13 +134,13 @@ export default function PWAInstallButton() {
                 </div>
               </div>
 
-              <div className="flex gap-4 items-start p-4 bg-white/5 rounded-lg border border-purple-500/20">
-                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center font-bold text-white">
+              <div className="flex gap-4 items-start p-4 bg-card border border-primary/20 rounded-lg">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-primary flex items-center justify-center font-bold text-primary-foreground">
                   3
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Check className="w-5 h-5 text-blue-400" />
+                    <Check className="w-5 h-5 text-primary" />
                     <p className="text-white font-semibold">Confirme</p>
                   </div>
                   <p className="text-gray-400 text-sm">
@@ -150,8 +150,8 @@ export default function PWAInstallButton() {
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/30 rounded-lg p-4">
-              <p className="text-center text-white text-sm font-medium">
+            <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+              <p className="text-center text-foreground text-sm font-medium">
                 ✨ Pronto! Agora o Orbis vai aparecer como um APP no seu iPhone,
                 com ícone e abertura em tela cheia.
               </p>
@@ -159,7 +159,7 @@ export default function PWAInstallButton() {
 
             <Button
               onClick={() => setShowIOSModal(false)}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold"
+              className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold"
             >
               ENTENDI
             </Button>

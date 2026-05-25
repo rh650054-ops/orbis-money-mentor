@@ -110,14 +110,14 @@ export default function RoutineOnboardingStep2({ profileData, onComplete, onBack
       {/* Header */}
       <div className="text-center space-y-2">
         <div className="flex items-center justify-center gap-2">
-          <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-          <h2 className="text-2xl font-bold gradient-text">Sua Rotina Personalizada</h2>
+          <Sparkles className="w-6 h-6 text-primary" />
+          <h2 className="text-2xl font-bold text-foreground tracking-tight">Sua Rotina Personalizada</h2>
         </div>
         <p className="text-muted-foreground text-sm">
           Etapa 2 de 3 — Ajuste como preferir, depois confirme
         </p>
         <div className="h-2 bg-muted rounded-full overflow-hidden max-w-md mx-auto">
-          <div className="h-full bg-gradient-to-r from-primary to-secondary w-2/3 transition-all duration-500" />
+          <div className="h-full bg-gradient-to-r from-primary to-secondary w-2/3 transition-[colors,transform,opacity] duration-500" />
         </div>
       </div>
 
@@ -126,7 +126,7 @@ export default function RoutineOnboardingStep2({ profileData, onComplete, onBack
         {items.map((item, idx) => (
           <Card
             key={idx}
-            className={`glass border transition-all duration-300 ${
+            className={`bg-card border transition-colors duration-300 ${
               item.enabled ? "border-primary/20 opacity-100" : "border-border/30 opacity-50"
             }`}
           >
@@ -154,19 +154,24 @@ export default function RoutineOnboardingStep2({ profileData, onComplete, onBack
                     />
                   </div>
                 ) : (
-                  <div onClick={() => setEditingIdx(idx)} className="cursor-pointer">
+                  <button
+                    type="button"
+                    onClick={() => setEditingIdx(idx)}
+                    className="text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                  >
                     <span className="text-xs font-mono text-primary">{item.time}</span>
                     <p className={`text-sm ${item.enabled ? "text-foreground" : "text-muted-foreground"}`}>
                       {item.text}
                     </p>
-                  </div>
+                  </button>
                 )}
               </div>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                className="h-11 w-11 p-0 text-muted-foreground hover:text-primary"
                 onClick={() => setEditingIdx(editingIdx === idx ? null : idx)}
+                aria-label="Editar item"
               >
                 <Edit3 className="w-3.5 h-3.5" />
               </Button>

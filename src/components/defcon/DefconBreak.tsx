@@ -40,7 +40,7 @@ export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold, onSk
         {onSkip && (
           <button
             onClick={onSkip}
-            className="mx-auto flex items-center gap-2 px-6 py-3 rounded-full bg-amber-500 text-black font-black text-sm tracking-wide shadow-lg shadow-amber-500/20 active:scale-95 transition-all hover:bg-amber-400"
+            className="mx-auto flex items-center gap-2 px-6 py-3 rounded-full bg-warning text-warning-foreground font-black text-sm tracking-wide shadow-lg shadow-warning/20 active:scale-95 transition-[colors,transform,opacity] hover:bg-warning/90"
           >
             <FastForward className="w-4 h-4" strokeWidth={3} />
             INICIAR PRÓXIMO BLOCO

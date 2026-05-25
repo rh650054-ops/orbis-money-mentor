@@ -323,7 +323,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                       draftTotal > 100
                         ? "bg-destructive/10 border-destructive/30"
                         : Math.round(draftTotal) === 100
-                        ? "bg-green-500/10 border-green-500/30"
+                        ? "bg-success/10 border-success/30"
                         : "bg-primary/10 border-primary/30"
                     }`}
                   >
@@ -334,14 +334,14 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                           draftTotal > 100
                             ? "text-destructive"
                             : Math.round(draftTotal) === 100
-                            ? "text-green-500"
+                            ? "text-success"
                             : "text-primary"
                         }`}
                       >
                         {draftTotal.toFixed(0)}% / 100%
                       </span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {draftTotal > 100
                         ? "Passou de 100% — reduza algum valor pra salvar."
                         : Math.round(draftTotal) === 100
@@ -374,23 +374,23 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         {/* Resumo do líquido de hoje */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-[11px] text-muted-foreground">Bruto hoje</p>
+            <p className="text-xs text-muted-foreground">Bruto hoje</p>
             <p className="text-base font-bold">{formatCurrency(grossHoje)}</p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-[11px] text-muted-foreground">Custo + calotes</p>
-            <p className="text-base font-bold text-red-500">
+            <p className="text-xs text-muted-foreground">Custo + calotes</p>
+            <p className="text-base font-bold text-destructive">
               -{formatCurrency(costHoje + caloteHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-[11px] text-muted-foreground">Despesas pessoais</p>
-            <p className="text-base font-bold text-red-500">
+            <p className="text-xs text-muted-foreground">Despesas pessoais</p>
+            <p className="text-base font-bold text-destructive">
               -{formatCurrency(despesasHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
-            <p className="text-[11px] text-muted-foreground">💎 Líquido</p>
+            <p className="text-xs text-muted-foreground">💎 Líquido</p>
             <p className="text-base font-bold text-primary">{formatCurrency(liquidoHoje)}</p>
           </div>
         </div>
@@ -404,10 +404,10 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
 
         {/* Estado: nenhum % configurado ainda */}
         {goals.length > 0 && totalPercent <= 0 && !alreadyDistributed && (
-          <div className="flex items-start gap-2 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-            <AlertTriangle className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" />
+          <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+            <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
             <div className="text-xs">
-              <p className="font-semibold text-yellow-600 dark:text-yellow-400">
+              <p className="font-semibold text-warning">
                 Configure os percentuais
               </p>
               <p className="text-muted-foreground mt-1">
@@ -445,7 +445,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   <span className="text-2xl">{goal.icon || "🎯"}</span>
                   <div>
                     <p className="font-semibold text-sm">{goal.name}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {Number(goal.percentual_distribuicao).toFixed(0)}% do líquido
                     </p>
                   </div>
@@ -454,7 +454,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   <p className="font-bold text-primary whitespace-nowrap">
                     {formatCurrency(amount)}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">guardar hoje</p>
+                  <p className="text-xs text-muted-foreground">guardar hoje</p>
                 </div>
               </div>
             ))}
@@ -464,7 +464,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   <span className="text-2xl">💸</span>
                   <div>
                     <p className="font-semibold text-sm">Livre pra você</p>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-xs text-muted-foreground">
                       {(100 - totalPercent).toFixed(0)}% do líquido — usa como quiser
                     </p>
                   </div>
@@ -488,10 +488,10 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         {/* Já distribuído */}
         {alreadyDistributed && (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
-              <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <div className="flex items-center gap-2 p-3 bg-success/10 border border-success/30 rounded-lg">
+              <CheckCircle2 className="w-4 h-4 text-success" />
               <p className="text-sm">
-                <b className="text-green-600 dark:text-green-400">Distribuído hoje:</b>{" "}
+                <b className="text-success">Distribuído hoje:</b>{" "}
                 {formatCurrency(distributedTotal)}
               </p>
             </div>
@@ -506,7 +506,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                     <span className="text-2xl">{goal?.icon || "🎯"}</span>
                     <div>
                       <p className="font-semibold text-sm">{goal?.name || "Meta"}</p>
-                      <Badge variant="secondary" className="text-[10px] mt-1">
+                      <Badge variant="secondary" className="text-xs mt-1">
                         {Number(d.percentual).toFixed(0)}%
                       </Badge>
                     </div>

@@ -208,7 +208,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold gradient-text">Rotina de Hoje</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Rotina de Hoje</h1>
           <p className="text-muted-foreground text-sm">
             {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
           </p>
@@ -219,7 +219,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
       </div>
 
       {/* Progress */}
-      <Card className="glass border-primary/20 shadow-[0_0_20px_hsl(var(--primary)/0.1)]">
+      <Card className="bg-card border-primary/20 shadow-[0_0_20px_hsl(var(--primary)/0.1)]">
         <CardContent className="p-5">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm text-muted-foreground">Progresso do dia</span>
@@ -229,7 +229,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
           </div>
           <div className="h-3 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-all duration-700"
+              className="h-full bg-gradient-to-r from-primary via-secondary to-primary transition-[colors,transform,opacity] duration-700"
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -255,7 +255,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
 
       {/* All done celebration */}
       {allDone && (
-        <Card className="glass border-success/30 bg-success/5 shadow-[0_0_20px_hsl(var(--success)/0.2)] animate-fade-in">
+        <Card className="bg-card border-success/30 shadow-[0_0_20px_hsl(var(--success)/0.2)] animate-fade-in">
           <CardContent className="p-5 text-center">
             <CheckCircle2 className="w-10 h-10 text-success mx-auto mb-2 animate-bounce" />
             <p className="font-bold text-success text-lg">Rotina completa!</p>
@@ -271,19 +271,25 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
         {items.map((item, idx) => (
           <Card
             key={item.id}
-            className={`glass transition-all duration-300 ${
+            className={`bg-card transition-[colors,transform,opacity] duration-300 ${
               item.completed
-                ? "border-success/30 bg-success/5"
+                ? "border-success/30"
                 : "border-border/30 hover:border-primary/30"
             }`}
             style={{ animationDelay: `${idx * 40}ms` }}
           >
             <CardContent className="p-4 flex items-center gap-3">
-              <Checkbox
-                checked={item.completed}
-                onCheckedChange={() => toggleItem(item.id, item.completed)}
-                className="h-6 w-6 border-2"
-              />
+              <span
+                className="h-11 w-11 flex items-center justify-center shrink-0 cursor-pointer -m-2.5"
+                onClick={() => toggleItem(item.id, item.completed)}
+                role="presentation"
+              >
+                <Checkbox
+                  checked={item.completed}
+                  onCheckedChange={() => toggleItem(item.id, item.completed)}
+                  className="h-6 w-6 border-2 pointer-events-none"
+                />
+              </span>
               <span className={`text-2xl transition-transform ${item.completed ? "grayscale" : ""}`}>
                 {item.emoji}
               </span>

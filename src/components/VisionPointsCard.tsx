@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Diamond, ChevronRight, X } from "lucide-react";
+import { Diamond, ChevronRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface VisionPointsCardProps {
   points: number;
@@ -35,73 +36,64 @@ export default function VisionPointsCard({ points }: VisionPointsCardProps) {
 
   return (
     <>
-      <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-4 space-y-3">
+      <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Diamond className="h-5 w-5 text-[#F4A100]" />
-            <span className="font-bold text-white text-sm">Vision Points</span>
+            <Diamond className="h-5 w-5 text-primary" />
+            <span className="font-bold text-foreground text-sm">Vision Points</span>
           </div>
-          <span className="text-[#F4A100] font-bold text-lg">{points} VP</span>
+          <span className="text-primary font-bold text-lg">{points} VP</span>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-lg">{currentLevel.icon}</span>
-          <span className="text-sm text-white font-medium">{currentLevel.name}</span>
+          <span className="text-sm text-foreground font-medium">{currentLevel.name}</span>
           {nextLevel && (
-            <span className="text-xs text-[#888888] ml-auto">
+            <span className="text-xs text-muted-foreground ml-auto">
               {nextLevel.min - points} VP p/ {nextLevel.name}
             </span>
           )}
         </div>
 
-        <div className="h-2 bg-[#333333] rounded-full overflow-hidden">
+        <div className="h-2 bg-muted rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#F4A100] rounded-full transition-all duration-500"
+            className="h-full bg-primary rounded-full transition-[width] duration-300 ease-out"
             style={{ width: `${Math.min(progressInLevel, 100)}%` }}
           />
         </div>
 
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center justify-center gap-1 text-xs text-[#F4A100] hover:text-[#F4A100]/80 transition-colors w-full pt-1"
+          className="flex items-center justify-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors w-full pt-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
         >
           Ver como ganhar VP <ChevronRight className="h-3 w-3" />
         </button>
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div
-            className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-6 max-w-sm w-full max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-white">Como ganhar VP</h3>
-              <button onClick={() => setShowModal(false)} className="text-[#888888] hover:text-white">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              {vpRules.map((rule, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 bg-[#0D0D0D] rounded-lg border border-[#333333]/50">
-                  <span className="text-lg">{rule.icon}</span>
-                  <span className="text-sm text-[#888888] flex-1">{rule.action}</span>
-                  <span className="text-sm font-bold text-[#F4A100] whitespace-nowrap">{rule.vp}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 p-3 bg-[#0D0D0D] rounded-lg border border-[#F4A100]/30">
-              <p className="text-xs text-[#888888] text-center">
-                <span className="text-[#F4A100] font-bold">500 VP</span> = 10% desc •{" "}
-                <span className="text-[#F4A100] font-bold">1.000 VP</span> = 20% •{" "}
-                <span className="text-[#F4A100] font-bold">2.000 VP</span> = 30%
-              </p>
-            </div>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="bg-card border-border rounded-xl max-w-sm max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Como ganhar VP</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {vpRules.map((rule, i) => (
+              <div key={i} className="flex items-center gap-3 p-3 bg-background rounded-lg border border-border">
+                <span className="text-lg">{rule.icon}</span>
+                <span className="text-sm text-muted-foreground flex-1">{rule.action}</span>
+                <span className="text-sm font-bold text-primary whitespace-nowrap">{rule.vp}</span>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+
+          <div className="p-3 bg-background rounded-lg border border-primary/30">
+            <p className="text-xs text-muted-foreground text-center">
+              <span className="text-primary font-bold">500 VP</span> = 10% desc ·{" "}
+              <span className="text-primary font-bold">1.000 VP</span> = 20% ·{" "}
+              <span className="text-primary font-bold">2.000 VP</span> = 30%
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

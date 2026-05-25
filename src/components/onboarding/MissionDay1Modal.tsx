@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface Props {
   onDone: () => void;
@@ -13,27 +14,33 @@ export default function MissionDay1Modal({ onDone }: Props) {
     navigate("/daily-goals");
   };
 
+  const handleSkip = () => {
+    localStorage.setItem("missao_dia1_vista", "true");
+    onDone();
+  };
+
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-6">
-      <div className="bg-[#1A1A1A] border border-[#333333] rounded-xl p-8 max-w-sm w-full text-center space-y-5 animate-fade-in">
-        <span className="text-5xl block">🎯</span>
-        <h2 className="text-xl font-bold text-white">Sua primeira missão</h2>
-        <p className="text-[15px] text-[#888888] leading-relaxed">
-          Hoje você tem um objetivo simples: iniciar o DEFCON 4 e registrar sua primeira venda. Só isso. Não precisa bater meta ainda. Só precisa começar.
-        </p>
-        <button
-          onClick={handleAccept}
-          className="w-full py-4 rounded-xl font-bold text-black bg-[#F4A100] text-lg active:scale-[0.97] transition-transform"
-        >
-          Aceitar a missão →
-        </button>
-        <button
-          onClick={() => { localStorage.setItem("missao_dia1_vista", "true"); onDone(); }}
-          className="text-sm text-[#888888] hover:text-white transition-colors"
-        >
-          Pular
-        </button>
-      </div>
-    </div>
+    <Dialog open onOpenChange={(open) => { if (!open) handleSkip(); }}>
+      <DialogContent className="bg-card border-border max-w-sm rounded-xl text-center">
+        <div className="space-y-5">
+          <DialogTitle className="text-xl font-bold text-foreground">Sua primeira missão</DialogTitle>
+          <DialogDescription className="text-base text-muted-foreground leading-relaxed">
+            Hoje você tem um objetivo simples: iniciar o DEFCON 4 e registrar sua primeira venda. Só isso. Não precisa bater meta ainda. Só precisa começar.
+          </DialogDescription>
+          <button
+            onClick={handleAccept}
+            className="w-full h-12 rounded-xl font-bold text-primary-foreground bg-primary text-base active:scale-[0.97] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            Aceitar a missão →
+          </button>
+          <button
+            onClick={handleSkip}
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+          >
+            Pular
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -62,7 +62,7 @@ export default function ActivityCard({
         };
       case "inProgress":
         return {
-          card: "bg-gradient-to-r from-primary/20 to-primary/5 border-primary/50 shadow-[0_0_40px_hsl(var(--primary)/0.3)] animate-pulse",
+          card: "bg-gradient-to-r from-primary/20 to-primary/5 border-primary/50 shadow-[0_0_40px_hsl(var(--primary)/0.3)]",
           icon: "bg-primary text-primary-foreground",
           text: "text-foreground"
         };
@@ -85,7 +85,7 @@ export default function ActivityCard({
 
   return (
     <Card 
-      className={`relative overflow-hidden transition-all duration-500 transform hover:scale-[1.02] ${styles.card} ${
+      className={`relative overflow-hidden transition-[colors,transform,opacity] duration-500 transform hover:scale-[1.02] ${styles.card} ${
         isAnimating ? "scale-105" : ""
       }`}
       style={{ 
@@ -96,20 +96,21 @@ export default function ActivityCard({
     >
       {/* Progress indicator for in-progress items */}
       {status === "inProgress" && (
-        <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-primary to-secondary animate-pulse" style={{ width: "100%" }} />
+        <div className="absolute top-0 left-0 h-1 bg-gradient-to-r from-primary to-secondary" style={{ width: "100%" }} />
       )}
 
       <CardContent className="p-5">
         <div className="flex items-center gap-4">
           {/* Checkbox with animation */}
-          <div 
-            className={`relative transition-all duration-300 ${isAnimating ? "scale-125 rotate-12" : ""}`}
+          <div
+            className={`relative h-11 w-11 flex items-center justify-center shrink-0 cursor-pointer transition-[colors,transform,opacity] duration-300 ${isAnimating ? "scale-125 rotate-12" : ""}`}
             onClick={handleToggle}
+            role="presentation"
           >
             <Checkbox
               checked={completed}
               onCheckedChange={() => {}}
-              className="h-7 w-7 border-2 cursor-pointer"
+              className="h-7 w-7 border-2 pointer-events-none"
             />
             {isAnimating && (
               <div className="absolute inset-0 flex items-center justify-center">
@@ -119,7 +120,7 @@ export default function ActivityCard({
           </div>
 
           {/* Emoji / Icon */}
-          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${styles.icon} transition-all duration-300 shadow-lg`}>
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${styles.icon} transition-[colors,transform,opacity] duration-300 shadow-lg`}>
             {emoji ? (
               <span className={`text-3xl ${completed ? "grayscale" : ""}`}>{emoji}</span>
             ) : status === "inProgress" ? (
@@ -133,7 +134,7 @@ export default function ActivityCard({
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <h4 className={`text-lg font-bold truncate transition-all duration-300 ${styles.text}`}>
+            <h4 className={`text-lg font-bold truncate transition-[colors,transform,opacity] duration-300 ${styles.text}`}>
               {name}
             </h4>
             <div className="flex items-center gap-3 mt-1">

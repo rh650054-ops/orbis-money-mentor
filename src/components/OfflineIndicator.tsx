@@ -28,10 +28,10 @@ export default function OfflineIndicator() {
   return (
     <div
       className={cn(
-        "fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-all duration-300",
+        "fixed top-0 left-0 right-0 z-[9999] flex items-center justify-center gap-2 py-1.5 px-4 text-xs font-medium transition-[colors,transform,opacity] duration-300",
         justReconnected
-          ? "bg-emerald-600/90 text-white"
-          : "bg-[#888888]/90 text-white"
+          ? "bg-success/90 text-success-foreground"
+          : "bg-muted/95 text-foreground"
       )}
       style={{ paddingTop: 'calc(env(safe-area-inset-top) + 6px)' }}
     >

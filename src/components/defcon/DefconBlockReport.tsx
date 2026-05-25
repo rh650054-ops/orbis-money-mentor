@@ -3,6 +3,7 @@ import { Instagram, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import orbisLogo from "@/assets/orbis-logo-share.png";
+import { readThemeColor, BRAND_COLORS } from "@/lib/theme-colors";
 
 interface DefconBlockReportProps {
   blockIndex: number;
@@ -90,18 +91,23 @@ export function DefconBlockReport({
 
     // Stats stack — labels MUCH bigger, values huge (Strava-like)
     let y = 520;
-    const drawStat = (label: string, value: string, valueColor = "#FFFFFF") => {
+    const FOREGROUND = readThemeColor("--foreground");
+    const SUCCESS = readThemeColor("--success");
+    const WARNING = readThemeColor("--warning");
+    const DESTRUCTIVE = readThemeColor("--destructive");
+
+    const drawStat = (label: string, value: string, valueColor = FOREGROUND) => {
       centerText(label.toUpperCase(), y, 72, "700", "rgba(255,255,255,0.85)", 10);
       y += 130;
       centerText(value, y, 180, "900", valueColor);
       y += 230;
     };
 
-    drawStat("Faturamento", formatCurrency(soldAmount), "#FFFFFF");
-    drawStat("Vendas", String(sales), "#22C55E");
+    drawStat("Faturamento", formatCurrency(soldAmount), FOREGROUND);
+    drawStat("Vendas", String(sales), SUCCESS);
 
     const convColor =
-      conversionRate >= 30 ? "#22C55E" : conversionRate >= 15 ? "#F59E0B" : "#EF4444";
+      conversionRate >= 30 ? SUCCESS : conversionRate >= 15 ? WARNING : DESTRUCTIVE;
     drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
 
     // Bottom: Orbis logo image (wider since it includes the wordmark)
@@ -115,7 +121,7 @@ export function DefconBlockReport({
       ctx.drawImage(logo, logoX, logoY, logoW, logoH);
     } catch {
       // Fallback: text logo
-      centerText("ORBIS", H - 180, 80, "900", "#FFFFFF", 16);
+      centerText("ORBIS", H - 180, 80, "900", FOREGROUND, 16);
     }
 
     return new Promise((resolve) =>
@@ -191,7 +197,7 @@ export function DefconBlockReport({
 
         <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
           <span className="text-sm font-mono text-neutral-500">🛒 Vendas</span>
-          <span className="text-2xl font-black text-green-500">{sales}</span>
+          <span className="text-2xl font-black text-success">{sales}</span>
         </div>
 
         <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
@@ -202,7 +208,7 @@ export function DefconBlockReport({
         <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 flex justify-between items-center">
           <span className="text-sm font-mono text-neutral-500">📊 Conversão</span>
           <span className={`text-2xl font-black ${
-            conversionRate >= 30 ? "text-green-500" : conversionRate >= 15 ? "text-amber-500" : "text-red-500"
+            conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"
           }`}>
             {conversionRate.toFixed(0)}%
           </span>
@@ -217,7 +223,10 @@ export function DefconBlockReport({
       <button
         onClick={handleShare}
         disabled={sharing}
-        className="w-full max-w-sm h-12 mb-3 bg-gradient-to-r from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white font-bold text-sm rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
+        className="w-full max-w-sm h-12 mb-3 text-white font-bold text-sm rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
+        style={{
+          backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
+        }}
       >
         {sharing ? (
           <>

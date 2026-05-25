@@ -106,7 +106,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
 
           {/* What you LOSE */}
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 mb-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
               <X className="w-3.5 h-3.5" />
               Sem assinatura você perde
             </p>
@@ -128,7 +128,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
 
           {/* What you GET */}
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-5">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
               Continuando no Orbis você
             </p>
@@ -158,7 +158,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               <span className="text-3xl font-black text-primary leading-none">R$ 19,90</span>
               <span className="text-sm text-muted-foreground">/mês</span>
             </div>
-            <p className="text-[11px] text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
+            <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
           </div>
 
           {/* Actions */}
@@ -200,7 +200,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
             </Button>
           </div>
 
-          <p className="text-[10px] text-center text-muted-foreground/70 mt-3">
+          <p className="text-xs text-center text-muted-foreground/70 mt-3">
             🔒 Pagamento seguro via Hotmart
           </p>
         </div>

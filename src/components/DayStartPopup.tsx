@@ -149,7 +149,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
         <div className="relative px-5 pt-5 pb-4 overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
           <DialogHeader className="space-y-1">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">
               {dayStatus === 'finished' ? 'Resumo' : dayStatus === 'in_progress' ? 'Em andamento' : 'Plano de hoje'}
             </p>
             <DialogTitle className="text-xl font-black text-foreground leading-tight">
@@ -163,11 +163,11 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
           {dayStatus === 'finished' && (
             <div className="rounded-xl border border-success/30 bg-success/5 px-4 py-3 flex items-center justify-between">
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total vendido</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">Total vendido</p>
                 <p className="text-xl font-black text-success leading-tight">{formatCurrency(totalSold)}</p>
               </div>
               <div className="text-right">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">da meta</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">da meta</p>
                 <p className="text-xl font-black text-foreground leading-tight">{percentageAchieved.toFixed(0)}%</p>
               </div>
             </div>
@@ -181,7 +181,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
                 <Target className="w-4 h-4 text-foreground" strokeWidth={2.2} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Meta de hoje</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-bold">Meta de hoje</p>
                 <p className="text-2xl font-black text-foreground leading-tight truncate">{formatCurrency(dailyGoal)}</p>
               </div>
             </div>
@@ -192,21 +192,21 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
             <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-0.5">
                 <Zap className="w-3 h-3 text-muted-foreground" />
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Semana</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Semana</p>
               </div>
               <p className="text-xs font-bold text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-0.5">
                 <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Mês</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Mês</p>
               </div>
               <p className="text-xs font-bold text-foreground truncate">{formatCurrency(monthlyGoal)}</p>
             </div>
             <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
               <div className="flex items-center gap-1 mb-0.5">
                 <Clock className="w-3 h-3 text-muted-foreground" />
-                <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Horas</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Horas</p>
               </div>
               <p className="text-xs font-bold text-foreground truncate">{workHours}h</p>
             </div>
@@ -229,7 +229,6 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
                 style={{ boxShadow: "0 8px 24px -8px hsl(var(--primary) / 0.5)" }}
               >
                 <span className="relative z-10">Iniciar meu dia</span>
-                <span className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent skew-x-12 animate-shine-sweep" />
               </Button>
             )}
 

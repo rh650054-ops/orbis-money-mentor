@@ -274,12 +274,12 @@ export function ActivityTimer({
                     fill="none"
                     strokeDasharray={`${2 * Math.PI * 24}`}
                     strokeDashoffset={`${2 * Math.PI * 24 * (1 - progress / 100)}`}
-                    className="text-primary transition-all duration-1000"
+                    className="text-primary transition-[stroke-dashoffset,width] duration-300 ease-out"
                     strokeLinecap="round"
                   />
                 </svg>
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-primary animate-pulse" />
+                  <Clock className="w-5 h-5 text-primary" />
                 </div>
               </button>
             </DialogTrigger>
@@ -321,12 +321,12 @@ export function ActivityTimer({
                       fill="none"
                       strokeDasharray={`${2 * Math.PI * 88}`}
                       strokeDashoffset={`${2 * Math.PI * 88 * (1 - progress / 100)}`}
-                      className="text-primary transition-all duration-1000 drop-shadow-glow"
+                      className="text-primary transition-[stroke-dashoffset,width] duration-300 ease-out drop-shadow-glow"
                       strokeLinecap="round"
                     />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <Clock className="w-8 h-8 text-primary animate-pulse mb-2" />
+                    <Clock className="w-8 h-8 text-primary mb-2" />
                     <span className="text-3xl font-bold text-primary">{remainingTime}</span>
                     <span className="text-sm text-muted-foreground mt-1">{Math.floor(progress)}% concluído</span>
                   </div>

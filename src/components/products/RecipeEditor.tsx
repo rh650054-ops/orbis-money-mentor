@@ -87,7 +87,7 @@ export default function RecipeEditor({ productId, recipeMode, batchYield, onChan
             <SelectItem value="batch">Por lote (rendimento)</SelectItem>
           </SelectContent>
         </Select>
-        <p className="text-[11px] text-muted-foreground mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           {recipeMode === "per_unit" && "A cada venda, baixa do estoque os ingredientes na quantidade abaixo."}
           {recipeMode === "batch" && "Você produz um lote (ex: faz 50 brigadeiros de uma vez) e o app baixa os ingredientes do lote inteiro."}
           {recipeMode === "none" && "Apenas o estoque do produto é controlado, sem ingredientes."}
@@ -116,10 +116,10 @@ export default function RecipeEditor({ productId, recipeMode, batchYield, onChan
             </Button>
           </div>
           {!productId && (
-            <p className="text-[11px] text-muted-foreground">Salve o produto primeiro para adicionar ingredientes.</p>
+            <p className="text-xs text-muted-foreground">Salve o produto primeiro para adicionar ingredientes.</p>
           )}
           {ingredients.length === 0 && productId && (
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Nenhuma mercadoria cadastrada. Cadastre na aba "Mercadoria".
             </p>
           )}

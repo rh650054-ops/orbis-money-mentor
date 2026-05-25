@@ -15,10 +15,10 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <div className="h-[100dvh] bg-black pt-safe pb-safe flex flex-col px-6 select-none overflow-hidden">
+    <div className="h-[100dvh] bg-background pt-safe pb-safe flex flex-col px-6 select-none overflow-hidden">
       {/* Top: brand */}
       <div className="pt-4 text-center">
-        <div className="text-[10px] font-mono text-red-500 tracking-[0.5em] uppercase">
+        <div className="text-xs font-mono text-destructive tracking-[0.5em] uppercase">
           DEFCON 4
         </div>
       </div>
@@ -31,7 +31,7 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
             <br />
             DESAFIO
           </h1>
-          <p className="text-[11px] text-neutral-500 font-mono mt-3 max-w-[240px] mx-auto">
+          <p className="text-xs text-neutral-500 font-mono mt-3 max-w-[240px] mx-auto">
             Blocos de 60min. Sem distrações. Apenas vendas.
           </p>
         </div>
@@ -48,13 +48,13 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
           onClick={toggleBattery}
           className={`flex items-center justify-between gap-3 px-4 h-12 rounded-xl border transition-colors ${
             battery
-              ? "bg-emerald-500/10 border-emerald-500/30"
+              ? "bg-success/10 border-success/30"
               : "bg-neutral-900/50 border-white/5"
           }`}
         >
           <div className="flex items-center gap-2.5">
             {battery ? (
-              <BatteryLow className="w-4 h-4 text-emerald-400" />
+              <BatteryLow className="w-4 h-4 text-success" />
             ) : (
               <BatteryFull className="w-4 h-4 text-neutral-500" />
             )}
@@ -62,14 +62,14 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
               <p className="text-xs font-semibold text-white leading-tight">
                 Economia de bateria
               </p>
-              <p className="text-[10px] text-neutral-500 leading-tight">
+              <p className="text-xs text-neutral-500 leading-tight">
                 {battery ? "Animações reduzidas" : "Para celulares fracos"}
               </p>
             </div>
           </div>
           <div
             className={`w-9 h-5 rounded-full transition-colors relative ${
-              battery ? "bg-emerald-500" : "bg-neutral-700"
+              battery ? "bg-success" : "bg-neutral-700"
             }`}
           >
             <div
@@ -85,11 +85,11 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
       <div className="pb-4 space-y-2">
         <button
           onClick={() => (confirming ? onStart() : setConfirming(true))}
-          className={`w-full h-14 rounded-2xl font-black text-base active:scale-[0.98] transition-all ${
+          className={`w-full h-14 rounded-2xl font-black text-base active:scale-[0.98] transition-[colors,transform,opacity] ${
             confirming
-              ? "bg-red-600 text-white shadow-[0_0_30px_-5px_rgba(220,38,38,0.6)]"
-              : "bg-red-600 text-white"
-          } ${battery ? "" : "animate-pulse"}`}
+              ? "bg-destructive text-destructive-foreground shadow-[0_0_30px_-5px_hsl(var(--destructive)/0.6)]"
+              : "bg-destructive text-destructive-foreground"
+          }`}
         >
           {confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
         </button>
@@ -120,7 +120,7 @@ function Row({
       <span className="text-xs font-mono text-neutral-500">{label}</span>
       <span
         className={`font-black ${
-          accent ? "text-xl text-[#F4A100]" : muted ? "text-base text-neutral-400" : "text-base text-white"
+          accent ? "text-xl text-primary" : muted ? "text-base text-neutral-400" : "text-base text-white"
         }`}
       >
         {value}

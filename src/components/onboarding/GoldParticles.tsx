@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { readThemeColor } from "@/lib/theme-colors";
 
 interface Particle {
   x: number;
@@ -20,6 +21,10 @@ export default function GoldParticles() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const rootStyle = getComputedStyle(document.documentElement);
+    const primaryRaw = rootStyle.getPropertyValue("--primary").trim();
+    const particleHsl = (alpha: number) => `hsl(${primaryRaw} / ${alpha})`;
 
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
     const resize = () => {
@@ -62,7 +67,7 @@ export default function GoldParticles() {
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 120) {
             ctx.beginPath();
-            ctx.strokeStyle = `rgba(201,168,76,${0.1 * (1 - dist / 120)})`;
+            ctx.strokeStyle = particleHsl(0.1 * (1 - dist / 120));
             ctx.lineWidth = 0.5;
             ctx.moveTo(particles[i].x, particles[i].y);
             ctx.lineTo(particles[j].x, particles[j].y);
@@ -83,7 +88,7 @@ export default function GoldParticles() {
         const breathSize = p.size + Math.sin(t * 2 + p.phase) * 0.75;
         ctx.beginPath();
         ctx.arc(p.x, p.y, breathSize, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(201,168,76,${p.opacity})`;
+        ctx.fillStyle = particleHsl(p.opacity);
         ctx.fill();
       }
 
@@ -102,7 +107,7 @@ export default function GoldParticles() {
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-0"
-      style={{ background: "radial-gradient(ellipse at center, #1A0533 0%, #000000 70%)" }}
+      style={{ background: `radial-gradient(ellipse at center, ${readThemeColor("--card")} 0%, ${readThemeColor("--background")} 70%)` }}
     />
   );
 }

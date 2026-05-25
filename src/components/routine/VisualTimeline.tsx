@@ -52,7 +52,7 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
   return (
     <div className="relative py-8 px-4">
       {/* Title */}
-      <h3 className="text-lg font-bold gradient-text mb-6 flex items-center gap-2">
+      <h3 className="text-lg font-bold text-foreground tracking-tight mb-6 flex items-center gap-2">
         <Clock className="w-5 h-5" />
         Linha do Tempo Visionária
       </h3>
@@ -64,7 +64,7 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
         
         {/* Progress line */}
         <div 
-          className="absolute left-4 top-0 w-1 bg-gradient-to-b from-primary via-secondary to-primary rounded-full transition-all duration-1000"
+          className="absolute left-4 top-0 w-1 bg-gradient-to-b from-primary via-secondary to-primary rounded-full transition-[colors,transform,opacity] duration-1000"
           style={{ height: `${getLineProgress()}%` }}
         />
 
@@ -81,11 +81,11 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
               >
                 {/* Node/Point */}
                 <div 
-                  className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-300 z-10 ${
+                  className={`absolute left-0 w-9 h-9 rounded-full flex items-center justify-center transition-[colors,transform,opacity] duration-300 z-10 ${
                     status === "completed" 
                       ? "bg-success shadow-[0_0_20px_hsl(var(--success)/0.5)]" 
                       : status === "inProgress"
-                      ? "bg-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)] animate-pulse"
+                      ? "bg-primary shadow-[0_0_20px_hsl(var(--primary)/0.5)]"
                       : status === "late"
                       ? "bg-destructive shadow-[0_0_20px_hsl(var(--destructive)/0.5)]"
                       : "bg-muted border-2 border-muted-foreground/30"
@@ -104,7 +104,7 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
 
                 {/* Content card */}
                 <div 
-                  className={`flex-1 p-4 rounded-xl border transition-all duration-300 group-hover:scale-[1.02] ${
+                  className={`flex-1 p-4 rounded-xl border transition-[colors,transform,opacity] duration-300 group-hover:scale-[1.02] ${
                     status === "completed"
                       ? "bg-success/10 border-success/30"
                       : status === "inProgress"
@@ -137,7 +137,7 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
                     
                     {/* Status indicator */}
                     {status === "inProgress" && (
-                      <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary border border-primary/30 animate-pulse">
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary border border-primary/30">
                         AGORA
                       </span>
                     )}

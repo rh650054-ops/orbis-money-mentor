@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { readThemeColor } from "@/lib/theme-colors";
 
 type Spot = {
   id: string;
@@ -40,11 +41,31 @@ function loadMaps(): Promise<void> {
 }
 
 function scoreColor(score?: number) {
-  if (score == null) return "#888";
-  if (score >= 8) return "#22c55e";
-  if (score >= 6) return "#f4a100";
-  if (score >= 4) return "#f97316";
-  return "#ef4444";
+  if (score == null) return readThemeColor("--muted-foreground");
+  if (score >= 8) return readThemeColor("--success");
+  if (score >= 6) return readThemeColor("--primary");
+  if (score >= 4) return readThemeColor("--warning");
+  return readThemeColor("--destructive");
+}
+
+function buildMapStyles() {
+  const card = readThemeColor("--card");
+  const mutedFg = readThemeColor("--muted-foreground");
+  const background = readThemeColor("--background");
+  const border = readThemeColor("--border");
+  const muted = readThemeColor("--muted");
+  const secondary = readThemeColor("--secondary");
+  return [
+    { elementType: "geometry", stylers: [{ color: card }] },
+    { elementType: "labels.text.fill", stylers: [{ color: mutedFg }] },
+    { elementType: "labels.text.stroke", stylers: [{ color: background }] },
+    { featureType: "road", elementType: "geometry", stylers: [{ color: muted }] },
+    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: border }] },
+    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: secondary }] },
+    { featureType: "water", elementType: "geometry", stylers: [{ color: background }] },
+    { featureType: "poi", stylers: [{ visibility: "off" }] },
+    { featureType: "transit", stylers: [{ visibility: "off" }] },
+  ];
 }
 
 export default function SpotMap({ center, spots, onSelect }: Props) {
@@ -64,17 +85,7 @@ export default function SpotMap({ center, spots, onSelect }: Props) {
             disableDefaultUI: true,
             zoomControl: true,
             gestureHandling: "greedy",
-            styles: [
-              { elementType: "geometry", stylers: [{ color: "#1a1a1a" }] },
-              { elementType: "labels.text.fill", stylers: [{ color: "#9ca3af" }] },
-              { elementType: "labels.text.stroke", stylers: [{ color: "#0d0d0d" }] },
-              { featureType: "road", elementType: "geometry", stylers: [{ color: "#2a2a2a" }] },
-              { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: "#3a3a3a" }] },
-              { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#4a4a4a" }] },
-              { featureType: "water", elementType: "geometry", stylers: [{ color: "#0f1a2a" }] },
-              { featureType: "poi", stylers: [{ visibility: "off" }] },
-              { featureType: "transit", stylers: [{ visibility: "off" }] },
-            ],
+            styles: buildMapStyles(),
           });
         }
 
@@ -94,7 +105,7 @@ export default function SpotMap({ center, spots, onSelect }: Props) {
             title: s.name,
             label: {
               text: s.score != null ? s.score.toFixed(1) : "?",
-              color: "#0d0d0d",
+              color: readThemeColor("--background"),
               fontSize: "11px",
               fontWeight: "700",
             },
@@ -103,7 +114,7 @@ export default function SpotMap({ center, spots, onSelect }: Props) {
               scale: 16,
               fillColor: color,
               fillOpacity: 1,
-              strokeColor: "#0d0d0d",
+              strokeColor: readThemeColor("--background"),
               strokeWeight: 2,
             },
           });

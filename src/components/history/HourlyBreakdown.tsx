@@ -71,13 +71,13 @@ export default function HourlyBreakdown({ userId, date }: Props) {
     <div>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between text-xs text-neutral-400 hover:text-white transition-colors py-1"
+        className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors py-1"
       >
         <span className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-[#F4A100]/10 border border-[#F4A100]/20 flex items-center justify-center">
-            <Clock className="w-3.5 h-3.5 text-[#F4A100]" />
+          <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
+            <Clock className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="font-semibold text-white">Vendas por hora e por minuto</span>
+          <span className="font-semibold text-foreground">Vendas por hora e por minuto</span>
         </span>
         {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
@@ -85,40 +85,40 @@ export default function HourlyBreakdown({ userId, date }: Props) {
       {open && (
         <div className="mt-4 space-y-4 animate-in fade-in duration-150">
           {loading ? (
-            <p className="text-xs text-neutral-500 text-center py-4">Carregando...</p>
+            <p className="text-xs text-muted-foreground text-center py-4">Carregando...</p>
           ) : blocks.length === 0 ? (
-            <p className="text-xs text-neutral-500 text-center py-4">
+            <p className="text-xs text-muted-foreground text-center py-4">
               Sem blocos cadastrados nesse dia.
             </p>
           ) : (
             <>
               {/* Resumo: por hora / por minuto */}
               <div className="grid grid-cols-2 gap-2">
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#F4A100]/12 to-[#F4A100]/4 border border-[#F4A100]/25 p-3">
-                  <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-[#F4A100]/20 blur-2xl pointer-events-none" />
-                  <p className="relative text-[10px] uppercase tracking-wider text-[#F4A100] font-semibold">Por hora ativa</p>
-                  <p className="relative text-lg font-bold text-white tabular-nums mt-1">
+                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/12 to-primary/4 border border-primary/25 p-3">
+                  <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
+                  <p className="relative text-xs uppercase tracking-wider text-primary font-semibold">Por hora ativa</p>
+                  <p className="relative text-lg font-bold text-foreground tabular-nums mt-1">
                     {formatCurrency(perHour)}
                   </p>
                 </div>
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-[#6B21A8]/18 to-[#6B21A8]/5 border border-[#A78BFA]/25 p-3">
-                  <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-[#A78BFA]/25 blur-2xl pointer-events-none" />
-                  <p className="relative text-[10px] uppercase tracking-wider text-[#A78BFA] font-semibold">Por minuto</p>
-                  <p className="relative text-lg font-bold text-white tabular-nums mt-1">
+                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-violet/18 to-violet/5 border border-violet-soft/25 p-3">
+                  <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-violet-soft/25 blur-2xl pointer-events-none" />
+                  <p className="relative text-xs uppercase tracking-wider text-violet-soft font-semibold">Por minuto</p>
+                  <p className="relative text-lg font-bold text-foreground tabular-nums mt-1">
                     {formatCurrency(perMinute)}
-                    <span className="text-xs text-neutral-500 font-normal">/min</span>
+                    <span className="text-xs text-muted-foreground font-normal">/min</span>
                   </p>
                 </div>
               </div>
 
               {/* Gorjetas no dia (se houver) */}
               {totalTips > 0 && (
-                <div className="rounded-xl bg-gradient-to-r from-[#F4A100]/10 via-[#F4A100]/5 to-transparent border border-[#F4A100]/25 px-3 py-2 flex items-center gap-2.5">
-                  <Coins className="w-4 h-4 text-[#F4A100] shrink-0" />
+                <div className="rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/25 px-3 py-2 flex items-center gap-2.5">
+                  <Coins className="w-4 h-4 text-primary shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] uppercase tracking-wider text-[#F4A100] font-semibold">Gorjetas do dia</p>
+                    <p className="text-xs uppercase tracking-wider text-primary font-semibold">Gorjetas do dia</p>
                   </div>
-                  <p className="text-sm font-bold text-[#F4A100] tabular-nums">+{formatCurrency(totalTips)}</p>
+                  <p className="text-sm font-bold text-primary tabular-nums">+{formatCurrency(totalTips)}</p>
                 </div>
               )}
 
@@ -135,14 +135,14 @@ export default function HourlyBreakdown({ userId, date }: Props) {
                       key={b.hour_index}
                       className={`relative overflow-hidden rounded-xl border px-3 py-2.5 transition-colors ${
                         isActive
-                          ? "bg-[#0F0F0F] border-white/10"
+                          ? "bg-card border-border"
                           : "bg-black/40 border-white/5"
                       }`}
                     >
                       {/* barra de fundo proporcional */}
                       {isActive && (
                         <div
-                          className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#F4A100]/10 to-transparent transition-all"
+                          className="absolute inset-y-0 left-0 bg-gradient-to-r from-primary/10 to-transparent transition-[colors,transform,opacity]"
                           style={{ width: `${pct}%` }}
                         />
                       )}
@@ -150,22 +150,22 @@ export default function HourlyBreakdown({ userId, date }: Props) {
                         <div className="flex items-center gap-2 min-w-0">
                           <Zap
                             className={`w-3.5 h-3.5 shrink-0 ${
-                              isActive ? "text-[#F4A100] fill-[#F4A100]/40" : "text-neutral-700"
+                              isActive ? "text-primary fill-primary/40" : "text-muted-foreground/40"
                             }`}
                           />
-                          <span className={`text-xs font-mono ${isActive ? "text-neutral-300" : "text-neutral-600"}`}>
+                          <span className={`text-xs font-mono ${isActive ? "text-foreground/70" : "text-muted-foreground/60"}`}>
                             {b.hour_label}
                           </span>
                           {tip > 0 && (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[#F4A100] bg-[#F4A100]/10 border border-[#F4A100]/30 rounded-md px-1.5 py-0.5">
+                            <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-primary bg-primary/10 border border-primary/30 rounded-md px-1.5 py-0.5">
                               <Coins className="w-2.5 h-2.5" />
                               {formatCurrency(tip)}
                             </span>
                           )}
                         </div>
                         <div className="flex items-baseline gap-3 text-right shrink-0">
-                          <span className="text-[10px] text-neutral-500 tabular-nums">
-                            {formatCurrency(minRate)}<span className="text-[9px]">/min</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {formatCurrency(minRate)}<span className="text-xs">/min</span>
                           </span>
                           <span
                             className={`text-sm font-bold tabular-nums ${

@@ -127,7 +127,7 @@ export const WeeklyPlanning = ({ userId, onEditPlanning }: WeeklyPlanningProps) 
                 size="sm"
                 variant="default"
                 onClick={onEditPlanning}
-                className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <Pencil className="h-4 w-4 mr-2" />
                 Editar Metas
@@ -173,7 +173,7 @@ export const WeeklyPlanning = ({ userId, onEditPlanning }: WeeklyPlanningProps) 
                   <Badge
                     key={day.key}
                     variant={workingDays.includes(day.key) ? "default" : "outline"}
-                    className="cursor-pointer px-3 py-2 text-sm transition-all hover:scale-105"
+                    className="cursor-pointer px-3 py-2 text-sm transition-[colors,transform,opacity] hover:scale-105"
                     onClick={() => toggleDay(day.key)}
                   >
                     {day.label}
@@ -233,7 +233,7 @@ export const WeeklyPlanning = ({ userId, onEditPlanning }: WeeklyPlanningProps) 
               </div>
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground">🏆 Meta mensal</p>
-                <p className="text-lg font-bold gradient-text">{formatCurrency(monthlyGoal)}</p>
+                <p className="text-lg font-bold text-foreground tracking-tight">{formatCurrency(monthlyGoal)}</p>
               </div>
             </div>
           </>

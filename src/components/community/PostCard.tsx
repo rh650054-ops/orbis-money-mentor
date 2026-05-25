@@ -26,8 +26,8 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onDelete }: Pro
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="font-semibold text-sm truncate">{post.nickname ?? "Vendedor"}</span>
-            {post.city && <span className="text-[11px] text-muted-foreground truncate">· {post.city}/{post.state}</span>}
-            <span className="text-[11px] text-muted-foreground ml-auto shrink-0">
+            {post.city && <span className="text-xs text-muted-foreground truncate">· {post.city}/{post.state}</span>}
+            <span className="text-xs text-muted-foreground ml-auto shrink-0">
               {formatDistanceToNow(new Date(post.created_at), { locale: ptBR, addSuffix: false })}
             </span>
           </div>
@@ -46,18 +46,20 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onDelete }: Pro
             <button
               onClick={onLike}
               className={cn(
-                "flex items-center gap-1.5 px-2 py-1 rounded-full text-xs transition-colors",
+                "inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 px-3 rounded-full text-xs transition-colors",
                 post.liked_by_me
-                  ? "text-red-500 hover:bg-red-500/10"
+                  ? "text-destructive hover:bg-destructive/10"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
+              aria-label={post.liked_by_me ? "Descurtir" : "Curtir"}
             >
               <Heart className={cn("h-4 w-4", post.liked_by_me && "fill-current")} />
               {post.likes_count > 0 && <span>{post.likes_count}</span>}
             </button>
             <button
               onClick={onOpenComments}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 px-3 rounded-full text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              aria-label="Abrir comentários"
             >
               <MessageCircle className="h-4 w-4" />
               {post.comments_count > 0 && <span>{post.comments_count}</span>}
@@ -65,10 +67,10 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onDelete }: Pro
             {isMine && (
               <button
                 onClick={onDelete}
-                className="ml-auto px-2 py-1 rounded-full text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                className="ml-auto inline-flex items-center justify-center min-h-11 min-w-11 rounded-full text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                 aria-label="Apagar"
               >
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
               </button>
             )}
           </div>

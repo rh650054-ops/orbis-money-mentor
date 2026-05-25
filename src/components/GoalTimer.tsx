@@ -317,7 +317,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
                           fill="none"
                           strokeDasharray={`${2 * Math.PI * 28}`}
                           strokeDashoffset={`${2 * Math.PI * 28 * (1 - getProgress() / 100)}`}
-                          className="text-primary transition-all duration-1000"
+                          className="text-primary transition-[stroke-dashoffset,width] duration-300 ease-out"
                         />
                       </svg>
                       <Clock className="h-6 w-6 text-primary" />
@@ -350,7 +350,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
                           fill="none"
                           strokeDasharray={`${2 * Math.PI * 120}`}
                           strokeDashoffset={`${2 * Math.PI * 120 * (1 - getProgress() / 100)}`}
-                          className="text-primary transition-all duration-1000"
+                          className="text-primary transition-[stroke-dashoffset,width] duration-300 ease-out"
                           style={{ strokeLinecap: "round" }}
                         />
                       </svg>
@@ -405,7 +405,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
                 </p>
                 <div className="mt-2 h-2 bg-muted rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-success to-success/70 transition-all duration-500"
+                    className="h-full bg-gradient-to-r from-success to-success/70 transition-[colors,transform,opacity] duration-500"
                     style={{ width: `${Math.min((currentSales / dailySalesGoal) * 100, 100)}%` }}
                   />
                 </div>
@@ -416,7 +416,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
             <div className="space-y-2">
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-1000"
+                  className="h-full bg-gradient-to-r from-primary to-secondary transition-[stroke-dashoffset,width] duration-300 ease-out"
                   style={{ width: `${getProgress()}%` }}
                 />
               </div>

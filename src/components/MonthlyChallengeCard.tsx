@@ -14,12 +14,12 @@ interface MonthlyChallengeCardProps {
 
 const getLevelColor = (nivel: string): string => {
   switch (nivel) {
-    case 'Bronze': return 'from-amber-600 to-amber-800';
-    case 'Prata': return 'from-slate-400 to-slate-600';
-    case 'Ouro': return 'from-yellow-400 to-yellow-600';
-    case 'Platina': return 'from-cyan-400 to-cyan-600';
-    case 'Lendário': return 'from-purple-500 to-pink-500';
-    default: return 'from-gray-500 to-gray-700';
+    case 'Bronze': return 'from-tier-bronze to-tier-bronze/70';
+    case 'Prata': return 'from-tier-silver to-tier-silver/70';
+    case 'Ouro': return 'from-tier-gold to-tier-gold/70';
+    case 'Platina': return 'from-tier-platinum to-tier-platinum/70';
+    case 'Lendário': return 'from-tier-legendary to-primary';
+    default: return 'from-muted to-muted-foreground';
   }
 };
 
@@ -36,11 +36,11 @@ const getLevelEmoji = (nivel: string): string => {
 
 const getLevelBorderColor = (nivel: string): string => {
   switch (nivel) {
-    case 'Bronze': return 'border-amber-600/50';
-    case 'Prata': return 'border-slate-400/50';
-    case 'Ouro': return 'border-yellow-400/50';
-    case 'Platina': return 'border-cyan-400/50';
-    case 'Lendário': return 'border-purple-500/50';
+    case 'Bronze': return 'border-tier-bronze/50';
+    case 'Prata': return 'border-tier-silver/50';
+    case 'Ouro': return 'border-tier-gold/50';
+    case 'Platina': return 'border-tier-platinum/50';
+    case 'Lendário': return 'border-tier-legendary/50';
     default: return 'border-muted';
   }
 };
@@ -101,7 +101,7 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
 
   if (loading) {
     return (
-      <Card className="glass animate-pulse">
+      <Card className="bg-card border-border animate-pulse">
         <CardContent className="p-6 flex items-center justify-center h-40">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </CardContent>
@@ -112,7 +112,7 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
   // Se não há desafio, mostrar botão para criar
   if (!challenge) {
     return (
-      <Card className="glass border-dashed border-2 border-primary/30 hover:border-primary/50 transition-colors">
+      <Card className="bg-card border-dashed border-2 border-primary/30 hover:border-primary/50 transition-colors">
         <CardContent className="p-6">
           <div className="flex flex-col items-center justify-center text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
@@ -157,12 +157,12 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
   const mesNome = new Date(challenge.data_inicio).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   return (
-    <Card className={`glass border-2 ${getLevelBorderColor(currentLevel.nivel)} transition-all overflow-hidden`}>
+    <Card className={`bg-card border-2 ${getLevelBorderColor(currentLevel.nivel)} transition-[colors,transform,opacity] overflow-hidden`}>
       {/* Header com nível destacado */}
       <div className={`bg-gradient-to-r ${getLevelColor(currentLevel.nivel)} p-4`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl">
+            <div className="w-14 h-14 rounded-full bg-card border border-border flex items-center justify-center text-3xl">
               {getLevelEmoji(currentLevel.nivel)}
             </div>
             <div className="text-white">
@@ -173,7 +173,7 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
           <div className="text-right text-white">
             <p className="text-sm opacity-90">XP Total</p>
             <p className="text-2xl font-bold flex items-center gap-1">
-              <Zap className="w-5 h-5 text-yellow-300" />
+              <Zap className="w-5 h-5 text-primary-foreground/90" />
               {challenge.xp_total}
             </p>
           </div>
@@ -224,7 +224,7 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
               return (
                 <div 
                   key={level.nivel} 
-                  className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${
+                  className={`flex-1 flex flex-col items-center gap-1 p-2 rounded-lg transition-[colors,transform,opacity] ${
                     isCurrent 
                       ? `bg-gradient-to-b ${getLevelColor(level.nivel)} text-white scale-105 shadow-lg` 
                       : isAchieved 
@@ -232,10 +232,10 @@ export function MonthlyChallengeCard({ userId }: MonthlyChallengeCardProps) {
                         : 'bg-muted/20 opacity-50'
                   }`}
                 >
-                  <span className={`text-lg ${isCurrent ? 'animate-pulse' : ''}`}>
+                  <span className="text-lg">
                     {getLevelEmoji(level.nivel)}
                   </span>
-                  <span className={`text-[10px] font-medium ${isCurrent ? 'text-white' : 'text-muted-foreground'}`}>
+                  <span className={`text-xs font-medium ${isCurrent ? 'text-white' : 'text-muted-foreground'}`}>
                     {level.dias_necessarios}d
                   </span>
                 </div>

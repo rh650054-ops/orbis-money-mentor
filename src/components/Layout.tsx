@@ -48,8 +48,17 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { phase, setPhase, markDone } = useOnboarding();
-  const onboardingCompleto = localStorage.getItem('orbis_onboarding_completo') === 'true';
-  const trialDismissedRef = useRef(sessionStorage.getItem('trialModalDismissed') === 'true');
+  const [onboardingCompleto, setOnboardingCompleto] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+  );
+  useEffect(() => {
+    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_onboarding_completo') === 'true');
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
+  const trialDismissedRef = useRef(
+    typeof window !== "undefined" && sessionStorage.getItem('trialModalDismissed') === 'true'
+  );
   const [trialModalDismissed, setTrialModalDismissed] = useState(trialDismissedRef.current);
 
   const handleDismissTrialModal = () => {
@@ -150,7 +159,7 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
               {isAdmin && (
                 <span className={cn(
-                  "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0",
+                  "text-xs font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0",
                   adminRole === "admin"
                     ? "bg-primary/20 text-primary border border-primary/30"
                     : "bg-muted text-muted-foreground border border-border"
@@ -245,7 +254,7 @@ export default function Layout({ children }: LayoutProps) {
           </svg>
         </div>
 
-        <div className="border-t border-border bg-black/95 backdrop-blur-xl supports-[backdrop-filter]:bg-black/90">
+        <div className="border-t border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
           <div className="grid grid-cols-5 items-end h-16 px-1 relative">
             {navigation.map((item, idx) => {
               const isActive = location.pathname === item.href;
@@ -289,14 +298,14 @@ export default function Layout({ children }: LayoutProps) {
                   to={item.href}
                   {...(item.tourId ? { "data-tour": item.tourId } : {})}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-all",
+                    "flex flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-[colors,transform,opacity]",
                     isActive
                       ? "text-primary"
                       : "text-muted-foreground hover:text-primary"
                   )}
                 >
                   <Icon className={cn("h-5 w-5", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.6)]")} />
-                  <span className="text-[10px]">{item.name}</span>
+                  <span className="text-xs">{item.name}</span>
                 </Link>
               );
             })}

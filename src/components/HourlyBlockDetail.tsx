@@ -372,12 +372,12 @@ export function HourlyBlockDetail({
   return (
     <Card
       className={cn(
-        "overflow-hidden border-2 transition-all duration-300 rounded-2xl",
-        isCurrentBlock && localBlock.timer_status === 'running' && "ring-2 ring-amber-500 shadow-xl shadow-amber-500/30 scale-[1.01]",
+        "overflow-hidden border-2 transition-[colors,transform,opacity] duration-300 rounded-2xl",
+        isCurrentBlock && localBlock.timer_status === 'running' && "ring-2 ring-warning shadow-xl shadow-warning/30 scale-[1.01]",
         isCompleted && total >= block.target_amount && "bloco-verde",
         isCompleted && total < block.target_amount && "bloco-vermelho",
         isLocked && "opacity-50 border-white/5 bg-black/20",
-        !isCompleted && !isCurrentBlock && !isLocked && "border-white/10 bg-black/40 backdrop-blur-sm"
+        !isCompleted && !isCurrentBlock && !isLocked && "border-border bg-card"
       )}
     >
       <CardContent className="p-6 space-y-4">
@@ -385,10 +385,10 @@ export function HourlyBlockDetail({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={cn(
-              "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-all shadow-lg relative",
+              "w-16 h-16 rounded-2xl flex items-center justify-center text-3xl font-bold transition-[colors,transform,opacity] shadow-lg relative",
               isCompleted && total >= block.target_amount && "bloco-verde-numero",
               isCompleted && total < block.target_amount && "bloco-vermelho-numero",
-              isCurrentBlock && localBlock.timer_status === 'running' && "bg-gradient-to-br from-amber-400 to-amber-600 text-black animate-pulse",
+              isCurrentBlock && localBlock.timer_status === 'running' && "bg-gradient-to-br from-warning to-warning text-background",
               isLocked && "bg-white/5 text-muted-foreground",
               !isCompleted && !isCurrentBlock && !isLocked && "bg-white/5 text-foreground"
             )}>
@@ -415,11 +415,11 @@ export function HourlyBlockDetail({
               <div className="flex flex-col items-end gap-1">
                 <CheckCircle2 className={cn(
                   "w-8 h-8",
-                  block.achieved_amount >= block.target_amount ? "text-green-500" : "text-yellow-500"
+                  block.achieved_amount >= block.target_amount ? "text-success" : "text-warning"
                 )} />
                 <span className={cn(
                   "text-xs font-semibold",
-                  block.achieved_amount >= block.target_amount ? "text-green-500" : "text-yellow-500"
+                  block.achieved_amount >= block.target_amount ? "text-success" : "text-warning"
                 )}>
                   {block.achieved_amount >= block.target_amount ? "Meta batida!" : "Concluído"}
                 </span>
@@ -446,8 +446,8 @@ export function HourlyBlockDetail({
                       strokeDasharray={`${2 * Math.PI * 28}`}
                       strokeDashoffset={`${2 * Math.PI * 28 * (1 - Math.max(0, timeRemaining) / 3600)}`}
                       className={cn(
-                        "transition-all duration-1000",
-                        localBlock.timer_status === 'running' ? "text-amber-500" : "text-muted-foreground"
+                        "transition-[stroke-dashoffset,width] duration-300 ease-out",
+                        localBlock.timer_status === 'running' ? "text-warning" : "text-muted-foreground"
                       )}
                       strokeLinecap="round"
                     />
@@ -455,7 +455,7 @@ export function HourlyBlockDetail({
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className={cn(
                       "text-xs font-mono font-bold",
-                      timeRemaining <= 0 ? "text-red-500" : localBlock.timer_status === 'running' ? "text-amber-400" : "text-muted-foreground"
+                      timeRemaining <= 0 ? "text-destructive" : localBlock.timer_status === 'running' ? "text-warning" : "text-muted-foreground"
                     )}>
                       {formatTime(timeRemaining)}
                     </span>
@@ -514,7 +514,7 @@ export function HourlyBlockDetail({
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <Banknote className="w-3 h-3 text-amber-500" />
+                  <Banknote className="w-3 h-3 text-warning" />
                   Dinheiro
                 </Label>
                 <Input
@@ -525,14 +525,14 @@ export function HourlyBlockDetail({
                   value={dinheiro}
                   onChange={(e) => setDinheiro(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setDinheiro("")}
-                  className="h-9 text-sm border-amber-500/30 focus:border-amber-500"
+                  className="h-9 text-sm border-warning/30 focus:border-warning"
                   placeholder="0,00"
                 />
               </div>
               
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <CreditCard className="w-3 h-3 text-amber-500" />
+                  <CreditCard className="w-3 h-3 text-warning" />
                   Cartão
                 </Label>
                 <Input
@@ -543,14 +543,14 @@ export function HourlyBlockDetail({
                   value={cartao}
                   onChange={(e) => setCartao(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setCartao("")}
-                  className="h-9 text-sm border-amber-500/30 focus:border-amber-500"
+                  className="h-9 text-sm border-warning/30 focus:border-warning"
                   placeholder="0,00"
                 />
               </div>
               
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <Smartphone className="w-3 h-3 text-amber-500" />
+                  <Smartphone className="w-3 h-3 text-warning" />
                   Pix
                 </Label>
                 <Input
@@ -561,14 +561,14 @@ export function HourlyBlockDetail({
                   value={pix}
                   onChange={(e) => setPix(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setPix("")}
-                  className="h-9 text-sm border-amber-500/30 focus:border-amber-500"
+                  className="h-9 text-sm border-warning/30 focus:border-warning"
                   placeholder="0,00"
                 />
               </div>
               
               <div className="space-y-1">
                 <Label className="text-xs flex items-center gap-1">
-                  <AlertTriangle className="w-3 h-3 text-red-500" />
+                  <AlertTriangle className="w-3 h-3 text-destructive" />
                   Calote
                 </Label>
                 <Input
@@ -579,7 +579,7 @@ export function HourlyBlockDetail({
                   value={calote}
                   onChange={(e) => setCalote(e.target.value)}
                   onFocus={(e) => e.target.value === "0" && setCalote("")}
-                  className="h-9 text-sm border-red-500/30 focus:border-red-500"
+                  className="h-9 text-sm border-destructive/30 focus:border-destructive"
                   placeholder="0,00"
                 />
               </div>
@@ -587,12 +587,12 @@ export function HourlyBlockDetail({
 
             {/* Calculated Fields: Bruto (Total da Hora) and Líquido */}
             <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/10">
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30">
+              <div className="p-3 rounded-xl bg-warning/10 border border-warning/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <Calculator className="w-4 h-4 text-amber-400" />
+                  <Calculator className="w-4 h-4 text-warning" />
                   <span className="text-xs text-muted-foreground">Bruto (Vendido)</span>
                 </div>
-                <p className="text-lg font-bold text-amber-400">
+                <p className="text-lg font-bold text-warning">
                   {formatCurrency(total)}
                 </p>
               </div>
@@ -603,7 +603,7 @@ export function HourlyBlockDetail({
                 </div>
                 <p className={cn(
                   "text-lg font-bold",
-                  saldoLiquido >= 0 ? "text-white" : "text-red-400"
+                  saldoLiquido >= 0 ? "text-white" : "text-destructive"
                 )}>
                   {formatCurrency(saldoLiquido)}
                 </p>
@@ -616,7 +616,7 @@ export function HourlyBlockDetail({
                 <Button 
                   onClick={handleSaveEdit}
                   disabled={isSaving}
-                  className="flex-1 h-11 bg-amber-500 hover:bg-amber-400 text-black font-bold"
+                  className="flex-1 h-11 bg-warning hover:bg-warning/90 text-background font-bold"
                 >
                   {isSaving ? "Salvando..." : "💾 Salvar Alterações"}
                 </Button>
@@ -635,7 +635,7 @@ export function HourlyBlockDetail({
               <Button 
                 onClick={() => handleCompleteHour(false)}
                 disabled={isSaving}
-                className="w-full h-11 bg-amber-500 hover:bg-amber-400 text-black font-bold"
+                className="w-full h-11 bg-warning hover:bg-warning/90 text-background font-bold"
               >
                 {isSaving ? "Concluindo..." : "✅ Concluir Hora"}
               </Button>
@@ -662,20 +662,20 @@ export function HourlyBlockDetail({
               </div>
               <div className="text-center">
                 <p className="text-xs text-muted-foreground">❌</p>
-                <p className="text-sm font-semibold text-red-400">{formatCurrency(block.valor_calote || 0)}</p>
+                <p className="text-sm font-semibold text-destructive">{formatCurrency(block.valor_calote || 0)}</p>
               </div>
             </div>
             {/* Bruto and Líquido */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-center">
+              <div className="p-2 rounded-lg bg-warning/10 border border-warning/30 text-center">
                 <p className="text-xs text-muted-foreground">Bruto (Vendido)</p>
-                <p className="text-sm font-bold text-amber-400">{formatCurrency((block.achieved_amount || 0) + (block.valor_calote || 0))}</p>
+                <p className="text-sm font-bold text-warning">{formatCurrency((block.achieved_amount || 0) + (block.valor_calote || 0))}</p>
               </div>
               <div className="p-2 rounded-lg bg-white/5 border border-white/15 text-center">
                 <p className="text-xs text-muted-foreground">Líquido (Recebido)</p>
                 <p className={cn(
                   "text-sm font-bold",
-                  (block.achieved_amount || 0) >= 0 ? "text-white" : "text-red-400"
+                  (block.achieved_amount || 0) >= 0 ? "text-white" : "text-destructive"
                 )}>
                   {formatCurrency(block.achieved_amount || 0)}
                 </p>
@@ -687,17 +687,17 @@ export function HourlyBlockDetail({
         {/* Status Messages for current block */}
         {isCurrentBlock && total > 0 && remaining > 0 && !isCompleted && (
           <div className={cn(
-            "flex items-start gap-3 p-3 rounded-xl border backdrop-blur-sm",
-            progressPercentage >= 80 ? "bg-yellow-500/10 border-yellow-500/20" : "bg-red-500/10 border-red-500/20"
+            "flex items-start gap-3 p-3 rounded-xl border",
+            progressPercentage >= 80 ? "bg-warning/10 border-warning/20" : "bg-destructive/10 border-destructive/20"
           )}>
             <AlertCircle className={cn(
               "w-5 h-5 flex-shrink-0 mt-0.5",
-              progressPercentage >= 80 ? "text-yellow-500" : "text-red-500"
+              progressPercentage >= 80 ? "text-warning" : "text-destructive"
             )} />
             <div className="flex-1 space-y-1">
               <p className={cn(
                 "text-sm font-medium",
-                progressPercentage >= 80 ? "text-yellow-500" : "text-red-500"
+                progressPercentage >= 80 ? "text-warning" : "text-destructive"
               )}>
                 Faltam {formatCurrency(remaining)} para bater a meta!
               </p>
