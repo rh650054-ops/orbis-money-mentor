@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
-import { celebrationSounds } from "@/utils/celebrationSounds";
+import { getBrazilDate } from "@/shared/lib/date-utils";
+import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
@@ -142,6 +142,7 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     const nextBlock = blks[nextIdx];
+    if (!nextBlock) return;
     const startTime = new Date();
 
     await supabase
@@ -352,7 +353,7 @@ export function useDefconChallenge(userId: string | undefined) {
             await supabase
               .from("hourly_goal_blocks")
               .update({ timer_status: "running", timer_started_at: now.toISOString() })
-              .eq("id", loadedBlocks[nextIdx].id);
+              .eq("id", loadedBlocks[nextIdx]!.id);
             await supabase
               .from("challenge_sessions")
               .update({ current_block_index: nextIdx })
@@ -554,6 +555,7 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     const firstBlock = blocks[0];
+    if (!firstBlock) return;
     await supabase
       .from("hourly_goal_blocks")
       .update({ timer_status: "running", timer_started_at: startTime.toISOString() })

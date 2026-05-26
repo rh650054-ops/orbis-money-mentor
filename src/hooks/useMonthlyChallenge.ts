@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { useToast } from "@/shared/hooks/use-toast";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 export interface ChallengeLevel {
   nivel: string;
@@ -18,7 +18,7 @@ export interface MonthlyChallenge {
   status: string;
   data_inicio: string;
   mes_referencia: string;
-  nivel_atual: string;
+  nivel_atual: string | null;
   xp_total: number;
   created_at: string;
   updated_at: string;
@@ -42,7 +42,7 @@ export const useMonthlyChallenge = (userId: string | undefined) => {
   const getCurrentMonthRef = () => getBrazilDate().substring(0, 7);
 
   const calculateLevel = (diasTrabalhados: number): ChallengeLevel => {
-    let currentLevel = CHALLENGE_LEVELS[0];
+    let currentLevel: ChallengeLevel = CHALLENGE_LEVELS[0]!;
     for (const level of CHALLENGE_LEVELS) {
       if (diasTrabalhados >= level.dias_necessarios) {
         currentLevel = level;
@@ -90,7 +90,7 @@ export const useMonthlyChallenge = (userId: string | undefined) => {
     setIsCreating(true);
     try {
       const mesRef = getCurrentMonthRef();
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0]!;
       
       const newChallenge = {
         user_id: userId,

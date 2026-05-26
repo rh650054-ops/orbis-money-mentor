@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Switch } from "@/shared/ui/switch";
+import { Input } from "@/shared/ui/input";
 import { Sparkles, ChevronRight, Edit3 } from "lucide-react";
 
 export interface RoutineItem {
@@ -66,7 +66,7 @@ function generateRoutine(p: Props["profileData"]): RoutineItem[] {
   };
 
   if (p.challenge && challengeTips[p.challenge]) {
-    items.push(challengeTips[p.challenge]);
+    items.push(challengeTips[p.challenge]!);
   }
 
   items.sort((a, b) => a.time.localeCompare(b.time));
@@ -74,7 +74,7 @@ function generateRoutine(p: Props["profileData"]): RoutineItem[] {
 }
 
 function timeToMinutes(t: string): number {
-  const [h, m] = t.split(":").map(Number);
+  const [h = 0, m = 0] = t.split(":").map(Number);
   return h * 60 + m;
 }
 

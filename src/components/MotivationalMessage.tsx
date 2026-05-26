@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { CheckCircle2, TrendingUp } from "lucide-react";
 
 interface MotivationalMessageProps {

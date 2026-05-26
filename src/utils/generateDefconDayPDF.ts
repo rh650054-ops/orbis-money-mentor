@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
-import { formatCurrency } from "@/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
+import { formatCurrency } from "@/shared/lib/utils";
 
 function sanitizePhone(raw: string | null | undefined): string | null {
   if (!raw) return null;

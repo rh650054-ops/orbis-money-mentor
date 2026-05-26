@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Badge } from "@/shared/ui/badge";
+import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Shield, Search, UserCheck, UserX, RefreshCw, Link2 } from "lucide-react";
@@ -13,11 +13,11 @@ import { Shield, Search, UserCheck, UserX, RefreshCw, Link2 } from "lucide-react
 interface SubscriptionUser {
   id: string;
   user_id: string;
-  email: string;
-  nickname: string;
-  plan_status: string;
-  is_demo: boolean;
-  billing_exempt: boolean;
+  email: string | null;
+  nickname: string | null;
+  plan_status: string | null;
+  is_demo: boolean | null;
+  billing_exempt: boolean | null;
   trial_end: string | null;
 }
 
@@ -313,7 +313,7 @@ export default function AdminSubscriptions() {
                       size="sm"
                       variant={u.plan_status === "active" ? "destructive" : "default"}
                       onClick={() => handleToggleSubscription(u.user_id, u.plan_status || "trial")}
-                      disabled={isUpdating === u.user_id || (u.is_demo && u.billing_exempt)}
+                      disabled={isUpdating === u.user_id || Boolean(u.is_demo && u.billing_exempt)}
                     >
                       {isUpdating === u.user_id ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
@@ -8,7 +8,7 @@ import { DefconSmartNotification } from "./DefconSmartNotification";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
-import { BRAND_COLORS } from "@/lib/theme-colors";
+import { BRAND_COLORS } from "@/shared/lib/theme-colors";
 
 interface DefconRunningProps {
   userId: string;
@@ -74,7 +74,7 @@ export function DefconRunning({
 
   // Auto-seleciona se houver só 1 produto no loadout
   useEffect(() => {
-    if (loadout.length === 1) setSelectedProductId(loadout[0].product_id);
+    if (loadout.length === 1) setSelectedProductId(loadout[0]!.product_id);
     else if (loadout.length === 0) setSelectedProductId(null);
   }, [loadout]);
 
@@ -212,7 +212,7 @@ export function DefconRunning({
 
   // Frase de impacto inteligente — empurra ação concreta
   const avgTicket =
-    totalSalesCount > 0 ? totalSold / totalSalesCount : saleHistory.length > 0 ? saleHistory[saleHistory.length - 1] : 0;
+    totalSalesCount > 0 ? totalSold / totalSalesCount : saleHistory.length > 0 ? saleHistory[saleHistory.length - 1]! : 0;
   const salesNeeded = avgTicket > 0 ? Math.ceil(remaining / avgTicket) : 0;
   const impactPhrase =
     remaining <= 0
@@ -530,9 +530,9 @@ export function DefconRunning({
               <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2 flex items-center gap-2">
                 <Package className="w-4 h-4 text-primary" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">{loadout[0].product_name}</p>
+                  <p className="text-xs font-bold text-white truncate">{loadout[0]!.product_name}</p>
                   <p className="text-xs text-primary font-mono">
-                    {Math.max(0, Number(loadout[0].qty_initial) - Number(loadout[0].qty_sold))} restantes
+                    {Math.max(0, Number(loadout[0]!.qty_initial) - Number(loadout[0]!.qty_sold))} restantes
                   </p>
                 </div>
               </div>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Diamond, ChevronRight } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 
 interface VisionPointsCardProps {
   points: number;
@@ -28,7 +28,7 @@ const vpRules = [
 export default function VisionPointsCard({ points }: VisionPointsCardProps) {
   const [showModal, setShowModal] = useState(false);
 
-  const currentLevel = levels.find((l) => points >= l.min && points <= l.max) || levels[0];
+  const currentLevel = (levels.find((l) => points >= l.min && points <= l.max) || levels[0])!;
   const nextLevel = levels.find((l) => l.min > points);
   const progressInLevel = nextLevel
     ? ((points - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100

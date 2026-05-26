@@ -1,12 +1,12 @@
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import { useState } from "react";
 
-import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
+import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;

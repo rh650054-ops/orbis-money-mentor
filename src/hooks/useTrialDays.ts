@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 
 interface TrialDaysStatus {
   daysRemaining: number;
@@ -53,8 +53,8 @@ export function useTrialDays(userId: string | undefined) {
       // Mostrar aviso quando restam poucos dias
       if (daysRemaining === 1 && !isExpired) {
         const lastWarning = localStorage.getItem('lastTrialWarning');
-        const today = new Date().toISOString().split('T')[0];
-        
+        const today = new Date().toISOString().split('T')[0]! ?? "";
+
         if (lastWarning !== today) {
           toast({
             title: "⚠️ Último dia de teste!",

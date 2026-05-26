@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
 import { Sunrise, Briefcase, Utensils, Sunset, Moon, ArrowRight, ChevronRight } from "lucide-react";
 
 interface Step1Data {
@@ -62,7 +62,7 @@ export default function RoutineOnboardingStep1({ onComplete }: Props) {
     return true;
   });
 
-  const q = visibleQuestions[currentQ];
+  const q = visibleQuestions[currentQ]!;
   const isLast = currentQ === visibleQuestions.length - 1;
   const progress = ((currentQ + 1) / visibleQuestions.length) * 100;
 

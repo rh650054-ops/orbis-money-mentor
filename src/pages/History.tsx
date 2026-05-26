@@ -1,15 +1,15 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Badge } from "@/shared/ui/badge";
 import { Calendar, TrendingUp, DollarSign, AlertTriangle, ShoppingCart, Filter, X, Trash2 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import { AIInsightsReport } from "@/components/AIInsightsReport";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import {
@@ -22,7 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/shared/ui/alert-dialog";
 
 interface SaleRecord {
   id: string;
@@ -84,9 +84,9 @@ export default function History() {
     }
 
     if (data) {
-      setSalesHistory(data);
-      setFilteredHistory(data);
-      updateWeekData(data);
+      setSalesHistory(data as SaleRecord[]);
+      setFilteredHistory(data as SaleRecord[]);
+      updateWeekData(data as SaleRecord[]);
     }
   };
 
@@ -99,7 +99,7 @@ export default function History() {
       // Adiciona meio-dia para evitar que a data mude por diferença de timezone
       const date = new Date(sale.date + 'T12:00:00');
       return {
-        name: weekDays[date.getDay()],
+        name: weekDays[date.getDay()] ?? "",
         value: sale.total_profit,
       };
     });
@@ -227,7 +227,7 @@ export default function History() {
                 type="date"
                 value={filterStartDate}
                 onChange={(e) => setFilterStartDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0]!}
               />
             </div>
             <div className="space-y-2">
@@ -236,7 +236,7 @@ export default function History() {
                 type="date"
                 value={filterEndDate}
                 onChange={(e) => setFilterEndDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0]!}
                 min={filterStartDate}
               />
             </div>

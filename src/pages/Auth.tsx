@@ -1,14 +1,14 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
-import { validateCPF, cpfToInternalEmail } from "@/utils/cpfValidation";
-import { useBrazilCities } from "@/hooks/useBrazilCities";
+import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
+import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 
 type LoginMethod = "cpf" | "email";
 
@@ -100,8 +100,8 @@ export default function Auth() {
         if (email && !email.includes("@")) throw new Error("E-mail inválido.");
 
         const internalEmail = cpfToInternalEmail(cleanedCpf);
-        const trialStart = new Date().toISOString().split('T')[0];
-        const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const trialStart = new Date().toISOString().split('T')[0]!;
+        const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!;
 
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: internalEmail,

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/shared/ui/card";
 import { Flame } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStreak } from "@/hooks/useStreak";

@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
+import Root from "@/app/root";
 import "./index.css";
-import { setupOfflineSyncListeners } from "./lib/offlineSync";
+import { setupOfflineSyncListeners } from "@/shared/lib/offline-sync";
 
 window.addEventListener("error", (event) => {
   console.error("[Orbis] Unhandled error:", event.error ?? event.message);
@@ -32,4 +32,4 @@ if ("serviceWorker" in navigator) {
 }
 
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<Root />);

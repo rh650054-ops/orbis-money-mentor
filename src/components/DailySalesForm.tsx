@@ -1,21 +1,21 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Textarea } from "@/shared/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Calendar } from "@/shared/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
 import { MotivationalMessage } from "./MotivationalMessage";
-import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
 const salesSchema = z.object({
@@ -152,7 +152,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         const firstError = validation.error.errors[0];
         toast({
           title: "Erro de validação",
-          description: firstError.message,
+          description: firstError?.message ?? "Dados inválidos",
           variant: "destructive"
         });
         setIsLoading(false);
@@ -232,7 +232,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
         if (currentBlock) {
           const newAchievedAmount = currentBlock.achieved_amount + profit;
-          const totalWithAdjustment = newAchievedAmount + currentBlock.manual_adjustment;
+          const totalWithAdjustment = newAchievedAmount + (currentBlock.manual_adjustment ?? 0);
           const isCompleted = totalWithAdjustment >= currentBlock.target_amount;
 
           await supabase

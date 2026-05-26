@@ -1,5 +1,5 @@
 import { Crown, Medal, Flame, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { Competition, CompetitionParticipant } from "@/hooks/useCompetitions";
 
 interface Props {
@@ -51,7 +51,7 @@ export default function CompetitionLeaderboard({ competition, participants, curr
           <div className="text-center text-xs text-muted-foreground py-1">⋯</div>
           <Row
             pos={myIdx + 1}
-            p={participants[myIdx]}
+            p={participants[myIdx]!}
             isMe
             metric={competition.metric}
           />

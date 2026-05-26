@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { readThemeColor } from "@/lib/theme-colors";
+import { readThemeColor } from "@/shared/lib/theme-colors";
 
 interface Particle {
   x: number;
@@ -61,16 +61,18 @@ export default function GoldParticles() {
 
       // Draw connections
       for (let i = 0; i < particles.length; i++) {
+        const pi = particles[i]!;
         for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
+          const pj = particles[j]!;
+          const dx = pi.x - pj.x;
+          const dy = pi.y - pj.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           if (dist < 120) {
             ctx.beginPath();
             ctx.strokeStyle = particleHsl(0.1 * (1 - dist / 120));
             ctx.lineWidth = 0.5;
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.moveTo(pi.x, pi.y);
+            ctx.lineTo(pj.x, pj.y);
             ctx.stroke();
           }
         }

@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/shared/ui/card";
 import { Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/shared/ui/button";
+import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
 import AntiProcrastination from "@/components/AntiProcrastination";
-import { formatCurrency } from "@/lib/utils";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { formatCurrency } from "@/shared/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
@@ -66,7 +66,7 @@ export default function Index() {
         .single();
 
       if (profile?.working_days) {
-        const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
+        const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]!;
         const isRest = !profile.working_days.includes(dayOfWeek);
         setIsRestDay(isRest);
       }
@@ -143,8 +143,8 @@ export default function Index() {
     } else {
       const firstDayOfMonth = new Date();
       firstDayOfMonth.setDate(1);
-      dateStart = firstDayOfMonth.toISOString().split('T')[0];
-      dateEnd = new Date().toISOString().split('T')[0];
+      dateStart = firstDayOfMonth.toISOString().split('T')[0]!;
+      dateEnd = new Date().toISOString().split('T')[0]!;
     }
 
     // Fan-out: profile + today + week + month in parallel (was 4 serial awaits).
@@ -156,7 +156,7 @@ export default function Index() {
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).single(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
-      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo.toISOString().split('T')[0]).order("date", { ascending: true }),
+      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo.toISOString().split('T')[0]!).order("date", { ascending: true }),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
     ]);
 
@@ -194,7 +194,7 @@ export default function Index() {
       const balance = totalIncome - totalExpenses - totalCost;
       
       // Calculate real daily average from NET PROFIT (lucro líquido)
-      const activeDays = monthData.filter(day => day.total_profit > 0).length;
+      const activeDays = monthData.filter(day => (day.total_profit ?? 0) > 0).length;
       const netProfitPerDay = activeDays > 0 ? balance / activeDays : 0;
       
       setActiveDaysCount(activeDays);
@@ -251,24 +251,26 @@ export default function Index() {
 
   const handleQuickFilter = (type: "day" | "week" | "month" | "all") => {
     const today = new Date();
+    const end: string = today.toISOString().split('T')[0]!;
     let start: string;
-    let end: string = today.toISOString().split('T')[0];
 
     switch (type) {
       case "day":
         start = end;
         break;
-      case "week":
+      case "week": {
         const weekAgo = new Date(today);
         weekAgo.setDate(weekAgo.getDate() - 7);
-        start = weekAgo.toISOString().split('T')[0];
+        start = weekAgo.toISOString().split('T')[0]!;
         break;
-      case "month":
+      }
+      case "month": {
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        start = firstDayOfMonth.toISOString().split('T')[0];
+        start = firstDayOfMonth.toISOString().split('T')[0]!;
         break;
+      }
       case "all":
-        start = "2020-01-01"; // Data antiga para pegar todos os registros
+        start = "2020-01-01";
         break;
     }
 
@@ -322,8 +324,8 @@ export default function Index() {
   const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
-  const nextTier = nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx];
-  const prevThreshold = nextIdx <= 0 ? 0 : REWARD_TIERS[nextIdx - 1].threshold;
+  const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;
+  const prevThreshold = nextIdx <= 0 ? 0 : REWARD_TIERS[nextIdx - 1]!.threshold;
   const tierProgress = nextIdx === -1
     ? 100
     : Math.min(((faturamentoMes - prevThreshold) / (nextTier.threshold - prevThreshold)) * 100, 100);

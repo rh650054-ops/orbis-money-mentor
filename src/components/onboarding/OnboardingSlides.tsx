@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import GoldParticles from "./GoldParticles";
 
@@ -204,7 +204,7 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
     onSkip();
   };
 
-  const reveal = profileReveals[profile] || profileReveals["A"];
+  const reveal = (profileReveals[profile] || profileReveals["A"])!;
 
   return (
     <div className="fixed inset-0 z-[9999] flex flex-col overflow-hidden bg-background" role="dialog" aria-modal="true" aria-label="Onboarding">

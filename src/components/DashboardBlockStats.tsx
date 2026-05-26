@@ -1,6 +1,6 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/shared/ui/card";
 import { Banknote, CreditCard, Smartphone, AlertTriangle, TrendingUp, Calculator, Wallet } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 import { DailyBlockStats } from "@/hooks/useHourlyBlocks";
 
 interface DashboardBlockStatsProps {

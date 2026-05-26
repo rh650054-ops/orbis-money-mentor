@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { Check, Clock, AlertCircle, Play } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { celebrationSounds } from "@/utils/celebrationSounds";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 
 interface ActivityCardProps {
   id: string;
@@ -33,7 +33,7 @@ export default function ActivityCard({
     if (completed) return "completed";
     if (!time) return "pending";
     
-    const [h, m] = time.split(":").map(Number);
+    const [h = 0, m = 0] = time.split(":").map(Number);
     const itemMinutes = h * 60 + m;
     
     if (itemMinutes < currentTimeMinutes - 30) return "late";

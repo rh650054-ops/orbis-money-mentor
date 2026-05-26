@@ -8,13 +8,13 @@ import {
   ArrowDownRight,
   CalendarIcon,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/shared/ui/button";
+import { Calendar } from "@/shared/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-import { formatCurrency, cn } from "@/lib/utils";
+import { formatCurrency, cn } from "@/shared/lib/utils";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -56,7 +56,7 @@ function startOfDay(d: Date): Date {
 }
 
 function isoDate(d: Date): string {
-  return d.toISOString().split("T")[0];
+  return d.toISOString().split("T")[0]!;
 }
 
 function fmtBR(d: Date): string {
@@ -266,11 +266,9 @@ export default function Insights() {
   const bestHours = useMemo(() => {
     const byHour: Record<number, { total: number; count: number; label: string }> = {};
     for (const b of blocks) {
-      if (!byHour[b.hour_index]) {
-        byHour[b.hour_index] = { total: 0, count: 0, label: b.hour_label };
-      }
-      byHour[b.hour_index].total += b.achieved_amount || 0;
-      byHour[b.hour_index].count += 1;
+      const slot = byHour[b.hour_index] ?? (byHour[b.hour_index] = { total: 0, count: 0, label: b.hour_label });
+      slot.total += b.achieved_amount || 0;
+      slot.count += 1;
     }
     return Object.entries(byHour)
       .map(([h, v]) => ({
@@ -302,7 +300,7 @@ export default function Insights() {
       tips.push(
         `Sua média diária no período foi ${formatCurrency(summary.mediaDiaria)}.`,
       );
-      if (bestWorstDay) {
+      if (bestWorstDay?.best && bestWorstDay?.worst) {
         tips.push(
           `Melhor dia: ${bestWorstDay.best.label} (${formatCurrency(bestWorstDay.best.valor)}) · Pior: ${bestWorstDay.worst.label} (${formatCurrency(bestWorstDay.worst.valor)}).`,
         );
@@ -316,7 +314,7 @@ export default function Insights() {
       }
     }
     if (bestHours.length >= 1) {
-      tips.push(`Melhor desempenho no horário ${bestHours[0].label}.`);
+      tips.push(`Melhor desempenho no horário ${bestHours[0]!.label}.`);
     }
     if (summary.conversao > 0 && summary.conversao < 15) {
       tips.push(
@@ -511,7 +509,7 @@ export default function Insights() {
                   <span className="text-primary font-semibold">
                     {summary.conversao.toFixed(1)}%
                   </span>.
-                  {bestWorstDay && (
+                  {bestWorstDay?.best && bestWorstDay?.worst && (
                     <>
                       {" "}Melhor dia:{" "}
                       <span className="text-primary font-semibold">{bestWorstDay.best.label}</span>

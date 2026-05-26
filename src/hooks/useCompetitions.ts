@@ -164,7 +164,7 @@ export function useCompetitions(userId: string | undefined) {
   const getMyPosition = (competitionId: string) => {
     const list = participantsByComp[competitionId] || [];
     const idx = list.findIndex((p) => p.user_id === userId);
-    return idx >= 0 ? { position: idx + 1, total: list.length, score: Number(list[idx].score) } : null;
+    return idx >= 0 ? { position: idx + 1, total: list.length, score: Number(list[idx]!.score) } : null;
   };
 
   return {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Clock, Zap, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
 
 interface DayStatusHeaderProps {
   completedCount: number;
@@ -29,13 +29,13 @@ export default function DayStatusHeader({
     // Count activities that should be done by now
     const shouldBeDone = checklist.filter((item) => {
       if (!item.activity_time) return false;
-      const [h, m] = item.activity_time.split(":").map(Number);
+      const [h = 0, m = 0] = item.activity_time.split(":").map(Number);
       return h * 60 + m <= currentTimeMinutes;
     }).length;
 
     const actuallyDone = checklist.filter((item, index) => {
       if (!item.activity_time) return false;
-      const [h, m] = item.activity_time.split(":").map(Number);
+      const [h = 0, m = 0] = item.activity_time.split(":").map(Number);
       return h * 60 + m <= currentTimeMinutes && item.completed;
     }).length;
 
@@ -58,7 +58,7 @@ export default function DayStatusHeader({
       "Foco no processo, não no resultado.",
       "Visionários não param.",
     ];
-    setMotivationalPhrase(phrases[Math.floor(Math.random() * phrases.length)]);
+    setMotivationalPhrase(phrases[Math.floor(Math.random() * phrases.length)]!);
   }, []);
 
   const statusInfo = getStatus();

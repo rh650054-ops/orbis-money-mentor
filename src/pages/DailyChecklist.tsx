@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { 
@@ -49,7 +49,7 @@ export default function DailyChecklist() {
   const { toast } = useToast();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]!);
   const [totalFocusTime, setTotalFocusTime] = useState(0);
 
   useEffect(() => {
@@ -77,8 +77,8 @@ export default function DailyChecklist() {
         .order("activity_time", { ascending: true });
 
       if (existingChecklist && existingChecklist.length > 0) {
-        setChecklist(existingChecklist);
-        calculateTotalFocusTime(existingChecklist);
+        setChecklist(existingChecklist as ChecklistItem[]);
+        calculateTotalFocusTime(existingChecklist as ChecklistItem[]);
       } else {
         // Create checklist from routine activities
         await generateChecklistFromRoutine();
@@ -164,7 +164,7 @@ export default function DailyChecklist() {
 
       // Add custom activities (avoiding duplicates)
       if (customActivities && customActivities.length > 0) {
-        customActivities.forEach((activity: RoutineActivity) => {
+        customActivities.forEach((activity) => {
           const key = `${activity.name}-${activity.start_time}`;
           if (!activitySet.has(key)) {
             activitySet.add(key);
@@ -211,7 +211,7 @@ export default function DailyChecklist() {
           throw error;
         }
         if (data) {
-          setChecklist(data);
+          setChecklist(data as ChecklistItem[]);
           toast({
             title: "✅ Checklist criado!",
             description: `${data.length} atividades adicionadas para hoje.`
@@ -339,7 +339,7 @@ export default function DailyChecklist() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]}
+                  max={new Date().toISOString().split('T')[0]!}
                   className="bg-card border border-primary/30 rounded-lg px-3 py-1.5 text-sm hover:border-primary transition-smooth focus:ring-2 focus:ring-primary/20"
                 />
               </div>

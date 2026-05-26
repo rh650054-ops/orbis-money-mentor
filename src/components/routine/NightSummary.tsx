@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { Moon, Zap, Trophy, CheckCircle2, Star, Save } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
 import confetti from "canvas-confetti";
-import { celebrationSounds } from "@/utils/celebrationSounds";
+import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 
 interface NightSummaryProps {
   completedCount: number;
@@ -30,8 +30,8 @@ export default function NightSummary({
     // Check if it's time to show the night summary
     if (!sleepTime || !currentTime) return;
     
-    const [sleepH, sleepM] = sleepTime.split(":").map(Number);
-    const [currentH, currentM] = currentTime.split(":").map(Number);
+    const [sleepH = 0, sleepM = 0] = sleepTime.split(":").map(Number);
+    const [currentH = 0, currentM = 0] = currentTime.split(":").map(Number);
     
     const sleepMinutes = sleepH * 60 + sleepM;
     const currentMinutes = currentH * 60 + currentM;

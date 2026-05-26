@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 export interface LoadoutItem {
   id: string;

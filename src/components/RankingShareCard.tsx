@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { Crown, Flame, Trophy, Sparkles, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { RANKING_TIER_COLORS } from "@/lib/theme-colors";
+import { cn } from "@/shared/lib/utils";
+import { RANKING_TIER_COLORS } from "@/shared/lib/theme-colors";
 
 const C = RANKING_TIER_COLORS;
 

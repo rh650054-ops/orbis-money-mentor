@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Slider } from "@/shared/ui/slider";
+import { Badge } from "@/shared/ui/badge";
+import { Progress } from "@/shared/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/shared/ui/dialog";
+import { useToast } from "@/shared/hooks/use-toast";
+import { formatCurrency } from "@/shared/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { Sparkles, Wallet, CheckCircle2, Info, Settings2, AlertTriangle } from "lucide-react";
 
 interface GoalRow {
@@ -309,7 +309,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                     <Slider
                       value={[draft[g.id] ?? 0]}
                       onValueChange={(v) =>
-                        setDraft((prev) => ({ ...prev, [g.id]: v[0] }))
+                        setDraft((prev) => ({ ...prev, [g.id]: v[0] ?? 0 }))
                       }
                       min={0}
                       max={100}

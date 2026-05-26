@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Wallet, FastForward } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 
 interface DefconLunchPauseProps {

@@ -1,5 +1,5 @@
 import { FastForward } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 
 interface DefconBreakProps {
   breakRemaining: number;

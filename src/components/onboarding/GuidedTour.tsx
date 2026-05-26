@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 interface TourStep {
   selector: string;
@@ -58,7 +58,7 @@ export default function GuidedTour({ onComplete, onSkip, slideCount }: GuidedTou
   const totalSteps = slideCount + tourSteps.length;
   const progress = ((slideCount + step + 1) / totalSteps) * 100;
 
-  const currentStep = tourSteps[step];
+  const currentStep = tourSteps[step]!;
 
   const measureElement = useCallback(() => {
     if (!currentStep) return;

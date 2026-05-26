@@ -1,8 +1,8 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 import { TrendingUp, TrendingDown, Target, CheckCircle2, XCircle, Sparkles } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 interface DailyReportModalProps {
   isOpen: boolean;

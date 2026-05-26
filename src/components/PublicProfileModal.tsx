@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 import { Instagram, MessageCircle, MapPin, Package, Store, Loader2, Trophy, Flame, X } from "lucide-react";
 
 const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];

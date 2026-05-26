@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Clock, Play, Pause, CheckCircle2, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 
 interface GoalTimerProps {
   userId: string;
@@ -48,7 +48,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
       setRemainingSeconds(remaining);
       setIsActive(true);
       setIsPaused(false);
-      setSelectedHours(data.goal_hours.toString());
+      setSelectedHours((data.goal_hours ?? 0).toString());
     }
   }, [userId]);
 
@@ -59,7 +59,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
   // Load current sales
   useEffect(() => {
     const loadSales = async () => {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0]!;
       const { data: sales } = await supabase
         .from("daily_sales")
         .select("total_profit")
@@ -85,7 +85,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
           .from("daily_checklist")
           .select("status")
           .eq("user_id", userId)
-          .eq("date", new Date().toISOString().split('T')[0])
+          .eq("date", new Date().toISOString().split('T')[0]!)
           .eq("status", "active")
           .limit(1);
 

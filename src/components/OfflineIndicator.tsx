@@ -1,6 +1,6 @@
 import { CloudOff } from "lucide-react";
-import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { cn } from "@/lib/utils";
+import { useOnlineStatus } from "@/shared/hooks/use-online-status";
+import { cn } from "@/shared/lib/utils";
 import { useEffect, useState } from "react";
 
 export default function OfflineIndicator() {

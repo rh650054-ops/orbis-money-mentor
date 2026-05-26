@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent } from "@/shared/ui/card";
 import { CreditCard, Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/shared/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
+import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
 
 export default function Payment() {
   const navigate = useNavigate();

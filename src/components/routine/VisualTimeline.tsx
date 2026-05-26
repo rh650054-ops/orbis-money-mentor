@@ -19,7 +19,7 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
     if (item.completed) return "completed";
     if (!item.activity_time) return "pending";
     
-    const [h, m] = item.activity_time.split(":").map(Number);
+    const [h = 0, m = 0] = item.activity_time.split(":").map(Number);
     const itemMinutes = h * 60 + m;
     
     if (itemMinutes < currentTimeMinutes) return "late";
@@ -33,7 +33,7 @@ export default function VisualTimeline({ items, currentTimeMinutes }: VisualTime
     const times = items
       .filter(i => i.activity_time)
       .map(i => {
-        const [h, m] = i.activity_time!.split(":").map(Number);
+        const [h = 0, m = 0] = i.activity_time!.split(":").map(Number);
         return h * 60 + m;
       });
     

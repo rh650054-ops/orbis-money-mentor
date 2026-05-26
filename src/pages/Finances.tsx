@@ -2,20 +2,20 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
+import { useToast } from "@/shared/hooks/use-toast";
+import { Skeleton } from "@/shared/ui/skeleton";
+import { Badge } from "@/shared/ui/badge";
+import { Progress } from "@/shared/ui/progress";
 import NumericKeyboard from "@/components/NumericKeyboard";
 import AutoDistribution from "@/components/AutoDistribution";
-import FeatureErrorBoundary from "@/components/FeatureErrorBoundary";
+import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
 } from "recharts";
@@ -37,9 +37,9 @@ import {
   Sparkles,
   Calendar
 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { getBrazilDate } from "@/lib/dateUtils";
-import { CATEGORY_COLORS, CATEGORY_DEFAULT_COLOR } from "@/lib/theme-colors";
+import { formatCurrency } from "@/shared/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
+import { CATEGORY_COLORS, CATEGORY_DEFAULT_COLOR } from "@/shared/lib/theme-colors";
 
 interface Expense {
   id: string;
@@ -172,7 +172,7 @@ export default function Finances() {
         .order("created_at", { ascending: false });
 
       if (goalsError) throw goalsError;
-      setGoals(goalsData || []);
+      setGoals((goalsData || []) as Goal[]);
 
       // Calculate financial summary
       const now = new Date();
@@ -488,10 +488,7 @@ export default function Finances() {
     const categoryTotals: { [key: string]: number } = {};
     
     expenses.forEach(expense => {
-      if (!categoryTotals[expense.category]) {
-        categoryTotals[expense.category] = 0;
-      }
-      categoryTotals[expense.category] += Number(expense.amount);
+      categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + Number(expense.amount);
     });
 
     return Object.entries(categoryTotals).map(([category, amount]) => {
@@ -962,7 +959,7 @@ export default function Finances() {
                           <div className="flex gap-2">
                             <Button
                               onClick={() => handleAddDeposit(goal.id)}
-                              disabled={!depositInputs[goal.id] || parseFloat(depositInputs[goal.id]) <= 0}
+                              disabled={!depositInputs[goal.id] || parseFloat(depositInputs[goal.id]!) <= 0}
                               className="flex-1 sm:flex-none"
                             >
                               Adicionar

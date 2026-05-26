@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { Wallet, X, Loader2, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
+import { ScrollArea } from "@/shared/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { formatCurrency, cn } from "@/lib/utils";
+import { useToast } from "@/shared/hooks/use-toast";
+import { formatCurrency, cn } from "@/shared/lib/utils";
 
 const QUICK_CATEGORIES = [
   { key: "almoco", label: "Almoço", icon: "🍽️", category: "Alimentação" },
@@ -55,7 +55,7 @@ export default function QuickExpenseButton({
   const [todayExpenses, setTodayExpenses] = useState<DayExpense[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0]!;
 
   const fetchTodayExpenses = async () => {
     if (!user) return;

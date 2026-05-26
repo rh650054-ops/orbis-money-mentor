@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { Target, Clock, Calendar, CalendarCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
+import { useToast } from "@/shared/hooks/use-toast";
+import { formatCurrency } from "@/shared/lib/utils";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 
 interface EditPlanningModalProps {
@@ -79,7 +79,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
         weekly_work_days: workDaysPerWeek,
         base_daily_goal: dailyGoal,
         weekly_goal: weeklyGoal,
-        week_start_date: new Date().toISOString().split('T')[0],
+        week_start_date: new Date().toISOString().split('T')[0]!,
       })
       .eq("user_id", userId);
 
@@ -94,7 +94,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
     }
 
     // Update today's plan if exists
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split('T')[0]!;
     const { data: todayPlan } = await supabase
       .from("daily_goal_plans")
       .select("id")

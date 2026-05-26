@@ -1,7 +1,7 @@
 export const createWavFromPCM = (pcmData: Uint8Array): Uint8Array => {
   const int16Data = new Int16Array(pcmData.length / 2);
   for (let i = 0; i < pcmData.length; i += 2) {
-    int16Data[i / 2] = (pcmData[i + 1] << 8) | pcmData[i];
+    int16Data[i / 2] = (pcmData[i + 1]! << 8) | pcmData[i]!;
   }
   
   const wavHeader = new ArrayBuffer(44);

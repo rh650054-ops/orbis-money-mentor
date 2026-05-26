@@ -1,20 +1,20 @@
 import { useState, useEffect } from "react";
-import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
+import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
 import { useNavigate } from "react-router-dom";
 import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/shared/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Badge } from "@/shared/ui/badge";
+import { Separator } from "@/shared/ui/separator";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import { z } from "zod";
 import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
-import { useBrazilCities } from "@/hooks/useBrazilCities";
+import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 
 const BR_STATES = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -232,7 +232,7 @@ export default function Profile() {
         const firstError = validation.error.errors[0];
         toast({
           title: "Erro de validação",
-          description: firstError.message,
+          description: firstError?.message ?? "Dados inválidos",
           variant: "destructive"
         });
         setIsSaving(false);

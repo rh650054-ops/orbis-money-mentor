@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 
 interface DefconDayReportProps {
@@ -33,7 +33,7 @@ export function DefconDayReport({
   const loadYesterdayData = async () => {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0];
+    const yesterdayStr = yesterday.toISOString().split("T")[0]!;
 
     const { data } = await supabase
       .from("challenge_sessions")

@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { useToast } from "@/hooks/use-toast";
-import { celebrationSounds } from "@/utils/celebrationSounds";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Switch } from "@/shared/ui/switch";
+import { useToast } from "@/shared/hooks/use-toast";
+import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 
 const STORAGE_KEYS = {
   sounds: "orbis_sounds_enabled",

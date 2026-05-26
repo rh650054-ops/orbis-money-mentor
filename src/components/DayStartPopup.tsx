@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { Button } from "@/shared/ui/button";
 import { Target, Clock, TrendingUp, Zap, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/lib/utils";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { formatCurrency } from "@/shared/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 interface DayStartPopupProps {
   userId: string;

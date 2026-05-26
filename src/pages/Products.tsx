@@ -20,28 +20,28 @@ import IngredientsManager from "@/components/products/IngredientsManager";
 import RecipeEditor from "@/components/products/RecipeEditor";
 import ProductActionsModal from "@/components/products/ProductActionsModal";
 import { useIngredients } from "@/hooks/useIngredients";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Textarea } from "@/shared/ui/textarea";
+import { Switch } from "@/shared/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+} from "@/shared/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { formatCurrency } from "@/lib/utils";
-import { generatePixPayload } from "@/lib/pixCode";
-import { BRAZILIAN_BANKS, getBankById } from "@/lib/brazilianBanks";
+import { useToast } from "@/shared/hooks/use-toast";
+import { formatCurrency } from "@/shared/lib/utils";
+import { generatePixPayload } from "@/shared/lib/pix-code";
+import { BRAZILIAN_BANKS, getBankById } from "@/shared/lib/brazilian-banks";
 
 interface Product {
   id: string;

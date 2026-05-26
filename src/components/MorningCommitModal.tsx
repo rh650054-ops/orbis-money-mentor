@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { getBrazilDate } from "@/shared/lib/date-utils";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 
 interface Props {
   userId: string;
@@ -31,7 +31,7 @@ export default function MorningCommitModal({ userId, onDismiss }: Props) {
       setConfiguredTime(routine.work_start);
 
       const now = new Date();
-      const [h, m] = routine.work_start.split(":").map(Number);
+      const [h = 0, m = 0] = routine.work_start.split(":").map(Number);
       const scheduled = new Date();
       scheduled.setHours(h, m, 0, 0);
       const diffMinutes = (now.getTime() - scheduled.getTime()) / 60000;

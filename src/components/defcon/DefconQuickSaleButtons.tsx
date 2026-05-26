@@ -1,4 +1,4 @@
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 
 interface DefconQuickSaleButtonsProps {
   saleHistory: number[];

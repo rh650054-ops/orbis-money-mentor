@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 
 export interface LeaderboardEntry {
   id: string;

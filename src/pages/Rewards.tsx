@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronLeft, Lock, Check, Sparkles, Trophy, Zap, Crown, Star, Target, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 
 const formatThreshold = (v: number) =>
   v >= 1_000_000 ? `R$ ${v / 1_000_000}M` : `R$ ${v / 1_000}K`;
@@ -168,10 +168,10 @@ export default function Rewards() {
             </div>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/30">
               <span className="text-base leading-none">
-                {currentTierIdx >= 0 ? TIERS[currentTierIdx].emoji : "✨"}
+                {currentTierIdx >= 0 ? TIERS[currentTierIdx]!.emoji : "✨"}
               </span>
               <span className="text-xs font-bold text-primary">
-                {currentTierIdx >= 0 ? TIERS[currentTierIdx].name : "Iniciante"}
+                {currentTierIdx >= 0 ? TIERS[currentTierIdx]!.name : "Iniciante"}
               </span>
             </div>
           </div>
@@ -211,7 +211,7 @@ export default function Rewards() {
             const isUnlocked = totalRevenue >= tier.threshold;
             const isCurrent = !isUnlocked && idx === nextTierIdx;
             const isExpanded = expanded === tier.name;
-            const prevThreshold = idx === 0 ? 0 : TIERS[idx - 1].threshold;
+            const prevThreshold = idx === 0 ? 0 : TIERS[idx - 1]!.threshold;
             const tierProgress = isUnlocked
               ? 100
               : Math.max(

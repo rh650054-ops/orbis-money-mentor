@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import { Instagram, Loader2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/shared/lib/utils";
+import { toast } from "@/shared/hooks/use-toast";
 import orbisLogo from "@/assets/orbis-logo-share.png";
-import { readThemeColor, BRAND_COLORS } from "@/lib/theme-colors";
+import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 
 interface DefconBlockReportProps {
   blockIndex: number;
@@ -81,7 +81,7 @@ export function DefconBlockReport({
         chars.forEach((c, i) => {
           ctx.textAlign = "left";
           ctx.fillText(c, x, y);
-          x += widths[i] + letterSpacing;
+          x += widths[i]! + letterSpacing;
         });
         ctx.textAlign = "center";
       } else {

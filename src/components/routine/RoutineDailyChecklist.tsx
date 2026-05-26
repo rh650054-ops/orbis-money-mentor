@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Badge } from "@/shared/ui/badge";
+import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle2, Settings, Trophy, Flame } from "lucide-react";
 
@@ -26,7 +26,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [streakDays, setStreakDays] = useState(0);
   const [celebrated, setCelebrated] = useState(false);
-  const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0]!;
 
   useEffect(() => {
     loadChecklist();
@@ -43,7 +43,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
       .order("activity_time", { ascending: true });
 
     if (data && data.length > 0) {
-      setItems(data);
+      setItems(data as ChecklistItem[]);
     } else {
       await generateFromRoutine();
     }
@@ -106,7 +106,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
         .upsert(rows, { onConflict: "user_id,date,activity_name,activity_time", ignoreDuplicates: true })
         .select();
 
-      if (data) setItems(data);
+      if (data) setItems(data as ChecklistItem[]);
     }
   };
 
@@ -117,7 +117,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
     d.setDate(d.getDate() - 1); // start from yesterday
 
     for (let i = 0; i < 60; i++) {
-      const dateStr = d.toISOString().split("T")[0];
+      const dateStr = d.toISOString().split("T")[0]!;
       const { data } = await supabase
         .from("daily_checklist")
         .select("completed")

@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Progress } from "@/shared/ui/progress";
 import { CheckCircle2, Pause, Play, AlertCircle, Banknote, CreditCard, Smartphone, AlertTriangle, Lock, Pencil, Calculator, TrendingUp } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { formatCurrency } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
+import { formatCurrency } from "@/shared/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { celebrationSounds } from "@/utils/celebrationSounds";
+import { useToast } from "@/shared/hooks/use-toast";
+import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { FireEffect } from "@/components/FireEffect";
 
 interface HourlyBlock {

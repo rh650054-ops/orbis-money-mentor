@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Share2, AlertTriangle, Sparkles, FileDown, Coins } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
+import { formatCurrency } from "@/shared/lib/utils";
+import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
-import { readThemeColor, RANKING_TIER_COLORS } from "@/lib/theme-colors";
+import { readThemeColor, RANKING_TIER_COLORS } from "@/shared/lib/theme-colors";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -212,7 +212,7 @@ export function DefconEndScreen({
         chars.forEach((c, i) => {
           ctx.textAlign = "left";
           ctx.fillText(c, x, y);
-          x += widths[i] + letterSpacing;
+          x += widths[i]! + letterSpacing;
         });
         ctx.textAlign = "center";
       } else {

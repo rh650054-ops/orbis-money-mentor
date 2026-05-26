@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
-import { getBrazilDate, formatBrazilDate } from "@/lib/dateUtils";
+import { useToast } from "@/shared/hooks/use-toast";
+import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 
 export const useStreak = (userId: string | undefined) => {
   const [streak, setStreak] = useState(0);
@@ -93,15 +93,15 @@ export const useStreak = (userId: string | undefined) => {
     }
 
     let currentStreak = 0;
-    let checkDate = new Date();
+    const checkDate = new Date();
     const todayStr = getBrazilDate();
     let consecutiveMissed = 0;
     let lastWasWorked = false;
 
     // Helper function to get day of week
-    const getDayOfWeek = (date: Date) => {
+    const getDayOfWeek = (date: Date): string => {
       const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      return days[date.getDay()];
+      return days[date.getDay()] ?? 'sunday';
     };
 
     // Start from today and go backwards
@@ -207,6 +207,7 @@ export const useStreak = (userId: string | undefined) => {
   };
 
   const updateStreakInProfile = async (newStreak: number) => {
+    if (!userId) return;
     await supabase
       .from("profiles")
       .update({ streak_days: newStreak })

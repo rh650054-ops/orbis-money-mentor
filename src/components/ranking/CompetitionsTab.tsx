@@ -16,13 +16,13 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/shared/ui/sheet";
 import { useCompetitions, Competition } from "@/hooks/useCompetitions";
-import { toast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { toast } from "@/shared/hooks/use-toast";
+import { cn } from "@/shared/lib/utils";
 import CompetitionLeaderboard from "./CompetitionLeaderboard";
 
 interface Props {

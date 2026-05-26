@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Plus, X, Package } from "lucide-react";
 import { useDefconLoadout, ProductOption } from "@/hooks/useDefconLoadout";
 import { Link } from "react-router-dom";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 
 interface Props {
   userId: string;

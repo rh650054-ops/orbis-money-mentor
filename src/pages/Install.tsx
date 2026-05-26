@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Card } from "@/shared/ui/card";
 import { Smartphone, Monitor, ArrowDown, Share2, Plus, MoreVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 

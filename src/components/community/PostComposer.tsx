@@ -1,11 +1,11 @@
 import { useState, useRef } from "react";
 import { Image as ImageIcon, Loader2, X, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/shared/ui/button";
+import { Textarea } from "@/shared/ui/textarea";
+import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/shared/ui/use-toast";
 import type { FeedChannel } from "@/hooks/useCommunityFeed";
 
 interface Props {

@@ -24,7 +24,7 @@ export default function StreakCard({ userId }: StreakCardProps) {
       setStreak(profile?.streak_days || 0);
 
       // Load today's routine progress
-      const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0]!;
       const { data: checklist } = await supabase
         .from("daily_checklist")
         .select("completed")

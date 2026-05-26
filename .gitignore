@@ -32,3 +32,6 @@ dist-ssr
 android/
 .claude/
 skills-lock.json
+
+# Refactor working backlog (local-only, never committed)
+docs/

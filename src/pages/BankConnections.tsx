@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Badge } from "@/shared/ui/badge";
+import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase as supabaseTyped } from "@/integrations/supabase/client";
 
@@ -111,7 +111,7 @@ export default function BankConnections() {
           table: "auto_detected_sales",
           filter: `user_id=eq.${user.id}`,
         },
-        (payload) => {
+        (payload: { new: { amount: number } }) => {
           toast({
             title: "💰 Pagamento detectado!",
             description: `${formatCurrency(payload.new.amount)} recebido — confirme para registrar.`,

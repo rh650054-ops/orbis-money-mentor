@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { readThemeColor } from "@/lib/theme-colors";
+import { readThemeColor } from "@/shared/lib/theme-colors";
 
 type Spot = {
   id: string;

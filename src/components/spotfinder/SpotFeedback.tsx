@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { ThumbsUp, Minus, ThumbsDown, MessageSquare, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/shared/ui/button";
+import { Textarea } from "@/shared/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 
 type Summary = { good: number; medium: number; bad: number; total: number } | null;
 

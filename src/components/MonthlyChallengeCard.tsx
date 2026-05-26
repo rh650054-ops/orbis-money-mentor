@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { Trophy, Target, Zap, ChevronRight, Play, Loader2 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Button } from "@/shared/ui/button";
+import { Progress } from "@/shared/ui/progress";
+import { Badge } from "@/shared/ui/badge";
 import { useMonthlyChallenge, ChallengeLevel } from "@/hooks/useMonthlyChallenge";
 import confetti from "canvas-confetti";
-import { celebrationSounds } from "@/utils/celebrationSounds";
+import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 
 interface MonthlyChallengeCardProps {
   userId: string;

@@ -36,7 +36,7 @@ export function useEnergy(
 
     // +10 if woke up on time (completed wake activity)
     if (wakeActivity?.completed) {
-      const [wakeH, wakeM] = (wakeActivity.activity_time || "00:00").split(":").map(Number);
+      const [wakeH = 0, wakeM = 0] = (wakeActivity.activity_time || "00:00").split(":").map(Number);
       const wakeTimeMinutes = wakeH * 60 + wakeM;
       
       // Check if completed within 15 minutes of scheduled time
@@ -47,7 +47,7 @@ export function useEnergy(
 
     // +15 if started work on time
     if (workActivity?.completed) {
-      const [workH, workM] = (workActivity.activity_time || "00:00").split(":").map(Number);
+      const [workH = 0, workM = 0] = (workActivity.activity_time || "00:00").split(":").map(Number);
       const workTimeMinutes = workH * 60 + workM;
       
       if (currentTimeMinutes <= workTimeMinutes + 15) {
@@ -59,7 +59,7 @@ export function useEnergy(
     checklist.forEach(item => {
       if (!item.activity_time) return;
       
-      const [itemH, itemM] = item.activity_time.split(":").map(Number);
+      const [itemH = 0, itemM = 0] = item.activity_time.split(":").map(Number);
       const itemMinutes = itemH * 60 + itemM;
       
       // If activity time has passed by more than 30 minutes and not completed

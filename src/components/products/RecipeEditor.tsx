@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { Button } from "@/shared/ui/button";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/shared/ui/select";
 import { useIngredients } from "@/hooks/useIngredients";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 
 interface Props {
   productId: string | null; // null se ainda não salvou produto
@@ -43,6 +43,7 @@ export default function RecipeEditor({ productId, recipeMode, batchYield, onChan
   const addRow = () => setItems([...items, { ingredient_id: "", quantity: "" }]);
   const removeRow = async (idx: number) => {
     const row = items[idx];
+    if (!row) return;
     if (row.id) await supabase.from("product_recipes").delete().eq("id", row.id);
     setItems(items.filter((_, i) => i !== idx));
   };

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 
 interface Props {
   onDone: () => void;

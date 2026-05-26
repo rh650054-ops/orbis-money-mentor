@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 export const useDailyGoalPlan = (userId: string | undefined) => {
   const [hasPlanToday, setHasPlanToday] = useState(false);

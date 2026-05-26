@@ -1,7 +1,7 @@
 import { Check, ArrowLeft, Sparkles } from "lucide-react";
-import { HOTMART_CHECKOUT_URL } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
+import { Button } from "@/shared/ui/button";
+import { Card } from "@/shared/ui/card";
 import { useNavigate } from "react-router-dom";
 
 export default function Benefits() {

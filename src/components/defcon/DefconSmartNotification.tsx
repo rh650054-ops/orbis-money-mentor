@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { X } from "lucide-react";
 
 interface SmartNotification {
@@ -69,7 +69,7 @@ export function DefconSmartNotification({
 
     let totalApp = 0;
     let totalSales = 0;
-    let maxDry = 0;
+    const maxDry = 0;
 
     for (const session of sessions) {
       const { data: blocks } = await supabase
@@ -301,8 +301,8 @@ function NotificationCard({
         opacity,
         transition: dragStartXRef.current === null || dismissing ? "transform 0.2s ease, opacity 0.2s ease" : "none",
       }}
-      onTouchStart={(e) => handlePressStart(e.touches[0].clientX)}
-      onTouchMove={(e) => handlePressMove(e.touches[0].clientX)}
+      onTouchStart={(e) => handlePressStart(e.touches[0]!.clientX)}
+      onTouchMove={(e) => handlePressMove(e.touches[0]!.clientX)}
       onTouchEnd={handlePressEnd}
       onMouseDown={(e) => handlePressStart(e.clientX)}
       onMouseMove={(e) => { if (dragStartXRef.current !== null) handlePressMove(e.clientX); }}

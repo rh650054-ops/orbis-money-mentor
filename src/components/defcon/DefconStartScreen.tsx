@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { BatteryLow, BatteryFull } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
-import { useBatterySaver } from "@/hooks/useBatterySaver";
+import { formatCurrency } from "@/shared/lib/utils";
+import { useBatterySaver } from "@/shared/hooks/use-battery-saver";
 
 interface DefconStartScreenProps {
   dailyGoal: number;

@@ -83,8 +83,8 @@ export async function analyzeRoutine(routineData: any): Promise<RoutineInsights>
   const wakeTime = routineData?.wake_time || "07:00";
   const workStart = routineData?.work_start || "08:00";
   const workEnd = routineData?.work_end || "18:00";
-  const [wh, wm] = wakeTime.split(":").map(Number);
-  const [sh, sm] = workStart.split(":").map(Number);
+  const [wh = 0, wm = 0] = wakeTime.split(":").map(Number);
+  const [sh = 0, sm = 0] = workStart.split(":").map(Number);
   const gapMinutes = (sh * 60 + sm) - (wh * 60 + wm);
 
   const suggestions: string[] = [];
@@ -110,7 +110,7 @@ export async function analyzeSales(salesHistory: any[]): Promise<SalesInsights> 
   const byDay: Record<number, number[]> = {};
   for (const d of salesHistory) { const dow = new Date(d.date).getDay(); if (!byDay[dow]) byDay[dow] = []; byDay[dow].push(d.total_profit || 0); }
   const bestDayIndex = Object.entries(byDay).sort(([, a], [, b]) => b.reduce((x, y) => x + y, 0) / b.length - a.reduce((x, y) => x + y, 0) / a.length)[0];
-  const bestDays = bestDayIndex ? [dayNames[parseInt(bestDayIndex[0])]] : [];
+  const bestDays: string[] = bestDayIndex ? [dayNames[parseInt(bestDayIndex[0])] ?? "dia útil"] : [];
 
   const methods: string[] = [];
   const hasPix = salesHistory.some(d => (d.total_pix || 0) > 0);

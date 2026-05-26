@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/lib/dateUtils";
-import { formatCurrency } from "@/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
+import { formatCurrency } from "@/shared/lib/utils";
 import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
-import { BRAND_COLORS, readThemeColor } from "@/lib/theme-colors";
+import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 
 interface DayTotals {
   cash: number; card: number; pix: number; debt: number; profit: number; cost: number; tips: number;
