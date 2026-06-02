@@ -424,23 +424,25 @@ export default function Index() {
         </CardContent>
       </Card>
 
-      {/* Lucro líquido (big) + custos (inline subtraction) */}
-      <Card className="bg-card border border-border rounded-2xl">
-        <CardContent className="p-5 flex items-end justify-between gap-4">
-          <div className="min-w-0">
+      {/* Lucro líquido + Custos (split) */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="bg-card border border-border rounded-2xl">
+          <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Lucro líquido</p>
-            <p className="text-3xl font-bold mt-1 text-success tracking-tight truncate">
+            <p className="text-2xl font-bold mt-1 text-success tracking-tight truncate">
               {formatCurrency(lucroLiquido)}
             </p>
-          </div>
-          <div className="text-right shrink-0">
-            <p className="text-xs text-muted-foreground">- Custos</p>
-            <p className="text-sm font-semibold text-destructive">
+          </CardContent>
+        </Card>
+        <Card className="bg-card border border-border rounded-2xl">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Custos</p>
+            <p className="text-2xl font-bold mt-1 text-destructive tracking-tight truncate">
               {formatCurrency(custosTotal)}
             </p>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Próxima patente — compact, no shine, no float */}
       <button
