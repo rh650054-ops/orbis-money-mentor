@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import AntiProcrastination from "@/components/AntiProcrastination";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
@@ -100,6 +101,11 @@ export default function Index() {
       loadDashboardData();
     }
   }, [user, loading, navigate]);
+
+  // Recarrega ao voltar o foco (ex.: retorno do DEFCON 4) para nunca mostrar dado antigo
+  useRefetchOnFocus(() => {
+    if (user) loadDashboardData();
+  });
 
   // Check if should show card registration modal (only on first access for non-subscribers)
   useEffect(() => {

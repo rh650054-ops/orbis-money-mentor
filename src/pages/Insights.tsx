@@ -13,6 +13,7 @@ import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 
 import { formatCurrency, cn } from "@/shared/lib/utils";
 import {
@@ -116,6 +117,11 @@ export default function Insights() {
     if (user) loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, range.start.getTime(), range.end.getTime()]);
+
+  // Recarrega ao voltar o foco (ex.: retorno do DEFCON 4)
+  useRefetchOnFocus(() => {
+    if (user) loadData();
+  });
 
   async function loadData() {
     if (!user) return;
