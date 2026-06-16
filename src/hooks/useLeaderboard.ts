@@ -46,6 +46,24 @@ export function useLeaderboard(userId: string | undefined) {
         return;
       }
 
+      // Foto/nome ATUAL do perfil (public_profiles) -> ranking sempre mostra a foto
+      // de perfil mais recente automaticamente (sem depender da copia em leaderboard_stats).
+      const ids = (allEntries || []).map((e) => e.user_id);
+      if (ids.length > 0) {
+        const { data: profs } = await supabase
+          .from("public_profiles")
+          .select("user_id, nickname, avatar_url")
+          .in("user_id", ids);
+        const profMap = new Map((profs || []).map((p: any) => [p.user_id, p]));
+        (allEntries || []).forEach((e: any) => {
+          const p = profMap.get(e.user_id);
+          if (p) {
+            if (p.avatar_url) e.avatar_url = p.avatar_url;
+            if (p.nickname) e.nome_usuario = p.nickname;
+          }
+        });
+      }
+
       // Sort by faturamento for that ranking
       const faturamentoSorted = [...(allEntries || [])].sort(
         (a, b) => b.faturamento_total_mes - a.faturamento_total_mes
