@@ -11,6 +11,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
+import { RankingChase } from "@/components/ranking/RankingChase";
 import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -557,6 +558,11 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
             </button>
           )}
         </div>
+      )}
+
+      {/* A cacada - quem esta logo na frente */}
+      {hasParticipated && (
+        <RankingChase ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} />
       )}
 
       {/* Your Position */}
