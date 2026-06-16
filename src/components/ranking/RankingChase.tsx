@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
+import { getTier } from "./tier";
 import { useNavigate } from "react-router-dom";
 import { Zap, Crown, Swords, TrendingUp, Clock, Target } from "lucide-react";
 
@@ -7,17 +8,6 @@ interface Props {
   ranking: LeaderboardEntry[];
   me: LeaderboardEntry | null;
   formatCurrency: (v: number) => string;
-}
-
-// Tier por posicao: a cor melhora conforme sobe (aspiracional).
-function getTier(pos: number) {
-  if (pos <= 1) return { color: "#C9A6FF", glow: "rgba(176,124,240,0.65)", label: "LENDA" };
-  if (pos <= 3) return { color: "#6FD3FF", glow: "rgba(93,173,226,0.55)", label: "DIAMANTE" };
-  if (pos <= 10) return { color: "#3EE0C4", glow: "rgba(56,224,192,0.5)", label: "PLATINA" };
-  if (pos <= 30) return { color: "#F5B833", glow: "rgba(245,184,51,0.55)", label: "OURO" };
-  if (pos <= 60) return { color: "#D7DBE0", glow: "rgba(215,219,224,0.4)", label: "PRATA" };
-  if (pos <= 120) return { color: "#E0925A", glow: "rgba(224,146,90,0.4)", label: "BRONZE" };
-  return { color: "#9AA0A6", glow: "rgba(154,160,166,0.3)", label: "ASPIRANTE" };
 }
 
 function DuelAvatar({ url, name, color, glow }: { url: string | null; name: string | null; color: string; glow: string }) {

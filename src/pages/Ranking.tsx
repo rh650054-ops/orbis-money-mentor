@@ -12,6 +12,7 @@ import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
+import { RankingPodium } from "@/components/ranking/RankingPodium";
 import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -446,119 +447,7 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
 
   return (
     <div className="space-y-4">
-      {/* Top 1 */}
-      {top1 && (
-        <Card className="relative overflow-hidden border border-primary/40 bg-card">
-          <CardContent className="relative p-6">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <Crown className="w-9 h-9 text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]" />
-                  <Sparkles className="w-4 h-4 text-primary absolute -top-1 -right-1" />
-                </div>
-                <div>
-                  <span className="text-base font-black text-primary tracking-wider">TOP 1</span>
-                  <p className="text-xs text-primary/70 uppercase tracking-widest">Campeão do Mês</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-0.5">
-                {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 text-primary fill-primary" />)}
-              </div>
-            </div>
-
-            <div className="flex items-center gap-5">
-              <button onClick={() => onOpenProfile(top1.user_id)} className="relative shrink-0 transition-transform active:scale-95">
-                <div className="absolute -inset-1.5 bg-primary rounded-full blur-md opacity-50" />
-                {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-2xl shadow-primary/40 border-2 border-primary relative z-10 w-20 h-20 text-3xl")}
-                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg z-20 border-2 border-background">
-                  <Crown className="w-4 h-4 text-primary-foreground" />
-                </div>
-              </button>
-              <button onClick={() => onOpenProfile(top1.user_id)} className="flex-1 min-w-0 space-y-1 text-left">
-                <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
-                <p className="text-2xl font-black text-primary">{formatCurrency(top1.faturamento_total_mes)}</p>
-                <div className="flex items-center gap-2 pt-1">
-                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-primary/25 to-primary/10 border border-primary/40">
-                    <Flame className="w-3 h-3 text-primary fill-primary/40" />
-                    <span className="text-xs font-bold text-primary">{top1.constancia_streak_atual} dias</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground italic truncate">"{motivationalPhrases[0]}"</p>
-                </div>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-center gap-2 mt-5 pt-4 border-t border-primary/15">
-              <div className="px-2.5 py-1 rounded-full bg-primary border border-primary flex items-center gap-1.5">
-                <Trophy className="w-3 h-3 text-primary-foreground" />
-                <span className="text-xs font-bold text-primary-foreground tracking-wide">LÍDER</span>
-              </div>
-              <div className="px-2.5 py-1 rounded-full bg-foreground/10 border border-foreground/30 flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-foreground" />
-                <span className="text-xs font-bold text-foreground tracking-wide">ELITE</span>
-              </div>
-              <div className="px-2.5 py-1 rounded-full bg-background border border-foreground/20 flex items-center gap-1.5">
-                <Star className="w-3 h-3 text-foreground fill-foreground" />
-                <span className="text-xs font-bold text-foreground tracking-wide">DESTAQUE</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Top 2 & 3 */}
-      {(top2 || top3) && (
-        <div className="grid grid-cols-2 gap-3">
-          {top2 && (
-            <button onClick={() => onOpenProfile(top2.user_id)} className="text-left">
-              <Card className="relative overflow-hidden border border-foreground/20 bg-card hover:border-foreground/40 transition-colors">
-                <div className="absolute -top-12 -right-12 w-24 h-24 bg-foreground/10 rounded-full blur-2xl" />
-                <CardContent className="relative p-4 text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="relative">
-                      <Medal className="w-7 h-7 text-foreground/70" />
-                      <span className="absolute -top-1 -right-1 text-xs font-black text-foreground/70">2</span>
-                    </div>
-                  </div>
-                  <div className="relative mx-auto mb-2 w-fit">
-                    {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-foreground/30 mx-auto shadow-md")}
-                  </div>
-                  <h4 className="font-bold text-xs truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
-                  <p className="text-base font-black text-foreground mt-0.5">{formatCurrency(top2.faturamento_total_mes)}</p>
-                  <div className="mt-2 px-2 py-0.5 rounded-full bg-foreground/10 border border-foreground/20 inline-flex items-center gap-1">
-                    <Star className="w-2.5 h-2.5 text-foreground/70 fill-foreground/70" />
-                    <span className="text-xs font-semibold text-foreground/70 tracking-wider">PRATA</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </button>
-          )}
-
-          {top3 && (
-            <button onClick={() => onOpenProfile(top3.user_id)} className="text-left">
-              <Card className="relative overflow-hidden border border-bronze/50 bg-card hover:border-bronze/70 transition-colors">
-                <div className="absolute -top-12 -right-12 w-24 h-24 bg-bronze/15 rounded-full blur-2xl" />
-                <CardContent className="relative p-4 text-center">
-                  <div className="flex justify-center mb-2">
-                    <div className="relative">
-                      <Medal className="w-7 h-7 text-bronze" />
-                      <span className="absolute -top-1 -right-1 text-xs font-black text-bronze">3</span>
-                    </div>
-                  </div>
-                  <div className="relative mx-auto mb-2 w-fit">
-                    {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-bronze/60 mx-auto shadow-md")}
-                  </div>
-                  <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
-                  <p className="text-base font-black text-foreground mt-0.5">{formatCurrency(top3.faturamento_total_mes)}</p>
-                  <div className="mt-2 px-2 py-0.5 rounded-full bg-bronze/15 border border-bronze/40 inline-flex items-center gap-1">
-                    <Star className="w-2.5 h-2.5 text-bronze fill-bronze" />
-                    <span className="text-xs font-semibold text-bronze tracking-wider">BRONZE</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </button>
-          )}
-        </div>
-      )}
+      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
 
       {/* A cacada - quem esta logo na frente */}
       {hasParticipated && (
