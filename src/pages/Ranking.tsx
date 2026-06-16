@@ -13,6 +13,7 @@ import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
+import { RankingList } from "@/components/ranking/RankingList";
 import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -494,44 +495,7 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
         </Card>
       )}
 
-      {/* Rest of Top 10 */}
-      {restRanking.length > 0 && (
-        <div className="space-y-2">
-          {restRanking.map((u, index) => (
-            <button key={u.id} onClick={() => onOpenProfile(u.user_id)} className="w-full text-left">
-              <Card className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-[colors,transform,opacity] duration-300">
-                <CardContent className="relative p-3.5 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
-                    <span className="text-sm font-black text-foreground/80">{index + 4}</span>
-                  </div>
-                  {renderAvatar(u.avatar_url, u.nome_usuario, "sm", "border border-border/50")}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-foreground truncate">{u.nome_usuario || 'Usuário'}</p>
-                    <div className="flex items-center gap-1 mt-0.5">
-                      <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Top 10</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-foreground text-sm">{formatCurrency(u.faturamento_total_mes)}</p>
-                    <div className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/25">
-                      <Flame className="w-2.5 h-2.5 text-primary fill-primary/40" />
-                      <span className="text-xs font-black text-primary">{u.constancia_streak_atual}</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {ranking.length > 10 && (
-        <Button variant="outline" className="w-full gap-2 h-11 border-border/50 text-muted-foreground">
-          Ver ranking completo
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-      )}
+      <RankingList ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
     </div>
   );
 }
