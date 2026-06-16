@@ -18,6 +18,7 @@ import { toPng } from "html-to-image";
 import { toast } from "@/shared/hooks/use-toast";
 import confetti from "canvas-confetti";
 import { RANKING_FIRE_GRADIENT, RANKING_TIER_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
+import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -119,6 +120,14 @@ export default function Ranking() {
   };
 
   useEffect(() => { loadUserProfile(); }, [user?.id]);
+
+  // Recarrega ranking e perfil ao voltar o foco (ex.: retorno do DEFCON 4)
+  useRefetchOnFocus(() => {
+    if (user) {
+      loadLeaderboard();
+      loadUserProfile();
+    }
+  });
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
 
