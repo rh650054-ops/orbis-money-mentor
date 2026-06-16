@@ -356,7 +356,7 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="min-h-screen bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+  return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
       {/* Greeting */}
       <div className="flex items-center gap-3 py-2">
         <img

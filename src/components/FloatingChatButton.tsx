@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil } from "lucide-react";
+import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -16,6 +16,56 @@ export default function FloatingChatButton() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+  const baseInputRef = useRef("");
+  const speechSupported =
+    typeof window !== "undefined" &&
+    !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  const requestClose = () => {
+    if (typeof window !== "undefined" && (window.history.state as any)?.orbisChat) {
+      window.history.back();
+    } else {
+      setIsOpen(false);
+    }
+  };
+
+  const toggleRecording = () => {
+    if (!speechSupported) return;
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    baseInputRef.current = input ? input.trim() + " " : "";
+    rec.onresult = (e: any) => {
+      let transcript = "";
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      setInput(baseInputRef.current + transcript);
+    };
+    rec.onend = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+    rec.onerror = () => {
+      setIsRecording(false);
+      recognitionRef.current = null;
+    };
+    recognitionRef.current = rec;
+    setIsRecording(true);
+    try {
+      rec.start();
+    } catch {
+      /* já em gravação */
+    }
+  };
 
   const {
     conversations,
@@ -36,6 +86,22 @@ export default function FloatingChatButton() {
     }
   }, [messages, isSending]);
 
+  // Fecha o chat com o botão/gesto de voltar do celular (sem reabrir)
+  useEffect(() => {
+    if (!isOpen) return;
+    window.history.pushState({ orbisChat: true }, "");
+    const onPopState = () => setIsOpen(false);
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isOpen]);
+
+  // Para a gravação de voz ao fechar o chat
+  useEffect(() => {
+    if (!isOpen && recognitionRef.current) {
+      recognitionRef.current.stop();
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!sidebarOpen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -48,7 +114,7 @@ export default function FloatingChatButton() {
   useEffect(() => {
     if (!isOpen || sidebarOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsOpen(false);
+      if (e.key === "Escape") requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -56,6 +122,7 @@ export default function FloatingChatButton() {
 
   const handleSend = () => {
     if (!input.trim() || isSending) return;
+    recognitionRef.current?.stop();
     sendMessage(input.trim());
     setInput("");
   };
@@ -103,7 +170,7 @@ export default function FloatingChatButton() {
           aria-labelledby="floating-chat-title"
         >
           {/* Top bar */}
-          <header className="flex items-center justify-between px-3 h-14 border-b border-border/60 bg-background/95 backdrop-blur safe-top">
+          <header className="flex items-center justify-between px-3 min-h-[3.5rem] border-b border-border/60 bg-background/95 backdrop-blur safe-top">
             <Button variant="ghost" size="icon" onClick={() => setSidebarOpen(true)} aria-label="Conversas">
               <Menu className="h-5 w-5" />
             </Button>
@@ -113,7 +180,7 @@ export default function FloatingChatButton() {
               </div>
               <span id="floating-chat-title" className="font-semibold text-sm">Orbis IA</span>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Fechar">
+            <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
               <X className="h-5 w-5" />
             </Button>
           </header>
@@ -179,6 +246,20 @@ export default function FloatingChatButton() {
           {/* Input */}
           <div className="border-t border-border/60 bg-background/95 backdrop-blur safe-bottom">
             <div className="max-w-2xl mx-auto p-3 flex items-end gap-2">
+              {speechSupported && (
+                <Button
+                  type="button"
+                  onClick={toggleRecording}
+                  variant={isRecording ? "default" : "ghost"}
+                  className={cn(
+                    "h-11 w-11 p-0 rounded-full shrink-0",
+                    isRecording && "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                  )}
+                  aria-label={isRecording ? "Parar gravação de voz" : "Falar por voz"}
+                >
+                  {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+                </Button>
+              )}
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

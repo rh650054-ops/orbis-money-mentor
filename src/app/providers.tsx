@@ -23,7 +23,7 @@ export function AppProviders({ children }: AppProvidersProps) {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Sonner position="top-center" />
+        <Sonner position="top-center" offset="calc(env(safe-area-inset-top) + 12px)" mobileOffset="calc(env(safe-area-inset-top) + 12px)" />
         {children}
       </TooltipProvider>
     </QueryClientProvider>

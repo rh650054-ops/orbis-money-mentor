@@ -199,7 +199,7 @@ export default function AdminCompetitions() {
   };
 
   return (
-    <div className="min-h-screen pb-8 space-y-5 px-4 pt-4 max-w-2xl mx-auto">
+    <div className="pb-8 space-y-5 px-4 pt-4 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate("/ranking")}>
           <ArrowLeft className="w-5 h-5" />

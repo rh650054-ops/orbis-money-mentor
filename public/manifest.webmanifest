@@ -9,9 +9,9 @@
   "scope": "/",
   "start_url": "/",
   "icons": [
-    { "src": "/orbis-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/orbis-full-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/orbis-logo.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/orbis-full-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/orbis-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/orbis-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/orbis-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/orbis-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

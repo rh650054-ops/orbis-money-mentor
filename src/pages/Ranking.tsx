@@ -209,7 +209,7 @@ export default function Ranking() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen pb-8 space-y-6">
+      <div className="pb-8 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-foreground">
             Ranking <span className="text-primary">Orbis</span>
@@ -226,7 +226,7 @@ export default function Ranking() {
   }
 
   return (
-    <div className="min-h-screen pb-8 space-y-5">
+    <div className="pb-8 space-y-5">
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">
