@@ -34,20 +34,39 @@ export async function syncBlocksToDailySales(userId: string) {
   const totalGorjeta = blocks.reduce((sum, b) => sum + ((b as any).valor_gorjeta || 0), 0);
   const totalLiquido = totalDinheiro + totalCartao + totalPix;
 
-  // Upsert daily_sales record (avoids race conditions with concurrent calls)
-  await supabase
+  // Upsert manual de daily_sales.
+  // A constraint UNIQUE(user_id, date) foi removida em migracoes antigas
+  // (20251028150206 e 20251028150730), entao .upsert({ onConflict: 'user_id,date' })
+  // falhava silenciosamente e os totais do DEFCON/Ritmo nunca chegavam ao daily_sales.
+  // Aqui buscamos a linha do dia e atualizamos; se nao existir, inserimos.
+  const salesRow = {
+    total_profit: totalLiquido,
+    total_debt: totalCalote,
+    cash_sales: totalDinheiro,
+    pix_sales: totalPix,
+    card_sales: totalCartao,
+    tip_sales: totalGorjeta,
+    unpaid_sales: totalCalote > 0 ? 1 : 0,
+  };
+
+  const { data: existingSale } = await supabase
     .from("daily_sales")
-    .upsert({
-      user_id: userId,
-      date: today,
-      total_profit: totalLiquido,
-      total_debt: totalCalote,
-      cash_sales: totalDinheiro,
-      pix_sales: totalPix,
-      card_sales: totalCartao,
-      tip_sales: totalGorjeta,
-      unpaid_sales: totalCalote > 0 ? 1 : 0,
-    } as any, { onConflict: 'user_id,date' });
+    .select("id")
+    .eq("user_id", userId)
+    .eq("date", today)
+    .order("created_at", { ascending: true })
+    .limit(1);
+
+  if (existingSale && existingSale.length > 0) {
+    await supabase
+      .from("daily_sales")
+      .update(salesRow as any)
+      .eq("id", existingSale[0].id);
+  } else {
+    await supabase
+      .from("daily_sales")
+      .insert({ user_id: userId, date: today, ...salesRow } as any);
+  }
 
   // Also update leaderboard revenue in real-time
   await syncLeaderboardRevenue(userId);
