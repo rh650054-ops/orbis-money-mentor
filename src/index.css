@@ -111,6 +111,9 @@ All colors MUST be HSL.
   .pr-safe { padding-right: env(safe-area-inset-right); }
   .top-safe { top: env(safe-area-inset-top); }
   .bottom-safe { bottom: env(safe-area-inset-bottom); }
+  /* Aliases used by full-screen overlays (chat da IA etc.) */
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
   .min-h-screen-safe {
     min-height: 100dvh;
     padding-top: env(safe-area-inset-top);

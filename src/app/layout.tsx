@@ -10,7 +10,6 @@ import { Button } from "@/shared/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
-import QuickExpenseButton from "@/components/QuickExpenseButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
@@ -201,7 +200,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main
-        className="container mx-auto px-4 pt-2 pb-24 md:pt-8 md:pb-8"
+        className="container mx-auto px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-8 md:pb-8"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
       >
         {/* Back button - hidden on Dashboard and pages that already have their own back button */}
@@ -237,7 +236,7 @@ export default function Layout({ children }: LayoutProps) {
       </main>
 
       {/* Mobile bottom navigation - Fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
         {/* Notch SVG para o botão central */}
         <div className="relative">
           <svg
@@ -254,7 +253,10 @@ export default function Layout({ children }: LayoutProps) {
           </svg>
         </div>
 
-        <div className="border-t border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
+        <div
+          className="border-t border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/90"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        >
           <div className="grid grid-cols-5 items-end h-16 px-1 relative">
             {navigation.map((item, idx) => {
               const isActive = location.pathname === item.href;
@@ -315,7 +317,6 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Floating Chat Button */}
       <FloatingChatButton />
-      <QuickExpenseButton />
 
 
       {/* Morning Commit Modal */}
