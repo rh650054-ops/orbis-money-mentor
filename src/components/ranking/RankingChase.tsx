@@ -9,14 +9,70 @@ interface Props {
   formatCurrency: (v: number) => string;
 }
 
+// Tier por posicao: a cor melhora conforme sobe (aspiracional).
+function getTier(pos: number) {
+  if (pos <= 1) return { color: "#C9A6FF", glow: "rgba(176,124,240,0.65)", label: "LENDA" };
+  if (pos <= 3) return { color: "#6FD3FF", glow: "rgba(93,173,226,0.55)", label: "DIAMANTE" };
+  if (pos <= 10) return { color: "#3EE0C4", glow: "rgba(56,224,192,0.5)", label: "PLATINA" };
+  if (pos <= 30) return { color: "#F5B833", glow: "rgba(245,184,51,0.55)", label: "OURO" };
+  if (pos <= 60) return { color: "#D7DBE0", glow: "rgba(215,219,224,0.4)", label: "PRATA" };
+  if (pos <= 120) return { color: "#E0925A", glow: "rgba(224,146,90,0.4)", label: "BRONZE" };
+  return { color: "#9AA0A6", glow: "rgba(154,160,166,0.3)", label: "ASPIRANTE" };
+}
+
 function DuelAvatar({ url, name, color, glow }: { url: string | null; name: string | null; color: string; glow: string }) {
-  const style = { borderColor: color, boxShadow: `0 0 30px ${glow}`, color };
   if (url) {
-    return <img src={url} alt={name || ""} className="w-[78px] h-[78px] rounded-full object-cover border-[3px]" style={{ borderColor: color, boxShadow: `0 0 30px ${glow}` }} />;
+    return (
+      <img
+        src={url}
+        alt={name || ""}
+        className="w-[78px] h-[78px] rounded-full object-cover border-[3px] mx-auto block"
+        style={{ borderColor: color, boxShadow: `0 0 30px ${glow}` }}
+      />
+    );
   }
   return (
-    <div className="w-[78px] h-[78px] rounded-full border-[3px] bg-[#161616] flex items-center justify-center text-3xl font-black" style={style}>
+    <div
+      className="w-[78px] h-[78px] rounded-full border-[3px] bg-[#161616] flex items-center justify-center text-3xl font-black mx-auto"
+      style={{ borderColor: color, boxShadow: `0 0 30px ${glow}`, color }}
+    >
       {(name || "U").charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function DuelSide({
+  entry,
+  position,
+  tag,
+  tagColor,
+  formatCurrency,
+}: {
+  entry: LeaderboardEntry;
+  position: number;
+  tag: string;
+  tagColor: string;
+  formatCurrency: (v: number) => string;
+}) {
+  const tier = getTier(position);
+  return (
+    <div className="text-center flex-1 min-w-0">
+      <div className="relative w-[78px] mx-auto">
+        <span
+          className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 text-white text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider whitespace-nowrap"
+          style={{ background: tagColor }}
+        >
+          {tag}
+        </span>
+        <DuelAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} glow={tier.glow} />
+      </div>
+      <p className="text-[14px] font-black mt-2 truncate px-1" style={{ color: tier.color }}>
+        {entry.nome_usuario || "Vendedor"}
+      </p>
+      <p className="text-[11px] text-muted-foreground">
+        #{position} · <span className="font-black tracking-wider" style={{ color: tier.color }}>{tier.label}</span>
+      </p>
+      <p className="text-white text-[15px] font-black mt-0.5">{formatCurrency(entry.faturamento_total_mes || 0)}</p>
     </div>
   );
 }
@@ -37,13 +93,14 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
   const myIdx = ranking.findIndex((e) => e.user_id === me.user_id);
 
   if (myIdx === 0) {
+    const tier = getTier(1);
     return (
       <div
         className="rounded-2xl border border-primary/40 p-5 text-center"
         style={{ background: "radial-gradient(130% 80% at 50% 0%, hsl(45 100% 48% / 0.18) 0%, transparent 65%)" }}
       >
-        <Crown className="w-8 h-8 text-primary mx-auto drop-shadow-[0_0_16px_hsl(var(--primary)/0.7)]" />
-        <p className="text-primary font-black tracking-[0.2em] text-sm mt-2">VOCÊ É O LÍDER</p>
+        <Crown className="w-8 h-8 mx-auto" style={{ color: tier.color, filter: `drop-shadow(0 0 16px ${tier.glow})` }} />
+        <p className="font-black tracking-[0.2em] text-sm mt-2" style={{ color: tier.color }}>VOCÊ É O LÍDER · {tier.label}</p>
         <p className="text-xs text-muted-foreground mt-1">Tem gente vindo atrás — defenda o topo!</p>
         <button
           onClick={() => navigate("/daily-goals")}
@@ -79,42 +136,30 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
     >
       <p className="text-center text-primary tracking-[0.3em] text-[11px]">PRÓXIMO ALVO · ULTRAPASSAGEM</p>
 
-      <div className="flex items-center justify-center gap-2 mt-4">
-        <div className="text-center flex-1 min-w-0">
-          <DuelAvatar url={me.avatar_url} name={me.nome_usuario} color="#f5b833" glow="rgba(245,184,51,0.6)" />
-          <p className="text-white text-[13px] mt-2">VOCÊ <span className="text-muted-foreground">#{me.posicao_faturamento}</span></p>
-          <p className="text-primary text-[15px] font-black">{formatCurrency(myVal)}</p>
+      <div className="flex items-start justify-center gap-2 mt-5">
+        <DuelSide entry={me} position={me.posicao_faturamento} tag="VOCÊ" tagColor="#2e7d32" formatCurrency={formatCurrency} />
+        <div className="text-center w-[54px] shrink-0 pt-6">
+          <p className="text-2xl font-black text-white leading-none">VS</p>
+          <Zap className="w-5 h-5 text-primary mx-auto mt-1" />
         </div>
-
-        <div className="text-center w-[54px] shrink-0">
-          <p className="text-2xl font-black text-white">VS</p>
-          <Zap className="w-5 h-5 text-primary mx-auto" />
-        </div>
-
-        <div className="text-center flex-1 min-w-0">
-          <div className="relative w-[78px] mx-auto">
-            <span className="absolute -top-1.5 -right-0.5 z-10 text-white text-[9px] font-black px-2 py-0.5 rounded-full tracking-wider" style={{ background: "#e24b4a" }}>ALVO</span>
-            <DuelAvatar url={ahead.avatar_url} name={ahead.nome_usuario} color="#c8ccd2" glow="rgba(200,204,210,0.3)" />
-          </div>
-          <p className="text-white text-[13px] mt-2 truncate">{ahead.nome_usuario || "Rival"} <span className="text-muted-foreground">#{myIdx}</span></p>
-          <p className="text-[#c8ccd2] text-[15px] font-black">{formatCurrency(aheadVal)}</p>
-        </div>
+        <DuelSide entry={ahead} position={myIdx} tag="ALVO" tagColor="#e24b4a" formatCurrency={formatCurrency} />
       </div>
 
-      <div className="mt-4">
-        <div className="flex justify-between text-[11px] text-muted-foreground mb-1.5">
-          <span>seu avanço</span>
-          <span className="text-primary font-black">faltam {formatCurrency(gap)}</span>
-        </div>
-        <div className="h-2.5 rounded-full bg-[#1a1712] overflow-hidden">
-          <div
-            className="h-full rounded-full bg-primary shadow-[0_0_18px_hsl(var(--primary)/0.7)] transition-[width] duration-700"
-            style={{ width: `${pct}%` }}
-          />
-        </div>
+      <div className="text-center mt-4">
+        <p className="text-[10px] tracking-[0.3em] text-muted-foreground">FALTAM PARA ULTRAPASSAR</p>
+        <p className="text-[34px] leading-tight font-black text-primary" style={{ textShadow: "0 0 26px hsl(var(--primary)/0.65)" }}>
+          {formatCurrency(gap)}
+        </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 mt-3.5">
+      <div className="h-2.5 rounded-full bg-[#1a1712] overflow-hidden mt-1.5">
+        <div
+          className="h-full rounded-full bg-primary shadow-[0_0_18px_hsl(var(--primary)/0.7)] transition-[width] duration-700"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 mt-4">
         <Stat
           icon={<TrendingUp className={"w-4 h-4 " + (ritmoOk ? "text-emerald-400" : "text-amber-400")} />}
           value={ritmoText}
@@ -126,7 +171,7 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
 
       <button
         onClick={() => navigate("/daily-goals")}
-        className="mt-3.5 w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black text-sm py-3 rounded-xl active:scale-[0.98] transition-transform"
+        className="mt-4 w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-black text-sm py-3 rounded-xl active:scale-[0.98] transition-transform"
       >
         <Swords className="w-4 h-4" /> ATACAR — IR VENDER
       </button>
