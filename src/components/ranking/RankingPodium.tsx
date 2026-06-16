@@ -1,0 +1,69 @@
+import { LeaderboardEntry } from "@/hooks/useLeaderboard";
+import { getTier } from "./tier";
+import { Crown } from "lucide-react";
+
+interface Props {
+  top1?: LeaderboardEntry;
+  top2?: LeaderboardEntry;
+  top3?: LeaderboardEntry;
+  formatCurrency: (v: number) => string;
+  onOpenProfile: (uid: string) => void;
+}
+
+function PodAvatar({ url, name, size, color, glow }: { url: string | null; name: string | null; size: number; color: string; glow: string }) {
+  const base: any = { width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.45)}px ${glow}` };
+  if (url) {
+    return <img src={url} alt={name || ""} className="rounded-full object-cover border-[3px] mx-auto block" style={base} />;
+  }
+  return (
+    <div className="rounded-full border-[3px] bg-[#161616] flex items-center justify-center font-black mx-auto" style={{ ...base, color, fontSize: Math.round(size * 0.4) }}>
+      {(name || "U").charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function Col({ entry, position, avatarSize, barHeight, champion, formatCurrency, onOpenProfile }: {
+  entry?: LeaderboardEntry; position: number; avatarSize: number; barHeight: number; champion?: boolean;
+  formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
+}) {
+  if (!entry) return <div className="flex-1" />;
+  const tier = getTier(position);
+  return (
+    <div className="flex-1 text-center min-w-0">
+      {champion && <Crown className="w-7 h-7 mx-auto mb-1" style={{ color: tier.color, filter: `drop-shadow(0 0 12px ${tier.glow})` }} />}
+      <button onClick={() => onOpenProfile(entry.user_id)} className="block w-full active:scale-[0.97] transition-transform">
+        <PodAvatar url={entry.avatar_url} name={entry.nome_usuario} size={avatarSize} color={tier.color} glow={tier.glow} />
+        <p className="text-[13px] font-black mt-2 truncate px-0.5" style={{ color: tier.color }}>{entry.nome_usuario || "Vendedor"}</p>
+        <p className="text-white text-[14px] font-black">{formatCurrency(entry.faturamento_total_mes || 0)}</p>
+        <p className="text-[10px] font-black tracking-wider" style={{ color: tier.color }}>{tier.label}</p>
+      </button>
+      <div
+        className="mt-2 rounded-t-xl flex items-center justify-center font-black"
+        style={{
+          height: barHeight,
+          fontSize: champion ? 30 : 22,
+          color: tier.color,
+          background: champion ? `radial-gradient(120% 80% at 50% 0%, ${tier.glow} 0%, #14120a 72%)` : "#15151a",
+          border: `1px solid ${champion ? "#4a3c12" : "#2a2a30"}`,
+          borderBottom: "none",
+        }}
+      >
+        {position}
+      </div>
+    </div>
+  );
+}
+
+export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile }: Props) {
+  if (!top1) return null;
+  return (
+    <div className="rounded-2xl border border-[#2a2410] p-4 pt-3" style={{ background: "radial-gradient(120% 70% at 50% 0%, #2e2408 0%, #070707 60%)" }}>
+      <p className="text-center text-primary tracking-[0.3em] text-[11px] mb-3">PÓDIO DO MÊS</p>
+      <div className="flex items-end justify-center gap-2">
+        <Col entry={top2} position={2} avatarSize={56} barHeight={70} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top1} position={1} avatarSize={78} barHeight={104} champion formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top3} position={3} avatarSize={52} barHeight={54} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+      </div>
+    </div>
+  );
+}
