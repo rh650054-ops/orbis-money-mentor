@@ -12,7 +12,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { z } from "zod";
-import { MonthlyChallengeCard } from "@/components/MonthlyChallengeCard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 
@@ -701,9 +700,6 @@ export default function Profile() {
           </CardContent>
         </Card>
       )}
-
-      {/* Monthly Challenge Card */}
-      {user && <MonthlyChallengeCard userId={user.id} />}
 
       {/* Stats Card - compacto */}
       <Card>

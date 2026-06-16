@@ -50,11 +50,42 @@ export default function Layout({ children }: LayoutProps) {
   const [onboardingCompleto, setOnboardingCompleto] = useState(
     () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
   );
+  const [onboardingChecked, setOnboardingChecked] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+  );
   useEffect(() => {
     const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_onboarding_completo') === 'true');
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, []);
+
+  // Usuário já cadastrado: se a conta já tem dados de onboarding no banco, pula o onboarding
+  // (vale em qualquer aparelho/navegador, pois o dado fica na conta e não no localStorage)
+  useEffect(() => {
+    if (!user) return;
+    if (localStorage.getItem('orbis_onboarding_completo') === 'true') {
+      setOnboardingChecked(true);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("nickname, monthly_goal")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data && (data.nickname || (data.monthly_goal ?? 0) > 0)) {
+        localStorage.setItem('orbis_onboarding_completo', 'true');
+        localStorage.setItem('orbis_onboarding_completed', 'true');
+        setOnboardingCompleto(true);
+      }
+      setOnboardingChecked(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
   const trialDismissedRef = useRef(
     typeof window !== "undefined" && sessionStorage.getItem('trialModalDismissed') === 'true'
   );
@@ -136,6 +167,11 @@ export default function Layout({ children }: LayoutProps) {
 
   // If onboarding not complete, render ONLY the onboarding
   if (!onboardingCompleto && phase !== "done") {
+    // Espera a checagem no banco antes de mostrar o onboarding,
+    // pra não exibir o onboarding pra quem já é cadastrado
+    if (user && !onboardingChecked) {
+      return <div className="min-h-[100dvh] bg-background" />;
+    }
     return <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />;
   }
 
