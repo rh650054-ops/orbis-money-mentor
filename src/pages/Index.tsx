@@ -44,6 +44,8 @@ export default function Index() {
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterType, setFilterType] = useState<"day" | "week" | "month" | "all" | "custom">("month");
+  const [salesCountToday, setSalesCountToday] = useState(0);
+  const [monthExpensesTotal, setMonthExpensesTotal] = useState(0);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dailyAverage, setDailyAverage] = useState(0);
@@ -159,11 +161,15 @@ export default function Index() {
       { data: todayData },
       { data: weekData },
       { data: monthData },
+      { data: todayChallenge },
+      { data: monthExpenses },
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).single(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo.toISOString().split('T')[0]!).order("date", { ascending: true }),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
+      supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
+      supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
     ]);
 
     if (profile?.monthly_goal) {
@@ -182,6 +188,8 @@ export default function Index() {
       entry_count: todayData.length
     } : null;
     setTodaySales(aggregatedToday);
+    setSalesCountToday(((todayChallenge as any[]) || []).reduce((s, b) => s + (b.sales_count || 0), 0));
+    setMonthExpensesTotal(((monthExpenses as any[]) || []).reduce((s, e) => s + Number(e.amount || 0), 0));
 
     if (weekData) {
       const formattedWeekData = weekData.map(day => ({
@@ -326,8 +334,8 @@ export default function Index() {
   // Daily goal calc
   const dailyGoal = monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200;
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
-  const totalSalesToday = todaySales?.entry_count || 0;
-  const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost;
+  const totalSalesToday = salesCountToday;
+  const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost + monthExpensesTotal;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;

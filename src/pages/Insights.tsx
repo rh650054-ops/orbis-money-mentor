@@ -79,6 +79,7 @@ export default function Insights() {
 
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
+  const [challengeBlocks, setChallengeBlocks] = useState<{ approaches_count: number; sales_count: number }[]>([]);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
   const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
@@ -140,7 +141,7 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes, expensesRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost")
@@ -172,11 +173,18 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO),
+        supabase
+          .from("challenge_blocks")
+          .select("approaches_count,sales_count,created_at")
+          .eq("user_id", user.id)
+          .gte("created_at", range.start.toISOString())
+          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
       ]);
 
       setSales(salesRes.data || []);
       setBlocks(blocksRes.data || []);
       setExpenses((expensesRes.data as { category: string; amount: number; icon: string | null; name: string }[]) || []);
+      setChallengeBlocks((chBlocksRes.data as any) || []);
       setYesterdayProfit(ydRes.data?.total_profit || 0);
       setPrevRangeProfit(
         (prevRes.data || []).reduce((s, d) => s + (d.total_profit || 0), 0),
@@ -194,8 +202,8 @@ export default function Insights() {
     const custos = custoMercadoria + custosOperacionais;
     const lucro = faturamento - calotes - custos;
 
-    const totalAbordagens = blocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
-    const totalVendas = blocks.filter((b) => (b.achieved_amount || 0) > 0).length;
+    const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
+    const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
     const conversao = totalAbordagens > 0 ? (totalVendas / totalAbordagens) * 100 : 0;
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
@@ -217,7 +225,7 @@ export default function Insights() {
       calotes,
       gorjetas,
     };
-  }, [sales, blocks, expenses, rangeDays]);
+  }, [sales, blocks, expenses, challengeBlocks, rangeDays]);
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, { total: number; icon: string; count: number }>();

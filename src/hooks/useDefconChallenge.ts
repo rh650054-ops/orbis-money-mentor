@@ -105,7 +105,7 @@ export function useDefconChallenge(userId: string | undefined) {
     setPhase("finished");
   }, [clearTimer]);
 
-  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number) => {
+  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number, sales?: number) => {
     // Upsert to challenge_blocks
     const { data: existing } = await supabase
       .from("challenge_blocks")
@@ -114,10 +114,13 @@ export function useDefconChallenge(userId: string | undefined) {
       .eq("block_index", blockIdx)
       .maybeSingle();
 
+    const patch: any = { approaches_count: approaches };
+    if (sales !== undefined) patch.sales_count = sales;
+
     if (existing) {
       await supabase
         .from("challenge_blocks")
-        .update({ approaches_count: approaches })
+        .update(patch)
         .eq("id", existing.id);
     } else if (userId) {
       await supabase
@@ -127,7 +130,8 @@ export function useDefconChallenge(userId: string | undefined) {
           user_id: userId,
           block_index: blockIdx,
           approaches_count: approaches,
-        });
+          sales_count: sales ?? 0,
+        } as any);
     }
   };
 
@@ -289,21 +293,22 @@ export function useDefconChallenge(userId: string | undefined) {
       // Load total approaches and current block approaches from challenge_blocks
       const { data: challengeBlocks } = await supabase
         .from("challenge_blocks")
-        .select("approaches_count, block_index, sold_amount")
+        .select("approaches_count, block_index, sold_amount, sales_count")
         .eq("session_id", session.id);
 
       if (challengeBlocks) {
         const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
-        
-        // Count total sales from blocks that have sold_amount > 0
-        const totalSls = challengeBlocks.reduce((sum, b) => sum + ((b.sold_amount || 0) > 0 ? 1 : 0), 0);
+
+        // Restaura o número real de vendas (salvo por bloco)
+        const totalSls = challengeBlocks.reduce((sum, b) => sum + ((b as any).sales_count || 0), 0);
         setTotalSalesCount(totalSls);
 
-        // Restore current block's approaches
+        // Restaura abordagens + vendas do bloco atual
         const currentChallengeBlock = challengeBlocks.find(b => b.block_index === session.current_block_index);
         if (currentChallengeBlock) {
           setBlockApproaches(currentChallengeBlock.approaches_count || 0);
+          setBlockSalesCount((currentChallengeBlock as any).sales_count || 0);
         }
       }
 
@@ -614,7 +619,8 @@ export function useDefconChallenge(userId: string | undefined) {
       )
     );
     setTotalSold(newTotal);
-    setBlockSalesCount(prev => prev + 1);
+    const newBlockSales = blockSalesCount + 1;
+    setBlockSalesCount(newBlockSales);
     setTotalSalesCount(prev => prev + 1);
 
     // Auto-increment approach: whoever bought was approached
@@ -622,9 +628,9 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persist approaches to DB
+    // Persist approaches + sales count to DB
     if (sessionId) {
-      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
     }
 
     await syncBlocksToDailySales(userId);
