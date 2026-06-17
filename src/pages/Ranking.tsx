@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles, Share2, Download, Loader2, Gift, Shield } from "lucide-react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Camera, Sparkles, Share2, Download, Loader2, Gift, Shield } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Progress } from "@/shared/ui/progress";
@@ -82,6 +82,8 @@ export default function Ranking() {
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const shareCardRef = useRef<HTMLDivElement>(null);
+  const quickPhotoRef = useRef<HTMLInputElement>(null);
+  const [quickUploading, setQuickUploading] = useState(false);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -137,6 +139,37 @@ export default function Ranking() {
   });
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+
+  const handleQuickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Selecione uma imagem válida", variant: "destructive" });
+      return;
+    }
+    setQuickUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const filePath = `${user.id}/avatar.${ext}`;
+      await supabase.storage.from("avatars").remove([filePath]);
+      const { error } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true, contentType: file.type });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
+      const url = `${urlData.publicUrl}?t=${Date.now()}`;
+      await supabase.from("profiles").update({ avatar_url: url }).eq("user_id", user.id);
+      const mref = new Date().toISOString().slice(0, 7);
+      await supabase.from("leaderboard_stats").update({ avatar_url: url }).eq("user_id", user.id).eq("mes_referencia", mref);
+      toast({ title: "Foto atualizada! 📸" });
+      loadUserProfile();
+      loadLeaderboard();
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erro ao enviar a foto", description: "Tente novamente.", variant: "destructive" });
+    } finally {
+      setQuickUploading(false);
+      if (quickPhotoRef.current) quickPhotoRef.current.value = "";
+    }
+  };
 
   const openPublicProfile = (uid: string) => {
     if (!uid) return;
@@ -370,6 +403,8 @@ export default function Ranking() {
             formatCurrency={formatCurrency}
             onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
             onOpenProfile={openPublicProfile}
+            onQuickPhoto={() => quickPhotoRef.current?.click()}
+            quickUploading={quickUploading}
           />
         </>
       )}
@@ -394,6 +429,8 @@ export default function Ranking() {
         onOpenChange={(o) => { if (!o) setPublicProfileUserId(null); }}
         userId={publicProfileUserId}
       />
+
+      <input ref={quickPhotoRef} type="file" accept="image/*" className="hidden" onChange={handleQuickPhoto} />
 
       {/* Off-screen Instagram Story Card (1080x1920) */}
       <div
@@ -422,9 +459,11 @@ interface LeagueProps {
 
 interface FaturamentoLeagueProps extends LeagueProps {
   formatCurrency: (value: number) => string;
+  onQuickPhoto: () => void;
+  quickUploading: boolean;
 }
 
-function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile }: FaturamentoLeagueProps) {
+function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile, onQuickPhoto, quickUploading }: FaturamentoLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
   const top3 = ranking[2];
@@ -465,13 +504,19 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
           <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
           <CardContent className="relative p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="relative">
-                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50", getTier(currentUserStats.posicao_faturamento || 999).icon)}
+              <div className="relative shrink-0">
+                <button onClick={onQuickPhoto} className="block active:scale-95 transition-transform" title="Trocar foto">
+                  {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50", getTier(currentUserStats.posicao_faturamento || 999).icon)}
+                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                    {quickUploading ? <Loader2 className="w-2.5 h-2.5 text-primary-foreground animate-spin" /> : <Camera className="w-2.5 h-2.5 text-primary-foreground" />}
+                  </span>
+                </button>
                 <button
                   onClick={onEditProfile}
-                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-card border border-primary/50 flex items-center justify-center shadow hover:bg-primary/20 transition-colors"
+                  title="Editar perfil"
                 >
-                  <Edit2 className="w-2.5 h-2.5 text-primary-foreground" />
+                  <Edit2 className="w-2.5 h-2.5 text-primary" />
                 </button>
               </div>
               <div className="flex-1 min-w-0">
