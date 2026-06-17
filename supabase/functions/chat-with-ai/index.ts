@@ -89,6 +89,29 @@ floreio corporativo, sem teoria de livro. Conselho que funciona na calçada, hoj
 `.trim();
 // =======================================================================
 
+const HAIKU = "claude-haiku-4-5-20251001";
+const SONNET = "claude-sonnet-4-6";
+// Limites diários e modelo por plano (controle de custo). Fácil de ajustar aqui.
+const PLAN_LIMITS: Record<string, { key: string; limit: number; model: string }> = {
+  trial:     { key: "trial",     limit: 5,  model: HAIKU },
+  active:    { key: "essencial", limit: 12, model: HAIKU },  // plano atual R$19,90
+  essencial: { key: "essencial", limit: 12, model: HAIKU },  // R$19,90
+  pro:       { key: "pro",       limit: 30, model: HAIKU },  // R$49,90
+  premium:   { key: "premium",   limit: 25, model: SONNET }, // R$79,90
+};
+function resolvePlan(prof: any) {
+  if (prof?.is_demo || prof?.billing_exempt) return { key: "demo", limit: 100, model: SONNET };
+  const t = String(prof?.plan_type || prof?.plan_status || "trial").toLowerCase();
+  return PLAN_LIMITS[t] || PLAN_LIMITS["trial"];
+}
+// Guardrail de escopo (fixo, nao editavel pelo admin): a IA so fala do corre.
+const SCOPE_RULE = [
+  "# ESCOPO (regra fixa, acima de tudo)",
+  "Voce so responde sobre o corre do vendedor: venda, abordagem, cliente, objecao, preco, meta, dinheiro, produtividade, rotina de trabalho, disciplina, mentalidade PARA O TRABALHO e crescimento do negocio.",
+  "Se a pergunta fugir disso (relacionamento, \"terminou comigo\", terapia, fofoca, politica, dever de casa, assunto pessoal sem ligacao com o trabalho), NAO responda o merito e NAO atue como psicologo. Responda em UMA linha curta puxando de volta pro corre, tipo: \"To aqui pro teu corre de vendedor - manda algo sobre venda, meta ou grana que eu te ajudo de verdade.\"",
+  "Nunca elabore em tema fora do escopo. Gentil, mas firme e curto.",
+].join("\n");
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -109,6 +132,38 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       throw new Error("Unauthorized");
+    }
+
+    // ---- Plano + limite diario da IA (controle de custo) ----
+    const today = new Date(Date.now() - 3 * 3600 * 1000).toISOString().split("T")[0];
+    const svcKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const svc = svcKey ? createClient(supabaseUrl, svcKey) : null;
+    let plan = PLAN_LIMITS["trial"];
+    let usedToday = 0;
+    if (svc) {
+      const { data: prof } = await svc
+        .from("profiles")
+        .select("plan_type, plan_status, is_demo, billing_exempt")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      plan = resolvePlan(prof);
+      const { data: usage } = await svc
+        .from("ai_usage")
+        .select("count")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .maybeSingle();
+      usedToday = usage?.count ?? 0;
+      if (usedToday >= plan.limit) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            limitReached: true,
+            message: "Voce bateu seu limite de mensagens com a IA por hoje. Volta amanha, ou sobe de plano pra falar mais com o mentor. E bora pra rua - venda tambem e treino.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
     }
 
     const { messages, context } = await req.json();
@@ -203,7 +258,7 @@ serve(async (req) => {
       console.error("ai_brain fetch failed, using embedded brain:", e);
     }
 
-    const systemPrompt = brain + (
+    const systemPrompt = brain + "\n\n" + SCOPE_RULE + (
       userContext.trim().length > 0
         ? `\n\n# CONTEXTO AO VIVO DESTE VENDEDOR\nUse pra personalizar. Converta dinheiro em número de vendas sempre que der.\n${userContext.trim()}`
         : `\n\n# CONTEXTO\nSem dados recentes agora. Dê conselho prático de rua e puxe ele pra ação.`
@@ -215,7 +270,7 @@ serve(async (req) => {
       throw new Error("ANTHROPIC_API_KEY não está configurada no backend. Adicione a variável no painel do Supabase.");
     }
 
-    const model = Deno.env.get("ORBIS_CHAT_MODEL") ?? "claude-sonnet-4-6";
+    const model = Deno.env.get("ORBIS_CHAT_MODEL") ?? plan.model;
 
     const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -227,7 +282,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model,
         max_tokens: 1024,
-        system: systemPrompt,
+        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
         messages: sanitizedMessages.filter((m: { role: string }) => m.role !== "system"),
       }),
     });
@@ -246,6 +301,13 @@ serve(async (req) => {
     if (!assistantMessage || typeof assistantMessage !== "string") {
       console.error("Resposta inesperada da Anthropic API:", JSON.stringify(aiJson).substring(0, 200));
       throw new Error("A IA retornou uma resposta inválida");
+    }
+
+    if (svc) {
+      await svc.from("ai_usage").upsert(
+        { user_id: user.id, date: today, count: usedToday + 1, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,date" },
+      );
     }
 
     return new Response(
