@@ -74,12 +74,12 @@ export function DefconSmartNotification({
     for (const session of sessions) {
       const { data: blocks } = await supabase
         .from("challenge_blocks")
-        .select("approaches_count, sold_amount")
+        .select("approaches_count, sales_count")
         .eq("session_id", session.id);
 
       if (blocks) {
         const dayApp = blocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
-        const daySales = blocks.filter(b => (b.sold_amount || 0) > 0).length;
+        const daySales = blocks.reduce((s, b) => s + Number((b as any).sales_count || 0), 0);
         totalApp += dayApp;
         totalSales += daySales;
       }

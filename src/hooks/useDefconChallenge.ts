@@ -106,33 +106,21 @@ export function useDefconChallenge(userId: string | undefined) {
   }, [clearTimer]);
 
   const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number, sales?: number) => {
-    // Upsert to challenge_blocks
-    const { data: existing } = await supabase
+    if (!userId) return;
+    // Upsert ATÔMICO — depende da constraint única (session_id, block_index).
+    // O método antigo usava .maybeSingle(), que retorna erro/null quando há 2+ linhas:
+    // bastava uma corrida inicial criar 2 linhas pro mesmo bloco e, a partir daí,
+    // cada novo save reinseria uma linha (cascata) — foi o que inflou as abordagens (286).
+    const payload: any = {
+      session_id: sid,
+      user_id: userId,
+      block_index: blockIdx,
+      approaches_count: approaches,
+    };
+    if (sales !== undefined) payload.sales_count = sales;
+    await supabase
       .from("challenge_blocks")
-      .select("id")
-      .eq("session_id", sid)
-      .eq("block_index", blockIdx)
-      .maybeSingle();
-
-    const patch: any = { approaches_count: approaches };
-    if (sales !== undefined) patch.sales_count = sales;
-
-    if (existing) {
-      await supabase
-        .from("challenge_blocks")
-        .update(patch)
-        .eq("id", existing.id);
-    } else if (userId) {
-      await supabase
-        .from("challenge_blocks")
-        .insert({
-          session_id: sid,
-          user_id: userId,
-          block_index: blockIdx,
-          approaches_count: approaches,
-          sales_count: sales ?? 0,
-        } as any);
-    }
+      .upsert(payload, { onConflict: "session_id,block_index" });
   };
 
   const advanceToNextBlock = useCallback(async () => {
@@ -293,22 +281,23 @@ export function useDefconChallenge(userId: string | undefined) {
       // Load total approaches and current block approaches from challenge_blocks
       const { data: challengeBlocks } = await supabase
         .from("challenge_blocks")
-        .select("approaches_count, block_index, sold_amount")
+        .select("approaches_count, block_index, sales_count")
         .eq("session_id", session.id);
 
       if (challengeBlocks) {
         const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
 
-        // Restaura o número real de vendas (salvo por bloco)
-        const totalSls = challengeBlocks.reduce((sum, b) => sum + (Number(b.sold_amount || 0) > 0 ? 1 : 0), 0);
+        // Restaura o número real de vendas SOMANDO sales_count de cada bloco.
+        // (Antes lia sold_amount, coluna que nunca é gravada -> sempre 0, zerando as vendas.)
+        const totalSls = challengeBlocks.reduce((sum, b) => sum + Number((b as any).sales_count || 0), 0);
         setTotalSalesCount(totalSls);
 
         // Restaura abordagens + vendas do bloco atual
         const currentChallengeBlock = challengeBlocks.find(b => b.block_index === session.current_block_index);
         if (currentChallengeBlock) {
           setBlockApproaches(currentChallengeBlock.approaches_count || 0);
-          setBlockSalesCount(Number(currentChallengeBlock.sold_amount || 0) > 0 ? 1 : 0);
+          setBlockSalesCount(Number((currentChallengeBlock as any).sales_count || 0));
         }
       }
 
@@ -677,9 +666,9 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persist to DB immediately
+    // Persist to DB immediately (passa também as vendas do bloco pra manter o upsert consistente)
     if (sessionId) {
-      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, blockSalesCount);
     }
   };
 
