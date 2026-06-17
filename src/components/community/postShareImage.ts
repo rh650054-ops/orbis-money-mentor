@@ -81,7 +81,8 @@ export async function generatePostShareImage(post: FeedPost): Promise<Blob | nul
   if (line) lines.push(line);
   const maxLines = 14;
   const shown = lines.slice(0, maxLines);
-  if (lines.length > maxLines && shown.length) shown[maxLines - 1] = `${shown[maxLines - 1].slice(0, -1)}…`;
+  const lastShown = shown[maxLines - 1];
+  if (lines.length > maxLines && lastShown) shown[maxLines - 1] = `${lastShown.slice(0, -1)}…`;
   const lineH = Math.round(fontSize * 1.42);
   const textH = shown.length * lineH;
 

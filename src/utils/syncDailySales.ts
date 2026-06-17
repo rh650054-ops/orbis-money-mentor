@@ -58,10 +58,12 @@ export async function syncBlocksToDailySales(userId: string) {
     .limit(1);
 
   if (existingSale && existingSale.length > 0) {
+    const saleId = existingSale[0]?.id;
+    if (!saleId) return;
     await supabase
       .from("daily_sales")
       .update(salesRow as any)
-      .eq("id", existingSale[0].id);
+      .eq("id", saleId);
   } else {
     await supabase
       .from("daily_sales")
