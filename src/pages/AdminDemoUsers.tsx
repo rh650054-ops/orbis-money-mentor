@@ -40,6 +40,16 @@ interface DemoUser {
   created_at: string;
 }
 
+interface TrialUser {
+  id: string;
+  user_id: string;
+  email: string | null;
+  nickname: string | null;
+  plan_status: string | null;
+  trial_end: string | null;
+  created_at: string;
+}
+
 export default function AdminDemoUsers() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
@@ -47,6 +57,7 @@ export default function AdminDemoUsers() {
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
+  const [trialUsers, setTrialUsers] = useState<TrialUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -78,8 +89,24 @@ export default function AdminDemoUsers() {
   useEffect(() => {
     if (isAdmin) {
       loadDemoUsers();
+      loadTrialUsers();
     }
   }, [isAdmin]);
+
+  // Usuários no teste gratuito de 3 dias (trial), ordenados pelo término do teste
+  const loadTrialUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, user_id, email, nickname, plan_status, trial_end, created_at")
+        .eq("plan_status", "trial")
+        .order("trial_end", { ascending: true });
+      if (error) throw error;
+      setTrialUsers((data as any) || []);
+    } catch (error) {
+      console.error("Erro ao carregar usuários em teste:", error);
+    }
+  };
 
   const checkAdminRole = async () => {
     if (!user) return;
@@ -314,6 +341,44 @@ export default function AdminDemoUsers() {
           </p>
         </div>
       </div>
+
+      {/* Usuários no teste de 3 dias (trial) */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
+            Em teste (3 dias) — {trialUsers.length}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {trialUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Ninguém em teste no momento.</p>
+          ) : (
+            <div className="space-y-2">
+              {trialUsers.map((u) => {
+                const end = u.trial_end ? new Date(u.trial_end) : null;
+                const daysLeft = end ? Math.ceil((end.getTime() - Date.now()) / 86400000) : null;
+                return (
+                  <div key={u.id} className="p-3 bg-card rounded-lg border border-border flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold truncate">{u.nickname || "Sem nome"}</p>
+                      <p className="text-sm text-muted-foreground truncate">{u.email}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      {daysLeft !== null && (
+                        <Badge className={daysLeft <= 1 ? "bg-destructive text-destructive-foreground" : "bg-warning text-warning-foreground"}>
+                          {daysLeft <= 0 ? "expira hoje" : `${daysLeft} ${daysLeft === 1 ? "dia" : "dias"}`}
+                        </Badge>
+                      )}
+                      {end && <p className="text-xs text-muted-foreground mt-1">até {end.toLocaleDateString("pt-BR")}</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Formulário de Criação */}
       <Card className="card-gradient-border shadow-glow-primary">

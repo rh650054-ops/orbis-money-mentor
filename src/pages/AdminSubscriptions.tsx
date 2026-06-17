@@ -30,6 +30,7 @@ export default function AdminSubscriptions() {
   const [users, setUsers] = useState<SubscriptionUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "todos">("assinantes");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
   const [linkCpf, setLinkCpf] = useState("");
@@ -147,7 +148,12 @@ export default function AdminSubscriptions() {
     }
   };
 
+  const isComp = (u: SubscriptionUser) => Boolean(u.is_demo && u.billing_exempt); // contas de cortesia/admin
   const filteredUsers = users.filter((u) => {
+    // Filtro por aba/status
+    if (statusFilter === "assinantes" && !(u.plan_status === "active" && !isComp(u))) return false;
+    if (statusFilter === "trial" && u.plan_status !== "trial") return false;
+    // Busca por texto
     if (!searchEmail) return true;
     const search = searchEmail.toLowerCase();
     return (
@@ -223,6 +229,20 @@ export default function AdminSubscriptions() {
                 <RefreshCw className="w-4 h-4" />
               </Button>
             </div>
+          </div>
+          {/* Filtro por aba: Assinantes / Trial / Todos */}
+          <div className="flex gap-2 mt-4">
+            {([["assinantes", "Assinantes"], ["trial", "Trial (3 dias)"], ["todos", "Todos"]] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  statusFilter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -305,7 +325,9 @@ export default function AdminSubscriptions() {
       {/* Users list */}
       <Card>
         <CardHeader>
-          <CardTitle>Usuários ({filteredUsers.length})</CardTitle>
+          <CardTitle>
+            {statusFilter === "assinantes" ? "Assinantes" : statusFilter === "trial" ? "Em teste (3 dias)" : "Todos os usuários"} ({filteredUsers.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoadingUsers ? (
