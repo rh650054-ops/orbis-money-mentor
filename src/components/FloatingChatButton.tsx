@@ -178,7 +178,6 @@ export default function FloatingChatButton() {
   };
 
   const speakBrowser = (text: string) => {
-    setSpeaking(false); return; // voz do navegador (feminina) desativada — usamos so a voz do servidor
     if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
     const synth = window.speechSynthesis;
     synth.cancel();
@@ -187,7 +186,9 @@ export default function FloatingChatButton() {
       u.lang = "pt-BR";
       u.rate = 1.05;
       const voices = synth.getVoices();
-      const pt = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("pt"));
+      const ptVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("pt"));
+      const maleHint = /(daniel|male|masc|homem|felipe|ricardo|jo[a\u00e3]o|ant[o\u00f4]nio|carlos|paulo|thiago|lucas)/i;
+      const pt = ptVoices.find((v) => maleHint.test(v.name)) || ptVoices[0];
       if (pt) u.voice = pt;
       u.onstart = () => setSpeaking(true);
       u.onend = () => setSpeaking(false);
