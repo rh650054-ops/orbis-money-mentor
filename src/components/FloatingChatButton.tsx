@@ -297,7 +297,7 @@ export default function FloatingChatButton() {
       {isOpen && (
         <div
           className="fixed inset-0 z-[60] flex flex-col animate-in fade-in duration-200"
-          style={{ background: "radial-gradient(ellipse 110% 38% at 50% 0%, rgba(201,168,76,0.10), transparent 60%), #070708" }}
+          style={{ background: "radial-gradient(ellipse 110% 38% at 50% 0%, rgba(201,168,76,0.10), transparent 60%), hsl(var(--background))" }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="floating-chat-title"
@@ -368,8 +368,8 @@ export default function FloatingChatButton() {
                         className={cn(
                           "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
                           m.role === "user"
-                            ? "bg-primary/15 border border-primary/30 text-[#F5D78E] rounded-br-md"
-                            : "bg-white/[0.04] border border-white/10 text-white/90 rounded-bl-md"
+                            ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
+                            : "bg-muted/60 border border-border text-foreground rounded-bl-md"
                         )}
                       >
                         {m.content}
@@ -437,7 +437,7 @@ export default function FloatingChatButton() {
           {voiceMode && (
             <div
               className="absolute inset-0 z-[66] flex flex-col animate-in fade-in duration-200"
-              style={{ background: "radial-gradient(ellipse 120% 50% at 50% 18%, rgba(201,168,76,0.10), transparent 62%), #070708" }}
+              style={{ background: "radial-gradient(ellipse 120% 50% at 50% 18%, rgba(201,168,76,0.10), transparent 62%), hsl(var(--background))" }}
               role="dialog"
               aria-modal="true"
             >
@@ -452,8 +452,8 @@ export default function FloatingChatButton() {
               <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-7">
                 <OrbisSphere size={210} state={voiceState} />
                 <div className="space-y-2">
-                  <p className="text-[11px] tracking-[0.35em] text-white/40 uppercase">{voiceLabel}</p>
-                  <p className="text-base text-white/75 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
+                  <p className="text-[11px] tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
+                  <p className="text-base text-foreground/80 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
                     {input || (isSending ? "..." : "Fala sobre o teu corre, parça")}
                   </p>
                 </div>
@@ -473,7 +473,7 @@ export default function FloatingChatButton() {
               </div>
 
               <div className="pb-8 flex justify-center safe-bottom">
-                <button onClick={exitVoiceMode} className="text-xs text-white/45 hover:text-white/70">
+                <button onClick={exitVoiceMode} className="text-xs text-muted-foreground hover:text-foreground">
                   usar o chat de texto
                 </button>
               </div>

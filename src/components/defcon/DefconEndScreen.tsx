@@ -386,12 +386,12 @@ export function DefconEndScreen({
     }
   };
 
-  const valueColor = goalReached ? "text-success" : totalSold > 0 ? "text-white" : "text-neutral-500";
-  const subTextColor = goalReached ? "text-success" : "text-neutral-400";
+  const valueColor = goalReached ? "text-success" : totalSold > 0 ? "text-foreground" : "text-muted-foreground";
+  const subTextColor = goalReached ? "text-success" : "text-muted-foreground";
 
   return (
     <div
-      className="min-h-[100dvh] bg-black text-white select-none"
+      className="min-h-[100dvh] bg-background text-foreground select-none"
       style={{
         paddingTop: 'calc(env(safe-area-inset-top) + 20px)',
         paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)',
@@ -400,7 +400,7 @@ export function DefconEndScreen({
       <div className="max-w-sm mx-auto px-5 flex flex-col gap-5">
         {/* 1. HEADER — RESULTADO */}
         <div className="text-center space-y-2">
-          <div className="text-xs font-mono text-neutral-500 tracking-[0.3em] uppercase">
+          <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase">
             🔥 Desafio encerrado
           </div>
           <div className={`text-5xl font-black tracking-tight ${valueColor}`}>
@@ -429,7 +429,7 @@ export function DefconEndScreen({
           <button
             onClick={handleShare}
             disabled={sharing}
-            className="w-full py-3.5 rounded-2xl bg-primary text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.6)]"
+            className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.6)]"
           >
             <Share2 className="w-4 h-4" />
             {sharing ? "Gerando..." : "Compartilhar resultado"}
@@ -439,7 +439,7 @@ export function DefconEndScreen({
         {/* 3. RECEBIMENTOS */}
         {totalSold > 0 && (
           <div className="space-y-2.5">
-            <h2 className="text-xs font-semibold text-neutral-400 px-1 uppercase tracking-wider">
+            <h2 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">
               Confira seus recebimentos
             </h2>
 
@@ -451,22 +451,22 @@ export function DefconEndScreen({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs uppercase tracking-wider text-primary font-bold">Gorjetas</p>
-                  <p className="text-xs text-neutral-500">Já incluídas no dinheiro</p>
+                  <p className="text-xs text-muted-foreground">Já incluídas no dinheiro</p>
                 </div>
                 <p className="text-base font-bold text-primary tabular-nums">+{formatCurrency(totalTips)}</p>
               </div>
             )}
 
-            <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={setPix} accent="text-neutral-400" />
-            <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={setCartao} accent="text-neutral-400" />
-            <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={setDinheiro} accent="text-neutral-400" />
+            <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={setPix} accent="text-muted-foreground" />
+            <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={setCartao} accent="text-muted-foreground" />
+            <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={setDinheiro} accent="text-muted-foreground" />
 
             {/* Resumo total recebido vs vendido */}
             {totalRecebido > 0 && (
-              <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-3.5 py-2.5 flex items-center justify-between">
-                <span className="text-xs text-neutral-500 uppercase tracking-wider font-semibold">Total recebido</span>
-                <span className={`text-sm font-bold tabular-nums ${fullyReceived ? 'text-success' : hasCalote ? 'text-destructive/80' : 'text-white'}`}>
-                  {formatCurrency(totalRecebido)} <span className="text-neutral-600 font-normal">/ {formatCurrency(totalSold)}</span>
+              <div className="rounded-xl bg-card border border-border px-3.5 py-2.5 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Total recebido</span>
+                <span className={`text-sm font-bold tabular-nums ${fullyReceived ? 'text-success' : hasCalote ? 'text-destructive/80' : 'text-foreground'}`}>
+                  {formatCurrency(totalRecebido)} <span className="text-muted-foreground font-normal">/ {formatCurrency(totalSold)}</span>
                 </span>
               </div>
             )}
@@ -494,14 +494,14 @@ export function DefconEndScreen({
                       </button>
                       <button
                         onClick={() => setCaloteAcknowledged(true)}
-                        className="text-xs px-3 py-1.5 rounded-md bg-neutral-800 text-neutral-300 font-medium active:scale-95 transition-transform"
+                        className="text-xs px-3 py-1.5 rounded-md bg-muted text-foreground font-medium active:scale-95 transition-transform"
                       >
                         Ignorar
                       </button>
                     </div>
                   )}
                   {caloteAcknowledged && (
-                    <div className="text-xs text-neutral-500 mt-1">Anotado.</div>
+                    <div className="text-xs text-muted-foreground mt-1">Anotado.</div>
                   )}
                 </div>
               </div>
@@ -512,15 +512,15 @@ export function DefconEndScreen({
         {/* 5. RELATÓRIO — cards de performance */}
         {(totalApproaches > 0 || totalSalesCount > 0) && (
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-2 py-3 text-center">
-              <div className="text-lg font-black text-white tabular-nums">{totalApproaches}</div>
-              <div className="text-xs uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Abordagens</div>
+            <div className="rounded-xl bg-card border border-border px-2 py-3 text-center">
+              <div className="text-lg font-black text-foreground tabular-nums">{totalApproaches}</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">Abordagens</div>
             </div>
-            <div className="rounded-xl bg-neutral-950 border border-neutral-900 px-2 py-3 text-center">
-              <div className="text-lg font-black text-white tabular-nums">{totalSalesCount}</div>
-              <div className="text-xs uppercase tracking-wider text-neutral-500 font-semibold mt-0.5">Vendas</div>
+            <div className="rounded-xl bg-card border border-border px-2 py-3 text-center">
+              <div className="text-lg font-black text-foreground tabular-nums">{totalSalesCount}</div>
+              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">Vendas</div>
             </div>
-            <div className="rounded-xl bg-neutral-950 border border-primary/30 px-2 py-3 text-center">
+            <div className="rounded-xl bg-card border border-primary/30 px-2 py-3 text-center">
               <div className="text-lg font-black text-primary tabular-nums">{conversionRate.toFixed(0)}%</div>
               <div className="text-xs uppercase tracking-wider text-primary/70 font-semibold mt-0.5">Conversão</div>
             </div>
@@ -529,9 +529,9 @@ export function DefconEndScreen({
 
         {/* 6. INSIGHT IA */}
         {insight && (
-          <div className="rounded-xl bg-gradient-to-br from-neutral-950 to-neutral-900/40 border border-neutral-800 px-3.5 py-3 flex items-start gap-2.5">
+          <div className="rounded-xl bg-card border border-border px-3.5 py-3 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <p className="text-xs text-neutral-300 leading-relaxed">{insight}</p>
+            <p className="text-xs text-foreground leading-relaxed">{insight}</p>
           </div>
         )}
 
@@ -540,7 +540,7 @@ export function DefconEndScreen({
           <button
             onClick={exportClientsPdf}
             disabled={exportingPdf}
-            className="w-full h-11 rounded-xl bg-neutral-950 border border-primary/40 text-primary font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+            className="w-full h-11 rounded-xl bg-card border border-primary/40 text-primary font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
           >
             <FileDown className="w-3.5 h-3.5" />
             {exportingPdf ? "Gerando..." : `PDF de ${clientsCount} cliente(s)`}
@@ -551,7 +551,7 @@ export function DefconEndScreen({
         <button
           onClick={handleFinalize}
           disabled={saving}
-          className="w-full h-14 rounded-2xl bg-white text-black font-bold text-base active:scale-[0.98] transition-transform disabled:opacity-50 mt-1"
+          className="w-full h-14 rounded-2xl bg-foreground text-background font-bold text-base active:scale-[0.98] transition-transform disabled:opacity-50 mt-1"
         >
           {saving ? "Finalizando..." : "Finalizar dia"}
         </button>
@@ -572,7 +572,7 @@ interface PaymentInputProps {
 function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: PaymentInputProps) {
   const hasIcon = !!emoji || !!iconSrc;
   return (
-    <div className="relative h-11 rounded-lg bg-neutral-950 border border-neutral-900 focus-within:border-neutral-700 transition-colors">
+    <div className="relative h-11 rounded-lg bg-card border border-border focus-within:border-muted-foreground transition-colors">
       {iconSrc ? (
         <img
           src={iconSrc}
@@ -587,7 +587,7 @@ function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: Paymen
       <span className={`absolute ${hasIcon ? 'left-10' : 'left-3'} top-1/2 -translate-y-1/2 text-xs font-medium ${accent}`}>
         {label}
       </span>
-      <span className="absolute right-[72px] top-1/2 -translate-y-1/2 text-xs text-neutral-600">
+      <span className="absolute right-[72px] top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
         R$
       </span>
       <input

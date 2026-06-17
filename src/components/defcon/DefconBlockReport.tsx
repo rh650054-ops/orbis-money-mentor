@@ -186,32 +186,32 @@ export function DefconBlockReport({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       <div className="text-center mb-8">
         <div className="text-6xl mb-4">{getEmoji()}</div>
-        <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-2">
+        <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-2">
           Relatório do Bloco #{blockIndex + 1}
         </div>
       </div>
 
       <div className="w-full max-w-sm space-y-3 mb-8">
-        <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-neutral-500">👤 Abordagens</span>
-          <span className="text-2xl font-black text-white">{approaches}</span>
+        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-muted-foreground">👤 Abordagens</span>
+          <span className="text-2xl font-black text-foreground">{approaches}</span>
         </div>
 
-        <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-neutral-500">🛒 Vendas</span>
+        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-muted-foreground">🛒 Vendas</span>
           <span className="text-2xl font-black text-success">{sales}</span>
         </div>
 
-        <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-neutral-500">💰 Valor vendido</span>
-          <span className="text-xl font-black text-white">{formatCurrency(soldAmount)}</span>
+        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-muted-foreground">💰 Valor vendido</span>
+          <span className="text-xl font-black text-foreground">{formatCurrency(soldAmount)}</span>
         </div>
 
-        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-neutral-500">📊 Conversão</span>
+        <div className="bg-card border border-border rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-muted-foreground">📊 Conversão</span>
           <span className={`text-2xl font-black ${
             conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"
           }`}>
@@ -220,7 +220,7 @@ export function DefconBlockReport({
         </div>
       </div>
 
-      <p className="text-sm text-neutral-500 font-mono text-center mb-6 max-w-sm italic">
+      <p className="text-sm text-muted-foreground font-mono text-center mb-6 max-w-sm italic">
         "{getMessage()}"
       </p>
 
@@ -248,7 +248,7 @@ export function DefconBlockReport({
 
       <button
         onClick={onContinue}
-        className="w-full max-w-sm h-14 bg-neutral-900 border border-neutral-700 text-white font-bold text-lg rounded-xl active:scale-95 transition-transform"
+        className="w-full max-w-sm h-14 bg-card border border-border text-foreground font-bold text-lg rounded-xl active:scale-95 transition-transform"
       >
         PRÓXIMO BLOCO →
       </button>

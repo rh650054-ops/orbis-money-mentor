@@ -224,31 +224,31 @@ export default function DefconHub() {
       {/* HEADER discreto */}
       <div className="pt-1 pb-1">
         <p className="text-xs text-destructive/80 tracking-[0.25em] uppercase">⚡ Modo desafio</p>
-        <h1 className="text-2xl font-bold text-white tracking-tight mt-0.5">DEFCON 4</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight mt-0.5">DEFCON 4</h1>
       </div>
 
       {/* BLOCO UNIFICADO — Meta + Botão */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-background border border-white/10 p-5 space-y-5 shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.25)]">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-background border border-border p-5 space-y-5 shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.25)]">
         {/* glow sutil */}
         <div className="absolute -top-20 -right-20 w-56 h-56 bg-primary/10 blur-3xl rounded-full pointer-events-none" />
 
         <div className="relative flex items-start justify-between">
           <div>
-            <p className="text-xs text-neutral-500 tracking-wider uppercase mb-1">Meta do dia</p>
-            <p className="text-3xl font-bold text-white tracking-tight tabular-nums">
+            <p className="text-xs text-muted-foreground tracking-wider uppercase mb-1">Meta do dia</p>
+            <p className="text-3xl font-bold text-foreground tracking-tight tabular-nums">
               {formatCurrency(dailyGoal)}
             </p>
-            <p className="text-xs text-neutral-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {goalReached ? (
                 <span className="text-success">🎉 Meta batida!</span>
               ) : (
-                <>Vendido <span className="text-white font-medium">{formatCurrency(totalVendido)}</span> · falta <span className="text-primary">{formatCurrency(falta)}</span></>
+                <>Vendido <span className="text-foreground font-medium">{formatCurrency(totalVendido)}</span> · falta <span className="text-primary">{formatCurrency(falta)}</span></>
               )}
             </p>
           </div>
           <button
             onClick={() => setShowEdit(true)}
-            className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-neutral-400 active:scale-95 transition"
+            className="w-8 h-8 rounded-lg bg-foreground/5 hover:bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-95 transition"
             aria-label="Editar meta"
           >
             <Pencil className="w-3.5 h-3.5" />
@@ -256,7 +256,7 @@ export default function DefconHub() {
         </div>
 
         {/* Progress fino */}
-        <div className="relative h-1.5 bg-white/5 rounded-full overflow-hidden">
+        <div className="relative h-1.5 bg-foreground/5 rounded-full overflow-hidden">
           <div
             className={`h-full transition-[colors,transform,opacity] duration-700 rounded-full ${
               goalReached
@@ -273,7 +273,7 @@ export default function DefconHub() {
           data-tour="defcon-banner"
           className="relative w-full h-14 rounded-xl bg-gradient-to-r from-destructive to-destructive/85 text-destructive-foreground font-bold text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-6px_hsl(var(--destructive)/0.55)] overflow-hidden group"
         >
-          <span className="absolute inset-0 bg-white/10 opacity-0 group-active:opacity-100 transition" />
+          <span className="absolute inset-0 bg-foreground/10 opacity-0 group-active:opacity-100 transition" />
           <Zap className="w-5 h-5 fill-white" />
           {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
         </button>
@@ -287,46 +287,46 @@ export default function DefconHub() {
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-white">Como você recebeu</h3>
+              <h3 className="text-sm font-semibold text-foreground">Como você recebeu</h3>
               {!editingPay && (
                 <button
                   onClick={openPayEditor}
-                  className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-neutral-400 active:scale-95 transition"
+                  className="w-6 h-6 rounded-md bg-foreground/5 hover:bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-95 transition"
                   aria-label="Editar recebimentos"
                 >
                   <Pencil className="w-3 h-3" />
                 </button>
               )}
             </div>
-            <span className="text-xs text-neutral-500 tabular-nums">
+            <span className="text-xs text-muted-foreground tabular-nums">
               Total <span className="text-primary font-bold">{formatCurrency(totalVendido)}</span>
             </span>
           </div>
 
           {editingPay ? (
             <div className="rounded-xl bg-card border border-primary/30 p-3 space-y-2.5">
-              <p className="text-xs text-neutral-500">
+              <p className="text-xs text-muted-foreground">
                 Ajuste o que entrou em cada forma. O que faltar pro total vira <span className="text-destructive">não recebido</span>.
               </p>
               <PayEditRow icon={<Banknote className="w-4 h-4 text-success" />} label="Dinheiro" value={payCash} onChange={setPayCash} />
               <PayEditRow icon={<CreditCard className="w-4 h-4" style={{ color: readThemeColor("--violet-soft") }} />} label="Cartão" value={payCard} onChange={setPayCard} />
               <PayEditRow icon={<Smartphone className="w-4 h-4" style={{ color: BRAND_COLORS.PIX }} />} label="Pix" value={payPix} onChange={setPayPix} />
               <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-neutral-500 tabular-nums">
-                  Somado <span className="text-white font-semibold">{formatCurrency((parseFloat(payCash) || 0) + (parseFloat(payCard) || 0) + (parseFloat(payPix) || 0))}</span> / {formatCurrency(totalVendido)}
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  Somado <span className="text-foreground font-semibold">{formatCurrency((parseFloat(payCash) || 0) + (parseFloat(payCard) || 0) + (parseFloat(payPix) || 0))}</span> / {formatCurrency(totalVendido)}
                 </span>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setEditingPay(false)}
                     disabled={savingPay}
-                    className="h-9 px-3 rounded-lg bg-neutral-800 text-neutral-300 text-xs font-semibold flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                    className="h-9 px-3 rounded-lg bg-muted text-foreground text-xs font-semibold flex items-center gap-1 active:scale-95 disabled:opacity-50"
                   >
                     <X className="w-3.5 h-3.5" /> Cancelar
                   </button>
                   <button
                     onClick={savePayEdit}
                     disabled={savingPay}
-                    className="h-9 px-3 rounded-lg bg-primary text-black text-xs font-bold flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                    className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1 active:scale-95 disabled:opacity-50"
                   >
                     <Check className="w-3.5 h-3.5" /> {savingPay ? "Salvando..." : "Salvar"}
                   </button>
@@ -352,7 +352,7 @@ export default function DefconHub() {
                   <p className="text-xs uppercase tracking-wider text-primary font-semibold">Gorjetas</p>
                   <Sparkles className="w-3 h-3 text-primary" />
                 </div>
-                <p className="text-xs text-neutral-500">Já incluso no dinheiro recebido</p>
+                <p className="text-xs text-muted-foreground">Já incluso no dinheiro recebido</p>
               </div>
               <p className="text-lg font-bold text-primary tabular-nums">+{formatCurrency(totals.tips)}</p>
             </div>
@@ -368,18 +368,18 @@ export default function DefconHub() {
 
       {/* VENDAS POR HORA */}
       {planId && totalVendido > 0 && (
-        <div className="rounded-2xl bg-card border border-white/10 p-4">
+        <div className="rounded-2xl bg-card border border-border p-4">
           <HourlyBreakdown userId={user.id} date={today} />
         </div>
       )}
 
       {/* CUSTO RÁPIDO — responsivo */}
-      <div className="rounded-2xl bg-card border border-white/10 p-4 space-y-3">
+      <div className="rounded-2xl bg-card border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <TrendingDown className="w-4 h-4 text-destructive" />
-          <h3 className="text-sm font-semibold text-white">Custo rápido</h3>
+          <h3 className="text-sm font-semibold text-foreground">Custo rápido</h3>
         </div>
-        <p className="text-xs text-neutral-500 -mt-1">
+        <p className="text-xs text-muted-foreground -mt-1">
           Mercadoria, transporte, lanche. Vai entrar no lucro do dia.
         </p>
         <div className="space-y-2">
@@ -387,7 +387,7 @@ export default function DefconHub() {
             value={quickCostLabel}
             onChange={(e) => setQuickCostLabel(e.target.value)}
             placeholder="Descrição (opcional)"
-            className="w-full h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-600"
+            className="w-full h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
           />
           <div className="flex gap-2">
             <input
@@ -396,12 +396,12 @@ export default function DefconHub() {
               value={quickCost}
               onChange={(e) => setQuickCost(e.target.value)}
               placeholder="R$ 0,00"
-              className="flex-1 min-w-0 h-11 bg-black border border-white/10 rounded-xl px-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-600"
+              className="flex-1 min-w-0 h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
             />
             <button
               onClick={handleAddCost}
               disabled={!quickCost || parseFloat(quickCost) <= 0}
-              className="shrink-0 h-11 px-4 rounded-xl bg-primary text-black font-bold text-sm flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
+              className="shrink-0 h-11 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
             >
               <Plus className="w-4 h-4" />
               Adicionar
@@ -420,7 +420,7 @@ export default function DefconHub() {
         {exporting ? "Gerando..." : "Baixar PDF do dia"}
       </button>
 
-      <p className="text-center text-xs text-neutral-600">
+      <p className="text-center text-xs text-muted-foreground">
         Os relatórios completos e filtros do DEFCON 4 estão na aba <span className="text-primary">Relatório</span>.
       </p>
 
@@ -469,11 +469,11 @@ function PayCard({
         {icon}
         <span className="text-xs font-semibold tracking-wide uppercase">{label}</span>
       </div>
-      <p className="relative text-base font-bold text-white tabular-nums truncate leading-tight">
+      <p className="relative text-base font-bold text-foreground tabular-nums truncate leading-tight">
         {formatCurrency(value)}
       </p>
       {/* mini barra com % do total */}
-      <div className="relative h-0.5 bg-white/5 rounded-full overflow-hidden">
+      <div className="relative h-0.5 bg-foreground/5 rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-[colors,transform,opacity] duration-500"
           style={{
@@ -483,24 +483,24 @@ function PayCard({
           }}
         />
       </div>
-      <p className="relative text-xs text-neutral-500 tabular-nums">{pct}% do total</p>
+      <p className="relative text-xs text-muted-foreground tabular-nums">{pct}% do total</p>
     </div>
   );
 }
 
 function PayEditRow({ icon, label, value, onChange }: { icon: React.ReactNode; label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div className="relative h-11 rounded-lg bg-black border border-white/10 focus-within:border-primary/60 transition-colors flex items-center">
+    <div className="relative h-11 rounded-lg bg-background border border-border focus-within:border-primary/60 transition-colors flex items-center">
       <span className="absolute left-3">{icon}</span>
-      <span className="absolute left-10 text-xs font-medium text-neutral-400">{label}</span>
-      <span className="absolute right-[68px] text-xs text-neutral-600">R$</span>
+      <span className="absolute left-10 text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="absolute right-[68px] text-xs text-muted-foreground">R$</span>
       <input
         type="number"
         inputMode="decimal"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="0"
-        className="w-full h-full bg-transparent text-right text-sm font-bold text-white pr-3 pl-28 focus-visible:outline-none rounded-lg placeholder:text-neutral-600"
+        className="w-full h-full bg-transparent text-right text-sm font-bold text-foreground pr-3 pl-28 focus-visible:outline-none rounded-lg placeholder:text-muted-foreground"
       />
     </div>
   );
@@ -514,13 +514,13 @@ function MiniStat({ label, value, highlight, danger }: { label: string; value: s
           ? "bg-destructive/10 border-destructive/30"
           : highlight
           ? "bg-primary/10 border-primary/25"
-          : "bg-card border-white/10"
+          : "bg-card border-border"
       }`}
     >
-      <p className={`text-xs font-medium ${danger ? "text-destructive" : highlight ? "text-primary" : "text-neutral-500"}`}>
+      <p className={`text-xs font-medium ${danger ? "text-destructive" : highlight ? "text-primary" : "text-muted-foreground"}`}>
         {label}
       </p>
-      <p className="text-base font-bold text-white tabular-nums mt-0.5">{value}</p>
+      <p className="text-base font-bold text-foreground tabular-nums mt-0.5">{value}</p>
     </div>
   );
 }

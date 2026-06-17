@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -71,6 +72,8 @@ export function DefconRunning({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
+  const { theme, setTheme } = useTheme();
+  const isLight = theme === "light";
 
   // Auto-seleciona se houver só 1 produto no loadout
   useEffect(() => {
@@ -230,11 +233,11 @@ export function DefconRunning({
   // Confirm end screen
   if (showConfirmEnd) {
     return (
-      <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
+      <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
         <div className="text-center space-y-3 mb-8">
           <div className="text-6xl">⚠️</div>
-          <div className="text-xl font-bold text-white">Encerrar o desafio?</div>
-          <p className="text-sm text-neutral-500 font-mono">
+          <div className="text-xl font-bold text-foreground">Encerrar o desafio?</div>
+          <p className="text-sm text-muted-foreground font-mono">
             Você perde a streak. Tem certeza?
           </p>
         </div>
@@ -247,7 +250,7 @@ export function DefconRunning({
           </button>
           <button
             onClick={() => setShowConfirmEnd(false)}
-            className="w-full h-14 bg-neutral-900 border border-neutral-700 text-neutral-400 font-bold text-lg rounded-xl active:scale-95 transition-transform"
+            className="w-full h-14 bg-card border border-border text-muted-foreground font-bold text-lg rounded-xl active:scale-95 transition-transform"
           >
             VOLTAR
           </button>
@@ -257,7 +260,7 @@ export function DefconRunning({
   }
 
   return (
-    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col select-none">
+    <div className="relative min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col select-none">
       {/* Smart approach notifications */}
       <DefconSmartNotification
         userId={userId}
@@ -268,12 +271,22 @@ export function DefconRunning({
         phase="running"
         currentBlockIndex={currentBlockIndex}
       />
+      {/* Toggle de tema (claro/escuro) — pro vendedor trocar ali no modo foco */}
+      <button
+        onClick={() => setTheme(isLight ? "dark" : "light")}
+        className="absolute right-3 z-50 w-9 h-9 rounded-full bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-90 transition"
+        style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
+        aria-label={isLight ? "Tema escuro" : "Tema claro"}
+      >
+        {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+      </button>
+
       {/* Mission header — compacto para dar espaço ao timer */}
       <div className="pt-7 pb-2 px-6 text-center">
         <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-1">
           🔥 MISSÃO
         </div>
-        <div className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
+        <div className="text-2xl md:text-3xl font-black text-foreground tracking-tight leading-tight">
           Faltam <span className="text-primary">{formatCurrency(Math.max(0, remaining))}</span> para a meta
         </div>
         <div className="mt-1 text-xs font-mono text-muted-foreground">
@@ -289,7 +302,7 @@ export function DefconRunning({
             <div
               key={f.id}
               className={`absolute left-1/2 -translate-x-1/2 top-[42%] font-black text-2xl animate-fade-in ${
-                f.tone === "sale" ? "text-success" : f.tone === "tip" ? "text-primary" : "text-white/80"
+                f.tone === "sale" ? "text-success" : f.tone === "tip" ? "text-primary" : "text-foreground/80"
               }`}
               style={{ animation: "fire-rise 1s ease-out forwards" }}
             >
@@ -307,7 +320,7 @@ export function DefconRunning({
         <div className="flex flex-col items-center gap-3 -my-1">
           <div
             className={`text-[104px] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
-              isUrgent ? "text-destructive animate-pulse" : "text-white"
+              isUrgent ? "text-destructive animate-pulse" : "text-foreground"
             }`}
             style={{
               textShadow: isUrgent
@@ -321,7 +334,7 @@ export function DefconRunning({
           </div>
 
           {/* Progress bar — mais visível, reforça ritmo */}
-          <div className="w-64 h-1.5 bg-white/8 rounded-full overflow-hidden border border-white/5">
+          <div className="w-64 h-1.5 bg-foreground/8 rounded-full overflow-hidden border border-border">
             <div
               className={`h-full transition-[colors,transform,opacity] duration-1000 ease-linear rounded-full ${
                 isUrgent ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive)/0.7)]" : "bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
@@ -341,29 +354,29 @@ export function DefconRunning({
             </span>
           </div>
 
-          <span className="w-px h-8 bg-white/10" />
+          <span className="w-px h-8 bg-border" />
 
           {/* Vendas */}
           <div className="flex flex-col items-center gap-0.5">
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Vendas</span>
-            <span className="font-black text-white text-[20px] font-mono tabular-nums leading-none">
+            <span className="font-black text-foreground text-[20px] font-mono tabular-nums leading-none">
               {blockSalesCount}
             </span>
           </div>
 
-          <span className="w-px h-8 bg-white/10" />
+          <span className="w-px h-8 bg-border" />
 
           {/* Abordagens */}
           <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Abord.</span>
-            <span className="font-black text-white text-[20px] font-mono tabular-nums leading-none">
+            <span className="font-black text-foreground text-[20px] font-mono tabular-nums leading-none">
               {blockApproaches}
             </span>
           </div>
 
           {blockApproaches > 0 && (
             <>
-              <span className="w-px h-8 bg-white/10" />
+              <span className="w-px h-8 bg-border" />
               {/* Conversão */}
               <div className="flex flex-col items-center gap-0.5">
                 <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Conv.</span>
@@ -385,10 +398,10 @@ export function DefconRunning({
         <div className="w-full flex justify-center px-1">
           <button
             onClick={() => setShowExpense(true)}
-            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-card border border-white/10 active:scale-95 active:bg-secondary transition-[colors,transform,opacity]"
+            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border active:scale-95 active:bg-secondary transition-[colors,transform,opacity]"
           >
             <Minus className="w-3.5 h-3.5 text-destructive" strokeWidth={2.5} />
-            <span className="text-xs font-bold text-white/70 tracking-wide uppercase">Custo</span>
+            <span className="text-xs font-bold text-foreground/70 tracking-wide uppercase">Custo</span>
           </button>
         </div>
 
@@ -403,12 +416,12 @@ export function DefconRunning({
           {/* Abordagem — esquerda, mais baixo */}
           <button
             onClick={handleApproachClick}
-            className={`flex-1 h-[56px] rounded-2xl bg-card border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
-              approachPulse ? "ring-2 ring-white/30 bg-secondary" : ""
+            className={`flex-1 h-[56px] rounded-2xl bg-card border border-border flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
+              approachPulse ? "ring-2 ring-foreground/30 bg-secondary" : ""
             }`}
           >
-            <UserRound className="w-4 h-4 text-white/80" strokeWidth={2.5} />
-            <span className="text-xs font-bold text-white/80 leading-none">Abordagem</span>
+            <UserRound className="w-4 h-4 text-foreground/80" strokeWidth={2.5} />
+            <span className="text-xs font-bold text-foreground/80 leading-none">Abordagem</span>
           </button>
 
           {/* Venda — centro, elevado e destacado */}
@@ -416,8 +429,8 @@ export function DefconRunning({
             onClick={() => setShowAddSale(true)}
             className="flex-[1.25] h-[72px] rounded-2xl bg-primary flex items-center justify-center gap-2 active:scale-95 transition-[colors,transform,opacity] shadow-[0_12px_40px_-6px_hsl(var(--primary)/0.85)]"
           >
-            <Plus className="w-7 h-7 text-black" strokeWidth={3.5} />
-            <span className="text-[18px] font-black text-black tracking-tight">Venda</span>
+            <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={3.5} />
+            <span className="text-[18px] font-black text-primary-foreground tracking-tight">Venda</span>
           </button>
 
           {/* Gorjeta — direita, mais baixo */}
@@ -431,7 +444,7 @@ export function DefconRunning({
         </div>
 
         {/* Frase de impacto — acionável */}
-        <p className="text-[13px] text-white/70 font-mono text-center font-semibold">
+        <p className="text-[13px] text-foreground/70 font-mono text-center font-semibold">
           {impactPhrase}
         </p>
       </div>
@@ -441,24 +454,24 @@ export function DefconRunning({
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setShowOccurrence(true)}
-            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-white/5 transition-[colors,transform,opacity]"
+            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
           >
             <FileText className="w-3 h-3 text-muted-foreground/60" />
             <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Ocorrência</span>
           </button>
           {!lunchPauseUsed && (
             <>
-              <span className="text-white/10">|</span>
+              <span className="text-foreground/10">|</span>
               <button
                 onClick={() => setShowLunchPicker(true)}
-                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-white/5 transition-[colors,transform,opacity]"
+                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
               >
                 <UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" />
                 <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Almoço</span>
               </button>
             </>
           )}
-          <span className="text-white/10">|</span>
+          <span className="text-foreground/10">|</span>
           <button
             onClick={() => setShowConfirmEnd(true)}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-destructive/10 transition-[colors,transform,opacity]"
@@ -485,16 +498,16 @@ export function DefconRunning({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
-              <h3 id="defcon-sale-title" className="text-lg font-bold text-white">Registrar venda</h3>
+              <h3 id="defcon-sale-title" className="text-lg font-bold text-foreground">Registrar venda</h3>
               <button onClick={() => { setShowAddSale(false); resetSaleForm(); }}>
-                <X className="w-6 h-6 text-neutral-500" />
+                <X className="w-6 h-6 text-muted-foreground" />
               </button>
             </div>
 
             {/* Seletor de produto — só aparece se loadout tem 2+ produtos */}
             {loadout.length >= 2 && (
               <div className="space-y-2">
-                <p className="text-xs font-mono text-neutral-500 tracking-wider uppercase">
+                <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
                   Qual produto?
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -507,15 +520,15 @@ export function DefconRunning({
                         onClick={() => setSelectedProductId(item.product_id)}
                         className={`p-3 rounded-xl border text-left active:scale-95 transition-[colors,transform,opacity] ${
                           selected
-                            ? "bg-primary/15 border-primary text-white"
-                            : "bg-black/40 border-white/10 text-neutral-300"
+                            ? "bg-primary/15 border-primary text-foreground"
+                            : "bg-background/40 border-border text-foreground"
                         }`}
                       >
                         <div className="flex items-center gap-1.5">
-                          <Package className={`w-3.5 h-3.5 ${selected ? "text-primary" : "text-neutral-500"}`} />
+                          <Package className={`w-3.5 h-3.5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
                           <span className="text-xs font-bold truncate">{item.product_name}</span>
                         </div>
-                        <p className={`text-xs mt-1 font-mono ${selected ? "text-primary" : "text-neutral-500"}`}>
+                        <p className={`text-xs mt-1 font-mono ${selected ? "text-primary" : "text-muted-foreground"}`}>
                           {restante} restantes
                         </p>
                       </button>
@@ -530,7 +543,7 @@ export function DefconRunning({
               <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2 flex items-center gap-2">
                 <Package className="w-4 h-4 text-primary" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-white truncate">{loadout[0]!.product_name}</p>
+                  <p className="text-xs font-bold text-foreground truncate">{loadout[0]!.product_name}</p>
                   <p className="text-xs text-primary font-mono">
                     {Math.max(0, Number(loadout[0]!.qty_initial) - Number(loadout[0]!.qty_sold))} restantes
                   </p>
@@ -539,7 +552,7 @@ export function DefconRunning({
             )}
 
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-bold">
                 R$
               </span>
               <input
@@ -550,7 +563,7 @@ export function DefconRunning({
                 onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
                 placeholder="0"
                 autoFocus
-                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-neutral-700"
+                className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-muted-foreground"
               />
             </div>
 
@@ -558,35 +571,35 @@ export function DefconRunning({
             {!showClientFields ? (
               <button
                 onClick={() => setShowClientFields(true)}
-                className="w-full h-11 rounded-xl bg-neutral-800/60 border border-dashed border-neutral-700 text-neutral-400 text-xs font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                className="w-full h-11 rounded-xl bg-muted/60 border border-dashed border-border text-muted-foreground text-xs font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
               >
                 <User className="w-3.5 h-3.5" />
-                Adicionar cliente <span className="text-neutral-600">(opcional)</span>
+                Adicionar cliente <span className="text-muted-foreground">(opcional)</span>
               </button>
             ) : (
               <div className="space-y-2 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-mono text-neutral-500 tracking-wider uppercase">Cliente (opcional)</span>
+                  <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">Cliente (opcional)</span>
                   <button
                     onClick={() => { setSaleName(""); setSalePhone(""); setShowClientFields(false); }}
-                    className="text-xs text-neutral-500 hover:text-neutral-300 underline"
+                    className="text-xs text-muted-foreground hover:text-foreground underline"
                   >
                     remover
                   </button>
                 </div>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="text"
                     value={saleName}
                     onChange={(e) => setSaleName(e.target.value)}
                     placeholder="Nome do cliente"
                     maxLength={80}
-                    className="w-full h-11 bg-black border border-neutral-700 rounded-xl pl-10 pr-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-700"
+                    className="w-full h-11 bg-background border border-border rounded-xl pl-10 pr-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
                 <div className="relative">
-                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input
                     type="tel"
                     inputMode="tel"
@@ -594,7 +607,7 @@ export function DefconRunning({
                     onChange={(e) => setSalePhone(e.target.value)}
                     placeholder="WhatsApp (DDD + número)"
                     maxLength={20}
-                    className="w-full h-11 bg-black border border-neutral-700 rounded-xl pl-10 pr-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-700"
+                    className="w-full h-11 bg-background border border-border rounded-xl pl-10 pr-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
                   />
                 </div>
 
@@ -647,12 +660,12 @@ export function DefconRunning({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
-              <h3 id="defcon-lunch-title" className="text-lg font-bold text-white">🍽️ Pausa para almoço</h3>
+              <h3 id="defcon-lunch-title" className="text-lg font-bold text-foreground">🍽️ Pausa para almoço</h3>
               <button onClick={() => { setShowLunchPicker(false); setCustomLunchMinutes(""); }}>
-                <X className="w-6 h-6 text-neutral-500" />
+                <X className="w-6 h-6 text-muted-foreground" />
               </button>
             </div>
-            <p className="text-sm text-neutral-500 font-mono">
+            <p className="text-sm text-muted-foreground font-mono">
               Escolha o tempo de pausa. Você só pode usar 1 vez por dia.
             </p>
             <div className="grid grid-cols-4 gap-2">
@@ -671,7 +684,7 @@ export function DefconRunning({
               ))}
             </div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-neutral-600 font-mono">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">
                 min
               </span>
               <input
@@ -680,7 +693,7 @@ export function DefconRunning({
                 value={customLunchMinutes}
                 onChange={(e) => setCustomLunchMinutes(e.target.value)}
                 placeholder="Ou digite os minutos"
-                className="w-full h-14 bg-black border-2 border-neutral-700 rounded-xl text-center text-2xl font-black text-white pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-neutral-700 placeholder:text-sm"
+                className="w-full h-14 bg-background border-2 border-border rounded-xl text-center text-2xl font-black text-foreground pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-muted-foreground placeholder:text-sm"
               />
             </div>
             <button
@@ -727,15 +740,15 @@ export function DefconRunning({
           >
             <div className="flex justify-between items-center">
               <div>
-                <h3 id="defcon-tip-title" className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
+                <h3 id="defcon-tip-title" className="text-lg font-bold text-foreground">🎯 Registrar gorjeta</h3>
                 <p className="text-xs font-mono text-muted-foreground mt-0.5">Conta como venda no faturamento</p>
               </div>
               <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
-                <X className="w-6 h-6 text-neutral-500" />
+                <X className="w-6 h-6 text-muted-foreground" />
               </button>
             </div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-bold">
                 R$
               </span>
               <input
@@ -746,13 +759,13 @@ export function DefconRunning({
                 onKeyDown={(e) => e.key === "Enter" && handleAddTip()}
                 placeholder="0"
                 autoFocus
-                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors placeholder:text-neutral-700"
+                className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors placeholder:text-muted-foreground"
               />
             </div>
             <button
               onClick={handleAddTip}
               disabled={!tipValue || parseFloat(tipValue) <= 0}
-              className="w-full h-14 bg-primary text-black font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              className="w-full h-14 bg-primary text-primary-foreground font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" strokeWidth={3} />
               REGISTRAR
