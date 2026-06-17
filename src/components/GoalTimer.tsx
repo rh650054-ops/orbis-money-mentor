@@ -205,7 +205,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
 
     // Trigger AI motivational message
     try {
-      await supabase.functions.invoke("chat-with-ai", {
+      await supabase.functions.invoke("bright-action", {
         body: {
           messages: [
             {

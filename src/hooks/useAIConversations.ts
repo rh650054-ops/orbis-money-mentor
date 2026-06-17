@@ -145,7 +145,7 @@ export const useAIConversations = () => {
       // Build conversation history for AI
       const history = [...messages, tempUser].map((m) => ({ role: m.role, content: m.content }));
 
-      const { data, error } = await supabase.functions.invoke("chat-with-ai", {
+      const { data, error } = await supabase.functions.invoke("bright-action", {
         body: { messages: history },
       });
 
