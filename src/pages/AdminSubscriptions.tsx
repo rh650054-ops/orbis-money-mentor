@@ -40,6 +40,10 @@ export default function AdminSubscriptions() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [rankingHidden, setRankingHidden] = useState(false);
   const [savingRanking, setSavingRanking] = useState(false);
+  // Correção de resultados/vendas do usuário (anti-trapaça)
+  const [userSales, setUserSales] = useState<any[]>([]);
+  const [saleEdits, setSaleEdits] = useState<Record<string, string>>({});
+  const [savingSaleId, setSavingSaleId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
   const [linkCpf, setLinkCpf] = useState("");
@@ -118,6 +122,22 @@ export default function AdminSubscriptions() {
       });
       setRankingHidden(Boolean(d.ranking_hidden));
     }
+    // Vendas (resultados) do mês atual, para corrigir/zerar valores falsos
+    const now = new Date();
+    const inicioMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const { data: sales } = await supabase
+      .from("daily_sales")
+      .select("id, date, cash_sales, card_sales, pix_sales, total_profit")
+      .eq("user_id", u.user_id)
+      .gte("date", inicioMes)
+      .order("date", { ascending: false });
+    const lista = (sales as any[]) || [];
+    setUserSales(lista);
+    const editsInit: Record<string, string> = {};
+    lista.forEach((s) => {
+      editsInit[s.id] = String(s.total_profit ?? ((s.cash_sales || 0) + (s.card_sales || 0) + (s.pix_sales || 0)));
+    });
+    setSaleEdits(editsInit);
     setLoadingEdit(false);
   };
 
@@ -152,6 +172,55 @@ export default function AdminSubscriptions() {
       toast({ title: "Erro no ranking", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
       setSavingRanking(false);
+    }
+  };
+
+  // Corrige o valor de um dia: ajusta o total e redistribui dinheiro/cartão/pix
+  // proporcionalmente; depois recalcula o ranking a partir do daily_sales.
+  const saveSaleDay = async (sale: any, newTotalStr: string) => {
+    if (!editUser) return;
+    const newTotal = parseFloat(newTotalStr) || 0;
+    setSavingSaleId(sale.id);
+    try {
+      const orig = (sale.cash_sales || 0) + (sale.card_sales || 0) + (sale.pix_sales || 0);
+      let cash: number, card: number, pix: number;
+      if (orig > 0) {
+        const r = newTotal / orig;
+        cash = Math.round((sale.cash_sales || 0) * r * 100) / 100;
+        card = Math.round((sale.card_sales || 0) * r * 100) / 100;
+        pix = Math.round((sale.pix_sales || 0) * r * 100) / 100;
+      } else {
+        cash = newTotal; card = 0; pix = 0;
+      }
+      const { error } = await supabase
+        .from("daily_sales")
+        .update({ cash_sales: cash, card_sales: card, pix_sales: pix, total_profit: newTotal } as any)
+        .eq("id", sale.id);
+      if (error) throw error;
+      await syncLeaderboardRevenue(editUser.user_id);
+      setUserSales((prev) => prev.map((s) => (s.id === sale.id ? { ...s, cash_sales: cash, card_sales: card, pix_sales: pix, total_profit: newTotal } : s)));
+      toast({ title: "✅ Resultado corrigido", description: "Ranking recalculado." });
+    } catch (err: any) {
+      toast({ title: "Erro ao corrigir", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingSaleId(null);
+    }
+  };
+
+  // Remove um lançamento de dia inteiro (ex.: venda falsa) e recalcula o ranking.
+  const deleteSaleDay = async (sale: any) => {
+    if (!editUser) return;
+    setSavingSaleId(sale.id);
+    try {
+      const { error } = await supabase.from("daily_sales").delete().eq("id", sale.id);
+      if (error) throw error;
+      await syncLeaderboardRevenue(editUser.user_id);
+      setUserSales((prev) => prev.filter((s) => s.id !== sale.id));
+      toast({ title: "🗑️ Dia removido", description: "Ranking recalculado." });
+    } catch (err: any) {
+      toast({ title: "Erro ao remover", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingSaleId(null);
     }
   };
 
@@ -586,6 +655,50 @@ export default function AdminSubscriptions() {
                     "Remover do ranking"
                   )}
                 </Button>
+              </div>
+
+              {/* Corrigir resultados/vendas (anti-trapaça) */}
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <p className="text-sm font-semibold">Resultados do mês (corrigir)</p>
+                {userSales.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma venda registrada neste mês.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userSales.map((s) => (
+                      <div key={s.id} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-12 shrink-0">
+                          {new Date(s.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        </span>
+                        <div className="relative flex-1 min-w-0">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            value={saleEdits[s.id] ?? ""}
+                            onChange={(e) => setSaleEdits((m) => ({ ...m, [s.id]: e.target.value }))}
+                            className="pl-8 h-9"
+                          />
+                        </div>
+                        <Button size="sm" onClick={() => saveSaleDay(s, saleEdits[s.id] ?? "0")} disabled={savingSaleId === s.id} title="Salvar valor">
+                          {savingSaleId === s.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => deleteSaleDay(s)}
+                          disabled={savingSaleId === s.id}
+                          title="Remover este dia"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Ajuste o valor de um dia ou remova um lançamento falso. O ranking recalcula sozinho.
+                </p>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
