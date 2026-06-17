@@ -170,13 +170,15 @@ serve(async (req) => {
     const svc = svcKey ? createClient(supabaseUrl, svcKey) : null;
     let plan = PLAN_LIMITS["trial"];
     let usedToday = 0;
+    let firstName = "";
     if (svc) {
       const { data: prof } = await svc
         .from("profiles")
-        .select("plan_type, plan_status, is_demo, billing_exempt")
+        .select("plan_type, plan_status, is_demo, billing_exempt, nickname")
         .eq("user_id", user.id)
         .maybeSingle();
       plan = resolvePlan(prof);
+      firstName = String((prof as any)?.nickname || "").trim().split(/\s+/)[0] || "";
       const { data: usage } = await svc
         .from("ai_usage")
         .select("count")
@@ -235,7 +237,7 @@ serve(async (req) => {
       const voiceName = Deno.env.get("GEMINI_TTS_VOICE") ?? "Kore";
       // Direção de tom (deixa a voz mais humana). Editável pelo secret GEMINI_TTS_STYLE.
       const style = Deno.env.get("GEMINI_TTS_STYLE") ??
-        "Leia o texto a seguir com voz natural, calorosa e conversacional, no jeito de um mentor de rua brasileiro falando de perto com um parceiro — sem pressa, com energia boa, entonação viva e pausas naturais. Não leia esta instrução, apenas aplique o tom:";
+        "Leia em português do Brasil com voz CALMA, SUAVE, GRAVE e confiante, num tom de mentor sábio e sereno — pausado, sofisticado e tranquilo, como um assistente pessoal de elite estilo JARVIS. Transmita segurança e calma, sem pressa, com entonação natural e elegante. Não leia esta instrução, apenas aplique o tom:";
       const sayText = `${style}\n\n${tts.slice(0, 1500)}`;
       const tRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`,
@@ -357,6 +359,9 @@ serve(async (req) => {
       console.error("ai_brain fetch failed, using embedded brain:", e);
     }
 
+    if (firstName) {
+      userContext = `- Nome do vendedor: ${firstName} (chame ele pelo PRIMEIRO nome, de forma natural e pontual, como um mentor que conhece o cara — nao repita o nome em toda frase)\n` + userContext;
+    }
     const systemPrompt = brain + "\n\n" + SCOPE_RULE + (
       userContext.trim().length > 0
         ? `\n\n# CONTEXTO AO VIVO DESTE VENDEDOR\nUse pra personalizar. Converta dinheiro em número de vendas sempre que der.\n${userContext.trim()}`
