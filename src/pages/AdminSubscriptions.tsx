@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
 interface SubscriptionUser {
   id: string;
@@ -37,6 +38,8 @@ export default function AdminSubscriptions() {
   const [editForm, setEditForm] = useState({ nickname: "", phone: "", cpf: "", city: "", state: "", email: "" });
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [rankingHidden, setRankingHidden] = useState(false);
+  const [savingRanking, setSavingRanking] = useState(false);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
   const [linkCpf, setLinkCpf] = useState("");
@@ -100,7 +103,7 @@ export default function AdminSubscriptions() {
     setEditForm({ nickname: u.nickname || "", phone: "", cpf: "", city: "", state: "", email: u.email || "" });
     const { data } = await supabase
       .from("profiles")
-      .select("nickname, phone, cpf, city, state, email")
+      .select("nickname, phone, cpf, city, state, email, ranking_hidden")
       .eq("user_id", u.user_id)
       .maybeSingle();
     if (data) {
@@ -113,8 +116,43 @@ export default function AdminSubscriptions() {
         state: d.state || "",
         email: d.email || "",
       });
+      setRankingHidden(Boolean(d.ranking_hidden));
     }
     setLoadingEdit(false);
+  };
+
+  // Remove (oculta) ou devolve o usuário ao ranking. Persiste via profiles.ranking_hidden,
+  // limpa/recria a entrada em leaderboard_stats e recalcula as posições do mês.
+  const toggleRankingHidden = async () => {
+    if (!editUser) return;
+    setSavingRanking(true);
+    try {
+      const newHidden = !rankingHidden;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ ranking_hidden: newHidden } as any)
+        .eq("user_id", editUser.user_id);
+      if (error) throw error;
+
+      if (newHidden) {
+        // Tira do ranking agora (todas as entradas)
+        await supabase.from("leaderboard_stats").delete().eq("user_id", editUser.user_id);
+      } else {
+        // Volta ao ranking: reconstrói a entrada a partir das vendas do mês
+        await syncLeaderboardRevenue(editUser.user_id);
+      }
+
+      const now = new Date();
+      const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      await supabase.rpc("recalculate_ranking_positions", { target_month: mes });
+
+      setRankingHidden(newHidden);
+      toast({ title: newHidden ? "🚫 Removido do ranking" : "✅ De volta ao ranking" });
+    } catch (err: any) {
+      toast({ title: "Erro no ranking", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingRanking(false);
+    }
   };
 
   // Salva as alterações direto no profiles (admin tem permissão, mesmo caminho do toggle de assinatura)
@@ -525,6 +563,31 @@ export default function AdminSubscriptions() {
                   Mudar o e-mail de login precisa de um passo extra — me avise se precisar.
                 </p>
               </div>
+
+              {/* Moderação do ranking */}
+              <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Ranking</p>
+                  <p className="text-xs text-muted-foreground">
+                    {rankingHidden ? "Oculto do ranking" : "Aparece no ranking"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={rankingHidden ? "outline" : "destructive"}
+                  onClick={toggleRankingHidden}
+                  disabled={savingRanking}
+                >
+                  {savingRanking ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : rankingHidden ? (
+                    "Voltar ao ranking"
+                  ) : (
+                    "Remover do ranking"
+                  )}
+                </Button>
+              </div>
+
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setEditUser(null)} disabled={savingEdit}>
                   Cancelar

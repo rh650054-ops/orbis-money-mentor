@@ -102,9 +102,19 @@ export async function syncLeaderboardRevenue(userId: string) {
   // Get user profile for name/avatar
   const { data: profile } = await supabase
     .from("profiles")
-    .select("nickname, email, avatar_url")
+    .select("nickname, email, avatar_url, ranking_hidden")
     .eq("user_id", userId)
     .maybeSingle();
+
+  // Moderação: usuário oculto do ranking — remove a entrada do mês e não recria.
+  if ((profile as any)?.ranking_hidden) {
+    await supabase
+      .from("leaderboard_stats")
+      .delete()
+      .eq("user_id", userId)
+      .eq("mes_referencia", currentMonth);
+    return;
+  }
 
   const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.avatar_url;
