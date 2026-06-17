@@ -10,15 +10,11 @@ interface Props {
   onOpenProfile: (uid: string) => void;
 }
 
-function RowAvatar({ url, name, color }: { url: string | null; name: string | null; color: string }) {
+function RowAvatar({ url, name, color, icon }: { url: string | null; name: string | null; color: string; icon: string }) {
   if (url) {
     return <img src={url} alt={name || ""} className="w-9 h-9 rounded-full object-cover border-2 shrink-0" style={{ borderColor: color }} />;
   }
-  return (
-    <div className="w-9 h-9 rounded-full border-2 bg-[#161616] flex items-center justify-center font-black text-sm shrink-0" style={{ borderColor: color, color }}>
-      {(name || "U").charAt(0).toUpperCase()}
-    </div>
-  );
+  return <img src={icon} alt={name || ""} className="w-9 h-9 object-contain shrink-0" style={{ filter: `drop-shadow(0 0 5px ${color}99)` }} />;
 }
 
 function Divider({ label, color }: { label: string; color: string }) {
@@ -43,7 +39,7 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
         style={isMe ? { background: "#1a1305", border: `1px solid ${tier.color}`, boxShadow: `0 0 14px ${tier.glow}` } : { background: "#0e0e10" }}
       >
         <span className="w-6 text-center font-black shrink-0" style={{ color: tier.color }}>{position}</span>
-        <RowAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} />
+        <RowAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} icon={tier.icon} />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white truncate">
             {entry.nome_usuario || "Vendedor"}
