@@ -9,10 +9,11 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/ui/use-toast";
-import { useCommunityFeed, type FeedChannel } from "@/hooks/useCommunityFeed";
+import { useCommunityFeed, type FeedChannel, type FeedPost } from "@/hooks/useCommunityFeed";
 import { PostComposer } from "@/components/community/PostComposer";
 import { PostCard } from "@/components/community/PostCard";
 import { CommentsSheet } from "@/components/community/CommentsSheet";
+import { generatePostShareImage } from "@/components/community/postShareImage";
 
 const BR_STATES = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
@@ -58,6 +59,54 @@ export default function Chat() {
 
   const handleDelete = async (id: string) => {
     await supabase.from("community_posts").update({ is_deleted: true }).eq("id", id);
+    reload();
+  };
+
+  const handleShare = async (post: FeedPost) => {
+    try {
+      const blob = await generatePostShareImage(post);
+      if (!blob) throw new Error("Falha ao gerar imagem");
+      const file = new File([blob], "orbis-comunidade.png", { type: "image/png" });
+      const nav = navigator as any;
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await nav.share({ files: [file], title: "Comunidade Orbis" });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "orbis-comunidade.png";
+        a.click();
+        URL.revokeObjectURL(url);
+        toast({ title: "Imagem baixada", description: "Agora é só postar no Instagram!" });
+      }
+    } catch (e: any) {
+      if (e?.name === "AbortError") return;
+      toast({ title: "Erro ao gerar imagem", description: e?.message, variant: "destructive" });
+    }
+  };
+
+  const handleRepost = async (post: FeedPost) => {
+    if (!user) return;
+    if (post.user_id === user.id) {
+      toast({ title: "Esse post já é seu" });
+      return;
+    }
+    const quoted = `🔁 Repost de @${post.nickname ?? "vendedor"}:\n\n${post.content ?? ""}`.slice(0, 1000);
+    const { error } = await supabase.from("community_posts").insert({
+      user_id: user.id,
+      channel,
+      content: quoted,
+      image_url: post.image_url ?? null,
+      city: channel === "regional" ? profile?.city ?? null : null,
+      state: channel === "regional" ? profile?.state ?? null : null,
+      nickname: profile?.nickname ?? user.email?.split("@")[0] ?? "Vendedor",
+      avatar_url: profile?.avatar_url ?? null,
+    });
+    if (error) {
+      toast({ title: "Erro ao repostar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Repostado!", description: "Apareceu no feed da comunidade." });
     reload();
   };
 
@@ -108,6 +157,8 @@ export default function Chat() {
                       isMine={p.user_id === user?.id}
                       onLike={() => toggleLike(p.id)}
                       onOpenComments={() => setOpenCommentsFor(p.id)}
+                      onShare={() => handleShare(p)}
+                      onRepost={() => handleRepost(p)}
                       onDelete={() => handleDelete(p.id)}
                     />
                   ))

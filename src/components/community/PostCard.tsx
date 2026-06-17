@@ -1,4 +1,4 @@
-import { Heart, MessageCircle, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Trash2, Repeat2, Share2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/shared/ui/avatar";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -10,10 +10,12 @@ interface Props {
   isMine: boolean;
   onLike: () => void;
   onOpenComments: () => void;
+  onShare: () => void;
+  onRepost: () => void;
   onDelete: () => void;
 }
 
-export function PostCard({ post, isMine, onLike, onOpenComments, onDelete }: Props) {
+export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepost, onDelete }: Props) {
   return (
     <article className="bg-card border border-border/60 rounded-xl p-3.5">
       <div className="flex gap-3">
@@ -63,6 +65,20 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onDelete }: Pro
             >
               <MessageCircle className="h-4 w-4" />
               {post.comments_count > 0 && <span>{post.comments_count}</span>}
+            </button>
+            <button
+              onClick={onRepost}
+              className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-full text-xs text-muted-foreground hover:bg-success/10 hover:text-success transition-colors"
+              aria-label="Repostar na comunidade"
+            >
+              <Repeat2 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={onShare}
+              className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-full text-xs text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+              aria-label="Compartilhar no Instagram"
+            >
+              <Share2 className="h-4 w-4" />
             </button>
             {isMine && (
               <button
