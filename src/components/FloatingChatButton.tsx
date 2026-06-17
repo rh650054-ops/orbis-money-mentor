@@ -177,7 +177,8 @@ export default function FloatingChatButton() {
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-background flex flex-col animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] flex flex-col animate-in fade-in duration-200"
+          style={{ background: "radial-gradient(ellipse 110% 38% at 50% 0%, rgba(201,168,76,0.07), #060608 55%)" }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="floating-chat-title"
@@ -189,7 +190,10 @@ export default function FloatingChatButton() {
             </Button>
             <div className="flex items-center gap-2">
               <OrbisSphere size={28} state="idle" />
-              <span id="floating-chat-title" className="font-semibold text-sm">Orbis IA</span>
+              <div className="leading-tight">
+                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
+                <p className="text-[10px] text-emerald-400/80 -mt-0.5">● online</p>
+              </div>
             </div>
             <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
               <X className="h-5 w-5" />
@@ -218,7 +222,7 @@ export default function FloatingChatButton() {
                     ))}
                   </div>
                 </div>
-              ) : isLoading ? (
+              ) : isLoading && messages.length === 0 ? (
                 <div className="flex justify-center py-10">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -236,8 +240,8 @@ export default function FloatingChatButton() {
                         className={cn(
                           "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
                           m.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-muted rounded-bl-md"
+                            ? "bg-primary/15 border border-primary/30 text-[#F5D78E] rounded-br-md"
+                            : "bg-white/[0.04] border border-white/10 text-white/90 rounded-bl-md"
                         )}
                       >
                         {m.content}

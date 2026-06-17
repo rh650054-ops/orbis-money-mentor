@@ -61,15 +61,15 @@ export function OrbisSphere({
     for (let i = 0; i < count; i++) {
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
-      const r = size * 0.38 * (0.7 + Math.random() * 0.3);
+      const r = size * 0.42 * (0.7 + Math.random() * 0.3);
       particles.push({
         theta,
         phi,
         baseR: r,
         speed: (Math.random() - 0.5) * 0.003 * speed,
         phiSpeed: (Math.random() - 0.5) * 0.002 * speed,
-        size: Math.random() * (size > 100 ? 1.8 : size > 30 ? 1.2 : 0.8) + 0.3,
-        opacity: Math.random() * 0.6 + 0.3,
+        size: Math.random() * (size > 100 ? 2.6 : size > 30 ? 2.0 : 1.5) + 0.7,
+        opacity: Math.random() * 0.45 + 0.55,
         pulse: Math.random() * Math.PI * 2,
         pulseSpeed: 0.02 + Math.random() * 0.03,
       });
@@ -132,7 +132,7 @@ export function OrbisSphere({
         ctx.globalAlpha = p.opacity * pulse;
         ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(p.sx, p.sy, Math.max(p.ps, 0.3), 0, Math.PI * 2);
+        ctx.arc(p.sx, p.sy, Math.max(p.ps, 0.7), 0, Math.PI * 2);
         ctx.fill();
 
         if (p.ps > 0.8 && size > 50) {
