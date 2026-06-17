@@ -85,6 +85,13 @@ export default function AdminDemoUsers() {
     if (!user) return;
 
     try {
+      // Fonte de verdade do app: admin_access (por CPF) via edge function
+      const { data: adminData } = await supabase.functions.invoke("check-admin-access");
+      if (adminData?.whitelisted && adminData?.role === "admin") {
+        setIsAdmin(true);
+        return;
+      }
+      // Fallback: tabela user_roles
       const { data, error } = await supabase
         .from("user_roles")
         .select("role")

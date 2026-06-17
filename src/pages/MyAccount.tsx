@@ -46,6 +46,7 @@ export default function Profile() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const { whitelisted: isAdmin } = useAdminAccess(user?.id);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [profile, setProfile] = useState({
@@ -174,6 +175,7 @@ export default function Profile() {
         });
       }
     }
+    setLoadingProfile(false);
   };
 
   const loadStats = async () => {
@@ -349,6 +351,19 @@ export default function Profile() {
 
   if (loading || !user) {
     return null;
+  }
+
+  // Esqueleto enquanto o perfil carrega — evita "piscar" os dados antigos/padrão antes dos reais
+  if (loadingProfile) {
+    return (
+      <div className="space-y-3 pb-4 md:pb-8 max-w-2xl mx-auto animate-pulse">
+        <div className="h-28 rounded-2xl bg-muted" />
+        <div className="h-12 rounded-xl bg-muted" />
+        <div className="h-12 rounded-xl bg-muted" />
+        <div className="h-12 rounded-xl bg-muted" />
+        <div className="h-12 rounded-xl bg-muted" />
+      </div>
+    );
   }
 
   return (

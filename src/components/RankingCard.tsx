@@ -15,7 +15,7 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
   const tier = inRank ? getTier(pos as number) : null;
   const accent = tier?.color ?? "#B47CFF";
   const glow = tier?.glow ?? "rgba(176,124,240,0.5)";
-  const loadingStats = isLoading && !currentUserStats;
+  const loadingStats = isLoading && !currentUserStats; // skeleton inline (sem return null)
 
   return (
     <div className="space-y-2">
