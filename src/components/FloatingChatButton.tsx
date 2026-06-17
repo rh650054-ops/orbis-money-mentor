@@ -128,6 +128,18 @@ export default function FloatingChatButton() {
     setInput("");
   };
 
+  const SUGGESTIONS = [
+    "Como melhorar minha conversão?",
+    "Me motiva pra hoje",
+    "Os 5 princípios da abordagem",
+    "Como não tomar calote?",
+  ];
+  const sendSuggestion = (text: string) => {
+    if (isSending) return;
+    recognitionRef.current?.stop();
+    sendMessage(text);
+  };
+
   const handleNewChat = async () => {
     await createConversation();
     setSidebarOpen(false);
@@ -194,6 +206,17 @@ export default function FloatingChatButton() {
                   <p className="text-sm text-muted-foreground max-w-xs">
                     Pergunte sobre vendas, metas, finanças ou rotina.
                   </p>
+                  <div className="flex flex-wrap gap-2 justify-center mt-5 max-w-xs">
+                    {SUGGESTIONS.map((sug) => (
+                      <button
+                        key={sug}
+                        onClick={() => sendSuggestion(sug)}
+                        className="px-3 py-1.5 rounded-full text-xs bg-primary/10 border border-primary/30 text-primary/90 hover:bg-primary/20 transition-colors"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : isLoading ? (
                 <div className="flex justify-center py-10">
