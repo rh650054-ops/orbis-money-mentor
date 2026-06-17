@@ -7,6 +7,8 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
+import { syncBlocksToDailySales } from "@/utils/syncDailySales";
+import { Check, X } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -28,6 +30,12 @@ export default function DefconHub() {
   const [quickCost, setQuickCost] = useState("");
   const [quickCostLabel, setQuickCostLabel] = useState("");
   const [showEdit, setShowEdit] = useState(false);
+  // Edição manual de "Como você recebeu" (dinheiro/cartão/pix) — p/ corrigir e lançar pagamentos tardios (ex.: Pix do outro dia)
+  const [editingPay, setEditingPay] = useState(false);
+  const [payCash, setPayCash] = useState("");
+  const [payCard, setPayCard] = useState("");
+  const [payPix, setPayPix] = useState("");
+  const [savingPay, setSavingPay] = useState(false);
   const today = getBrazilDate();
 
   useEffect(() => {
@@ -154,6 +162,61 @@ export default function DefconHub() {
     loadAll();
   };
 
+  const openPayEditor = () => {
+    setPayCash(totals.cash ? String(totals.cash) : "");
+    setPayCard(totals.card ? String(totals.card) : "");
+    setPayPix(totals.pix ? String(totals.pix) : "");
+    setEditingPay(true);
+  };
+
+  // Salva a edição manual: redistribui os valores informados pelos blocos da hora
+  // (proporcional ao que cada bloco vendeu) e ressincroniza o daily_sales.
+  // O que faltar pro total vira "não recebido" (calote) — cobre o caso do Pix que cai depois.
+  const savePayEdit = async () => {
+    if (!user || !planId) return;
+    setSavingPay(true);
+    try {
+      const d = parseFloat(payCash) || 0;
+      const c = parseFloat(payCard) || 0;
+      const p = parseFloat(payPix) || 0;
+
+      const { data: blocks } = await supabase
+        .from("hourly_goal_blocks")
+        .select("id, valor_dinheiro, valor_cartao, valor_pix, valor_calote")
+        .eq("plan_id", planId);
+
+      const totalFromBlocks = (blocks || []).reduce(
+        (s, b) => s + (b.valor_dinheiro || 0) + (b.valor_cartao || 0) + (b.valor_pix || 0) + (b.valor_calote || 0),
+        0
+      );
+
+      if (totalFromBlocks > 0) {
+        for (const b of blocks || []) {
+          const blockTotal = (b.valor_dinheiro || 0) + (b.valor_cartao || 0) + (b.valor_pix || 0) + (b.valor_calote || 0);
+          if (blockTotal <= 0) continue;
+          const ratio = blockTotal / totalFromBlocks;
+          const bd = Math.round(d * ratio * 100) / 100;
+          const bc = Math.round(c * ratio * 100) / 100;
+          const bp = Math.round(p * ratio * 100) / 100;
+          const bcal = Math.max(0, Math.round((blockTotal - (bd + bc + bp)) * 100) / 100);
+          await supabase
+            .from("hourly_goal_blocks")
+            .update({ valor_dinheiro: bd, valor_cartao: bc, valor_pix: bp, valor_calote: bcal, achieved_amount: bd + bc + bp + bcal })
+            .eq("id", b.id);
+        }
+      }
+
+      await syncBlocksToDailySales(user.id);
+      setEditingPay(false);
+      toast({ title: "Recebimentos atualizados", description: "Dinheiro, cartão e Pix corrigidos." });
+      loadAll();
+    } catch {
+      toast({ title: "Erro ao salvar", variant: "destructive" });
+    } finally {
+      setSavingPay(false);
+    }
+  };
+
   if (loading || !user) return null;
 
   return (
@@ -222,18 +285,61 @@ export default function DefconHub() {
       {/* RESUMO POR PAGAMENTO — visual rico */}
       {totalVendido > 0 && (
         <div className="space-y-3">
-          <div className="flex items-end justify-between px-1">
-            <h3 className="text-sm font-semibold text-white">Como você recebeu</h3>
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">Como você recebeu</h3>
+              {!editingPay && (
+                <button
+                  onClick={openPayEditor}
+                  className="w-6 h-6 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-neutral-400 active:scale-95 transition"
+                  aria-label="Editar recebimentos"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+            </div>
             <span className="text-xs text-neutral-500 tabular-nums">
               Total <span className="text-primary font-bold">{formatCurrency(totalVendido)}</span>
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
-            <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color={readThemeColor("--success")} />
-            <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color={readThemeColor("--violet-soft")} />
-            <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color={BRAND_COLORS.PIX} />
-          </div>
+          {editingPay ? (
+            <div className="rounded-xl bg-card border border-primary/30 p-3 space-y-2.5">
+              <p className="text-xs text-neutral-500">
+                Ajuste o que entrou em cada forma. O que faltar pro total vira <span className="text-destructive">não recebido</span>.
+              </p>
+              <PayEditRow icon={<Banknote className="w-4 h-4 text-success" />} label="Dinheiro" value={payCash} onChange={setPayCash} />
+              <PayEditRow icon={<CreditCard className="w-4 h-4" style={{ color: readThemeColor("--violet-soft") }} />} label="Cartão" value={payCard} onChange={setPayCard} />
+              <PayEditRow icon={<Smartphone className="w-4 h-4" style={{ color: BRAND_COLORS.PIX }} />} label="Pix" value={payPix} onChange={setPayPix} />
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-xs text-neutral-500 tabular-nums">
+                  Somado <span className="text-white font-semibold">{formatCurrency((parseFloat(payCash) || 0) + (parseFloat(payCard) || 0) + (parseFloat(payPix) || 0))}</span> / {formatCurrency(totalVendido)}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditingPay(false)}
+                    disabled={savingPay}
+                    className="h-9 px-3 rounded-lg bg-neutral-800 text-neutral-300 text-xs font-semibold flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                  >
+                    <X className="w-3.5 h-3.5" /> Cancelar
+                  </button>
+                  <button
+                    onClick={savePayEdit}
+                    disabled={savingPay}
+                    className="h-9 px-3 rounded-lg bg-primary text-black text-xs font-bold flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" /> {savingPay ? "Salvando..." : "Salvar"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color={readThemeColor("--success")} />
+              <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color={readThemeColor("--violet-soft")} />
+              <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color={BRAND_COLORS.PIX} />
+            </div>
+          )}
 
           {/* Gorjeta — destaque dourado quando > 0 */}
           {totals.tips > 0 && (
@@ -378,6 +484,24 @@ function PayCard({
         />
       </div>
       <p className="relative text-xs text-neutral-500 tabular-nums">{pct}% do total</p>
+    </div>
+  );
+}
+
+function PayEditRow({ icon, label, value, onChange }: { icon: React.ReactNode; label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative h-11 rounded-lg bg-black border border-white/10 focus-within:border-primary/60 transition-colors flex items-center">
+      <span className="absolute left-3">{icon}</span>
+      <span className="absolute left-10 text-xs font-medium text-neutral-400">{label}</span>
+      <span className="absolute right-[68px] text-xs text-neutral-600">R$</span>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        className="w-full h-full bg-transparent text-right text-sm font-bold text-white pr-3 pl-28 focus-visible:outline-none rounded-lg placeholder:text-neutral-600"
+      />
     </div>
   );
 }
