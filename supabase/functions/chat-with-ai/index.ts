@@ -206,28 +206,32 @@ serve(async (req) => {
       // se falhar/estourar a cota, cai pro Gemini logo abaixo.
       const elKey = Deno.env.get("ELEVENLABS_API_KEY");
       if (elKey) {
-        try {
-          const voiceId = Deno.env.get("ELEVENLABS_VOICE_ID") ?? "21m00Tcm4TlvDq8ikWAM";
-          // Flash = baixa latencia (sai rapido) e gasta menos credito. PT-BR ok.
-          const elModel = Deno.env.get("ELEVENLABS_MODEL") ?? "eleven_flash_v2_5";
-          const elSpeed = Number(Deno.env.get("ELEVENLABS_SPEED") ?? "1.08");
-          const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
-            method: "POST",
-            headers: { "xi-api-key": elKey, "Content-Type": "application/json", "Accept": "audio/mpeg" },
-            body: JSON.stringify({
-              text: tts.slice(0, 1500),
-              model_id: elModel,
-              voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true, speed: elSpeed },
-            }),
-          });
-          if (elRes.ok) {
-            const buf = new Uint8Array(await elRes.arrayBuffer());
-            return new Response(JSON.stringify({ audio: bytesToB64(buf), mime: "audio/mpeg" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        const voiceId = Deno.env.get("ELEVENLABS_VOICE_ID") ?? "21m00Tcm4TlvDq8ikWAM";
+        const elSpeed = Number(Deno.env.get("ELEVENLABS_SPEED") ?? "1.05");
+        const primaryModel = Deno.env.get("ELEVENLABS_MODEL") ?? "eleven_flash_v2_5";
+        // Tenta a config rapida (Flash + speed); se falhar, tenta a config segura (multilingual, sem speed).
+        const attempts = [
+          { model: primaryModel, voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true, speed: elSpeed } },
+          { model: "eleven_multilingual_v2", voice_settings: { stability: 0.45, similarity_boost: 0.85 } },
+        ];
+        for (const att of attempts) {
+          try {
+            const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+              method: "POST",
+              headers: { "xi-api-key": elKey, "Content-Type": "application/json", "Accept": "audio/mpeg" },
+              body: JSON.stringify({ text: tts.slice(0, 1500), model_id: att.model, voice_settings: att.voice_settings }),
+            });
+            if (elRes.ok) {
+              const buf = new Uint8Array(await elRes.arrayBuffer());
+              return new Response(JSON.stringify({ audio: bytesToB64(buf), mime: "audio/mpeg" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+            }
+            const errBody = await elRes.text();
+            console.warn("ElevenLabs falhou:", att.model, elRes.status, errBody.slice(0, 200));
+          } catch (e) {
+            console.warn("ElevenLabs erro:", att.model, String(e));
           }
-          console.warn("ElevenLabs falhou (", elRes.status, ") -> fallback Gemini TTS");
-        } catch (e) {
-          console.warn("ElevenLabs erro, fallback Gemini TTS:", e);
         }
+        console.warn("ElevenLabs nao gerou audio em nenhuma tentativa -> fallback Gemini TTS");
       }
 
       // (2) Gemini TTS — gratis, comercial OK
