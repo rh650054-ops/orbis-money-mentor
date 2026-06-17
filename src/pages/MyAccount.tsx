@@ -88,6 +88,9 @@ export default function Profile() {
     "Exportação de dados",
   ];
 
+  // Admin NÃO deve ser exibido como "demo" (mesmo tendo is_demo=true só pra isenção de cobrança)
+  const isDemo = profile.is_demo && !isAdmin;
+
   // Carregar perfil do usuário
   useEffect(() => {
     if (!loading && !user) {
@@ -362,7 +365,7 @@ export default function Profile() {
       </div>
 
       {/* Faixa Demo - destaque para que o usuário entenda seu status */}
-      {profile.is_demo && profile.billing_exempt && (
+      {isDemo && profile.billing_exempt && (
         <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_20px_-8px_hsl(var(--primary)/0.5)]">
           <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.25),transparent_60%)]" />
           <div className="relative flex items-center gap-3">
@@ -402,7 +405,7 @@ export default function Profile() {
                   className={`w-14 h-14 rounded-full object-cover border ${
                     profile.plan_status === "active"
                       ? "border-primary/60 ring-2 ring-primary/30 shadow-[0_0_18px_-2px_hsl(var(--primary)/0.7)]"
-                      : profile.is_demo
+                      : isDemo
                       ? "border-border opacity-80 grayscale-[20%]"
                       : "border-border"
                   }`}
@@ -411,7 +414,7 @@ export default function Profile() {
                 <div className={`w-14 h-14 rounded-full flex items-center justify-center text-xl font-semibold ${
                   profile.plan_status === "active"
                     ? "bg-gradient-primary text-primary-foreground shadow-[0_0_18px_-2px_hsl(var(--primary)/0.7)] ring-2 ring-primary/30"
-                    : profile.is_demo
+                    : isDemo
                     ? "bg-muted/60 text-muted-foreground"
                     : "bg-muted text-foreground"
                 }`}>
@@ -437,7 +440,7 @@ export default function Profile() {
                 <h2 className={`text-base font-semibold leading-tight truncate ${
                   profile.plan_status === "active"
                     ? "text-primary"
-                    : profile.is_demo
+                    : isDemo
                     ? "text-foreground/70"
                     : "text-foreground"
                 }`}>
@@ -451,7 +454,7 @@ export default function Profile() {
                 )}
               </div>
               {profile.email && (
-                <p className={`text-xs truncate ${profile.is_demo && profile.plan_status !== "active" ? "text-muted-foreground/70" : "text-muted-foreground"}`}>{profile.email}</p>
+                <p className={`text-xs truncate ${isDemo && profile.plan_status !== "active" ? "text-muted-foreground/70" : "text-muted-foreground"}`}>{profile.email}</p>
               )}
             </div>
 
@@ -496,7 +499,7 @@ export default function Profile() {
                 <span className={`text-base font-semibold ${
                   profile.plan_status === "active"
                     ? "text-primary"
-                    : profile.is_demo
+                    : isDemo
                     ? "text-foreground/70"
                     : "text-foreground"
                 }`}>
@@ -701,7 +704,7 @@ export default function Profile() {
       )}
 
       {/* Status PRO - Para assinantes ativos */}
-      {profile.plan_status === 'active' && !profile.is_demo && (
+      {profile.plan_status === 'active' && !isDemo && (
         <Card className="border-primary/30">
           <CardContent className="p-4">
             <div className="flex items-center justify-between gap-3">
