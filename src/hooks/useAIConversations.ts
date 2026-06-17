@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/ui/use-toast";
@@ -25,6 +25,7 @@ export const useAIConversations = () => {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const skipNextLoadRef = useRef(false);
 
   // Load conversation list
   const loadConversations = useCallback(async () => {
@@ -50,6 +51,10 @@ export const useAIConversations = () => {
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
+      return;
+    }
+    if (skipNextLoadRef.current) {
+      skipNextLoadRef.current = false;
       return;
     }
     setIsLoading(true);
@@ -109,6 +114,7 @@ export const useAIConversations = () => {
 
     // Auto-create conversation if none active
     if (!convId) {
+      skipNextLoadRef.current = true;
       convId = await createConversation();
       if (!convId) return;
     }
@@ -145,7 +151,7 @@ export const useAIConversations = () => {
       // Build conversation history for AI
       const history = [...messages, tempUser].map((m) => ({ role: m.role, content: m.content }));
 
-      const { data, error } = await supabase.functions.invoke("chat-with-ai", {
+      const { data, error } = await supabase.functions.invoke("bright-action", {
         body: { messages: history },
       });
 

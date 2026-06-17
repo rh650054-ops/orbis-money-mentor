@@ -58,13 +58,13 @@ export default function AdminBrain() {
   const loadSections = async () => {
     setLoadingSections(true);
     const { data, error } = await supabase
-      .from("ai_brain")
+      .from("ai_brain" as any)
       .select("id, key, title, content, sort_order, enabled")
       .order("sort_order", { ascending: true });
     if (error) {
       toast({ title: "Erro ao carregar", description: error.message, variant: "destructive" });
     } else {
-      setSections((data as BrainSection[]) || []);
+      setSections((data as unknown as BrainSection[]) || []);
     }
     setLoadingSections(false);
   };
@@ -76,7 +76,7 @@ export default function AdminBrain() {
   const saveSection = async (s: BrainSection) => {
     setSavingId(s.id);
     const { error } = await supabase
-      .from("ai_brain")
+      .from("ai_brain" as any)
       .update({
         content: s.content,
         enabled: s.enabled,

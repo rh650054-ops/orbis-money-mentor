@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff } from "lucide-react";
+import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
-import { OrbisSphere } from "@/components/ai/OrbisSphere";
+import { supabase } from "@/integrations/supabase/client";
+import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -20,6 +21,10 @@ export default function FloatingChatButton() {
   const [isRecording, setIsRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
   const baseInputRef = useRef("");
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const lastSpokenRef = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechSupported =
     typeof window !== "undefined" &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -98,8 +103,11 @@ export default function FloatingChatButton() {
 
   // Para a gravação de voz ao fechar o chat
   useEffect(() => {
-    if (!isOpen && recognitionRef.current) {
-      recognitionRef.current.stop();
+    if (!isOpen) {
+      recognitionRef.current?.stop();
+      if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+      setVoiceMode(false);
+      setSpeaking(false);
     }
   }, [isOpen]);
 
@@ -140,6 +148,104 @@ export default function FloatingChatButton() {
     sendMessage(text);
   };
 
+  // ---- Modo voz ----
+  // Voz do Gemini (servidor) — melhor e funciona no celular. Cai pra voz do navegador se falhar.
+  const speak = async (text: string) => {
+    if (!text) return;
+    setSpeaking(true);
+    try {
+      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      const b64 = (data as any)?.audio;
+      if (b64 && audioRef.current) {
+        const a = audioRef.current;
+        a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
+        a.onended = () => setSpeaking(false);
+        a.onerror = () => { setSpeaking(false); speakBrowser(text); };
+        await a.play();
+        return;
+      }
+    } catch (e) {
+      console.warn("TTS Gemini falhou, usando voz do navegador", e);
+    }
+    setSpeaking(false);
+    speakBrowser(text);
+  };
+
+  const speakBrowser = (text: string) => {
+    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const run = () => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "pt-BR";
+      u.rate = 1.05;
+      const voices = synth.getVoices();
+      const pt = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("pt"));
+      if (pt) u.voice = pt;
+      u.onstart = () => setSpeaking(true);
+      u.onend = () => setSpeaking(false);
+      u.onerror = () => setSpeaking(false);
+      try { synth.resume(); } catch { /* noop */ }
+      synth.speak(u);
+    };
+    if (synth.getVoices().length) {
+      run();
+    } else {
+      synth.onvoiceschanged = () => { synth.onvoiceschanged = null; run(); };
+    }
+  };
+  const enterVoiceMode = () => {
+    setVoiceMode(true);
+  };
+  const exitVoiceMode = () => {
+    recognitionRef.current?.stop();
+    if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
+    setSpeaking(false);
+    setVoiceMode(false);
+  };
+  const voiceSend = () => {
+    // Desbloqueia o audio do navegador dentro do gesto do usuario (necessario em alguns browsers/celular)
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.resume();
+        const warm = new SpeechSynthesisUtterance(" ");
+        warm.volume = 0;
+        window.speechSynthesis.speak(warm);
+      } catch { /* noop */ }
+    }
+    if (audioRef.current) {
+      try {
+        audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+        audioRef.current.play().catch(() => {});
+      } catch { /* noop */ }
+    }
+    const text = input.trim();
+    recognitionRef.current?.stop();
+    if (text) { sendMessage(text); setInput(""); }
+  };
+  const voiceListen = () => {
+    if (!isRecording) toggleRecording();
+  };
+
+  // Fala a resposta da IA quando chega (só no modo voz)
+  useEffect(() => {
+    if (!voiceMode) return;
+    const last = messages[messages.length - 1];
+    if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
+      lastSpokenRef.current = last.id;
+      speak(last.content);
+    }
+  }, [messages, voiceMode]);
+
+  // Pre-carrega as vozes do navegador (algumas so ficam disponiveis de forma assincrona)
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.getVoices();
+    const onVoices = () => window.speechSynthesis.getVoices();
+    window.speechSynthesis.addEventListener?.("voiceschanged", onVoices);
+    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", onVoices);
+  }, []);
+
   const handleNewChat = async () => {
     await createConversation();
     setSidebarOpen(false);
@@ -162,11 +268,14 @@ export default function FloatingChatButton() {
     setRenamingId(null);
   };
 
+  const voiceState: SphereState = isSending ? "processing" : speaking ? "responding" : isRecording ? "listening" : "idle";
+  const voiceLabel = isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : "TOQUE PRA FALAR";
+
   return (
     <>
       {/* Floating Button */}
       <Button
-        onClick={() => setIsOpen(true)}
+        onClick={() => { setIsOpen(true); setVoiceMode(true); }}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
@@ -174,10 +283,13 @@ export default function FloatingChatButton() {
         <OrbisSphere size={44} state="idle" />
       </Button>
 
+      <audio ref={audioRef} className="hidden" preload="auto" />
+
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-[60] bg-background flex flex-col animate-in fade-in duration-200"
+          className="fixed inset-0 z-[60] flex flex-col animate-in fade-in duration-200"
+          style={{ background: "radial-gradient(ellipse 110% 38% at 50% 0%, rgba(201,168,76,0.10), transparent 60%), #070708" }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="floating-chat-title"
@@ -189,11 +301,23 @@ export default function FloatingChatButton() {
             </Button>
             <div className="flex items-center gap-2">
               <OrbisSphere size={28} state="idle" />
-              <span id="floating-chat-title" className="font-semibold text-sm">Orbis IA</span>
+              <div className="leading-tight">
+                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
+                <p className="text-[10px] text-emerald-400/80 -mt-0.5">● online</p>
+              </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
-              <X className="h-5 w-5" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={enterVoiceMode}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary/80 tracking-[0.15em]"
+                aria-label="Modo voz"
+              >
+                VOZ
+              </button>
+              <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
           </header>
 
           {/* Messages */}
@@ -218,7 +342,7 @@ export default function FloatingChatButton() {
                     ))}
                   </div>
                 </div>
-              ) : isLoading ? (
+              ) : isLoading && messages.length === 0 ? (
                 <div className="flex justify-center py-10">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -236,8 +360,8 @@ export default function FloatingChatButton() {
                         className={cn(
                           "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
                           m.role === "user"
-                            ? "bg-primary text-primary-foreground rounded-br-md"
-                            : "bg-muted rounded-bl-md"
+                            ? "bg-primary/15 border border-primary/30 text-[#F5D78E] rounded-br-md"
+                            : "bg-white/[0.04] border border-white/10 text-white/90 rounded-bl-md"
                         )}
                       >
                         {m.content}
@@ -300,6 +424,53 @@ export default function FloatingChatButton() {
               </Button>
             </div>
           </div>
+
+          {/* Voice mode */}
+          {voiceMode && (
+            <div
+              className="absolute inset-0 z-[66] flex flex-col animate-in fade-in duration-200"
+              style={{ background: "radial-gradient(ellipse 120% 50% at 50% 18%, rgba(201,168,76,0.10), transparent 62%), #070708" }}
+              role="dialog"
+              aria-modal="true"
+            >
+              <header className="flex items-center justify-between px-4 min-h-[3.5rem] safe-top">
+                <div className="flex items-center gap-2">
+                  <OrbisSphere size={26} state="idle" />
+                  <span className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary/80 tracking-[0.15em]">VOZ</span>
+              </header>
+
+              <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-7">
+                <OrbisSphere size={210} state={voiceState} />
+                <div className="space-y-2">
+                  <p className="text-[11px] tracking-[0.35em] text-white/40 uppercase">{voiceLabel}</p>
+                  <p className="text-base text-white/75 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
+                    {input || (isSending ? "..." : "Fala sobre o teu corre, parça")}
+                  </p>
+                </div>
+                <button
+                  onClick={isRecording ? voiceSend : voiceListen}
+                  disabled={isSending}
+                  className={cn(
+                    "w-16 h-16 rounded-full flex items-center justify-center transition-all disabled:opacity-50",
+                    isRecording
+                      ? "bg-red-500/15 border border-red-500/40 text-red-400"
+                      : "bg-primary/15 border border-primary/40 text-primary"
+                  )}
+                  aria-label={isRecording ? "Enviar" : "Falar"}
+                >
+                  {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : isRecording ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
+                </button>
+              </div>
+
+              <div className="pb-8 flex justify-center safe-bottom">
+                <button onClick={exitVoiceMode} className="text-xs text-white/45 hover:text-white/70">
+                  usar o chat de texto
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Sidebar (conversation list) */}
           {sidebarOpen && (
