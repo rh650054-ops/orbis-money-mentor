@@ -87,7 +87,7 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
     return (
       <div
         className="rounded-2xl border border-primary/40 p-5 text-center"
-        style={{ background: "radial-gradient(130% 80% at 50% 0%, hsl(45 100% 48% / 0.18) 0%, transparent 65%)" }}
+        style={{ background: `radial-gradient(130% 80% at 50% 0%, ${tier.glow} 0%, transparent 65%)` }}
       >
         <Crown className="w-8 h-8 mx-auto" style={{ color: tier.color, filter: `drop-shadow(0 0 16px ${tier.glow})` }} />
         <p className="font-black tracking-[0.2em] text-sm mt-2" style={{ color: tier.color }}>VOCÊ É O LÍDER · {tier.label}</p>
@@ -119,13 +119,14 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
   const ritmoText = gap === 0 ? "agora" : daysToPass <= 1 ? "hoje" : `${daysToPass} dias`;
   const ritmoOk = daysToPass <= daysLeft;
   const perDay = Math.ceil(gap / daysLeft);
+  const meTier = getTier(me.posicao_faturamento as number);
 
   return (
     <div
-      className="rounded-2xl overflow-hidden border border-[#2a2410] p-4"
-      style={{ background: "radial-gradient(130% 80% at 50% 12%, #2e2408 0%, #070707 62%)" }}
+      className="rounded-2xl overflow-hidden border border-[#26262e] p-4"
+      style={{ background: `radial-gradient(130% 80% at 50% 12%, ${meTier.color}26 0%, #070707 62%)` }}
     >
-      <p className="text-center text-primary tracking-[0.3em] text-[11px]">PRÓXIMO ALVO · ULTRAPASSAGEM</p>
+      <p className="text-center tracking-[0.3em] text-[11px]" style={{ color: meTier.color }}>PRÓXIMO ALVO · ULTRAPASSAGEM</p>
 
       <div className="flex items-start justify-center gap-2 mt-5">
         <DuelSide entry={me} position={me.posicao_faturamento} tag="VOCÊ" tagColor="#2e7d32" formatCurrency={formatCurrency} />
@@ -138,15 +139,15 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
 
       <div className="text-center mt-4">
         <p className="text-[10px] tracking-[0.3em] text-muted-foreground">FALTAM PARA ULTRAPASSAR</p>
-        <p className="text-[34px] leading-tight font-black text-primary" style={{ textShadow: "0 0 26px hsl(var(--primary)/0.65)" }}>
+        <p className="text-[34px] leading-tight font-black" style={{ color: meTier.color, textShadow: `0 0 26px ${meTier.glow}` }}>
           {formatCurrency(gap)}
         </p>
       </div>
 
       <div className="h-2.5 rounded-full bg-[#1a1712] overflow-hidden mt-1.5">
         <div
-          className="h-full rounded-full bg-primary shadow-[0_0_18px_hsl(var(--primary)/0.7)] transition-[width] duration-700"
-          style={{ width: `${pct}%` }}
+          className="h-full rounded-full transition-[width] duration-700"
+          style={{ width: `${pct}%`, background: meTier.color, boxShadow: `0 0 18px ${meTier.glow}` }}
         />
       </div>
 

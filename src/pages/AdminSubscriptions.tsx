@@ -8,7 +8,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2 } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2 } from "lucide-react";
 
 interface SubscriptionUser {
   id: string;
@@ -34,6 +34,7 @@ export default function AdminSubscriptions() {
   const [linkEmail, setLinkEmail] = useState("");
   const [linkCpf, setLinkCpf] = useState("");
   const [isLinking, setIsLinking] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -115,6 +116,34 @@ export default function AdminSubscriptions() {
       });
     } finally {
       setIsUpdating(null);
+    }
+  };
+
+  const handleDeleteUser = async (targetUserId: string, label: string) => {
+    const typed = window.prompt(
+      `EXCLUIR DEFINITIVAMENTE a conta de "${label}"?\n\nIsso remove a conta do sistema e LIBERA o CPF e o e-mail (pra usar de novo, a pessoa cria do zero). NAO da pra desfazer.\n\nDigite EXCLUIR para confirmar:`
+    );
+    if (typed !== "EXCLUIR") return;
+    setIsDeleting(targetUserId);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-delete-user", {
+        body: { userId: targetUserId },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({
+        title: "\uD83D\uDDD1\uFE0F Conta excluida",
+        description: (data as any)?.message || "CPF e e-mail liberados para um novo cadastro.",
+      });
+      setUsers((prev) => prev.filter((x) => x.user_id !== targetUserId));
+    } catch (err: any) {
+      toast({
+        title: "Erro ao excluir conta",
+        description: err.message || "Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -316,6 +345,7 @@ export default function AdminSubscriptions() {
                         </p>
                       )}
                     </div>
+                    <div className="flex items-center gap-2 shrink-0">
                     <Button
                       size="sm"
                       variant={u.plan_status === "active" ? "destructive" : "default"}
@@ -336,6 +366,21 @@ export default function AdminSubscriptions() {
                         </>
                       )}
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => handleDeleteUser(u.user_id, u.email || u.nickname || u.user_id)}
+                      disabled={isDeleting === u.user_id}
+                      title="Excluir conta definitivamente"
+                    >
+                      {isDeleting === u.user_id ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </Button>
+                    </div>
                   </div>
                 </div>
               ))}

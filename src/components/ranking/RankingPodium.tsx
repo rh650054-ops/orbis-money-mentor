@@ -11,7 +11,7 @@ interface Props {
 }
 
 function PodAvatar({ url, name, size, color, glow }: { url: string | null; name: string | null; size: number; color: string; glow: string }) {
-  const base: any = { width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.45)}px ${glow}` };
+  const base: any = { width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` };
   if (url) {
     return <img src={url} alt={name || ""} className="rounded-full object-cover border-[3px] mx-auto block" style={base} />;
   }
@@ -28,9 +28,14 @@ function Col({ entry, position, avatarSize, barHeight, champion, formatCurrency,
 }) {
   if (!entry) return <div className="flex-1" />;
   const tier = getTier(position);
+  const medal = position === 2 ? "🥈" : position === 3 ? "🥉" : "";
   return (
     <div className="flex-1 text-center min-w-0">
-      {champion && <Crown className="w-7 h-7 mx-auto mb-1" style={{ color: tier.color, filter: `drop-shadow(0 0 12px ${tier.glow})` }} />}
+      {champion ? (
+        <Crown className="w-8 h-8 mx-auto mb-1" style={{ color: "#F5D77A", filter: `drop-shadow(0 0 14px ${tier.glow})` }} />
+      ) : (
+        <div className="text-[20px] leading-none mb-1" style={{ filter: `drop-shadow(0 0 8px ${tier.glow})` }}>{medal}</div>
+      )}
       <button onClick={() => onOpenProfile(entry.user_id)} className="block w-full active:scale-[0.97] transition-transform">
         <PodAvatar url={entry.avatar_url} name={entry.nome_usuario} size={avatarSize} color={tier.color} glow={tier.glow} />
         <p className="text-[13px] font-black mt-2 truncate px-0.5" style={{ color: tier.color }}>{entry.nome_usuario || "Vendedor"}</p>
@@ -38,17 +43,18 @@ function Col({ entry, position, avatarSize, barHeight, champion, formatCurrency,
         <p className="text-[10px] font-black tracking-wider" style={{ color: tier.color }}>{tier.label}</p>
       </button>
       <div
-        className="mt-2 rounded-t-xl flex items-center justify-center font-black"
+        className="mt-2 rounded-t-xl flex items-center justify-center font-black relative overflow-hidden"
         style={{
           height: barHeight,
           fontSize: champion ? 30 : 22,
-          color: tier.color,
-          background: champion ? `radial-gradient(120% 80% at 50% 0%, ${tier.glow} 0%, #14120a 72%)` : "#15151a",
-          border: `1px solid ${champion ? "#4a3c12" : "#2a2a30"}`,
+          color: "#ffffff",
+          background: `linear-gradient(180deg, ${tier.color}40 0%, #101015 88%)`,
+          border: `1px solid ${tier.color}66`,
           borderBottom: "none",
+          boxShadow: `inset 0 1px 0 ${tier.color}66`,
         }}
       >
-        {position}
+        <span style={{ textShadow: `0 0 16px ${tier.glow}` }}>{position}</span>
       </div>
     </div>
   );
@@ -57,12 +63,12 @@ function Col({ entry, position, avatarSize, barHeight, champion, formatCurrency,
 export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile }: Props) {
   if (!top1) return null;
   return (
-    <div className="rounded-2xl border border-[#2a2410] p-4 pt-3" style={{ background: "radial-gradient(120% 70% at 50% 0%, #2e2408 0%, #070707 60%)" }}>
-      <p className="text-center text-primary tracking-[0.3em] text-[11px] mb-3">PÓDIO DO MÊS</p>
+    <div className="rounded-2xl border border-[#26262e] p-4 pt-3" style={{ background: "radial-gradient(120% 70% at 50% 0%, rgba(176,124,240,0.16) 0%, #0a0a0d 62%)" }}>
+      <p className="text-center tracking-[0.3em] text-[11px] mb-3" style={{ color: "#C9A6FF" }}>PÓDIO DO MÊS</p>
       <div className="flex items-end justify-center gap-2">
-        <Col entry={top2} position={2} avatarSize={56} barHeight={70} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
-        <Col entry={top1} position={1} avatarSize={78} barHeight={104} champion formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
-        <Col entry={top3} position={3} avatarSize={52} barHeight={54} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top2} position={2} avatarSize={56} barHeight={72} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top1} position={1} avatarSize={80} barHeight={106} champion formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+        <Col entry={top3} position={3} avatarSize={52} barHeight={56} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
       </div>
     </div>
   );
