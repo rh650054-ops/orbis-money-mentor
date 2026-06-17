@@ -14,6 +14,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { z } from "zod";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
+import { AvatarCropper } from "@/components/AvatarCropper";
 
 const BR_STATES = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -70,6 +71,7 @@ export default function Profile() {
   });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [stats, setStats] = useState({
     transactions: 0,
     goals: 0,
@@ -202,22 +204,26 @@ export default function Profile() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size > 8 * 1024 * 1024) {
         toast({
           title: "Erro",
-          description: "Arquivo muito grande. Máximo 2MB.",
+          description: "Arquivo muito grande. Máximo 8MB.",
           variant: "destructive"
         });
         return;
       }
-      
-      setAvatarFile(file);
+      // Abre o editor de recorte (arrastar + zoom) antes de salvar
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
+      reader.onloadend = () => setCropSrc(reader.result as string);
       reader.readAsDataURL(file);
     }
+    e.target.value = "";
+  };
+
+  const handleCropConfirm = (dataUrl: string, file: File) => {
+    setAvatarPreview(dataUrl);
+    setAvatarFile(file);
+    setCropSrc(null);
   };
 
   const handleSaveProfile = async () => {
@@ -418,6 +424,12 @@ export default function Profile() {
                   <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                 </label>
               )}
+              <AvatarCropper
+                open={!!cropSrc}
+                imageSrc={cropSrc}
+                onCancel={() => setCropSrc(null)}
+                onConfirm={handleCropConfirm}
+              />
             </div>
 
             <div className="flex-1 min-w-0">

@@ -39,7 +39,8 @@ import {
   Gamepad2,
   Coins,
   Package,
-  Check
+  Check,
+  ImagePlus
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -148,6 +149,8 @@ export default function Finances() {
     deadline: "",
     icon: "🎯"
   });
+  const [goalImage, setGoalImage] = useState<File | null>(null);
+  const [goalImagePreview, setGoalImagePreview] = useState<string>("");
 
   // Deposit state for goals
   const [depositInputs, setDepositInputs] = useState<{ [key: string]: string }>({});
@@ -349,6 +352,18 @@ export default function Finances() {
     }
 
     try {
+      let iconValue = newGoal.icon;
+      if (goalImage) {
+        const ext = goalImage.name.split(".").pop() || "jpg";
+        const path = `${user.id}/goals/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("community-media")
+          .upload(path, goalImage, { upsert: false });
+        if (!upErr) {
+          iconValue = supabase.storage.from("community-media").getPublicUrl(path).data.publicUrl;
+        }
+      }
+
       const { error } = await supabase
         .from("financial_goals")
         .insert({
@@ -357,7 +372,7 @@ export default function Finances() {
           target_amount: parseFloat(newGoal.target_amount),
           current_amount: 0,
           deadline: newGoal.deadline || null,
-          icon: newGoal.icon,
+          icon: iconValue,
           status: "active"
         });
 
@@ -369,6 +384,8 @@ export default function Finances() {
       });
 
       setNewGoal({ name: "", target_amount: "", deadline: "", icon: "🎯" });
+      setGoalImage(null);
+      setGoalImagePreview("");
       setIsAddGoalOpen(false);
       loadFinancialData();
     } catch (error) {
@@ -906,6 +923,30 @@ export default function Finances() {
                       onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
                     />
                   </div>
+                  <div>
+                    <Label>Imagem da meta (opcional)</Label>
+                    <label className="mt-1.5 flex items-center gap-3 cursor-pointer">
+                      {goalImagePreview ? (
+                        <img src={goalImagePreview} alt="" className="w-16 h-16 rounded-xl object-cover border border-border shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl border border-dashed border-border flex items-center justify-center bg-muted/40 shrink-0">
+                          <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {goalImagePreview ? "Trocar imagem" : "Adicione uma foto do que quer alcançar"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) { setGoalImage(f); setGoalImagePreview(URL.createObjectURL(f)); }
+                        }}
+                      />
+                    </label>
+                  </div>
                   <Button onClick={handleAddGoal} className="w-full">
                     Criar Meta
                   </Button>
@@ -933,9 +974,13 @@ export default function Finances() {
                     <CardContent className="pt-6 space-y-4">
                       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                            <Target className="w-6 h-6 text-primary" />
-                          </div>
+                          {goal.icon && goal.icon.startsWith("http") ? (
+                            <img src={goal.icon} alt="" className="w-12 h-12 rounded-2xl object-cover border border-primary/30 shrink-0" />
+                          ) : (
+                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                              <Target className="w-6 h-6 text-primary" />
+                            </div>
+                          )}
                           <div>
                             <p className="font-semibold text-lg">{goal.name}</p>
                             {goal.deadline && (
