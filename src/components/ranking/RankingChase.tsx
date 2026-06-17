@@ -104,6 +104,7 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
   if (myIdx < 0) return null;
 
   const ahead = ranking[myIdx - 1];
+  if (!ahead) return null;
   const myVal = me.faturamento_total_mes || 0;
   const aheadVal = ahead.faturamento_total_mes || 0;
   const gap = Math.max(0, aheadVal - myVal);
