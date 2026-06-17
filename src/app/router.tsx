@@ -21,6 +21,7 @@ const Benefits = lazy(() => import("@/pages/Benefits"));
 const AdminDemoUsers = lazy(() => import("@/pages/AdminDemoUsers"));
 const AdminSubscriptions = lazy(() => import("@/pages/AdminSubscriptions"));
 const AdminCompetitions = lazy(() => import("@/pages/AdminCompetitions"));
+const AdminBrain = lazy(() => import("@/pages/AdminBrain"));
 const Install = lazy(() => import("@/pages/Install"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const DailyGoals = lazy(() => import("@/pages/DailyGoals"));
@@ -75,6 +76,7 @@ export function AppRouter() {
                     <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                     <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                     <Route path="/admin/competitions" element={<AdminCompetitions />} />
+                    <Route path="/admin/ai-brain" element={<AdminBrain />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

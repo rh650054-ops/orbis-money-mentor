@@ -1,7 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function isValidCpf(cpf: string): boolean {
+  if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]) * (10 - i);
+  let d1 = (sum * 10) % 11; if (d1 === 10) d1 = 0;
+  if (d1 !== parseInt(cpf[9])) return false;
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]) * (11 - i);
+  let d2 = (sum * 10) % 11; if (d2 === 10) d2 = 0;
+  return d2 === parseInt(cpf[10]);
+}
+
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
@@ -28,19 +40,30 @@ Deno.serve(async (req) => {
     }
 
     const cleanedCpf = cpf.replace(/\D/g, "");
-    if (cleanedCpf.length !== 11) {
+    if (!isValidCpf(cleanedCpf)) {
       return new Response(
-        JSON.stringify({ error: "CPF deve ter 11 dígitos." }),
+        JSON.stringify({ error: "CPF inválido." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const internalEmail = `${cleanedCpf}@orbis.internal`;
 
-    // Delete existing unconfirmed user with same email (cleanup of failed signups)
-    const { data: existing } = await supabase.auth.admin.listUsers();
+    // SECURITY: only delete an existing account if it was NEVER confirmed and
+    // NEVER logged in (cleanup of an abandoned/failed signup). If a real account
+    // already exists for this CPF we must refuse — otherwise anyone who knows a
+    // CPF (semi-public in Brazil) could wipe and take over that account.
+    const { data: existing } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
     const existingUser = existing?.users?.find((u) => u.email === internalEmail);
     if (existingUser) {
+      const isConfirmed = !!(existingUser.email_confirmed_at || existingUser.last_sign_in_at);
+      if (isConfirmed) {
+        return new Response(
+          JSON.stringify({ error: "Este CPF já possui uma conta. Faça login ou recupere a senha." }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      // Unconfirmed leftover from a failed signup — safe to clean up.
       await supabase.auth.admin.deleteUser(existingUser.id);
     }
 

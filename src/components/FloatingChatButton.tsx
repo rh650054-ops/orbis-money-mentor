@@ -5,6 +5,7 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { OrbisSphere } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -127,6 +128,18 @@ export default function FloatingChatButton() {
     setInput("");
   };
 
+  const SUGGESTIONS = [
+    "Como melhorar minha conversão?",
+    "Me motiva pra hoje",
+    "Os 5 princípios da abordagem",
+    "Como não tomar calote?",
+  ];
+  const sendSuggestion = (text: string) => {
+    if (isSending) return;
+    recognitionRef.current?.stop();
+    sendMessage(text);
+  };
+
   const handleNewChat = async () => {
     await createConversation();
     setSidebarOpen(false);
@@ -154,11 +167,11 @@ export default function FloatingChatButton() {
       {/* Floating Button */}
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-gradient-primary hover:opacity-90 transition-smooth z-40"
+        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
       >
-        <Sparkles className="h-6 w-6" />
+        <OrbisSphere size={44} state="idle" />
       </Button>
 
       {/* Full-screen ChatGPT-style overlay */}
@@ -175,9 +188,7 @@ export default function FloatingChatButton() {
               <Menu className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-gradient-primary flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5 text-primary-foreground" />
-              </div>
+              <OrbisSphere size={28} state="idle" />
               <span id="floating-chat-title" className="font-semibold text-sm">Orbis IA</span>
             </div>
             <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
@@ -190,13 +201,22 @@ export default function FloatingChatButton() {
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
               {!activeId && messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center text-center py-16">
-                  <div className="w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mb-4 shadow-glow-primary">
-                    <Sparkles className="w-8 h-8 text-primary-foreground" />
-                  </div>
+                  <div className="mb-4"><OrbisSphere size={88} state="listening" /></div>
                   <h2 className="text-2xl font-bold mb-2">Como posso ajudar?</h2>
                   <p className="text-sm text-muted-foreground max-w-xs">
                     Pergunte sobre vendas, metas, finanças ou rotina.
                   </p>
+                  <div className="flex flex-wrap gap-2 justify-center mt-5 max-w-xs">
+                    {SUGGESTIONS.map((sug) => (
+                      <button
+                        key={sug}
+                        onClick={() => sendSuggestion(sug)}
+                        className="px-3 py-1.5 rounded-full text-xs bg-primary/10 border border-primary/30 text-primary/90 hover:bg-primary/20 transition-colors"
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               ) : isLoading ? (
                 <div className="flex justify-center py-10">
@@ -210,9 +230,7 @@ export default function FloatingChatButton() {
                       className={cn("flex gap-3", m.role === "user" ? "justify-end" : "justify-start")}
                     >
                       {m.role === "assistant" && (
-                        <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-primary flex items-center justify-center">
-                          <Sparkles className="w-4 h-4 text-primary-foreground" />
-                        </div>
+                        <div className="shrink-0"><OrbisSphere size={30} state="responding" /></div>
                       )}
                       <div
                         className={cn(
@@ -228,13 +246,11 @@ export default function FloatingChatButton() {
                   ))}
                   {isSending && (
                     <div className="flex gap-3 justify-start">
-                      <div className="w-8 h-8 shrink-0 rounded-full bg-gradient-primary flex items-center justify-center">
-                        <Sparkles className="w-4 h-4 text-primary-foreground" />
-                      </div>
-                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-1">
-                        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" />
-                        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:0.15s]" />
-                        <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce [animation-delay:0.3s]" />
+                      <div className="shrink-0"><OrbisSphere size={30} state="processing" /></div>
+                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-1 items-center">
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.15s]" />
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.3s]" />
                       </div>
                     </div>
                   )}
