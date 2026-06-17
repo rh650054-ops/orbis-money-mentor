@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
-import { Sparkles, Wallet, CheckCircle2, Info, Settings2, AlertTriangle } from "lucide-react";
+import { Sparkles, Wallet, CheckCircle2, Info, Settings2, AlertTriangle, Target } from "lucide-react";
 
 interface GoalRow {
   id: string;
@@ -125,6 +125,12 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
     if (userId) loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  // Recarrega ao abrir "Configurar %" — assim metas recém-criadas aparecem na hora
+  useEffect(() => {
+    if (editOpen && userId) loadAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editOpen]);
 
   const totalPercent = useMemo(
     () => goals.reduce((s, g) => s + (Number(g.percentual_distribuicao) || 0), 0),
@@ -249,6 +255,18 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
 
   if (loading) return null;
 
+  const renderGoalIcon = (icon: string | null, size: "sm" | "lg" = "lg") => {
+    const box = size === "sm" ? "w-8 h-8" : "w-10 h-10";
+    if (icon && icon.startsWith("http")) {
+      return <img src={icon} alt="" className={`${box} rounded-xl object-cover border border-border shrink-0`} />;
+    }
+    return (
+      <div className={`${box} rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0`}>
+        <Target className={size === "sm" ? "w-4 h-4 text-primary" : "w-5 h-5 text-primary"} />
+      </div>
+    );
+  };
+
   return (
     <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
       <CardHeader>
@@ -286,7 +304,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   <div key={g.id} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
-                        <span className="text-lg">{g.icon || "🎯"}</span>
+                        {renderGoalIcon(g.icon, "sm")}
                         <span className="font-semibold">{g.name}</span>
                       </Label>
                       <div className="flex items-center gap-2">
@@ -364,11 +382,31 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Como funciona */}
-        <div className="flex items-start gap-2 p-3 bg-muted/40 border border-border/40 rounded-lg">
-          <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            <b>Como funciona:</b> Pegamos suas vendas do dia, tiramos custo de mercadoria, calotes e despesas pessoais — esse é o seu <b>líquido</b>. Aí dividimos esse líquido nas caixinhas que você definiu. Cada valor mostrado é o quanto você deve guardar em cada banco/caixinha hoje.
-          </p>
+        <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-2.5">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-primary shrink-0" />
+            <p className="text-sm font-semibold text-foreground">Como funciona — em 3 passos</p>
+          </div>
+          <div className="space-y-2">
+            <div className="flex gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">1</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Somamos suas vendas do dia e tiramos custo, calotes e despesas — sobra o seu <b className="text-primary">líquido</b>.
+              </p>
+            </div>
+            <div className="flex gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">2</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Em <b className="text-foreground">Configurar %</b>, você escolhe quanto desse líquido vai pra cada meta (ex: 30% pra moto).
+              </p>
+            </div>
+            <div className="flex gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">3</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Toque em <b className="text-foreground">Separar nas caixinhas</b> e o app diz exatamente quanto guardar em cada uma hoje.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Resumo do líquido de hoje */}
@@ -390,7 +428,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
-            <p className="text-xs text-muted-foreground">💎 Líquido</p>
+            <p className="text-xs text-muted-foreground">Líquido</p>
             <p className="text-base font-bold text-primary">{formatCurrency(liquidoHoje)}</p>
           </div>
         </div>
@@ -434,7 +472,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         {goals.length > 0 && totalPercent > 0 && totalPercent <= 100 && !alreadyDistributed && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              📦 Caixinhas de hoje
+              Caixinhas de hoje
             </p>
             {preview.map(({ goal, amount }) => (
               <div
@@ -442,7 +480,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                 className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{goal.icon || "🎯"}</span>
+                  {renderGoalIcon(goal.icon, "lg")}
                   <div>
                     <p className="font-semibold text-sm">{goal.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -461,7 +499,9 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             {totalPercent < 100 && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-dashed border-border/60">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">💸</span>
+                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <Wallet className="w-5 h-5 text-muted-foreground" />
+                  </div>
                   <div>
                     <p className="font-semibold text-sm">Livre pra você</p>
                     <p className="text-xs text-muted-foreground">
@@ -503,7 +543,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{goal?.icon || "🎯"}</span>
+                    {renderGoalIcon(goal?.icon ?? null, "lg")}
                     <div>
                       <p className="font-semibold text-sm">{goal?.name || "Meta"}</p>
                       <Badge variant="secondary" className="text-xs mt-1">
