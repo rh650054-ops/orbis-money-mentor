@@ -112,6 +112,36 @@ const SCOPE_RULE = [
   "Nunca elabore em tema fora do escopo. Gentil, mas firme e curto.",
 ].join("\n");
 
+// ---- Helpers de audio: Gemini TTS devolve PCM16; embrulhamos em WAV pro navegador tocar ----
+function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
+  const numChannels = 1, bitsPerSample = 16;
+  const byteRate = (sampleRate * numChannels * bitsPerSample) / 8;
+  const blockAlign = (numChannels * bitsPerSample) / 8;
+  const dataSize = pcm.length;
+  const buf = new ArrayBuffer(44 + dataSize);
+  const v = new DataView(buf);
+  const ws = (o: number, str: string) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+  ws(0, "RIFF"); v.setUint32(4, 36 + dataSize, true); ws(8, "WAVE"); ws(12, "fmt ");
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, numChannels, true);
+  v.setUint32(24, sampleRate, true); v.setUint32(28, byteRate, true);
+  v.setUint16(32, blockAlign, true); v.setUint16(34, bitsPerSample, true);
+  ws(36, "data"); v.setUint32(40, dataSize, true);
+  new Uint8Array(buf, 44).set(pcm);
+  return new Uint8Array(buf);
+}
+function b64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function bytesToB64(bytes: Uint8Array): string {
+  let bin = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  return btoa(bin);
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -166,7 +196,45 @@ serve(async (req) => {
       }
     }
 
-    const { messages, context } = await req.json();
+    const { messages, context, tts } = await req.json();
+
+    // ===== TTS: gera o audio da fala (Gemini TTS, gratis, mesma chave) =====
+    if (tts && typeof tts === "string" && tts.trim()) {
+      const key = Deno.env.get("GEMINI_API_KEY");
+      if (!key) {
+        return new Response(JSON.stringify({ error: "sem GEMINI_API_KEY" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
+      const voiceName = Deno.env.get("GEMINI_TTS_VOICE") ?? "Kore";
+      const tRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: tts.slice(0, 1500) }] }],
+            generationConfig: {
+              responseModalities: ["AUDIO"],
+              speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
+            },
+          }),
+        },
+      );
+      if (!tRes.ok) {
+        const errТxt = await tRes.text();
+        console.error("Gemini TTS erro:", tRes.status, errТxt.slice(0, 300));
+        return new Response(JSON.stringify({ error: `tts ${tRes.status}` }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const tJson = await tRes.json();
+      const inline = tJson?.candidates?.[0]?.content?.parts?.find((pp: any) => pp.inlineData)?.inlineData;
+      if (!inline?.data) {
+        return new Response(JSON.stringify({ error: "tts vazio" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      const mime: string = inline.mimeType || "audio/L16;rate=24000";
+      const rate = parseInt((mime.match(/rate=(\d+)/) || [])[1] || "24000");
+      const wav = pcmToWav(b64ToBytes(inline.data), rate);
+      return new Response(JSON.stringify({ audio: bytesToB64(wav), mime: "audio/wav" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
     if (!messages || !Array.isArray(messages)) {
       throw new Error("Invalid messages format");

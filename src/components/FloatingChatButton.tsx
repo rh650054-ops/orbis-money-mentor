@@ -5,6 +5,7 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -23,6 +24,7 @@ export default function FloatingChatButton() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const lastSpokenRef = useRef<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const speechSupported =
     typeof window !== "undefined" &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -147,7 +149,29 @@ export default function FloatingChatButton() {
   };
 
   // ---- Modo voz ----
-  const speak = (text: string) => {
+  // Voz do Gemini (servidor) — melhor e funciona no celular. Cai pra voz do navegador se falhar.
+  const speak = async (text: string) => {
+    if (!text) return;
+    setSpeaking(true);
+    try {
+      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      const b64 = (data as any)?.audio;
+      if (b64 && audioRef.current) {
+        const a = audioRef.current;
+        a.src = "data:audio/wav;base64," + b64;
+        a.onended = () => setSpeaking(false);
+        a.onerror = () => { setSpeaking(false); speakBrowser(text); };
+        await a.play();
+        return;
+      }
+    } catch (e) {
+      console.warn("TTS Gemini falhou, usando voz do navegador", e);
+    }
+    setSpeaking(false);
+    speakBrowser(text);
+  };
+
+  const speakBrowser = (text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
     const synth = window.speechSynthesis;
     synth.cancel();
@@ -187,6 +211,12 @@ export default function FloatingChatButton() {
         const warm = new SpeechSynthesisUtterance(" ");
         warm.volume = 0;
         window.speechSynthesis.speak(warm);
+      } catch { /* noop */ }
+    }
+    if (audioRef.current) {
+      try {
+        audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+        audioRef.current.play().catch(() => {});
       } catch { /* noop */ }
     }
     const text = input.trim();
@@ -252,6 +282,8 @@ export default function FloatingChatButton() {
       >
         <OrbisSphere size={44} state="idle" />
       </Button>
+
+      <audio ref={audioRef} className="hidden" preload="auto" />
 
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
