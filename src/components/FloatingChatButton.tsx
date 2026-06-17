@@ -113,7 +113,7 @@ export default function FloatingChatButton() {
       recognitionRef.current?.stop();
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
       setVoiceMode(false);
-      setSpeaking(false);
+      stopSpeaking();
     }
   }, [isOpen]);
 
@@ -178,6 +178,7 @@ export default function FloatingChatButton() {
   };
 
   const speakBrowser = (text: string) => {
+    setSpeaking(false); return; // voz do navegador (feminina) desativada — usamos so a voz do servidor
     if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
     const synth = window.speechSynthesis;
     synth.cancel();
@@ -206,7 +207,7 @@ export default function FloatingChatButton() {
   const exitVoiceMode = () => {
     recognitionRef.current?.stop();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
-    setSpeaking(false);
+    stopSpeaking();
     setVoiceMode(false);
   };
   const voiceSend = () => {
