@@ -182,7 +182,28 @@ serve(async (req) => {
       if (parts.length) userContext += (userContext ? "\n" : "") + parts.join("\n");
     }
 
-    const systemPrompt = ORBIS_BRAIN + (
+    // Cérebro editável: busca seções do banco (service role). Fallback = ORBIS_BRAIN embutido.
+    let brain = ORBIS_BRAIN;
+    try {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+      if (serviceKey) {
+        const admin = createClient(supabaseUrl, serviceKey);
+        const { data: sections } = await admin
+          .from("ai_brain")
+          .select("content, sort_order, enabled")
+          .eq("enabled", true)
+          .order("sort_order", { ascending: true });
+        const joined = (sections || [])
+          .map((s: any) => (s.content || "").trim())
+          .filter(Boolean)
+          .join("\n\n");
+        if (joined.length > 0) brain = joined;
+      }
+    } catch (e) {
+      console.error("ai_brain fetch failed, using embedded brain:", e);
+    }
+
+    const systemPrompt = brain + (
       userContext.trim().length > 0
         ? `\n\n# CONTEXTO AO VIVO DESTE VENDEDOR\nUse pra personalizar. Converta dinheiro em número de vendas sempre que der.\n${userContext.trim()}`
         : `\n\n# CONTEXTO\nSem dados recentes agora. Dê conselho prático de rua e puxe ele pra ação.`
