@@ -161,7 +161,6 @@ export default function FloatingChatButton() {
   };
   const enterVoiceMode = () => {
     setVoiceMode(true);
-    if (!isRecording) toggleRecording();
   };
   const exitVoiceMode = () => {
     recognitionRef.current?.stop();
@@ -217,7 +216,7 @@ export default function FloatingChatButton() {
     <>
       {/* Floating Button */}
       <Button
-        onClick={() => setIsOpen(true)}
+        onClick={() => { setIsOpen(true); setVoiceMode(true); }}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
