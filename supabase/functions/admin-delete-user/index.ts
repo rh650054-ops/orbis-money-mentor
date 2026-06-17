@@ -9,6 +9,10 @@ const corsHeaders = {
 // Tabelas que pertencem ao usuário. Apagamos tudo (best-effort) antes de remover
 // o profile e o usuario do Auth, pra liberar CPF/e-mail e nao deixar orfaos.
 const USER_TABLES = [
+  "leaderboard_stats",
+  "work_sessions",
+  "streak",
+  "monthly_challenge",
   "ai_messages",
   "ai_conversations",
   "ai_usage",

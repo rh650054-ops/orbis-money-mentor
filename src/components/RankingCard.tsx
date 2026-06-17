@@ -56,7 +56,7 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
                   </span>
                 )}
               </div>
-              <p className="text-sm font-bold text-foreground mt-0.5 truncate">Você está em #{pos} no faturamento</p>
+              <p className="text-sm font-bold text-foreground mt-0.5 truncate">Top {pos} vendedor</p>
             </>
           ) : (
             <>
