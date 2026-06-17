@@ -264,43 +264,79 @@ serve(async (req) => {
         : `\n\n# CONTEXTO\nSem dados recentes agora. Dê conselho prático de rua e puxe ele pra ação.`
     );
 
-    // ---------------- Claude (Anthropic) ----------------
+    // ---------------- Provedor de IA: Gemini (grátis) OU Claude (pago) ----------------
+    // Se GEMINI_API_KEY estiver setada, usa o Google Gemini (camada gratuita).
+    // Senão, usa o Claude via ANTHROPIC_API_KEY. Você troca só pela chave.
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) {
-      throw new Error("ANTHROPIC_API_KEY não está configurada no backend. Adicione a variável no painel do Supabase.");
-    }
+    const noSystem = sanitizedMessages.filter((m: { role: string }) => m.role !== "system");
+    let assistantMessage = "";
 
-    const model = Deno.env.get("ORBIS_CHAT_MODEL") ?? plan.model;
-
-    const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1024,
-        system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
-        messages: sanitizedMessages.filter((m: { role: string }) => m.role !== "system"),
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error("Erro na Anthropic API:", aiResponse.status, errorText);
-      if (aiResponse.status === 429) {
-        throw new Error("Limite de uso da IA excedido. Tente novamente em alguns minutos.");
+    if (GEMINI_API_KEY) {
+      // Google Gemini — grátis. Roles do Gemini: "user" e "model".
+      const geminiModel = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+      const contents = noSystem.map((m: { role: string; content: string }) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+      }));
+      const gRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents,
+            generationConfig: { maxOutputTokens: 1024, temperature: 0.85 },
+          }),
+        },
+      );
+      if (!gRes.ok) {
+        const errTxt = await gRes.text();
+        console.error("Erro na Gemini API:", gRes.status, errTxt);
+        if (gRes.status === 429) {
+          throw new Error("Limite gratuito da IA atingido por agora. Tenta de novo em alguns minutos.");
+        }
+        throw new Error(`Erro ao gerar resposta da IA (${gRes.status})`);
       }
-      throw new Error(`Erro ao gerar resposta da IA (${aiResponse.status})`);
-    }
-
-    const aiJson = await aiResponse.json();
-    const assistantMessage = aiJson.content?.[0]?.text;
-    if (!assistantMessage || typeof assistantMessage !== "string") {
-      console.error("Resposta inesperada da Anthropic API:", JSON.stringify(aiJson).substring(0, 200));
-      throw new Error("A IA retornou uma resposta inválida");
+      const gJson = await gRes.json();
+      assistantMessage = gJson?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+      if (!assistantMessage) {
+        console.error("Resposta inesperada da Gemini API:", JSON.stringify(gJson).substring(0, 300));
+        throw new Error("A IA retornou uma resposta inválida");
+      }
+    } else if (ANTHROPIC_API_KEY) {
+      const model = Deno.env.get("ORBIS_CHAT_MODEL") ?? plan.model;
+      const aiResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 1024,
+          system: [{ type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } }],
+          messages: noSystem,
+        }),
+      });
+      if (!aiResponse.ok) {
+        const errorText = await aiResponse.text();
+        console.error("Erro na Anthropic API:", aiResponse.status, errorText);
+        if (aiResponse.status === 429) {
+          throw new Error("Limite de uso da IA excedido. Tente novamente em alguns minutos.");
+        }
+        throw new Error(`Erro ao gerar resposta da IA (${aiResponse.status})`);
+      }
+      const aiJson = await aiResponse.json();
+      assistantMessage = aiJson?.content?.[0]?.text ?? "";
+      if (!assistantMessage || typeof assistantMessage !== "string") {
+        console.error("Resposta inesperada da Anthropic API:", JSON.stringify(aiJson).substring(0, 200));
+        throw new Error("A IA retornou uma resposta inválida");
+      }
+    } else {
+      throw new Error("Nenhuma chave de IA configurada. Adicione GEMINI_API_KEY (grátis) ou ANTHROPIC_API_KEY no painel do Supabase.");
     }
 
     if (svc) {
