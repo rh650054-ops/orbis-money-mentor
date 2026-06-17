@@ -435,7 +435,7 @@ export default function AdminSubscriptions() {
                   key={u.id}
                   className="p-4 bg-card rounded-lg border border-border hover:border-primary/40 transition-colors"
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold truncate">{u.nickname || "Sem nome"}</p>
