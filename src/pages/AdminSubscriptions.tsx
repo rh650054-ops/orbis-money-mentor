@@ -8,7 +8,8 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2 } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 
 interface SubscriptionUser {
   id: string;
@@ -31,6 +32,11 @@ export default function AdminSubscriptions() {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
   const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "todos">("assinantes");
+  // Edição de perfil de um usuário (admin)
+  const [editUser, setEditUser] = useState<SubscriptionUser | null>(null);
+  const [editForm, setEditForm] = useState({ nickname: "", phone: "", cpf: "", city: "", state: "", email: "" });
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
   const [linkCpf, setLinkCpf] = useState("");
@@ -84,6 +90,56 @@ export default function AdminSubscriptions() {
       console.error("Erro ao carregar usuários:", error);
     } finally {
       setIsLoadingUsers(false);
+    }
+  };
+
+  // Abre o modal e carrega o perfil completo do usuário (telefone, CPF, cidade/estado)
+  const openEditUser = async (u: SubscriptionUser) => {
+    setEditUser(u);
+    setLoadingEdit(true);
+    setEditForm({ nickname: u.nickname || "", phone: "", cpf: "", city: "", state: "", email: u.email || "" });
+    const { data } = await supabase
+      .from("profiles")
+      .select("nickname, phone, cpf, city, state, email")
+      .eq("user_id", u.user_id)
+      .maybeSingle();
+    if (data) {
+      const d = data as any;
+      setEditForm({
+        nickname: d.nickname || "",
+        phone: d.phone || "",
+        cpf: d.cpf || "",
+        city: d.city || "",
+        state: d.state || "",
+        email: d.email || "",
+      });
+    }
+    setLoadingEdit(false);
+  };
+
+  // Salva as alterações direto no profiles (admin tem permissão, mesmo caminho do toggle de assinatura)
+  const saveEditUser = async () => {
+    if (!editUser) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          nickname: editForm.nickname || null,
+          phone: editForm.phone || null,
+          cpf: editForm.cpf ? editForm.cpf.replace(/\D/g, "") : null,
+          city: editForm.city || null,
+          state: editForm.state || null,
+        } as any)
+        .eq("user_id", editUser.user_id);
+      if (error) throw error;
+      toast({ title: "✅ Perfil atualizado", description: editForm.nickname || editUser.email || "" });
+      setEditUser(null);
+      loadUsers();
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -370,6 +426,15 @@ export default function AdminSubscriptions() {
                     <div className="flex items-center gap-2 shrink-0">
                     <Button
                       size="sm"
+                      variant="outline"
+                      onClick={() => openEditUser(u)}
+                      title="Ver/editar perfil"
+                    >
+                      <Pencil className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
                       variant={u.plan_status === "active" ? "destructive" : "default"}
                       onClick={() => handleToggleSubscription(u.user_id, u.plan_status || "trial")}
                       disabled={isUpdating === u.user_id || Boolean(u.is_demo && u.billing_exempt)}
@@ -410,6 +475,69 @@ export default function AdminSubscriptions() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal: editar perfil do usuário */}
+      <Dialog open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar perfil</DialogTitle>
+          </DialogHeader>
+          {loadingEdit ? (
+            <p className="text-center text-muted-foreground py-6">Carregando...</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Nome / apelido</Label>
+                <Input value={editForm.nickname} onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="(11) 90000-0000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>CPF</Label>
+                <Input
+                  value={editForm.cpf}
+                  onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value.replace(/\D/g, "") })}
+                  maxLength={11}
+                  inputMode="numeric"
+                  placeholder="11 dígitos"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado (UF)</Label>
+                  <Input
+                    value={editForm.state}
+                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value.toUpperCase().slice(0, 2) })}
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>E-mail (somente leitura)</Label>
+                <Input value={editForm.email} disabled />
+                <p className="text-xs text-muted-foreground">
+                  Mudar o e-mail de login precisa de um passo extra — me avise se precisar.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEditUser(null)} disabled={savingEdit}>
+                  Cancelar
+                </Button>
+                <Button onClick={saveEditUser} disabled={savingEdit}>
+                  {savingEdit ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
