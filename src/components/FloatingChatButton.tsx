@@ -25,6 +25,11 @@ export default function FloatingChatButton() {
   const [speaking, setSpeaking] = useState(false);
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const stopSpeaking = () => {
+    try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
+    try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
+    setSpeaking(false);
+  };
   const speechSupported =
     typeof window !== "undefined" &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -43,6 +48,7 @@ export default function FloatingChatButton() {
       recognitionRef.current?.stop();
       return;
     }
+    stopSpeaking(); // para a fala atual quando o usuario vai gravar de novo
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.lang = "pt-BR";
