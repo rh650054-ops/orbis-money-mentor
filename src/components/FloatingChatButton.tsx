@@ -158,7 +158,7 @@ export default function FloatingChatButton() {
       const b64 = (data as any)?.audio;
       if (b64 && audioRef.current) {
         const a = audioRef.current;
-        a.src = "data:audio/wav;base64," + b64;
+        a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
         a.onended = () => setSpeaking(false);
         a.onerror = () => { setSpeaking(false); speakBrowser(text); };
         await a.play();

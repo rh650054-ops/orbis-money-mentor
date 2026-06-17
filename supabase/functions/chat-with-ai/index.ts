@@ -200,6 +200,33 @@ serve(async (req) => {
 
     // ===== TTS: gera o audio da fala (Gemini TTS, gratis, mesma chave) =====
     if (tts && typeof tts === "string" && tts.trim()) {
+      // (1) ElevenLabs — camada opcional (voz premium). Se a chave existir, tenta;
+      // se falhar/estourar a cota, cai pro Gemini logo abaixo.
+      const elKey = Deno.env.get("ELEVENLABS_API_KEY");
+      if (elKey) {
+        try {
+          const voiceId = Deno.env.get("ELEVENLABS_VOICE_ID") ?? "21m00Tcm4TlvDq8ikWAM";
+          const elModel = Deno.env.get("ELEVENLABS_MODEL") ?? "eleven_multilingual_v2";
+          const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+            method: "POST",
+            headers: { "xi-api-key": elKey, "Content-Type": "application/json", "Accept": "audio/mpeg" },
+            body: JSON.stringify({
+              text: tts.slice(0, 1500),
+              model_id: elModel,
+              voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true },
+            }),
+          });
+          if (elRes.ok) {
+            const buf = new Uint8Array(await elRes.arrayBuffer());
+            return new Response(JSON.stringify({ audio: bytesToB64(buf), mime: "audio/mpeg" }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+          console.warn("ElevenLabs falhou (", elRes.status, ") -> fallback Gemini TTS");
+        } catch (e) {
+          console.warn("ElevenLabs erro, fallback Gemini TTS:", e);
+        }
+      }
+
+      // (2) Gemini TTS — gratis, comercial OK
       const key = Deno.env.get("GEMINI_API_KEY");
       if (!key) {
         return new Response(JSON.stringify({ error: "sem GEMINI_API_KEY" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
