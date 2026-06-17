@@ -53,11 +53,22 @@ export function DefconEndScreen({
       .then(({ count }) => setClientsCount(count ?? 0));
     supabase
       .from("daily_sales")
-      .select("tip_sales")
+      .select("tip_sales, cash_sales, card_sales, pix_sales")
       .eq("user_id", userId)
       .eq("date", today)
       .maybeSingle()
-      .then(({ data }) => setTotalTips(Number((data as any)?.tip_sales || 0)));
+      .then(({ data }) => {
+        setTotalTips(Number((data as any)?.tip_sales || 0));
+        // Pré-preenche com o que JÁ foi registrado por forma de pagamento durante as vendas.
+        // Assim o usuário só confirma (ou ajusta um Pix que caiu depois) em vez de digitar
+        // do zero — o que antes sobrescrevia o split real com valores errados.
+        const c = Number((data as any)?.cash_sales || 0);
+        const cd = Number((data as any)?.card_sales || 0);
+        const px = Number((data as any)?.pix_sales || 0);
+        if (c) setDinheiro(String(c));
+        if (cd) setCartao(String(cd));
+        if (px) setPix(String(px));
+      });
   }, [userId]);
 
   const exportClientsPdf = async () => {
