@@ -35,7 +35,11 @@ import {
   Car,
   Heart,
   Sparkles,
-  Calendar
+  Calendar,
+  Gamepad2,
+  Coins,
+  Package,
+  Check
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -90,6 +94,17 @@ const EXPENSE_CATEGORIES = [
   { value: "merchandise", label: "Mercadoria", icon: "🧃", color: CATEGORY_COLORS.merchandise },
   { value: "other", label: "Outros", icon: "💰", color: CATEGORY_COLORS.other }
 ];
+
+const CATEGORY_ICONS: Record<string, typeof Wallet> = {
+  food: Utensils,
+  housing: HomeIcon,
+  transport: Car,
+  education: GraduationCap,
+  health: Heart,
+  leisure: Gamepad2,
+  merchandise: Package,
+  other: Coins,
+};
 
 export default function Finances() {
   const navigate = useNavigate();
@@ -350,7 +365,7 @@ export default function Finances() {
 
       toast({
         title: "Meta criada!",
-        description: `${newGoal.icon} ${newGoal.name} adicionada com sucesso`,
+        description: `${newGoal.name} adicionada com sucesso`,
       });
 
       setNewGoal({ name: "", target_amount: "", deadline: "", icon: "🎯" });
@@ -522,11 +537,16 @@ export default function Finances() {
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">💰 Minhas Finanças</h1>
-        <p className="text-muted-foreground mt-1">
-          Controle total do seu dinheiro — quanto ganhou, gastou e guardou
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+          <Wallet className="w-5 h-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Minhas Finanças</h1>
+          <p className="text-muted-foreground mt-0.5">
+            Controle total do seu dinheiro — quanto ganhou, gastou e guardou
+          </p>
+        </div>
       </div>
 
       {/* Resumo do dia */}
@@ -566,7 +586,7 @@ export default function Finances() {
           <CardContent className="pt-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">💎 Lucro líquido do dia</p>
+                <p className="text-sm text-muted-foreground">Lucro líquido do dia</p>
                 <div className="text-2xl font-bold text-primary whitespace-nowrap">
                   {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.netToday)}
                 </div>
@@ -636,7 +656,7 @@ export default function Finances() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm text-muted-foreground">
-                      {goalPct >= 100 ? "Meta batida 🎉" : "Faltam"}
+                      {goalPct >= 100 ? "Meta batida" : "Faltam"}
                     </p>
                     <p className={`text-2xl font-bold whitespace-nowrap ${goalColor}`}>
                       {goalPct >= 100 ? formatCurrency(summary.monthlyNetProfit) : formatCurrency(remainingToGoal)}
@@ -707,11 +727,17 @@ export default function Finances() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {EXPENSE_CATEGORIES.map(cat => (
-                          <SelectItem key={cat.value} value={cat.value}>
-                            {cat.icon} {cat.label}
-                          </SelectItem>
-                        ))}
+                        {EXPENSE_CATEGORIES.map(cat => {
+                          const Icon = CATEGORY_ICONS[cat.value] ?? Coins;
+                          return (
+                            <SelectItem key={cat.value} value={cat.value}>
+                              <span className="flex items-center gap-2">
+                                <Icon className="w-4 h-4" style={{ color: cat.color }} />
+                                {cat.label}
+                              </span>
+                            </SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                   </div>
@@ -790,12 +816,17 @@ export default function Finances() {
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-xl"
-                          style={{ backgroundColor: `${expense.color}20` }}
-                        >
-                          {expense.icon}
-                        </div>
+                        {(() => {
+                          const Icon = CATEGORY_ICONS[expense.category] ?? Coins;
+                          return (
+                            <div
+                              className="w-11 h-11 rounded-xl flex items-center justify-center"
+                              style={{ backgroundColor: `${expense.color}1f`, border: `1px solid ${expense.color}40` }}
+                            >
+                              <Icon className="w-5 h-5" style={{ color: expense.color }} />
+                            </div>
+                          );
+                        })()}
                         <div>
                           <p className="font-semibold">{expense.name}</p>
                           <div className="flex gap-2 items-center mt-1">
@@ -875,14 +906,6 @@ export default function Finances() {
                       onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <Label>Ícone</Label>
-                    <Input
-                      value={newGoal.icon}
-                      onChange={(e) => setNewGoal({ ...newGoal, icon: e.target.value })}
-                      placeholder="🎯"
-                    />
-                  </div>
                   <Button onClick={handleAddGoal} className="w-full">
                     Criar Meta
                   </Button>
@@ -910,7 +933,9 @@ export default function Finances() {
                     <CardContent className="pt-6 space-y-4">
                       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="flex items-center gap-3">
-                          <div className="text-3xl">{goal.icon}</div>
+                          <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <Target className="w-6 h-6 text-primary" />
+                          </div>
                           <div>
                             <p className="font-semibold text-lg">{goal.name}</p>
                             {goal.deadline && (
@@ -940,7 +965,7 @@ export default function Finances() {
                         <Progress value={progress} className="h-2" />
                         {remaining > 0 && (
                           <p className="text-sm text-muted-foreground">
-                            Faltam {formatCurrency(remaining)} para atingir sua meta 🔥
+                            Faltam {formatCurrency(remaining)} para atingir sua meta
                           </p>
                         )}
                       </div>
@@ -977,10 +1002,9 @@ export default function Finances() {
                       )}
                       
                       {goal.status === "completed" && (
-                        <div className="bg-success/10 border border-success/20 rounded-lg p-3 text-center">
-                          <p className="text-success font-semibold">
-                            🎉 Meta Concluída!
-                          </p>
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-3 flex items-center justify-center gap-2">
+                          <Check className="w-4 h-4 text-success" />
+                          <p className="text-success font-semibold">Meta concluída</p>
                         </div>
                       )}
                     </CardContent>
