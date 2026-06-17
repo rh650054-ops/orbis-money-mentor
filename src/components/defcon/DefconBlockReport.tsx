@@ -89,36 +89,41 @@ export function DefconBlockReport({
       }
     };
 
-    // Stats stack — labels MUCH bigger, values huge (Strava-like)
-    let y = 520;
+    // Rótulos COLORIDOS (visíveis em qualquer fundo) + valores claros — igual ao card do dia
     const FOREGROUND = readThemeColor("--foreground");
+    const PRIMARY = readThemeColor("--primary");
     const SUCCESS = readThemeColor("--success");
     const WARNING = readThemeColor("--warning");
     const DESTRUCTIVE = readThemeColor("--destructive");
 
-    const drawStat = (label: string, value: string, valueColor = FOREGROUND) => {
-      centerText(label.toUpperCase(), y, 72, "700", "rgba(255,255,255,0.85)", 10);
-      y += 130;
-      centerText(value, y, 180, "900", valueColor);
-      y += 230;
-    };
+    const TITLE_SIZE = 72;
+    const VALUE_SIZE = 160;
+    const SPACING = 12;
 
-    drawStat("Faturamento", formatCurrency(soldAmount), FOREGROUND);
-    drawStat("Vendas", String(sales), SUCCESS);
+    // Faturamento
+    centerText("FATURAMENTO", 200, TITLE_SIZE, "800", PRIMARY, SPACING);
+    centerText(formatCurrency(soldAmount), 360, VALUE_SIZE, "900", FOREGROUND);
 
+    // Vendas
+    centerText("VENDAS", 700, TITLE_SIZE, "800", SUCCESS, SPACING);
+    centerText(String(sales), 860, VALUE_SIZE, "900", FOREGROUND);
+
+    // Conversão
     const convColor =
       conversionRate >= 30 ? SUCCESS : conversionRate >= 15 ? WARNING : DESTRUCTIVE;
-    drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
+    centerText("CONVERSÃO", 1220, TITLE_SIZE, "800", convColor, SPACING);
+    centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", FOREGROUND);
 
-    // Bottom: Orbis logo image (wider since it includes the wordmark)
+    // Logo sutil no rodapé (não sobrepõe os valores)
     try {
       const logo = await loadLogo();
-      const logoW = 460;
+      const logoW = 380;
       const ratio = logo.height / logo.width;
       const logoH = logoW * ratio;
-      const logoX = W / 2 - logoW / 2;
-      const logoY = H - logoH - 120;
-      ctx.drawImage(logo, logoX, logoY, logoW, logoH);
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 80, logoW, logoH);
+      ctx.restore();
     } catch {
       // Fallback: text logo
       centerText("ORBIS", H - 180, 80, "900", FOREGROUND, 16);
