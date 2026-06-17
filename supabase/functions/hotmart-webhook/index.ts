@@ -15,12 +15,16 @@ Deno.serve(async (req) => {
     const hottok = req.headers.get("x-hotmart-hottok");
     const expectedHottok = Deno.env.get("HOTMART_HOTTOK");
 
-    if (expectedHottok && hottok !== expectedHottok) {
-      console.error("Invalid hottok");
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: corsHeaders,
-      });
+    if (expectedHottok) {
+      if (hottok !== expectedHottok) {
+        console.error("Invalid hottok — rejected");
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+    } else {
+      console.warn("hotmart-webhook: HOTMART_HOTTOK not set — webhook authenticity NOT verified.");
     }
 
     const payload = await req.json();

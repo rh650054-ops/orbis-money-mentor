@@ -17,6 +17,23 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // SECURITY: verify the webhook really comes from Pluggy.
+    // Configure PLUGGY_WEBHOOK_SECRET in Supabase env and append ?secret=... to
+    // the webhook URL registered at Pluggy (or send it as x-webhook-secret).
+    const webhookSecret = Deno.env.get("PLUGGY_WEBHOOK_SECRET");
+    if (webhookSecret) {
+      const provided = req.headers.get("x-webhook-secret") ??
+        new URL(req.url).searchParams.get("secret") ?? "";
+      if (provided !== webhookSecret) {
+        console.error("pluggy-webhook: invalid/missing webhook secret — rejected");
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else {
+      console.warn("pluggy-webhook: PLUGGY_WEBHOOK_SECRET not set — webhook authenticity NOT verified.");
+    }
+
     const payload = await req.json();
     console.log("Pluggy webhook received:", JSON.stringify(payload).slice(0, 400));
 
