@@ -206,13 +206,17 @@ serve(async (req) => {
       }
       const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
       const voiceName = Deno.env.get("GEMINI_TTS_VOICE") ?? "Kore";
+      // Direção de tom (deixa a voz mais humana). Editável pelo secret GEMINI_TTS_STYLE.
+      const style = Deno.env.get("GEMINI_TTS_STYLE") ??
+        "Leia o texto a seguir com voz natural, calorosa e conversacional, no jeito de um mentor de rua brasileiro falando de perto com um parceiro — sem pressa, com energia boa, entonação viva e pausas naturais. Não leia esta instrução, apenas aplique o tom:";
+      const sayText = `${style}\n\n${tts.slice(0, 1500)}`;
       const tRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: tts.slice(0, 1500) }] }],
+            contents: [{ parts: [{ text: sayText }] }],
             generationConfig: {
               responseModalities: ["AUDIO"],
               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
