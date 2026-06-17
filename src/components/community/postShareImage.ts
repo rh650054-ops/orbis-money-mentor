@@ -12,6 +12,17 @@ const loadLogo = (): Promise<HTMLImageElement | null> =>
     img.src = "/orbis-logo.png";
   });
 
+// Carrega o avatar remoto com CORS. Se o servidor não permitir, retorna null
+// (assim o canvas não fica "sujo" e o toBlob continua funcionando) -> usa iniciais.
+const loadImage = (url: string): Promise<HTMLImageElement | null> =>
+  new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -99,22 +110,43 @@ export async function generatePostShareImage(post: FeedPost): Promise<Blob | nul
   const innerX = cardX + P;
   let cy = cardY + P;
 
-  // --- avatar (iniciais) ---
+  // --- avatar: foto real do usuário (ou iniciais como fallback) ---
   const av = 100;
   const avCx = innerX + av / 2;
   const avCy = cy + av / 2;
-  const ag = ctx.createLinearGradient(innerX, cy, innerX + av, cy + av);
-  ag.addColorStop(0, GOLD);
-  ag.addColorStop(1, "#C97E00");
-  ctx.fillStyle = ag;
-  ctx.beginPath();
-  ctx.arc(avCx, avCy, av / 2, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillStyle = "#15151A";
-  ctx.font = `800 46px ${FONT}`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText((post.nickname || "V").trim().slice(0, 2).toUpperCase(), avCx, avCy + 3);
+  const avatarImg = post.avatar_url ? await loadImage(post.avatar_url) : null;
+  if (avatarImg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(avCx, avCy, av / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    // desenha cobrindo o círculo (object-cover)
+    const scale = Math.max(av / avatarImg.width, av / avatarImg.height);
+    const dw = avatarImg.width * scale;
+    const dh = avatarImg.height * scale;
+    ctx.drawImage(avatarImg, avCx - dw / 2, avCy - dh / 2, dw, dh);
+    ctx.restore();
+    // borda dourada
+    ctx.beginPath();
+    ctx.arc(avCx, avCy, av / 2, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(244,161,0,0.65)";
+    ctx.lineWidth = 4;
+    ctx.stroke();
+  } else {
+    const ag = ctx.createLinearGradient(innerX, cy, innerX + av, cy + av);
+    ag.addColorStop(0, GOLD);
+    ag.addColorStop(1, "#C97E00");
+    ctx.fillStyle = ag;
+    ctx.beginPath();
+    ctx.arc(avCx, avCy, av / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#15151A";
+    ctx.font = `800 46px ${FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText((post.nickname || "V").trim().slice(0, 2).toUpperCase(), avCx, avCy + 3);
+  }
 
   // --- nome + handle ---
   ctx.textAlign = "left";
