@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
+import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -71,6 +72,8 @@ export function DefconRunning({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
+  const { theme, setTheme } = useTheme();
+  const isLight = theme === "light";
 
   // Auto-seleciona se houver só 1 produto no loadout
   useEffect(() => {
@@ -257,7 +260,7 @@ export function DefconRunning({
   }
 
   return (
-    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col select-none">
+    <div className="relative min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col select-none">
       {/* Smart approach notifications */}
       <DefconSmartNotification
         userId={userId}
@@ -268,6 +271,16 @@ export function DefconRunning({
         phase="running"
         currentBlockIndex={currentBlockIndex}
       />
+      {/* Toggle de tema (claro/escuro) — pro vendedor trocar ali no modo foco */}
+      <button
+        onClick={() => setTheme(isLight ? "dark" : "light")}
+        className="absolute right-3 z-50 w-9 h-9 rounded-full bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-90 transition"
+        style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
+        aria-label={isLight ? "Tema escuro" : "Tema claro"}
+      >
+        {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+      </button>
+
       {/* Mission header — compacto para dar espaço ao timer */}
       <div className="pt-7 pb-2 px-6 text-center">
         <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-1">

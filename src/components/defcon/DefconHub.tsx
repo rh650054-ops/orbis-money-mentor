@@ -224,7 +224,7 @@ export default function DefconHub() {
       {/* HEADER discreto */}
       <div className="pt-1 pb-1">
         <p className="text-xs text-destructive/80 tracking-[0.25em] uppercase">⚡ Modo desafio</p>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight mt-0.5">DEFCON 4</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight mt-0.5">Foco</h1>
       </div>
 
       {/* BLOCO UNIFICADO — Meta + Botão */}
