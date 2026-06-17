@@ -15,6 +15,18 @@ interface Props {
   onDelete: () => void;
 }
 
+// Destaca #hashtags e @menções no texto do post
+function renderContent(text: string) {
+  const parts = text.split(/(#[\p{L}\d_]+|@[\p{L}\d_]+)/gu);
+  return parts.map((part, i) =>
+    /^[#@]/.test(part) ? (
+      <span key={i} className="text-primary font-medium">{part}</span>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
 export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepost, onDelete }: Props) {
   return (
     <article className="bg-card border border-border/60 rounded-xl p-3.5">
@@ -34,7 +46,7 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepo
             </span>
           </div>
           {post.content && (
-            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{post.content}</p>
+            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{renderContent(post.content)}</p>
           )}
           {post.image_url && (
             <img
