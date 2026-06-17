@@ -9,7 +9,23 @@ interface RankingCardProps {
 export default function RankingCard({ userId, onClick }: RankingCardProps) {
   const { currentUserStats, hasParticipated, isLoading } = useLeaderboard(userId);
 
-  if (isLoading) return null;
+  // Esqueleto enquanto carrega — evita o bloco "sumir" e aparecer de repente (layout shift)
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">
+          Ranking
+        </p>
+        <div className="w-full rounded-2xl border border-primary/15 bg-card/40 p-4 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-muted animate-pulse shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-3.5 w-2/3 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">
