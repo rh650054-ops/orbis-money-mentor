@@ -26,19 +26,19 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
       {/* Middle: hero + plan card */}
       <div className="flex-1 flex flex-col justify-center min-h-0 gap-6">
         <div className="text-center">
-          <h1 className="text-4xl font-black text-white tracking-tight leading-none">
+          <h1 className="text-4xl font-black text-foreground tracking-tight leading-none">
             MODO
             <br />
             DESAFIO
           </h1>
-          <p className="text-xs text-neutral-500 font-mono mt-3 max-w-[240px] mx-auto">
+          <p className="text-xs text-muted-foreground font-mono mt-3 max-w-[240px] mx-auto">
             Blocos de 60min. Sem distrações. Apenas vendas.
           </p>
         </div>
 
-        <div className="bg-neutral-900/70 border border-white/5 rounded-2xl p-5 space-y-3.5">
+        <div className="bg-card/70 border border-border rounded-2xl p-5 space-y-3.5">
           <Row label="Meta do dia" value={formatCurrency(dailyGoal)} accent />
-          <div className="h-px bg-white/5" />
+          <div className="h-px bg-border" />
           <Row label="Blocos" value={`${totalBlocks} × 60min`} />
           <Row label="Pausa" value="5 min" muted />
         </div>
@@ -49,33 +49,34 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
           className={`flex items-center justify-between gap-3 px-4 h-12 rounded-xl border transition-colors ${
             battery
               ? "bg-success/10 border-success/30"
-              : "bg-neutral-900/50 border-white/5"
+              : "bg-card/50 border-border"
           }`}
         >
           <div className="flex items-center gap-2.5">
             {battery ? (
               <BatteryLow className="w-4 h-4 text-success" />
             ) : (
-              <BatteryFull className="w-4 h-4 text-neutral-500" />
+              <BatteryFull className="w-4 h-4 text-muted-foreground" />
             )}
             <div className="text-left">
-              <p className="text-xs font-semibold text-white leading-tight">
+              <p className="text-xs font-semibold text-foreground leading-tight">
                 Economia de bateria
               </p>
-              <p className="text-xs text-neutral-500 leading-tight">
+              <p className="text-xs text-muted-foreground leading-tight">
                 {battery ? "Animações reduzidas" : "Para celulares fracos"}
               </p>
             </div>
           </div>
           <div
             className={`w-9 h-5 rounded-full transition-colors relative ${
-              battery ? "bg-success" : "bg-neutral-700"
+              battery ? "bg-success" : "bg-muted"
             }`}
           >
             <div
               className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
                 battery ? "translate-x-4" : "translate-x-0"
               }`}
+
             />
           </div>
         </button>
@@ -95,7 +96,7 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
         </button>
         <button
           onClick={onExit}
-          className="w-full h-10 text-neutral-600 font-mono text-xs active:scale-95"
+          className="w-full h-10 text-muted-foreground font-mono text-xs active:scale-95"
         >
           Sair
         </button>
@@ -117,10 +118,10 @@ function Row({
 }) {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-xs font-mono text-neutral-500">{label}</span>
+      <span className="text-xs font-mono text-muted-foreground">{label}</span>
       <span
         className={`font-black ${
-          accent ? "text-xl text-primary" : muted ? "text-base text-neutral-400" : "text-base text-white"
+          accent ? "text-xl text-primary" : muted ? "text-base text-muted-foreground" : "text-base text-foreground"
         }`}
       >
         {value}

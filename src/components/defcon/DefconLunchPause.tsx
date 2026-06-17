@@ -15,7 +15,7 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: Def
   const [expenseOpen, setExpenseOpen] = useState(false);
 
   return (
-    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       <div className="text-center space-y-8">
         <div className="text-6xl">🍽️</div>
 
@@ -23,9 +23,9 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: Def
           <div className="text-xs font-mono text-warning/70 tracking-[0.3em] uppercase mb-3">
             PAUSA ALMOÇO
           </div>
-          <div className="text-7xl md:text-8xl font-black font-mono tabular-nums tracking-tighter text-white">
+          <div className="text-7xl md:text-8xl font-black font-mono tabular-nums tracking-tighter text-foreground">
             {String(minutes).padStart(2, "0")}
-            <span className="text-white/30">:</span>
+            <span className="text-foreground/30">:</span>
             {String(seconds).padStart(2, "0")}
           </div>
         </div>
@@ -34,7 +34,7 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: Def
           Bom apetite. Recarregue as energias.
         </p>
 
-        <div className="text-sm font-mono text-neutral-600">
+        <div className="text-sm font-mono text-muted-foreground">
           Vendido até agora: {formatCurrency(totalSold)}
         </div>
 
@@ -51,7 +51,7 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: Def
           {onSkip && (
             <button
               onClick={onSkip}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-white/20 bg-white/5 text-white/80 font-bold text-xs tracking-wide active:scale-95 transition-[colors,transform,opacity] hover:bg-white/10 hover:text-white"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-border bg-foreground/5 text-foreground/80 font-bold text-xs tracking-wide active:scale-95 transition-[colors,transform,opacity] hover:bg-foreground/10 hover:text-foreground"
             >
               <FastForward className="w-3.5 h-3.5" strokeWidth={3} />
               VOLTAR AO DESAFIO AGORA
@@ -59,7 +59,7 @@ export function DefconLunchPause({ lunchPauseRemaining, totalSold, onSkip }: Def
           )}
         </div>
 
-        <div className="text-xs font-mono text-neutral-700">
+        <div className="text-xs font-mono text-muted-foreground">
           O desafio volta automaticamente
         </div>
       </div>

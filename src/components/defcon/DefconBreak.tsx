@@ -13,26 +13,26 @@ export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold, onSk
   const seconds = breakRemaining % 60;
 
   return (
-    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       <div className="text-center space-y-8">
         <div className="text-6xl">☕</div>
 
         <div>
-          <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-3">
+          <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-3">
             PAUSA
           </div>
-          <div className="text-7xl md:text-8xl font-black font-mono tabular-nums tracking-tighter text-white">
+          <div className="text-7xl md:text-8xl font-black font-mono tabular-nums tracking-tighter text-foreground">
             {String(minutes).padStart(2, "0")}
-            <span className="text-white/30">:</span>
+            <span className="text-foreground/30">:</span>
             {String(seconds).padStart(2, "0")}
           </div>
         </div>
 
-        <p className="text-lg text-neutral-500 font-medium">
+        <p className="text-lg text-muted-foreground font-medium">
           Beba água. Respire.
         </p>
 
-        <div className="text-sm font-mono text-neutral-600">
+        <div className="text-sm font-mono text-muted-foreground">
           Bloco #{currentBlockIndex + 1} concluído
           {blockSold > 0 && ` • ${formatCurrency(blockSold)} vendido`}
         </div>
@@ -47,7 +47,7 @@ export function DefconBreak({ breakRemaining, currentBlockIndex, blockSold, onSk
           </button>
         )}
 
-        <div className="text-xs font-mono text-neutral-700">
+        <div className="text-xs font-mono text-muted-foreground">
           Próximo bloco inicia automaticamente
         </div>
       </div>
