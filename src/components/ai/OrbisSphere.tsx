@@ -56,7 +56,7 @@ export function OrbisSphere({
     canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
-    const count = size > 100 ? 180 : size > 30 ? 60 : 20;
+    const count = size > 100 ? 200 : size > 30 ? 70 : 30;
     const particles: Particle[] = [];
     for (let i = 0; i < count; i++) {
       const theta = Math.random() * Math.PI * 2;
@@ -68,7 +68,7 @@ export function OrbisSphere({
         baseR: r,
         speed: (Math.random() - 0.5) * 0.003 * speed,
         phiSpeed: (Math.random() - 0.5) * 0.002 * speed,
-        size: Math.random() * (size > 100 ? 2.6 : size > 30 ? 2.0 : 1.5) + 0.7,
+        size: Math.random() * (size > 100 ? 3.0 : size > 30 ? 2.6 : 2.0) + 0.9,
         opacity: Math.random() * 0.45 + 0.55,
         pulse: Math.random() * Math.PI * 2,
         pulseSpeed: 0.02 + Math.random() * 0.03,

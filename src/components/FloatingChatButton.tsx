@@ -178,7 +178,7 @@ export default function FloatingChatButton() {
       {isOpen && (
         <div
           className="fixed inset-0 z-[60] flex flex-col animate-in fade-in duration-200"
-          style={{ background: "radial-gradient(ellipse 110% 38% at 50% 0%, rgba(201,168,76,0.07), #060608 55%)" }}
+          style={{ background: "radial-gradient(ellipse 110% 38% at 50% 0%, rgba(201,168,76,0.10), transparent 60%), #070708" }}
           role="dialog"
           aria-modal="true"
           aria-labelledby="floating-chat-title"
