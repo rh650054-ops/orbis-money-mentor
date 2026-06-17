@@ -3,11 +3,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { Target, Clock, Calendar, CalendarCheck, AlertTriangle } from "lucide-react";
+import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
-import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 
 interface EditPlanningModalProps {
   userId: string;
@@ -23,7 +22,6 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
   const [workHours, setWorkHours] = useState(8);
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(5);
   const [loading, setLoading] = useState(false);
-  const { isConnected, googleEmail, loading: calendarLoading, connect, disconnect } = useGoogleCalendar(userId);
 
   useEffect(() => {
     if (isOpen) {
@@ -305,41 +303,6 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               </div>
             </div>
           </div>
-
-          {/* Google Calendar — link discreto */}
-          {!isRequired && (
-            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border">
-              <div className="flex items-center gap-2 min-w-0">
-                <CalendarCheck className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-medium text-foreground">Google Calendar</p>
-                  {isConnected && (
-                    <p className="text-xs text-muted-foreground truncate">{googleEmail}</p>
-                  )}
-                </div>
-              </div>
-              {isConnected ? (
-                <Button
-                  onClick={disconnect}
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
-                >
-                  Desconectar
-                </Button>
-              ) : (
-                <Button
-                  onClick={connect}
-                  disabled={calendarLoading}
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
-                >
-                  {calendarLoading ? "..." : "Conectar"}
-                </Button>
-              )}
-            </div>
-          )}
 
           {/* Botões */}
           <div className="flex gap-2 pt-1">

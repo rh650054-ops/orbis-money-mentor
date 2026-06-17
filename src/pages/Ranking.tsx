@@ -308,7 +308,7 @@ export default function Ranking() {
           : "Torneios semanais e mensais com prêmios reais"}
       </p>
 
-      {isAdmin && (
+      {isAdmin && !isGlobal && (
         <button
           onClick={() => navigate("/admin/competitions")}
           className="w-full rounded-xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-3 py-3 flex items-center justify-center gap-2 text-sm font-black text-primary hover:from-primary/25 hover:to-primary/25 transition"
@@ -326,20 +326,20 @@ export default function Ranking() {
             <button
               onClick={handleShare}
               disabled={isSharing}
-              className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60"
-              style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+              className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60"
+              style={{ background: "linear-gradient(95deg, #FEDA77 0%, #F58529 24%, #DD2A7B 56%, #8134AF 80%, #515BD4 100%)", boxShadow: "0 10px 30px -10px rgba(221,42,123,0.55)" }}
             >
               <div className="relative flex items-center justify-center gap-2.5">
                 {isSharing ? (
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
                 ) : (
-                  <Share2 className="w-5 h-5 text-primary" />
+                  <Share2 className="w-5 h-5 text-white" />
                 )}
                 <div className="text-left">
-                  <p className="text-sm font-black text-foreground tracking-wide">
+                  <p className="text-sm font-black text-white tracking-wide" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>
                     {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
                   </p>
-                  <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                  <p className="text-xs text-white/85 uppercase tracking-widest">
                     Story 9:16 · pronto pra postar
                   </p>
                 </div>
