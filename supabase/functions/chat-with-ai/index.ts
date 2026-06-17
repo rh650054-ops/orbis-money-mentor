@@ -208,14 +208,16 @@ serve(async (req) => {
       if (elKey) {
         try {
           const voiceId = Deno.env.get("ELEVENLABS_VOICE_ID") ?? "21m00Tcm4TlvDq8ikWAM";
-          const elModel = Deno.env.get("ELEVENLABS_MODEL") ?? "eleven_multilingual_v2";
-          const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+          // Flash = baixa latencia (sai rapido) e gasta menos credito. PT-BR ok.
+          const elModel = Deno.env.get("ELEVENLABS_MODEL") ?? "eleven_flash_v2_5";
+          const elSpeed = Number(Deno.env.get("ELEVENLABS_SPEED") ?? "1.08");
+          const elRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
             method: "POST",
             headers: { "xi-api-key": elKey, "Content-Type": "application/json", "Accept": "audio/mpeg" },
             body: JSON.stringify({
               text: tts.slice(0, 1500),
               model_id: elModel,
-              voice_settings: { stability: 0.45, similarity_boost: 0.8, style: 0.3, use_speaker_boost: true },
+              voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.2, use_speaker_boost: true, speed: elSpeed },
             }),
           });
           if (elRes.ok) {
