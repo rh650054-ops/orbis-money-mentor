@@ -9,7 +9,7 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* === TEMA CLARO === */
-    --background: 0 0% 98%;
+    --background: 40 16% 96%;
     --foreground: 0 0% 10%;
     --card: 0 0% 100%;
     --card-foreground: 0 0% 10%;
@@ -137,6 +137,13 @@ All colors MUST be HSL.
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /* Tema claro: inverte a logo branca do Orbis pra ficar escura e legível */
+  html:not(.dark) img[src*="orbis-logo"],
+  html:not(.dark) img[src*="orbis-wordmark"],
+  html:not(.dark) img[src*="orbis-full-logo"] {
+    filter: invert(1);
   }
 
   body {
