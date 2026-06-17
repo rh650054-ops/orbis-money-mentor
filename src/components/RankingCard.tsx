@@ -29,11 +29,14 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
           boxShadow: `0 6px 24px -10px ${glow}, inset 0 1px 0 ${accent}22`,
         }}
       >
-        <div
-          className="relative w-12 h-12 rounded-full flex items-center justify-center shrink-0 font-black"
-          style={{ background: `${accent}1f`, border: `2px solid ${accent}`, color: accent, boxShadow: `0 0 18px -2px ${glow}` }}
-        >
-          {inRank ? <span className="text-base">#{pos}</span> : <Trophy className="w-5 h-5" />}
+        <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
+          {tier ? (
+            <img src={tier.icon} alt={tier.label} className="w-14 h-14 object-contain" style={{ filter: `drop-shadow(0 0 9px ${glow})` }} />
+          ) : (
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: `${accent}1f`, border: `2px solid ${accent}`, color: accent, boxShadow: `0 0 18px -2px ${glow}` }}>
+              <Trophy className="w-5 h-5" />
+            </div>
+          )}
         </div>
         <div className="relative flex-1 min-w-0">
           {loadingStats ? (

@@ -10,15 +10,25 @@ interface Props {
   onOpenProfile: (uid: string) => void;
 }
 
-function PodAvatar({ url, name, size, color, glow }: { url: string | null; name: string | null; size: number; color: string; glow: string }) {
-  const base: any = { width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` };
+function PodAvatar({ url, name, size, color, glow, icon }: { url: string | null; name: string | null; size: number; color: string; glow: string; icon: string }) {
   if (url) {
-    return <img src={url} alt={name || ""} className="rounded-full object-cover border-[3px] mx-auto block" style={base} />;
+    return (
+      <img
+        src={url}
+        alt={name || ""}
+        className="rounded-full object-cover border-[3px] mx-auto block"
+        style={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` }}
+      />
+    );
   }
+  // Sem foto -> escudo da liga
   return (
-    <div className="rounded-full border-[3px] bg-[#161616] flex items-center justify-center font-black mx-auto" style={{ ...base, color, fontSize: Math.round(size * 0.4) }}>
-      {(name || "U").charAt(0).toUpperCase()}
-    </div>
+    <img
+      src={icon}
+      alt={name || ""}
+      className="object-contain mx-auto block"
+      style={{ width: size * 1.12, height: size * 1.12, filter: `drop-shadow(0 0 ${Math.round(size * 0.3)}px ${glow})` }}
+    />
   );
 }
 
@@ -37,7 +47,9 @@ function Col({ entry, position, avatarSize, barHeight, champion, formatCurrency,
         <div className="text-[20px] leading-none mb-1" style={{ filter: `drop-shadow(0 0 8px ${tier.glow})` }}>{medal}</div>
       )}
       <button onClick={() => onOpenProfile(entry.user_id)} className="block w-full active:scale-[0.97] transition-transform">
-        <PodAvatar url={entry.avatar_url} name={entry.nome_usuario} size={avatarSize} color={tier.color} glow={tier.glow} />
+        <div className="flex items-center justify-center" style={{ height: avatarSize * 1.12 }}>
+          <PodAvatar url={entry.avatar_url} name={entry.nome_usuario} size={avatarSize} color={tier.color} glow={tier.glow} icon={tier.icon} />
+        </div>
         <p className="text-[13px] font-black mt-2 truncate px-0.5" style={{ color: tier.color }}>{entry.nome_usuario || "Vendedor"}</p>
         <p className="text-white text-[14px] font-black">{formatCurrency(entry.faturamento_total_mes || 0)}</p>
         <p className="text-[10px] font-black tracking-wider" style={{ color: tier.color }}>{tier.label}</p>

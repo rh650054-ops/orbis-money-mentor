@@ -10,7 +10,7 @@ interface Props {
   formatCurrency: (v: number) => string;
 }
 
-function DuelAvatar({ url, name, color, glow }: { url: string | null; name: string | null; color: string; glow: string }) {
+function DuelAvatar({ url, name, color, glow, icon }: { url: string | null; name: string | null; color: string; glow: string; icon: string }) {
   if (url) {
     return (
       <img
@@ -22,12 +22,12 @@ function DuelAvatar({ url, name, color, glow }: { url: string | null; name: stri
     );
   }
   return (
-    <div
-      className="w-[78px] h-[78px] rounded-full border-[3px] bg-[#161616] flex items-center justify-center text-3xl font-black mx-auto"
-      style={{ borderColor: color, boxShadow: `0 0 30px ${glow}`, color }}
-    >
-      {(name || "U").charAt(0).toUpperCase()}
-    </div>
+    <img
+      src={icon}
+      alt={name || ""}
+      className="w-[88px] h-[88px] object-contain mx-auto block"
+      style={{ filter: `drop-shadow(0 0 16px ${glow})` }}
+    />
   );
 }
 
@@ -54,7 +54,7 @@ function DuelSide({
         >
           {tag}
         </span>
-        <DuelAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} glow={tier.glow} />
+        <DuelAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} glow={tier.glow} icon={tier.icon} />
       </div>
       <p className="text-[14px] font-black mt-2 truncate px-1" style={{ color: tier.color }}>
         {entry.nome_usuario || "Vendedor"}

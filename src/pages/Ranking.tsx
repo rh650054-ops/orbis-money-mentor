@@ -13,6 +13,7 @@ import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
+import { getTier } from "@/components/ranking/tier";
 import { RankingList } from "@/components/ranking/RankingList";
 import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
@@ -39,7 +40,7 @@ function isEmojiAvatar(avatar: string | null): boolean {
   return EXCLUSIVE_EMOJIS.includes(avatar);
 }
 
-function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "md" | "lg" = "md", className?: string) {
+function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "md" | "lg" = "md", className?: string, badgeIcon?: string) {
   const sizeClasses = {
     sm: "w-10 h-10 text-lg",
     md: "w-14 h-14 text-xl",
@@ -54,6 +55,9 @@ function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "
   }
   if (avatar) {
     return <img src={avatar} alt={name || ''} className={cn("rounded-full object-cover", sizeClasses[size], className)} />;
+  }
+  if (badgeIcon) {
+    return <img src={badgeIcon} alt={name || ''} className={cn("object-contain", sizeClasses[size])} />;
   }
   return (
     <div className={cn("rounded-full bg-gradient-to-br from-primary/40 to-primary/10 border border-primary/30 flex items-center justify-center font-bold text-primary", sizeClasses[size], className)}>
@@ -462,7 +466,7 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
           <CardContent className="relative p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="relative">
-                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50")}
+                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50", getTier(currentUserStats.posicao_faturamento || 999).icon)}
                 <button
                   onClick={onEditProfile}
                   className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
