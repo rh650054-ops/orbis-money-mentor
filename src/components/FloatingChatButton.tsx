@@ -148,16 +148,27 @@ export default function FloatingChatButton() {
 
   // ---- Modo voz ----
   const speak = (text: string) => {
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "pt-BR";
-    u.rate = 1.05;
-    const ptVoice = window.speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith("pt"));
-    if (ptVoice) u.voice = ptVoice;
-    u.onstart = () => setSpeaking(true);
-    u.onend = () => setSpeaking(false);
-    window.speechSynthesis.speak(u);
+    if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    const run = () => {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = "pt-BR";
+      u.rate = 1.05;
+      const voices = synth.getVoices();
+      const pt = voices.find((v) => v.lang && v.lang.toLowerCase().startsWith("pt"));
+      if (pt) u.voice = pt;
+      u.onstart = () => setSpeaking(true);
+      u.onend = () => setSpeaking(false);
+      u.onerror = () => setSpeaking(false);
+      try { synth.resume(); } catch { /* noop */ }
+      synth.speak(u);
+    };
+    if (synth.getVoices().length) {
+      run();
+    } else {
+      synth.onvoiceschanged = () => { synth.onvoiceschanged = null; run(); };
+    }
   };
   const enterVoiceMode = () => {
     setVoiceMode(true);
@@ -169,6 +180,15 @@ export default function FloatingChatButton() {
     setVoiceMode(false);
   };
   const voiceSend = () => {
+    // Desbloqueia o audio do navegador dentro do gesto do usuario (necessario em alguns browsers/celular)
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.resume();
+        const warm = new SpeechSynthesisUtterance(" ");
+        warm.volume = 0;
+        window.speechSynthesis.speak(warm);
+      } catch { /* noop */ }
+    }
     const text = input.trim();
     recognitionRef.current?.stop();
     if (text) { sendMessage(text); setInput(""); }
@@ -186,6 +206,15 @@ export default function FloatingChatButton() {
       speak(last.content);
     }
   }, [messages, voiceMode]);
+
+  // Pre-carrega as vozes do navegador (algumas so ficam disponiveis de forma assincrona)
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    window.speechSynthesis.getVoices();
+    const onVoices = () => window.speechSynthesis.getVoices();
+    window.speechSynthesis.addEventListener?.("voiceschanged", onVoices);
+    return () => window.speechSynthesis.removeEventListener?.("voiceschanged", onVoices);
+  }, []);
 
   const handleNewChat = async () => {
     await createConversation();
