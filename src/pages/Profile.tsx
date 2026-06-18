@@ -7,6 +7,7 @@ import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -152,6 +153,26 @@ export default function Profile() {
           </div>
         </CardContent>
       </Card>
+
+      <Button
+        variant="ghost"
+        onClick={async () => {
+          if (user) {
+            await supabase
+              .from("profiles")
+              .update({ onboarding_completed: false, onboarding_step: 0 })
+              .eq("user_id", user.id);
+          }
+          localStorage.removeItem("orbis_onboarding_completo");
+          localStorage.removeItem("orbis_onboarding_completed");
+          localStorage.setItem("orbis_onboarding_step", "0");
+          window.location.assign("/");
+        }}
+        className="w-full text-muted-foreground hover:text-foreground"
+      >
+        <Target className="w-4 h-4 mr-2" />
+        Refazer tour de boas-vindas
+      </Button>
 
       <Button
         variant="outline"

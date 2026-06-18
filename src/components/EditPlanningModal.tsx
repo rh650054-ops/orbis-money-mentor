@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { Label } from "@/shared/ui/label";
 import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -156,6 +157,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       title: "✅ Planejamento atualizado!",
       description: "Suas metas foram atualizadas com sucesso.",
     });
+    emitMissionEvent("goal-set");
     onClose();
   };
 

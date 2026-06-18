@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
 import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon } from "lucide-react";
@@ -174,6 +175,7 @@ export function DefconRunning({
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
       registerSale(amount, method);
+      emitMissionEvent("sale-registered");
       persistClient(amount, method);
       resetSaleForm();
       setShowAddSale(false);

@@ -22,6 +22,7 @@ import ProductActionsModal from "@/components/products/ProductActionsModal";
 import { useIngredients } from "@/hooks/useIngredients";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
@@ -266,6 +267,7 @@ export default function Products() {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
       toast({ title: editing ? "Produto atualizado" : "Produto criado" });
+      if (!editing) emitMissionEvent("product-added");
       setFormOpen(false);
       loadAll();
     }
@@ -469,7 +471,7 @@ export default function Products() {
 
         {/* PRODUTOS */}
         <TabsContent value="products" className="space-y-3 mt-4">
-          <Button onClick={openCreate} className="w-full" size="lg">
+          <Button data-tour="add-product" onClick={openCreate} className="w-full" size="lg">
             <Plus className="w-4 h-4 mr-2" /> Novo produto
           </Button>
 

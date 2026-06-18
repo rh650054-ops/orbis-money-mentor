@@ -13,7 +13,7 @@ import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
-import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
+import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import MorningCommitModal from "@/components/MorningCommitModal";
 import BackButton from "@/shared/components/back-button";
 import {
@@ -46,13 +46,15 @@ export default function Layout({ children }: LayoutProps) {
   const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const { phase, setPhase, markDone } = useOnboarding();
   const [onboardingCompleto, setOnboardingCompleto] = useState(
     () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
   );
   const [onboardingChecked, setOnboardingChecked] = useState(
     () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
   );
+  // Progresso da Missão de Boas-Vindas (retomada cross-device)
+  const [missionStep, setMissionStep] = useState(0);
+  const [missionNickname, setMissionNickname] = useState<string | null>(null);
   useEffect(() => {
     const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_onboarding_completo') === 'true');
     window.addEventListener('storage', sync);
@@ -71,14 +73,22 @@ export default function Layout({ children }: LayoutProps) {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("nickname, monthly_goal")
+        .select("nickname, monthly_goal, onboarding_completed, onboarding_step")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      if (data && (data.nickname || (data.monthly_goal ?? 0) > 0)) {
+      // Concluído se: flag do banco, ou conta legada com nickname/meta já preenchidos.
+      const alreadyDone =
+        data?.onboarding_completed === true ||
+        (!!data && (!!data.nickname || (data.monthly_goal ?? 0) > 0));
+      if (alreadyDone) {
         localStorage.setItem('orbis_onboarding_completo', 'true');
         localStorage.setItem('orbis_onboarding_completed', 'true');
         setOnboardingCompleto(true);
+      } else {
+        // Retoma de onde parou e guarda o nome pra saudação da missão.
+        setMissionStep(data?.onboarding_step ?? 0);
+        setMissionNickname(data?.nickname ?? null);
       }
       setOnboardingChecked(true);
     })();
@@ -165,15 +175,13 @@ export default function Layout({ children }: LayoutProps) {
     navigate("/auth");
   };
 
-  // If onboarding not complete, render ONLY the onboarding
-  if (!onboardingCompleto && phase !== "done") {
-    // Espera a checagem no banco antes de mostrar o onboarding,
-    // pra não exibir o onboarding pra quem já é cadastrado
-    if (user && !onboardingChecked) {
-      return <div className="min-h-[100dvh] bg-background" />;
-    }
-    return <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />;
+  // Espera a checagem no banco antes de decidir mostrar a missão,
+  // pra não piscar o overlay pra quem já é cadastrado.
+  if (!onboardingCompleto && user && !onboardingChecked) {
+    return <div className="min-h-[100dvh] bg-background" />;
   }
+  // Nota: a Missão de Boas-Vindas NÃO substitui mais o app. Ela é renderizada
+  // como overlay (MissionOrchestrator) por cima do app real, lá embaixo no JSX.
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -354,9 +362,18 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
+      {/* Missao de Boas-Vindas (onboarding gamificado): overlay sobre o app real */}
+      {user && onboardingChecked && !onboardingCompleto && (
+        <MissionOrchestrator
+          userId={user.id}
+          nickname={missionNickname}
+          initialIndex={missionStep}
+          onCompleted={() => setOnboardingCompleto(true)}
+        />
+      )}
 
       {/* Morning Commit Modal */}
-      {user && phase === "done" && (
+      {user && onboardingCompleto && (
         <MorningCommitModal userId={user.id} onDismiss={() => {}} />
       )}
 

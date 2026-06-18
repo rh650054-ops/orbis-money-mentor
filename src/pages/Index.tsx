@@ -14,6 +14,7 @@ import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { TrialNudge } from "@/components/TrialNudge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
@@ -398,6 +399,7 @@ export default function Index() {
               </p>
             </div>
             <button
+              data-tour="meta-input"
               onClick={() => setShowEditPlanning(true)}
               className="h-11 w-11 inline-flex items-center justify-center hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
               aria-label="Editar planejamento"
