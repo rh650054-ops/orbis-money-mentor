@@ -739,7 +739,7 @@ export default function Products() {
                 />
               </div>
               <div>
-                <Label>Mínimo</Label>
+                <Label>Estoque Mínimo</Label>
                 <Input
                   type="number"
                   value={form.stock_min}
