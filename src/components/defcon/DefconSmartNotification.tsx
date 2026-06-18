@@ -23,6 +23,9 @@ interface DefconSmartNotificationProps {
 
 const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
+const COACH_DAILY_CAP = 5;            // teto de mensagens por dia (4-5, escolha do usuario)
+const COACH_COOLDOWN_APPROACHES = 4;  // intervalo minimo de abordagens entre mensagens (anti-spam)
+const COACH_AI_TIMEOUT_MS = 2500;     // se a IA demorar, usa o template na hora
 
 export function DefconSmartNotification({
   userId,
@@ -44,6 +47,9 @@ export function DefconSmartNotification({
   const shownTriggersRef = useRef<Set<string>>(new Set());
   const holdingRef = useRef<Set<string>>(new Set());
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const liveApproachesRef = useRef(0);
+  const lastMsgApproachesRef = useRef(-99);
+  const aiAvailableRef = useRef(true);
 
   useEffect(() => {
     if (!userId) return;
@@ -91,17 +97,58 @@ export function DefconSmartNotification({
     setHistoricalLoaded(true);
   };
 
+  // ---- Controle de frequencia (teto diario + intervalo entre mensagens) ----
+  const coachCountKey = () => `orbis_coach_count_${userId}_${getBrazilDate()}`;
+  const getCoachCount = () => {
+    try { return parseInt(localStorage.getItem(coachCountKey()) || "0", 10) || 0; } catch { return 0; }
+  };
+  const bumpCoachCount = () => {
+    try { localStorage.setItem(coachCountKey(), String(getCoachCount() + 1)); } catch { /* ignore */ }
+  };
+
+  // ---- Voz de IA: reescreve o template; cai no template se faltar IA/cota/timeout ----
+  const aiRewrite = useCallback(async (templateMsg: string): Promise<string> => {
+    if (!aiAvailableRef.current) return templateMsg;
+    try {
+      const invoke = supabase.functions.invoke("defcon-coach", {
+        body: {
+          template: templateMsg,
+          dayApproaches: liveApproachesRef.current,
+          avgApproachesPerSale: Math.round(historicalAvg * 10) / 10,
+        },
+      });
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), COACH_AI_TIMEOUT_MS));
+      const res: any = await Promise.race([invoke, timeout]);
+      if (res?.error) { aiAvailableRef.current = false; return templateMsg; }
+      const msg = res?.data?.message?.toString().trim();
+      return msg && msg.length > 0 ? msg : templateMsg;
+    } catch {
+      aiAvailableRef.current = false; // para de tentar nesta sessao pra nao atrasar as proximas
+      return templateMsg;
+    }
+  }, [historicalAvg]);
+
   const showNotification = useCallback((icon: string, message: string) => {
-    const id = Date.now().toString();
-    setNotifications(prev => [...prev, { id, icon, message, timestamp: Date.now(), holdingDown: false }]);
-    const timer = setTimeout(() => {
-      if (!holdingRef.current.has(id)) {
-        setNotifications(prev => prev.filter(n => n.id !== id));
-      }
-      timersRef.current.delete(id);
-    }, NOTIFICATION_DURATION);
-    timersRef.current.set(id, timer);
-  }, []);
+    // Anti-spam: respeita teto diario e intervalo minimo entre mensagens
+    if (getCoachCount() >= COACH_DAILY_CAP) return;
+    if (lastMsgApproachesRef.current >= 0 &&
+        (liveApproachesRef.current - lastMsgApproachesRef.current) < COACH_COOLDOWN_APPROACHES) return;
+    lastMsgApproachesRef.current = liveApproachesRef.current;
+    bumpCoachCount();
+
+    // Enriquece com IA (fallback no template) e so entao mostra o card
+    aiRewrite(message).then((finalMsg) => {
+      const id = Date.now().toString();
+      setNotifications(prev => [...prev, { id, icon, message: finalMsg, timestamp: Date.now(), holdingDown: false }]);
+      const timer = setTimeout(() => {
+        if (!holdingRef.current.has(id)) {
+          setNotifications(prev => prev.filter(n => n.id !== id));
+        }
+        timersRef.current.delete(id);
+      }, NOTIFICATION_DURATION);
+      timersRef.current.set(id, timer);
+    });
+  }, [aiRewrite, userId]);
 
   const dismissNotification = useCallback((id: string) => {
     const timer = timersRef.current.get(id);
@@ -128,6 +175,7 @@ export function DefconSmartNotification({
   // Track approach-without-sale streaks
   useEffect(() => {
     if (phase !== "running" || !historicalLoaded) return;
+    liveApproachesRef.current = totalApproaches;
 
     const newSale = totalSalesCount > prevSalesRef.current;
     const newApproach = totalApproaches > prevApproachesRef.current;
