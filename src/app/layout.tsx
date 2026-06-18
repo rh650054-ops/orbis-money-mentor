@@ -47,16 +47,16 @@ export default function Layout({ children }: LayoutProps) {
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [onboardingCompleto, setOnboardingCompleto] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_mission_completed') === 'true'
   );
   const [onboardingChecked, setOnboardingChecked] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_mission_completed') === 'true'
   );
   // Progresso da Missão de Boas-Vindas (retomada cross-device)
   const [missionStep, setMissionStep] = useState(0);
   const [missionNickname, setMissionNickname] = useState<string | null>(null);
   useEffect(() => {
-    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_onboarding_completo') === 'true');
+    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_mission_completed') === 'true');
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, []);
@@ -65,7 +65,7 @@ export default function Layout({ children }: LayoutProps) {
   // (vale em qualquer aparelho/navegador, pois o dado fica na conta e não no localStorage)
   useEffect(() => {
     if (!user) return;
-    if (localStorage.getItem('orbis_onboarding_completo') === 'true') {
+    if (localStorage.getItem('orbis_mission_completed') === 'true') {
       setOnboardingChecked(true);
       return;
     }
@@ -73,17 +73,14 @@ export default function Layout({ children }: LayoutProps) {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("nickname, monthly_goal, onboarding_completed, onboarding_step")
+        .select("nickname, onboarding_completed, onboarding_step")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      // Concluído se: flag do banco, ou conta legada com nickname/meta já preenchidos.
-      const alreadyDone =
-        data?.onboarding_completed === true ||
-        (!!data && (!!data.nickname || (data.monthly_goal ?? 0) > 0));
-      if (alreadyDone) {
-        localStorage.setItem('orbis_onboarding_completo', 'true');
-        localStorage.setItem('orbis_onboarding_completed', 'true');
+      // Fonte de verdade ÚNICA: a flag explícita do banco. Toda conta que ainda
+      // não concluiu a Missão de Boas-Vindas a vê pelo menos uma vez.
+      if (data?.onboarding_completed === true) {
+        localStorage.setItem('orbis_mission_completed', 'true');
         setOnboardingCompleto(true);
       } else {
         // Retoma de onde parou e guarda o nome pra saudação da missão.

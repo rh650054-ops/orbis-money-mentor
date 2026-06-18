@@ -2,8 +2,9 @@ import { useCallback, useMemo, useState } from "react";
 import { missionSteps } from "./missionSteps";
 
 const STEP_KEY = "orbis_onboarding_step";
-const DONE_KEY = "orbis_onboarding_completo";
-const OLD_DONE_KEY = "orbis_onboarding_completed";
+// Chave NOVA de propósito: flags antigas (orbis_onboarding_completo/completed)
+// não contam mais, pra que TODA conta veja a missão pelo menos uma vez.
+const DONE_KEY = "orbis_mission_completed";
 
 export interface MissionTourState {
   /** Índice do passo atual (0-based) em missionSteps. */
@@ -32,10 +33,7 @@ function readInitialIndex(): number {
 
 function readInitialCompleted(): boolean {
   if (typeof window === "undefined") return false;
-  return (
-    window.localStorage.getItem(DONE_KEY) === "true" ||
-    window.localStorage.getItem(OLD_DONE_KEY) === "true"
-  );
+  return window.localStorage.getItem(DONE_KEY) === "true";
 }
 
 export function useMissionTour(args: UseMissionTourArgs = {}) {
@@ -61,7 +59,6 @@ export function useMissionTour(args: UseMissionTourArgs = {}) {
   const finish = useCallback(() => {
     if (typeof window !== "undefined") {
       window.localStorage.setItem(DONE_KEY, "true");
-      window.localStorage.setItem(OLD_DONE_KEY, "true");
       window.localStorage.removeItem(STEP_KEY);
     }
     setCompleted(true);
@@ -98,7 +95,6 @@ export function useMissionTour(args: UseMissionTourArgs = {}) {
   const restart = useCallback(() => {
     if (typeof window !== "undefined") {
       window.localStorage.removeItem(DONE_KEY);
-      window.localStorage.removeItem(OLD_DONE_KEY);
       window.localStorage.setItem(STEP_KEY, "0");
     }
     setCompleted(false);

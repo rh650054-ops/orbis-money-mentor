@@ -163,8 +163,7 @@ export default function Profile() {
               .update({ onboarding_completed: false, onboarding_step: 0 })
               .eq("user_id", user.id);
           }
-          localStorage.removeItem("orbis_onboarding_completo");
-          localStorage.removeItem("orbis_onboarding_completed");
+          localStorage.removeItem("orbis_mission_completed");
           localStorage.setItem("orbis_onboarding_step", "0");
           window.location.assign("/");
         }}
