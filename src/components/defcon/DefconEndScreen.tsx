@@ -3,6 +3,7 @@ import { Share2, AlertTriangle, Sparkles, FileDown, Coins } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
@@ -434,6 +435,17 @@ export function DefconEndScreen({
             <Share2 className="w-4 h-4" />
             {sharing ? "Gerando..." : "Compartilhar resultado"}
           </button>
+        )}
+
+        {/* Empurrão de teste — aparece SEMPRE que finaliza o DEFCON (durante o trial) */}
+        {userId && (
+          <TrialNudge
+            userId={userId}
+            momentKey="defcon_end"
+            oncePerDay={false}
+            title="Tá curtindo o foco do DEFCON 4?"
+            benefit="É aqui que você vende com meta, cronômetro e conversão ao vivo — quem usa todo dia rende mais. Quando o teste acabar, isso trava."
+          />
         )}
 
         {/* 3. RECEBIMENTOS */}

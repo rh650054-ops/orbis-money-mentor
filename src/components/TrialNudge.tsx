@@ -9,29 +9,33 @@ interface TrialNudgeProps {
   title: string;
   /** A solução que aquela funcionalidade traz (o "porquê não perder") */
   benefit: string;
-  /** Identifica o momento (ex: "defcon_day"). Mostra no máximo 1x por dia por momento. */
+  /** Identifica o momento (ex: "defcon_end"). */
   momentKey: string;
+  /** Se false, aparece TODA vez (sem limite diário). Default: true (no máx 1x/dia). */
+  oncePerDay?: boolean;
 }
 
 /**
- * Empurrão persuasivo durante o teste grátis — NÃO é propaganda o tempo todo.
- * Só aparece se a pessoa está no teste (não pago/não demo/não expirado), e
- * só uma vez por dia por momento estratégico. Mostra o valor da funcionalidade
- * e quantos dias faltam, com a opção de assinar na hora.
+ * Empurrão persuasivo durante o teste grátis — não é propaganda o tempo todo.
+ * Aparece para quem ainda não assinou (e não está expirado/demo), mostrando o
+ * valor da funcionalidade e quantos dias faltam, com a opção de assinar na hora.
  */
-export function TrialNudge({ userId, title, benefit, momentKey }: TrialNudgeProps) {
+export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = true }: TrialNudgeProps) {
   const { trialStatus, loading } = useTrialStatus(userId);
   const [closed, setClosed] = useState(false);
   const [show, setShow] = useState(false);
 
-  const inTrial =
-    trialStatus.isTrialActive &&
-    trialStatus.planStatus !== "active" &&
-    !trialStatus.isExpired;
+  // Robusto: mostra pra quem NÃO é assinante/demo e NÃO está expirado.
+  // (Não depende só da flag is_trial_active, que às vezes não vem setada.)
+  const shouldNudge = trialStatus.planStatus !== "active" && !trialStatus.isExpired;
 
   useEffect(() => {
-    if (loading || !inTrial || !userId) {
+    if (loading || !shouldNudge || !userId) {
       setShow(false);
+      return;
+    }
+    if (!oncePerDay) {
+      setShow(true);
       return;
     }
     const dayKey = `orbis_nudge_${momentKey}_${userId}_${new Date().toISOString().slice(0, 10)}`;
@@ -48,8 +52,10 @@ export function TrialNudge({ userId, title, benefit, momentKey }: TrialNudgeProp
       } catch {
         /* ignore */
       }
+    } else {
+      setShow(false);
     }
-  }, [loading, inTrial, userId, momentKey]);
+  }, [loading, shouldNudge, userId, momentKey, oncePerDay]);
 
   if (!show || closed) return null;
 
@@ -85,7 +91,9 @@ export function TrialNudge({ userId, title, benefit, momentKey }: TrialNudgeProp
       <p className="text-[13px] text-foreground/85 leading-snug">{benefit}</p>
 
       <p className="text-xs font-bold mt-2" style={{ color: "hsl(var(--primary))" }}>
-        ⏳ Faltam {days} {days === 1 ? "dia" : "dias"} do seu teste grátis.
+        {days >= 1
+          ? `⏳ Faltam ${days} ${days === 1 ? "dia" : "dias"} do seu teste grátis.`
+          : "⏳ Seu teste grátis está acabando."}
       </p>
 
       <button

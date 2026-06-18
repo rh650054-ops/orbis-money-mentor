@@ -110,26 +110,25 @@ export default function Index() {
     if (user) loadDashboardData();
   });
 
-  // Check if should show card registration modal (only on first access for non-subscribers)
+  // Mostra a escolha (assinar agora / testar 3 dias) logo no 1º acesso, por usuário.
   useEffect(() => {
     if (!user) return;
-    if (!localStorage.getItem('orbis_onboarding_completo')) return;
-    
+
     const checkCardModal = async () => {
-      const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
-      if (hasSeenCardModal) return;
+      const seenKey = `orbis_card_modal_seen_${user.id}`;
+      if (localStorage.getItem(seenKey)) return;
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      // Only show if not subscribed
+      // Só mostra se ainda não é assinante
       const isSubscribed = (profile?.is_demo && profile?.billing_exempt) || profile?.plan_status === "active";
       if (!isSubscribed) {
         setShowCardModal(true);
-        localStorage.setItem('hasSeenCardModal', 'true');
+        localStorage.setItem(seenKey, 'true');
       }
     };
 

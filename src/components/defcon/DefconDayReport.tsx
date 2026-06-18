@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { TrialNudge } from "@/components/TrialNudge";
 
 interface DefconDayReportProps {
   totalApproaches: number;
@@ -148,14 +147,6 @@ export function DefconDayReport({
           <p className="text-sm text-foreground font-mono leading-relaxed">{aiTip}</p>
         </div>
       )}
-
-      {/* Empurrão estratégico de teste — só durante o trial, no máx 1x/dia */}
-      <TrialNudge
-        userId={userId}
-        momentKey="defcon_day"
-        title="Tá curtindo o foco do DEFCON 4?"
-        benefit="É aqui que você vende com meta, cronômetro e conversão ao vivo — quem usa todo dia rende mais. Quando o teste acabar, isso trava."
-      />
     </div>
   );
 }
