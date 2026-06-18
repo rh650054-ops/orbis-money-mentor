@@ -142,7 +142,7 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
 
   return (
     <div
-      className="fixed inset-0 z-[9998]"
+      className="fixed inset-0 z-[9998] pointer-events-none"
       role="dialog"
       aria-modal="true"
       aria-label={`Missão de boas-vindas — ${step.title}`}
@@ -158,7 +158,7 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
       {/* Botão pular discreto */}
       <button
         onClick={onSkip}
-        className="fixed top-3 right-4 z-[10001] text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border bg-background/80 backdrop-blur"
+        className="fixed top-3 right-4 z-[10001] pointer-events-auto text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border bg-background/80 backdrop-blur"
       >
         Pular
       </button>
@@ -201,14 +201,14 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
         </>
       ) : !isAction ? (
         // Passo informativo sem alvo: overlay cheio bloqueante (usuário lê e toca "Entendi").
-        <div className="absolute inset-0 bg-black/75" onClick={(e) => e.stopPropagation()} />
+        <div className="absolute inset-0 bg-black/75 pointer-events-auto" onClick={(e) => e.stopPropagation()} />
       ) : null)}
 
       {/* Balão do coachmark — escondido enquanto um modal está aberto */}
       {!dialogOpen && (
       <div
         className={cn(
-          "fixed left-4 right-4 z-[10000] max-w-sm mx-auto transition-all duration-200",
+          "fixed left-4 right-4 z-[10000] pointer-events-auto max-w-sm mx-auto transition-all duration-200",
           entering ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
         )}
         style={
