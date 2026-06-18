@@ -155,10 +155,10 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
           {/* Price */}
           <div className="text-center mb-4">
             <div className="inline-flex items-baseline gap-1">
-              <span className="text-3xl font-black text-primary leading-none">R$ 19,90</span>
+              <span className="text-3xl font-black text-primary leading-none">R$ 29,90</span>
               <span className="text-sm text-muted-foreground">/mês</span>
             </div>
-            <p className="text-sm font-semibold text-foreground/90 mt-1">Só R$ 0,66 por dia — menos que uma bala que você vende.</p>
+            <p className="text-sm font-semibold text-foreground/90 mt-1">Só R$ 0,99 por dia — o preço de uma bala que você vende.</p>
             <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser • Sem multa</p>
           </div>
 
@@ -169,7 +169,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
             >
               <CreditCard className="w-4 h-4 mr-2" />
-              Reativar agora — R$ 19,90/mês
+              Reativar agora — R$ 29,90/mês
             </Button>
 
             <Button
