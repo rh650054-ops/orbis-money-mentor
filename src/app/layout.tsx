@@ -114,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
       if (lastReminderDate !== today) {
         toast({
           title: `🔥 Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
-          description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,99 por dia (R$29,90/mês) e não perde o ritmo.",
+          description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,99 por dia (R$29,99/mês) e não perde o ritmo.",
           duration: 8000,
         });
         localStorage.setItem('lastTrialReminder', today);
@@ -262,7 +262,7 @@ export default function Layout({ children }: LayoutProps) {
                   onClick={() => navigate('/payment')}
                   className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
-                  Quero continuar — R$29,90/mês
+                  Quero continuar — R$29,99/mês
                 </Button>
               </div>
             </div>

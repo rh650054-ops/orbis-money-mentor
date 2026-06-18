@@ -688,7 +688,7 @@ export default function Profile() {
 
             {/* Preço */}
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-foreground">R$ 29,90</span>
+              <span className="text-3xl font-bold text-foreground">R$ 29,99</span>
               <span className="text-xs text-muted-foreground">/mês</span>
             </div>
 

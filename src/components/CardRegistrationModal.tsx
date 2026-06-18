@@ -26,7 +26,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
             🚀 Garanta seu acesso ao Orbis!
           </DialogTitle>
           <DialogDescription className="text-center text-base mt-4">
-            Depois dos 3 dias grátis, é só <strong>R$0,99 por dia</strong> (R$29,90/mês) pra manter tudo: seus números, o mentor de rua (IA) e seu lugar no ranking.
+            Depois dos 3 dias grátis, é só <strong>R$0,99 por dia</strong> (R$29,99/mês) pra manter tudo: seus números, o mentor de rua (IA) e seu lugar no ranking.
           </DialogDescription>
         </DialogHeader>
 

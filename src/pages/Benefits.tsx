@@ -98,7 +98,7 @@ export default function Benefits() {
 
           <div className="inline-flex flex-col items-center gap-2 bg-gradient-to-r from-primary/10 to-primary/5 p-6 rounded-2xl border-2 border-primary/20">
             <div className="text-6xl font-bold text-primary">
-              R$ 29,90
+              R$ 29,99
             </div>
             <div className="text-sm text-muted-foreground">por mês • cancele quando quiser</div>
           </div>
@@ -140,7 +140,7 @@ export default function Benefits() {
               className="w-full sm:w-auto px-12 h-16 text-xl font-bold shadow-lg hover:shadow-xl"
               onClick={() => window.open(getCheckoutUrl(), "_blank")}
             >
-              🚀 Assinar por R$ 29,90/mês
+              🚀 Assinar por R$ 29,99/mês
             </Button>
             
             <div className="text-sm text-muted-foreground">
