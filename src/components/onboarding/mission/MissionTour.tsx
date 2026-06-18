@@ -33,12 +33,17 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
   const [entering, setEntering] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const measureTimer = useRef<number | null>(null);
+  const navStepRef = useRef<string | null>(null);
 
   const step = missionSteps[index];
 
-  // ---- Navegação até a rota do passo --------------------------------------
+  // ---- Navegação até a rota do passo (UMA vez ao entrar no passo) ----------
+  // Não puxa o usuário de volta se ele navegar sozinho — ex.: entrar no DEFCON
+  // na fase da primeira venda. Só leva à rota quando o passo muda.
   useEffect(() => {
     if (!step) return;
+    if (navStepRef.current === step.id) return;
+    navStepRef.current = step.id;
     if (location.pathname !== step.route) {
       navigate(step.route, { replace: true });
     }

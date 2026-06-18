@@ -8,17 +8,20 @@ import type { MissionEventType } from "@/shared/lib/missionEvents";
 //  - special: renderiza um componente próprio no lugar do coachmark
 //    (fase 1 = boas-vindas/assinatura; fase final = recompensa).
 //
-// Estrutura (6 fases): meta+horário foram fundidos numa fase só, porque o
-// EditPlanningModal coleta meta mensal + horas/dia + dias/semana de uma vez.
+// Estrutura (5 fases): boas-vindas -> metas -> produto -> 1ª venda NO DEFCON -> recompensa.
+// A primeira venda (o "aha") acontece dentro do DEFCON (modo de guerra), que é a
+// experiência de venda mais forte do app. O motor fica montado por cima de todas
+// as rotas, então basta esperar o evento "sale-registered" — que o DEFCON dispara
+// em qualquer venda (rápida ou manual). Passo opcional: dá pra pular sem travar.
 
 export type MissionAdvance = "next" | "action";
 export type MissionSpecial = "card-registration" | "reward";
 
 export interface MissionStep {
   id: string;
-  /** Rótulo de fase exibido no balão, ex: "Fase 2 de 6". */
+  /** Rótulo de fase exibido no balão, ex: "Fase 2 de 5". */
   phase: number;
-  /** Rota onde o passo acontece. O motor navega até ela antes de medir o alvo. */
+  /** Rota onde o passo começa. O motor navega até ela UMA vez ao entrar no passo. */
   route: string;
   /** Seletor CSS do alvo real (data-tour=...). Ausente = card central informativo. */
   selector?: string;
@@ -31,13 +34,13 @@ export interface MissionStep {
   actionEvent?: MissionEventType;
   /** Se true, o "furo" do spotlight fica clicável pro usuário agir de verdade. */
   interactive?: boolean;
-  /** Permite pular este passo específico (passos opcionais, ex: DEFCON). */
+  /** Permite pular este passo específico (passos opcionais). */
   optional?: boolean;
   /** Renderiza um componente especial em vez do coachmark padrão. */
   special?: MissionSpecial;
 }
 
-export const TOTAL_PHASES = 6;
+export const TOTAL_PHASES = 5;
 
 export const missionSteps: MissionStep[] = [
   {
@@ -79,31 +82,20 @@ export const missionSteps: MissionStep[] = [
   {
     id: "first-sale",
     phase: 4,
-    route: "/transactions",
-    selector: '[data-tour="registrar-venda"]',
-    title: "Sua missão: a primeira venda",
+    route: "/daily-goals",
+    selector: '[data-tour="defcon-banner"]',
+    title: "Sua 1ª venda no modo de guerra",
     instruction:
-      "Esse é o momento. Registra uma venda de verdade e vê o número subir no seu painel.",
-    cta: "👉 preenche o valor e registra",
+      "Toque em Iniciar DEFCON, comece o bloco e registra sua primeira venda. Você vê o número subir ao vivo.",
+    cta: "👉 inicia o DEFCON e registra 1 venda",
     advanceOn: "action",
     actionEvent: "sale-registered",
     interactive: true,
-  },
-  {
-    id: "defcon",
-    phase: 5,
-    route: "/daily-goals",
-    selector: '[data-tour="defcon-banner"]',
-    title: "Sinta o DEFCON",
-    instruction:
-      "Modo de foco máximo: blocos de 60 min e meta do bloco. Ative quando for pra rua.",
-    cta: "👉 toque pra sentir (ou pule)",
-    advanceOn: "next",
     optional: true,
   },
   {
     id: "reward",
-    phase: 6,
+    phase: 5,
     route: "/",
     special: "reward",
     title: "Missão cumprida! 🏆",

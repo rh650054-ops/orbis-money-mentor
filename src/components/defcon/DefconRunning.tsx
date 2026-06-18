@@ -158,6 +158,8 @@ export function DefconRunning({
         console.warn("[defcon] failed to debit loadout", e)
       );
     }
+    // Onboarding: qualquer venda no DEFCON (rápida ou manual) avança a missão.
+    emitMissionEvent("sale-registered");
   };
 
   const resetSaleForm = () => {
@@ -175,7 +177,6 @@ export function DefconRunning({
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
       registerSale(amount, method);
-      emitMissionEvent("sale-registered");
       persistClient(amount, method);
       resetSaleForm();
       setShowAddSale(false);
