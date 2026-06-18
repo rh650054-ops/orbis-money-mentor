@@ -222,7 +222,7 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
                 top: tooltipBelow ? Math.min(rect.bottom + 20, window.innerHeight - 220) : undefined,
                 bottom: !tooltipBelow ? window.innerHeight - rect.top + 20 : undefined,
               }
-            : { top: "50%", transform: "translateY(-50%)" }
+            : { top: 64 }
         }
       >
         <div className="bg-card border border-primary/30 rounded-2xl p-5 shadow-2xl">
