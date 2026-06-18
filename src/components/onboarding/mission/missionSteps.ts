@@ -80,18 +80,15 @@ export const missionSteps: MissionStep[] = [
     interactive: true,
   },
   {
-    id: "first-sale",
+    id: "defcon-intro",
     phase: 4,
     route: "/daily-goals",
     selector: '[data-tour="defcon-banner"]',
-    title: "Sua 1ª venda no modo de guerra",
+    title: "Modo de guerra: DEFCON 4",
     instruction:
-      "Toque em Iniciar DEFCON, comece o bloco e registra sua primeira venda. Você vê o número subir ao vivo.",
-    cta: "👉 inicia o DEFCON e registra 1 venda",
-    advanceOn: "action",
-    actionEvent: "sale-registered",
-    interactive: true,
-    optional: true,
+      "Quando for pra rua, entra no DEFCON 4: cronômetro, meta da hora, venda rápida e a IA te empurrando pra vender. É aqui que você foca e fatura.",
+    cta: "👉 é só tocar aqui na hora de vender",
+    advanceOn: "next",
   },
   {
     id: "reward",
