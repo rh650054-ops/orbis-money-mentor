@@ -113,8 +113,8 @@ export default function Layout({ children }: LayoutProps) {
       // Show once per day
       if (lastReminderDate !== today) {
         toast({
-          title: `⚠️ Seu teste acaba em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'}!`,
-          description: "Assine agora por R$19,90/mês e mantenha acesso a todos os recursos.",
+          title: `🔥 Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
+          description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,66 por dia (R$19,90/mês) e não perde o ritmo.",
           duration: 8000,
         });
         localStorage.setItem('lastTrialReminder', today);
@@ -249,20 +249,20 @@ export default function Layout({ children }: LayoutProps) {
         {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.isTrialActive && trialStatus.daysRemaining !== null && trialStatus.daysRemaining <= 3 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
             <div className="flex items-start gap-3">
-              <div className="text-2xl">⚠️</div>
+              <div className="text-2xl">🔥</div>
               <div className="flex-1">
                 <h3 className="font-semibold text-warning mb-1">
-                  Seu teste gratuito acaba em {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'}!
+                  Faltam {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Após o término, você perderá acesso a todos os dados e funcionalidades. Assine agora para manter tudo salvo!
+                  Seu histórico, sua constância e seu lugar no ranking estão sendo construídos. Quando o teste acabar, isso trava. Mantenha tudo por menos de R$0,66 por dia.
                 </p>
                 <Button 
                   size="sm" 
                   onClick={() => navigate('/payment')}
                   className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
-                  Assinar por R$19,90/mês
+                  Quero continuar — R$19,90/mês
                 </Button>
               </div>
             </div>

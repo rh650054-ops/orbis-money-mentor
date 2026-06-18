@@ -97,10 +97,10 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               </div>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground leading-tight">
-              Seu acesso foi pausado
+              Você chegou longe. Não pare agora.
             </h2>
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-[300px]">
-              Os 3 dias gratuitos acabaram. Continue dominando seus números.
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-[320px]">
+              Seus 3 dias acabaram — mas seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados. Reative pra não perder nada.
             </p>
           </div>
 
@@ -113,15 +113,15 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
             <ul className="space-y-1.5 text-[13px] text-foreground/80">
               <li className="flex items-start gap-2">
                 <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Histórico de vendas, blocos e relatórios</span>
+                <span>Seu histórico de vendas e relatórios travam</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-destructive/70 mt-0.5">•</span>
-                <span>IA personalizada e insights diários</span>
+                <span>O mentor de rua (IA) para de te ajudar a vender</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Modo DEFCON 4 e ranking entre vendedores</span>
+                <span>Você sai do ranking e perde sua ofensiva 🔥</span>
               </li>
             </ul>
           </div>
@@ -139,7 +139,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               </li>
               <li className="flex items-start gap-2.5">
                 <Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Recebe IA personalizada</strong> pra vender mais</span>
+                <span><strong className="text-foreground">Tem o mentor de rua (IA)</strong> no bolso, todo dia</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" />
@@ -147,7 +147,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               </li>
               <li className="flex items-start gap-2.5">
                 <Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Constrói constância</strong> e domina seu futuro</span>
+                <span><strong className="text-foreground">Sobe no ranking</strong> e constrói sua ofensiva 🔥</span>
               </li>
             </ul>
           </div>
@@ -158,7 +158,8 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               <span className="text-3xl font-black text-primary leading-none">R$ 19,90</span>
               <span className="text-sm text-muted-foreground">/mês</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
+            <p className="text-sm font-semibold text-foreground/90 mt-1">Só R$ 0,66 por dia — menos que uma bala que você vende.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser • Sem multa</p>
           </div>
 
           {/* Actions */}
@@ -168,7 +169,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
             >
               <CreditCard className="w-4 h-4 mr-2" />
-              Assinar agora — R$ 19,90/mês
+              Reativar agora — R$ 19,90/mês
             </Button>
 
             <Button
