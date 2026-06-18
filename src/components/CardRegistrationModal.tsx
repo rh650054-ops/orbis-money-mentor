@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { CreditCard } from "lucide-react";
-import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 interface CardRegistrationModalProps {
   isOpen: boolean;
@@ -11,7 +11,7 @@ interface CardRegistrationModalProps {
 export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrationModalProps) {
   const handleRegister = () => {
     onClose();
-    window.open(HOTMART_CHECKOUT_URL, "_blank");
+    window.open(getCheckoutUrl(), "_blank");
   };
 
   const handleSkip = () => {

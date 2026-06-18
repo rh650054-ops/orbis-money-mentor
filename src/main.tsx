@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import Root from "@/app/root";
 import "./index.css";
 import { setupOfflineSyncListeners } from "@/shared/lib/offline-sync";
+import { captureReferralCoupon } from "@/shared/lib/checkout";
 
 window.addEventListener("error", (event) => {
   console.error("[Orbis] Unhandled error:", event.error ?? event.message);
@@ -10,6 +11,9 @@ window.addEventListener("error", (event) => {
 window.addEventListener("unhandledrejection", (event) => {
   console.error("[Orbis] Unhandled promise rejection:", event.reason);
 });
+
+// Captura o cupom do influenciador na entrada (ex: ?cupom=ZECK15) -> aplica depois no checkout
+captureReferralCoupon();
 
 // Setup offline sync listeners globally
 setupOfflineSyncListeners();

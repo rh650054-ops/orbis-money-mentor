@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 import { useNavigate } from "react-router-dom";
 import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft, Brain } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -346,7 +346,7 @@ export default function Profile() {
   };
 
   const handleUpgrade = () => {
-    window.open(HOTMART_CHECKOUT_URL, "_blank");
+    window.open(getCheckoutUrl(), "_blank");
   };
 
   if (loading || !user) {

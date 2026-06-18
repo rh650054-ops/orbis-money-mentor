@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useState } from "react";
 
-import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -19,7 +19,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
   const [isChecking, setIsChecking] = useState(false);
 
   const handleActivatePlan = () => {
-    window.open(HOTMART_CHECKOUT_URL, "_blank");
+    window.open(getCheckoutUrl(), "_blank");
   };
 
   const handleCheckAccess = async () => {

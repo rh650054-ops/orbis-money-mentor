@@ -7,7 +7,7 @@ import { CreditCard, Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame,
 import { useToast } from "@/shared/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function Payment() {
   }, [user, loading, navigate]);
 
   const handleHotmartCheckout = () => {
-    window.open(HOTMART_CHECKOUT_URL, "_blank");
+    window.open(getCheckoutUrl(), "_blank");
   };
 
   const handleCheckAccess = async () => {
