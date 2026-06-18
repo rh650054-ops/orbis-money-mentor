@@ -52,6 +52,8 @@ export function DefconSmartNotification({
   const liveApproachesRef = useRef(0);
   const lastMsgApproachesRef = useRef(-99);
   const aiAvailableRef = useRef(true);
+  const coachShownRef = useRef(0);       // teto POR SESSAO de DEFCON (em memoria, nao trava no dia)
+  const sessionFreshRef = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -104,14 +106,23 @@ export function DefconSmartNotification({
     setHistoricalLoaded(true);
   };
 
-  // ---- Controle de frequencia (teto diario + intervalo entre mensagens) ----
-  const coachCountKey = () => `orbis_coach_count_${userId}_${getBrazilDate()}`;
-  const getCoachCount = () => {
-    try { return parseInt(localStorage.getItem(coachCountKey()) || "0", 10) || 0; } catch { return 0; }
-  };
-  const bumpCoachCount = () => {
-    try { localStorage.setItem(coachCountKey(), String(getCoachCount() + 1)); } catch { /* ignore */ }
-  };
+  // ---- Reinicia o coach a cada novo DEFCON (zera contador e re-arma os gatilhos) ----
+  useEffect(() => {
+    if (phase === "running" && totalApproaches === 0 && totalSalesCount === 0) {
+      if (!sessionFreshRef.current) {
+        sessionFreshRef.current = true;
+        shownTriggersRef.current = new Set();
+        prevSalesRef.current = 0;
+        prevApproachesRef.current = 0;
+        approachesSinceLastSaleRef.current = 0;
+        lastMsgApproachesRef.current = -99;
+        coachShownRef.current = 0;
+        aiAvailableRef.current = true;
+      }
+    } else if (totalApproaches > 0 || totalSalesCount > 0) {
+      sessionFreshRef.current = false;
+    }
+  }, [phase, totalApproaches, totalSalesCount]);
 
   // ---- Voz de IA: reescreve o template; cai no template se faltar IA/cota/timeout ----
   const aiRewrite = useCallback(async (templateMsg: string): Promise<string> => {
@@ -137,26 +148,31 @@ export function DefconSmartNotification({
   }, [historicalAvg, hasRealHistory, realConvPct]);
 
   const showNotification = useCallback((icon: string, message: string) => {
-    // Anti-spam: respeita teto diario e intervalo minimo entre mensagens
-    if (getCoachCount() >= COACH_DAILY_CAP) return;
+    // Anti-spam: teto por sessao + intervalo minimo entre mensagens
+    if (coachShownRef.current >= COACH_DAILY_CAP) return;
     if (lastMsgApproachesRef.current >= 0 &&
         (liveApproachesRef.current - lastMsgApproachesRef.current) < COACH_COOLDOWN_APPROACHES) return;
     lastMsgApproachesRef.current = liveApproachesRef.current;
-    bumpCoachCount();
+    coachShownRef.current += 1;
 
-    // Enriquece com IA (fallback no template) e so entao mostra o card
+    // Mostra NA HORA com o template (garante que sempre aparece, sem depender da rede)
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
+    setNotifications(prev => [...prev, { id, icon, message, timestamp: Date.now(), holdingDown: false }]);
+    const timer = setTimeout(() => {
+      if (!holdingRef.current.has(id)) {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+      }
+      timersRef.current.delete(id);
+    }, NOTIFICATION_DURATION);
+    timersRef.current.set(id, timer);
+
+    // IA enriquece em segundo plano: troca o texto se vier algo melhor (so quando publicada)
     aiRewrite(message).then((finalMsg) => {
-      const id = Date.now().toString();
-      setNotifications(prev => [...prev, { id, icon, message: finalMsg, timestamp: Date.now(), holdingDown: false }]);
-      const timer = setTimeout(() => {
-        if (!holdingRef.current.has(id)) {
-          setNotifications(prev => prev.filter(n => n.id !== id));
-        }
-        timersRef.current.delete(id);
-      }, NOTIFICATION_DURATION);
-      timersRef.current.set(id, timer);
+      if (finalMsg && finalMsg !== message) {
+        setNotifications(prev => prev.map(n => (n.id === id ? { ...n, message: finalMsg } : n)));
+      }
     });
-  }, [aiRewrite, userId]);
+  }, [aiRewrite]);
 
   const dismissNotification = useCallback((id: string) => {
     const timer = timersRef.current.get(id);
