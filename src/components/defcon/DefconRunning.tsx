@@ -72,7 +72,7 @@ export function DefconRunning({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
   const [saleMessage, setSaleMessage] = useState("");
-  const [messageTouched, setMessageTouched] = useState(false);
+  const [showChargePreview, setShowChargePreview] = useState(false);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
   const { theme, setTheme } = useTheme();
@@ -164,7 +164,7 @@ export function DefconRunning({
     setSalePhone("");
     setSaleName("");
     setSaleMessage("");
-    setMessageTouched(false);
+    setShowChargePreview(false);
     setShowClientFields(false);
     // Mantém o produto selecionado se houver só 1; reseta se múltiplos
     if (loadout.length > 1) setSelectedProductId(null);
@@ -180,32 +180,58 @@ export function DefconRunning({
     }
   };
 
-  const buildChargeMessage = (name: string, amount: number) => {
-    const greeting = name ? `Olá, ${name}!` : "Olá!";
+  // Mensagem padrao de cobranca: salva no aparelho e reusa. O valor fica como token
+  // {valor} pra ser trocado pelo valor real de cada venda (nao "congela" um valor antigo).
+  const chargeTplKey = `orbis_charge_tpl_${userId}`;
+  const VALOR_TOKEN = "{valor}";
+
+  const defaultChargeTemplate = () => {
     const pixLine = pixCharge?.key
-      ? `\n\nPra finalizar, é só pagar no Pix 👇\nChave Pix: ${pixCharge.key}${pixCharge.name ? `\n(${pixCharge.name})` : ""}`
-      : `\n\nPra finalizar, é só pagar no meu Pix 👇\nChave Pix: (toque aqui e digite sua chave Pix)`;
-    return `${greeting} Confirmando sua compra no valor de ${formatCurrency(amount)}.${pixLine}\n\nDepois me envia o comprovante por aqui, por favor! 🙏`;
+      ? `Chave Pix: ${pixCharge.key}${pixCharge.name ? ` (${pixCharge.name})` : ""}`
+      : `Chave Pix: (toque e digite sua chave Pix)`;
+    return `Olá! 🙏 Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
   };
 
-  const openWhatsAppCharge = (rawPhone: string, amount: number, name: string) => {
-    const digits = sanitizePhone(rawPhone);
-    if (!digits || amount <= 0) return;
-    const phone = digits.length <= 11 ? `55${digits}` : digits;
-    const text = messageTouched && saleMessage.trim() ? saleMessage : buildChargeMessage(name, amount);
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+  const loadChargeTemplate = () => {
+    try {
+      const saved = localStorage.getItem(chargeTplKey);
+      if (saved && saved.trim()) return saved;
+    } catch (_e) { /* ignore */ }
+    return defaultChargeTemplate();
   };
 
-  const handleSaleAndCharge = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+  // Mensagem pronta (token {valor} -> valor real da venda)
+  const buildChargeMessage = (amount: number) =>
+    loadChargeTemplate().split(VALOR_TOKEN).join(formatCurrency(amount));
+
+  // Salva a mensagem do usuario como padrao (re-tokeniza o valor pra ficar dinamico)
+  const saveChargeTemplate = (msg: string, amount: number) => {
+    try {
+      localStorage.setItem(chargeTplKey, msg.split(formatCurrency(amount)).join(VALOR_TOKEN));
+    } catch (_e) { /* ignore */ }
+  };
+
+  const openChargePreview = () => {
     const amount = parseFloat(saleValue) || 0;
-    if (amount <= 0) return;
-    registerSale(amount, method);
-    persistClient(amount, method);
-    openWhatsAppCharge(salePhone, amount, saleName.trim());
+    if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
+    setSaleMessage(buildChargeMessage(amount));
+    setShowChargePreview(true);
+  };
+
+  const confirmCharge = () => {
+    const amount = parseFloat(saleValue) || 0;
+    const digits = sanitizePhone(salePhone);
+    if (amount <= 0 || digits.length < 10) return;
+    const phone = digits.length <= 11 ? `55${digits}` : digits;
+    const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount);
+    saveChargeTemplate(text, amount);
+    registerSale(amount, "dinheiro");
+    persistClient(amount, "dinheiro");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+    setShowChargePreview(false);
     resetSaleForm();
     setShowAddSale(false);
   };
-
 
   const blockSold = currentBlock
     ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
@@ -604,9 +630,7 @@ export function DefconRunning({
             ) : (
               <div className="space-y-2 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
-                    Cliente <span className="normal-case tracking-normal font-bold" style={{ color: "#EAB308" }}>· personalize sua mensagem com seu Pix</span>
-                  </span>
+                  <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">Cliente</span>
                   <button
                     onClick={() => { setSaleName(""); setSalePhone(""); setShowClientFields(false); }}
                     className="text-xs text-muted-foreground hover:text-foreground underline"
@@ -639,35 +663,17 @@ export function DefconRunning({
                 </div>
 
                 {sanitizePhone(salePhone).length >= 10 && parseFloat(saleValue) > 0 && (
-                  <div className="space-y-2 pt-1">
-                    <span className="text-[11px] font-bold px-1 block" style={{ color: "#EAB308" }}>
-                      ✏️ Sua mensagem (troque o texto e o Pix do jeito que quiser):
+                  <button
+                    onClick={openChargePreview}
+                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
+                    className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform"
+                  >
+                    <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="text-sm font-extrabold">Registrar e cobrar no WhatsApp</span>
+                      <span className="text-[11px] font-medium opacity-90">Você revisa a mensagem antes de enviar</span>
                     </span>
-                    <textarea
-                      value={messageTouched ? saleMessage : buildChargeMessage(saleName, parseFloat(saleValue) || 0)}
-                      onChange={(e) => { setMessageTouched(true); setSaleMessage(e.target.value); }}
-                      rows={6}
-                      className="w-full bg-background border rounded-xl p-3 text-sm text-foreground leading-relaxed resize-none focus-visible:outline-none focus-visible:ring-2"
-                      style={{ borderColor: "rgba(234,179,8,0.45)" }}
-                    />
-                    <p className="text-[11px] text-muted-foreground px-1 leading-snug">
-                      É essa mensagem que abre no WhatsApp do cliente. Você ainda pode editar lá antes de enviar.
-                    </p>
-
-                    <div className="h-px bg-border" />
-
-                    <button
-                      onClick={() => handleSaleAndCharge("dinheiro")}
-                      style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
-                      className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform"
-                    >
-                      <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
-                      <span className="flex flex-col items-start leading-tight">
-                        <span className="text-sm font-extrabold">Registrar e cobrar no WhatsApp</span>
-                        <span className="text-[11px] font-medium opacity-90">Abre a conversa do cliente com sua mensagem</span>
-                      </span>
-                    </button>
-                  </div>
+                  </button>
                 )}
               </div>
             )}
@@ -690,6 +696,51 @@ export function DefconRunning({
                 <span className="text-lg font-black">PIX</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Previa editavel da cobranca -> abre antes de enviar; edicao vira padrao */}
+      {showChargePreview && (
+        <div
+          className="fixed inset-0 bg-background/90 flex items-end justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowChargePreview(false)}
+        >
+          <div
+            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-4 animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <MessageCircle className="w-5 h-5" style={{ color: BRAND_COLORS.WHATSAPP }} />
+                Revise a mensagem
+              </h3>
+              <button onClick={() => setShowChargePreview(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <span className="text-xs font-bold block" style={{ color: "#EAB308" }}>
+              ✏️ Personalize sua mensagem — ela vira a sua padrão
+            </span>
+            <textarea
+              value={saleMessage}
+              onChange={(e) => setSaleMessage(e.target.value)}
+              rows={7}
+              className="w-full bg-background border rounded-xl p-3 text-sm text-foreground leading-relaxed resize-none focus-visible:outline-none focus-visible:ring-2"
+              style={{ borderColor: "rgba(234,179,8,0.45)" }}
+            />
+
+            <button
+              onClick={confirmCharge}
+              style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
+              className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2 font-extrabold active:scale-[0.98] transition-transform"
+            >
+              <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
+              Abrir WhatsApp e cobrar
+            </button>
           </div>
         </div>
       )}
