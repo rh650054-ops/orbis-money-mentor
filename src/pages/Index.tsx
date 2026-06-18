@@ -12,6 +12,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
+import { TrialNudge } from "@/components/TrialNudge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
@@ -498,6 +499,15 @@ export default function Index() {
           </div>
         </div>
       </button>
+
+      {user && faltaDia <= 0 && dailyProfit > 0 && (
+        <TrialNudge
+          userId={user.id}
+          momentKey="meta_dia"
+          title="Meta do dia batida! 🎯"
+          benefit="Quem usa o Orbis todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
+        />
+      )}
 
       {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
 

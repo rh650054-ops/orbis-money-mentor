@@ -15,6 +15,7 @@ import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
 import { getTier, leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
+import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
 import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
@@ -86,6 +87,7 @@ export default function Ranking() {
   const quickPhotoRef = useRef<HTMLInputElement>(null);
   const [quickUploading, setQuickUploading] = useState(false);
   const [leagueTransition, setLeagueTransition] = useState<{ type: "up" | "down"; position: number } | null>(null);
+  const [showRankNudge, setShowRankNudge] = useState(false);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -288,6 +290,15 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
+      {showRankNudge && user && (
+        <TrialNudge
+          userId={user.id}
+          momentKey="ranking_promo"
+          title="Você subiu de patente! 🏆"
+          benefit="Cada venda te faz subir no ranking. Quando o teste acabar, você sai da disputa e perde seu lugar."
+        />
+      )}
+
       {/* Tabs: Liga Global + Competições */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
@@ -452,7 +463,7 @@ export default function Ranking() {
         <LeagueTransition
           type={leagueTransition.type}
           position={leagueTransition.position}
-          onClose={() => setLeagueTransition(null)}
+          onClose={() => { const up = leagueTransition?.type === "up"; setLeagueTransition(null); if (up) setShowRankNudge(true); }}
         />
       )}
 
