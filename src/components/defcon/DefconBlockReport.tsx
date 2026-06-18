@@ -218,6 +218,11 @@ export function DefconBlockReport({
             {conversionRate.toFixed(0)}%
           </span>
         </div>
+
+        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-muted-foreground">⏱️ Tempo trabalhado</span>
+          <span className="text-2xl font-black text-foreground">{blockIndex + 1}h</span>
+        </div>
       </div>
 
       <p className="text-sm text-muted-foreground font-mono text-center mb-6 max-w-sm italic">

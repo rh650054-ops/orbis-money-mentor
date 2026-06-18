@@ -8,7 +8,9 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2 } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
 interface SubscriptionUser {
   id: string;
@@ -30,6 +32,18 @@ export default function AdminSubscriptions() {
   const [users, setUsers] = useState<SubscriptionUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "todos">("assinantes");
+  // Edição de perfil de um usuário (admin)
+  const [editUser, setEditUser] = useState<SubscriptionUser | null>(null);
+  const [editForm, setEditForm] = useState({ nickname: "", phone: "", cpf: "", city: "", state: "", email: "" });
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [rankingHidden, setRankingHidden] = useState(false);
+  const [savingRanking, setSavingRanking] = useState(false);
+  // Correção de resultados/vendas do usuário (anti-trapaça)
+  const [userSales, setUserSales] = useState<any[]>([]);
+  const [saleEdits, setSaleEdits] = useState<Record<string, string>>({});
+  const [savingSaleId, setSavingSaleId] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [linkEmail, setLinkEmail] = useState("");
   const [linkCpf, setLinkCpf] = useState("");
@@ -83,6 +97,156 @@ export default function AdminSubscriptions() {
       console.error("Erro ao carregar usuários:", error);
     } finally {
       setIsLoadingUsers(false);
+    }
+  };
+
+  // Abre o modal e carrega o perfil completo do usuário (telefone, CPF, cidade/estado)
+  const openEditUser = async (u: SubscriptionUser) => {
+    setEditUser(u);
+    setLoadingEdit(true);
+    setEditForm({ nickname: u.nickname || "", phone: "", cpf: "", city: "", state: "", email: u.email || "" });
+    const { data } = await supabase
+      .from("profiles")
+      .select("nickname, phone, cpf, city, state, email, ranking_hidden")
+      .eq("user_id", u.user_id)
+      .maybeSingle();
+    if (data) {
+      const d = data as any;
+      setEditForm({
+        nickname: d.nickname || "",
+        phone: d.phone || "",
+        cpf: d.cpf || "",
+        city: d.city || "",
+        state: d.state || "",
+        email: d.email || "",
+      });
+      setRankingHidden(Boolean(d.ranking_hidden));
+    }
+    // Vendas (resultados) do mês atual, para corrigir/zerar valores falsos
+    const now = new Date();
+    const inicioMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const { data: sales } = await supabase
+      .from("daily_sales")
+      .select("id, date, cash_sales, card_sales, pix_sales, total_profit")
+      .eq("user_id", u.user_id)
+      .gte("date", inicioMes)
+      .order("date", { ascending: false });
+    const lista = (sales as any[]) || [];
+    setUserSales(lista);
+    const editsInit: Record<string, string> = {};
+    lista.forEach((s) => {
+      editsInit[s.id] = String(s.total_profit ?? ((s.cash_sales || 0) + (s.card_sales || 0) + (s.pix_sales || 0)));
+    });
+    setSaleEdits(editsInit);
+    setLoadingEdit(false);
+  };
+
+  // Remove (oculta) ou devolve o usuário ao ranking. Persiste via profiles.ranking_hidden,
+  // limpa/recria a entrada em leaderboard_stats e recalcula as posições do mês.
+  const toggleRankingHidden = async () => {
+    if (!editUser) return;
+    setSavingRanking(true);
+    try {
+      const newHidden = !rankingHidden;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ ranking_hidden: newHidden } as any)
+        .eq("user_id", editUser.user_id);
+      if (error) throw error;
+
+      if (newHidden) {
+        // Tira do ranking agora (todas as entradas)
+        await supabase.from("leaderboard_stats").delete().eq("user_id", editUser.user_id);
+      } else {
+        // Volta ao ranking: reconstrói a entrada a partir das vendas do mês
+        await syncLeaderboardRevenue(editUser.user_id);
+      }
+
+      const now = new Date();
+      const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+      await supabase.rpc("recalculate_ranking_positions", { target_month: mes });
+
+      setRankingHidden(newHidden);
+      toast({ title: newHidden ? "🚫 Removido do ranking" : "✅ De volta ao ranking" });
+    } catch (err: any) {
+      toast({ title: "Erro no ranking", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingRanking(false);
+    }
+  };
+
+  // Corrige o valor de um dia: ajusta o total e redistribui dinheiro/cartão/pix
+  // proporcionalmente; depois recalcula o ranking a partir do daily_sales.
+  const saveSaleDay = async (sale: any, newTotalStr: string) => {
+    if (!editUser) return;
+    const newTotal = parseFloat(newTotalStr) || 0;
+    setSavingSaleId(sale.id);
+    try {
+      const orig = (sale.cash_sales || 0) + (sale.card_sales || 0) + (sale.pix_sales || 0);
+      let cash: number, card: number, pix: number;
+      if (orig > 0) {
+        const r = newTotal / orig;
+        cash = Math.round((sale.cash_sales || 0) * r * 100) / 100;
+        card = Math.round((sale.card_sales || 0) * r * 100) / 100;
+        pix = Math.round((sale.pix_sales || 0) * r * 100) / 100;
+      } else {
+        cash = newTotal; card = 0; pix = 0;
+      }
+      const { error } = await supabase
+        .from("daily_sales")
+        .update({ cash_sales: cash, card_sales: card, pix_sales: pix, total_profit: newTotal } as any)
+        .eq("id", sale.id);
+      if (error) throw error;
+      await syncLeaderboardRevenue(editUser.user_id);
+      setUserSales((prev) => prev.map((s) => (s.id === sale.id ? { ...s, cash_sales: cash, card_sales: card, pix_sales: pix, total_profit: newTotal } : s)));
+      toast({ title: "✅ Resultado corrigido", description: "Ranking recalculado." });
+    } catch (err: any) {
+      toast({ title: "Erro ao corrigir", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingSaleId(null);
+    }
+  };
+
+  // Remove um lançamento de dia inteiro (ex.: venda falsa) e recalcula o ranking.
+  const deleteSaleDay = async (sale: any) => {
+    if (!editUser) return;
+    setSavingSaleId(sale.id);
+    try {
+      const { error } = await supabase.from("daily_sales").delete().eq("id", sale.id);
+      if (error) throw error;
+      await syncLeaderboardRevenue(editUser.user_id);
+      setUserSales((prev) => prev.filter((s) => s.id !== sale.id));
+      toast({ title: "🗑️ Dia removido", description: "Ranking recalculado." });
+    } catch (err: any) {
+      toast({ title: "Erro ao remover", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingSaleId(null);
+    }
+  };
+
+  // Salva as alterações direto no profiles (admin tem permissão, mesmo caminho do toggle de assinatura)
+  const saveEditUser = async () => {
+    if (!editUser) return;
+    setSavingEdit(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          nickname: editForm.nickname || null,
+          phone: editForm.phone || null,
+          cpf: editForm.cpf ? editForm.cpf.replace(/\D/g, "") : null,
+          city: editForm.city || null,
+          state: editForm.state || null,
+        } as any)
+        .eq("user_id", editUser.user_id);
+      if (error) throw error;
+      toast({ title: "✅ Perfil atualizado", description: editForm.nickname || editUser.email || "" });
+      setEditUser(null);
+      loadUsers();
+    } catch (err: any) {
+      toast({ title: "Erro ao salvar", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingEdit(false);
     }
   };
 
@@ -147,7 +311,12 @@ export default function AdminSubscriptions() {
     }
   };
 
+  const isComp = (u: SubscriptionUser) => Boolean(u.is_demo && u.billing_exempt); // contas de cortesia/admin
   const filteredUsers = users.filter((u) => {
+    // Filtro por aba/status
+    if (statusFilter === "assinantes" && !(u.plan_status === "active" && !isComp(u))) return false;
+    if (statusFilter === "trial" && u.plan_status !== "trial") return false;
+    // Busca por texto
     if (!searchEmail) return true;
     const search = searchEmail.toLowerCase();
     return (
@@ -223,6 +392,20 @@ export default function AdminSubscriptions() {
                 <RefreshCw className="w-4 h-4" />
               </Button>
             </div>
+          </div>
+          {/* Filtro por aba: Assinantes / Trial / Todos */}
+          <div className="flex gap-2 mt-4">
+            {([["assinantes", "Assinantes"], ["trial", "Trial (3 dias)"], ["todos", "Todos"]] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setStatusFilter(key)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  statusFilter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -305,7 +488,9 @@ export default function AdminSubscriptions() {
       {/* Users list */}
       <Card>
         <CardHeader>
-          <CardTitle>Usuários ({filteredUsers.length})</CardTitle>
+          <CardTitle>
+            {statusFilter === "assinantes" ? "Assinantes" : statusFilter === "trial" ? "Em teste (3 dias)" : "Todos os usuários"} ({filteredUsers.length})
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoadingUsers ? (
@@ -319,7 +504,7 @@ export default function AdminSubscriptions() {
                   key={u.id}
                   className="p-4 bg-card rounded-lg border border-border hover:border-primary/40 transition-colors"
                 >
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold truncate">{u.nickname || "Sem nome"}</p>
@@ -346,6 +531,15 @@ export default function AdminSubscriptions() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openEditUser(u)}
+                      title="Ver/editar perfil"
+                    >
+                      <Pencil className="w-4 h-4 mr-1" />
+                      Editar
+                    </Button>
                     <Button
                       size="sm"
                       variant={u.plan_status === "active" ? "destructive" : "default"}
@@ -388,6 +582,138 @@ export default function AdminSubscriptions() {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal: editar perfil do usuário */}
+      <Dialog open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar perfil</DialogTitle>
+          </DialogHeader>
+          {loadingEdit ? (
+            <p className="text-center text-muted-foreground py-6">Carregando...</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label>Nome / apelido</Label>
+                <Input value={editForm.nickname} onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Telefone</Label>
+                <Input value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} placeholder="(11) 90000-0000" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>CPF</Label>
+                <Input
+                  value={editForm.cpf}
+                  onChange={(e) => setEditForm({ ...editForm, cpf: e.target.value.replace(/\D/g, "") })}
+                  maxLength={11}
+                  inputMode="numeric"
+                  placeholder="11 dígitos"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>Cidade</Label>
+                  <Input value={editForm.city} onChange={(e) => setEditForm({ ...editForm, city: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Estado (UF)</Label>
+                  <Input
+                    value={editForm.state}
+                    onChange={(e) => setEditForm({ ...editForm, state: e.target.value.toUpperCase().slice(0, 2) })}
+                    maxLength={2}
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>E-mail (somente leitura)</Label>
+                <Input value={editForm.email} disabled />
+                <p className="text-xs text-muted-foreground">
+                  Mudar o e-mail de login precisa de um passo extra — me avise se precisar.
+                </p>
+              </div>
+
+              {/* Moderação do ranking */}
+              <div className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold">Ranking</p>
+                  <p className="text-xs text-muted-foreground">
+                    {rankingHidden ? "Oculto do ranking" : "Aparece no ranking"}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant={rankingHidden ? "outline" : "destructive"}
+                  onClick={toggleRankingHidden}
+                  disabled={savingRanking}
+                >
+                  {savingRanking ? (
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                  ) : rankingHidden ? (
+                    "Voltar ao ranking"
+                  ) : (
+                    "Remover do ranking"
+                  )}
+                </Button>
+              </div>
+
+              {/* Corrigir resultados/vendas (anti-trapaça) */}
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <p className="text-sm font-semibold">Resultados do mês (corrigir)</p>
+                {userSales.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Nenhuma venda registrada neste mês.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {userSales.map((s) => (
+                      <div key={s.id} className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground w-12 shrink-0">
+                          {new Date(s.date + "T00:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        </span>
+                        <div className="relative flex-1 min-w-0">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">R$</span>
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            value={saleEdits[s.id] ?? ""}
+                            onChange={(e) => setSaleEdits((m) => ({ ...m, [s.id]: e.target.value }))}
+                            className="pl-8 h-9"
+                          />
+                        </div>
+                        <Button size="sm" onClick={() => saveSaleDay(s, saleEdits[s.id] ?? "0")} disabled={savingSaleId === s.id} title="Salvar valor">
+                          {savingSaleId === s.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-destructive/40 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                          onClick={() => deleteSaleDay(s)}
+                          disabled={savingSaleId === s.id}
+                          title="Remover este dia"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Ajuste o valor de um dia ou remova um lançamento falso. O ranking recalcula sozinho.
+                </p>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEditUser(null)} disabled={savingEdit}>
+                  Cancelar
+                </Button>
+                <Button onClick={saveEditUser} disabled={savingEdit}>
+                  {savingEdit ? <RefreshCw className="w-4 h-4 animate-spin mr-1" /> : <Save className="w-4 h-4 mr-1" />}
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
