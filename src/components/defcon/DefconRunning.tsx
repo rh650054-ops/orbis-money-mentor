@@ -70,9 +70,25 @@ export function DefconRunning({
   const [saleName, setSaleName] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
   const { theme, setTheme } = useTheme();
+
+  // Chave Pix padrao do usuario (das configuracoes) -> entra na cobranca do WhatsApp
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("pix_accounts")
+      .select("pix_key, merchant_name, is_default")
+      .eq("user_id", userId)
+      .then(({ data }) => {
+        if (data && data.length) {
+          const def = (data as any[]).find((a) => a.is_default) || data[0];
+          if (def?.pix_key) setPixCharge({ key: def.pix_key, name: def.merchant_name || "" });
+        }
+      });
+  }, [userId]);
   const isLight = theme === "light";
 
   // Auto-seleciona se houver só 1 produto no loadout
@@ -165,10 +181,11 @@ export function DefconRunning({
     if (!digits || amount <= 0) return;
     const phone = digits.length <= 11 ? `55${digits}` : digits;
     const greeting = name ? `Olá, ${name}!` : "Olá!";
-    const msg = encodeURIComponent(
-      `${greeting} Passando para confirmar sua compra no valor de ${formatCurrency(amount)}. Pode me enviar o comprovante por aqui? Obrigado! 🙏`
-    );
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+    const pixLine = pixCharge?.key
+      ? `\n\nPra finalizar, é só pagar no Pix 👇\nChave Pix: ${pixCharge.key}${pixCharge.name ? `\n(${pixCharge.name})` : ""}`
+      : "";
+    const text = `${greeting} Confirmando sua compra no valor de ${formatCurrency(amount)}.${pixLine}\n\nDepois me envia o comprovante por aqui, por favor! 🙏`;
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
   };
 
   const handleSaleAndCharge = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
@@ -618,7 +635,7 @@ export function DefconRunning({
                     className="w-full h-11 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                   >
                     <MessageCircle className="w-4 h-4" strokeWidth={2.5} />
-                    Registrar e enviar cobrança no WhatsApp
+                    Registrar e cobrar via WhatsApp
                   </button>
                 )}
               </div>
