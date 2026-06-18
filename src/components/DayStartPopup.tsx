@@ -143,7 +143,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) markSeenToday(); setIsOpen(open); }}>
       <DialogContent
-        className="relative w-[88vw] max-w-[360px] p-0 gap-0 overflow-hidden border border-primary/25 rounded-3xl shadow-[0_26px_70px_-20px_rgba(0,0,0,0.85)]"
+        className="w-[88vw] max-w-[360px] max-h-[92dvh] p-0 gap-0 overflow-hidden border border-primary/25 rounded-3xl shadow-[0_26px_70px_-20px_rgba(0,0,0,0.85)]"
         style={{ background: "radial-gradient(120% 80% at 50% -10%, rgba(246,180,10,0.10), transparent), #0c0c10" }}
       >
         <div className="pointer-events-none absolute -top-20 -right-16 w-48 h-48 rounded-full blur-3xl" style={{ background: "hsl(var(--primary) / 0.28)" }} />
