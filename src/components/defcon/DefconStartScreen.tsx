@@ -8,9 +8,10 @@ interface DefconStartScreenProps {
   totalBlocks: number;
   onStart: () => void;
   onExit: () => void;
+  onboardingMode?: boolean;
 }
 
-export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: DefconStartScreenProps) {
+export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode }: DefconStartScreenProps) {
   const { enabled: battery, toggle: toggleBattery } = useBatterySaver();
   const [confirming, setConfirming] = useState(false);
 
@@ -85,14 +86,15 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: D
       {/* Bottom: actions */}
       <div className="pb-4 space-y-2">
         <button
-          onClick={() => (confirming ? onStart() : setConfirming(true))}
+          data-tour="defcon-iniciar"
+          onClick={() => (onboardingMode ? onStart() : confirming ? onStart() : setConfirming(true))}
           className={`w-full h-14 rounded-2xl font-black text-base active:scale-[0.98] transition-[colors,transform,opacity] ${
             confirming
               ? "bg-destructive text-destructive-foreground shadow-[0_0_30px_-5px_hsl(var(--destructive)/0.6)]"
               : "bg-destructive text-destructive-foreground"
           }`}
         >
-          {confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
+          {!onboardingMode && confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
         </button>
         <button
           onClick={onExit}

@@ -33,6 +33,8 @@ interface DefconRunningProps {
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
   onAddTip?: (amount: number) => void;
+  onboardingMode?: boolean;
+  quickSaleValue?: number;
 }
 
 export function DefconRunning({
@@ -56,6 +58,8 @@ export function DefconRunning({
   onEnd,
   onLunchPause,
   onAddTip,
+  onboardingMode,
+  quickSaleValue,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -131,6 +135,7 @@ export function DefconRunning({
   const sanitizePhone = (raw: string) => raw.replace(/\D/g, "");
 
   const persistClient = async (amount: number, method: "dinheiro" | "pix" | "cartao") => {
+    if (onboardingMode) return;
     const name = saleName.trim();
     const phone = sanitizePhone(salePhone);
     if (!name && !phone) return;
@@ -153,7 +158,7 @@ export function DefconRunning({
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
     // Debita do loadout/estoque se houver produto selecionado
-    if (selectedProductId) {
+    if (!onboardingMode && selectedProductId) {
       incrementSold(selectedProductId, 1).catch((e) =>
         console.warn("[defcon] failed to debit loadout", e)
       );
@@ -250,6 +255,7 @@ export function DefconRunning({
 
   const handleApproachClick = () => {
     onAddApproach();
+    emitMissionEvent("approach-added");
     setApproachPulse(true);
     setTimeout(() => setApproachPulse(false), 280);
     pushFloater("+1", "approach");
@@ -443,10 +449,13 @@ export function DefconRunning({
         </div>
 
         {/* Quick sale buttons */}
-        <DefconQuickSaleButtons
-          saleHistory={saleHistory}
-          onQuickSale={registerSale}
-        />
+        <div data-tour="defcon-quick-sale" className="w-full flex justify-center">
+          <DefconQuickSaleButtons
+            saleHistory={saleHistory}
+            forcedValues={onboardingMode && quickSaleValue ? [quickSaleValue] : undefined}
+            onQuickSale={registerSale}
+          />
+        </div>
 
         {/* Botão de custo rápido — discreto, alinhado ao tom DEFCON */}
         <div className="w-full flex justify-center px-1">
@@ -469,6 +478,7 @@ export function DefconRunning({
         <div className="w-full flex items-end justify-center gap-2.5 px-1">
           {/* Abordagem — esquerda, mais baixo */}
           <button
+            data-tour="defcon-abordagem"
             onClick={handleApproachClick}
             className={`flex-1 h-[56px] rounded-2xl bg-card border border-border flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
               approachPulse ? "ring-2 ring-foreground/30 bg-secondary" : ""
@@ -480,6 +490,7 @@ export function DefconRunning({
 
           {/* Venda — centro, elevado e destacado */}
           <button
+            data-tour="defcon-venda"
             onClick={() => setShowAddSale(true)}
             className="flex-[1.25] h-[72px] rounded-2xl bg-primary flex items-center justify-center gap-2 active:scale-95 transition-[colors,transform,opacity] shadow-[0_12px_40px_-6px_hsl(var(--primary)/0.85)]"
           >

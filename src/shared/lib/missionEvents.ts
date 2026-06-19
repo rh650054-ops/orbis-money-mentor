@@ -8,7 +8,8 @@ export type MissionEventType =
   | "product-added" // mercadoria/estoque cadastrado
   | "schedule-set" // horário/dias de trabalho definidos
   | "sale-registered" // 1ª venda registrada (momento aha)
-  | "defcon-started"; // DEFCON iniciado
+  | "defcon-started" // DEFCON iniciado
+  | "approach-added"; // abordagem registrada (onboarding fase 4)
 
 const CHANNEL = "orbis:mission";
 

@@ -1,7 +1,9 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
+import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
+import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
@@ -12,8 +14,12 @@ import { DefconDayReport } from "@/components/defcon/DefconDayReport";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const treino = params.get("treino") === "1";
   const { user, loading: authLoading } = useAuth();
-  const defcon = useDefconChallenge(user?.id);
+  const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
+  const onbDefcon = useDefconOnboarding(user?.id);
+  const defcon: any = treino ? onbDefcon : realDefcon;
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -49,6 +55,7 @@ export default function DefconChallenge() {
 
   const handleExit = () => navigate("/daily-goals");
 
+  const screen = (() => {
   switch (defcon.phase) {
     case "idle":
       return (
@@ -57,6 +64,7 @@ export default function DefconChallenge() {
           totalBlocks={defcon.blocks.length}
           onStart={defcon.startChallenge}
           onExit={handleExit}
+          onboardingMode={treino}
         />
       );
 
@@ -83,6 +91,8 @@ export default function DefconChallenge() {
           onAddOccurrence={defcon.addOccurrence}
           onEnd={defcon.endChallenge}
           onLunchPause={defcon.startLunchPause}
+          onboardingMode={treino}
+          quickSaleValue={defcon.quickSaleValue}
         />
       );
 
@@ -135,4 +145,14 @@ export default function DefconChallenge() {
     default:
       return null;
   }
+  })();
+
+  return (
+    <>
+      {screen}
+      {treino && user && (
+        <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />
+      )}
+    </>
+  );
 }
