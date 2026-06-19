@@ -10,7 +10,7 @@ interface MissionRankingProps {
 // pra puxar a cor/escudo certo de cada faixa do ranking real.
 const LADDER = [
   { pos: 999, hint: "onde você começa" },
-  { pos: 30, hint: "" },
+  { pos: 15, hint: "" },
   { pos: 8, hint: "" },
   { pos: 1, hint: "topo" },
 ];
