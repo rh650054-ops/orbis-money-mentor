@@ -4,6 +4,7 @@ import MissionTour from "./MissionTour";
 import MissionWelcome from "./MissionWelcome";
 import MissionRanking from "./MissionRanking";
 import MissionReward from "./MissionReward";
+import MissionPwaInstall from "./MissionPwaInstall";
 import { useMissionTour } from "./useMissionTour";
 
 interface MissionOrchestratorProps {
@@ -65,6 +66,9 @@ export default function MissionOrchestrator({
         }
         if (special === "reward") {
           return <MissionReward onAdvance={controls.onAdvance} />;
+        }
+        if (special === "pwa-install") {
+          return <MissionPwaInstall onAdvance={controls.onAdvance} />;
         }
         return null;
       }}

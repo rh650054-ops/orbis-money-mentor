@@ -18,7 +18,7 @@ import type { MissionEventType } from "@/shared/lib/missionEvents";
 // ritmo e deixar a missão mais leve/devagar — não é um corre apressado.
 
 export type MissionAdvance = "next" | "action";
-export type MissionSpecial = "card-registration" | "ranking" | "reward";
+export type MissionSpecial = "card-registration" | "ranking" | "reward" | "pwa-install";
 
 export interface MissionStep {
   id: string;
@@ -79,7 +79,18 @@ export const missionSteps: MissionStep[] = [
     title: "Tudo pronto! ✅",
     instruction:
       "Sua meta está definida. Agora é só explorar o Orbis à vontade — cada tela vai se explicar sozinha na primeira vez que você entrar nela. Bora vender! 🔥",
-    cta: "Começar 👇",
+    cta: "Próximo 👇",
+    advanceOn: "next",
+    optional: true,
+  },
+  {
+    id: "pwa-install",
+    phase: 2,
+    route: "/",
+    special: "pwa-install",
+    title: "Instale o Orbis no celular",
+    instruction:
+      "Deixa o app na tela inicial — abre mais rápido e fica igual um app de verdade.",
     advanceOn: "next",
     optional: true,
   },

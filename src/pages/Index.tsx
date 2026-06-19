@@ -541,7 +541,7 @@ export default function Index() {
 
       <CardRegistrationModal isOpen={showCardModal} onClose={() => setShowCardModal(false)} />
 
-      {user && (isMonthlyGoalRequired || showEditPlanning) && (
+      {user && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (isMonthlyGoalRequired || showEditPlanning) && (
         <EditPlanningModal
           userId={user.id}
           isOpen={isMonthlyGoalRequired || showEditPlanning}
