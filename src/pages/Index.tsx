@@ -541,21 +541,29 @@ export default function Index() {
 
       <CardRegistrationModal isOpen={showCardModal} onClose={() => setShowCardModal(false)} />
 
-      {user && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (isMonthlyGoalRequired || showEditPlanning) && (
-        <EditPlanningModal
-          userId={user.id}
-          isOpen={isMonthlyGoalRequired || showEditPlanning}
-          onClose={() => {
-            if (isMonthlyGoalRequired) {
-              onMonthlyGoalCompleted();
-            }
-            setShowEditPlanning(false);
-            loadDashboardData();
-          }}
-          isRequired={isMonthlyGoalRequired}
-          requiredReason={monthlyGoalReason}
-        />
-      )}
+      {user && (() => {
+        // O modal abre SEMPRE que o usuário pede (showEditPlanning) — inclusive no
+        // passo de metas do onboarding. O "obrigatório" (forçado, sem fechar) só
+        // vale DEPOIS que a missão terminou; durante o onboarding ele nunca força,
+        // senão o usuário não consegue definir a meta e fica preso (tinha que pular).
+        const missionDone = localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true';
+        const forced = isMonthlyGoalRequired && missionDone;
+        const open = showEditPlanning || forced;
+        if (!open) return null;
+        return (
+          <EditPlanningModal
+            userId={user.id}
+            isOpen={open}
+            onClose={() => {
+              if (forced) onMonthlyGoalCompleted();
+              setShowEditPlanning(false);
+              loadDashboardData();
+            }}
+            isRequired={forced}
+            requiredReason={monthlyGoalReason}
+          />
+        );
+      })()}
 
       {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (
         <DayStartPopup
