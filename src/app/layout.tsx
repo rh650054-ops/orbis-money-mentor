@@ -114,18 +114,18 @@ export default function Layout({ children }: LayoutProps) {
     if (subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") return;
     
     const daysRemaining = trialStatus.daysRemaining ?? 0;
-    
-    // Mostra o lembrete pra quem está no teste (não assinante e não expirado).
-    // Condição robusta — NÃO depende da flag is_trial_active, que às vezes não
-    // vem marcada no banco (era o motivo do toast/banner do topo não aparecer).
-    if (trialStatus.planStatus !== 'active' && !trialStatus.isExpired && daysRemaining <= 3 && daysRemaining > 0) {
+    const shownDays = Math.min(daysRemaining, 3); // teste é de 3 dias (no 1o dia da pra 4)
+
+    // Mostra o lembrete durante todo o teste (não assinante e não expirado).
+    // SEM teto de "<= 3 dias" — conta nova calcula 4 dias e o banner sumia no 1o dia.
+    if (trialStatus.planStatus !== 'active' && !trialStatus.isExpired && daysRemaining > 0) {
       const lastReminderDate = localStorage.getItem('lastTrialReminder');
       const today = new Date().toISOString().split('T')[0]!;
       
       // Show once per day
       if (lastReminderDate !== today) {
         toast({
-          title: `🔥 Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
+          title: `🔥 Faltam ${shownDays} ${shownDays === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
           description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,99 por dia (R$29,99/mês) e não perde o ritmo.",
           duration: 8000,
         });
@@ -256,15 +256,13 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         )}
         {/* Trial Warning Banner */}
-        {!subscriptionLoading && !(subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") && !trialStatus.isExpired && trialStatus.daysRemaining <= 3 && (
+        {!subscriptionLoading && !(subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") && !trialStatus.isExpired && trialStatus.daysRemaining >= 1 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
             <div className="flex items-start gap-3">
               <div className="text-2xl">🔥</div>
               <div className="flex-1">
                 <h3 className="font-semibold text-warning mb-1">
-                  {trialStatus.daysRemaining >= 1
-                    ? `Faltam ${trialStatus.daysRemaining} ${trialStatus.daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis`
-                    : 'Seu acesso grátis está acabando'}
+                  {`Faltam ${Math.min(trialStatus.daysRemaining, 3)} ${Math.min(trialStatus.daysRemaining, 3) === 1 ? 'dia' : 'dias'} do seu acesso grátis`}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
                   Seu histórico, sua constância e seu lugar no ranking estão sendo construídos. Quando o teste acabar, isso trava. Mantenha tudo por menos de R$1 por dia.
