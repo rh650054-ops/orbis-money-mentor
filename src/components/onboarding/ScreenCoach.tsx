@@ -260,6 +260,19 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
     return () => window.clearTimeout(t);
   }, [step, shown]);
 
+  // Trava a rolagem enquanto um passo COM ALVO está revelado — assim o embalo
+  // (momentum) do scroll não escorrega a tela e o anel não cai em elemento errado.
+  // Ao avançar/pular, a rolagem é liberada de novo (o usuário rola até o próximo).
+  useEffect(() => {
+    const s = def?.steps[step];
+    if (!shown || !s?.selector) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [shown, step, def]);
+
   if (!def || !current) return null;
 
   const markSeen = () => {
