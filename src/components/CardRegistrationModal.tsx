@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { CreditCard } from "lucide-react";
@@ -9,12 +10,28 @@ interface CardRegistrationModalProps {
 }
 
 export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrationModalProps) {
+  // "Trava anti-toque-fantasma": o MESMO toque que abre o modal no celular pode
+  // cair no botão "Assinar agora" (que aparece no mesmo lugar do dedo) e ir
+  // direto pro checkout. Só liberamos os botões ~350ms depois de abrir.
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!isOpen) {
+      setArmed(false);
+      return;
+    }
+    setArmed(false);
+    const t = setTimeout(() => setArmed(true), 350);
+    return () => clearTimeout(t);
+  }, [isOpen]);
+
   const handleRegister = () => {
+    if (!armed) return;
     onClose();
     window.open(getCheckoutUrl(), "_blank");
   };
 
   const handleSkip = () => {
+    if (!armed) return;
     onClose();
   };
 
@@ -53,13 +70,14 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
         <div className="px-6 pb-6 pt-4 space-y-2.5">
           <Button
             onClick={handleRegister}
+            disabled={!armed}
             className="w-full h-12 text-base rounded-xl bg-gradient-to-r from-primary to-secondary"
             size="lg"
           >
             <CreditCard className="w-5 h-5 mr-2" />
             Assinar agora
           </Button>
-          <Button onClick={handleSkip} variant="ghost" className="w-full rounded-xl">
+          <Button onClick={handleSkip} disabled={!armed} variant="ghost" className="w-full rounded-xl">
             Agora não — usar meus 3 dias grátis
           </Button>
           <p className="text-[11px] text-muted-foreground text-center pt-1">
