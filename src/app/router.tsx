@@ -1,35 +1,66 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "@/app/layout";
 
-const Index = lazy(() => import("@/pages/Index"));
-const Transactions = lazy(() => import("@/pages/Transactions"));
-const History = lazy(() => import("@/pages/History"));
-const Insights = lazy(() => import("@/pages/Insights"));
-const Profile = lazy(() => import("@/pages/Profile"));
-const MyAccount = lazy(() => import("@/pages/MyAccount"));
-const Settings = lazy(() => import("@/pages/Settings"));
-const Products = lazy(() => import("@/pages/Products"));
-const Chat = lazy(() => import("@/pages/Chat"));
-const Routine = lazy(() => import("@/pages/Routine"));
-const Finances = lazy(() => import("@/pages/Finances"));
-const Auth = lazy(() => import("@/pages/Auth"));
-const ForgotPassword = lazy(() => import("@/pages/ForgotPassword"));
-const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
-const Payment = lazy(() => import("@/pages/Payment"));
-const Benefits = lazy(() => import("@/pages/Benefits"));
-const AdminDemoUsers = lazy(() => import("@/pages/AdminDemoUsers"));
-const AdminSubscriptions = lazy(() => import("@/pages/AdminSubscriptions"));
-const AdminCompetitions = lazy(() => import("@/pages/AdminCompetitions"));
-const AdminBrain = lazy(() => import("@/pages/AdminBrain"));
-const Install = lazy(() => import("@/pages/Install"));
-const NotFound = lazy(() => import("@/pages/NotFound"));
-const DailyGoals = lazy(() => import("@/pages/DailyGoals"));
-const Ranking = lazy(() => import("@/pages/Ranking"));
-const Rewards = lazy(() => import("@/pages/Rewards"));
-const DefconChallenge = lazy(() => import("@/pages/DefconChallenge"));
-const BankConnections = lazy(() => import("@/pages/BankConnections"));
-const SpotFinder = lazy(() => import("@/pages/SpotFinder"));
+// Recarrega a página UMA vez se um chunk antigo sumiu após um deploy novo.
+// Corrige o bug de "cliquei no menu, ficou amarelo, mas a tela não trocou"
+// (a URL muda mas o componente da rota falha em carregar por causa do cache).
+function lazyWithReload<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T }>,
+) {
+  return lazy(() =>
+    factory()
+      .then((m) => {
+        try {
+          sessionStorage.removeItem("orbis-chunk-reload");
+        } catch {
+          /* noop */
+        }
+        return m;
+      })
+      .catch((err) => {
+        try {
+          if (sessionStorage.getItem("orbis-chunk-reload") !== "1") {
+            sessionStorage.setItem("orbis-chunk-reload", "1");
+            window.location.reload();
+            return new Promise<{ default: T }>(() => {});
+          }
+        } catch {
+          /* noop */
+        }
+        throw err;
+      }),
+  );
+}
+
+const Index = lazyWithReload(() => import("@/pages/Index"));
+const Transactions = lazyWithReload(() => import("@/pages/Transactions"));
+const History = lazyWithReload(() => import("@/pages/History"));
+const Insights = lazyWithReload(() => import("@/pages/Insights"));
+const Profile = lazyWithReload(() => import("@/pages/Profile"));
+const MyAccount = lazyWithReload(() => import("@/pages/MyAccount"));
+const Settings = lazyWithReload(() => import("@/pages/Settings"));
+const Products = lazyWithReload(() => import("@/pages/Products"));
+const Chat = lazyWithReload(() => import("@/pages/Chat"));
+const Routine = lazyWithReload(() => import("@/pages/Routine"));
+const Finances = lazyWithReload(() => import("@/pages/Finances"));
+const Auth = lazyWithReload(() => import("@/pages/Auth"));
+const ForgotPassword = lazyWithReload(() => import("@/pages/ForgotPassword"));
+const ResetPassword = lazyWithReload(() => import("@/pages/ResetPassword"));
+const Payment = lazyWithReload(() => import("@/pages/Payment"));
+const Benefits = lazyWithReload(() => import("@/pages/Benefits"));
+const AdminDemoUsers = lazyWithReload(() => import("@/pages/AdminDemoUsers"));
+const AdminSubscriptions = lazyWithReload(() => import("@/pages/AdminSubscriptions"));
+const AdminCompetitions = lazyWithReload(() => import("@/pages/AdminCompetitions"));
+const AdminBrain = lazyWithReload(() => import("@/pages/AdminBrain"));
+const Install = lazyWithReload(() => import("@/pages/Install"));
+const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
+const DailyGoals = lazyWithReload(() => import("@/pages/DailyGoals"));
+const Ranking = lazyWithReload(() => import("@/pages/Ranking"));
+const Rewards = lazyWithReload(() => import("@/pages/Rewards"));
+const DefconChallenge = lazyWithReload(() => import("@/pages/DefconChallenge"));
+const BankConnections = lazyWithReload(() => import("@/pages/BankConnections"));
+const SpotFinder = lazyWithReload(() => import("@/pages/SpotFinder"));
 
 function PageLoader() {
   return (

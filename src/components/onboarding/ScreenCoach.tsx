@@ -61,15 +61,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="add-product"]',
         title: "Cadastre seu produto 📦",
-        text: "Toque em 'Novo produto'. Dê um nome, o preço de venda e o custo. É com isso que você registra suas vendas rapidinho depois.",
-      },
-      {
-        title: "Por unidade ou por lote? (exemplo na prática)",
-        text: "Na hora de cadastrar você escolhe como conta o estoque. Exemplo: você vende brigadeiro. POR UNIDADE → cada brigadeiro vendido tira 1 do estoque. POR LOTE → você cadastra uma fôrma que rende 50, e o estoque baixa conforme o lote vai acabando. Escolha o que combina com o seu produto.",
-      },
-      {
-        title: "Mercadoria e alertas 🔔",
-        text: "Na aba 'Estoque' você acompanha tudo o que tem. O Orbis te avisa quando a mercadoria ou os insumos estão acabando, conforme o estoque mínimo que você definiu — assim você nunca fica na mão no meio da venda.",
+        text: "Toque em 'Novo produto'. Lá dentro você dá o nome e o preço, define o estoque (o Orbis avisa quando estiver acabando) e escolhe como conta: por unidade ou por lote — ex.: brigadeiro vendido por unidade tira 1; por lote, você cadastra uma fôrma que rende 50 e o estoque baixa conforme acaba. Cada venda já desconta do estoque sozinha.",
       },
     ],
   },
@@ -236,17 +228,15 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
     };
 
     const tick = () => {
-      if (shownRef.current) return; // já revelado: congela (não re-mede, não pula)
       const el = document.querySelector(sel);
-      if (el) {
-        const r = el.getBoundingClientRect();
-        if (comfortablyInView(r)) {
-          setRect(r);
-          reveal(true);
-        }
-      } else if (Date.now() - startedAt.current > 1600) {
-        // Elemento não está nesta tela (ex.: aba diferente): cai pro cartão central.
-        setRect(null);
+      if (!el) return; // espera o elemento aparecer (conforme a interação do usuário)
+      const r = el.getBoundingClientRect();
+      if (shownRef.current) {
+        // Já revelado: mantém o anel GRUDADO no elemento mesmo se a tela
+        // deslizar um pouco — evita o destaque cair em lugar errado.
+        setRect(r);
+      } else if (comfortablyInView(r)) {
+        setRect(r);
         reveal(true);
       }
     };
