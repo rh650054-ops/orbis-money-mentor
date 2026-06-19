@@ -113,8 +113,10 @@ export default function Layout({ children }: LayoutProps) {
     
     const daysRemaining = trialStatus.daysRemaining ?? 0;
     
-    // Show reminder if trial is active and has 3 or fewer days remaining
-    if (trialStatus.isTrialActive && daysRemaining <= 3 && daysRemaining > 0) {
+    // Mostra o lembrete pra quem está no teste (não assinante e não expirado).
+    // Condição robusta — NÃO depende da flag is_trial_active, que às vezes não
+    // vem marcada no banco (era o motivo do toast/banner do topo não aparecer).
+    if (trialStatus.planStatus !== 'active' && !trialStatus.isExpired && daysRemaining <= 3 && daysRemaining > 0) {
       const lastReminderDate = localStorage.getItem('lastTrialReminder');
       const today = new Date().toISOString().split('T')[0]!;
       
@@ -128,7 +130,7 @@ export default function Layout({ children }: LayoutProps) {
         localStorage.setItem('lastTrialReminder', today);
       }
     }
-  }, [user, trialStatus.isTrialActive, trialStatus.daysRemaining, subscriptionStatus.subscribed, trialLoading, subscriptionLoading, toast]);
+  }, [user, trialStatus.planStatus, trialStatus.isExpired, trialStatus.daysRemaining, subscriptionStatus.subscribed, trialLoading, subscriptionLoading, toast]);
 
   useEffect(() => {
     // Fast redirect for non-authenticated users
@@ -252,13 +254,15 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         )}
         {/* Trial Warning Banner */}
-        {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.isTrialActive && trialStatus.daysRemaining !== null && trialStatus.daysRemaining <= 3 && (
+        {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.planStatus !== 'active' && !trialStatus.isExpired && trialStatus.daysRemaining <= 3 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
             <div className="flex items-start gap-3">
               <div className="text-2xl">🔥</div>
               <div className="flex-1">
                 <h3 className="font-semibold text-warning mb-1">
-                  Faltam {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis
+                  {trialStatus.daysRemaining >= 1
+                    ? `Faltam ${trialStatus.daysRemaining} ${trialStatus.daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis`
+                    : 'Seu acesso grátis está acabando'}
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
                   Seu histórico, sua constância e seu lugar no ranking estão sendo construídos. Quando o teste acabar, isso trava. Mantenha tudo por menos de R$1 por dia.
@@ -386,7 +390,7 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
-      {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !trialModalDismissed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
+      {onboardingCompleto && !trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !trialModalDismissed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
         <TrialExpiredModal
           isOpen={true}
           onClose={handleDismissTrialModal}
