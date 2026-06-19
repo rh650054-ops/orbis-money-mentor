@@ -8,7 +8,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
@@ -49,6 +49,9 @@ export default function AdminSubscriptions() {
   const [linkCpf, setLinkCpf] = useState("");
   const [isLinking, setIsLinking] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -100,10 +103,38 @@ export default function AdminSubscriptions() {
     }
   };
 
+  // Gera uma senha temporária para o usuário (para quando ele não consegue entrar)
+  const handleResetPassword = async () => {
+    if (!editUser) return;
+    setResettingPassword(true);
+    setTempPassword(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
+        body: { userId: editUser.user_id },
+      });
+      if (error || !data?.success) throw new Error(data?.error ?? "Erro ao redefinir senha");
+      setTempPassword(data.tempPassword);
+      toast({ title: "Senha redefinida", description: "Copie e envie para o usuário." });
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const copyTempPassword = () => {
+    if (!tempPassword) return;
+    navigator.clipboard.writeText(tempPassword);
+    setCopiedPassword(true);
+    setTimeout(() => setCopiedPassword(false), 2000);
+  };
+
   // Abre o modal e carrega o perfil completo do usuário (telefone, CPF, cidade/estado)
   const openEditUser = async (u: SubscriptionUser) => {
     setEditUser(u);
     setLoadingEdit(true);
+    setTempPassword(null);
+    setCopiedPassword(false);
     setEditForm({ nickname: u.nickname || "", phone: "", cpf: "", city: "", state: "", email: u.email || "" });
     const { data } = await supabase
       .from("profiles")
@@ -655,6 +686,36 @@ export default function AdminSubscriptions() {
                     "Remover do ranking"
                   )}
                 </Button>
+              </div>
+
+              {/* Reset de senha (usuário bloqueado) */}
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">Senha temporária</p>
+                    <p className="text-xs text-muted-foreground">Use quando o usuário não consegue entrar.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleResetPassword}
+                    disabled={resettingPassword}
+                  >
+                    {resettingPassword ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <><KeyRound className="w-4 h-4 mr-1" /> Gerar</>
+                    )}
+                  </Button>
+                </div>
+                {tempPassword && (
+                  <div className="flex items-center gap-2 bg-muted rounded-md px-3 py-2">
+                    <code className="flex-1 text-sm font-mono tracking-wider select-all">{tempPassword}</code>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" onClick={copyTempPassword}>
+                      {copiedPassword ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Corrigir resultados/vendas (anti-trapaça) */}
