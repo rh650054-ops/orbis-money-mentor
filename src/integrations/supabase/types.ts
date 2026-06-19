@@ -1537,6 +1537,8 @@ export type Database = {
           missed_days_this_week: number | null
           monthly_goal: number | null
           next_payment_date: string | null
+          onboarding_completed: boolean
+          onboarding_step: number
           nickname: string | null
           payment_status: string | null
           phone: string | null
@@ -1599,6 +1601,8 @@ export type Database = {
           missed_days_this_week?: number | null
           monthly_goal?: number | null
           next_payment_date?: string | null
+          onboarding_completed?: boolean
+          onboarding_step?: number
           nickname?: string | null
           payment_status?: string | null
           phone?: string | null
@@ -1661,6 +1665,8 @@ export type Database = {
           missed_days_this_week?: number | null
           monthly_goal?: number | null
           next_payment_date?: string | null
+          onboarding_completed?: boolean
+          onboarding_step?: number
           nickname?: string | null
           payment_status?: string | null
           phone?: string | null

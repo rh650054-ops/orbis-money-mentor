@@ -13,7 +13,9 @@ import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
-import { getTier } from "@/components/ranking/tier";
+import { getTier, leagueRank } from "@/components/ranking/tier";
+import { LeagueTransition } from "@/components/ranking/LeagueTransition";
+import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
 import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
@@ -84,6 +86,8 @@ export default function Ranking() {
   const shareCardRef = useRef<HTMLDivElement>(null);
   const quickPhotoRef = useRef<HTMLInputElement>(null);
   const [quickUploading, setQuickUploading] = useState(false);
+  const [leagueTransition, setLeagueTransition] = useState<{ type: "up" | "down"; position: number } | null>(null);
+  const [showRankNudge, setShowRankNudge] = useState(false);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -129,6 +133,20 @@ export default function Ranking() {
   };
 
   useEffect(() => { loadUserProfile(); }, [user?.id]);
+
+  // Anima quando o vendedor SOBE ou CAI de liga (compara com a ultima liga vista)
+  useEffect(() => {
+    const pos = currentUserStats?.posicao_faturamento;
+    if (!user?.id || !pos) return;
+    const rank = leagueRank(pos);
+    const key = `orbis_last_league_${user.id}`;
+    let stored = 0;
+    try { stored = Number(localStorage.getItem(key)) || 0; } catch { /* noop */ }
+    if (stored && stored !== rank) {
+      setLeagueTransition({ type: rank > stored ? "up" : "down", position: pos });
+    }
+    try { localStorage.setItem(key, String(rank)); } catch { /* noop */ }
+  }, [currentUserStats?.posicao_faturamento, user?.id]);
 
   // Recarrega ranking e perfil ao voltar o foco (ex.: retorno do DEFCON 4)
   useRefetchOnFocus(() => {
@@ -271,6 +289,15 @@ export default function Ranking() {
         </h1>
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
+
+      {showRankNudge && user && (
+        <TrialNudge
+          userId={user.id}
+          momentKey="ranking_promo"
+          title="Você subiu de patente! 🏆"
+          benefit="Cada venda te faz subir no ranking. Quando o teste acabar, você sai da disputa e perde seu lugar."
+        />
+      )}
 
       {/* Tabs: Liga Global + Competições */}
       <div className="grid grid-cols-2 gap-2.5">
@@ -431,6 +458,14 @@ export default function Ranking() {
       />
 
       <input ref={quickPhotoRef} type="file" accept="image/*" className="hidden" onChange={handleQuickPhoto} />
+
+      {leagueTransition && (
+        <LeagueTransition
+          type={leagueTransition.type}
+          position={leagueTransition.position}
+          onClose={() => { const up = leagueTransition?.type === "up"; setLeagueTransition(null); if (up) setShowRankNudge(true); }}
+        />
+      )}
 
       {/* Off-screen Instagram Story Card (1080x1920) */}
       <div

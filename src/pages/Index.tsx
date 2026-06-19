@@ -12,7 +12,9 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
+import { TrialNudge } from "@/components/TrialNudge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
@@ -109,26 +111,25 @@ export default function Index() {
     if (user) loadDashboardData();
   });
 
-  // Check if should show card registration modal (only on first access for non-subscribers)
+  // Mostra a escolha (assinar agora / testar 3 dias) logo no 1º acesso, por usuário.
   useEffect(() => {
     if (!user) return;
-    if (!localStorage.getItem('orbis_onboarding_completo')) return;
-    
+
     const checkCardModal = async () => {
-      const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
-      if (hasSeenCardModal) return;
+      const seenKey = `orbis_card_modal_seen_${user.id}`;
+      if (localStorage.getItem(seenKey)) return;
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
-      // Only show if not subscribed
+      // Só mostra se ainda não é assinante
       const isSubscribed = (profile?.is_demo && profile?.billing_exempt) || profile?.plan_status === "active";
       if (!isSubscribed) {
         setShowCardModal(true);
-        localStorage.setItem('hasSeenCardModal', 'true');
+        localStorage.setItem(seenKey, 'true');
       }
     };
 
@@ -416,6 +417,7 @@ export default function Index() {
               </p>
             </div>
             <button
+              data-tour="meta-input"
               onClick={() => setShowEditPlanning(true)}
               className="h-11 w-11 inline-flex items-center justify-center hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
               aria-label="Editar planejamento"
@@ -517,6 +519,15 @@ export default function Index() {
         </div>
       </button>
 
+      {user && faltaDia <= 0 && dailyProfit > 0 && (
+        <TrialNudge
+          userId={user.id}
+          momentKey="meta_dia"
+          title="Meta do dia batida! 🎯"
+          benefit="Quem usa o Orbis todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
+        />
+      )}
+
       {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
@@ -539,7 +550,7 @@ export default function Index() {
         />
       )}
 
-      {user && !isRestDay && !isMonthlyGoalRequired && (
+      {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem('orbis_mission_completed') === 'true' && (
         <DayStartPopup
           userId={user.id}
           onStart={() => navigate('/daily-goals')}

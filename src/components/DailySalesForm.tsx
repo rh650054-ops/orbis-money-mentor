@@ -17,6 +17,7 @@ import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { format } from "date-fns";
 import { cn } from "@/shared/lib/utils";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 
 const salesSchema = z.object({
   totalProfit: z.string().min(1, { message: "Valor vendido é obrigatório" }).refine((val) => {
@@ -352,6 +353,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         notes: ""
       });
 
+      emitMissionEvent("sale-registered");
       if (onSaved) onSaved();
     } catch (error) {
       toast({
@@ -541,6 +543,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
           </div>
 
           <Button 
+            data-tour="registrar-venda"
             type="submit"
             className="w-full"
             disabled={isLoading}

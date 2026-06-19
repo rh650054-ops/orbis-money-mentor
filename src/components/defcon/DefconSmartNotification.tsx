@@ -23,6 +23,9 @@ interface DefconSmartNotificationProps {
 
 const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
+const COACH_DAILY_CAP = 5;            // teto de mensagens por dia (4-5, escolha do usuario)
+const COACH_COOLDOWN_APPROACHES = 4;  // intervalo minimo de abordagens entre mensagens (anti-spam)
+const COACH_AI_TIMEOUT_MS = 2500;     // se a IA demorar, usa o template na hora
 
 export function DefconSmartNotification({
   userId,
@@ -37,6 +40,8 @@ export function DefconSmartNotification({
   const [historicalAvg, setHistoricalAvg] = useState<number>(DEFAULT_BENCHMARK);
   const [historicalLoaded, setHistoricalLoaded] = useState(false);
   const [longestDryStreak, setLongestDryStreak] = useState(DEFAULT_BENCHMARK);
+  const [hasRealHistory, setHasRealHistory] = useState(false);
+  const [realConvPct, setRealConvPct] = useState(0);
 
   const prevSalesRef = useRef(0);
   const prevApproachesRef = useRef(0);
@@ -44,6 +49,11 @@ export function DefconSmartNotification({
   const shownTriggersRef = useRef<Set<string>>(new Set());
   const holdingRef = useRef<Set<string>>(new Set());
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const liveApproachesRef = useRef(0);
+  const lastMsgApproachesRef = useRef(-99);
+  const aiAvailableRef = useRef(true);
+  const coachShownRef = useRef(0);       // teto POR SESSAO de DEFCON (em memoria, nao trava no dia)
+  const sessionFreshRef = useRef(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -63,6 +73,7 @@ export function DefconSmartNotification({
 
     if (!sessions || sessions.length === 0) {
       setHistoricalAvg(DEFAULT_BENCHMARK);
+      setHasRealHistory(false);
       setHistoricalLoaded(true);
       return;
     }
@@ -85,14 +96,67 @@ export function DefconSmartNotification({
       }
     }
 
+    // So consideramos "media de verdade" se houver histórico minimo (senao nada de número chumbado)
+    const real = totalApp >= 10 && totalSales >= 2;
+    setHasRealHistory(real);
+    setRealConvPct(real ? Math.round((totalSales / totalApp) * 100) : 0);
     const avg = totalSales > 0 ? totalApp / totalSales : DEFAULT_BENCHMARK;
     setHistoricalAvg(Math.round(avg * 10) / 10);
     setLongestDryStreak(Math.max(maxDry, Math.round(avg * 1.5)));
     setHistoricalLoaded(true);
   };
 
+  // ---- Reinicia o coach a cada novo DEFCON (zera contador e re-arma os gatilhos) ----
+  useEffect(() => {
+    if (phase === "running" && totalApproaches === 0 && totalSalesCount === 0) {
+      if (!sessionFreshRef.current) {
+        sessionFreshRef.current = true;
+        shownTriggersRef.current = new Set();
+        prevSalesRef.current = 0;
+        prevApproachesRef.current = 0;
+        approachesSinceLastSaleRef.current = 0;
+        lastMsgApproachesRef.current = -99;
+        coachShownRef.current = 0;
+        aiAvailableRef.current = true;
+      }
+    } else if (totalApproaches > 0 || totalSalesCount > 0) {
+      sessionFreshRef.current = false;
+    }
+  }, [phase, totalApproaches, totalSalesCount]);
+
+  // ---- Voz de IA: reescreve o template; cai no template se faltar IA/cota/timeout ----
+  const aiRewrite = useCallback(async (templateMsg: string): Promise<string> => {
+    if (!aiAvailableRef.current) return templateMsg;
+    try {
+      const invoke = supabase.functions.invoke("defcon-coach", {
+        body: {
+          template: templateMsg,
+          dayApproaches: liveApproachesRef.current,
+          avgApproachesPerSale: hasRealHistory ? Math.round(historicalAvg * 10) / 10 : 0,
+          realConvPct: hasRealHistory ? realConvPct : 0,
+        },
+      });
+      const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), COACH_AI_TIMEOUT_MS));
+      const res: any = await Promise.race([invoke, timeout]);
+      if (res?.error) { aiAvailableRef.current = false; return templateMsg; }
+      const msg = res?.data?.message?.toString().trim();
+      return msg && msg.length > 0 ? msg : templateMsg;
+    } catch {
+      aiAvailableRef.current = false; // para de tentar nesta sessao pra nao atrasar as proximas
+      return templateMsg;
+    }
+  }, [historicalAvg, hasRealHistory, realConvPct]);
+
   const showNotification = useCallback((icon: string, message: string) => {
-    const id = Date.now().toString();
+    // Anti-spam: teto por sessao + intervalo minimo entre mensagens
+    if (coachShownRef.current >= COACH_DAILY_CAP) return;
+    if (lastMsgApproachesRef.current >= 0 &&
+        (liveApproachesRef.current - lastMsgApproachesRef.current) < COACH_COOLDOWN_APPROACHES) return;
+    lastMsgApproachesRef.current = liveApproachesRef.current;
+    coachShownRef.current += 1;
+
+    // Mostra NA HORA com o template (garante que sempre aparece, sem depender da rede)
+    const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
     setNotifications(prev => [...prev, { id, icon, message, timestamp: Date.now(), holdingDown: false }]);
     const timer = setTimeout(() => {
       if (!holdingRef.current.has(id)) {
@@ -101,7 +165,14 @@ export function DefconSmartNotification({
       timersRef.current.delete(id);
     }, NOTIFICATION_DURATION);
     timersRef.current.set(id, timer);
-  }, []);
+
+    // IA enriquece em segundo plano: troca o texto se vier algo melhor (so quando publicada)
+    aiRewrite(message).then((finalMsg) => {
+      if (finalMsg && finalMsg !== message) {
+        setNotifications(prev => prev.map(n => (n.id === id ? { ...n, message: finalMsg } : n)));
+      }
+    });
+  }, [aiRewrite]);
 
   const dismissNotification = useCallback((id: string) => {
     const timer = timersRef.current.get(id);
@@ -128,6 +199,7 @@ export function DefconSmartNotification({
   // Track approach-without-sale streaks
   useEffect(() => {
     if (phase !== "running" || !historicalLoaded) return;
+    liveApproachesRef.current = totalApproaches;
 
     const newSale = totalSalesCount > prevSalesRef.current;
     const newApproach = totalApproaches > prevApproachesRef.current;
@@ -136,68 +208,57 @@ export function DefconSmartNotification({
       approachesSinceLastSaleRef.current += (totalApproaches - prevApproachesRef.current);
     }
 
+    const convPct = totalApproaches > 0 ? Math.round((totalSalesCount / totalApproaches) * 100) : 0;
+
     if (newSale) {
-      // TRIGGER 1 — Primeira venda
+      // TRIGGER 1 — Primeira venda (números reais da sessão)
       if (prevSalesRef.current === 0 && totalSalesCount > 0 && !shownTriggersRef.current.has("first_sale")) {
         shownTriggersRef.current.add("first_sale");
-        const avgInt = Math.round(historicalAvg);
-        if (totalApproaches <= historicalAvg) {
-          showNotification("⚡", `PRIMEIRA VENDA em ${totalApproaches} abordagens.\nMais rápido que sua média (${avgInt}).\nMantém o ritmo.`);
+        if (hasRealHistory && totalApproaches <= historicalAvg) {
+          showNotification("⚡", `Primeira venda em ${totalApproaches} abordagens!\nMais rápido que o seu normal. Bora manter esse ritmo. 🔥`);
         } else {
-          showNotification("⚡", `PRIMEIRA VENDA.\nSua média: 1 venda a cada ${avgInt} abordagens.\nSegue firme.`);
+          showNotification("⚡", `Primeira venda em ${totalApproaches} abordagens!\nO jogo abriu — agora é emendar a próxima. 🔥`);
         }
       }
 
       approachesSinceLastSaleRef.current = 0;
 
-      // TRIGGER 2/3 — Comparação de performance
+      // TRIGGER 2/3 — Conversão real do dia
       if (totalSalesCount >= 2) {
-        const currentAvg = totalApproaches / totalSalesCount;
         const triggerKey = `perf_check_${totalSalesCount}`;
         if (!shownTriggersRef.current.has(triggerKey)) {
           shownTriggersRef.current.add(triggerKey);
-          const currentInt = Math.round(currentAvg);
-          const histInt = Math.round(historicalAvg);
-
-          if (currentAvg < historicalAvg * 0.85) {
-            const pctDiff = Math.round(((historicalAvg - currentAvg) / historicalAvg) * 100);
-            showNotification("🔥", `VOCÊ TÁ ${pctDiff}% ACIMA DO NORMAL.\n1 venda a cada ${currentInt} abordagens (média: ${histInt}).\nO que tá funcionando? Repete.`);
-          } else if (currentAvg > historicalAvg * 1.4) {
-            const needed = Math.max(1, Math.round(historicalAvg - approachesSinceLastSaleRef.current));
-            showNotification("🎯", `ABORDA MAIS ${needed} PESSOAS.\nÉ o que falta pra próxima venda na sua média.\nCada "não" te aproxima.`);
+          if (hasRealHistory && convPct >= realConvPct) {
+            showNotification("🔥", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do seu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`);
+          } else if (hasRealHistory) {
+            showNotification("🎯", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nSeu normal é ${realConvPct}%. Capricha na abordagem que você vira o jogo.`);
+          } else {
+            showNotification("📈", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o seu ritmo. Cada abordagem conta — segue firme!`);
           }
         }
       }
     }
 
-    // TRIGGER 4 — Marco a cada 10 abordagens
+    // TRIGGER 4 — Marco a cada 10 abordagens (conversão real)
     if (totalApproaches > 0 && totalApproaches % 10 === 0 && newApproach) {
       const triggerKey = `milestone_${totalApproaches}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        const expectedSales = Math.round(totalApproaches / historicalAvg);
-        if (totalSalesCount >= expectedSales) {
-          showNotification("📊", `${totalApproaches} ABORDAGENS, ${totalSalesCount} VENDAS.\nVocê tá acima da previsão (${expectedSales}).\nNão para agora.`);
+        if (hasRealHistory && convPct >= realConvPct) {
+          showNotification("📊", `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do seu normal (${realConvPct}%). Não para agora!`);
         } else {
-          const missing = Math.max(1, expectedSales - totalSalesCount);
-          showNotification("📊", `${totalApproaches} ABORDAGENS, ${totalSalesCount} VENDAS.\nFALTAM ${missing} VENDAS pra bater sua média.\nAcelera.`);
+          showNotification("📊", `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`);
         }
       }
     }
 
-    // TRIGGER 5 — 5+ abordagens sem vender
+    // TRIGGER 5 — sequência sem vender
     if (approachesSinceLastSaleRef.current >= 5 && newApproach) {
       const dryCount = approachesSinceLastSaleRef.current;
       const triggerKey = `dry_${Math.floor(dryCount / 5) * 5}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        const histInt = Math.round(historicalAvg);
-        const remaining = Math.max(1, histInt - dryCount);
-        if (dryCount >= histInt) {
-          showNotification("💪", `${dryCount} ABORDAGENS SEM VENDER.\nVocê passou da sua média (${histInt}).\nA próxima venda tá perto. Continua.`);
-        } else {
-          showNotification("🧠", `${dryCount} SEM VENDER.\nFALTAM ~${remaining} ABORDAGENS pra próxima venda na sua média.\nNão para.`);
-        }
+        showNotification("💪", `${dryCount} abordagens sem vender.\nFicou frio, mas a próxima venda tá logo ali. Vai com tudo — não para!`);
       }
     }
 
@@ -295,11 +356,14 @@ function NotificationCard({
 
   return (
     <div
-      className="pointer-events-auto bg-card border border-border rounded-xl overflow-hidden animate-in slide-in-from-top duration-300 shadow-lg shadow-black/50 touch-pan-y"
+      className="pointer-events-auto relative rounded-2xl overflow-hidden animate-in slide-in-from-top duration-300 touch-pan-y"
       style={{
         transform: `translateX(${dragX}px)`,
         opacity,
         transition: dragStartXRef.current === null || dismissing ? "transform 0.2s ease, opacity 0.2s ease" : "none",
+        background: "linear-gradient(180deg, #1c1c22, #131317)",
+        border: "1px solid rgba(246,180,10,0.30)",
+        boxShadow: "0 16px 40px -14px rgba(0,0,0,0.85), 0 0 26px -10px rgba(246,180,10,0.35)",
       }}
       onTouchStart={(e) => handlePressStart(e.touches[0]!.clientX)}
       onTouchMove={(e) => handlePressMove(e.touches[0]!.clientX)}
@@ -309,25 +373,30 @@ function NotificationCard({
       onMouseUp={handlePressEnd}
       onMouseLeave={() => { if (dragStartXRef.current !== null) handlePressEnd(); }}
     >
-      <div className="px-4 py-3 flex items-start gap-3">
-        <span className="text-xl flex-shrink-0 mt-0.5">{notification.icon}</span>
-        <p className="text-[13px] font-mono text-neutral-100 leading-relaxed flex-1 whitespace-pre-line">
+      <div className="px-3.5 py-3 flex items-start gap-3">
+        <div
+          className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+          style={{ background: "rgba(246,180,10,0.16)", border: "1px solid rgba(246,180,10,0.40)" }}
+        >
+          {notification.icon}
+        </div>
+        <p className="text-[13.5px] font-semibold text-white/90 leading-snug tracking-tight flex-1 whitespace-pre-line">
           {notification.message}
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onDismiss(); }}
           onMouseDown={(e) => e.stopPropagation()}
           onTouchStart={(e) => e.stopPropagation()}
-          className="flex-shrink-0 mt-0.5"
+          className="flex-shrink-0 -mr-0.5 mt-0.5 text-white/30 active:text-white/70"
         >
-          <X className="w-4 h-4 text-neutral-600 active:text-neutral-300" />
+          <X className="w-4 h-4" />
         </button>
       </div>
-      {/* Progress bar */}
-      <div className="h-0.5 w-full bg-neutral-800">
+      {/* Progress bar dourada */}
+      <div className="h-1 w-full bg-black/40">
         <div
-          className="h-full bg-neutral-500/50 transition-none"
-          style={{ width: `${progress}%` }}
+          className="h-full transition-none"
+          style={{ width: `${progress}%`, background: "linear-gradient(90deg, #FFD057, #F6B40A)" }}
         />
       </div>
     </div>

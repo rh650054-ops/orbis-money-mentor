@@ -13,7 +13,7 @@ import FloatingChatButton from "@/components/FloatingChatButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
-import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
+import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import MorningCommitModal from "@/components/MorningCommitModal";
 import BackButton from "@/shared/components/back-button";
 import {
@@ -46,15 +46,17 @@ export default function Layout({ children }: LayoutProps) {
   const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const { phase, setPhase, markDone } = useOnboarding();
   const [onboardingCompleto, setOnboardingCompleto] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_mission_completed') === 'true'
   );
   const [onboardingChecked, setOnboardingChecked] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_mission_completed') === 'true'
   );
+  // Progresso da Missão de Boas-Vindas (retomada cross-device)
+  const [missionStep, setMissionStep] = useState(0);
+  const [missionNickname, setMissionNickname] = useState<string | null>(null);
   useEffect(() => {
-    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_onboarding_completo') === 'true');
+    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_mission_completed') === 'true');
     window.addEventListener('storage', sync);
     return () => window.removeEventListener('storage', sync);
   }, []);
@@ -63,7 +65,7 @@ export default function Layout({ children }: LayoutProps) {
   // (vale em qualquer aparelho/navegador, pois o dado fica na conta e não no localStorage)
   useEffect(() => {
     if (!user) return;
-    if (localStorage.getItem('orbis_onboarding_completo') === 'true') {
+    if (localStorage.getItem('orbis_mission_completed') === 'true') {
       setOnboardingChecked(true);
       return;
     }
@@ -71,14 +73,19 @@ export default function Layout({ children }: LayoutProps) {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("nickname, monthly_goal")
+        .select("nickname, onboarding_completed, onboarding_step")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      if (data && (data.nickname || (data.monthly_goal ?? 0) > 0)) {
-        localStorage.setItem('orbis_onboarding_completo', 'true');
-        localStorage.setItem('orbis_onboarding_completed', 'true');
+      // Fonte de verdade ÚNICA: a flag explícita do banco. Toda conta que ainda
+      // não concluiu a Missão de Boas-Vindas a vê pelo menos uma vez.
+      if (data?.onboarding_completed === true) {
+        localStorage.setItem('orbis_mission_completed', 'true');
         setOnboardingCompleto(true);
+      } else {
+        // Retoma de onde parou e guarda o nome pra saudação da missão.
+        setMissionStep(data?.onboarding_step ?? 0);
+        setMissionNickname(data?.nickname ?? null);
       }
       setOnboardingChecked(true);
     })();
@@ -113,8 +120,8 @@ export default function Layout({ children }: LayoutProps) {
       // Show once per day
       if (lastReminderDate !== today) {
         toast({
-          title: `⚠️ Seu teste acaba em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'}!`,
-          description: "Assine agora por R$19,90/mês e mantenha acesso a todos os recursos.",
+          title: `🔥 Faltam ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
+          description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,99 por dia (R$29,99/mês) e não perde o ritmo.",
           duration: 8000,
         });
         localStorage.setItem('lastTrialReminder', today);
@@ -165,15 +172,13 @@ export default function Layout({ children }: LayoutProps) {
     navigate("/auth");
   };
 
-  // If onboarding not complete, render ONLY the onboarding
-  if (!onboardingCompleto && phase !== "done") {
-    // Espera a checagem no banco antes de mostrar o onboarding,
-    // pra não exibir o onboarding pra quem já é cadastrado
-    if (user && !onboardingChecked) {
-      return <div className="min-h-[100dvh] bg-background" />;
-    }
-    return <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />;
+  // Espera a checagem no banco antes de decidir mostrar a missão,
+  // pra não piscar o overlay pra quem já é cadastrado.
+  if (!onboardingCompleto && user && !onboardingChecked) {
+    return <div className="min-h-[100dvh] bg-background" />;
   }
+  // Nota: a Missão de Boas-Vindas NÃO substitui mais o app. Ela é renderizada
+  // como overlay (MissionOrchestrator) por cima do app real, lá embaixo no JSX.
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -249,20 +254,20 @@ export default function Layout({ children }: LayoutProps) {
         {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.isTrialActive && trialStatus.daysRemaining !== null && trialStatus.daysRemaining <= 3 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
             <div className="flex items-start gap-3">
-              <div className="text-2xl">⚠️</div>
+              <div className="text-2xl">🔥</div>
               <div className="flex-1">
                 <h3 className="font-semibold text-warning mb-1">
-                  Seu teste gratuito acaba em {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'}!
+                  Faltam {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'} do seu acesso grátis
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Após o término, você perderá acesso a todos os dados e funcionalidades. Assine agora para manter tudo salvo!
+                  Seu histórico, sua constância e seu lugar no ranking estão sendo construídos. Quando o teste acabar, isso trava. Mantenha tudo por menos de R$1 por dia.
                 </p>
                 <Button 
                   size="sm" 
                   onClick={() => navigate('/payment')}
                   className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
-                  Assinar por R$19,90/mês
+                  Quero continuar — R$29,99/mês
                 </Button>
               </div>
             </div>
@@ -354,9 +359,18 @@ export default function Layout({ children }: LayoutProps) {
       {/* Floating Chat Button */}
       <FloatingChatButton />
 
+      {/* Missao de Boas-Vindas (onboarding gamificado): overlay sobre o app real */}
+      {user && onboardingChecked && !onboardingCompleto && (
+        <MissionOrchestrator
+          userId={user.id}
+          nickname={missionNickname}
+          initialIndex={missionStep}
+          onCompleted={() => setOnboardingCompleto(true)}
+        />
+      )}
 
       {/* Morning Commit Modal */}
-      {user && phase === "done" && (
+      {user && onboardingCompleto && (
         <MorningCommitModal userId={user.id} onDismiss={() => {}} />
       )}
 

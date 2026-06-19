@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
 import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon } from "lucide-react";
@@ -32,6 +33,8 @@ interface DefconRunningProps {
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
   onAddTip?: (amount: number) => void;
+  onboardingMode?: boolean;
+  quickSaleValue?: number;
 }
 
 export function DefconRunning({
@@ -55,6 +58,8 @@ export function DefconRunning({
   onEnd,
   onLunchPause,
   onAddTip,
+  onboardingMode,
+  quickSaleValue,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -70,9 +75,27 @@ export function DefconRunning({
   const [saleName, setSaleName] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
+  const [saleMessage, setSaleMessage] = useState("");
+  const [showChargePreview, setShowChargePreview] = useState(false);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
   const { theme, setTheme } = useTheme();
+
+  // Chave Pix padrao do usuario (das configuracoes) -> entra na cobranca do WhatsApp
+  useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from("pix_accounts")
+      .select("pix_key, merchant_name, is_default")
+      .eq("user_id", userId)
+      .then(({ data }) => {
+        if (data && data.length) {
+          const def = (data as any[]).find((a) => a.is_default) || data[0];
+          if (def?.pix_key) setPixCharge({ key: def.pix_key, name: def.merchant_name || "" });
+        }
+      });
+  }, [userId]);
   const isLight = theme === "light";
 
   // Auto-seleciona se houver só 1 produto no loadout
@@ -112,6 +135,7 @@ export function DefconRunning({
   const sanitizePhone = (raw: string) => raw.replace(/\D/g, "");
 
   const persistClient = async (amount: number, method: "dinheiro" | "pix" | "cartao") => {
+    if (onboardingMode) return;
     const name = saleName.trim();
     const phone = sanitizePhone(salePhone);
     if (!name && !phone) return;
@@ -134,17 +158,21 @@ export function DefconRunning({
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
     // Debita do loadout/estoque se houver produto selecionado
-    if (selectedProductId) {
+    if (!onboardingMode && selectedProductId) {
       incrementSold(selectedProductId, 1).catch((e) =>
         console.warn("[defcon] failed to debit loadout", e)
       );
     }
+    // Onboarding: qualquer venda no DEFCON (rápida ou manual) avança a missão.
+    emitMissionEvent("sale-registered");
   };
 
   const resetSaleForm = () => {
     setSaleValue("");
     setSalePhone("");
     setSaleName("");
+    setSaleMessage("");
+    setShowChargePreview(false);
     setShowClientFields(false);
     // Mantém o produto selecionado se houver só 1; reseta se múltiplos
     if (loadout.length > 1) setSelectedProductId(null);
@@ -160,27 +188,58 @@ export function DefconRunning({
     }
   };
 
-  const openWhatsAppCharge = (rawPhone: string, amount: number, name: string) => {
-    const digits = sanitizePhone(rawPhone);
-    if (!digits || amount <= 0) return;
-    const phone = digits.length <= 11 ? `55${digits}` : digits;
-    const greeting = name ? `Olá, ${name}!` : "Olá!";
-    const msg = encodeURIComponent(
-      `${greeting} Passando para confirmar sua compra no valor de ${formatCurrency(amount)}. Pode me enviar o comprovante por aqui? Obrigado! 🙏`
-    );
-    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
+  // Mensagem padrao de cobranca: salva no aparelho e reusa. O valor fica como token
+  // {valor} pra ser trocado pelo valor real de cada venda (nao "congela" um valor antigo).
+  const chargeTplKey = `orbis_charge_tpl_${userId}`;
+  const VALOR_TOKEN = "{valor}";
+
+  const defaultChargeTemplate = () => {
+    const pixLine = pixCharge?.key
+      ? `Chave Pix: ${pixCharge.key}${pixCharge.name ? ` (${pixCharge.name})` : ""}`
+      : `Chave Pix: (toque e digite sua chave Pix)`;
+    return `Olá! 🙏 Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
   };
 
-  const handleSaleAndCharge = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+  const loadChargeTemplate = () => {
+    try {
+      const saved = localStorage.getItem(chargeTplKey);
+      if (saved && saved.trim()) return saved;
+    } catch (_e) { /* ignore */ }
+    return defaultChargeTemplate();
+  };
+
+  // Mensagem pronta (token {valor} -> valor real da venda)
+  const buildChargeMessage = (amount: number) =>
+    loadChargeTemplate().split(VALOR_TOKEN).join(formatCurrency(amount));
+
+  // Salva a mensagem do usuario como padrao (re-tokeniza o valor pra ficar dinamico)
+  const saveChargeTemplate = (msg: string, amount: number) => {
+    try {
+      localStorage.setItem(chargeTplKey, msg.split(formatCurrency(amount)).join(VALOR_TOKEN));
+    } catch (_e) { /* ignore */ }
+  };
+
+  const openChargePreview = () => {
     const amount = parseFloat(saleValue) || 0;
-    if (amount <= 0) return;
-    registerSale(amount, method);
-    persistClient(amount, method);
-    openWhatsAppCharge(salePhone, amount, saleName.trim());
+    if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
+    setSaleMessage(buildChargeMessage(amount));
+    setShowChargePreview(true);
+  };
+
+  const confirmCharge = () => {
+    const amount = parseFloat(saleValue) || 0;
+    const digits = sanitizePhone(salePhone);
+    if (amount <= 0 || digits.length < 10) return;
+    const phone = digits.length <= 11 ? `55${digits}` : digits;
+    const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount);
+    saveChargeTemplate(text, amount);
+    registerSale(amount, "dinheiro");
+    persistClient(amount, "dinheiro");
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
+    setShowChargePreview(false);
     resetSaleForm();
     setShowAddSale(false);
   };
-
 
   const blockSold = currentBlock
     ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
@@ -196,6 +255,7 @@ export function DefconRunning({
 
   const handleApproachClick = () => {
     onAddApproach();
+    emitMissionEvent("approach-added");
     setApproachPulse(true);
     setTimeout(() => setApproachPulse(false), 280);
     pushFloater("+1", "approach");
@@ -389,10 +449,13 @@ export function DefconRunning({
         </div>
 
         {/* Quick sale buttons */}
-        <DefconQuickSaleButtons
-          saleHistory={saleHistory}
-          onQuickSale={registerSale}
-        />
+        <div data-tour="defcon-quick-sale" className="w-full flex justify-center">
+          <DefconQuickSaleButtons
+            saleHistory={saleHistory}
+            forcedValues={onboardingMode && quickSaleValue ? [quickSaleValue] : undefined}
+            onQuickSale={registerSale}
+          />
+        </div>
 
         {/* Botão de custo rápido — discreto, alinhado ao tom DEFCON */}
         <div className="w-full flex justify-center px-1">
@@ -415,6 +478,7 @@ export function DefconRunning({
         <div className="w-full flex items-end justify-center gap-2.5 px-1">
           {/* Abordagem — esquerda, mais baixo */}
           <button
+            data-tour="defcon-abordagem"
             onClick={handleApproachClick}
             className={`flex-1 h-[56px] rounded-2xl bg-card border border-border flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
               approachPulse ? "ring-2 ring-foreground/30 bg-secondary" : ""
@@ -426,6 +490,7 @@ export function DefconRunning({
 
           {/* Venda — centro, elevado e destacado */}
           <button
+            data-tour="defcon-venda"
             onClick={() => setShowAddSale(true)}
             className="flex-[1.25] h-[72px] rounded-2xl bg-primary flex items-center justify-center gap-2 active:scale-95 transition-[colors,transform,opacity] shadow-[0_12px_40px_-6px_hsl(var(--primary)/0.85)]"
           >
@@ -579,7 +644,7 @@ export function DefconRunning({
             ) : (
               <div className="space-y-2 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">Cliente (opcional)</span>
+                  <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">Cliente</span>
                   <button
                     onClick={() => { setSaleName(""); setSalePhone(""); setShowClientFields(false); }}
                     className="text-xs text-muted-foreground hover:text-foreground underline"
@@ -613,12 +678,15 @@ export function DefconRunning({
 
                 {sanitizePhone(salePhone).length >= 10 && parseFloat(saleValue) > 0 && (
                   <button
-                    onClick={() => handleSaleAndCharge("dinheiro")}
-                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 8px 24px -8px rgba(37,211,102,0.6)" }}
-                    className="w-full h-11 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                    onClick={openChargePreview}
+                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
+                    className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform"
                   >
-                    <MessageCircle className="w-4 h-4" strokeWidth={2.5} />
-                    Registrar e enviar cobrança no WhatsApp
+                    <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
+                    <span className="flex flex-col items-start leading-tight">
+                      <span className="text-sm font-extrabold">Registrar e cobrar no WhatsApp</span>
+                      <span className="text-[11px] font-medium opacity-90">Você revisa a mensagem antes de enviar</span>
+                    </span>
                   </button>
                 )}
               </div>
@@ -642,6 +710,51 @@ export function DefconRunning({
                 <span className="text-lg font-black">PIX</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Previa editavel da cobranca -> abre antes de enviar; edicao vira padrao */}
+      {showChargePreview && (
+        <div
+          className="fixed inset-0 bg-background/90 flex items-end justify-center z-50"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setShowChargePreview(false)}
+        >
+          <div
+            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-4 animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <MessageCircle className="w-5 h-5" style={{ color: BRAND_COLORS.WHATSAPP }} />
+                Revise a mensagem
+              </h3>
+              <button onClick={() => setShowChargePreview(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <span className="text-xs font-bold block" style={{ color: "#EAB308" }}>
+              ✏️ Personalize sua mensagem — ela vira a sua padrão
+            </span>
+            <textarea
+              value={saleMessage}
+              onChange={(e) => setSaleMessage(e.target.value)}
+              rows={7}
+              className="w-full bg-background border rounded-xl p-3 text-sm text-foreground leading-relaxed resize-none focus-visible:outline-none focus-visible:ring-2"
+              style={{ borderColor: "rgba(234,179,8,0.45)" }}
+            />
+
+            <button
+              onClick={confirmCharge}
+              style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
+              className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2 font-extrabold active:scale-[0.98] transition-transform"
+            >
+              <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
+              Abrir WhatsApp e cobrar
+            </button>
           </div>
         </div>
       )}

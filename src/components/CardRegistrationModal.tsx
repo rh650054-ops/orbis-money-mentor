@@ -1,8 +1,7 @@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { CreditCard } from "lucide-react";
-
-const HOTMART_CHECKOUT_URL = "https://pay.hotmart.com/N104683123F";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 interface CardRegistrationModalProps {
   isOpen: boolean;
@@ -12,7 +11,7 @@ interface CardRegistrationModalProps {
 export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrationModalProps) {
   const handleRegister = () => {
     onClose();
-    window.open(HOTMART_CHECKOUT_URL, "_blank");
+    window.open(getCheckoutUrl(), "_blank");
   };
 
   const handleSkip = () => {
@@ -27,7 +26,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
             🚀 Garanta seu acesso ao Orbis!
           </DialogTitle>
           <DialogDescription className="text-center text-base mt-4">
-            Após o teste gratuito de 3 dias, assine por apenas <strong>R$19,90/mês</strong> para manter acesso completo.
+            Depois dos 3 dias grátis, é só <strong>R$0,99 por dia</strong> (R$29,99/mês) pra manter tudo: seus números, o mentor de rua (IA) e seu lugar no ranking.
           </DialogDescription>
         </DialogHeader>
 
@@ -46,7 +45,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
             variant="ghost"
             className="w-full"
           >
-            ❌ Continuar no teste gratuito
+            Agora não — quero usar meus 3 dias grátis
           </Button>
         </div>
 

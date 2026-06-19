@@ -7,7 +7,7 @@ import { CreditCard, Loader2, RefreshCw, Lock, TrendingUp, Brain, Target, Flame,
 import { useToast } from "@/shared/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 export default function Payment() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function Payment() {
   }, [user, loading, navigate]);
 
   const handleHotmartCheckout = () => {
-    window.open(HOTMART_CHECKOUT_URL, "_blank");
+    window.open(getCheckoutUrl(), "_blank");
   };
 
   const handleCheckAccess = async () => {
@@ -199,7 +199,7 @@ export default function Payment() {
               {/* Price */}
               <div className="text-center py-2">
                 <div className="inline-flex items-baseline gap-1">
-                  <span className="text-4xl font-black text-primary leading-none">R$ 19,90</span>
+                  <span className="text-4xl font-black text-primary leading-none">R$ 29,99</span>
                   <span className="text-sm text-muted-foreground">/mês</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
@@ -212,7 +212,7 @@ export default function Payment() {
                   className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Assinar agora — R$ 19,90/mês
+                  Assinar agora — R$ 29,99/mês
                 </Button>
 
                 <Button
