@@ -23,7 +23,7 @@ export default function MissionWelcome({ nickname, onAdvance }: MissionWelcomePr
           <div className="relative flex flex-col items-center text-center max-w-xs">
         <span className="text-7xl mb-6 block animate-scale-in">🔥</span>
         <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-2">
-          Fase 1 de 6
+          Fase 1 de 2
         </p>
         <h1 className="text-2xl font-bold text-foreground mb-2">
           Bem-vindo ao Orbis, {name}!

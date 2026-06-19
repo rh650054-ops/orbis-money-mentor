@@ -226,16 +226,25 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
     const s = def.steps[step];
     if (!s?.selector) return;
     const sel = s.selector;
-    const inView = (r: DOMRect) =>
-      r.width > 0 && r.top < window.innerHeight - 72 && r.bottom > 72;
+    // Revela só quando o CENTRO do elemento está na faixa central da tela —
+    // assim o anel nunca "pisca" num item errado quando o alvo só encosta na borda.
+    const comfortablyInView = (r: DOMRect) => {
+      if (r.width <= 0) return false;
+      const center = (r.top + r.bottom) / 2;
+      const h = window.innerHeight;
+      return center > h * 0.16 && center < h * 0.8;
+    };
 
     const tick = () => {
+      if (shownRef.current) return; // já revelado: congela (não re-mede, não pula)
       const el = document.querySelector(sel);
       if (el) {
         const r = el.getBoundingClientRect();
-        setRect(r);
-        if (!shownRef.current && inView(r)) reveal(true);
-      } else if (!shownRef.current && Date.now() - startedAt.current > 1600) {
+        if (comfortablyInView(r)) {
+          setRect(r);
+          reveal(true);
+        }
+      } else if (Date.now() - startedAt.current > 1600) {
         // Elemento não está nesta tela (ex.: aba diferente): cai pro cartão central.
         setRect(null);
         reveal(true);
@@ -285,27 +294,9 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
   const isLast = step === total - 1;
   const hasTarget = !!current.selector;
 
-  // FASE DE ESPERA: passo com alvo ainda não alcançado pelo usuário.
-  // Não escurece nem bloqueia (pra ele conseguir rolar e ver a tela).
-  if (hasTarget && !shown) {
-    return (
-      <div className="fixed inset-0 z-[9990] pointer-events-none">
-        <div
-          className="fixed left-1/2 -translate-x-1/2 z-[10000] pointer-events-auto flex flex-col items-center gap-1 rounded-2xl border border-primary/40 bg-card/95 backdrop-blur-xl px-5 py-3 shadow-[0_16px_44px_-12px_hsl(var(--primary)/0.55)]"
-          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}
-        >
-          <span className="text-sm font-bold text-foreground">👇 Role a tela para baixo</span>
-          <span className="text-xs text-muted-foreground">vou te mostrar o próximo passo</span>
-          <button
-            onClick={skipScreen}
-            className="mt-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Pular esta tela
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // FASE DE ESPERA: enquanto o usuário não rolou até o alvo, não mostra NADA.
+  // A explicação aparece sozinha quando ele chega no botão (conforme a curiosidade).
+  if (hasTarget && !shown) return null;
 
   // FASE REVELADA: escurece, destaca o alvo (se houver) e mostra a explicação.
   const hole = rect
@@ -343,12 +334,13 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
       {/* Anel pulsante no alvo */}
       {hole && (
         <div
-          className="absolute rounded-xl border-2 border-primary pointer-events-none animate-pulse"
+          className="absolute rounded-xl border-2 border-primary pointer-events-none animate-pulse transition-opacity duration-300"
           style={{
             top: hole.top,
             left: hole.left,
             width: hole.width,
             height: hole.height,
+            opacity: entering ? 1 : 0,
             boxShadow: "0 0 0 4px hsl(var(--primary) / 0.18), 0 0 24px hsl(var(--primary) / 0.35)",
           }}
         />
