@@ -33,7 +33,7 @@ export function useMonthlyGoalRequired(userId: string | undefined): UseMonthlyGo
         .from("profiles")
         .select("monthly_goal, week_start_date, goal_hours, weekly_work_days")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       // Check if it's the first time (no monthly goal set or zero)
       const hasMonthlyGoal = profile?.monthly_goal && profile.monthly_goal > 0;

@@ -61,7 +61,7 @@ export const WeeklyPlanning = ({ userId, onEditPlanning }: WeeklyPlanningProps) 
       .from("profiles")
       .select("working_days, base_daily_goal, weekly_goal, monthly_goal")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (data) {
       setWorkingDays(data.working_days || ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']);

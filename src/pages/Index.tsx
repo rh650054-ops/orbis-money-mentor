@@ -172,7 +172,7 @@ export default function Index() {
       { data: todayChallenge },
       { data: monthExpenses },
     ] = await Promise.all([
-      supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).single(),
+      supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo.toISOString().split('T')[0]!).order("date", { ascending: true }),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),

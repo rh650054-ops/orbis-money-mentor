@@ -213,7 +213,7 @@ export default function Finances() {
         .from("profiles")
         .select("monthly_goal")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       const monthlyBudget = profileData?.monthly_goal || 0;
 

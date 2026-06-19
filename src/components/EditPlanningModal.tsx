@@ -35,7 +35,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       .from("profiles")
       .select("monthly_goal, goal_hours, weekly_work_days")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       setMonthlyGoal(profile.monthly_goal || 4200);

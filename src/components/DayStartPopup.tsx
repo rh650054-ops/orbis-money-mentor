@@ -66,7 +66,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
       .from("profiles")
       .select("base_daily_goal, weekly_goal, monthly_goal, goal_hours")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       setDailyGoal(profile.base_daily_goal || 0);
