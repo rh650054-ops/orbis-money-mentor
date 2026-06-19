@@ -166,10 +166,28 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
       {/* Botão pular — sempre visível no rodapé, longe da status bar */}
       <button
         onClick={onSkip}
-        className="fixed left-1/2 -translate-x-1/2 z-[10002] pointer-events-auto text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-full border border-border bg-background/90 backdrop-blur shadow-lg"
-        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
+        className="group fixed left-1/2 -translate-x-1/2 z-[10002] pointer-events-auto flex items-center gap-1.5 text-xs font-bold tracking-wide text-foreground/70 hover:text-foreground active:scale-95 transition-all px-5 py-2.5 rounded-full border border-primary/30 bg-background/70 backdrop-blur-md shadow-[0_10px_30px_-10px_rgba(0,0,0,0.7)]"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+          backgroundImage:
+            "linear-gradient(180deg, hsl(var(--primary) / 0.10), rgba(255,255,255,0.02))",
+        }}
       >
         Pular tutorial
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="opacity-70 group-hover:translate-x-0.5 transition-transform"
+        >
+          <polyline points="13 17 18 12 13 7" />
+          <polyline points="6 17 11 12 6 7" />
+        </svg>
       </button>
 
       {/* Painéis escuros ao redor do furo — deixam o furo CLICÁVEL (interactive) */}
@@ -209,8 +227,8 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
           />
         </>
       ) : !isAction ? (
-        // Passo informativo sem alvo: overlay cheio bloqueante (usuário lê e toca "Entendi").
-        <div className="absolute inset-0 bg-black/75 pointer-events-auto" onClick={(e) => e.stopPropagation()} />
+        // Passo informativo sem alvo: tocar EM QUALQUER LUGAR avança.
+        <div className="absolute inset-0 bg-black/75 pointer-events-auto cursor-pointer" onClick={onAdvance} />
       ) : null)}
 
       {/* Balão do coachmark — escondido enquanto um modal está aberto */}
