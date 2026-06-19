@@ -43,6 +43,7 @@ export default function MissionOrchestrator({
   }, [userId, onCompleted]);
 
   const { index, completed, advance, skipAll } = useMissionTour({
+    userId,
     initialIndex,
     onStepChange: persistStep,
     onComplete: persistDone,

@@ -47,26 +47,23 @@ export default function Layout({ children }: LayoutProps) {
   const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [onboardingCompleto, setOnboardingCompleto] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem('orbis_mission_completed') === 'true'
-  );
-  const [onboardingChecked, setOnboardingChecked] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem('orbis_mission_completed') === 'true'
-  );
+  // Conclusão do onboarding é POR USUÁRIO (chave com user.id) + banco como fonte
+  // de verdade. Antes era uma flag GLOBAL no localStorage — por isso uma conta
+  // nova no mesmo navegador "herdava" o onboarding concluído de outra conta.
+  const [onboardingCompleto, setOnboardingCompleto] = useState(false);
+  const [onboardingChecked, setOnboardingChecked] = useState(false);
   // Progresso da Missão de Boas-Vindas (retomada cross-device)
   const [missionStep, setMissionStep] = useState(0);
   const [missionNickname, setMissionNickname] = useState<string | null>(null);
-  useEffect(() => {
-    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_mission_completed') === 'true');
-    window.addEventListener('storage', sync);
-    return () => window.removeEventListener('storage', sync);
-  }, []);
 
   // Usuário já cadastrado: se a conta já tem dados de onboarding no banco, pula o onboarding
   // (vale em qualquer aparelho/navegador, pois o dado fica na conta e não no localStorage)
   useEffect(() => {
     if (!user) return;
-    if (localStorage.getItem('orbis_mission_completed') === 'true') {
+    const doneKey = `orbis_mission_completed_${user.id}`;
+    // Atalho POR USUÁRIO (sem piscar): se ESTE usuário já concluiu, pula.
+    if (localStorage.getItem(doneKey) === 'true') {
+      setOnboardingCompleto(true);
       setOnboardingChecked(true);
       return;
     }
@@ -78,15 +75,15 @@ export default function Layout({ children }: LayoutProps) {
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      // Fonte de verdade ÚNICA: a flag explícita do banco. Toda conta que ainda
-      // não concluiu a Missão de Boas-Vindas a vê pelo menos uma vez.
+      // Fonte de verdade: a flag do banco DESTE usuário.
       if (data?.onboarding_completed === true) {
-        localStorage.setItem('orbis_mission_completed', 'true');
+        localStorage.setItem(doneKey, 'true');
         setOnboardingCompleto(true);
       } else {
-        // Retoma de onde parou e guarda o nome pra saudação da missão.
+        // Conta nova / onboarding não concluído: mostra a missão do começo.
         setMissionStep(data?.onboarding_step ?? 0);
         setMissionNickname(data?.nickname ?? null);
+        setOnboardingCompleto(false);
       }
       setOnboardingChecked(true);
     })();

@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from "react";
 import { missionSteps } from "./missionSteps";
 
-const STEP_KEY = "orbis_onboarding_step";
-// Chave NOVA de propósito: flags antigas (orbis_onboarding_completo/completed)
-// não contam mais, pra que TODA conta veja a missão pelo menos uma vez.
-const DONE_KEY = "orbis_mission_completed";
+// Chaves POR USUÁRIO (com user.id) — pra que a conclusão de UMA conta não "vaze"
+// pra outra conta no mesmo navegador (era o bug do onboarding não aparecer em
+// conta nova). Sem userId, cai nas chaves globais antigas (fallback).
+const STEP_BASE = "orbis_onboarding_step";
+const DONE_BASE = "orbis_mission_completed";
+const stepKeyFor = (userId?: string) => (userId ? `${STEP_BASE}_${userId}` : STEP_BASE);
+const doneKeyFor = (userId?: string) => (userId ? `${DONE_BASE}_${userId}` : DONE_BASE);
 
 export interface MissionTourState {
   /** Índice do passo atual (0-based) em missionSteps. */
@@ -14,6 +17,8 @@ export interface MissionTourState {
 }
 
 interface UseMissionTourArgs {
+  /** ID do usuário — usado pra deixar o progresso/conclusão POR conta. */
+  userId?: string;
   /** Passo inicial vindo do banco (cross-device). Default: localStorage. */
   initialIndex?: number;
   initialCompleted?: boolean;
@@ -23,47 +28,49 @@ interface UseMissionTourArgs {
   onComplete?: () => void;
 }
 
-function readInitialIndex(): number {
+function readInitialIndex(key: string): number {
   if (typeof window === "undefined") return 0;
-  const raw = window.localStorage.getItem(STEP_KEY);
+  const raw = window.localStorage.getItem(key);
   const n = raw == null ? 0 : Number.parseInt(raw, 10);
   if (Number.isNaN(n) || n < 0) return 0;
   return Math.min(n, missionSteps.length - 1);
 }
 
-function readInitialCompleted(): boolean {
+function readInitialCompleted(key: string): boolean {
   if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(DONE_KEY) === "true";
+  return window.localStorage.getItem(key) === "true";
 }
 
 export function useMissionTour(args: UseMissionTourArgs = {}) {
-  const { onStepChange, onComplete } = args;
+  const { userId, onStepChange, onComplete } = args;
+  const stepKey = stepKeyFor(userId);
+  const doneKey = doneKeyFor(userId);
 
   const [index, setIndex] = useState<number>(() =>
-    Math.max(args.initialIndex ?? 0, readInitialIndex()),
+    Math.max(args.initialIndex ?? 0, readInitialIndex(stepKey)),
   );
   const [completed, setCompleted] = useState<boolean>(() =>
-    args.initialCompleted ?? readInitialCompleted(),
+    args.initialCompleted ?? readInitialCompleted(doneKey),
   );
 
   const persistStep = useCallback(
     (next: number) => {
       if (typeof window !== "undefined") {
-        window.localStorage.setItem(STEP_KEY, String(next));
+        window.localStorage.setItem(stepKey, String(next));
       }
       onStepChange?.(next);
     },
-    [onStepChange],
+    [onStepChange, stepKey],
   );
 
   const finish = useCallback(() => {
     if (typeof window !== "undefined") {
-      window.localStorage.setItem(DONE_KEY, "true");
-      window.localStorage.removeItem(STEP_KEY);
+      window.localStorage.setItem(doneKey, "true");
+      window.localStorage.removeItem(stepKey);
     }
     setCompleted(true);
     onComplete?.();
-  }, [onComplete]);
+  }, [onComplete, doneKey, stepKey]);
 
   const advance = useCallback(() => {
     setIndex((curr) => {
@@ -94,13 +101,13 @@ export function useMissionTour(args: UseMissionTourArgs = {}) {
   /** Recomeçar do zero (botão "refazer tour" no Perfil). */
   const restart = useCallback(() => {
     if (typeof window !== "undefined") {
-      window.localStorage.removeItem(DONE_KEY);
-      window.localStorage.setItem(STEP_KEY, "0");
+      window.localStorage.removeItem(doneKey);
+      window.localStorage.setItem(stepKey, "0");
     }
     setCompleted(false);
     setIndex(0);
     onStepChange?.(0);
-  }, [onStepChange]);
+  }, [onStepChange, doneKey, stepKey]);
 
   const step = useMemo(() => missionSteps[index] ?? null, [index]);
 
