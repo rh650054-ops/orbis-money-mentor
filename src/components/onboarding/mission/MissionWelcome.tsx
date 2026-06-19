@@ -24,7 +24,7 @@ export default function MissionWelcome({ nickname, onAdvance }: MissionWelcomePr
   return (
     <>
       {!showCard && (
-        <div className="fixed inset-0 z-[10050] bg-background flex items-center justify-center px-8 animate-fade-in">
+        <div className="fixed inset-0 z-[10050] bg-background flex items-center justify-center px-8 animate-fade-in pointer-events-auto">
           <GoldParticles />
           <div className="relative flex flex-col items-center text-center max-w-xs w-full">
             <span className="text-7xl mb-6 block animate-scale-in">🔥</span>
