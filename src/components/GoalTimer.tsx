@@ -72,8 +72,8 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
 
     loadSales();
 
-    // Atualizar vendas a cada 10 segundos
-    const interval = setInterval(loadSales, 10000);
+    // Atualiza as vendas a cada 60s (antes era 10s — gastava banda à toa).
+    const interval = setInterval(loadSales, 60000);
     return () => clearInterval(interval);
   }, [userId]);
 
