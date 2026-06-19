@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
+import PatentesCard from "./PatentesCard";
 
 /**
  * Tour guiado por tela (onboarding natural).
@@ -18,6 +19,8 @@ interface TourStep {
   selector?: string;
   title: string;
   text: string;
+  /** Conteúdo custom no lugar do título+texto (ex.: card de patentes). */
+  render?: () => ReactNode;
 }
 interface ScreenDef {
   key: string;
@@ -46,12 +49,27 @@ const SCREENS: Record<string, ScreenDef> = {
     ],
   },
   "/defcon": {
-    key: "defcon-iniciar",
+    key: "defcon-funcoes",
     steps: [
       {
         selector: '[data-tour="defcon-iniciar"]',
-        title: "Pronto pra começar? ⚡",
-        text: "Antes de iniciar, dá pra ativar o modo economia de bateria. Quando estiver na hora de vender, toque em INICIAR — aí abrem os botões de registrar venda, contar abordagem e adicionar o nome do cliente.",
+        title: "Modo de guerra: DEFCON 4 ⚡",
+        text: "Aqui é o foco total pra vender na rua, cronometrado em blocos de 1 hora. Quando estiver na hora de vender, toque em INICIAR — aí abrem as ferramentas. Vou te mostrar cada uma.",
+      },
+      {
+        selector: '[data-tour="defcon-quick-sale"]',
+        title: "Venda rápida 💰",
+        text: "Cada toque aqui registra uma venda no valor do seu produto — o número sobe na hora e já desconta do seu estoque.",
+      },
+      {
+        selector: '[data-tour="defcon-venda"]',
+        title: "Venda detalhada e cobrança 🧾",
+        text: "Toque aqui pra lançar a venda com a forma de pagamento (dinheiro, cartão, Pix) e mandar a cobrança no WhatsApp pro cliente com seu Pix já preenchido.",
+      },
+      {
+        selector: '[data-tour="defcon-abordagem"]',
+        title: "Conte suas abordagens 👋",
+        text: "Cada pessoa que você aborda, toque aqui. O Orbis calcula sua conversão (quantos viram venda) e te mostra como vender mais.",
       },
     ],
   },
@@ -119,6 +137,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         title: "Ranking e patentes 🏅",
         text: "Dispute com outros vendedores por faturamento e por constância. Cada real vendido sobe sua posição e sua patente.",
+        render: () => <PatentesCard />,
       },
       {
         selector: '[data-tour="ranking-share"]',
@@ -370,8 +389,14 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
               Passo {step + 1} de {total}
             </p>
           )}
-          <h3 className="text-base font-bold text-foreground mb-1.5">{current.title}</h3>
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">{current.text}</p>
+          {current.render ? (
+            <div className="mb-4">{current.render()}</div>
+          ) : (
+            <>
+              <h3 className="text-base font-bold text-foreground mb-1.5">{current.title}</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">{current.text}</p>
+            </>
+          )}
           <button
             onClick={handleNext}
             className="w-full py-2.5 rounded-xl font-semibold text-sm text-primary-foreground bg-gradient-to-r from-primary to-secondary active:scale-[0.97] transition-transform"

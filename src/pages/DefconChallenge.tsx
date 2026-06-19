@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
+import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
@@ -153,6 +154,9 @@ export default function DefconChallenge() {
       {treino && user && (
         <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />
       )}
+      {/* Coach por tela no DEFCON real (rota fica fora do layout, então renderiza aqui).
+          Explica as funções: iniciar, venda rápida, cobrança no WhatsApp e abordagem. */}
+      {!treino && user && <ScreenCoach userId={user.id} />}
     </>
   );
 }
