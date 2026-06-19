@@ -29,7 +29,7 @@ export default function Payment() {
         .from("profiles")
         .select("is_demo, billing_exempt")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profile?.is_demo && profile?.billing_exempt) setIsDemo(true);
       setCheckingDemo(false);
@@ -53,7 +53,7 @@ export default function Payment() {
         .from("profiles")
         .select("plan_status, billing_exempt, is_demo")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       const hasAccess =
         profile?.plan_status === "active" ||

@@ -86,7 +86,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       .from("profiles")
       .select("base_daily_goal")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (data?.base_daily_goal) {
       setBaseDailyGoal(data.base_daily_goal);
@@ -218,7 +218,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         .select("id, work_hours")
         .eq("user_id", userId)
         .eq("date", today)
-        .single();
+        .maybeSingle();
 
       if (planData) {
         // Calcular qual bloco estamos (baseado na hora atual)
@@ -229,7 +229,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
           .select("*")
           .eq("plan_id", planData.id)
           .eq("hour_index", hourIndex)
-          .single();
+          .maybeSingle();
 
         if (currentBlock) {
           const newAchievedAmount = currentBlock.achieved_amount + profit;
@@ -267,7 +267,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         .from("profiles")
         .select("streak_days, last_check_in_date")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       let newStreak = profile?.streak_days || 0;
       

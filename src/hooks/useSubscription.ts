@@ -37,7 +37,7 @@ export function useSubscription(userId: string | undefined) {
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt, is_trial_active, trial_end, subscription_id")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (!profile) {
         setLoading(false);

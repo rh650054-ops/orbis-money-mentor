@@ -70,7 +70,7 @@ export default function DefconHub() {
         .from("profiles")
         .select("base_daily_goal, goal_hours")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
       const dg = profile?.base_daily_goal || 200;
       const wh = profile?.goal_hours || 8;
       const { data: newPlan } = await supabase

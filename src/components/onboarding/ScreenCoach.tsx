@@ -172,7 +172,8 @@ const SCREENS: Record<string, ScreenDef> = {
 };
 
 const SEEN_PREFIX = "orbis_screen_seen_";
-const ENABLED_KEY = "orbis_screen_tours_enabled"; // contas novas
+const ENABLED_BASE = "orbis_screen_tours_enabled"; // contas novas (chave por usuário)
+const enabledKeyFor = (userId: string) => `${ENABLED_BASE}_${userId}`;
 const OFF_KEY = "orbis_screen_tours_off"; // segurança (limpo no "refazer tour")
 const PAD = 8;
 
@@ -200,7 +201,7 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
   // Decide se mostra o tour ao entrar na tela.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem(ENABLED_KEY) !== "1" && !isAdmin) return;
+    if (localStorage.getItem(enabledKeyFor(userId)) !== "1" && !isAdmin) return;
     if (localStorage.getItem(OFF_KEY) === "1") return;
     const d = SCREENS[location.pathname];
     if (!d) {

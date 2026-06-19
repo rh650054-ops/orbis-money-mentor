@@ -75,7 +75,7 @@ export default function Index() {
         .from("profiles")
         .select("working_days")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profile?.working_days) {
         const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]!;
@@ -557,7 +557,7 @@ export default function Index() {
         />
       )}
 
-      {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem('orbis_mission_completed') === 'true' && (
+      {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (
         <DayStartPopup
           userId={user.id}
           onStart={() => navigate('/daily-goals')}

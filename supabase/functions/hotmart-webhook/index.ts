@@ -15,16 +15,16 @@ Deno.serve(async (req) => {
     const hottok = req.headers.get("x-hotmart-hottok");
     const expectedHottok = Deno.env.get("HOTMART_HOTTOK");
 
-    if (expectedHottok) {
-      if (hottok !== expectedHottok) {
-        console.error("Invalid hottok — rejected");
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: corsHeaders,
-        });
-      }
-    } else {
-      console.warn("hotmart-webhook: HOTMART_HOTTOK not set — webhook authenticity NOT verified.");
+    // FAIL-CLOSED: sem o segredo configurado OU com hottok inválido, rejeita.
+    // (Antes "falhava aberto" sem o segredo — qualquer um podia forjar um
+    // pagamento e ativar assinatura de graça.) Configure HOTMART_HOTTOK nos
+    // secrets do Supabase com o valor do hottok do Hotmart.
+    if (!expectedHottok || hottok !== expectedHottok) {
+      console.error("hotmart-webhook: hottok inválido ou HOTMART_HOTTOK ausente — rejeitado");
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
     }
 
     const payload = await req.json();

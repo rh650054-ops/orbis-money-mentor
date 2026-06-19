@@ -20,18 +20,17 @@ Deno.serve(async (req) => {
     // SECURITY: verify the webhook really comes from Pluggy.
     // Configure PLUGGY_WEBHOOK_SECRET in Supabase env and append ?secret=... to
     // the webhook URL registered at Pluggy (or send it as x-webhook-secret).
+    // FAIL-CLOSED: sem o segredo configurado OU com segredo errado, rejeita.
+    // Configure PLUGGY_WEBHOOK_SECRET nos secrets do Supabase e use ?secret=...
+    // (ou header x-webhook-secret) na URL registrada na Pluggy.
     const webhookSecret = Deno.env.get("PLUGGY_WEBHOOK_SECRET");
-    if (webhookSecret) {
-      const provided = req.headers.get("x-webhook-secret") ??
-        new URL(req.url).searchParams.get("secret") ?? "";
-      if (provided !== webhookSecret) {
-        console.error("pluggy-webhook: invalid/missing webhook secret — rejected");
-        return new Response(JSON.stringify({ error: "unauthorized" }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else {
-      console.warn("pluggy-webhook: PLUGGY_WEBHOOK_SECRET not set — webhook authenticity NOT verified.");
+    const provided = req.headers.get("x-webhook-secret") ??
+      new URL(req.url).searchParams.get("secret") ?? "";
+    if (!webhookSecret || provided !== webhookSecret) {
+      console.error("pluggy-webhook: segredo inválido ou PLUGGY_WEBHOOK_SECRET ausente — rejeitado");
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const payload = await req.json();

@@ -43,7 +43,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       const isActive = hasActiveSub || profile?.plan_status === "active" || (profile?.is_demo && profile?.billing_exempt);
 

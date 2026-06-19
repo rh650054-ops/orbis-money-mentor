@@ -99,7 +99,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       .select("id")
       .eq("user_id", userId)
       .eq("date", today)
-      .single();
+      .maybeSingle();
 
     if (todayPlan) {
       await supabase

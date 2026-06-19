@@ -51,9 +51,14 @@ export function useTrialStatus(userId: string | undefined) {
         .from('profiles')
         .select('trial_end, is_trial_active, plan_status, is_demo, billing_exempt')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+
+      if (!profile) {
+        setLoading(false);
+        return;
+      }
 
       // Contas demo têm acesso ilimitado
       if (profile.is_demo && profile.billing_exempt) {

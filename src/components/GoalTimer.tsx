@@ -29,7 +29,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
       .from("profiles")
       .select("goal_hours, goal_timer_started_at, goal_timer_active, daily_sales_goal")
       .eq("user_id", userId)
-      .single();
+      .maybeSingle();
 
     if (error || !data) return;
 

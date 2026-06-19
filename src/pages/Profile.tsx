@@ -164,15 +164,15 @@ export default function Profile() {
               .update({ onboarding_completed: false, onboarding_step: 0 })
               .eq("user_id", user.id);
           }
-          localStorage.removeItem("orbis_mission_completed");
-          localStorage.setItem("orbis_onboarding_step", "0");
+          localStorage.removeItem(`orbis_mission_completed_${user?.id}`);
+          localStorage.setItem(`orbis_onboarding_step_${user?.id}`, "0");
           // Reativa e zera os tutoriais por tela (pra ver todos de novo)
           try {
             Object.keys(localStorage)
               .filter((k) => k.startsWith("orbis_screen_seen_"))
               .forEach((k) => localStorage.removeItem(k));
             localStorage.removeItem("orbis_screen_tours_off");
-            localStorage.setItem("orbis_screen_tours_enabled", "1");
+            localStorage.setItem(`orbis_screen_tours_enabled_${user?.id}`, "1");
           } catch {
             /* ignore */
           }

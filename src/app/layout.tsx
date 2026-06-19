@@ -371,7 +371,7 @@ export default function Layout({ children }: LayoutProps) {
             // Liga os tours por tela SÓ pra contas novas (que acabaram de
             // concluir a intro). Quem já usava o app nunca passa por aqui.
             if (typeof window !== "undefined") {
-              localStorage.setItem("orbis_screen_tours_enabled", "1");
+              localStorage.setItem(`orbis_screen_tours_enabled_${user.id}`, "1");
             }
             setOnboardingCompleto(true);
           }}

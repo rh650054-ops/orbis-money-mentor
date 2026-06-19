@@ -20,7 +20,7 @@ export default function StreakCard({ userId }: StreakCardProps) {
         .from("profiles")
         .select("streak_days")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
       setStreak(profile?.streak_days || 0);
 
       // Load today's routine progress
