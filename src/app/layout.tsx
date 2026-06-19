@@ -14,6 +14,7 @@ import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
+import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import MorningCommitModal from "@/components/MorningCommitModal";
 import BackButton from "@/shared/components/back-button";
 import {
@@ -368,6 +369,9 @@ export default function Layout({ children }: LayoutProps) {
           onCompleted={() => setOnboardingCompleto(true)}
         />
       )}
+
+      {/* Coach por tela: explica cada tela na 1ª visita (onboarding natural) */}
+      {user && onboardingCompleto && <ScreenCoach userId={user.id} />}
 
       {/* Morning Commit Modal */}
       {user && onboardingCompleto && (

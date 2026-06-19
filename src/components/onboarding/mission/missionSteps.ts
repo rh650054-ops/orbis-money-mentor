@@ -43,7 +43,10 @@ export interface MissionStep {
   special?: MissionSpecial;
 }
 
-export const TOTAL_PHASES = 6;
+// Intro curta (híbrido): boas-vindas + garantir acesso + meta. Depois disso a
+// missão linear termina e o "coach por tela" (ScreenCoach) assume — cada tela
+// se explica sozinha na primeira visita, de forma natural.
+export const TOTAL_PHASES = 2;
 
 export const missionSteps: MissionStep[] = [
   {
@@ -73,96 +76,11 @@ export const missionSteps: MissionStep[] = [
     id: "goals-done",
     phase: 2,
     route: "/",
-    title: "Meta definida! ✅",
+    title: "Tudo pronto! ✅",
     instruction:
-      "Pronto. Agora o Orbis sabe quanto você precisa fazer por dia pra bater seu alvo do mês. Sem pressa — vamos pro próximo passo.",
-    cta: "Bora pro próximo 👇",
+      "Sua meta está definida. Agora é só explorar o Orbis à vontade — cada tela vai se explicar sozinha na primeira vez que você entrar nela. Bora vender! 🔥",
+    cta: "Começar 👇",
     advanceOn: "next",
     optional: true,
-  },
-  {
-    id: "product",
-    phase: 3,
-    route: "/products",
-    selector: '[data-tour="add-product"]',
-    title: "O que você vende?",
-    instruction:
-      "Cadastra um produto que você vende hoje e a quantidade no seu estoque.",
-    cta: "👉 toque em Novo produto",
-    advanceOn: "action",
-    actionEvent: "product-added",
-    interactive: true,
-  },
-  {
-    id: "product-done",
-    phase: 3,
-    route: "/products",
-    title: "Mercadoria cadastrada! ✅",
-    instruction:
-      "Show. Agora vem a parte mais importante: o modo de guerra pra vender na rua. Vou te mostrar com calma como funciona.",
-    cta: "Me mostra 👇",
-    advanceOn: "next",
-    optional: true,
-  },
-  {
-    id: "defcon-iniciar",
-    phase: 4,
-    route: "/defcon?treino=1",
-    selector: '[data-tour="defcon-iniciar"]',
-    title: "Modo de guerra: DEFCON 4",
-    instruction:
-      "Esse é o modo foco pra vender na rua. Bora fazer um treino rápido: toque pra iniciar.",
-    cta: "👉 toque em INICIAR DEFCON 4",
-    advanceOn: "action",
-    actionEvent: "defcon-started",
-    interactive: true,
-    optional: true,
-  },
-  {
-    id: "defcon-venda-rapida",
-    phase: 4,
-    route: "/defcon",
-    selector: '[data-tour="defcon-quick-sale"]',
-    title: "Venda rápida",
-    instruction:
-      "Esse botão já vem com o valor do seu produto. Cada toque registra uma venda e o número sobe na hora.",
-    cta: "👉 toque pra registrar uma venda",
-    advanceOn: "action",
-    actionEvent: "sale-registered",
-    interactive: true,
-    optional: true,
-  },
-  {
-    id: "defcon-abordagem",
-    phase: 4,
-    route: "/defcon",
-    selector: '[data-tour="defcon-abordagem"]',
-    title: "Conte suas abordagens",
-    instruction:
-      "Cada pessoa que você aborda, toque aqui. O Orbis calcula sua conversão e te mostra como vender mais.",
-    cta: "👉 toque em Abordagem pra finalizar",
-    advanceOn: "action",
-    actionEvent: "approach-added",
-    interactive: true,
-    optional: true,
-  },
-  {
-    id: "ranking",
-    phase: 5,
-    route: "/ranking",
-    special: "ranking",
-    title: "Ranking e patentes 🏅",
-    instruction:
-      "Conforme você vende, sobe de patente e disputa o ranking com outros vendedores.",
-    advanceOn: "next",
-  },
-  {
-    id: "reward",
-    phase: 6,
-    route: "/",
-    special: "reward",
-    title: "Missão cumprida! 🏆",
-    instruction: "Você desbloqueou sua primeira patente. Bora vender, parceiro!",
-    advanceOn: "next",
   },
 ];
