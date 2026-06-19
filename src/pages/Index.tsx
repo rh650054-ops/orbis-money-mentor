@@ -324,7 +324,25 @@ export default function Index() {
   };
 
   if (loading || !user) {
-    return null;
+    // Esqueleto com o formato do dashboard — evita a tela "pular" do vazio pro design
+    return (
+      <div className="space-y-4 pb-8 animate-pulse">
+        <div className="flex items-center gap-3 pt-2">
+          <div className="w-10 h-10 rounded-full bg-muted" />
+          <div className="space-y-2">
+            <div className="h-4 w-40 rounded bg-muted" />
+            <div className="h-3 w-28 rounded bg-muted" />
+          </div>
+        </div>
+        <div className="h-56 rounded-2xl bg-muted" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="h-24 rounded-2xl bg-muted" />
+          <div className="h-24 rounded-2xl bg-muted" />
+        </div>
+        <div className="h-20 rounded-2xl bg-muted" />
+        <div className="h-20 rounded-2xl bg-muted" />
+      </div>
+    );
   }
   const dailyProfit = todaySales?.total_profit || 0;
   const faturamentoMes = monthlyStats.totalIncome;

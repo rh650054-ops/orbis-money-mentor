@@ -45,7 +45,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
-  const { whitelisted: isAdmin } = useAdminAccess(user?.id);
+  const { whitelisted: isAdmin, loading: adminLoading } = useAdminAccess(user?.id);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -353,8 +353,9 @@ export default function Profile() {
     return null;
   }
 
-  // Esqueleto enquanto o perfil carrega — evita "piscar" os dados antigos/padrão antes dos reais
-  if (loadingProfile) {
+  // Esqueleto enquanto o perfil E a checagem de admin carregam — evita "piscar"
+  // os dados padrão e o aviso de "Conta Demo" antes de saber que é admin/BLACK
+  if (loadingProfile || adminLoading) {
     return (
       <div className="space-y-3 pb-4 md:pb-8 max-w-2xl mx-auto animate-pulse">
         <div className="h-28 rounded-2xl bg-muted" />
