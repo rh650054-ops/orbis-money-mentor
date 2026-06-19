@@ -190,14 +190,18 @@ export function DefconRunning({
 
   // Mensagem padrao de cobranca: salva no aparelho e reusa. O valor fica como token
   // {valor} pra ser trocado pelo valor real de cada venda (nao "congela" um valor antigo).
-  const chargeTplKey = `orbis_charge_tpl_${userId}`;
+  const chargeTplKey = `orbis_charge_tpl_v2_${userId}`;
   const VALOR_TOKEN = "{valor}";
+  const NOME_TOKEN = "{nome}";
+
+  // Primeiro nome do cliente (saudacao curta), ou "" se nao informado.
+  const firstName = (name: string) => (name || "").trim().split(/\s+/)[0] || "";
 
   const defaultChargeTemplate = () => {
     const pixLine = pixCharge?.key
       ? `Chave Pix: ${pixCharge.key}${pixCharge.name ? ` (${pixCharge.name})` : ""}`
       : `Chave Pix: (toque e digite sua chave Pix)`;
-    return `Olá! 🙏 Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
+    return `Olá${NOME_TOKEN}! 🙏 Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
   };
 
   const loadChargeTemplate = () => {
@@ -208,21 +212,29 @@ export function DefconRunning({
     return defaultChargeTemplate();
   };
 
-  // Mensagem pronta (token {valor} -> valor real da venda)
-  const buildChargeMessage = (amount: number) =>
-    loadChargeTemplate().split(VALOR_TOKEN).join(formatCurrency(amount));
+  // Mensagem pronta: {valor} -> valor da venda; {nome} -> 1o nome do cliente
+  // (com espaco antes, pra virar "Olá João!"; sem nome vira "Olá!").
+  const buildChargeMessage = (amount: number, name: string) => {
+    const fn = firstName(name);
+    return loadChargeTemplate()
+      .split(VALOR_TOKEN).join(formatCurrency(amount))
+      .split(NOME_TOKEN).join(fn ? ` ${fn}` : "");
+  };
 
-  // Salva a mensagem do usuario como padrao (re-tokeniza o valor pra ficar dinamico)
-  const saveChargeTemplate = (msg: string, amount: number) => {
+  // Salva como padrao re-tokenizando valor E nome — assim nada "congela".
+  const saveChargeTemplate = (msg: string, amount: number, name: string) => {
     try {
-      localStorage.setItem(chargeTplKey, msg.split(formatCurrency(amount)).join(VALOR_TOKEN));
+      let tpl = msg.split(formatCurrency(amount)).join(VALOR_TOKEN);
+      const fn = firstName(name);
+      if (fn) tpl = tpl.split(` ${fn}`).join(NOME_TOKEN).split(fn).join(NOME_TOKEN);
+      localStorage.setItem(chargeTplKey, tpl);
     } catch (_e) { /* ignore */ }
   };
 
   const openChargePreview = () => {
     const amount = parseFloat(saleValue) || 0;
     if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
-    setSaleMessage(buildChargeMessage(amount));
+    setSaleMessage(buildChargeMessage(amount, saleName));
     setShowChargePreview(true);
   };
 
@@ -231,8 +243,8 @@ export function DefconRunning({
     const digits = sanitizePhone(salePhone);
     if (amount <= 0 || digits.length < 10) return;
     const phone = digits.length <= 11 ? `55${digits}` : digits;
-    const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount);
-    saveChargeTemplate(text, amount);
+    const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount, saleName);
+    saveChargeTemplate(text, amount, saleName);
     registerSale(amount, "dinheiro");
     persistClient(amount, "dinheiro");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
