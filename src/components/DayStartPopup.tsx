@@ -6,6 +6,7 @@ import { Target, Clock, Zap, FileText, Flame, Rocket, Trophy, CalendarDays } fro
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import { useToast } from "@/shared/hooks/use-toast";
 
 interface DayStartPopupProps {
   userId: string;
@@ -21,6 +22,7 @@ const getSeenKey = (userId: string, today: string) =>
 
 export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopupProps) => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [dailyGoal, setDailyGoal] = useState(0);
@@ -103,7 +105,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
   const handleStartDay = async () => {
     const today = getBrazilDate();
     // Cria ou atualiza a sessão de trabalho como 'active'
-    await supabase
+    const { error } = await supabase
       .from("work_sessions")
       .upsert(
         {
@@ -116,6 +118,10 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
         },
         { onConflict: "user_id,planning_date" }
       );
+    if (error) {
+      toast({ title: "Erro ao iniciar o dia", description: error.message, variant: "destructive" });
+      return;
+    }
     markSeenToday();
     setIsOpen(false);
     onStart();

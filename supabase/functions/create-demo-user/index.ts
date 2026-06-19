@@ -44,10 +44,10 @@ serve(async (req) => {
     }
 
     // Verificar se o usuário é admin
-    const { data: isAdmin } = await supabaseAdmin
+    const { data: isAdmin, error: roleError } = await supabaseAdmin
       .rpc('has_role', { _user_id: requestingUser.id, _role: 'admin' });
 
-    if (!isAdmin) {
+    if (roleError || !isAdmin) {
       throw new Error('Acesso negado. Apenas administradores podem criar contas demo.');
     }
 

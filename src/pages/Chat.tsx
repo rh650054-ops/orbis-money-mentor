@@ -58,7 +58,11 @@ export default function Chat() {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("community_posts").update({ is_deleted: true }).eq("id", id);
+    const { error } = await supabase.from("community_posts").update({ is_deleted: true }).eq("id", id);
+    if (error) {
+      toast({ title: "Erro ao apagar post", description: error.message, variant: "destructive" });
+      return;
+    }
     reload();
   };
 

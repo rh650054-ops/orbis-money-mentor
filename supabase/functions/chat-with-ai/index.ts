@@ -329,18 +329,34 @@ serve(async (req) => {
       userContext += `\n- Rotina: acorda ${routineData.wake_time ?? "?"}, trabalha ${routineData.work_start ?? "?"}–${routineData.work_end ?? "?"}, meta diária R$ ${routineData.daily_profit || 0}`;
     }
 
-    // Contexto AO VIVO opcional, enviado pelo front (ex.: tela atual / DEFCON em andamento)
-    if (context && typeof context === "object") {
+    // Contexto AO VIVO opcional, enviado pelo front (ex.: tela atual / DEFCON em andamento).
+    // Validado e limitado antes de injetar no prompt (evita prompt injection e inflate de tokens).
+    if (context && typeof context === "object" && !Array.isArray(context)) {
+      const MAX_STR = 100; // limite por campo de string
       const c = context as Record<string, unknown>;
+      // Helper: aceita só strings curtas sem quebras de linha (bloqueia injeção via newline)
+      const safeStr = (v: unknown): string | null =>
+        typeof v === "string" ? v.slice(0, MAX_STR).replace(/[\r\n]+/g, " ").trim() : null;
+      // Helper: aceita só números finitos dentro de limites razoáveis
+      const safeNum = (v: unknown): number | null =>
+        typeof v === "number" && isFinite(v) && v >= 0 && v <= 1_000_000 ? v : null;
       const parts: string[] = [];
-      if (c.screen) parts.push(`- Tela atual: ${c.screen}`);
-      if (c.defconBlock) parts.push(`- DEFCON bloco: ${c.defconBlock}`);
-      if (c.vendido != null) parts.push(`- Já vendido no bloco/dia: R$ ${c.vendido}`);
-      if (c.metaRestante != null) parts.push(`- Falta pra meta: R$ ${c.metaRestante}`);
-      if (c.abordagens != null) parts.push(`- Abordagens: ${c.abordagens}`);
-      if (c.conversao != null) parts.push(`- Conversão: ${c.conversao}%`);
-      if (c.ticketMedio != null) parts.push(`- Ticket médio: R$ ${c.ticketMedio}`);
-      if (c.tempoRestante) parts.push(`- Tempo restante no bloco: ${c.tempoRestante}`);
+      const screen = safeStr(c.screen);
+      if (screen) parts.push(`- Tela atual: ${screen}`);
+      const defconBlock = safeStr(c.defconBlock);
+      if (defconBlock) parts.push(`- DEFCON bloco: ${defconBlock}`);
+      const vendido = safeNum(c.vendido);
+      if (vendido != null) parts.push(`- Já vendido no bloco/dia: R$ ${vendido}`);
+      const metaRestante = safeNum(c.metaRestante);
+      if (metaRestante != null) parts.push(`- Falta pra meta: R$ ${metaRestante}`);
+      const abordagens = safeNum(c.abordagens);
+      if (abordagens != null) parts.push(`- Abordagens: ${abordagens}`);
+      const conversao = safeNum(c.conversao);
+      if (conversao != null) parts.push(`- Conversão: ${conversao}%`);
+      const ticketMedio = safeNum(c.ticketMedio);
+      if (ticketMedio != null) parts.push(`- Ticket médio: R$ ${ticketMedio}`);
+      const tempoRestante = safeStr(c.tempoRestante);
+      if (tempoRestante) parts.push(`- Tempo restante no bloco: ${tempoRestante}`);
       if (parts.length) userContext += (userContext ? "\n" : "") + parts.join("\n");
     }
 

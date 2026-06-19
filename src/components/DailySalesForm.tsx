@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
 import { MotivationalMessage } from "./MotivationalMessage";
-import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
+import { getBrazilDate, formatBrazilDate, getBrazilTime } from "@/shared/lib/date-utils";
 import { format } from "date-fns";
 import { cn } from "@/shared/lib/utils";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
@@ -211,8 +211,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         if (error) throw error;
       }
 
-      // Atualizar blocos de hora se existir plano hoje
-      const currentHour = new Date().getHours();
+      // Atualizar blocos de hora se existir plano hoje (usa fuso de Brasília)
+      const currentHour = parseInt(getBrazilTime().split(":")[0], 10);
       const { data: planData } = await supabase
         .from("daily_goal_plans")
         .select("id, work_hours")
@@ -273,18 +273,13 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       
       // Se bateu a meta, avançar constância
       if (totalDayProfit >= baseDailyGoal) {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayDate = new Date(yesterday);
-        yesterdayDate.setHours(0, 0, 0, 0);
-        
         if (profile?.last_check_in_date) {
-          const lastCheckDate = new Date(profile.last_check_in_date);
-          lastCheckDate.setHours(0, 0, 0, 0);
-          const todayDate = new Date(today);
-          todayDate.setHours(0, 0, 0, 0);
-          
-          const daysDiff = Math.floor((todayDate.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60 * 24));
+          // Comparar datas como strings YYYY-MM-DD (já em fuso BR); parsear ao
+          // meio-dia UTC evita qualquer ambiguidade de DST.
+          const msPerDay = 1000 * 60 * 60 * 24;
+          const todayMs = new Date(today + "T12:00:00Z").getTime();
+          const lastMs = new Date(profile.last_check_in_date + "T12:00:00Z").getTime();
+          const daysDiff = Math.round((todayMs - lastMs) / msPerDay);
           
           if (daysDiff === 1) {
             newStreak = newStreak + 1;

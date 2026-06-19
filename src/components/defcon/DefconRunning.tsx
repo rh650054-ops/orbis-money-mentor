@@ -244,7 +244,7 @@ export function DefconRunning({
     const amount = parseFloat(saleValue) || 0;
     const digits = sanitizePhone(salePhone);
     if (amount <= 0 || digits.length < 10) return;
-    const phone = digits.length <= 11 ? `55${digits}` : digits;
+    const phone = digits.startsWith("55") ? digits : `55${digits}`;
     const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount, saleName);
     saveChargeTemplate(text, amount, saleName);
     registerSale(amount, "dinheiro");

@@ -254,16 +254,24 @@ export default function BankConnections() {
   };
 
   const handleIgnoreSale = async (saleId: string) => {
-    await supabase
+    const { error } = await supabase
       .from("auto_detected_sales")
       .update({ status: "ignored", updated_at: new Date().toISOString() })
       .eq("id", saleId);
+    if (error) {
+      toast({ title: "Erro ao ignorar transação", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: "Transação ignorada", description: "Essa movimentação não foi registrada." });
     loadData();
   };
 
   const handleDisconnect = async (connectionId: string) => {
-    await supabase.from("bank_connections").delete().eq("id", connectionId);
+    const { error } = await supabase.from("bank_connections").delete().eq("id", connectionId);
+    if (error) {
+      toast({ title: "Erro ao desconectar conta", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: "Conta desconectada", description: "O banco foi removido com sucesso." });
     loadData();
   };

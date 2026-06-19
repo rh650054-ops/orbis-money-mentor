@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-admin-secret",
+    "authorization, x-client-info, apikey, content-type",
 };
 
 // Tabelas que pertencem ao usuário. Apagamos tudo (best-effort) antes de remover
@@ -34,60 +34,55 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
-    const adminSecret = req.headers.get("x-admin-secret");
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-    // ---- Autorizacao: service role (x-admin-secret) OU admin logado ----
-    const isServiceRole = adminSecret === serviceRoleKey;
-
-    if (!isServiceRole) {
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Not authenticated" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-        global: { headers: { Authorization: authHeader } },
+    // ---- Autorizacao: sempre exige JWT valido + admin por CPF na tabela admin_access ----
+    // Nao ha bypass por x-admin-secret: qualquer requisicao nao autenticada e rejeitada.
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-      const { data: { user: caller } } = await anonClient.auth.getUser();
-      if (!caller) {
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    }
+    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user: caller } } = await anonClient.auth.getUser();
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      // admin = CPF do caller esta na tabela admin_access
-      const { data: adminRole } = await adminClient.from("admin_access").select("cpf").limit(200);
-      const { data: callerProfile } = await adminClient
-        .from("profiles")
-        .select("cpf")
-        .eq("user_id", caller.id)
-        .single();
-      const isAdmin =
-        callerProfile?.cpf &&
-        adminRole?.some((a: { cpf: string }) => a.cpf === callerProfile.cpf);
+    // admin = CPF do caller esta na tabela admin_access
+    const { data: adminRole } = await adminClient.from("admin_access").select("cpf").limit(200);
+    const { data: callerProfile } = await adminClient
+      .from("profiles")
+      .select("cpf")
+      .eq("user_id", caller.id)
+      .single();
+    const isAdmin =
+      callerProfile?.cpf &&
+      adminRole?.some((a: { cpf: string }) => a.cpf === callerProfile.cpf);
 
-      if (!isAdmin) {
-        return new Response(JSON.stringify({ error: "Admin access required" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Seguranca: admin nao pode se autoexcluir por aqui
-      const body = await req.clone().json().catch(() => ({}));
-      if (body?.userId && body.userId === caller.id) {
-        return new Response(
-          JSON.stringify({ error: "Voce nao pode excluir a sua propria conta de admin por aqui." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "Admin access required" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { userId, email, cpf } = await req.json();
+
+    // Seguranca: admin nao pode se autoexcluir por aqui
+    if (userId && userId === caller.id) {
+      return new Response(
+        JSON.stringify({ error: "Voce nao pode excluir a sua propria conta de admin por aqui." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // ---- Resolve o user_id alvo ----
     let targetUserId: string | null = userId ?? null;

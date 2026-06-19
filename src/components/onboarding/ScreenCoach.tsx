@@ -190,6 +190,7 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
   const [rect, setRect] = useState<DOMRect | null>(null);
   const [shown, setShown] = useState(false);
   const [entering, setEntering] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const shownRef = useRef(false);
   const startedAt = useRef(0);
 
@@ -280,18 +281,36 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
     return () => window.clearTimeout(t);
   }, [step, shown]);
 
+  // Detecta quando um Radix Dialog abre durante o tour — suprime o scroll lock
+  // para não competir com o próprio Dialog pelo body.overflow.
+  useEffect(() => {
+    if (!def) return;
+    const check = () =>
+      setDialogOpen(!!document.querySelector('[role="dialog"][data-state="open"]'));
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state"],
+    });
+    return () => obs.disconnect();
+  }, [def, step]);
+
   // Trava a rolagem enquanto um passo COM ALVO está revelado — assim o embalo
   // (momentum) do scroll não escorrega a tela e o anel não cai em elemento errado.
   // Ao avançar/pular, a rolagem é liberada de novo (o usuário rola até o próximo).
+  // Não trava se um Dialog já abriu (ele gerencia o próprio overflow).
   useEffect(() => {
     const s = def?.steps[step];
-    if (!shown || !s?.selector) return;
+    if (!shown || !s?.selector || dialogOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [shown, step, def]);
+  }, [shown, step, def, dialogOpen]);
 
   if (!def || !current) return null;
 
