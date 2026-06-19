@@ -52,6 +52,7 @@ export default function Layout({ children }: LayoutProps) {
   // nova no mesmo navegador "herdava" o onboarding concluído de outra conta.
   const [onboardingCompleto, setOnboardingCompleto] = useState(false);
   const [onboardingChecked, setOnboardingChecked] = useState(false);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
   // Progresso da Missão de Boas-Vindas (retomada cross-device)
   const [missionStep, setMissionStep] = useState(0);
   const [missionNickname, setMissionNickname] = useState<string | null>(null);
@@ -71,10 +72,14 @@ export default function Layout({ children }: LayoutProps) {
     (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("nickname, onboarding_completed, onboarding_step")
+        .select("nickname, onboarding_completed, onboarding_step, must_change_password")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
+      // Força troca de senha temporária antes de qualquer outra checagem.
+      if ((data as any)?.must_change_password === true) {
+        setMustChangePassword(true);
+      }
       // Fonte de verdade: a flag do banco DESTE usuário.
       if (data?.onboarding_completed === true) {
         localStorage.setItem(doneKey, 'true');
@@ -130,6 +135,14 @@ export default function Layout({ children }: LayoutProps) {
       }
     }
   }, [user, trialStatus.planStatus, trialStatus.isExpired, trialStatus.daysRemaining, subscriptionStatus.subscribed, subscriptionStatus.status, trialLoading, subscriptionLoading, toast]);
+
+  // Redireciona para troca de senha se o admin gerou uma senha temporária
+  useEffect(() => {
+    if (!mustChangePassword || !user) return;
+    if (location.pathname !== '/force-password-change') {
+      navigate('/force-password-change', { replace: true });
+    }
+  }, [mustChangePassword, user, location.pathname, navigate]);
 
   useEffect(() => {
     // Fast redirect for non-authenticated users

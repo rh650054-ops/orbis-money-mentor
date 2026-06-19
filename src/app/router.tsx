@@ -47,6 +47,7 @@ const Finances = lazyWithReload(() => import("@/pages/Finances"));
 const Auth = lazyWithReload(() => import("@/pages/Auth"));
 const ForgotPassword = lazyWithReload(() => import("@/pages/ForgotPassword"));
 const ResetPassword = lazyWithReload(() => import("@/pages/ResetPassword"));
+const ForcePasswordChange = lazyWithReload(() => import("@/pages/ForcePasswordChange"));
 const Payment = lazyWithReload(() => import("@/pages/Payment"));
 const Benefits = lazyWithReload(() => import("@/pages/Benefits"));
 const AdminDemoUsers = lazyWithReload(() => import("@/pages/AdminDemoUsers"));
@@ -78,6 +79,7 @@ export function AppRouter() {
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/force-password-change" element={<ForcePasswordChange />} />
           <Route path="/payment" element={<Payment />} />
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/install" element={<Install />} />

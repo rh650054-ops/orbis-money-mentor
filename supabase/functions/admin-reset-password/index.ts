@@ -91,6 +91,12 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Marca o usuário para forçar troca de senha no próximo login
+    await adminClient
+      .from("profiles")
+      .update({ must_change_password: true } as any)
+      .eq("user_id", userId);
+
     console.log(`admin-reset-password: senha redefinida para user ${userId} pelo admin ${caller.id}`);
 
     return new Response(
