@@ -62,24 +62,18 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (!user) return;
     const doneKey = `orbis_mission_completed_${user.id}`;
-    // Atalho POR USUÁRIO (sem piscar): se ESTE usuário já concluiu, pula.
-    if (localStorage.getItem(doneKey) === 'true') {
-      setOnboardingCompleto(true);
-      setOnboardingChecked(true);
-      return;
-    }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from("profiles")
+      // Lê SEMPRE no banco — precisa pegar must_change_password mesmo de quem já
+      // concluiu o onboarding (a senha temporária do admin é gerada depois). Sem
+      // o atalho de localStorage aqui, senão a flag não era lida pra esses usuários.
+      const { data } = await (supabase.from("profiles") as any)
         .select("nickname, onboarding_completed, onboarding_step, must_change_password")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled) return;
-      // Força troca de senha temporária antes de qualquer outra checagem.
-      if ((data as any)?.must_change_password === true) {
-        setMustChangePassword(true);
-      }
+      // Senha temporária do admin: força a troca (redirecionamento no efeito abaixo).
+      setMustChangePassword(data?.must_change_password === true);
       // Fonte de verdade: a flag do banco DESTE usuário.
       if (data?.onboarding_completed === true) {
         localStorage.setItem(doneKey, 'true');
