@@ -190,44 +190,46 @@ export function DefconRunning({
 
   // Mensagem padrao de cobranca: salva no aparelho e reusa. O valor fica como token
   // {valor} pra ser trocado pelo valor real de cada venda (nao "congela" um valor antigo).
-  const chargeTplKey = `orbis_charge_tpl_v2_${userId}`;
+  const chargeTplKey = `orbis_charge_body_v3_${userId}`;
   const VALOR_TOKEN = "{valor}";
-  const NOME_TOKEN = "{nome}";
 
-  // Primeiro nome do cliente (saudacao curta), ou "" se nao informado.
+  // Primeiro nome do cliente, ou "" se nao informado.
   const firstName = (name: string) => (name || "").trim().split(/\s+/)[0] || "";
 
-  const defaultChargeTemplate = () => {
+  // Saudacao SEMPRE gerada na hora com o nome do cliente — nunca e salva no
+  // padrao, por isso o nome nunca "congela" e sempre aparece quando preenchido.
+  const greetingLine = (name: string) => {
+    const fn = firstName(name);
+    return fn ? `Olá ${fn}! 🙏` : `Olá! 🙏`;
+  };
+
+  // Corpo editavel/salvo (sem a saudacao). {valor} -> valor real da venda.
+  const defaultChargeBody = () => {
     const pixLine = pixCharge?.key
       ? `Chave Pix: ${pixCharge.key}${pixCharge.name ? ` (${pixCharge.name})` : ""}`
       : `Chave Pix: (toque e digite sua chave Pix)`;
-    return `Olá${NOME_TOKEN}! 🙏 Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
+    return `Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
   };
 
-  const loadChargeTemplate = () => {
+  const loadChargeBody = () => {
     try {
       const saved = localStorage.getItem(chargeTplKey);
       if (saved && saved.trim()) return saved;
     } catch (_e) { /* ignore */ }
-    return defaultChargeTemplate();
+    return defaultChargeBody();
   };
 
-  // Mensagem pronta: {valor} -> valor da venda; {nome} -> 1o nome do cliente
-  // (com espaco antes, pra virar "Olá João!"; sem nome vira "Olá!").
-  const buildChargeMessage = (amount: number, name: string) => {
-    const fn = firstName(name);
-    return loadChargeTemplate()
-      .split(VALOR_TOKEN).join(formatCurrency(amount))
-      .split(NOME_TOKEN).join(fn ? ` ${fn}` : "");
-  };
+  // Mensagem pronta = saudacao (com o nome) + corpo (com o valor da venda).
+  const buildChargeMessage = (amount: number, name: string) =>
+    `${greetingLine(name)}\n\n${loadChargeBody().split(VALOR_TOKEN).join(formatCurrency(amount))}`;
 
-  // Salva como padrao re-tokenizando valor E nome — assim nada "congela".
-  const saveChargeTemplate = (msg: string, amount: number, name: string) => {
+  // Salva SO o corpo (tudo depois da 1a linha em branco), re-tokenizando o valor.
+  // A saudacao com o nome nunca e salva — fica sempre dinamica.
+  const saveChargeTemplate = (msg: string, amount: number, _name: string) => {
     try {
-      let tpl = msg.split(formatCurrency(amount)).join(VALOR_TOKEN);
-      const fn = firstName(name);
-      if (fn) tpl = tpl.split(` ${fn}`).join(NOME_TOKEN).split(fn).join(NOME_TOKEN);
-      localStorage.setItem(chargeTplKey, tpl);
+      const idx = msg.indexOf("\n\n");
+      const body = idx >= 0 ? msg.slice(idx + 2) : msg;
+      localStorage.setItem(chargeTplKey, body.split(formatCurrency(amount)).join(VALOR_TOKEN));
     } catch (_e) { /* ignore */ }
   };
 
