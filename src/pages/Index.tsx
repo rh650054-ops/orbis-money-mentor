@@ -532,7 +532,7 @@ export default function Index() {
         />
       )}
 
-      {user && !isRestDay && !isMonthlyGoalRequired && (
+      {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem('orbis_mission_completed') === 'true' && (
         <DayStartPopup
           userId={user.id}
           onStart={() => navigate('/daily-goals')}

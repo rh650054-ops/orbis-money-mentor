@@ -108,17 +108,6 @@ export const missionSteps: MissionStep[] = [
     optional: true,
   },
   {
-    id: "defcon-whatsapp",
-    phase: 4,
-    route: "/defcon",
-    selector: '[data-tour="defcon-venda"]',
-    title: "Cobrança no WhatsApp",
-    instruction:
-      "No botão Venda você registra a venda e já manda a cobrança no Pix pelo WhatsApp, com a mensagem pronta.",
-    cta: "👉 é aqui que você cobra no Pix",
-    advanceOn: "next",
-  },
-  {
     id: "defcon-abordagem",
     phase: 4,
     route: "/defcon",

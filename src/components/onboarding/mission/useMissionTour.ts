@@ -40,7 +40,7 @@ export function useMissionTour(args: UseMissionTourArgs = {}) {
   const { onStepChange, onComplete } = args;
 
   const [index, setIndex] = useState<number>(() =>
-    args.initialIndex ?? readInitialIndex(),
+    Math.max(args.initialIndex ?? 0, readInitialIndex()),
   );
   const [completed, setCompleted] = useState<boolean>(() =>
     args.initialCompleted ?? readInitialCompleted(),
