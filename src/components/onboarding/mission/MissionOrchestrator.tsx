@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import MissionTour from "./MissionTour";
 import MissionWelcome from "./MissionWelcome";
+import MissionRanking from "./MissionRanking";
 import MissionReward from "./MissionReward";
 import { useMissionTour } from "./useMissionTour";
 
@@ -57,6 +58,9 @@ export default function MissionOrchestrator({
       renderSpecial={(special, controls) => {
         if (special === "card-registration") {
           return <MissionWelcome nickname={nickname} onAdvance={controls.onAdvance} />;
+        }
+        if (special === "ranking") {
+          return <MissionRanking onAdvance={controls.onAdvance} />;
         }
         if (special === "reward") {
           return <MissionReward onAdvance={controls.onAdvance} />;

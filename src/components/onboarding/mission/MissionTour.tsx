@@ -83,7 +83,7 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
   // animação de entrada do balão a cada passo
   useEffect(() => {
     setEntering(false);
-    const t = window.setTimeout(() => setEntering(true), 30);
+    const t = window.setTimeout(() => setEntering(true), 140);
     return () => window.clearTimeout(t);
   }, [index]);
 
@@ -152,20 +152,24 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
       aria-modal="true"
       aria-label={`Missão de boas-vindas — ${step.title}`}
     >
-      {/* Barra de progresso da missão */}
-      <div className="fixed top-0 left-0 right-0 z-[10001] h-1.5 bg-muted">
+      {/* Barra de progresso da missão (abaixo da status bar / notch) */}
+      <div
+        className="fixed left-0 right-0 z-[10001] h-1.5 bg-muted"
+        style={{ top: "env(safe-area-inset-top, 0px)" }}
+      >
         <div
           className="h-full bg-gradient-to-r from-primary to-secondary transition-[width] duration-500"
           style={{ width: `${progress}%` }}
         />
       </div>
 
-      {/* Botão pular discreto */}
+      {/* Botão pular — sempre visível no rodapé, longe da status bar */}
       <button
         onClick={onSkip}
-        className="fixed top-3 right-4 z-[10001] pointer-events-auto text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-full border border-border bg-background/80 backdrop-blur"
+        className="fixed left-1/2 -translate-x-1/2 z-[10002] pointer-events-auto text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors px-4 py-2 rounded-full border border-border bg-background/90 backdrop-blur shadow-lg"
+        style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 14px)" }}
       >
-        Pular
+        Pular tutorial
       </button>
 
       {/* Painéis escuros ao redor do furo — deixam o furo CLICÁVEL (interactive) */}
@@ -213,7 +217,7 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
       {!dialogOpen && (
       <div
         className={cn(
-          "fixed left-4 right-4 z-[10000] pointer-events-auto max-w-sm mx-auto transition-all duration-200",
+          "fixed left-4 right-4 z-[10000] pointer-events-auto max-w-sm mx-auto transition-all duration-500 ease-out",
           entering ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3",
         )}
         style={

@@ -8,14 +8,17 @@ import type { MissionEventType } from "@/shared/lib/missionEvents";
 //  - special: renderiza um componente próprio no lugar do coachmark
 //    (fase 1 = boas-vindas/assinatura; fase final = recompensa).
 //
-// Estrutura (5 fases): boas-vindas -> metas -> produto -> 1ª venda NO DEFCON -> recompensa.
+// Estrutura (6 fases): boas-vindas -> metas -> produto -> 1ª venda NO DEFCON ->
+// ranking/patentes -> recompensa.
 // A primeira venda (o "aha") acontece dentro do DEFCON (modo de guerra), que é a
 // experiência de venda mais forte do app. O motor fica montado por cima de todas
 // as rotas, então basta esperar o evento "sale-registered" — que o DEFCON dispara
 // em qualquer venda (rápida ou manual). Passo opcional: dá pra pular sem travar.
+// Entre as fases entram pequenos passos de comemoração ("Mandou bem!") pra dar
+// ritmo e deixar a missão mais leve/devagar — não é um corre apressado.
 
 export type MissionAdvance = "next" | "action";
-export type MissionSpecial = "card-registration" | "reward";
+export type MissionSpecial = "card-registration" | "ranking" | "reward";
 
 export interface MissionStep {
   id: string;
@@ -40,7 +43,7 @@ export interface MissionStep {
   special?: MissionSpecial;
 }
 
-export const TOTAL_PHASES = 5;
+export const TOTAL_PHASES = 6;
 
 export const missionSteps: MissionStep[] = [
   {
@@ -67,6 +70,17 @@ export const missionSteps: MissionStep[] = [
     interactive: true,
   },
   {
+    id: "goals-done",
+    phase: 2,
+    route: "/",
+    title: "Meta definida! ✅",
+    instruction:
+      "Pronto. Agora o Orbis sabe quanto você precisa fazer por dia pra bater seu alvo do mês. Sem pressa — vamos pro próximo passo.",
+    cta: "Bora pro próximo 👇",
+    advanceOn: "next",
+    optional: true,
+  },
+  {
     id: "product",
     phase: 3,
     route: "/products",
@@ -78,6 +92,17 @@ export const missionSteps: MissionStep[] = [
     advanceOn: "action",
     actionEvent: "product-added",
     interactive: true,
+  },
+  {
+    id: "product-done",
+    phase: 3,
+    route: "/products",
+    title: "Mercadoria cadastrada! ✅",
+    instruction:
+      "Show. Agora vem a parte mais importante: o modo de guerra pra vender na rua. Vou te mostrar com calma como funciona.",
+    cta: "Me mostra 👇",
+    advanceOn: "next",
+    optional: true,
   },
   {
     id: "defcon-iniciar",
@@ -122,8 +147,18 @@ export const missionSteps: MissionStep[] = [
     optional: true,
   },
   {
-    id: "reward",
+    id: "ranking",
     phase: 5,
+    route: "/ranking",
+    special: "ranking",
+    title: "Ranking e patentes 🏅",
+    instruction:
+      "Conforme você vende, sobe de patente e disputa o ranking com outros vendedores.",
+    advanceOn: "next",
+  },
+  {
+    id: "reward",
+    phase: 6,
     route: "/",
     special: "reward",
     title: "Missão cumprida! 🏆",
