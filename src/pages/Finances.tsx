@@ -724,7 +724,7 @@ export default function Finances() {
             <h2 className="text-xl font-semibold">Despesas Pessoais</h2>
             <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
+                <Button data-tour="nova-despesa" className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Nova Despesa
                 </Button>

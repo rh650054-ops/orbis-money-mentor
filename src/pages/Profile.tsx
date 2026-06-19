@@ -105,6 +105,7 @@ export default function Profile() {
           return (
             <Card
               key={item.label}
+              data-tour={item.label === "Comunidade" ? "profile-comunidade" : undefined}
               className="cursor-pointer hover:border-primary/30 transition-[colors,transform,opacity] hover:scale-[1.01]"
               onClick={() => handleItemClick(item)}
             >

@@ -691,6 +691,7 @@ export default function Insights() {
               </p>
             ))}
             <Button
+              data-tour="conversar-ia"
               variant="ghost"
               size="sm"
               className="mt-2 text-primary hover:text-primary"

@@ -278,7 +278,7 @@ export default function BankConnections() {
             Conecte seu banco para registrar vendas automaticamente
           </p>
         </div>
-        <Button onClick={handleConnectBank} disabled={isConnecting} className="gap-2 shrink-0">
+        <Button data-tour="conectar-banco" onClick={handleConnectBank} disabled={isConnecting} className="gap-2 shrink-0">
           {isConnecting ? (
             <RefreshCw className="w-4 h-4 animate-spin" />
           ) : (

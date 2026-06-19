@@ -76,8 +76,9 @@ const SCREENS: Record<string, ScreenDef> = {
     key: "vender",
     steps: [
       {
+        selector: '[data-tour="conectar-banco"]',
         title: "Vender no automático 🏦",
-        text: "Conecte seu banco (Open Finance, seguro e regulado). O Orbis detecta suas vendas sozinho — você só confirma o que é venda.",
+        text: "Toque em 'Conectar Banco' (Open Finance, seguro e regulado). O Orbis detecta suas vendas sozinho — você só confirma o que é venda.",
       },
     ],
   },
@@ -86,11 +87,12 @@ const SCREENS: Record<string, ScreenDef> = {
     steps: [
       {
         title: "Financeiro 💵",
-        text: "Acompanhe seu lucro do dia e do mês, suas despesas por categoria e suas metas de reserva.",
+        text: "Acompanhe seu lucro do dia e do mês. Defina sua meta mensal e o Orbis divide o que entra por porcentagem — quanto guardar, quanto reinvestir.",
       },
       {
-        title: "Metas e divisão por % 📊",
-        text: "Defina sua meta mensal e o Orbis te ajuda a dividir o que entra por porcentagem — quanto guardar, quanto reinvestir. A conta é feita pra você.",
+        selector: '[data-tour="nova-despesa"]',
+        title: "Registre suas despesas 📊",
+        text: "Toque em 'Nova Despesa' pra lançar seus gastos por categoria e enxergar pra onde vai o seu dinheiro.",
       },
     ],
   },
@@ -102,6 +104,7 @@ const SCREENS: Record<string, ScreenDef> = {
         text: "Aqui ficam seus números: faturamento, ticket médio, conversão e suas melhores horas. Escolha o período lá no topo.",
       },
       {
+        selector: '[data-tour="conversar-ia"]',
         title: "Orbis IA 🤖",
         text: "A IA lê seus dados e te dá dicas práticas pra vender mais. Toque em 'Conversar com a IA' pra tirar dúvidas sobre o seu corre.",
       },
@@ -115,6 +118,7 @@ const SCREENS: Record<string, ScreenDef> = {
         text: "Dispute com outros vendedores por faturamento e por constância. Cada real vendido sobe sua posição e sua patente.",
       },
       {
+        selector: '[data-tour="ranking-share"]',
         title: "Compartilhe no Instagram 📲",
         text: "Mostre seu resultado: toque em 'Compartilhar no Instagram' e poste seu corre. Ótimo pra marcar presença e atrair clientes.",
       },
@@ -124,8 +128,9 @@ const SCREENS: Record<string, ScreenDef> = {
     key: "perfil",
     steps: [
       {
-        title: "Seu perfil 👤",
-        text: "Seus dados, ajustes e tema claro/escuro ficam aqui. Tem também o atalho pra Comunidade — onde você troca ideia com outros vendedores — e o botão pra refazer os tutoriais quando quiser.",
+        selector: '[data-tour="profile-comunidade"]',
+        title: "Comunidade e ajustes 👤",
+        text: "Aqui ficam seus dados e ajustes. Toque em 'Comunidade' pra trocar ideia com outros vendedores. Quiser rever os tutoriais? Use 'Refazer tour de boas-vindas'.",
       },
     ],
   },
