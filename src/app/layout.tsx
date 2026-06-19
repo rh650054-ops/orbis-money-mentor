@@ -378,7 +378,7 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Coach por tela: explica cada tela na 1ª visita (onboarding natural) */}
-      {user && onboardingCompleto && <ScreenCoach userId={user.id} />}
+      {user && onboardingCompleto && <ScreenCoach userId={user.id} isAdmin={isAdmin} />}
 
       {/* Morning Commit Modal */}
       {user && onboardingCompleto && (

@@ -138,9 +138,11 @@ const PAD = 8;
 
 interface Props {
   userId: string;
+  /** Admin sempre vê os tutoriais (pra revisar), além das contas novas. */
+  isAdmin?: boolean;
 }
 
-export default function ScreenCoach({ userId }: Props) {
+export default function ScreenCoach({ userId, isAdmin }: Props) {
   const location = useLocation();
   const [def, setDef] = useState<ScreenDef | null>(null);
   const [step, setStep] = useState(0);
@@ -150,7 +152,8 @@ export default function ScreenCoach({ userId }: Props) {
   // Decide se mostra o tour ao entrar na tela.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem(ENABLED_KEY) !== "1") return; // só contas novas
+    // Aparece pra contas novas (flag ligada na intro) OU pra admin (revisão).
+    if (localStorage.getItem(ENABLED_KEY) !== "1" && !isAdmin) return;
     if (localStorage.getItem(OFF_KEY) === "1") return; // pulou tudo
     const d = SCREENS[location.pathname];
     if (!d) {
@@ -167,7 +170,7 @@ export default function ScreenCoach({ userId }: Props) {
       setDef(d);
     }, 650);
     return () => window.clearTimeout(t);
-  }, [location.pathname, userId]);
+  }, [location.pathname, userId, isAdmin]);
 
   const current = def?.steps[step] ?? null;
 
