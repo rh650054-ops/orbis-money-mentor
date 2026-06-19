@@ -218,6 +218,7 @@ export default function Finances() {
       const monthlyBudget = profileData?.monthly_goal || 0;
 
       const totalProfit = salesData?.reduce((sum, s) => sum + (Number(s.total_profit) || 0), 0) || 0;
+      const totalCostMonth = salesData?.reduce((sum, s) => sum + (Number(s.cost) || 0), 0) || 0;
       const totalReinvestment = salesData?.reduce((sum, s) => sum + (Number(s.reinvestment) || 0), 0) || 0;
       const totalExpenses = expensesData?.reduce((sum, e) => {
         if (e.date.startsWith(currentMonth)) {
@@ -241,8 +242,8 @@ export default function Finances() {
       );
       const netToday = Math.max(0, grossToday - costToday - debtToday - expensesToday);
 
-      // Lucro líquido do mês (já desconta despesas pessoais do mês)
-      const monthlyNetProfit = Math.max(0, totalProfit - totalExpenses);
+      // Lucro líquido do mês = faturamento − custo de mercadoria (CMV) − despesas pessoais.
+      const monthlyNetProfit = Math.max(0, totalProfit - totalCostMonth - totalExpenses);
 
       setSummary({
         totalProfit,
@@ -724,7 +725,7 @@ export default function Finances() {
             <h2 className="text-xl font-semibold">Despesas Pessoais</h2>
             <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
               <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
+                <Button data-tour="nova-despesa" className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   Nova Despesa
                 </Button>

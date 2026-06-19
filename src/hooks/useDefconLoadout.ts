@@ -15,6 +15,7 @@ export interface ProductOption {
   name: string;
   sale_price: number;
   stock_quantity: number;
+  cost: number;
 }
 
 export function useDefconLoadout(userId: string | undefined, date?: string) {
@@ -35,7 +36,7 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
         .order("created_at", { ascending: true }),
       supabase
         .from("products")
-        .select("id, name, sale_price, stock_quantity")
+        .select("id, name, sale_price, stock_quantity, cost")
         .eq("user_id", userId)
         .eq("is_active", true)
         .order("name"),
@@ -123,8 +124,34 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
       user_id: userId,
       product_id: productId,
       quantity: qty,
-      total_amount: 0,
+      total_amount: prod ? Number(prod.sale_price || 0) * qty : 0,
     });
+
+    // Acumula o CUSTO DE MERCADORIA (CMV) do dia em daily_sales.cost.
+    // É esse campo que os relatórios e o Financeiro usam pra abater o custo
+    // de mercadoria do lucro líquido. (O syncBlocksToDailySales não mexe em
+    // "cost", então os dois convivem sem conflito.)
+    const unitCost = prod ? Number(prod.cost || 0) : 0;
+    if (unitCost > 0) {
+      const addCost = unitCost * qty;
+      const { data: dsRows } = await supabase
+        .from("daily_sales")
+        .select("id, cost")
+        .eq("user_id", userId)
+        .eq("date", day)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (dsRows && dsRows.length > 0 && dsRows[0]?.id) {
+        await supabase
+          .from("daily_sales")
+          .update({ cost: Number(dsRows[0].cost || 0) + addCost } as any)
+          .eq("id", dsRows[0].id);
+      } else {
+        await supabase
+          .from("daily_sales")
+          .insert({ user_id: userId, date: day, cost: addCost } as any);
+      }
+    }
 
     await load();
   };

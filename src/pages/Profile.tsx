@@ -105,6 +105,7 @@ export default function Profile() {
           return (
             <Card
               key={item.label}
+              data-tour={item.label === "Comunidade" ? "profile-comunidade" : undefined}
               className="cursor-pointer hover:border-primary/30 transition-[colors,transform,opacity] hover:scale-[1.01]"
               onClick={() => handleItemClick(item)}
             >
@@ -165,6 +166,16 @@ export default function Profile() {
           }
           localStorage.removeItem("orbis_mission_completed");
           localStorage.setItem("orbis_onboarding_step", "0");
+          // Reativa e zera os tutoriais por tela (pra ver todos de novo)
+          try {
+            Object.keys(localStorage)
+              .filter((k) => k.startsWith("orbis_screen_seen_"))
+              .forEach((k) => localStorage.removeItem(k));
+            localStorage.removeItem("orbis_screen_tours_off");
+            localStorage.setItem("orbis_screen_tours_enabled", "1");
+          } catch {
+            /* ignore */
+          }
           window.location.assign("/");
         }}
         className="w-full text-muted-foreground hover:text-foreground"

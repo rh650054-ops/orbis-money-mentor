@@ -163,27 +163,27 @@ export default function MissionTour({ index, onAdvance, onSkip, renderSpecial }:
         />
       </div>
 
-      {/* Botão pular — sempre visível no rodapé, longe da status bar */}
+      {/* Botão pular — destaque claro no rodapé, longe da status bar */}
       <button
         onClick={onSkip}
-        className="group fixed left-1/2 -translate-x-1/2 z-[10002] pointer-events-auto flex items-center gap-1.5 text-xs font-bold tracking-wide text-foreground/70 hover:text-foreground active:scale-95 transition-all px-5 py-2.5 rounded-full border border-primary/30 bg-background/70 backdrop-blur-md shadow-[0_10px_30px_-10px_rgba(0,0,0,0.7)]"
+        className="group fixed left-1/2 -translate-x-1/2 z-[10002] pointer-events-auto flex items-center gap-2 text-sm font-extrabold tracking-wide text-foreground active:scale-95 transition-all px-7 py-3.5 rounded-full border border-primary/50 bg-card/95 backdrop-blur-xl shadow-[0_16px_44px_-12px_hsl(var(--primary)/0.55)] hover:border-primary"
         style={{
-          bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+          bottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
           backgroundImage:
-            "linear-gradient(180deg, hsl(var(--primary) / 0.10), rgba(255,255,255,0.02))",
+            "linear-gradient(180deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.04))",
         }}
       >
         Pular tutorial
         <svg
-          width="13"
-          height="13"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2.5"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="opacity-70 group-hover:translate-x-0.5 transition-transform"
+          className="text-primary group-hover:translate-x-0.5 transition-transform"
         >
           <polyline points="13 17 18 12 13 7" />
           <polyline points="6 17 11 12 6 7" />
@@ -290,7 +290,10 @@ function Panel({ style, block }: { style: React.CSSProperties; block: boolean })
   return (
     <div
       className={cn("absolute transition-all duration-300", block ? "bg-black/75" : "bg-black/55")}
-      style={{ ...style, pointerEvents: block ? "auto" : "none" }}
+      // pointerEvents SEMPRE "auto": as áreas ao redor do alvo bloqueiam o toque,
+      // então o usuário não consegue trocar de aba/abrir outra tela no meio do
+      // tutorial. Só o "furo" (o alvo destacado) continua clicável.
+      style={{ ...style, pointerEvents: "auto" }}
       onClick={(e) => e.stopPropagation()}
     />
   );

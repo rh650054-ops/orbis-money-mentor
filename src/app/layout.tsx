@@ -14,6 +14,7 @@ import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
+import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import MorningCommitModal from "@/components/MorningCommitModal";
 import BackButton from "@/shared/components/back-button";
 import {
@@ -365,9 +366,19 @@ export default function Layout({ children }: LayoutProps) {
           userId={user.id}
           nickname={missionNickname}
           initialIndex={missionStep}
-          onCompleted={() => setOnboardingCompleto(true)}
+          onCompleted={() => {
+            // Liga os tours por tela SÓ pra contas novas (que acabaram de
+            // concluir a intro). Quem já usava o app nunca passa por aqui.
+            if (typeof window !== "undefined") {
+              localStorage.setItem("orbis_screen_tours_enabled", "1");
+            }
+            setOnboardingCompleto(true);
+          }}
         />
       )}
+
+      {/* Coach por tela: explica cada tela na 1ª visita (onboarding natural) */}
+      {user && onboardingCompleto && <ScreenCoach userId={user.id} isAdmin={isAdmin} />}
 
       {/* Morning Commit Modal */}
       {user && onboardingCompleto && (

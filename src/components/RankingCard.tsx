@@ -15,7 +15,24 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
   const tier = inRank ? getTier(pos as number) : null;
   const accent = tier?.color ?? "#B47CFF";
   const glow = tier?.glow ?? "rgba(176,124,240,0.5)";
-  const loadingStats = isLoading && !currentUserStats; // skeleton inline (sem return null)
+  const loadingStats = isLoading && !currentUserStats;
+
+  // Enquanto carrega, mostra um esqueleto cinza neutro — evita o card aparecer
+  // ROXO (cor padrão) e depois trocar pra cor real da liga.
+  if (loadingStats) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Ranking</p>
+        <div className="w-full rounded-2xl border border-border bg-card/40 p-4 flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-muted animate-pulse shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 w-2/3 rounded bg-muted animate-pulse" />
+            <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2">

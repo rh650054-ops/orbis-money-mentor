@@ -388,6 +388,7 @@ export default function Ranking() {
           {/* Compartilhar no Instagram */}
           {hasParticipated && currentUserStats && (
             <button
+              data-tour="ranking-share"
               onClick={handleShare}
               disabled={isSharing}
               className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60"
