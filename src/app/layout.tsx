@@ -109,7 +109,9 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (!user || trialLoading || subscriptionLoading) return;
     if (!onboardingCompleto) return;
-    if (subscriptionStatus.subscribed) return; // Don't show for subscribers
+    // Pula só pra quem REALMENTE paga (ou demo). No teste, subscribed=true mas
+    // status="trial" — então checamos o status, não só o subscribed.
+    if (subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") return;
     
     const daysRemaining = trialStatus.daysRemaining ?? 0;
     
@@ -130,7 +132,7 @@ export default function Layout({ children }: LayoutProps) {
         localStorage.setItem('lastTrialReminder', today);
       }
     }
-  }, [user, trialStatus.planStatus, trialStatus.isExpired, trialStatus.daysRemaining, subscriptionStatus.subscribed, trialLoading, subscriptionLoading, toast]);
+  }, [user, trialStatus.planStatus, trialStatus.isExpired, trialStatus.daysRemaining, subscriptionStatus.subscribed, subscriptionStatus.status, trialLoading, subscriptionLoading, toast]);
 
   useEffect(() => {
     // Fast redirect for non-authenticated users
@@ -254,7 +256,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         )}
         {/* Trial Warning Banner */}
-        {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.planStatus !== 'active' && !trialStatus.isExpired && trialStatus.daysRemaining <= 3 && (
+        {!subscriptionLoading && !(subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") && !trialStatus.isExpired && trialStatus.daysRemaining <= 3 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
             <div className="flex items-start gap-3">
               <div className="text-2xl">🔥</div>
