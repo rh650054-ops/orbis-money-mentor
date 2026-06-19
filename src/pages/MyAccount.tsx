@@ -91,6 +91,8 @@ export default function Profile() {
 
   // Admin NÃO deve ser exibido como "demo" (mesmo tendo is_demo=true só pra isenção de cobrança)
   const isDemo = profile.is_demo && !isAdmin;
+  // Usuário BLACK = admin ou assinante ativo → mostra faixa BLACK no topo
+  const isBlack = isAdmin || profile.plan_status === "active";
 
   // Carregar perfil do usuário
   useEffect(() => {
@@ -380,8 +382,29 @@ export default function Profile() {
         </div>
       </div>
 
+      {/* Faixa BLACK - destaque premium no topo para admin/assinante */}
+      {isBlack && (
+        <div className="relative overflow-hidden rounded-xl border border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_24px_-8px_hsl(var(--primary)/0.6)]">
+          <div className="absolute inset-0 pointer-events-none opacity-50 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.3),transparent_60%)]" />
+          <div className="relative flex items-center gap-3">
+            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/25 border border-primary/50 text-lg shrink-0">
+              👑
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-primary leading-tight">Usuário BLACK</p>
+              <p className="text-xs text-foreground/80 leading-tight mt-0.5">
+                Acesso completo liberado · obrigado por fazer parte
+              </p>
+            </div>
+            <Badge className="bg-primary text-primary-foreground border-0 text-xs px-2 py-0 h-5 font-bold tracking-wider shrink-0">
+              BLACK
+            </Badge>
+          </div>
+        </div>
+      )}
+
       {/* Faixa Demo - destaque para que o usuário entenda seu status */}
-      {isDemo && profile.billing_exempt && (
+      {!isBlack && isDemo && profile.billing_exempt && (
         <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_20px_-8px_hsl(var(--primary)/0.5)]">
           <div className="absolute inset-0 pointer-events-none opacity-40 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.25),transparent_60%)]" />
           <div className="relative flex items-center gap-3">
