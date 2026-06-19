@@ -31,6 +31,13 @@ export default function Index() {
   const { user, loading } = useAuth();
   const { hasPlanToday, loading: planLoading } = useDailyGoalPlan(user?.id);
   const { toast } = useToast();
+
+  // Avisa o splash de abertura que a tela inicial já montou, pra ele sair só
+  // quando o app estiver pronto (evita a barra de baixo "piscar" antes).
+  useEffect(() => {
+    const id = requestAnimationFrame(() => window.dispatchEvent(new Event("orbis:ready")));
+    return () => cancelAnimationFrame(id);
+  }, []);
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({

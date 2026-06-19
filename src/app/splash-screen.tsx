@@ -2,16 +2,20 @@ import { useEffect, useState } from "react";
 
 /**
  * Splash de abertura do Orbis.
- * Logo gira e some assim que o app está pronto.
- * Mostra apenas uma vez por sessão (sessionStorage).
+ * Logo gira e cobre a tela INTEIRA (inclusive a barra de baixo) e só some
+ * quando o app sinaliza que está pronto (evento "orbis:ready", disparado pela
+ * primeira tela ao montar). Isso evita a barra de navegação "piscar" sozinha
+ * antes do conteúdo carregar.
  *
- * IMPORTANTE: o splash fica 100% OPACO durante todo o HOLD, cobrindo a tela
- * inteira (inclusive a barra de navegação de baixo). Só depois disso ele faz
- * um fade rápido — assim, quando some, a página já carregou atrás dele e o
- * app aparece inteiro de uma vez, sem a barra de baixo "piscando" antes.
+ * Regras:
+ *  - MIN_HOLD_MS: tempo mínimo na tela (deixa a animação da logo tocar).
+ *  - Some assim que (app pronto) E (tempo mínimo passou).
+ *  - MAX_WAIT_MS: trava de segurança — some mesmo se o sinal não chegar.
+ * Mostra apenas uma vez por sessão (sessionStorage).
  */
-const HOLD_MS = 1200; // tempo cobrindo a tela inteira (deixa o app carregar atrás)
-const FADE_MS = 320;  // fade suave de saída
+const MIN_HOLD_MS = 750; // mínimo cobrindo a tela
+const MAX_WAIT_MS = 2500; // limite de segurança
+const FADE_MS = 320; // fade suave de saída
 
 export default function SplashScreen() {
   const [visible, setVisible] = useState(() => {
@@ -23,12 +27,38 @@ export default function SplashScreen() {
   useEffect(() => {
     if (!visible) return;
     sessionStorage.setItem("orbis_splash_shown", "1");
-    // Mantém opaco durante o HOLD, então inicia o fade.
-    const fadeTimer = setTimeout(() => setFading(true), HOLD_MS);
-    // Remove só depois do fade terminar (sem corte seco).
-    const hideTimer = setTimeout(() => setVisible(false), HOLD_MS + FADE_MS);
+
+    let appReady = false;
+    let minPassed = false;
+    let done = false;
+    let hideTimer: ReturnType<typeof setTimeout>;
+
+    const startFade = () => {
+      if (done) return;
+      done = true;
+      setFading(true);
+      hideTimer = setTimeout(() => setVisible(false), FADE_MS);
+    };
+    const tryDismiss = () => {
+      if (appReady && minPassed) startFade();
+    };
+
+    const onReady = () => {
+      appReady = true;
+      tryDismiss();
+    };
+    window.addEventListener("orbis:ready", onReady);
+
+    const minTimer = setTimeout(() => {
+      minPassed = true;
+      tryDismiss();
+    }, MIN_HOLD_MS);
+    const maxTimer = setTimeout(startFade, MAX_WAIT_MS);
+
     return () => {
-      clearTimeout(fadeTimer);
+      window.removeEventListener("orbis:ready", onReady);
+      clearTimeout(minTimer);
+      clearTimeout(maxTimer);
       clearTimeout(hideTimer);
     };
   }, [visible]);
