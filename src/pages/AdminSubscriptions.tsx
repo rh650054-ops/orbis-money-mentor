@@ -272,6 +272,13 @@ export default function AdminSubscriptions() {
         } as any)
         .eq("user_id", editUser.user_id);
       if (error) throw error;
+      // Propaga o nome pro RANKING na hora: o leaderboard_stats guarda uma CÓPIA
+      // do nome; sem isto, um nome trocado pelo admin continuava aparecendo no
+      // ranking (ex.: apagar um nome impróprio). Atualiza todas as entradas do user.
+      await supabase
+        .from("leaderboard_stats")
+        .update({ nome_usuario: editForm.nickname || null } as any)
+        .eq("user_id", editUser.user_id);
       toast({ title: "✅ Perfil atualizado", description: editForm.nickname || editUser.email || "" });
       setEditUser(null);
       loadUsers();
