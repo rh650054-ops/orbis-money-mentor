@@ -1,21 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { cn } from "@/shared/lib/utils";
 
 /**
  * Tour guiado por tela (onboarding natural).
  *
- * Quando um usuário NOVO entra numa tela principal pela primeira vez, roda um
- * mini-tour de 1-3 passos explicando aquela tela. Quando o passo aponta pra um
- * elemento real (selector), ele é destacado com um "furo" de luz — guiando onde
- * a pessoa toca. O fundo escuro bloqueia o toque, então ninguém troca de aba
- * sem querer durante a explicação.
- *
- * - "Pular esta tela": fecha o tour só desta tela.
- * - "Pular tutorial": desliga TODOS os tours de tela de uma vez.
- * - Só aparece pra contas novas (flag orbis_screen_tours_enabled, ligada quando
- *   a intro de boas-vindas é concluída). Quem já usava o app não é incomodado.
- * - Cada tela aparece só uma vez (guardado por usuário no localStorage).
+ * Como funciona:
+ *  - 1º passo de cada tela: cartão central explicando a tela.
+ *  - Passos com alvo (selector): NÃO movem a tela sozinhos. Mostram uma dica
+ *    "role para baixo" e, quando o usuário chega no botão (ele entra na tela),
+ *    a notificação aparece com o anel destacando exatamente onde tocar.
+ *  - Cada cartão tem "Pular esta tela".
+ *  - Só aparece pra contas novas (flag) ou admin (revisão). Uma vez por tela.
  */
 interface TourStep {
   /** Elemento real a destacar. Ausente = cartão central explicativo. */
@@ -28,7 +24,7 @@ interface ScreenDef {
   steps: TourStep[];
 }
 
-// Conteúdo de cada tela. A "/" (dashboard) fica de fora: já é explicada na intro.
+// A "/" (dashboard) fica de fora: já é explicada na intro de boas-vindas.
 const SCREENS: Record<string, ScreenDef> = {
   "/daily-goals": {
     key: "foco",
@@ -36,15 +32,26 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="defcon-banner"]',
         title: "DEFCON 4 — modo de guerra ⚡",
-        text: "Toque aqui pra entrar. Inicie só na hora que for vender de verdade — ele cronometra seu corre em blocos de 1 hora.",
+        text: "Esse é o modo foco pra vender na rua. Toque pra entrar — mas inicie só na hora que for realmente vender. Ele cronometra seu corre em blocos de 1 hora.",
       },
       {
-        title: "Tudo na mão pra vender",
-        text: "Dentro do DEFCON você registra cada venda, conta suas abordagens e ainda manda mensagem no WhatsApp pra fechar mais. O Orbis analisa em tempo real.",
+        selector: '[data-tour="loadout-add"]',
+        title: "Mercadoria de hoje 📦 (importante!)",
+        text: "Toque em 'Adicionar produto' e coloque aqui o que você vai levar pra vender hoje. Cada venda que você registrar desconta DIRETO do seu estoque em Produtos & Estoque — você não precisa baixar nada na mão.",
       },
       {
-        title: "O que você leva pra rua 📦",
-        text: "Você escolhe os produtos que está levando e, conforme vende, eles vão sendo descontados do seu estoque automaticamente.",
+        title: "Dentro do DEFCON você tem tudo",
+        text: "Ao iniciar, aparecem os botões de registrar venda, contar abordagem e mandar mensagem no WhatsApp. E ao terminar cada hora, dá pra gerar uma imagem das suas vendas pra postar no Instagram.",
+      },
+    ],
+  },
+  "/defcon": {
+    key: "defcon-iniciar",
+    steps: [
+      {
+        selector: '[data-tour="defcon-iniciar"]',
+        title: "Pronto pra começar? ⚡",
+        text: "Antes de iniciar, dá pra ativar o modo economia de bateria. Quando estiver na hora de vender, toque em INICIAR — aí abrem os botões de registrar venda, contar abordagem e adicionar o nome do cliente.",
       },
     ],
   },
@@ -53,12 +60,16 @@ const SCREENS: Record<string, ScreenDef> = {
     steps: [
       {
         selector: '[data-tour="add-product"]',
-        title: "Cadastre o que você vende 📦",
-        text: "Toque em 'Novo produto'. Coloque o nome, o preço e quantos você tem em estoque (e o estoque mínimo).",
+        title: "Cadastre seu produto 📦",
+        text: "Toque em 'Novo produto'. Dê um nome, o preço de venda e o custo. É com isso que você registra suas vendas rapidinho depois.",
       },
       {
-        title: "Estoque que te avisa 🔔",
-        text: "O Orbis avisa quando a mercadoria ou os insumos estão acabando, do jeito que você configurou. E cada venda vai descontando do estoque sozinha.",
+        title: "Por unidade ou por lote? (exemplo na prática)",
+        text: "Na hora de cadastrar você escolhe como conta o estoque. Exemplo: você vende brigadeiro. POR UNIDADE → cada brigadeiro vendido tira 1 do estoque. POR LOTE → você cadastra uma fôrma que rende 50, e o estoque baixa conforme o lote vai acabando. Escolha o que combina com o seu produto.",
+      },
+      {
+        title: "Mercadoria e alertas 🔔",
+        text: "Na aba 'Estoque' você acompanha tudo o que tem. O Orbis te avisa quando a mercadoria ou os insumos estão acabando, conforme o estoque mínimo que você definiu — assim você nunca fica na mão no meio da venda.",
       },
     ],
   },
@@ -68,7 +79,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="registrar-venda"]',
         title: "Registre sua venda 💰",
-        text: "É aqui que você lança o que vendeu: dinheiro, cartão e Pix. O valor entra na hora na sua meta e no seu ranking.",
+        text: "Aqui você lança o que vendeu: dinheiro, cartão e Pix. Entra na hora na sua meta do dia e no seu ranking.",
       },
     ],
   },
@@ -92,7 +103,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="nova-despesa"]',
         title: "Registre suas despesas 📊",
-        text: "Toque em 'Nova Despesa' pra lançar seus gastos por categoria e enxergar pra onde vai o seu dinheiro.",
+        text: "Toque em 'Nova Despesa' pra lançar seus gastos por categoria e enxergar exatamente pra onde está indo o seu dinheiro.",
       },
     ],
   },
@@ -106,7 +117,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="conversar-ia"]',
         title: "Orbis IA 🤖",
-        text: "A IA lê seus dados e te dá dicas práticas pra vender mais. Toque em 'Conversar com a IA' pra tirar dúvidas sobre o seu corre.",
+        text: "A IA lê seus dados e te dá dicas pra vender mais. Toque em 'Conversar com a IA' — você pode ESCREVER um texto ou mandar um ÁUDIO, como preferir. Ela responde do seu jeito.",
       },
     ],
   },
@@ -120,7 +131,20 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="ranking-share"]',
         title: "Compartilhe no Instagram 📲",
-        text: "Mostre seu resultado: toque em 'Compartilhar no Instagram' e poste seu corre. Ótimo pra marcar presença e atrair clientes.",
+        text: "Toque em 'Compartilhar no Instagram': o Orbis gera uma imagem das suas vendas. Você pode baixar e postar nos seus stories, colocar num vídeo ou tirar print — do jeito que quiser mostrar o seu corre.",
+      },
+    ],
+  },
+  "/chat": {
+    key: "comunidade",
+    steps: [
+      {
+        title: "Comunidade Orbis 👥",
+        text: "Aqui você troca ideia com vendedores do Brasil todo. O que você posta aparece pra TODA a comunidade no feed Global — e tem o feed Regional, com gente da sua cidade ou estado.",
+      },
+      {
+        title: "Poste e aprenda junto",
+        text: "Compartilhe suas vitórias, tire dúvidas e veja o que está dando certo pra quem vende na rua como você. Quanto mais a comunidade troca, mais todo mundo vende.",
       },
     ],
   },
@@ -130,20 +154,20 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="profile-comunidade"]',
         title: "Comunidade e ajustes 👤",
-        text: "Aqui ficam seus dados e ajustes. Toque em 'Comunidade' pra trocar ideia com outros vendedores. Quiser rever os tutoriais? Use 'Refazer tour de boas-vindas'.",
+        text: "Aqui ficam seus dados e ajustes. Toque em 'Comunidade' pra falar com outros vendedores. E se quiser rever estes tutoriais, é só usar 'Refazer tour de boas-vindas' aqui embaixo.",
       },
     ],
   },
 };
 
 const SEEN_PREFIX = "orbis_screen_seen_";
-const ENABLED_KEY = "orbis_screen_tours_enabled"; // ligado só pra contas novas
-const OFF_KEY = "orbis_screen_tours_off"; // "pular tutorial" desliga tudo
+const ENABLED_KEY = "orbis_screen_tours_enabled"; // contas novas
+const OFF_KEY = "orbis_screen_tours_off"; // segurança (limpo no "refazer tour")
 const PAD = 8;
 
 interface Props {
   userId: string;
-  /** Admin sempre vê os tutoriais (pra revisar), além das contas novas. */
+  /** Admin sempre vê (pra revisar), além das contas novas. */
   isAdmin?: boolean;
 }
 
@@ -152,14 +176,21 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
   const [def, setDef] = useState<ScreenDef | null>(null);
   const [step, setStep] = useState(0);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const [entering, setEntering] = useState(true);
+  const [shown, setShown] = useState(false);
+  const [entering, setEntering] = useState(false);
+  const shownRef = useRef(false);
+  const startedAt = useRef(0);
+
+  const reveal = (v: boolean) => {
+    shownRef.current = v;
+    setShown(v);
+  };
 
   // Decide se mostra o tour ao entrar na tela.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    // Aparece pra contas novas (flag ligada na intro) OU pra admin (revisão).
     if (localStorage.getItem(ENABLED_KEY) !== "1" && !isAdmin) return;
-    if (localStorage.getItem(OFF_KEY) === "1") return; // pulou tudo
+    if (localStorage.getItem(OFF_KEY) === "1") return;
     const d = SCREENS[location.pathname];
     if (!d) {
       setDef(null);
@@ -169,7 +200,6 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
       setDef(null);
       return;
     }
-    // Espera a tela pintar antes de abrir (sensação natural).
     const t = window.setTimeout(() => {
       setStep(0);
       setDef(d);
@@ -179,50 +209,65 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
 
   const current = def?.steps[step] ?? null;
 
-  // Mede o alvo destacado (com scroll suave até ele).
-  const measure = useCallback(() => {
-    if (!current?.selector) {
-      setRect(null);
-      return;
-    }
-    const el = document.querySelector(current.selector);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "center" });
-      setRect(el.getBoundingClientRect());
-    } else {
-      setRect(null);
-    }
-  }, [current]);
-
+  // Ao entrar num passo: passo central aparece na hora; passo com alvo espera
+  // o usuário rolar até o elemento (sem mover a tela sozinho).
   useEffect(() => {
     if (!def) return;
-    const t1 = window.setTimeout(measure, 220);
-    const t2 = window.setTimeout(measure, 720);
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
-    };
-  }, [measure, def, step]);
+    const s = def.steps[step];
+    if (!s) return;
+    startedAt.current = Date.now();
+    setRect(null);
+    reveal(!s.selector);
+  }, [def, step]);
 
-  // Animação de entrada do balão a cada passo.
+  // Mede o alvo e revela quando ele entra na viewport (sem auto-scroll).
   useEffect(() => {
-    setEntering(false);
-    const t = window.setTimeout(() => setEntering(true), 120);
-    return () => window.clearTimeout(t);
-  }, [step, def]);
+    if (!def) return;
+    const s = def.steps[step];
+    if (!s?.selector) return;
+    const sel = s.selector;
+    const inView = (r: DOMRect) =>
+      r.width > 0 && r.top < window.innerHeight - 72 && r.bottom > 72;
 
-  const markSeen = useCallback(() => {
-    if (def && typeof window !== "undefined") {
-      localStorage.setItem(`${SEEN_PREFIX}${userId}_${def.key}`, "1");
-    }
-  }, [def, userId]);
+    const tick = () => {
+      const el = document.querySelector(sel);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setRect(r);
+        if (!shownRef.current && inView(r)) reveal(true);
+      } else if (!shownRef.current && Date.now() - startedAt.current > 1600) {
+        // Elemento não está nesta tela (ex.: aba diferente): cai pro cartão central.
+        setRect(null);
+        reveal(true);
+      }
+    };
+
+    tick();
+    const id = window.setInterval(tick, 250);
+    window.addEventListener("scroll", tick, true);
+    window.addEventListener("resize", tick);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("scroll", tick, true);
+      window.removeEventListener("resize", tick);
+    };
+  }, [def, step]);
+
+  // Animação de entrada do balão quando revela.
+  useEffect(() => {
+    if (!shown) return;
+    setEntering(false);
+    const t = window.setTimeout(() => setEntering(true), 100);
+    return () => window.clearTimeout(t);
+  }, [step, shown]);
 
   if (!def || !current) return null;
 
+  const markSeen = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`${SEEN_PREFIX}${userId}_${def.key}`, "1");
+    }
+  };
   const handleNext = () => {
     if (step < def.steps.length - 1) {
       setStep(step + 1);
@@ -235,14 +280,34 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
     markSeen();
     setDef(null);
   };
-  const skipAll = () => {
-    if (typeof window !== "undefined") localStorage.setItem(OFF_KEY, "1");
-    markSeen();
-    setDef(null);
-  };
 
   const total = def.steps.length;
   const isLast = step === total - 1;
+  const hasTarget = !!current.selector;
+
+  // FASE DE ESPERA: passo com alvo ainda não alcançado pelo usuário.
+  // Não escurece nem bloqueia (pra ele conseguir rolar e ver a tela).
+  if (hasTarget && !shown) {
+    return (
+      <div className="fixed inset-0 z-[9990] pointer-events-none">
+        <div
+          className="fixed left-1/2 -translate-x-1/2 z-[10000] pointer-events-auto flex flex-col items-center gap-1 rounded-2xl border border-primary/40 bg-card/95 backdrop-blur-xl px-5 py-3 shadow-[0_16px_44px_-12px_hsl(var(--primary)/0.55)]"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 88px)" }}
+        >
+          <span className="text-sm font-bold text-foreground">👇 Role a tela para baixo</span>
+          <span className="text-xs text-muted-foreground">vou te mostrar o próximo passo</span>
+          <button
+            onClick={skipScreen}
+            className="mt-1 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Pular esta tela
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // FASE REVELADA: escurece, destaca o alvo (se houver) e mostra a explicação.
   const hole = rect
     ? {
         top: Math.max(rect.top - PAD, 0),
@@ -255,7 +320,7 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
 
   return (
     <div className="fixed inset-0 z-[9990]" role="dialog" aria-modal="true" aria-label={current.title}>
-      {/* Overlay escuro com furo no alvo — bloqueia TODO toque (não troca de aba) */}
+      {/* Overlay escuro com furo no alvo — bloqueia o toque (não troca de aba) */}
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: "none" }}>
         <defs>
           <mask id="screencoach-mask">
@@ -289,22 +354,6 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
         />
       )}
 
-      {/* Botão PULAR TUTORIAL (desliga tudo) — destaque no rodapé */}
-      <button
-        onClick={skipAll}
-        className="group fixed left-1/2 -translate-x-1/2 z-[10002] pointer-events-auto flex items-center gap-2 text-sm font-extrabold tracking-wide text-foreground active:scale-95 transition-all px-7 py-3.5 rounded-full border border-primary/50 bg-card/95 backdrop-blur-xl shadow-[0_16px_44px_-12px_hsl(var(--primary)/0.55)] hover:border-primary"
-        style={{
-          bottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)",
-          backgroundImage: "linear-gradient(180deg, hsl(var(--primary) / 0.18), hsl(var(--primary) / 0.04))",
-        }}
-      >
-        Pular tutorial
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary group-hover:translate-x-0.5 transition-transform">
-          <polyline points="13 17 18 12 13 7" />
-          <polyline points="6 17 11 12 6 7" />
-        </svg>
-      </button>
-
       {/* Balão do coachmark */}
       <div
         className={cn(
@@ -314,7 +363,7 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
         style={
           rect
             ? {
-                top: tooltipBelow ? Math.min(rect.bottom + 20, window.innerHeight - 240) : undefined,
+                top: tooltipBelow ? Math.min(rect.bottom + 20, window.innerHeight - 260) : undefined,
                 bottom: !tooltipBelow ? window.innerHeight - rect.top + 20 : undefined,
               }
             : { top: "50%", transform: "translateY(-50%)" }
