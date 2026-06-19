@@ -8,7 +8,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check, MessageCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
@@ -21,6 +21,7 @@ interface SubscriptionUser {
   is_demo: boolean | null;
   billing_exempt: boolean | null;
   trial_end: string | null;
+  phone: string | null;
 }
 
 export default function AdminSubscriptions() {
@@ -91,7 +92,7 @@ export default function AdminSubscriptions() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, user_id, email, nickname, plan_status, is_demo, billing_exempt, trial_end")
+        .select("id, user_id, email, nickname, plan_status, is_demo, billing_exempt, trial_end, phone")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -562,6 +563,24 @@ export default function AdminSubscriptions() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                    {(() => {
+                      const digits = (u.phone || "").replace(/\D/g, "");
+                      if (digits.length < 10) return null;
+                      const wa = digits.startsWith("55") ? digits : `55${digits}`;
+                      const first = (u.nickname || "").trim().split(/\s+/)[0] || "";
+                      const msg = encodeURIComponent(`Olá${first ? ` ${first}` : ""}! Aqui é da equipe Orbis 👋`);
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-green-600/50 text-green-600 hover:bg-green-600 hover:text-white"
+                          onClick={() => window.open(`https://wa.me/${wa}?text=${msg}`, "_blank")}
+                          title="Falar no WhatsApp"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </Button>
+                      );
+                    })()}
                     <Button
                       size="sm"
                       variant="outline"

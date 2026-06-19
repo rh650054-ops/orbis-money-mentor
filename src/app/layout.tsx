@@ -67,7 +67,7 @@ export default function Layout({ children }: LayoutProps) {
       // Lê SEMPRE no banco — precisa pegar must_change_password mesmo de quem já
       // concluiu o onboarding (a senha temporária do admin é gerada depois). Sem
       // o atalho de localStorage aqui, senão a flag não era lida pra esses usuários.
-      const { data } = await (supabase.from("profiles") as any)
+      const { data } = await supabase.from("profiles")
         .select("nickname, onboarding_completed, onboarding_step, must_change_password")
         .eq("user_id", user.id)
         .maybeSingle();
