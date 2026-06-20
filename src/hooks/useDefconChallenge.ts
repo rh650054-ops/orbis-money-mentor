@@ -913,4 +913,4 @@ export function useDefconChallenge(userId: string | undefined) {
     quickSaleValue: blocks[currentBlockIndex]?.target_amount ?? 0,
   };
 }
-                            
+
