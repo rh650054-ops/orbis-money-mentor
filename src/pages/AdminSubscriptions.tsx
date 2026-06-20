@@ -8,7 +8,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check, MessageCircle } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check, MessageCircle, Crown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
@@ -22,6 +22,7 @@ interface SubscriptionUser {
   billing_exempt: boolean | null;
   trial_end: string | null;
   phone: string | null;
+  cpf: string | null;
 }
 
 export default function AdminSubscriptions() {
@@ -53,6 +54,10 @@ export default function AdminSubscriptions() {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [tempPassword, setTempPassword] = useState<string | null>(null);
   const [copiedPassword, setCopiedPassword] = useState(false);
+  // Super admin: pode promover/rebaixar admins pelo painel
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [adminMap, setAdminMap] = useState<Record<string, boolean>>({}); // cpf(digitos) -> is_super_admin
+  const [grantingCpf, setGrantingCpf] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -63,7 +68,10 @@ export default function AdminSubscriptions() {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) loadUsers();
+    if (isAdmin) {
+      loadUsers();
+      loadAdminMeta();
+    }
   }, [isAdmin]);
 
   const checkAdminRole = async () => {
@@ -92,7 +100,7 @@ export default function AdminSubscriptions() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, user_id, email, nickname, plan_status, is_demo, billing_exempt, trial_end, phone")
+        .select("id, user_id, email, nickname, plan_status, is_demo, billing_exempt, trial_end, phone, cpf")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -101,6 +109,59 @@ export default function AdminSubscriptions() {
       console.error("Erro ao carregar usuários:", error);
     } finally {
       setIsLoadingUsers(false);
+    }
+  };
+
+  // Descobre se o usuário atual é SUPER admin e carrega quem já é admin (por CPF).
+  // Só o super admin enxerga/edita a lista de admins (RLS).
+  const loadAdminMeta = async () => {
+    try {
+      const { data: superData } = await (supabase as any).rpc("is_orbis_super_admin");
+      setIsSuperAdmin(!!superData);
+      if (superData) {
+        const { data: rows } = await (supabase as any)
+          .from("admin_access")
+          .select("cpf, enabled, is_super_admin");
+        const map: Record<string, boolean> = {};
+        ((rows as any[]) || []).forEach((r) => {
+          if (r.enabled) map[String(r.cpf).replace(/\D/g, "")] = !!r.is_super_admin;
+        });
+        setAdminMap(map);
+      }
+    } catch {
+      setIsSuperAdmin(false);
+    }
+  };
+
+  // Promove/rebaixa um usuário a admin (só super admin). Insere/remove o CPF
+  // na admin_access. O banco impede mexer num super admin.
+  const toggleAdmin = async (u: SubscriptionUser) => {
+    const cpf = (u.cpf || "").replace(/\D/g, "");
+    if (cpf.length !== 11) {
+      toast({ title: "Sem CPF válido", description: "Esse usuário não tem CPF completo no perfil.", variant: "destructive" });
+      return;
+    }
+    if (adminMap[cpf]) {
+      toast({ title: "Super admin", description: "Um super admin não pode ser removido pelo painel.", variant: "destructive" });
+      return;
+    }
+    const isUserAdmin = cpf in adminMap;
+    setGrantingCpf(cpf);
+    try {
+      if (isUserAdmin) {
+        const { error } = await (supabase as any).from("admin_access").delete().eq("cpf", cpf);
+        if (error) throw error;
+        toast({ title: "Admin removido", description: u.nickname || u.email || cpf });
+      } else {
+        const { error } = await (supabase as any).from("admin_access").insert({ cpf, role: "admin", enabled: true });
+        if (error) throw error;
+        toast({ title: "✅ Agora é admin", description: u.nickname || u.email || cpf });
+      }
+      await loadAdminMeta();
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setGrantingCpf(null);
     }
   };
 
@@ -585,6 +646,29 @@ export default function AdminSubscriptions() {
                           title="Falar no WhatsApp"
                         >
                           <MessageCircle className="w-4 h-4" />
+                        </Button>
+                      );
+                    })()}
+                    {isSuperAdmin && (() => {
+                      const cpf = (u.cpf || "").replace(/\D/g, "");
+                      const isUserAdmin = cpf.length === 11 && cpf in adminMap;
+                      const isUserSuper = isUserAdmin && adminMap[cpf];
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={isUserAdmin
+                            ? "border-amber-500/60 text-amber-600 hover:bg-amber-500 hover:text-white"
+                            : "border-border text-muted-foreground hover:bg-primary hover:text-primary-foreground"}
+                          onClick={() => toggleAdmin(u)}
+                          disabled={grantingCpf === cpf || Boolean(isUserSuper)}
+                          title={isUserSuper ? "Super admin (protegido)" : isUserAdmin ? "Remover admin" : "Tornar admin"}
+                        >
+                          {grantingCpf === cpf ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Crown className={`w-4 h-4 ${isUserAdmin ? "fill-amber-500" : ""}`} />
+                          )}
                         </Button>
                       );
                     })()}
