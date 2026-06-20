@@ -171,11 +171,13 @@ export default function AdminSubscriptions() {
     setResettingPassword(true);
     setTempPassword(null);
     try {
-      const { data, error } = await supabase.functions.invoke("admin-reset-password", {
-        body: { userId: editUser.user_id },
+      // Reset via RPC SQL (sem edge function — evita o erro de deploy).
+      // A função admin_reset_user_password retorna a senha temporária gerada.
+      const { data, error } = await (supabase as any).rpc("admin_reset_user_password", {
+        p_user_id: editUser.user_id,
       });
-      if (error || !data?.success) throw new Error(data?.error ?? "Erro ao redefinir senha");
-      setTempPassword(data.tempPassword);
+      if (error) throw new Error(error.message || "Erro ao redefinir senha");
+      setTempPassword(data as string);
       toast({ title: "Senha redefinida", description: "Copie e envie para o usuário." });
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
