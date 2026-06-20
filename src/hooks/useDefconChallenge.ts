@@ -71,6 +71,9 @@ export function useDefconChallenge(userId: string | undefined) {
   blockApproachesRef.current = blockApproaches;
   const blockSalesCountRef = useRef(0);
   blockSalesCountRef.current = blockSalesCount;
+  const planIdRef = useRef<string | null>(null);
+  const dailyGoalRef = useRef(0);
+  dailyGoalRef.current = dailyGoal;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -242,6 +245,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     setHasPlan(true);
     setDailyGoal(planData.daily_goal);
+    planIdRef.current = planData.id;
 
     const { data: blocksData } = await supabase
       .from("hourly_goal_blocks")
@@ -752,6 +756,121 @@ export function useDefconChallenge(userId: string | undefined) {
     await syncBlocksToDailySales(userId);
   };
 
+  // Estende o Defcon por +1 bloco de 1h, mantendo todos os dados.
+  const extendChallenge = async () => {
+    const sid = sessionIdRef.current;
+    const pid = planIdRef.current;
+    if (!sid || !pid || !userId) return;
+
+    const blks = blocksRef.current;
+    const lastBlock = blks[blks.length - 1];
+    const newHourIndex = (lastBlock?.hour_index ?? blks.length - 1) + 1;
+    const targetAmount = lastBlock?.target_amount ?? (dailyGoalRef.current / Math.max(blks.length, 1));
+    const startTime = new Date();
+
+    const { data: newBlock } = await supabase
+      .from("hourly_goal_blocks")
+      .insert({
+        plan_id: pid,
+        user_id: userId,
+        hour_index: newHourIndex,
+        hour_label: "⏱ +1h",
+        target_amount: targetAmount,
+        achieved_amount: 0,
+        is_completed: false,
+        timer_status: "running",
+        timer_started_at: startTime.toISOString(),
+        valor_dinheiro: 0,
+        valor_cartao: 0,
+        valor_pix: 0,
+        valor_calote: 0,
+        valor_gorjeta: 0,
+      } as any)
+      .select("id")
+      .single();
+
+    if (!newBlock) return;
+
+    const newBlockData: DefconBlock = {
+      id: newBlock.id,
+      hour_index: newHourIndex,
+      hour_label: "⏱ +1h",
+      target_amount: targetAmount,
+      achieved_amount: 0,
+      is_completed: false,
+      valor_dinheiro: 0,
+      valor_cartao: 0,
+      valor_pix: 0,
+      valor_calote: 0,
+      valor_gorjeta: 0,
+    };
+
+    const newBlocks = [...blks, newBlockData];
+    const newIdx = newBlocks.length - 1;
+
+    await supabase
+      .from("challenge_sessions")
+      .update({ status: "active", ended_at: null, total_blocks: newBlocks.length, current_block_index: newIdx })
+      .eq("id", sid);
+
+    setBlocks(newBlocks);
+    setCurrentBlockIndex(newIdx);
+    setBlockStartedAt(startTime);
+    setRemainingSeconds(BLOCK_DURATION);
+    setBlockApproaches(0);
+    setBlockSalesCount(0);
+    setPhase("running");
+  };
+
+  // Apaga todos os dados do dia e volta para idle (começo do zero).
+  const restartChallenge = async () => {
+    if (!userId || !planIdRef.current) return;
+    clearTimer();
+
+    const today = getBrazilDate();
+    const sid = sessionIdRef.current;
+    const pid = planIdRef.current;
+
+    // Apaga challenge_blocks e challenge_session do dia
+    if (sid) {
+      await supabase.from("challenge_blocks").delete().eq("session_id", sid);
+      await supabase.from("challenge_sessions").delete().eq("id", sid);
+    }
+
+    // Remove blocos de extensão (⏱ +1h) criados durante o dia
+    await supabase
+      .from("hourly_goal_blocks")
+      .delete()
+      .eq("plan_id", pid)
+      .like("hour_label", "⏱%");
+
+    // Zera os valores dos blocos originais
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({
+        achieved_amount: 0,
+        is_completed: false,
+        timer_status: "idle",
+        timer_started_at: null,
+        valor_dinheiro: 0,
+        valor_cartao: 0,
+        valor_pix: 0,
+        valor_calote: 0,
+        valor_gorjeta: 0,
+      } as any)
+      .eq("plan_id", pid);
+
+    // Zera daily_sales do dia
+    await supabase
+      .from("daily_sales")
+      .update({ cash_sales: 0, card_sales: 0, pix_sales: 0, tip_sales: 0, total_profit: 0, total_debt: 0 } as any)
+      .eq("user_id", userId)
+      .eq("date", today);
+
+    // Recarrega tudo do zero
+    await loadData();
+  };
+
   const blockEndTime = blockStartedAt
     ? new Date(blockStartedAt.getTime() + BLOCK_DURATION * 1000)
     : null;
@@ -784,10 +903,13 @@ export function useDefconChallenge(userId: string | undefined) {
     addApproach,
     addOccurrence,
     endChallenge,
+    extendChallenge,
+    restartChallenge,
     savePaymentBreakdown,
     startLunchPause,
     skipLunchPause,
     skipBreak,
     dismissBlockReport,
+    quickSaleValue: blocks[currentBlockIndex]?.target_amount ?? 0,
   };
 }

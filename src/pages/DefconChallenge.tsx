@@ -140,6 +140,8 @@ export default function DefconChallenge() {
           userId={user.id}
           onSaveBreakdown={defcon.savePaymentBreakdown}
           onExit={handleExit}
+          onExtend={treino ? undefined : defcon.extendChallenge}
+          onRestart={treino ? undefined : defcon.restartChallenge}
         />
       );
 
@@ -155,8 +157,4 @@ export default function DefconChallenge() {
         <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />
       )}
       {/* Coach por tela no DEFCON real (rota fica fora do layout, então renderiza aqui).
-          Explica as funções: iniciar, venda rápida, cobrança no WhatsApp e abordagem. */}
-      {!treino && user && <ScreenCoach userId={user.id} />}
-    </>
-  );
-}
+          Explica as funções: inicia
