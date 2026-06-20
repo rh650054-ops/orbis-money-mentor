@@ -598,4 +598,70 @@ export function DefconEndScreen({
               disabled={extending || restarting}
               className="flex flex-col items-center justify-center gap-1 h-16 rounded-2xl bg-card border border-border text-muted-foreground font-semibold text-xs active:scale-[0.97] transition-transform disabled:opacity-50"
             >
-              <RotateCc
+              <RotateCcw className="w-4 h-4" />
+              Reiniciar do zero
+            </button>
+          )}
+
+          {onRestart && confirmRestart && (
+            <button
+              onClick={async () => {
+                setRestarting(true);
+                setConfirmRestart(false);
+                await onRestart();
+                setRestarting(false);
+              }}
+              disabled={extending || restarting}
+              className="flex flex-col items-center justify-center gap-1 h-16 rounded-2xl bg-destructive/15 border border-destructive/50 text-destructive font-bold text-xs active:scale-[0.97] transition-transform disabled:opacity-50"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {restarting ? "Reiniciando..." : "Confirmar reset"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface PaymentInputProps {
+  emoji?: string;
+  iconSrc?: string;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  accent: string;
+}
+
+function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: PaymentInputProps) {
+  const hasIcon = !!emoji || !!iconSrc;
+  return (
+    <div className="relative h-11 rounded-lg bg-card border border-border focus-within:border-muted-foreground transition-colors">
+      {iconSrc ? (
+        <img
+          src={iconSrc}
+          alt=""
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
+        />
+      ) : emoji ? (
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base">
+          {emoji}
+        </span>
+      ) : null}
+      <span className={`absolute ${hasIcon ? 'left-10' : 'left-3'} top-1/2 -translate-y-1/2 text-xs font-medium ${accent}`}>
+        {label}
+      </span>
+      <span className="absolute right-[72px] top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+        R$
+      </span>
+      <input
+        type="number"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="0"
+        className="w-full h-full bg-transparent text-right text-base font-bold text-foreground pr-3 pl-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded placeholder:text-muted-foreground"
+      />
+    </div>
+  );
+}
