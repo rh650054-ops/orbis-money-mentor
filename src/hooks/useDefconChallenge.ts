@@ -645,7 +645,7 @@ export function useDefconChallenge(userId: string | undefined) {
         achieved_amount: newAchieved,
         valor_dinheiro: newDinheiro,
         valor_gorjeta: newGorjeta,
-      } as any)
+      })
       .eq("id", currentBlock.id);
 
     if (sessionId) {
@@ -785,7 +785,7 @@ export function useDefconChallenge(userId: string | undefined) {
         valor_pix: 0,
         valor_calote: 0,
         valor_gorjeta: 0,
-      } as any)
+      })
       .select("id")
       .single();
 
@@ -857,13 +857,13 @@ export function useDefconChallenge(userId: string | undefined) {
         valor_pix: 0,
         valor_calote: 0,
         valor_gorjeta: 0,
-      } as any)
+      })
       .eq("plan_id", pid);
 
     // Zera daily_sales do dia
     await supabase
       .from("daily_sales")
-      .update({ cash_sales: 0, card_sales: 0, pix_sales: 0, tip_sales: 0, total_profit: 0, total_debt: 0 } as any)
+      .update({ cash_sales: 0, card_sales: 0, pix_sales: 0, tip_sales: 0, total_profit: 0, total_debt: 0 })
       .eq("user_id", userId)
       .eq("date", today);
 
@@ -913,3 +913,4 @@ export function useDefconChallenge(userId: string | undefined) {
     quickSaleValue: blocks[currentBlockIndex]?.target_amount ?? 0,
   };
 }
+                            

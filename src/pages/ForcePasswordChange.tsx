@@ -59,7 +59,7 @@ export default function ForcePasswordChange() {
     if (userId) {
       await supabase
         .from("profiles")
-        .update({ must_change_password: false } as any)
+        .update({ must_change_password: false })
         .eq("user_id", userId);
     }
 
