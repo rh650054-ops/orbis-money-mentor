@@ -3,7 +3,7 @@ import { Button } from "@/shared/ui/button";
 import { Card, CardContent } from "@/shared/ui/card";
 import { ArrowLeft, MessageCircle, KeyRound, ShieldCheck } from "lucide-react";
 
-const SUPPORT_WHATSAPP = "5551992525965";
+const SUPPORT_WHATSAPP = "5511915054830";
 
 /**
  * Recuperação de senha.

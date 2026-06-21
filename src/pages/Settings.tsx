@@ -59,7 +59,7 @@ export default function Settings() {
   };
 
   const handleSupport = () => {
-    window.open("https://wa.me/5511999999999?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20Orbis", "_blank");
+    window.open("https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20Orbis", "_blank");
   };
 
   return (
