@@ -1,55 +1,24 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
 import { Card, CardContent } from "@/shared/ui/card";
-import { useToast } from "@/shared/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Mail, MessageCircle, KeyRound } from "lucide-react";
+import { ArrowLeft, MessageCircle, KeyRound, ShieldCheck } from "lucide-react";
 
 const SUPPORT_WHATSAPP = "5551992525965";
 
+/**
+ * Recuperação de senha.
+ * A conta no Orbis é identificada por CPF (o e-mail de auth é interno,
+ * "CPF@orbis.internal"), então o reset por e-mail do Supabase não chega no
+ * e-mail pessoal da pessoa. Por isso a recuperação é pelo WhatsApp: o time
+ * gera uma senha temporária no painel (admin-reset) e a pessoa cria a nova
+ * no próximo login (fluxo já existente).
+ */
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  const handleSendReset = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed.includes("@")) {
-      toast({
-        title: "E-mail inválido",
-        description: "Verifique o e-mail digitado.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
-    setLoading(false);
-
-    if (error) {
-      toast({
-        title: "Não foi possível enviar",
-        description: "Se você cadastrou um e-mail, verifique-o. Caso contrário, fale com o suporte no WhatsApp.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSent(true);
-  };
 
   const openWhatsApp = () => {
     const msg = encodeURIComponent(
-      "Olá! Preciso recuperar minha senha do Orbis. Meu CPF é: "
+      "Olá! Esqueci minha senha do Orbis e preciso recuperar. Meu CPF é: "
     );
     window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=${msg}`, "_blank");
   };
@@ -73,98 +42,36 @@ export default function ForgotPassword() {
           <div className="text-center">
             <h1 className="text-xl font-bold text-foreground">Recuperar senha</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              Vamos te ajudar a voltar pro Orbis
+              A gente te ajuda a voltar pro Orbis
             </p>
           </div>
         </div>
 
         <Card className="bg-card border border-border rounded-2xl shadow-xl">
           <CardContent className="p-5 space-y-4">
-            {!sent ? (
-              <>
-                <form onSubmit={handleSendReset} className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="flex items-center gap-1.5 text-xs">
-                      <Mail className="w-3.5 h-3.5 text-primary" />
-                      E-mail cadastrado
-                    </Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      placeholder="seu@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Vamos enviar um link para você criar uma nova senha.
-                    </p>
-                  </div>
+            <div className="flex items-start gap-3 rounded-xl bg-primary/10 border border-primary/25 p-3.5">
+              <KeyRound className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-foreground leading-relaxed">
+                Sua conta no Orbis é pelo <span className="font-semibold">CPF</span>.
+                Pra resetar a senha rapidinho, fala com a gente no WhatsApp que o time
+                gera uma senha nova na hora e te manda — aí no próximo login você cria
+                a sua. 👊
+              </p>
+            </div>
 
-                  <Button
-                    type="submit"
-                    className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                    disabled={loading}
-                  >
-                    {loading ? "Enviando..." : "Enviar link de recuperação"}
-                  </Button>
-                </form>
+            <Button
+              type="button"
+              onClick={openWhatsApp}
+              className="w-full h-12 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+            >
+              <MessageCircle className="w-4 h-4 mr-2" />
+              Recuperar pelo WhatsApp
+            </Button>
 
-                <div className="relative py-1">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-border" />
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="bg-card px-2 text-xs text-muted-foreground uppercase tracking-wider">
-                      ou
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground text-center">
-                    Não cadastrou e-mail ou não está conseguindo?
-                  </p>
-                  <Button
-                    type="button"
-                    onClick={openWhatsApp}
-                    variant="outline"
-                    className="w-full h-11 rounded-lg border-primary/30 text-primary hover:bg-primary/10"
-                  >
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Falar com o suporte no WhatsApp
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-3 py-2 text-center">
-                <div className="mx-auto w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
-                  <Mail className="w-6 h-6 text-primary" />
-                </div>
-                <h2 className="text-base font-semibold text-foreground">
-                  Link enviado!
-                </h2>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Acesse <span className="text-foreground font-medium">{email}</span> e clique no link que enviamos para criar sua nova senha.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Não chegou em alguns minutos? Veja no spam ou fale com o suporte.
-                </p>
-                <Button
-                  type="button"
-                  onClick={openWhatsApp}
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-primary hover:bg-primary/10"
-                >
-                  <MessageCircle className="w-3.5 h-3.5 mr-1.5" />
-                  Suporte no WhatsApp
-                </Button>
-              </div>
-            )}
+            <div className="flex items-center gap-2 justify-center text-[11px] text-muted-foreground">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Resposta rápida, direto com o time do Orbis
+            </div>
           </CardContent>
         </Card>
 

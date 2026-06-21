@@ -75,7 +75,9 @@ export function useSubscription(userId: string | undefined) {
       if (sub) {
         const now = new Date();
         const graceUntil = sub.grace_until ? new Date(sub.grace_until) : null;
-        const isActive = sub.status === "active" && graceUntil && now <= graceUntil;
+        // Assinatura ATIVA conta como paga mesmo sem grace_until (ex.: ativação
+        // manual / evento sem grace). So' o 'past_due' exige a janela de grace.
+        const isActive = sub.status === "active" && (!graceUntil || now <= graceUntil);
         const isPastDueInGrace = sub.status === "past_due" && graceUntil && now <= graceUntil;
 
         setStatus({
