@@ -59,7 +59,17 @@ export default function Auth() {
       if (!trimmed || !trimmed.includes("@")) {
         throw new Error("Informe um e-mail válido.");
       }
-      return trimmed;
+      // A conta é identificada por CPF (e-mail de login = CPF@orbis.internal).
+      // Resolve o e-mail pessoal -> e-mail interno no servidor, conferindo a senha
+      // junto (não vaza CPF nem permite enumerar e-mails).
+      const { data: internalEmail, error } = await (supabase as any).rpc("resolve_login_email", {
+        p_email: trimmed,
+        p_password: password,
+      });
+      if (error || !internalEmail) {
+        throw new Error("E-mail ou senha incorretos.");
+      }
+      return internalEmail as string;
     }
   };
 
