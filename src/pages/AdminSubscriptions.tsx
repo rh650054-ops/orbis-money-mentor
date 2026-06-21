@@ -34,7 +34,7 @@ export default function AdminSubscriptions() {
   const [users, setUsers] = useState<SubscriptionUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "todos">("assinantes");
+  const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "ultimo_dia" | "expirados" | "todos">("assinantes");
   // Edição de perfil de um usuário (admin)
   const [editUser, setEditUser] = useState<SubscriptionUser | null>(null);
   const [editForm, setEditForm] = useState({ nickname: "", phone: "", cpf: "", city: "", state: "", email: "" });
@@ -414,10 +414,21 @@ export default function AdminSubscriptions() {
   };
 
   const isComp = (u: SubscriptionUser) => Boolean(u.is_demo && u.billing_exempt); // contas de cortesia/admin
-  const filteredUsers = users.filter((u) => {
+  // Data de hoje no fuso do Brasil (YYYY-MM-DD) e o dia de fim do trial de cada usuário.
+  const todayBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const endDay = (u: SubscriptionUser) => (u.trial_end || "").slice(0, 10);
+  // Trial vencendo HOJE (mandar a mensagem de urgência).
+  const isUltimoDia = (u: SubscriptionUser) => u.plan_status === "trial" && endDay(u) === todayBR;
+  // Já encerrou e NÃO assinou (alvo de win-back).
+  const isExpirado = (u: SubscriptionUser) =>
+    !isComp(u) && u.plan_status !== "active" && endDay(u) !== "" && endDay(u) < todayBR;
+
+  let filteredUsers = users.filter((u) => {
     // Filtro por aba/status
     if (statusFilter === "assinantes" && !(u.plan_status === "active" && !isComp(u))) return false;
     if (statusFilter === "trial" && u.plan_status !== "trial") return false;
+    if (statusFilter === "ultimo_dia" && !isUltimoDia(u)) return false;
+    if (statusFilter === "expirados" && !isExpirado(u)) return false;
     // Busca por texto
     if (!searchEmail) return true;
     const search = searchEmail.toLowerCase();
@@ -426,6 +437,10 @@ export default function AdminSubscriptions() {
       u.nickname?.toLowerCase().includes(search)
     );
   });
+  // Nas abas de conversão, ordena pelo fim do trial (mais recente primeiro = mais quente).
+  if (statusFilter === "ultimo_dia" || statusFilter === "expirados") {
+    filteredUsers = [...filteredUsers].sort((a, b) => endDay(b).localeCompare(endDay(a)));
+  }
 
   if (loading || isAdmin === null) {
     return (
@@ -496,13 +511,25 @@ export default function AdminSubscriptions() {
             </div>
           </div>
           {/* Filtro por aba: Assinantes / Trial / Todos */}
-          <div className="flex gap-2 mt-4">
-            {([["assinantes", "Assinantes"], ["trial", "Trial (3 dias)"], ["todos", "Todos"]] as const).map(([key, label]) => (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {([
+              ["assinantes", "Assinantes"],
+              ["trial", "Trial (3 dias)"],
+              ["ultimo_dia", `Último dia (${users.filter(isUltimoDia).length})`],
+              ["expirados", `Expirados (${users.filter(isExpirado).length})`],
+              ["todos", "Todos"],
+            ] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setStatusFilter(key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  statusFilter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                  statusFilter === key
+                    ? key === "ultimo_dia"
+                      ? "bg-warning text-warning-foreground"
+                      : key === "expirados"
+                      ? "bg-destructive text-destructive-foreground"
+                      : "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {label}
@@ -591,7 +618,7 @@ export default function AdminSubscriptions() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {statusFilter === "assinantes" ? "Assinantes" : statusFilter === "trial" ? "Em teste (3 dias)" : "Todos os usuários"} ({filteredUsers.length})
+            {statusFilter === "assinantes" ? "Assinantes" : statusFilter === "trial" ? "Em teste (3 dias)" : statusFilter === "ultimo_dia" ? "Último dia de teste — mande a mensagem! ⏳" : statusFilter === "expirados" ? "Expirados — não assinaram (win-back) 🔁" : "Todos os usuários"} ({filteredUsers.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -638,7 +665,15 @@ export default function AdminSubscriptions() {
                       if (digits.length < 10) return null;
                       const wa = digits.startsWith("55") ? digits : `55${digits}`;
                       const first = (u.nickname || "").trim().split(/\s+/)[0] || "";
-                      const msg = encodeURIComponent(`Olá${first ? ` ${first}` : ""}! Aqui é da equipe Orbis 👋`);
+                      const nm = first ? ` ${first}` : "";
+                      // Mensagem já pronta conforme a aba: urgência no "último dia", win-back nos "expirados".
+                      const body =
+                        statusFilter === "ultimo_dia"
+                          ? `Opa${nm}! Aqui é o Yan, do time do Orbis 👋 Seu teste grátis termina HOJE ⏳ Pra não perder seus números, seu histórico e seu lugar no ranking, garante seu acesso por menos de R$1 por dia — é só tocar em "Assinar agora" dentro do app. Bora seguir o corre junto? 🚀`
+                          : statusFilter === "expirados"
+                          ? `Opa${nm}! Aqui é o Yan, do time do Orbis 🙏 Seu acesso pausou, mas fica tranquilo: seus dados estão guardados, você não perdeu nada. Quando quiser voltar e seguir de onde parou, é só assinar no app. Tô na torcida pelo teu corre! 💪`
+                          : `Olá${nm}! Aqui é da equipe Orbis 👋`;
+                      const msg = encodeURIComponent(body);
                       return (
                         <Button
                           size="sm"
