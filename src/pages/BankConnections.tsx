@@ -5,6 +5,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase as supabaseTyped } from "@/integrations/supabase/client";
+import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
 // Cast to any to support new tables (bank_connections, auto_detected_sales)
 // that are not yet reflected in the auto-generated Supabase types.
@@ -210,32 +211,66 @@ export default function BankConnections() {
     setConfirming(sale.id);
 
     try {
-      // Insert into daily_sales as a PIX sale
-      const { data: newSale, error: saleError } = await supabase
-        .from("daily_sales")
-        .insert({
-          user_id: user.id,
-          date: sale.transaction_date,
-          total_profit: sale.amount,
-          pix_sales: sale.amount,
-          cost: 0,
-          total_debt: 0,
-          cash_sales: 0,
-          card_sales: 0,
-          notes: sale.description
-            ? `Auto-detectado: ${sale.description}`
-            : "Pagamento detectado automaticamente via Open Finance",
-        })
-        .select("id")
-        .single();
+      // Find-or-update: soma a venda PIX detectada na linha do dia.
+      // (Antes era INSERT cego -> criava uma 2a linha em daily_sales no mesmo
+      //  dia, duplicava o registro e inflava o faturamento no ranking.)
+      const autoNote = sale.description
+        ? `Auto-detectado: ${sale.description}`
+        : "Pagamento detectado automaticamente via Open Finance";
 
-      if (saleError) throw saleError;
+      const { data: existingRows } = await supabase
+        .from("daily_sales")
+        .select("id, total_profit, pix_sales, notes")
+        .eq("user_id", user.id)
+        .eq("date", sale.transaction_date)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      let dailySaleId: string;
+
+      if (existingRows && existingRows.length > 0) {
+        const row = existingRows[0];
+        const { data: upd, error: updErr } = await supabase
+          .from("daily_sales")
+          .update({
+            total_profit: (row.total_profit || 0) + sale.amount,
+            pix_sales: (row.pix_sales || 0) + sale.amount,
+            notes: row.notes ? `${row.notes}\n${autoNote}` : autoNote,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.id)
+          .select("id")
+          .single();
+        if (updErr) throw updErr;
+        dailySaleId = upd.id;
+      } else {
+        const { data: ins, error: insErr } = await supabase
+          .from("daily_sales")
+          .insert({
+            user_id: user.id,
+            date: sale.transaction_date,
+            total_profit: sale.amount,
+            pix_sales: sale.amount,
+            cost: 0,
+            total_debt: 0,
+            cash_sales: 0,
+            card_sales: 0,
+            notes: autoNote,
+          })
+          .select("id")
+          .single();
+        if (insErr) throw insErr;
+        dailySaleId = ins.id;
+      }
 
       // Mark auto_detected_sale as confirmed
       await supabase
         .from("auto_detected_sales")
-        .update({ status: "confirmed", daily_sale_id: newSale.id, updated_at: new Date().toISOString() })
+        .update({ status: "confirmed", daily_sale_id: dailySaleId, updated_at: new Date().toISOString() })
         .eq("id", sale.id);
+
+      // Atualiza o ranking com a venda confirmada (faturamento do mes).
+      await syncLeaderboardRevenue(user.id);
 
       toast({
         title: "✅ Venda confirmada!",
