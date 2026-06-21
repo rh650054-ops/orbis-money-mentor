@@ -26,7 +26,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
     setIsChecking(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Não autenticado");
+      if (!user) throw new Error("Nao autenticado");
 
       await supabase.functions.invoke("check-admin-access");
 
@@ -48,19 +48,19 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
       const isActive = hasActiveSub || profile?.plan_status === "active" || (profile?.is_demo && profile?.billing_exempt);
 
       if (isActive) {
-        toast({ title: "✅ Acesso liberado!", description: "Seu plano foi ativado com sucesso." });
+        toast({ title: "Acesso liberado!", description: "Seu plano foi ativado com sucesso." });
         window.location.reload();
       } else {
         toast({
-          title: "Pagamento não confirmado",
-          description: "Aguarde alguns minutos. Se já pagou, em breve será liberado.",
+          title: "Pagamento nao confirmado",
+          description: "Aguarde alguns minutos. Se ja pagou, em breve sera liberado.",
           variant: "destructive",
         });
       }
     } catch {
       toast({
         title: "Erro ao verificar",
-        description: "Não foi possível verificar seu acesso. Tente novamente.",
+        description: "Nao foi possivel verificar seu acesso. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -95,42 +95,42 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               Seus 3 dias acabaram!
             </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-[320px]">
-              Pra continuar usando o Orbis, ative sua assinatura. Seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados.
+              Pra continuar usando o Orbis, ative sua assinatura. Seu historico, sua ofensiva e seu lugar no ranking estao guardados.
             </p>
           </div>
 
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 mb-3">
             <p className="text-xs font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
               <X className="w-3.5 h-3.5" />
-              Sem assinatura você perde
+              Sem assinatura voce perde
             </p>
             <ul className="space-y-1.5 text-[13px] text-foreground/80">
-              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">•</span><span>Seu histórico de vendas e relatórios travam</span></li>
-              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">•</span><span>O mentor de rua (IA) para de te ajudar a vender</span></li>
-              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">•</span><span>Você sai do ranking e perde sua ofensiva 🔥</span></li>
+              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">-</span><span>Seu historico de vendas e relatorios travam</span></li>
+              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">-</span><span>O mentor de rua (IA) para de te ajudar a vender</span></li>
+              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">-</span><span>Voce sai do ranking e perde sua ofensiva</span></li>
             </ul>
           </div>
 
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-5">
             <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
-              Continuando no Orbis você
+              Continuando no Orbis voce
             </p>
             <ul className="space-y-2 text-[13px] text-foreground/90">
-              <li className="flex items-start gap-2.5"><Target className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Domina seus números</strong> em tempo real</span></li>
+              <li className="flex items-start gap-2.5"><Target className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Domina seus numeros</strong> em tempo real</span></li>
               <li className="flex items-start gap-2.5"><Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Tem o mentor de rua (IA)</strong> no bolso, todo dia</span></li>
               <li className="flex items-start gap-2.5"><TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Organiza a rotina</strong> e bate metas com ritmo</span></li>
-              <li className="flex items-start gap-2.5"><Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Sobe no ranking</strong> e constrói sua ofensiva 🔥</span></li>
+              <li className="flex items-start gap-2.5"><Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Sobe no ranking</strong> e constroi sua ofensiva</span></li>
             </ul>
           </div>
 
           <div className="text-center mb-4">
             <div className="inline-flex items-baseline gap-1">
               <span className="text-3xl font-black text-primary leading-none">R$ 29,99</span>
-              <span className="text-sm text-muted-foreground">/mês</span>
+              <span className="text-sm text-muted-foreground">/mes</span>
             </div>
-            <p className="text-sm font-semibold text-foreground/90 mt-1">Só R$ 0,99 por dia — o preço de uma bala que você vende.</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser • Sem multa</p>
+            <p className="text-sm font-semibold text-foreground/90 mt-1">So R$ 0,99 por dia.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser - Sem multa</p>
           </div>
 
           <div className="space-y-2">
@@ -139,7 +139,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
             >
               <CreditCard className="w-4 h-4 mr-2" />
-              Reativar agora — R$ 29,99/mês
+              Reativar agora - R$ 29,99/mes
             </Button>
 
             <Button
@@ -149,7 +149,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               disabled={isChecking}
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isChecking ? "animate-spin" : ""}`} />
-              {isChecking ? "Verificando..." : "Já paguei, verificar acesso"}
+              {isChecking ? "Verificando..." : "Ja paguei, verificar acesso"}
             </Button>
 
             <Button
@@ -162,7 +162,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
             </Button>
           </div>
 
-          <p className="text-xs text-center text-muted-foreground/70 mt-3">🔒 Pagamento seguro via Hotmart</p>
+          <p className="text-xs text-center text-muted-foreground/70 mt-3">Pagamento seguro via Hotmart</p>
         </div>
       </DialogContent>
     </Dialog>
