@@ -1,6 +1,6 @@
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
-import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
+import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
@@ -10,10 +10,10 @@ import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void;
 }
 
-export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModalProps) {
+export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
@@ -48,10 +48,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
       const isActive = hasActiveSub || profile?.plan_status === "active" || (profile?.is_demo && profile?.billing_exempt);
 
       if (isActive) {
-        toast({
-          title: "✅ Acesso liberado!",
-          description: "Seu plano foi ativado com sucesso.",
-        });
+        toast({ title: "✅ Acesso liberado!", description: "Seu plano foi ativado com sucesso." });
         window.location.reload();
       } else {
         toast({
@@ -59,7 +56,6 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
           description: "Aguarde alguns minutos. Se já pagou, em breve será liberado.",
           variant: "destructive",
         });
-        onClose();
       }
     } catch {
       toast({
@@ -78,17 +74,16 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={() => {}}>
       <DialogContent
-        className="p-0 gap-0 max-w-[420px] w-[calc(100vw-1.5rem)] max-h-[92dvh] overflow-hidden border border-primary/30 bg-background rounded-2xl"
+        className="p-0 gap-0 max-w-[420px] w-[calc(100vw-1.5rem)] max-h-[92dvh] overflow-hidden border border-primary/30 bg-background rounded-2xl [&>button]:hidden"
         onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        {/* Glow decorations */}
         <div className="absolute -top-24 -right-24 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-56 h-56 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7">
-          {/* Header */}
           <div className="flex flex-col items-center text-center mb-5">
             <div className="relative mb-3">
               <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full" />
@@ -97,62 +92,38 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
               </div>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground leading-tight">
-              Você chegou longe. Não pare agora.
+              Seus 3 dias acabaram!
             </h2>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-[320px]">
-              Seus 3 dias acabaram — mas seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados. Reative pra não perder nada.
+              Pra continuar usando o Orbis, ative sua assinatura. Seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados.
             </p>
           </div>
 
-          {/* What you LOSE */}
           <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 mb-3">
             <p className="text-xs font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
               <X className="w-3.5 h-3.5" />
               Sem assinatura você perde
             </p>
             <ul className="space-y-1.5 text-[13px] text-foreground/80">
-              <li className="flex items-start gap-2">
-                <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Seu histórico de vendas e relatórios travam</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-destructive/70 mt-0.5">•</span>
-                <span>O mentor de rua (IA) para de te ajudar a vender</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Você sai do ranking e perde sua ofensiva 🔥</span>
-              </li>
+              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">•</span><span>Seu histórico de vendas e relatórios travam</span></li>
+              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">•</span><span>O mentor de rua (IA) para de te ajudar a vender</span></li>
+              <li className="flex items-start gap-2"><span className="text-destructive/70 mt-0.5">•</span><span>Você sai do ranking e perde sua ofensiva 🔥</span></li>
             </ul>
           </div>
 
-          {/* What you GET */}
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-5">
             <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
               Continuando no Orbis você
             </p>
             <ul className="space-y-2 text-[13px] text-foreground/90">
-              <li className="flex items-start gap-2.5">
-                <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Domina seus números</strong> em tempo real</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Tem o mentor de rua (IA)</strong> no bolso, todo dia</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Organiza a rotina</strong> e bate metas com ritmo</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Sobe no ranking</strong> e constrói sua ofensiva 🔥</span>
-              </li>
+              <li className="flex items-start gap-2.5"><Target className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Domina seus números</strong> em tempo real</span></li>
+              <li className="flex items-start gap-2.5"><Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Tem o mentor de rua (IA)</strong> no bolso, todo dia</span></li>
+              <li className="flex items-start gap-2.5"><TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Organiza a rotina</strong> e bate metas com ritmo</span></li>
+              <li className="flex items-start gap-2.5"><Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" /><span><strong className="text-foreground">Sobe no ranking</strong> e constrói sua ofensiva 🔥</span></li>
             </ul>
           </div>
 
-          {/* Price */}
           <div className="text-center mb-4">
             <div className="inline-flex items-baseline gap-1">
               <span className="text-3xl font-black text-primary leading-none">R$ 29,99</span>
@@ -162,7 +133,6 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
             <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser • Sem multa</p>
           </div>
 
-          {/* Actions */}
           <div className="space-y-2">
             <Button
               onClick={handleActivatePlan}
@@ -183,15 +153,6 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
             </Button>
 
             <Button
-              onClick={onClose}
-              variant="ghost"
-              className="w-full h-9 text-xs text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="w-3.5 h-3.5 mr-2" />
-              Voltar ao app
-            </Button>
-
-            <Button
               onClick={handleLogout}
               variant="ghost"
               className="w-full h-9 text-xs text-muted-foreground/50 hover:text-foreground"
@@ -201,9 +162,7 @@ export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModal
             </Button>
           </div>
 
-          <p className="text-xs text-center text-muted-foreground/70 mt-3">
-            🔒 Pagamento seguro via Hotmart
-          </p>
+          <p className="text-xs text-center text-muted-foreground/70 mt-3">🔒 Pagamento seguro via Hotmart</p>
         </div>
       </DialogContent>
     </Dialog>
