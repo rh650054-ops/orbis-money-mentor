@@ -139,38 +139,14 @@ export default function Layout({ children }: LayoutProps) {
   }, [mustChangePassword, user, location.pathname, navigate]);
 
   useEffect(() => {
-    // Fast redirect for non-authenticated users
+    // Redireciona quem não está logado para o login.
     if (!loading && !user) {
       navigate("/auth", { replace: true });
-      return;
     }
-
-    // Block all redirects during onboarding
-    if (!onboardingCompleto) return;
-
-    // Skip checks while loading
-    if (loading || trialLoading || subscriptionLoading || !user) return;
-
-    const currentPath = location.pathname;
-    const allowedPaths = ['/payment', '/benefits', '/auth'];
-    
-    // Fast redirect for expired trial WITHOUT active subscription (admins are exempt)
-    // Use ref (synchronous) to avoid race condition with dismiss click
-    const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed && !isAdmin;
-    if (needsSubscription && !trialDismissedRef.current && !allowedPaths.includes(currentPath)) {
-      navigate("/payment", { replace: true });
-      return;
-    }
-
-  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto]);
-
-  const shouldShowTrialExpiredModal =
-    onboardingCompleto &&
-    !trialLoading &&
-    trialStatus.isExpired &&
-    trialStatus.planStatus === 'expired' &&
-    !isAdmin &&
-    location.pathname !== '/payment';
+    // OBS: o bloqueio de teste expirado agora é feito pelo PaywallGate (em router.tsx),
+    // que mostra o popup bonito em TODAS as telas (Foco, DEFCON, Dashboard, etc.).
+    // Por isso NÃO redirecionamos mais os expirados para /payment aqui.
+  }, [user, loading, navigate]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -393,13 +369,8 @@ export default function Layout({ children }: LayoutProps) {
         <MorningCommitModal userId={user.id} onDismiss={() => {}} />
       )}
 
-      {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
-      {onboardingCompleto && !trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !trialModalDismissed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
-        <TrialExpiredModal
-          isOpen={true}
-          onClose={handleDismissTrialModal}
-        />
-      )}
+      {/* OBS: o popup de teste expirado agora é renderizado pelo PaywallGate (router.tsx),
+          pra aparecer igual em TODAS as telas, inclusive o DEFCON. */}
     </div>
   );
 }
