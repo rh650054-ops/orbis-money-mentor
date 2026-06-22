@@ -115,25 +115,27 @@ export default function Chat() {
   };
 
   return (
-    <div className="min-h-[calc(100dvh-9rem)] md:min-h-[calc(100vh-4rem)] pb-4">
-      <div className="mb-3">
-        <h1 className="text-2xl font-bold">Comunidade Orbis</h1>
+    <div className="mx-auto w-full max-w-xl pb-4">
+      <div className="mb-2 px-1">
+        <h1 className="text-2xl font-extrabold tracking-tight">Comunidade Orbis</h1>
         <p className="text-sm text-muted-foreground">Feed de vendedores na ativa</p>
       </div>
 
       <Tabs value={channel} onValueChange={(v) => setChannel(v as FeedChannel)} className="w-full">
-        <TabsList className="grid grid-cols-2 w-full mb-3">
-          <TabsTrigger value="global" className="gap-2"><Globe className="h-4 w-4" /> Global</TabsTrigger>
-          <TabsTrigger value="regional" className="gap-2">
+        <TabsList className="grid w-full grid-cols-2 h-auto p-0 mb-3 bg-transparent rounded-none border-b border-border/60">
+          <TabsTrigger value="global" className="gap-2 rounded-none border-b-2 border-transparent bg-transparent py-2.5 font-semibold text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">
+            <Globe className="h-4 w-4" /> Global
+          </TabsTrigger>
+          <TabsTrigger value="regional" className="gap-2 rounded-none border-b-2 border-transparent bg-transparent py-2.5 font-semibold text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">
             <MapPin className="h-4 w-4" />
             {profile?.city ? profile.city : profile?.state ? profile.state : "Regional"}
           </TabsTrigger>
         </TabsList>
 
         {(["global","regional"] as FeedChannel[]).map((ch) => (
-          <TabsContent key={ch} value={ch} className="mt-0 space-y-3 data-[state=inactive]:hidden">
+          <TabsContent key={ch} value={ch} className="mt-0 data-[state=inactive]:hidden focus-visible:outline-none">
             {ch === "regional" && !profile?.state ? (
-              <div className="bg-card border border-border/60 rounded-xl p-8 flex flex-col items-center text-center gap-3">
+              <div className="bg-card border border-border/60 rounded-2xl p-8 flex flex-col items-center text-center gap-3">
                 <MapPin className="h-10 w-10 text-muted-foreground" />
                 <div>
                   <h3 className="font-semibold mb-1">Defina sua região</h3>
@@ -145,33 +147,37 @@ export default function Chat() {
               </div>
             ) : (
               <>
-                <PostComposer channel={ch} profile={profile} onPosted={reload} />
+                <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/30">
+                  <PostComposer channel={ch} profile={profile} onPosted={reload} />
 
-                {loading ? (
-                  <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-                ) : posts.length === 0 ? (
-                  <p className="text-center text-sm text-muted-foreground py-10">
-                    Nenhum post ainda. Comece você!
-                  </p>
-                ) : (
-                  posts.map((p) => (
-                    <PostCard
-                      key={p.id}
-                      post={p}
-                      isMine={p.user_id === user?.id}
-                      onLike={() => toggleLike(p.id)}
-                      onOpenComments={() => setOpenCommentsFor(p.id)}
-                      onShare={() => handleShare(p)}
-                      onRepost={() => handleRepost(p)}
-                      onDelete={() => handleDelete(p.id)}
-                    />
-                  ))
-                )}
+                  {loading ? (
+                    <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+                  ) : posts.length === 0 ? (
+                    <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+                      Seja o primeiro a postar! 🚀
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-border/60">
+                      {posts.map((p) => (
+                        <PostCard
+                          key={p.id}
+                          post={p}
+                          isMine={p.user_id === user?.id}
+                          onLike={() => toggleLike(p.id)}
+                          onOpenComments={() => setOpenCommentsFor(p.id)}
+                          onShare={() => handleShare(p)}
+                          onRepost={() => handleRepost(p)}
+                          onDelete={() => handleDelete(p.id)}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {ch === "regional" && profile?.state && (
                   <button
                     onClick={() => setSetupOpen(true)}
-                    className="text-xs text-muted-foreground mx-auto block hover:text-foreground mt-2"
+                    className="mx-auto mt-3 block text-xs text-muted-foreground hover:text-foreground"
                   >
                     Trocar região
                   </button>
