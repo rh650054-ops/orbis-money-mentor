@@ -659,7 +659,40 @@ export default function AdminSubscriptions() {
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+                      disabled={isUpdating === u.user_id || u.plan_status === "active" || Boolean(u.is_demo && u.billing_exempt)}
+                      title="Dar +3 dias de teste gratis"
+                      onClick={async () => {
+                        setIsUpdating(u.user_id);
+                        try {
+                          const base = new Date();
+                          const atual = (u.trial_end || "").slice(0, 10);
+                          if (atual) {
+                            const fim = new Date(atual + "T23:59:59-03:00");
+                            if (fim.getTime() > base.getTime()) base.setTime(fim.getTime());
+                          }
+                          base.setDate(base.getDate() + 3);
+                          const novo = base.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+                          const { error } = await supabase
+                            .from("profiles")
+                            .update({ trial_end: novo, is_trial_active: true, plan_status: "trial" })
+                            .eq("user_id", u.user_id);
+                          if (error) throw error;
+                          toast({ title: "🎁 +3 dias liberados!", description: `Novo fim do teste: ${new Date(novo + "T12:00:00").toLocaleDateString("pt-BR")}` });
+                          loadUsers();
+                        } catch (err: any) {
+                          toast({ title: "Erro", description: err.message || "Nao foi possivel dar os 3 dias.", variant: "destructive" });
+                        } finally {
+                          setIsUpdating(null);
+                        }
+                      }}
+                    >
+                      {isUpdating === u.user_id ? <RefreshCw className="w-4 h-4 animate-spin" /> : "+3 dias"}
+                    </Button>
                     {(() => {
                       const digits = (u.phone || "").replace(/\D/g, "");
                       if (digits.length < 10) return null;

@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "@/app/layout";
+import PaywallGate from "@/components/PaywallGate";
 
 // Recarrega a página UMA vez se um chunk antigo sumiu após um deploy novo.
 // Corrige o bug de "cliquei no menu, ficou amarelo, mas a tela não trocou"
@@ -74,6 +75,7 @@ function PageLoader() {
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <PaywallGate />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
