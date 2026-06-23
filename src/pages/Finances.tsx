@@ -2,18 +2,15 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
+import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useToast } from "@/shared/hooks/use-toast";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { Badge } from "@/shared/ui/badge";
 import { Progress } from "@/shared/ui/progress";
-import NumericKeyboard from "@/components/NumericKeyboard";
 import AutoDistribution from "@/components/AutoDistribution";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import {
@@ -24,37 +21,22 @@ import {
   Trash2,
   Target,
   AlertCircle,
-  DollarSign,
-  ShoppingCart,
-  Home as HomeIcon,
-  Utensils,
-  GraduationCap,
-  Car,
-  Heart,
-  Sparkles,
   Calendar,
-  Gamepad2,
-  Coins,
-  Package,
   Check,
   ImagePlus,
   BarChart3
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
-import { CATEGORY_COLORS, CATEGORY_DEFAULT_COLOR } from "@/shared/lib/theme-colors";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 
-interface Expense {
+interface PlannedBill {
   id: string;
-  category: string;
   name: string;
   amount: number;
-  type: "fixed" | "variable";
-  icon: string;
-  color: string;
-  date: string;
-  notes?: string;
+  due_date: string | null;
+  saved_amount: number;
+  paid: boolean;
 }
 
 interface Goal {
@@ -69,76 +51,44 @@ interface Goal {
 
 interface FinancialSummary {
   totalProfit: number;
-  totalExpenses: number;
   totalReinvestment: number;
-  personalBalance: number;
-  monthlyBudget: number;
-  budgetRemaining: number;
   // Hoje
   grossToday: number;
   costToday: number;
+  transportToday: number;
+  foodToday: number;
   debtToday: number;
-  expensesToday: number;
   netToday: number;
   // Mês
   monthlyNetProfit: number;
 }
 
-const EXPENSE_CATEGORIES = [
-  { value: "food", label: "Alimentação", icon: "🍕", color: CATEGORY_COLORS.food },
-  { value: "housing", label: "Moradia", icon: "🏠", color: CATEGORY_COLORS.housing },
-  { value: "transport", label: "Transporte", icon: "🚗", color: CATEGORY_COLORS.transport },
-  { value: "education", label: "Educação", icon: "🧠", color: CATEGORY_COLORS.education },
-  { value: "health", label: "Saúde", icon: "❤️", color: CATEGORY_COLORS.health },
-  { value: "leisure", label: "Lazer", icon: "🎮", color: CATEGORY_COLORS.leisure },
-  { value: "merchandise", label: "Mercadoria", icon: "🧃", color: CATEGORY_COLORS.merchandise },
-  { value: "other", label: "Outros", icon: "💰", color: CATEGORY_COLORS.other }
-];
-
-const CATEGORY_ICONS: Record<string, typeof Wallet> = {
-  food: Utensils,
-  housing: HomeIcon,
-  transport: Car,
-  education: GraduationCap,
-  health: Heart,
-  leisure: Gamepad2,
-  merchandise: Package,
-  other: Coins,
-};
-
 export default function Finances() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { toast } = useToast();
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [bills, setBills] = useState<PlannedBill[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [summary, setSummary] = useState<FinancialSummary>({
     totalProfit: 0,
-    totalExpenses: 0,
     totalReinvestment: 0,
-    personalBalance: 0,
-    monthlyBudget: 0,
-    budgetRemaining: 0,
     grossToday: 0,
     costToday: 0,
+    transportToday: 0,
+    foodToday: 0,
     debtToday: 0,
-    expensesToday: 0,
     netToday: 0,
     monthlyNetProfit: 0,
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
+  const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
-  const [isEditBudgetOpen, setIsEditBudgetOpen] = useState(false);
-  const [budgetInput, setBudgetInput] = useState("");
 
-  // Form states for new expense
-  const [newExpense, setNewExpense] = useState({
-    category: "food",
+  // Form state for new planned bill (Contas a pagar)
+  const [newBill, setNewBill] = useState({
     name: "",
     amount: "",
-    type: "variable" as "fixed" | "variable",
-    notes: ""
+    due_date: "",
   });
 
   // Form states for new goal
@@ -176,15 +126,17 @@ export default function Finances() {
     setIsLoadingData(true);
 
     try {
-      // Load expenses
-      const { data: expensesData, error: expensesError } = await supabase
-        .from("personal_expenses")
-        .select("*")
+      // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
+      const { data: billsData, error: billsError } = await supabase
+        .from("planned_bills")
+        .select("id, name, amount, due_date, saved_amount, paid")
         .eq("user_id", user.id)
-        .order("date", { ascending: false });
+        .order("paid", { ascending: true })
+        .order("due_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true });
 
-      if (expensesError) throw expensesError;
-      setExpenses((expensesData || []) as Expense[]);
+      if (billsError) throw billsError;
+      setBills((billsData || []) as PlannedBill[]);
 
       // Load goals
       const { data: goalsData, error: goalsError } = await supabase
@@ -206,21 +158,12 @@ export default function Finances() {
 
       const { data: salesData, error: salesError } = await supabase
         .from("daily_sales")
-        .select("date, total_profit, cost, reinvestment, cash_sales, pix_sales, card_sales, total_debt")
+        .select("date, total_profit, cost, reinvestment, cash_sales, pix_sales, card_sales, total_debt, transport_cost, food_cost")
         .eq("user_id", user.id)
         .gte("date", `${currentMonth}-01`)
         .lte("date", `${currentMonth}-${String(lastDay).padStart(2, '0')}`);
 
       if (salesError) throw salesError;
-
-      // Load monthly budget from profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("monthly_goal")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const monthlyBudget = profileData?.monthly_goal || 0;
 
       // Bruto do mês com o MESMO fallback robusto por dia: Total Vendido,
       // ou soma dos métodos de pagamento quando o Total Vendido vier zerado.
@@ -233,20 +176,16 @@ export default function Finances() {
         return sum + dayGross;
       }, 0) || 0;
       const totalCostMonth = salesData?.reduce((sum, s) => sum + (Number(s.cost) || 0), 0) || 0;
+      const totalTransportMonth = salesData?.reduce((sum, s) => sum + (Number(s.transport_cost) || 0), 0) || 0;
+      const totalFoodMonth = salesData?.reduce((sum, s) => sum + (Number(s.food_cost) || 0), 0) || 0;
       const totalReinvestment = salesData?.reduce((sum, s) => sum + (Number(s.reinvestment) || 0), 0) || 0;
-      const totalExpenses = expensesData?.reduce((sum, e) => {
-        if (e.date.startsWith(currentMonth)) {
-          return sum + (Number(e.amount) || 0);
-        }
-        return sum;
-      }, 0) || 0;
 
       // Hoje (UTC-3)
       const today = getBrazilDate();
       const todaySale = salesData?.find((s) => s.date === today);
       // BRUTO robusto: usa "Total Vendido" (total_profit); se vier zerado, cai
       // pra soma dos métodos de pagamento. Corrige o bug em que lançar só o
-      // Total Vendido deixava o bruto/meta em R$0.
+      // Total Vendido deixava o bruto em R$0.
       const paymentsToday =
         Number(todaySale?.cash_sales || 0) +
         Number(todaySale?.pix_sales || 0) +
@@ -254,30 +193,25 @@ export default function Finances() {
       const grossToday =
         Number(todaySale?.total_profit) > 0 ? Number(todaySale?.total_profit) : paymentsToday;
       const costToday = Number(todaySale?.cost || 0);
+      const transportToday = Number(todaySale?.transport_cost || 0);
+      const foodToday = Number(todaySale?.food_cost || 0);
       const debtToday = Number(todaySale?.total_debt || 0);
-      const expensesToday = (expensesData || []).reduce(
-        (sum, e: any) => (e.date === today ? sum + (Number(e.amount) || 0) : sum),
-        0
-      );
-      // LÍQUIDO = BRUTO − CUSTO DO PRODUTO − DESPESAS DO DIA (calote NÃO entra).
+      // LÍQUIDO = BRUTO − MERCADORIA − TRANSPORTE − ALIMENTAÇÃO (calote NÃO entra).
       // Pode ficar negativo (dia de prejuízo), igual à planilha.
-      const netToday = grossToday - costToday - expensesToday;
+      const netToday = grossToday - costToday - transportToday - foodToday;
 
-      // Lucro líquido do mês = faturamento − custo de mercadoria (CMV) − despesas pessoais.
+      // Lucro líquido do mês = faturamento − mercadoria (CMV) − transporte − alimentação.
       // Calote NÃO entra; permite negativo.
-      const monthlyNetProfit = totalProfit - totalCostMonth - totalExpenses;
+      const monthlyNetProfit = totalProfit - totalCostMonth - totalTransportMonth - totalFoodMonth;
 
       setSummary({
         totalProfit,
-        totalExpenses,
         totalReinvestment,
-        personalBalance: totalProfit - totalExpenses - totalReinvestment,
-        monthlyBudget,
-        budgetRemaining: monthlyBudget - totalExpenses,
         grossToday,
         costToday,
+        transportToday,
+        foodToday,
         debtToday,
-        expensesToday,
         netToday,
         monthlyNetProfit,
       });
@@ -294,73 +228,118 @@ export default function Finances() {
     }
   };
 
-  const handleAddExpense = async () => {
-    if (!user || !newExpense.name || !newExpense.amount) {
+  const handleAddBill = async () => {
+    if (!user || !newBill.name || !newBill.amount) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha o nome e o valor da despesa",
+        description: "Preencha o nome e o valor da conta",
         variant: "destructive"
       });
       return;
     }
 
-    const selectedCategory = EXPENSE_CATEGORIES.find(c => c.value === newExpense.category);
-
     try {
       const { error } = await supabase
-        .from("personal_expenses")
+        .from("planned_bills")
         .insert({
           user_id: user.id,
-          category: newExpense.category,
-          name: newExpense.name,
-          amount: parseFloat(newExpense.amount),
-          type: newExpense.type,
-          icon: selectedCategory?.icon || "💰",
-          color: selectedCategory?.color || CATEGORY_DEFAULT_COLOR,
-          notes: newExpense.notes || null
+          name: newBill.name,
+          amount: parseFloat(newBill.amount),
+          due_date: newBill.due_date || null,
+          saved_amount: 0,
+          paid: false,
         });
 
       if (error) throw error;
 
       toast({
-        title: "Despesa adicionada!",
-        description: `${selectedCategory?.icon} ${newExpense.name} registrada com sucesso`,
+        title: "Conta adicionada!",
+        description: `${newBill.name} entrou no seu planejamento`,
       });
 
-      setNewExpense({ category: "food", name: "", amount: "", type: "variable", notes: "" });
-      setIsAddExpenseOpen(false);
+      setNewBill({ name: "", amount: "", due_date: "" });
+      setIsAddBillOpen(false);
       loadFinancialData();
     } catch (error) {
-      console.error("Error adding expense:", error);
+      console.error("Error adding bill:", error);
       toast({
-        title: "Erro ao adicionar despesa",
+        title: "Erro ao adicionar conta",
         description: "Tente novamente mais tarde",
         variant: "destructive"
       });
     }
   };
 
-  const handleDeleteExpense = async (id: string) => {
+  const handleDepositBill = async (bill: PlannedBill) => {
+    const raw = prompt(`Quanto você guardou para "${bill.name}"? (R$)`);
+    if (raw === null) return;
+    const value = parseFloat(raw.replace(",", "."));
+    if (isNaN(value) || value <= 0) {
+      toast({
+        title: "Valor inválido",
+        description: "Digite um valor maior que zero",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      const newSaved = Number(bill.saved_amount) + value;
       const { error } = await supabase
-        .from("personal_expenses")
-        .delete()
-        .eq("id", id);
+        .from("planned_bills")
+        .update({ saved_amount: newSaved })
+        .eq("id", bill.id);
 
       if (error) throw error;
 
       toast({
-        title: "Despesa removida",
-        description: "A despesa foi excluída com sucesso",
+        title: "Guardado!",
+        description: `${formatCurrency(value)} reservado para ${bill.name}`,
       });
-
       loadFinancialData();
     } catch (error) {
-      console.error("Error deleting expense:", error);
+      console.error("Error depositing into bill:", error);
+      toast({ title: "Erro ao guardar", variant: "destructive" });
+    }
+  };
+
+  const handleToggleBillPaid = async (bill: PlannedBill) => {
+    try {
+      const { error } = await supabase
+        .from("planned_bills")
+        .update({ paid: !bill.paid })
+        .eq("id", bill.id);
+
+      if (error) throw error;
+
       toast({
-        title: "Erro ao remover despesa",
-        variant: "destructive"
+        title: bill.paid ? "Conta reaberta" : "Conta quitada ✓",
+        description: bill.paid
+          ? `${bill.name} voltou para as contas a pagar`
+          : `${bill.name} marcada como paga`,
       });
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error toggling bill paid:", error);
+      toast({ title: "Erro ao atualizar conta", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteBill = async (bill: PlannedBill) => {
+    if (!confirm(`Tem certeza que deseja excluir a conta "${bill.name}"?`)) return;
+    try {
+      const { error } = await supabase
+        .from("planned_bills")
+        .delete()
+        .eq("id", bill.id);
+
+      if (error) throw error;
+
+      toast({ title: "Conta removida", description: `"${bill.name}" foi excluída.` });
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error deleting bill:", error);
+      toast({ title: "Erro ao remover conta", variant: "destructive" });
     }
   };
 
@@ -487,71 +466,9 @@ export default function Finances() {
     }
   };
 
-  const handleUpdateBudget = async () => {
-    if (!user || !budgetInput) return;
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ monthly_goal: parseFloat(budgetInput) })
-        .eq("user_id", user.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Orçamento atualizado!",
-        description: `Seu orçamento mensal agora é ${formatCurrency(parseFloat(budgetInput))}`,
-      });
-
-      setBudgetInput("");
-      setIsEditBudgetOpen(false);
-      loadFinancialData();
-    } catch (error) {
-      console.error("Error updating budget:", error);
-      toast({
-        title: "Erro ao atualizar orçamento",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleNumberClick = (num: string) => {
-    setNewExpense({ ...newExpense, amount: newExpense.amount + num });
-  };
-
-  const handleDelete = () => {
-    setNewExpense({ ...newExpense, amount: newExpense.amount.slice(0, -1) });
-  };
-
-  const handleClear = () => {
-    setNewExpense({ ...newExpense, amount: "" });
-  };
-
-  const handleBudgetNumberClick = (num: string) => {
-    setBudgetInput(budgetInput + num);
-  };
-
-  const handleBudgetDelete = () => {
-    setBudgetInput(budgetInput.slice(0, -1));
-  };
-
-  const handleBudgetClear = () => {
-    setBudgetInput("");
-  };
-
   if (loading || !user) {
     return null;
   }
-
-  const budgetPercentage = summary.monthlyBudget > 0
-    ? (summary.totalExpenses / summary.monthlyBudget) * 100
-    : 0;
-
-  const getBudgetColor = () => {
-    if (budgetPercentage < 60) return "text-success";
-    if (budgetPercentage < 90) return "text-warning";
-    return "text-destructive";
-  };
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -559,15 +476,7 @@ export default function Finances() {
         <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
           <Wallet className="w-5 h-5 text-primary" />
         </div>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Minhas Finanças</h1>
-          <p className="text-muted-foreground mt-0.5">
-            Veja quanto sobrou no bolso, controle seus gastos e guarde pras suas metas.
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            O líquido é igual à sua planilha: <span className="font-medium text-foreground">o que vendeu − mercadoria − despesas do dia</span>.
-          </p>
-        </div>
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Minhas Finanças</h1>
       </div>
 
       {/* Resumo do dia */}
@@ -597,9 +506,9 @@ export default function Finances() {
                 <div className="min-w-0">
                   <p className="text-sm text-muted-foreground">Custos do dia</p>
                   <div className="text-2xl font-bold text-destructive whitespace-nowrap">
-                    {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
+                    {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.transportToday + summary.foodToday)}`}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">mercadoria + despesas do dia</p>
+                  <p className="text-xs text-muted-foreground mt-1">mercadoria + transporte + alimentação</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
                   <TrendingDown className="w-5 h-5 text-destructive" />
@@ -616,7 +525,7 @@ export default function Finances() {
                   <div className={`text-3xl font-bold whitespace-nowrap ${summary.netToday < 0 ? "text-destructive" : "text-primary"}`}>
                     {isLoadingData ? <Skeleton className="h-9 w-28" /> : formatCurrency(summary.netToday)}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">bruto − mercadoria − despesas do dia</p>
+                  <p className="text-xs text-muted-foreground mt-1">bruto − mercadoria − transporte − alimentação</p>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
                   <Wallet className="w-5 h-5 text-primary" />
@@ -638,98 +547,6 @@ export default function Finances() {
         </div>
       )}
 
-      {/* Meta Mensal */}
-      {(() => {
-        const goalPct = summary.monthlyBudget > 0
-          ? (summary.monthlyNetProfit / summary.monthlyBudget) * 100
-          : 0;
-        const remainingToGoal = Math.max(0, summary.monthlyBudget - summary.monthlyNetProfit);
-        const goalColor =
-          goalPct >= 100 ? "text-success" : goalPct >= 60 ? "text-primary" : "text-warning";
-        return (
-          <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary" />
-                  Meta Mensal
-                </CardTitle>
-                <Dialog open={isEditBudgetOpen} onOpenChange={setIsEditBudgetOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Editar
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Definir Meta Mensal</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 pt-4">
-                      <div>
-                        <Label>Valor da meta (R$)</Label>
-                        <div className="mt-2 p-4 bg-muted rounded-lg">
-                          <p className="text-3xl font-bold text-center">
-                            R$ {budgetInput || "0.00"}
-                          </p>
-                        </div>
-                      </div>
-                      <NumericKeyboard
-                        onNumberClick={handleBudgetNumberClick}
-                        onDelete={handleBudgetDelete}
-                        onClear={handleBudgetClear}
-                      />
-                      <Button onClick={handleUpdateBudget} className="w-full">
-                        Salvar meta
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Meta do mês</p>
-                    <p className="text-2xl font-bold whitespace-nowrap">
-                      {formatCurrency(summary.monthlyBudget)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">
-                      {goalPct >= 100 ? "Meta batida" : "Faltam"}
-                    </p>
-                    <p className={`text-2xl font-bold whitespace-nowrap ${goalColor}`}>
-                      {goalPct >= 100 ? formatCurrency(summary.monthlyNetProfit) : formatCurrency(remainingToGoal)}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Progresso (líquido do mês)</span>
-                    <span className={`font-bold ${goalColor}`}>
-                      {goalPct.toFixed(0)}%
-                    </span>
-                  </div>
-                  <Progress
-                    value={Math.min(goalPct, 100)}
-                    className="h-3"
-                  />
-                </div>
-                {summary.monthlyBudget === 0 && (
-                  <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
-                    <AlertCircle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
-                    <p className="text-xs text-warning">
-                      Defina sua meta mensal pra acompanhar o quanto você já avançou.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        );
-      })()}
-
       {/* Distribuição automática do líquido diário */}
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
         <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
@@ -745,102 +562,65 @@ export default function Finances() {
         Ver relatório completo
       </Button>
 
-      <Tabs defaultValue="expenses" className="w-full">
+      <Tabs defaultValue="bills" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="expenses">Despesas</TabsTrigger>
+          <TabsTrigger value="bills">Contas a pagar</TabsTrigger>
           <TabsTrigger value="goals">Metas</TabsTrigger>
         </TabsList>
 
-        {/* Expenses Tab */}
-        <TabsContent value="expenses" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Despesas Pessoais</h2>
-            <Dialog open={isAddExpenseOpen} onOpenChange={setIsAddExpenseOpen}>
+        {/* Contas a pagar — planejador (planned_bills) */}
+        <TabsContent value="bills" className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div>
+              <h2 className="text-xl font-semibold">Contas a pagar</h2>
+              <p className="text-sm text-muted-foreground">
+                Planeje quanto guardar por dia pra cada conta chegar paga.
+              </p>
+            </div>
+            <Dialog open={isAddBillOpen} onOpenChange={setIsAddBillOpen}>
               <DialogTrigger asChild>
-                <Button data-tour="nova-despesa" className="w-full sm:w-auto">
+                <Button className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
-                  Nova Despesa
+                  Nova conta
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-h-[90vh] overflow-y-auto w-[calc(100vw-2rem)] max-w-md sm:max-w-lg p-4 sm:p-6">
+              <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
                 <DialogHeader>
-                  <DialogTitle>Adicionar Despesa</DialogTitle>
+                  <DialogTitle>Nova conta a pagar</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
-                  <div>
-                    <Label>Categoria</Label>
-                    <Select
-                      value={newExpense.category}
-                      onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EXPENSE_CATEGORIES.map(cat => {
-                          const Icon = CATEGORY_ICONS[cat.value] ?? Coins;
-                          return (
-                            <SelectItem key={cat.value} value={cat.value}>
-                              <span className="flex items-center gap-2">
-                                <Icon className="w-4 h-4" style={{ color: cat.color }} />
-                                {cat.label}
-                              </span>
-                            </SelectItem>
-                          );
-                        })}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Nome da Despesa</Label>
+                  <div className="space-y-2">
+                    <Label>Nome da conta</Label>
                     <Input
-                      value={newExpense.name}
-                      onChange={(e) => setNewExpense({ ...newExpense, name: e.target.value })}
-                      placeholder="Ex: Aluguel, Mercado, Gasolina..."
+                      value={newBill.name}
+                      onChange={(e) => setNewBill({ ...newBill, name: e.target.value })}
+                      placeholder="Ex: Aluguel, Luz, Internet..."
                     />
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label>Valor (R$)</Label>
-                    <div className="mt-2 p-4 bg-muted rounded-lg">
-                      <p className="text-3xl font-bold text-center">
-                        R$ {newExpense.amount || "0.00"}
-                      </p>
-                    </div>
-                  </div>
-                  <NumericKeyboard
-                    onNumberClick={handleNumberClick}
-                    onDelete={handleDelete}
-                    onClear={handleClear}
-                  />
-                  <div>
-                    <Label>Tipo</Label>
-                    <Select
-                      value={newExpense.type}
-                      onValueChange={(value: "fixed" | "variable") => setNewExpense({ ...newExpense, type: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="fixed">Fixa (todo mês)</SelectItem>
-                        <SelectItem value="variable">Variável (eventual)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Observações (opcional)</Label>
                     <Input
-                      value={newExpense.notes}
-                      onChange={(e) => setNewExpense({ ...newExpense, notes: e.target.value })}
-                      placeholder="Detalhes adicionais..."
+                      type="number"
+                      step="0.01"
+                      value={newBill.amount}
+                      onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data de vencimento</Label>
+                    <Input
+                      type="date"
+                      value={newBill.due_date}
+                      onChange={(e) => setNewBill({ ...newBill, due_date: e.target.value })}
                     />
                   </div>
                   <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setIsAddExpenseOpen(false)} className="w-full sm:flex-1">
+                    <Button variant="outline" onClick={() => setIsAddBillOpen(false)} className="w-full sm:flex-1">
                       Voltar
                     </Button>
-                    <Button onClick={handleAddExpense} className="w-full sm:flex-1">
-                      Adicionar Despesa
+                    <Button onClick={handleAddBill} className="w-full sm:flex-1">
+                      Adicionar conta
                     </Button>
                   </div>
                 </div>
@@ -850,66 +630,119 @@ export default function Finances() {
 
           {isLoadingData ? (
             <div className="space-y-2">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
             </div>
-          ) : expenses.length === 0 ? (
+          ) : bills.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
-                Nenhuma despesa registrada ainda. Comece adicionando suas primeiras despesas!
+                Nenhuma conta cadastrada ainda. Toque em "Nova conta" pra planejar seus pagamentos.
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {expenses.map(expense => (
-                <Card key={expense.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="pt-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const Icon = CATEGORY_ICONS[expense.category] ?? Coins;
-                          return (
-                            <div
-                              className="w-11 h-11 rounded-xl flex items-center justify-center"
-                              style={{ backgroundColor: `${expense.color}1f`, border: `1px solid ${expense.color}40` }}
-                            >
-                              <Icon className="w-5 h-5" style={{ color: expense.color }} />
-                            </div>
-                          );
-                        })()}
-                        <div>
-                          <p className="font-semibold">{expense.name}</p>
-                          <div className="flex gap-2 items-center mt-1">
-                            <Badge variant={expense.type === "fixed" ? "default" : "secondary"} className="text-xs">
-                              {expense.type === "fixed" ? "Fixa" : "Variável"}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(expense.date).toLocaleDateString('pt-BR')}
-                            </span>
+            <div className="space-y-3">
+              {bills.map((bill) => {
+                const amount = Number(bill.amount) || 0;
+                const saved = Number(bill.saved_amount) || 0;
+                const remaining = Math.max(0, amount - saved);
+                const progress = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
+                const quitada = bill.paid || saved >= amount;
+
+                // Dias até o vencimento (parse ao meio-dia UTC evita erro de fuso/DST)
+                let daysLeft: number | null = null;
+                if (bill.due_date) {
+                  const msPerDay = 1000 * 60 * 60 * 24;
+                  const todayMs = new Date(getBrazilDate() + "T12:00:00Z").getTime();
+                  const dueMs = new Date(bill.due_date + "T12:00:00Z").getTime();
+                  daysLeft = Math.ceil((dueMs - todayMs) / msPerDay);
+                }
+                const perDay = remaining / Math.max(1, daysLeft ?? 1);
+
+                return (
+                  <Card key={bill.id} className={quitada ? "border-success/30" : "card-gradient-border"}>
+                    <CardContent className="pt-6 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold">{bill.name}</p>
+                          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
+                            <span>Valor: <span className="font-medium text-foreground">{formatCurrency(amount)}</span></span>
+                            {bill.due_date && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                Vence {new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                              </span>
+                            )}
                           </div>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <p className="text-lg font-bold text-destructive whitespace-nowrap">
-                          {formatCurrency(-Number(expense.amount))}
-                        </p>
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteExpense(expense.id)}
+                          onClick={() => handleDeleteBill(bill)}
+                          aria-label="Excluir conta"
                         >
                           <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
-                    </div>
-                    {expense.notes && (
-                      <p className="text-sm text-muted-foreground mt-2 ml-13">
-                        {expense.notes}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
+
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {formatCurrency(saved)} guardado
+                          </span>
+                          <span className="font-semibold text-primary">{progress.toFixed(0)}%</span>
+                        </div>
+                        <Progress value={progress} className="h-2" />
+                      </div>
+
+                      {quitada ? (
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-2.5 flex items-center justify-center gap-2">
+                          <Check className="w-4 h-4 text-success" />
+                          <p className="text-success font-semibold text-sm">Quitada ✓</p>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground">Guardar por dia</p>
+                            <p className="text-lg font-bold text-primary whitespace-nowrap">
+                              {formatCurrency(perDay)}/dia
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                            {daysLeft === null
+                              ? "sem prazo"
+                              : daysLeft > 0
+                              ? `faltam ${daysLeft} ${daysLeft === 1 ? "dia" : "dias"}`
+                              : daysLeft === 0
+                              ? "vence hoje"
+                              : `venceu há ${Math.abs(daysLeft)} ${Math.abs(daysLeft) === 1 ? "dia" : "dias"}`}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                        {!quitada && (
+                          <Button
+                            variant="outline"
+                            onClick={() => handleDepositBill(bill)}
+                            className="w-full sm:flex-1"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Guardei
+                          </Button>
+                        )}
+                        <Button
+                          variant={bill.paid ? "outline" : "default"}
+                          onClick={() => handleToggleBillPaid(bill)}
+                          className="w-full sm:flex-1"
+                        >
+                          <Check className="w-4 h-4 mr-2" />
+                          {bill.paid ? "Reabrir" : "Marcar paga"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </TabsContent>

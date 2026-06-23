@@ -40,7 +40,8 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
   const [goals, setGoals] = useState<GoalRow[]>([]);
   const [liquidoHoje, setLiquidoHoje] = useState(0);
   const [grossHoje, setGrossHoje] = useState(0);
-  const [despesasHoje, setDespesasHoje] = useState(0);
+  const [transportHoje, setTransportHoje] = useState(0);
+  const [foodHoje, setFoodHoje] = useState(0);
   const [costHoje, setCostHoje] = useState(0);
   const [caloteHoje, setCaloteHoje] = useState(0);
   const [todayDistribution, setTodayDistribution] = useState<DistributionRow[]>([]);
@@ -68,7 +69,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
       // Vendas do dia
       const { data: salesData } = await supabase
         .from("daily_sales")
-        .select("total_profit, cost, total_debt, cash_sales, pix_sales, card_sales")
+        .select("total_profit, cost, total_debt, cash_sales, pix_sales, card_sales, transport_cost, food_cost")
         .eq("user_id", userId)
         .eq("date", today)
         .maybeSingle();
@@ -83,29 +84,20 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
       const gross =
         Number(salesData?.total_profit) > 0 ? Number(salesData?.total_profit) : payments;
       const cost = Number(salesData?.cost || 0);
+      const transport = Number(salesData?.transport_cost || 0);
+      const food = Number(salesData?.food_cost || 0);
       const calote = Number(salesData?.total_debt || 0);
 
       setGrossHoje(gross);
       setCostHoje(cost);
+      setTransportHoje(transport);
+      setFoodHoje(food);
       setCaloteHoje(calote);
 
-      // Despesas pessoais do dia
-      const { data: expensesData } = await supabase
-        .from("personal_expenses")
-        .select("amount")
-        .eq("user_id", userId)
-        .eq("date", today);
-
-      const despesas = (expensesData || []).reduce(
-        (sum, e: any) => sum + (Number(e.amount) || 0),
-        0
-      );
-      setDespesasHoje(despesas);
-
-      // LÍQUIDO = BRUTO − CUSTO DO PRODUTO − DESPESAS DO DIA (calote NÃO entra),
+      // LÍQUIDO = BRUTO − MERCADORIA − TRANSPORTE − ALIMENTAÇÃO (calote NÃO entra),
       // igual à planilha. Mantemos o piso em 0 só pra distribuição (não dá pra
       // guardar valor negativo nas caixinhas); dia de prejuízo mostra mensagem.
-      const liquido = Math.max(0, gross - cost - despesas);
+      const liquido = Math.max(0, gross - cost - transport - food);
       setLiquidoHoje(liquido);
 
       // Distribuição já registrada hoje
@@ -398,7 +390,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             <div className="flex gap-2.5">
               <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">1</span>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                Pegamos o que você vendeu e tiramos a mercadoria e as despesas do dia — sobra o seu <b className="text-primary">líquido</b>.
+                Pegamos o que você vendeu e tiramos a mercadoria, o transporte e a alimentação — sobra o seu <b className="text-primary">líquido</b>.
               </p>
             </div>
             <div className="flex gap-2.5">
@@ -429,9 +421,9 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             </p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Despesas do dia</p>
+            <p className="text-xs text-muted-foreground">Transporte + Alim.</p>
             <p className="text-base font-bold text-destructive">
-              -{formatCurrency(despesasHoje)}
+              -{formatCurrency(transportHoje + foodHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
@@ -464,7 +456,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
               </p>
               <p className="text-muted-foreground mt-1">
                 {grossHoje > 0
-                  ? "Hoje o custo e as despesas ficaram iguais ou acima do que você vendeu, então não sobrou líquido pra separar."
+                  ? "Hoje a mercadoria, o transporte e a alimentação ficaram iguais ou acima do que você vendeu, então não sobrou líquido pra separar."
                   : "Assim que você registrar a venda do dia, o app calcula o líquido e mostra quanto guardar em cada caixinha."}
               </p>
             </div>

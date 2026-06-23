@@ -7,7 +7,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
-import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon } from "lucide-react";
+import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon, Bus, Utensils } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
@@ -49,6 +49,16 @@ const salesSchema = z.object({
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Vendas em cartão devem ser entre 0 e 999.999" }),
+  transportCost: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Transporte deve ser entre 0 e 999.999" }),
+  foodCost: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Alimentação deve ser entre 0 e 999.999" }),
   notes: z.string().max(1000, { message: "Observações devem ter no máximo 1000 caracteres" }).optional()
 });
 
@@ -72,6 +82,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     cashSales: "",
     pixSales: "",
     cardSales: "",
+    transportCost: "",
+    foodCost: "",
     notes: ""
   });
   const [dateOption, setDateOption] = useState<"today" | "yesterday" | "custom">("today");
@@ -187,6 +199,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         cash_sales: formData.cashSales ? parseFloat(formData.cashSales) : 0,
         pix_sales: formData.pixSales ? parseFloat(formData.pixSales) : 0,
         card_sales: formData.cardSales ? parseFloat(formData.cardSales) : 0,
+        transport_cost: formData.transportCost ? parseFloat(formData.transportCost) : 0,
+        food_cost: formData.foodCost ? parseFloat(formData.foodCost) : 0,
         notes: formData.notes.trim()
       };
 
@@ -214,6 +228,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             cash_sales: (existingSale.cash_sales || 0) + salesData.cash_sales,
             pix_sales: (existingSale.pix_sales || 0) + salesData.pix_sales,
             card_sales: (existingSale.card_sales || 0) + salesData.card_sales,
+            transport_cost: (existingSale.transport_cost || 0) + salesData.transport_cost,
+            food_cost: (existingSale.food_cost || 0) + salesData.food_cost,
             notes: formData.notes ? `${existingSale.notes || ''}\n${formData.notes}` : existingSale.notes,
             updated_at: new Date().toISOString(),
           })
@@ -363,6 +379,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         cashSales: "",
         pixSales: "",
         cardSales: "",
+        transportCost: "",
+        foodCost: "",
         notes: ""
       });
 
@@ -495,6 +513,36 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 placeholder="0,00"
                 value={formData.totalDebt}
                 onChange={(e) => setFormData({ ...formData, totalDebt: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Custos do dia que entram no líquido: transporte e alimentação */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Bus className="h-4 w-4 text-warning" />
+                Transporte (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.transportCost}
+                onChange={(e) => setFormData({ ...formData, transportCost: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Utensils className="h-4 w-4 text-warning" />
+                Alimentação (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.foodCost}
+                onChange={(e) => setFormData({ ...formData, foodCost: e.target.value })}
               />
             </div>
           </div>
