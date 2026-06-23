@@ -17,12 +17,9 @@ import AutoDistribution from "@/components/AutoDistribution";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import {
   Wallet,
-  TrendingUp,
-  TrendingDown,
   Plus,
   Trash2,
   Target,
-  AlertCircle,
   Calendar,
   Check,
   ImagePlus,
@@ -696,115 +693,108 @@ export default function Finances() {
         <h1 className="text-3xl font-bold text-foreground tracking-tight">Minhas Finanças</h1>
       </div>
 
-      {/* Resumo do dia */}
-      <div>
-        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">Resumo de hoje</p>
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="card-gradient-border">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground">Vendido hoje</p>
-                  <div className="text-2xl font-bold text-success whitespace-nowrap">
-                    {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">dinheiro + pix + cartão</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center shrink-0">
-                  <TrendingUp className="w-5 h-5 text-success" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+      {/* HERO: Hoje — lucro líquido do dia em destaque, vendido/custos demovidos */}
+      <Card className="bg-card border border-border rounded-2xl shadow-lg">
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">Lucro líquido do dia</p>
+            {isLoadingData ? (
+              <Skeleton className="h-11 w-40" />
+            ) : (
+              <p className={`text-4xl font-bold tracking-tight ${summary.netToday >= 0 ? "text-primary" : "text-destructive"}`}>
+                {formatCurrency(summary.netToday)}
+              </p>
+            )}
+            <p className="text-xs text-muted-foreground mt-1">bruto − mercadoria − transporte − alimentação</p>
+          </div>
 
-          <Card className="card-gradient-border">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground">Custos do dia</p>
-                  <div className="text-2xl font-bold text-destructive whitespace-nowrap">
-                    {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.transportToday + summary.foodToday)}`}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">mercadoria + transporte + alimentação</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
-                  <TrendingDown className="w-5 h-5 text-destructive" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="card-gradient-border bg-gradient-to-br from-primary/10 to-primary/5">
-            <CardContent className="pt-6">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm text-muted-foreground">Lucro líquido do dia</p>
-                  <div className={`text-3xl font-bold whitespace-nowrap ${summary.netToday < 0 ? "text-destructive" : "text-primary"}`}>
-                    {isLoadingData ? <Skeleton className="h-9 w-28" /> : formatCurrency(summary.netToday)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">bruto − mercadoria − transporte − alimentação</p>
-                </div>
-                <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
-                  <Wallet className="w-5 h-5 text-primary" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Fiado / não pago do dia — informativo, não entra no líquido */}
-      {!isLoadingData && summary.debtToday > 0 && (
-        <div className="flex items-center gap-2 rounded-xl border border-warning/20 bg-warning/5 px-3 py-2 -mt-2">
-          <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-          <p className="text-sm text-muted-foreground">
-            Fiado/não pago hoje: <span className="font-semibold text-warning">{formatCurrency(summary.debtToday)}</span>{" "}
-            <span className="text-xs">· não entra no líquido</span>
-          </p>
-        </div>
-      )}
-
-      {/* A guardar hoje — quanto reservar do líquido de hoje pras metas + contas */}
-      <Card className="card-gradient-border bg-primary/10 border-primary/30">
-        <CardContent className="pt-6">
-          <div className="flex items-start justify-between gap-3">
+          {/* Vendido / Custos do dia (demoted, inline) */}
+          <div className="flex items-end justify-between pt-3 border-t border-border">
             <div className="min-w-0">
-              <p className="text-sm text-muted-foreground">A guardar hoje</p>
-              <div className="text-3xl font-bold text-primary whitespace-nowrap">
-                {isLoadingData ? <Skeleton className="h-9 w-28" /> : formatCurrency(totalGuardarHoje)}
-              </div>
-              {!isLoadingData && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatCurrency(goalShareToday)} pras metas · {formatCurrency(billsShareToday)} pras contas
+              <p className="text-xs text-muted-foreground">Vendido hoje</p>
+              {isLoadingData ? (
+                <Skeleton className="h-7 w-24 mt-1" />
+              ) : (
+                <p className="text-xl font-bold text-foreground tracking-tight whitespace-nowrap">
+                  {formatCurrency(summary.grossToday)}
                 </p>
               )}
-              {!isLoadingData && !todayIsWorkDay && (
-                <p className="text-xs text-muted-foreground mt-1">Hoje é seu descanso.</p>
+            </div>
+            <div className="text-right min-w-0">
+              <p className="text-xs text-muted-foreground">Custos do dia</p>
+              {isLoadingData ? (
+                <Skeleton className="h-7 w-24 mt-1 ml-auto" />
+              ) : (
+                <p className="text-xl font-bold text-destructive tracking-tight whitespace-nowrap">
+                  {formatCurrency(summary.costToday + summary.transportToday + summary.foodToday)}
+                </p>
               )}
             </div>
-            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
-              <PiggyBank className="w-5 h-5 text-primary" />
-            </div>
           </div>
+
+          {/* Fiado / não pago — informativo, não entra no líquido */}
+          {!isLoadingData && summary.debtToday > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Fiado/não pago: <strong className="text-warning font-semibold">{formatCurrency(summary.debtToday)}</strong> (não entra no líquido)
+            </p>
+          )}
         </CardContent>
       </Card>
 
-      {/* Contas vencidas — passaram do prazo e não foram quitadas */}
-      {!isLoadingData && overdueBills.length > 0 && (
-        <Card className="card-gradient-border bg-destructive/10 border-destructive/30">
-          <CardContent className="pt-6">
+      {/* A guardar hoje + Contas vencidas */}
+      {!isLoadingData && overdueBills.length > 0 ? (
+        <div className="grid grid-cols-2 gap-3">
+          {/* A guardar hoje (accent primário) */}
+          <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">A guardar hoje</p>
+              <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
+                {formatCurrency(totalGuardarHoje)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Contas vencidas (accent destrutivo) */}
+          <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Contas vencidas</p>
+              <p className="text-2xl font-bold text-destructive mt-1 tracking-tight truncate">
+                {formatCurrency(vencidasTotal)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 truncate">
+                {overdueBills.length} {overdueBills.length === 1 ? "conta" : "contas"} — pague logo
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        /* Sem contas vencidas: A guardar hoje em largura total */
+        <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm text-muted-foreground">Contas vencidas</p>
-                <div className="text-3xl font-bold text-destructive whitespace-nowrap">
-                  {formatCurrency(vencidasTotal)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {overdueBills.length} {overdueBills.length === 1 ? "conta que passou" : "contas que passaram"} do prazo — pague assim que puder.
-                </p>
+                <p className="text-xs text-muted-foreground">A guardar hoje</p>
+                {isLoadingData ? (
+                  <Skeleton className="h-8 w-28 mt-1" />
+                ) : (
+                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight whitespace-nowrap">
+                    {formatCurrency(totalGuardarHoje)}
+                  </p>
+                )}
+                {!isLoadingData && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
+                  </p>
+                )}
+                {!isLoadingData && !todayIsWorkDay && (
+                  <p className="text-xs text-muted-foreground mt-1">Hoje é seu descanso.</p>
+                )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-destructive" />
+              <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+                <PiggyBank className="w-5 h-5 text-primary" />
               </div>
             </div>
           </CardContent>
@@ -1057,6 +1047,12 @@ export default function Finances() {
                               }`}
                             </p>
                           </div>
+                          <div className="text-right shrink-0">
+                            <span className="inline-block text-xs font-bold text-primary bg-primary/15 rounded-full px-2.5 py-1 whitespace-nowrap">
+                              {workDaysLeft} {workDaysLeft === 1 ? "dia útil" : "dias úteis"}
+                            </span>
+                            <p className="text-[11px] text-muted-foreground mt-1">ajusta sozinho</p>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
@@ -1074,6 +1070,14 @@ export default function Finances() {
                                   }`}
                             </p>
                           </div>
+                          {daysLeft !== 0 && (
+                            <div className="text-right shrink-0">
+                              <span className="inline-block text-xs font-bold text-primary bg-primary/15 rounded-full px-2.5 py-1 whitespace-nowrap">
+                                {workDaysLeft} {workDaysLeft === 1 ? "dia útil" : "dias úteis"}
+                              </span>
+                              <p className="text-[11px] text-muted-foreground mt-1">ajusta sozinho</p>
+                            </div>
+                          )}
                         </div>
                       )}
 
