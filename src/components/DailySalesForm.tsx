@@ -95,7 +95,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
   const handlePlannedOff = async () => {
     const today = getBrazilDate();
-    
+
     const { error } = await supabase
       .from("daily_work_log")
       .upsert({
@@ -160,9 +160,27 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         return;
       }
 
+      // Data da venda escolhida no seletor (Hoje / Ontem / Outra data).
+      // Antes o app ignorava a escolha e sempre salvava em getBrazilDate().
+      if (dateOption === "custom" && !customDate) {
+        toast({
+          title: "Escolha a data",
+          description: "Selecione a data da venda ou volte pra 'Hoje'.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      const saleDate =
+        dateOption === "yesterday"
+          ? formatBrazilDate(new Date(Date.now() - 24 * 60 * 60 * 1000))
+          : dateOption === "custom" && customDate
+          ? format(customDate, "yyyy-MM-dd")
+          : getBrazilDate();
+
       const salesData = {
         user_id: userId,
-        date: getBrazilDate(),
+        date: saleDate,
         total_profit: formData.totalProfit ? parseFloat(formData.totalProfit) : 0,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         total_debt: formData.totalDebt ? parseFloat(formData.totalDebt) : 0,
@@ -174,12 +192,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
       const profit = parseFloat(formData.totalProfit);
 
-      // CORRIGIDO: Verificar se já existe registro para hoje e somar valores
+      // CORRIGIDO: Verificar se já existe registro para a DATA ESCOLHIDA e somar valores
       const { data: existingSale } = await supabase
         .from("daily_sales")
         .select("*")
         .eq("user_id", userId)
-        .eq("date", today)
+        .eq("date", saleDate)
         .maybeSingle();
 
       let totalDayProfit = profit;
@@ -200,14 +218,14 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingSale.id);
-        
+
         if (error) throw error;
       } else {
         // Inserir novo registro
         const { error } = await supabase
           .from("daily_sales")
           .insert(salesData);
-        
+
         if (error) throw error;
       }
 
@@ -223,7 +241,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       if (planData) {
         // Calcular qual bloco estamos (baseado na hora atual)
         const hourIndex = Math.min(currentHour % planData.work_hours, planData.work_hours - 1);
-        
+
         const { data: currentBlock } = await supabase
           .from("hourly_goal_blocks")
           .select("*")
@@ -270,7 +288,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         .maybeSingle();
 
       let newStreak = profile?.streak_days || 0;
-      
+
       // Se bateu a meta, avançar constância
       if (totalDayProfit >= baseDailyGoal) {
         if (profile?.last_check_in_date) {
@@ -280,7 +298,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
           const todayMs = new Date(today + "T12:00:00Z").getTime();
           const lastMs = new Date(profile.last_check_in_date + "T12:00:00Z").getTime();
           const daysDiff = Math.round((todayMs - lastMs) / msPerDay);
-          
+
           if (daysDiff === 1) {
             newStreak = newStreak + 1;
           } else if (daysDiff > 1) {
@@ -304,7 +322,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       // Log work day with details
       const goalAchieved = totalDayProfit >= baseDailyGoal;
       const percentageAchieved = percentage;
-      
+
       await supabase
         .from("daily_work_log")
         .upsert({
@@ -322,7 +340,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       // Mensagem motivacional automática
       const missing = Math.max(0, baseDailyGoal - totalDayProfit);
       const missingPercent = ((missing / baseDailyGoal) * 100).toFixed(0);
-      
+
       if (totalDayProfit >= baseDailyGoal) {
         toast({
           title: "🔥 Visionário! Meta batida!",
@@ -363,16 +381,16 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
   return (
     <>
-      <MotivationalCard 
+      <MotivationalCard
         percentage={motivationPercentage}
         visible={showMotivation}
         onHide={() => setShowMotivation(false)}
       />
-      
+
       {showMessage && (
         <MotivationalMessage totalDayProfit={dayProfit} dailyGoal={baseDailyGoal} />
       )}
-      
+
       <Card className="card-gradient-border shadow-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -411,7 +429,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <SelectItem value="custom">Outra data</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               {dateOption === "custom" && (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -537,7 +555,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             />
           </div>
 
-          <Button 
+          <Button
             data-tour="registrar-venda"
             type="submit"
             className="w-full"
