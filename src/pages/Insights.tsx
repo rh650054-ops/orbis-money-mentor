@@ -7,13 +7,32 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   CalendarIcon,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  FileDown,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/shared/ui/dialog";
+import { Input } from "@/shared/ui/input";
+import { Label } from "@/shared/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
+import { useToast } from "@/shared/hooks/use-toast";
+import { formatBrazilDate } from "@/shared/lib/date-utils";
+import {
+  generateAndDownloadReport,
+  type ReportFormat,
+} from "@/utils/reportExport";
 
 import { formatCurrency, cn } from "@/shared/lib/utils";
 import {
@@ -67,7 +86,9 @@ function fmtBR(d: Date): string {
 export default function Insights() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  
+  const { toast } = useToast();
+
+  const [exportOpen, setExportOpen] = useState(false);
 
   const [period, setPeriod] = useState<Period>("7d");
   const [customStart, setCustomStart] = useState<Date | undefined>(() => {
@@ -348,11 +369,34 @@ export default function Insights() {
   return (
     <div className="space-y-5 pb-4 md:pb-8 text-foreground">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Relatório</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Decisões claras a partir do seu desempenho
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Relatório</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Decisões claras a partir do seu desempenho
+          </p>
+        </div>
+        <ExportReportDialog
+          open={exportOpen}
+          onOpenChange={setExportOpen}
+          userId={user.id}
+          onDone={(count) =>
+            toast({
+              title: "Relatório baixado",
+              description:
+                count > 0
+                  ? `${count} ${count === 1 ? "dia" : "dias"} incluídos no arquivo.`
+                  : "Nenhum registro no período — arquivo gerado vazio.",
+            })
+          }
+          onError={() =>
+            toast({
+              title: "Erro ao gerar relatório",
+              description: "Tente novamente em instantes.",
+              variant: "destructive",
+            })
+          }
+        />
       </div>
 
       {/* Period filter */}
@@ -703,6 +747,191 @@ export default function Insights() {
         </>
       )}
     </div>
+  );
+}
+
+type ExportPreset = "7" | "15" | "30" | "custom";
+
+function presetRangeISO(preset: ExportPreset): { start: string; end: string } {
+  const end = startOfDay(new Date());
+  const start = new Date(end);
+  const days = preset === "7" ? 7 : preset === "15" ? 15 : 30;
+  start.setDate(start.getDate() - (days - 1));
+  return { start: formatBrazilDate(start), end: formatBrazilDate(end) };
+}
+
+function ExportReportDialog({
+  open,
+  onOpenChange,
+  userId,
+  onDone,
+  onError,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  userId: string;
+  onDone: (count: number) => void;
+  onError: () => void;
+}) {
+  const [preset, setPreset] = useState<ExportPreset>("7");
+  const [format, setFormat] = useState<ReportFormat>("pdf");
+  const [customStart, setCustomStart] = useState(() => presetRangeISO("7").start);
+  const [customEnd, setCustomEnd] = useState(() => presetRangeISO("7").end);
+  const [busy, setBusy] = useState(false);
+
+  const presets: { value: ExportPreset; label: string }[] = [
+    { value: "7", label: "Últimos 7 dias" },
+    { value: "15", label: "Últimos 15 dias" },
+    { value: "30", label: "Últimos 30 dias" },
+    { value: "custom", label: "Personalizado" },
+  ];
+
+  const formats: { value: ReportFormat; label: string; Icon: typeof FileText }[] = [
+    { value: "pdf", label: "PDF", Icon: FileText },
+    { value: "csv", label: "CSV", Icon: FileDown },
+    { value: "xls", label: "Excel", Icon: FileSpreadsheet },
+  ];
+
+  async function handleDownload() {
+    if (busy) return;
+    let start: string;
+    let end: string;
+    if (preset === "custom") {
+      if (!customStart || !customEnd) return;
+      // Garante start <= end
+      [start, end] =
+        customStart <= customEnd ? [customStart, customEnd] : [customEnd, customStart];
+    } else {
+      const r = presetRangeISO(preset);
+      start = r.start;
+      end = r.end;
+    }
+
+    setBusy(true);
+    try {
+      const count = await generateAndDownloadReport({
+        userId,
+        startISO: start,
+        endISO: end,
+        format,
+      });
+      onOpenChange(false);
+      onDone(count);
+    } catch {
+      onError();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-9 shrink-0 gap-1.5 border-primary/40 text-primary hover:text-primary hover:bg-primary/10"
+        >
+          <Download className="w-4 h-4" />
+          Exportar
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
+        <DialogHeader>
+          <DialogTitle>Baixar relatório</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5 pt-1">
+          {/* Período */}
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              Período
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              {presets.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPreset(p.value)}
+                  className={cn(
+                    "px-3 py-2 text-xs font-medium rounded-xl border transition-colors text-left",
+                    preset === p.value
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            {preset === "custom" && (
+              <div className="flex items-center gap-2 pt-1">
+                <div className="flex-1 space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">De</Label>
+                  <Input
+                    type="date"
+                    value={customStart}
+                    max={customEnd || formatBrazilDate(new Date())}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+                <div className="flex-1 space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Até</Label>
+                  <Input
+                    type="date"
+                    value={customEnd}
+                    min={customStart}
+                    max={formatBrazilDate(new Date())}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Formato */}
+          <div className="space-y-2">
+            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+              Formato
+            </Label>
+            <div className="grid grid-cols-3 gap-2">
+              {formats.map(({ value, label, Icon }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFormat(value)}
+                  className={cn(
+                    "flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-colors",
+                    format === value
+                      ? "bg-primary/15 border-primary text-primary"
+                      : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
+                  )}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className="text-xs font-medium">{label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <Button
+            onClick={handleDownload}
+            disabled={busy}
+            className="w-full gap-2"
+          >
+            {busy ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4" />
+            )}
+            {busy ? "Gerando..." : "Baixar"}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
