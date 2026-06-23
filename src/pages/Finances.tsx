@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/shared/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -16,9 +16,6 @@ import { Progress } from "@/shared/ui/progress";
 import NumericKeyboard from "@/components/NumericKeyboard";
 import AutoDistribution from "@/components/AutoDistribution";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
-import {
-  PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend
-} from "recharts";
 import {
   Wallet,
   TrendingUp,
@@ -40,11 +37,13 @@ import {
   Coins,
   Package,
   Check,
-  ImagePlus
+  ImagePlus,
+  BarChart3
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { CATEGORY_COLORS, CATEGORY_DEFAULT_COLOR } from "@/shared/lib/theme-colors";
+import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 
 interface Expense {
   id: string;
@@ -165,11 +164,17 @@ export default function Finances() {
     }
   }, [user, loading, navigate]);
 
+  // Recarrega ao voltar o foco pra tela (ex.: retorno do relatório/lançamento)
+  // para nunca mostrar valores antigos.
+  useRefetchOnFocus(() => {
+    if (user) loadFinancialData();
+  });
+
   const loadFinancialData = async () => {
     if (!user) return;
-    
+
     setIsLoadingData(true);
-    
+
     try {
       // Load expenses
       const { data: expensesData, error: expensesError } = await supabase
@@ -198,7 +203,7 @@ export default function Finances() {
       const month = now.getMonth() + 1;
       const lastDay = new Date(year, month, 0).getDate(); // Get last day of month
       const currentMonth = `${year}-${String(month).padStart(2, '0')}`;
-      
+
       const { data: salesData, error: salesError } = await supabase
         .from("daily_sales")
         .select("date, total_profit, cost, reinvestment, cash_sales, pix_sales, card_sales, total_debt")
@@ -217,7 +222,16 @@ export default function Finances() {
 
       const monthlyBudget = profileData?.monthly_goal || 0;
 
-      const totalProfit = salesData?.reduce((sum, s) => sum + (Number(s.total_profit) || 0), 0) || 0;
+      // Bruto do mês com o MESMO fallback robusto por dia: Total Vendido,
+      // ou soma dos métodos de pagamento quando o Total Vendido vier zerado.
+      const totalProfit = salesData?.reduce((sum, s) => {
+        const payments =
+          (Number(s.cash_sales) || 0) +
+          (Number(s.pix_sales) || 0) +
+          (Number(s.card_sales) || 0);
+        const dayGross = Number(s.total_profit) > 0 ? Number(s.total_profit) : payments;
+        return sum + dayGross;
+      }, 0) || 0;
       const totalCostMonth = salesData?.reduce((sum, s) => sum + (Number(s.cost) || 0), 0) || 0;
       const totalReinvestment = salesData?.reduce((sum, s) => sum + (Number(s.reinvestment) || 0), 0) || 0;
       const totalExpenses = expensesData?.reduce((sum, e) => {
@@ -230,20 +244,28 @@ export default function Finances() {
       // Hoje (UTC-3)
       const today = getBrazilDate();
       const todaySale = salesData?.find((s) => s.date === today);
-      const grossToday =
+      // BRUTO robusto: usa "Total Vendido" (total_profit); se vier zerado, cai
+      // pra soma dos métodos de pagamento. Corrige o bug em que lançar só o
+      // Total Vendido deixava o bruto/meta em R$0.
+      const paymentsToday =
         Number(todaySale?.cash_sales || 0) +
         Number(todaySale?.pix_sales || 0) +
         Number(todaySale?.card_sales || 0);
+      const grossToday =
+        Number(todaySale?.total_profit) > 0 ? Number(todaySale?.total_profit) : paymentsToday;
       const costToday = Number(todaySale?.cost || 0);
       const debtToday = Number(todaySale?.total_debt || 0);
       const expensesToday = (expensesData || []).reduce(
         (sum, e: any) => (e.date === today ? sum + (Number(e.amount) || 0) : sum),
         0
       );
-      const netToday = Math.max(0, grossToday - costToday - debtToday - expensesToday);
+      // LÍQUIDO = BRUTO − CUSTO DO PRODUTO − DESPESAS DO DIA (calote NÃO entra).
+      // Pode ficar negativo (dia de prejuízo), igual à planilha.
+      const netToday = grossToday - costToday - expensesToday;
 
       // Lucro líquido do mês = faturamento − custo de mercadoria (CMV) − despesas pessoais.
-      const monthlyNetProfit = Math.max(0, totalProfit - totalCostMonth - totalExpenses);
+      // Calote NÃO entra; permite negativo.
+      const monthlyNetProfit = totalProfit - totalCostMonth - totalExpenses;
 
       setSummary({
         totalProfit,
@@ -253,7 +275,7 @@ export default function Finances() {
         monthlyBudget,
         budgetRemaining: monthlyBudget - totalExpenses,
         grossToday,
-        costToday: costToday + debtToday,
+        costToday,
         debtToday,
         expensesToday,
         netToday,
@@ -517,32 +539,10 @@ export default function Finances() {
     setBudgetInput("");
   };
 
-  const getCategoryData = () => {
-    const categoryTotals: { [key: string]: number } = {};
-    
-    expenses.forEach(expense => {
-      categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0) + Number(expense.amount);
-    });
-
-    return Object.entries(categoryTotals).map(([category, amount]) => {
-      const cat = EXPENSE_CATEGORIES.find(c => c.value === category);
-      return {
-        name: cat?.label || category,
-        value: amount,
-        color: cat?.color || CATEGORY_DEFAULT_COLOR
-      };
-    });
-  };
-
   if (loading || !user) {
     return null;
   }
 
-  const categoryData = getCategoryData();
-  const expensePercentage = summary.totalProfit > 0 
-    ? (summary.totalExpenses / summary.totalProfit) * 100 
-    : 0;
-  
   const budgetPercentage = summary.monthlyBudget > 0
     ? (summary.totalExpenses / summary.monthlyBudget) * 100
     : 0;
@@ -562,58 +562,81 @@ export default function Finances() {
         <div>
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Minhas Finanças</h1>
           <p className="text-muted-foreground mt-0.5">
-            Controle total do seu dinheiro — quanto ganhou, gastou e guardou
+            Veja quanto sobrou no bolso, controle seus gastos e guarde pras suas metas.
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            O líquido é igual à sua planilha: <span className="font-medium text-foreground">o que vendeu − mercadoria − despesas do dia</span>.
           </p>
         </div>
       </div>
 
       {/* Resumo do dia */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="card-gradient-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Lucro do dia</p>
-                <div className="text-2xl font-bold text-success whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-3">Resumo de hoje</p>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card className="card-gradient-border">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">Vendido hoje</p>
+                  <div className="text-2xl font-bold text-success whitespace-nowrap">
+                    {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.grossToday)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">dinheiro + pix + cartão</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-success/10 border border-success/20 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-5 h-5 text-success" />
                 </div>
               </div>
-              <TrendingUp className="w-8 h-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="card-gradient-border">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Custos do dia</p>
-                <div className="text-2xl font-bold text-destructive whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
+          <Card className="card-gradient-border">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">Custos do dia</p>
+                  <div className="text-2xl font-bold text-destructive whitespace-nowrap">
+                    {isLoadingData ? <Skeleton className="h-8 w-24" /> : `-${formatCurrency(summary.costToday + summary.expensesToday)}`}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">mercadoria + despesas do dia</p>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  mercadoria + calotes + despesas
-                </p>
+                <div className="w-10 h-10 rounded-xl bg-destructive/10 border border-destructive/20 flex items-center justify-center shrink-0">
+                  <TrendingDown className="w-5 h-5 text-destructive" />
+                </div>
               </div>
-              <TrendingDown className="w-8 h-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="card-gradient-border bg-gradient-to-br from-primary/10 to-primary/5">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Lucro líquido do dia</p>
-                <div className="text-2xl font-bold text-primary whitespace-nowrap">
-                  {isLoadingData ? <Skeleton className="h-8 w-24" /> : formatCurrency(summary.netToday)}
+          <Card className="card-gradient-border bg-gradient-to-br from-primary/10 to-primary/5">
+            <CardContent className="pt-6">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm text-muted-foreground">Lucro líquido do dia</p>
+                  <div className={`text-3xl font-bold whitespace-nowrap ${summary.netToday < 0 ? "text-destructive" : "text-primary"}`}>
+                    {isLoadingData ? <Skeleton className="h-9 w-28" /> : formatCurrency(summary.netToday)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">bruto − mercadoria − despesas do dia</p>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+                  <Wallet className="w-5 h-5 text-primary" />
                 </div>
               </div>
-              <Wallet className="w-8 h-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* Fiado / não pago do dia — informativo, não entra no líquido */}
+      {!isLoadingData && summary.debtToday > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-warning/20 bg-warning/5 px-3 py-2 -mt-2">
+          <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+          <p className="text-sm text-muted-foreground">
+            Fiado/não pago hoje: <span className="font-semibold text-warning">{formatCurrency(summary.debtToday)}</span>{" "}
+            <span className="text-xs">· não entra no líquido</span>
+          </p>
+        </div>
+      )}
 
       {/* Meta Mensal */}
       {(() => {
@@ -712,11 +735,20 @@ export default function Finances() {
         <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
       </FeatureErrorBoundary>
 
+      {/* Atalho pro relatório completo (gráficos, filtros e análise de período) */}
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => navigate("/insights")}
+      >
+        <BarChart3 className="w-4 h-4 mr-2" />
+        Ver relatório completo
+      </Button>
+
       <Tabs defaultValue="expenses" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="expenses">Despesas</TabsTrigger>
           <TabsTrigger value="goals">Metas</TabsTrigger>
-          <TabsTrigger value="analytics">Análises</TabsTrigger>
         </TabsList>
 
         {/* Expenses Tab */}
@@ -1015,7 +1047,7 @@ export default function Finances() {
                           </p>
                         )}
                       </div>
-                      
+
                       {/* Sistema de Depósito Diário */}
                       {goal.status === "active" && (
                         <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
@@ -1046,7 +1078,7 @@ export default function Finances() {
                           </div>
                         </div>
                       )}
-                      
+
                       {goal.status === "completed" && (
                         <div className="bg-success/10 border border-success/20 rounded-lg p-3 flex items-center justify-center gap-2">
                           <Check className="w-4 h-4 text-success" />
@@ -1058,74 +1090,6 @@ export default function Finances() {
                 );
               })}
             </div>
-          )}
-        </TabsContent>
-
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-4">
-          <h2 className="text-xl font-semibold">Análise Financeira</h2>
-          
-          {categoryData.length > 0 ? (
-            <Card className="card-gradient-border">
-              <CardHeader>
-                <CardTitle>Gastos por Categoria</CardTitle>
-                <CardDescription>Distribuição das suas despesas mensais</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col items-center gap-4">
-                  <ResponsiveContainer width="100%" height={200}>
-                    <PieChart>
-                      <Pie
-                        data={categoryData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        {categoryData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="hsl(var(--card))" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Tooltip
-                        contentStyle={{
-                          background: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: 8,
-                          color: "hsl(var(--foreground))",
-                        }}
-                        formatter={(value: number) => [`R$ ${Number(value).toFixed(2)}`, ""]}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="w-full grid grid-cols-2 gap-x-3 gap-y-2">
-                    {(() => {
-                      const total = categoryData.reduce((s, c) => s + Number(c.value || 0), 0) || 1;
-                      return categoryData.map((entry, index) => {
-                        const pct = (Number(entry.value || 0) / total) * 100;
-                        return (
-                          <div key={index} className="flex items-center gap-2 min-w-0">
-                            <span
-                              className="w-3 h-3 rounded-sm flex-shrink-0"
-                              style={{ backgroundColor: entry.color }}
-                            />
-                            <span className="text-xs text-foreground truncate flex-1">{entry.name}</span>
-                            <span className="text-xs font-semibold text-foreground">{pct.toFixed(0)}%</span>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                Adicione despesas para ver a análise dos seus gastos
-              </CardContent>
-            </Card>
           )}
         </TabsContent>
       </Tabs>
