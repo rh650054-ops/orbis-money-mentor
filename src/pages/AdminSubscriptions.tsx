@@ -835,14 +835,15 @@ export default function AdminSubscriptions() {
 
       {/* Modal: editar perfil do usuário */}
       <Dialog open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
-        <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-md w-[calc(100%-1.5rem)] max-h-[88dvh] p-0 gap-0 flex flex-col overflow-hidden rounded-2xl">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-border shrink-0">
             <DialogTitle>Editar perfil</DialogTitle>
           </DialogHeader>
           {loadingEdit ? (
-            <p className="text-center text-muted-foreground py-6">Carregando...</p>
+            <p className="text-center text-muted-foreground py-12">Carregando...</p>
           ) : (
-            <div className="space-y-3">
+            <>
+            <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-3">
               <div className="space-y-1.5">
                 <Label>Nome / apelido</Label>
                 <Input value={editForm.nickname} onChange={(e) => setEditForm({ ...editForm, nickname: e.target.value })} />
@@ -1008,7 +1009,8 @@ export default function AdminSubscriptions() {
                 </p>
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              </div>
+              <div className="flex justify-end gap-2 px-5 py-3 border-t border-border bg-background shrink-0">
                 <Button variant="outline" onClick={() => setEditUser(null)} disabled={savingEdit}>
                   Cancelar
                 </Button>
@@ -1017,7 +1019,7 @@ export default function AdminSubscriptions() {
                   Salvar
                 </Button>
               </div>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
