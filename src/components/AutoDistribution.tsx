@@ -379,33 +379,13 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Como funciona */}
-        <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-2.5">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-primary shrink-0" />
-            <p className="text-sm font-semibold text-foreground">Como funciona — em 3 passos</p>
-          </div>
-          <div className="space-y-2">
-            <div className="flex gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">1</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Pegamos o que você vendeu e tiramos a mercadoria, o transporte e a alimentação — sobra o seu <b className="text-primary">líquido</b>.
-              </p>
-            </div>
-            <div className="flex gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">2</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Em <b className="text-foreground">Configurar %</b>, você escolhe quanto desse líquido vai pra cada meta (ex: 30% pra moto).
-              </p>
-            </div>
-            <div className="flex gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">3</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Toque em <b className="text-foreground">Separar nas caixinhas</b> e o app diz exatamente quanto guardar em cada uma hoje.
-              </p>
-            </div>
-          </div>
+      <CardContent className="space-y-3">
+        {/* Como funciona — resumido */}
+        <div className="flex items-start gap-2 p-3 bg-muted/40 border border-border/40 rounded-xl">
+          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Separe parte do seu <b className="text-primary">líquido</b> do dia nas caixinhas das suas metas. Em <b className="text-foreground">Configurar %</b> você escolhe quanto vai pra cada uma; depois é só <b className="text-foreground">Separar</b>.
+          </p>
         </div>
 
         {/* Resumo do líquido de hoje */}
@@ -446,23 +426,6 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
           </div>
         )}
 
-        {/* Estado: ainda não há líquido hoje (sem venda lançada ou prejuízo) */}
-        {goals.length > 0 && !alreadyDistributed && liquidoHoje <= 0 && (
-          <div className="flex items-start gap-2 p-3 bg-muted/40 border border-dashed border-border/60 rounded-lg">
-            <Info className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-            <div className="text-xs">
-              <p className="font-semibold text-foreground">
-                Lance a venda de hoje pra ver quanto guardar
-              </p>
-              <p className="text-muted-foreground mt-1">
-                {grossHoje > 0
-                  ? "Hoje a mercadoria, o transporte e a alimentação ficaram iguais ou acima do que você vendeu, então não sobrou líquido pra separar."
-                  : "Assim que você registrar a venda do dia, o app calcula o líquido e mostra quanto guardar em cada caixinha."}
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Estado: nenhum % configurado ainda */}
         {goals.length > 0 && liquidoHoje > 0 && totalPercent <= 0 && !alreadyDistributed && (
           <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
@@ -492,11 +455,14 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         )}
 
         {/* Preview do dia */}
-        {goals.length > 0 && liquidoHoje > 0 && totalPercent > 0 && totalPercent <= 100 && !alreadyDistributed && (
+        {goals.length > 0 && totalPercent > 0 && totalPercent <= 100 && !alreadyDistributed && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Caixinhas de hoje
             </p>
+            {liquidoHoje <= 0 && (
+              <p className="text-xs text-muted-foreground">Lance a venda do dia pra calcular — por enquanto fica R$ 0,00.</p>
+            )}
             {preview.map(({ goal, amount }) => (
               <div
                 key={goal.id}

@@ -24,7 +24,8 @@ import {
   Calendar,
   Check,
   ImagePlus,
-  BarChart3
+  Pencil,
+  Sparkles
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -47,6 +48,7 @@ interface Goal {
   deadline?: string;
   status: string;
   icon: string;
+  percentual_distribuicao?: number;
 }
 
 interface FinancialSummary {
@@ -101,8 +103,17 @@ export default function Finances() {
   const [goalImage, setGoalImage] = useState<File | null>(null);
   const [goalImagePreview, setGoalImagePreview] = useState<string>("");
 
-  // Deposit state for goals
-  const [depositInputs, setDepositInputs] = useState<{ [key: string]: string }>({});
+  // Reusable "guardar" deposit dialog — shared por Contas a pagar (Guardei) e Metas (Guardar hoje)
+  const [depositTarget, setDepositTarget] = useState<
+    | { kind: "bill"; bill: PlannedBill }
+    | { kind: "goal"; goal: Goal }
+    | null
+  >(null);
+  const [depositValue, setDepositValue] = useState("");
+
+  // Edit bill dialog state
+  const [editBill, setEditBill] = useState<PlannedBill | null>(null);
+  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "" });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -270,10 +281,17 @@ export default function Finances() {
     }
   };
 
-  const handleDepositBill = async (bill: PlannedBill) => {
-    const raw = prompt(`Quanto você guardou para "${bill.name}"? (R$)`);
-    if (raw === null) return;
-    const value = parseFloat(raw.replace(",", "."));
+  // Abre o diálogo de depósito ("Guardei" / "Guardar hoje") para uma conta ou meta
+  const openDeposit = (target: NonNullable<typeof depositTarget>) => {
+    setDepositTarget(target);
+    setDepositValue("");
+  };
+
+  // Confirma o depósito do diálogo compartilhado: soma ao saved_amount (conta)
+  // ou ao current_amount (meta).
+  const handleConfirmDeposit = async () => {
+    if (!depositTarget) return;
+    const value = parseFloat(depositValue.replace(",", "."));
     if (isNaN(value) || value <= 0) {
       toast({
         title: "Valor inválido",
@@ -284,22 +302,88 @@ export default function Finances() {
     }
 
     try {
-      const newSaved = Number(bill.saved_amount) + value;
-      const { error } = await supabase
-        .from("planned_bills")
-        .update({ saved_amount: newSaved })
-        .eq("id", bill.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Guardado!",
-        description: `${formatCurrency(value)} reservado para ${bill.name}`,
-      });
+      if (depositTarget.kind === "bill") {
+        const bill = depositTarget.bill;
+        const newSaved = Number(bill.saved_amount) + value;
+        const { error } = await supabase
+          .from("planned_bills")
+          .update({ saved_amount: newSaved })
+          .eq("id", bill.id);
+        if (error) throw error;
+        toast({
+          title: "Guardado!",
+          description: `${formatCurrency(value)} reservado para ${bill.name}`,
+        });
+      } else {
+        const goal = depositTarget.goal;
+        const newAmount = Number(goal.current_amount) + value;
+        const newStatus = newAmount >= goal.target_amount ? "completed" : "active";
+        const { error } = await supabase
+          .from("financial_goals")
+          .update({ current_amount: newAmount, status: newStatus })
+          .eq("id", goal.id);
+        if (error) throw error;
+        if (newStatus === "completed") {
+          toast({
+            title: "🎉 Meta alcançada!",
+            description: `Parabéns! Você completou a meta ${goal.name}!`,
+          });
+        } else {
+          toast({
+            title: "Guardado!",
+            description: `${formatCurrency(value)} adicionado à meta ${goal.name}`,
+          });
+        }
+      }
+      setDepositTarget(null);
+      setDepositValue("");
       loadFinancialData();
     } catch (error) {
-      console.error("Error depositing into bill:", error);
+      console.error("Error depositing:", error);
       toast({ title: "Erro ao guardar", variant: "destructive" });
+    }
+  };
+
+  // Abre o diálogo de edição de uma conta, pré-preenchido com os valores atuais
+  const openEditBill = (bill: PlannedBill) => {
+    setEditBill(bill);
+    setEditBillForm({
+      name: bill.name,
+      amount: String(bill.amount ?? ""),
+      due_date: bill.due_date ?? "",
+    });
+  };
+
+  // Salva a edição: atualiza nome, valor e vencimento da conta
+  const handleSaveEditBill = async () => {
+    if (!editBill) return;
+    if (!editBillForm.name || !editBillForm.amount) {
+      toast({
+        title: "Campos obrigatórios",
+        description: "Preencha o nome e o valor da conta",
+        variant: "destructive"
+      });
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from("planned_bills")
+        .update({
+          name: editBillForm.name,
+          amount: parseFloat(editBillForm.amount),
+          due_date: editBillForm.due_date || null,
+        })
+        .eq("id", editBill.id);
+      if (error) throw error;
+      toast({
+        title: "Conta atualizada",
+        description: `"${editBillForm.name}" foi salva.`,
+      });
+      setEditBill(null);
+      loadFinancialData();
+    } catch (error) {
+      console.error("Error updating bill:", error);
+      toast({ title: "Erro ao atualizar conta", variant: "destructive" });
     }
   };
 
@@ -394,57 +478,6 @@ export default function Finances() {
       console.error("Error adding goal:", error);
       toast({
         title: "Erro ao criar meta",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleAddDeposit = async (goalId: string) => {
-    const amount = depositInputs[goalId];
-    if (!amount || parseFloat(amount) <= 0) {
-      toast({
-        title: "Valor inválido",
-        description: "Digite um valor maior que zero",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const goal = goals.find(g => g.id === goalId);
-    if (!goal) return;
-
-    try {
-      const newAmount = goal.current_amount + parseFloat(amount);
-      const newStatus = newAmount >= goal.target_amount ? "completed" : "active";
-
-      const { error } = await supabase
-        .from("financial_goals")
-        .update({
-          current_amount: newAmount,
-          status: newStatus
-        })
-        .eq("id", goalId);
-
-      if (error) throw error;
-
-      if (newStatus === "completed") {
-        toast({
-          title: "🎉 Meta alcançada!",
-          description: `Parabéns! Você completou a meta ${goal.name}!`,
-        });
-      } else {
-        toast({
-          title: "Depósito realizado!",
-          description: `R$ ${parseFloat(amount).toFixed(2)} adicionado à meta`,
-        });
-      }
-
-      setDepositInputs(prev => ({ ...prev, [goalId]: "" }));
-      loadFinancialData();
-    } catch (error) {
-      console.error("Error adding deposit:", error);
-      toast({
-        title: "Erro ao adicionar depósito",
         variant: "destructive"
       });
     }
@@ -551,16 +584,6 @@ export default function Finances() {
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
         <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
       </FeatureErrorBoundary>
-
-      {/* Atalho pro relatório completo (gráficos, filtros e análise de período) */}
-      <Button
-        variant="outline"
-        className="w-full"
-        onClick={() => navigate("/insights")}
-      >
-        <BarChart3 className="w-4 h-4 mr-2" />
-        Ver relatório completo
-      </Button>
 
       <Tabs defaultValue="bills" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -674,14 +697,24 @@ export default function Finances() {
                             )}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteBill(bill)}
-                          aria-label="Excluir conta"
-                        >
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditBill(bill)}
+                            aria-label="Editar conta"
+                          >
+                            <Pencil className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDeleteBill(bill)}
+                            aria-label="Excluir conta"
+                          >
+                            <Trash2 className="w-4 h-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5">
@@ -723,7 +756,7 @@ export default function Finances() {
                         {!quitada && (
                           <Button
                             variant="outline"
-                            onClick={() => handleDepositBill(bill)}
+                            onClick={() => openDeposit({ kind: "bill", bill })}
                             className="w-full sm:flex-1"
                           >
                             <Plus className="w-4 h-4 mr-2" />
@@ -879,36 +912,32 @@ export default function Finances() {
                             Faltam {formatCurrency(remaining)} para atingir sua meta
                           </p>
                         )}
+                        {Number(goal.percentual_distribuicao) > 0 && (
+                          <p className="text-xs text-primary flex items-center gap-1.5">
+                            <Sparkles className="w-3 h-3 shrink-0" />
+                            Guardar {Number(goal.percentual_distribuicao).toFixed(0)}% do líquido do dia
+                          </p>
+                        )}
                       </div>
 
-                      {/* Sistema de Depósito Diário */}
+                      {/* Depósito do dia — abre o diálogo "Guardar hoje" compartilhado */}
                       {goal.status === "active" && (
-                        <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            placeholder="Quanto quer depositar hoje?"
-                            value={depositInputs[goal.id] || ""}
-                            onChange={(e) => setDepositInputs(prev => ({ ...prev, [goal.id]: e.target.value }))}
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button
+                            onClick={() => openDeposit({ kind: "goal", goal })}
                             className="flex-1"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => handleAddDeposit(goal.id)}
-                              disabled={!depositInputs[goal.id] || parseFloat(depositInputs[goal.id]!) <= 0}
-                              className="flex-1 sm:flex-none"
-                            >
-                              Adicionar
-                            </Button>
-                            <Button
-                              variant="destructive"
-                              size="icon"
-                              onClick={() => handleDeleteGoal(goal.id)}
-                              className="flex-shrink-0"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Guardar hoje
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                            className="flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       )}
 
@@ -926,6 +955,92 @@ export default function Finances() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Diálogo de depósito compartilhado: "Guardei" (conta) e "Guardar hoje" (meta) */}
+      <Dialog open={depositTarget !== null} onOpenChange={(open) => { if (!open) { setDepositTarget(null); setDepositValue(""); } }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Quanto você guardou?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {depositTarget && (
+              <p className="text-sm text-muted-foreground">
+                {depositTarget.kind === "bill" ? depositTarget.bill.name : depositTarget.goal.name}
+              </p>
+            )}
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                inputMode="decimal"
+                autoFocus
+                value={depositValue}
+                onChange={(e) => setDepositValue(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleConfirmDeposit(); }}
+                placeholder="0,00"
+              />
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => { setDepositTarget(null); setDepositValue(""); }}
+                className="w-full sm:flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button onClick={handleConfirmDeposit} className="w-full sm:flex-1">
+                Confirmar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo de edição de conta: nome, valor e vencimento */}
+      <Dialog open={editBill !== null} onOpenChange={(open) => { if (!open) setEditBill(null); }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Editar conta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Nome da conta</Label>
+              <Input
+                value={editBillForm.name}
+                onChange={(e) => setEditBillForm({ ...editBillForm, name: e.target.value })}
+                placeholder="Ex: Aluguel, Luz, Internet..."
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={editBillForm.amount}
+                onChange={(e) => setEditBillForm({ ...editBillForm, amount: e.target.value })}
+                placeholder="0,00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data de vencimento</Label>
+              <Input
+                type="date"
+                value={editBillForm.due_date}
+                onChange={(e) => setEditBillForm({ ...editBillForm, due_date: e.target.value })}
+              />
+            </div>
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+              <Button variant="outline" onClick={() => setEditBill(null)} className="w-full sm:flex-1">
+                Cancelar
+              </Button>
+              <Button onClick={handleSaveEditBill} className="w-full sm:flex-1">
+                Salvar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
