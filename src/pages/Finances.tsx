@@ -28,7 +28,12 @@ import {
   PiggyBank,
   AlertTriangle,
   RotateCw,
-  Copy
+  Copy,
+  Paperclip,
+  FileText,
+  Download,
+  PartyPopper,
+  Loader2
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -43,6 +48,7 @@ interface PlannedBill {
   paid: boolean;
   recurring: boolean;
   payment_code: string | null;
+  file_path: string | null;
 }
 
 interface Goal {
@@ -126,6 +132,9 @@ export default function Finances() {
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
   const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "" });
 
+  // Anexo de boleto: id da conta cujo arquivo está subindo (spinner/disabled)
+  const [uploadingBillId, setUploadingBillId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!loading && !user) {
       navigate("/auth");
@@ -151,7 +160,7 @@ export default function Finances() {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
       const { data: billsData, error: billsError } = await supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code")
+        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path")
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
@@ -283,6 +292,7 @@ export default function Finances() {
           paid: false,
           recurring: newBill.recurring,
           payment_code: newBill.payment_code.trim() || null,
+          file_path: null,
         });
 
       if (error) throw error;
@@ -487,6 +497,85 @@ export default function Finances() {
         description: "Tente copiar manualmente o código.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Anexa (ou troca) o boleto/comprovante de uma conta. Sobe pro bucket privado
+  // "bill-files" numa pasta com o auth.uid() do usuário (regra do RLS), grava o
+  // caminho em planned_bills.file_path e atualiza o estado local.
+  const handleUploadBillFile = async (bill: PlannedBill, file: File | null) => {
+    if (!user || !file) return;
+    setUploadingBillId(bill.id);
+    try {
+      // Sanitiza o nome: mantém letras/números/ponto/hífen; o resto vira "_"
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const path = `${user.id}/${bill.id}-${Date.now()}-${safeName}`;
+
+      const { error: upErr } = await supabase.storage
+        .from("bill-files")
+        .upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+
+      const { error: dbErr } = await supabase
+        .from("planned_bills")
+        .update({ file_path: path })
+        .eq("id", bill.id);
+      if (dbErr) throw dbErr;
+
+      setBills((prev) => prev.map((b) => (b.id === bill.id ? { ...b, file_path: path } : b)));
+      toast({ title: "Boleto anexado", description: `Arquivo salvo em ${bill.name}.` });
+    } catch (error) {
+      console.error("Error uploading bill file:", error);
+      toast({
+        title: "Erro ao anexar boleto",
+        description: "Tente novamente mais tarde.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingBillId(null);
+    }
+  };
+
+  // Abre/baixa o boleto da conta via URL assinada temporária (válida ~60s).
+  const handleViewBillFile = async (bill: PlannedBill) => {
+    if (!bill.file_path) return;
+    try {
+      const { data, error } = await supabase.storage
+        .from("bill-files")
+        .createSignedUrl(bill.file_path, 60);
+      if (error || !data?.signedUrl) throw error || new Error("Sem URL");
+      window.open(data.signedUrl, "_blank");
+    } catch (error) {
+      console.error("Error opening bill file:", error);
+      toast({
+        title: "Erro ao abrir boleto",
+        description: "Não foi possível gerar o link do arquivo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Remove o boleto: apaga do Storage e zera file_path (com confirmação).
+  const handleRemoveBillFile = async (bill: PlannedBill) => {
+    if (!bill.file_path) return;
+    if (!confirm(`Remover o boleto anexado de "${bill.name}"?`)) return;
+    try {
+      const { error: rmErr } = await supabase.storage
+        .from("bill-files")
+        .remove([bill.file_path]);
+      if (rmErr) throw rmErr;
+
+      const { error: dbErr } = await supabase
+        .from("planned_bills")
+        .update({ file_path: null })
+        .eq("id", bill.id);
+      if (dbErr) throw dbErr;
+
+      setBills((prev) => prev.map((b) => (b.id === bill.id ? { ...b, file_path: null } : b)));
+      toast({ title: "Boleto removido", description: `O arquivo de "${bill.name}" foi excluído.` });
+    } catch (error) {
+      console.error("Error removing bill file:", error);
+      toast({ title: "Erro ao remover boleto", variant: "destructive" });
     }
   };
 
@@ -911,6 +1000,10 @@ export default function Finances() {
                 const remainingValue = remaining(bill);
                 const progress = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
                 const quitada = bill.paid || saved >= amount;
+                // "Pode pagar": já guardou tudo, mas ainda não marcou como paga.
+                const canPay = !bill.paid && amount > 0 && saved >= amount;
+                const hasFile = Boolean(bill.file_path && bill.file_path.trim() !== "");
+                const isUploading = uploadingBillId === bill.id;
                 const overdue = isOverdue(bill);
                 const isRecurring = Boolean(bill.recurring);
 
@@ -1016,10 +1109,52 @@ export default function Finances() {
                         <Progress value={progress} className="h-2" />
                       </div>
 
-                      {quitada ? (
+                      {bill.paid ? (
                         <div className="bg-success/10 border border-success/20 rounded-lg p-2.5 flex items-center justify-center gap-2">
                           <Check className="w-4 h-4 text-success" />
                           <p className="text-success font-semibold text-sm">Quitada ✓</p>
+                        </div>
+                      ) : canPay ? (
+                        <div className="rounded-lg bg-success/10 border border-success/30 px-3 py-3 space-y-2.5">
+                          <div className="flex items-start gap-2">
+                            <PartyPopper className="w-4 h-4 text-success shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-success">Você já guardou tudo! 🎉</p>
+                              <p className="text-xs text-success/80 mt-0.5">Agora é só pagar.</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {bill.payment_code && bill.payment_code.trim() !== "" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleCopyPaymentCode(bill)}
+                                className="border-success/40 text-success hover:bg-success/10"
+                              >
+                                <Copy className="w-4 h-4 mr-1.5" />
+                                Copiar código
+                              </Button>
+                            )}
+                            {hasFile && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewBillFile(bill)}
+                                className="border-success/40 text-success hover:bg-success/10"
+                              >
+                                <FileText className="w-4 h-4 mr-1.5" />
+                                Ver boleto
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => handleToggleBillPaid(bill)}
+                              className="bg-success text-success-foreground hover:bg-success/90"
+                            >
+                              <Check className="w-4 h-4 mr-1.5" />
+                              Marcar como paga
+                            </Button>
+                          </div>
                         </div>
                       ) : overdue ? (
                         <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2">
@@ -1080,6 +1215,58 @@ export default function Finances() {
                           )}
                         </div>
                       )}
+
+                      {/* Boleto: anexar/trocar, ver e remover (bucket privado bill-files) */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <input
+                          id={`bill-file-${bill.id}`}
+                          type="file"
+                          accept="application/pdf,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] ?? null;
+                            handleUploadBillFile(bill, f);
+                            e.target.value = "";
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isUploading}
+                          onClick={() => document.getElementById(`bill-file-${bill.id}`)?.click()}
+                          aria-label={hasFile ? "Trocar boleto" : "Anexar boleto"}
+                        >
+                          {isUploading ? (
+                            <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                          ) : (
+                            <Paperclip className="w-4 h-4 text-primary" />
+                          )}
+                          <span className="ml-1.5 text-xs text-primary">
+                            {isUploading ? "Enviando..." : hasFile ? "Trocar boleto" : "Anexar boleto"}
+                          </span>
+                        </Button>
+                        {hasFile && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewBillFile(bill)}
+                              aria-label="Ver boleto"
+                            >
+                              <Download className="w-4 h-4 text-primary" />
+                              <span className="ml-1.5 text-xs text-primary">Ver boleto</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveBillFile(bill)}
+                              aria-label="Remover boleto"
+                            >
+                              <Trash2 className="w-4 h-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
 
                       <div className="flex flex-col sm:flex-row gap-2 pt-1">
                         {!quitada && (
