@@ -25,7 +25,8 @@ import {
   Check,
   ImagePlus,
   Pencil,
-  Sparkles
+  Sparkles,
+  PiggyBank
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -85,6 +86,10 @@ export default function Finances() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
+
+  // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
+  const [workingDays, setWorkingDays] = useState<string[]>([]);
+  const [weeklyWorkDays, setWeeklyWorkDays] = useState<number>(0);
 
   // Form state for new planned bill (Contas a pagar)
   const [newBill, setNewBill] = useState({
@@ -159,6 +164,17 @@ export default function Finances() {
 
       if (goalsError) throw goalsError;
       setGoals((goalsData || []) as Goal[]);
+
+      // Dias de trabalho do perfil (pra dividir "guardar por dia" só nos dias úteis)
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("working_days, weekly_work_days")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      setWorkingDays(
+        Array.isArray(profileData?.working_days) ? (profileData!.working_days as string[]) : []
+      );
+      setWeeklyWorkDays(Number(profileData?.weekly_work_days) || 0);
 
       // Calculate financial summary
       const now = new Date();
@@ -499,9 +515,63 @@ export default function Finances() {
     }
   };
 
+  // Conta os DIAS DE TRABALHO de hoje até o vencimento (inclusive), considerando
+  // só os dias da semana em working_days. Sem prazo → fallback grande (30).
+  // Sem working_days: usa weekly_work_days pra estimar; senão, dias corridos.
+  const workingDaysUntil = (dueDateStr: string | null): number => {
+    if (!dueDateStr) return 30;
+    const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+    // Parse ao meio-dia local pra evitar erro de fuso/DST
+    const due = new Date(dueDateStr + "T12:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDay = new Date(due);
+    dueDay.setHours(0, 0, 0, 0);
+
+    // Dias corridos de hoje até o vencimento (inclusive)
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const calendarDays = Math.floor((dueDay.getTime() - today.getTime()) / msPerDay) + 1;
+
+    if (!workingDays || workingDays.length === 0) {
+      if (weeklyWorkDays > 0) {
+        return Math.max(1, Math.ceil(calendarDays * (weeklyWorkDays / 7)));
+      }
+      return Math.max(1, calendarDays);
+    }
+
+    let count = 0;
+    const cursor = new Date(today);
+    while (cursor.getTime() <= dueDay.getTime()) {
+      const name = weekdayNames[cursor.getDay()];
+      if (workingDays.includes(name)) count++;
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    return Math.max(1, count);
+  };
+
   if (loading || !user) {
     return null;
   }
+
+  // "A guardar hoje" — quanto reservar do líquido de hoje pras metas + contas
+  const todayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()];
+  const todayIsWorkDay = workingDays && workingDays.length > 0 ? workingDays.includes(todayName) : true;
+  const goalPctTotal = Math.min(
+    100,
+    goals.reduce((sum, g) => sum + (Number(g.percentual_distribuicao) || 0), 0)
+  );
+  const goalShareToday = (Math.max(0, summary.netToday) * goalPctTotal) / 100;
+  const billsShareToday = todayIsWorkDay
+    ? bills.reduce((sum, bill) => {
+        const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+        if (quitada) return sum;
+        const remaining = Math.max(0, (Number(bill.amount) || 0) - (Number(bill.saved_amount) || 0));
+        const wd = workingDaysUntil(bill.due_date);
+        return sum + remaining / Math.max(1, wd);
+      }, 0)
+    : 0;
+  const totalGuardarHoje = goalShareToday + billsShareToday;
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -579,6 +649,31 @@ export default function Finances() {
           </p>
         </div>
       )}
+
+      {/* A guardar hoje — quanto reservar do líquido de hoje pras metas + contas */}
+      <Card className="card-gradient-border bg-primary/10 border-primary/30">
+        <CardContent className="pt-6">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground">A guardar hoje</p>
+              <div className="text-3xl font-bold text-primary whitespace-nowrap">
+                {isLoadingData ? <Skeleton className="h-9 w-28" /> : formatCurrency(totalGuardarHoje)}
+              </div>
+              {!isLoadingData && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatCurrency(goalShareToday)} pras metas · {formatCurrency(billsShareToday)} pras contas
+                </p>
+              )}
+              {!isLoadingData && !todayIsWorkDay && (
+                <p className="text-xs text-muted-foreground mt-1">Hoje é seu descanso.</p>
+              )}
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+              <PiggyBank className="w-5 h-5 text-primary" />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Distribuição automática do líquido diário */}
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
@@ -671,7 +766,7 @@ export default function Finances() {
                 const progress = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
                 const quitada = bill.paid || saved >= amount;
 
-                // Dias até o vencimento (parse ao meio-dia UTC evita erro de fuso/DST)
+                // Dias corridos até o vencimento (só pra rótulo "vence hoje/venceu")
                 let daysLeft: number | null = null;
                 if (bill.due_date) {
                   const msPerDay = 1000 * 60 * 60 * 24;
@@ -679,7 +774,9 @@ export default function Finances() {
                   const dueMs = new Date(bill.due_date + "T12:00:00Z").getTime();
                   daysLeft = Math.ceil((dueMs - todayMs) / msPerDay);
                 }
-                const perDay = remaining / Math.max(1, daysLeft ?? 1);
+                // Guardar por DIA DE TRABALHO: divide o que falta pelos dias úteis até vencer
+                const workDaysLeft = workingDaysUntil(bill.due_date);
+                const perDay = remaining / Math.max(1, workDaysLeft);
 
                 return (
                   <Card key={bill.id} className={quitada ? "border-success/30" : "card-gradient-border"}>
@@ -735,20 +832,21 @@ export default function Finances() {
                       ) : (
                         <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
                           <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground">Guardar por dia</p>
-                            <p className="text-lg font-bold text-primary whitespace-nowrap">
-                              {formatCurrency(perDay)}/dia
+                            <p className="text-sm font-bold text-primary">
+                              Guardar {formatCurrency(perDay)} por dia de trabalho
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {daysLeft === 0
+                                ? "vence hoje"
+                                : daysLeft !== null && daysLeft < 0
+                                ? "venceu"
+                                : `${workDaysLeft} ${workDaysLeft === 1 ? "dia" : "dias"} de trabalho${
+                                    bill.due_date
+                                      ? ` até ${new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
+                                      : ""
+                                  }`}
                             </p>
                           </div>
-                          <p className="text-xs text-muted-foreground text-right whitespace-nowrap">
-                            {daysLeft === null
-                              ? "sem prazo"
-                              : daysLeft > 0
-                              ? `faltam ${daysLeft} ${daysLeft === 1 ? "dia" : "dias"}`
-                              : daysLeft === 0
-                              ? "vence hoje"
-                              : `venceu há ${Math.abs(daysLeft)} ${Math.abs(daysLeft) === 1 ? "dia" : "dias"}`}
-                          </p>
                         </div>
                       )}
 
