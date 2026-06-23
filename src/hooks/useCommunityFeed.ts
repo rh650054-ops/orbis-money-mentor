@@ -58,7 +58,14 @@ export function useCommunityFeed(channel: FeedChannel, region: { state?: string 
     const list = (rawPosts ?? []) as any[];
     if (list.length === 0) { setPosts([]); setLoading(false); return; }
 
+    // PERF: mostra os posts IMEDIATAMENTE (sem esperar curtidas/comentarios).
+    // Os contadores chegam logo depois, em segundo plano.
+    setPosts(list.map((p) => ({ ...p, likes_count: 0, comments_count: 0, liked_by_me: false })));
+    setLoading(false);
+
+    // Busca os contadores em paralelo e atualiza so' os posts deste load.
     const ids = list.map((p) => p.id);
+    const idSet = new Set(ids);
     const [{ data: likes }, { data: comments }, { data: myLikes }] = await Promise.all([
       supabase.from("community_likes").select("post_id").in("post_id", ids),
       supabase.from("community_comments").select("post_id").in("post_id", ids).eq("is_deleted", false),
@@ -71,25 +78,31 @@ export function useCommunityFeed(channel: FeedChannel, region: { state?: string 
     (comments ?? []).forEach((c: any) => commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1));
     const mine = new Set((myLikes ?? []).map((l: any) => l.post_id));
 
-    setPosts(list.map((p) => ({
-      ...p,
-      likes_count: likeCount.get(p.id) ?? 0,
-      comments_count: commentCount.get(p.id) ?? 0,
-      liked_by_me: mine.has(p.id),
-    })));
-    setLoading(false);
+    // Atualiza so' os posts que pertencem a este load (evita zerar outro canal
+    // se o usuario trocou de aba enquanto os contadores chegavam).
+    setPosts((prev) => prev.map((p) =>
+      idSet.has(p.id)
+        ? {
+            ...p,
+            likes_count: likeCount.get(p.id) ?? 0,
+            comments_count: commentCount.get(p.id) ?? 0,
+            liked_by_me: mine.has(p.id),
+          }
+        : p
+    ));
   }, [user, channel, region.state, region.city]);
 
   useEffect(() => { load(); }, [load]);
 
-  // realtime
+  // Realtime: so' reage a NOVOS posts do canal (aparecem na hora).
+  // PERF: tiramos o reload-geral a cada curtida — antes, qualquer like de
+  // qualquer pessoa recarregava o feed inteiro e travava a tela.
   useEffect(() => {
     if (!user) return;
     const ch = supabase
       .channel(`feed-${channel}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_posts", filter: `channel=eq.${channel}` },
         () => load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "community_likes" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user, channel, load]);
