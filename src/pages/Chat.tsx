@@ -1,30 +1,18 @@
 import { useState, useEffect, useCallback } from "react";
-import { Globe, MapPin, Loader2, Settings } from "lucide-react";
-import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/shared/ui/dialog";
-import { Label } from "@/shared/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/shared/ui/select";
+import { Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/ui/use-toast";
-import { useCommunityFeed, type FeedChannel, type FeedPost } from "@/hooks/useCommunityFeed";
+import { useCommunityFeed, type FeedPost } from "@/hooks/useCommunityFeed";
 import { PostComposer } from "@/components/community/PostComposer";
 import { PostCard } from "@/components/community/PostCard";
 import { CommentsSheet } from "@/components/community/CommentsSheet";
 import { generatePostShareImage } from "@/components/community/postShareImage";
 
-const BR_STATES = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
-
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [channel, setChannel] = useState<FeedChannel>("global");
   const [profile, setProfile] = useState<{ nickname: string | null; avatar_url: string | null; city: string | null; state: string | null } | null>(null);
-  const [setupOpen, setSetupOpen] = useState(false);
-  const [editCity, setEditCity] = useState("");
-  const [editState, setEditState] = useState("");
   const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
@@ -34,28 +22,11 @@ export default function Chat() {
       .select("nickname, avatar_url, city, state")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (data) {
-      setProfile(data);
-      setEditCity(data.city || "");
-      setEditState(data.state || "");
-    }
+    if (data) setProfile(data);
   }, [user]);
   useEffect(() => { loadProfile(); }, [loadProfile]);
 
-  const { posts, loading, reload, toggleLike } = useCommunityFeed(
-    channel,
-    { state: profile?.state, city: profile?.city }
-  );
-
-  const saveRegion = async () => {
-    if (!user) return;
-    const payload = { city: editCity.trim() || null, state: editState || null };
-    const { error } = await supabase.from("profiles").update(payload).eq("user_id", user.id);
-    if (error) { toast({ title: "Erro ao salvar região", variant: "destructive" }); return; }
-    setProfile((p) => (p ? { ...p, ...payload } : p));
-    setSetupOpen(false);
-    toast({ title: "Região salva!" });
-  };
+  const { posts, loading, reload, toggleLike } = useCommunityFeed();
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("community_posts").update({ is_deleted: true }).eq("id", id);
@@ -98,11 +69,11 @@ export default function Chat() {
     const quoted = `🔁 Repost de @${post.nickname ?? "vendedor"}:\n\n${post.content ?? ""}`.slice(0, 1000);
     const { error } = await supabase.from("community_posts").insert({
       user_id: user.id,
-      channel,
+      channel: "global",
       content: quoted,
       image_url: post.image_url ?? null,
-      city: channel === "regional" ? profile?.city ?? null : null,
-      state: channel === "regional" ? profile?.state ?? null : null,
+      city: null,
+      state: null,
       nickname: profile?.nickname ?? user.email?.split("@")[0] ?? "Vendedor",
       avatar_url: profile?.avatar_url ?? null,
     });
@@ -116,109 +87,43 @@ export default function Chat() {
 
   return (
     <div className="mx-auto w-full max-w-xl pb-4">
-      <div className="mb-2 px-1">
+      <div className="mb-3 px-1">
         <h1 className="text-2xl font-extrabold tracking-tight">Comunidade Orbis</h1>
         <p className="text-sm text-muted-foreground">Feed de vendedores na ativa</p>
       </div>
 
-      <Tabs value={channel} onValueChange={(v) => setChannel(v as FeedChannel)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto p-0 mb-3 bg-transparent rounded-none border-b border-border/60">
-          <TabsTrigger value="global" className="gap-2 rounded-none border-b-2 border-transparent bg-transparent py-2.5 font-semibold text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">
-            <Globe className="h-4 w-4" /> Global
-          </TabsTrigger>
-          <TabsTrigger value="regional" className="gap-2 rounded-none border-b-2 border-transparent bg-transparent py-2.5 font-semibold text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none">
-            <MapPin className="h-4 w-4" />
-            {profile?.city ? profile.city : profile?.state ? profile.state : "Regional"}
-          </TabsTrigger>
-        </TabsList>
+      <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/30">
+        <PostComposer channel="global" profile={profile} onPosted={reload} />
 
-        {(["global","regional"] as FeedChannel[]).map((ch) => (
-          <TabsContent key={ch} value={ch} className="mt-0 data-[state=inactive]:hidden focus-visible:outline-none">
-            {ch === "regional" && !profile?.state ? (
-              <div className="bg-card border border-border/60 rounded-2xl p-8 flex flex-col items-center text-center gap-3">
-                <MapPin className="h-10 w-10 text-muted-foreground" />
-                <div>
-                  <h3 className="font-semibold mb-1">Defina sua região</h3>
-                  <p className="text-sm text-muted-foreground">Para ver posts dos vendedores próximos.</p>
-                </div>
-                <Button onClick={() => setSetupOpen(true)} className="bg-gradient-primary">
-                  <Settings className="h-4 w-4 mr-2" /> Configurar região
-                </Button>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/30">
-                  <PostComposer channel={ch} profile={profile} onPosted={reload} />
-
-                  {loading ? (
-                    <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-                  ) : posts.length === 0 ? (
-                    <p className="px-4 py-12 text-center text-sm text-muted-foreground">
-                      Seja o primeiro a postar! 🚀
-                    </p>
-                  ) : (
-                    <div className="divide-y divide-border/60">
-                      {posts.map((p) => (
-                        <PostCard
-                          key={p.id}
-                          post={p}
-                          isMine={p.user_id === user?.id}
-                          onLike={() => toggleLike(p.id)}
-                          onOpenComments={() => setOpenCommentsFor(p.id)}
-                          onShare={() => handleShare(p)}
-                          onRepost={() => handleRepost(p)}
-                          onDelete={() => handleDelete(p.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {ch === "regional" && profile?.state && (
-                  <button
-                    onClick={() => setSetupOpen(true)}
-                    className="mx-auto mt-3 block text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Trocar região
-                  </button>
-                )}
-              </>
-            )}
-          </TabsContent>
-        ))}
-      </Tabs>
+        {loading ? (
+          <div className="flex justify-center py-12"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        ) : posts.length === 0 ? (
+          <p className="px-4 py-12 text-center text-sm text-muted-foreground">
+            Seja o primeiro a postar! 🚀
+          </p>
+        ) : (
+          <div className="divide-y divide-border/60">
+            {posts.map((p) => (
+              <PostCard
+                key={p.id}
+                post={p}
+                isMine={p.user_id === user?.id}
+                onLike={() => toggleLike(p.id)}
+                onOpenComments={() => setOpenCommentsFor(p.id)}
+                onShare={() => handleShare(p)}
+                onRepost={() => handleRepost(p)}
+                onDelete={() => handleDelete(p.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
       <CommentsSheet
         postId={openCommentsFor}
         onClose={() => { setOpenCommentsFor(null); reload(); }}
         profile={profile}
       />
-
-      <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Sua região</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Estado (UF)</Label>
-              <Select value={editState} onValueChange={setEditState}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {BR_STATES.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Cidade (opcional)</Label>
-              <Input value={editCity} onChange={(e) => setEditCity(e.target.value)} placeholder="Ex: São Paulo" />
-              <p className="text-xs text-muted-foreground mt-1">Sem cidade, você verá o feed estadual.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setSetupOpen(false)}>Cancelar</Button>
-            <Button onClick={saveRegion} disabled={!editState} className="bg-gradient-primary">Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
