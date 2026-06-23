@@ -20,6 +20,7 @@ interface SubscriptionUser {
   plan_status: string | null;
   is_demo: boolean | null;
   billing_exempt: boolean | null;
+  comp_label: string | null;
   trial_end: string | null;
   phone: string | null;
   cpf: string | null;
@@ -34,12 +35,14 @@ export default function AdminSubscriptions() {
   const [users, setUsers] = useState<SubscriptionUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "ultimo_dia" | "expirados" | "todos">("assinantes");
+  const [statusFilter, setStatusFilter] = useState<"assinantes" | "trial" | "ultimo_dia" | "expirados" | "cortesias" | "todos">("assinantes");
   // Edição de perfil de um usuário (admin)
   const [editUser, setEditUser] = useState<SubscriptionUser | null>(null);
   const [editForm, setEditForm] = useState({ nickname: "", phone: "", cpf: "", city: "", state: "", email: "" });
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
+  const [editComp, setEditComp] = useState<{ exempt: boolean; label: string | null }>({ exempt: false, label: null });
+  const [savingComp, setSavingComp] = useState(false);
   const [rankingHidden, setRankingHidden] = useState(false);
   const [savingRanking, setSavingRanking] = useState(false);
   // Correção de resultados/vendas do usuário (anti-trapaça)
@@ -100,7 +103,7 @@ export default function AdminSubscriptions() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, user_id, email, nickname, plan_status, is_demo, billing_exempt, trial_end, phone, cpf")
+        .select("id, user_id, email, nickname, plan_status, is_demo, billing_exempt, comp_label, trial_end, phone, cpf")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -200,9 +203,10 @@ export default function AdminSubscriptions() {
     setTempPassword(null);
     setCopiedPassword(false);
     setEditForm({ nickname: u.nickname || "", phone: "", cpf: "", city: "", state: "", email: u.email || "" });
+    setEditComp({ exempt: Boolean(u.billing_exempt), label: u.comp_label || null });
     const { data } = await supabase
       .from("profiles")
-      .select("nickname, phone, cpf, city, state, email, ranking_hidden")
+      .select("nickname, phone, cpf, city, state, email, ranking_hidden, billing_exempt, comp_label")
       .eq("user_id", u.user_id)
       .maybeSingle();
     if (data) {
@@ -216,6 +220,7 @@ export default function AdminSubscriptions() {
         email: d.email || "",
       });
       setRankingHidden(Boolean(d.ranking_hidden));
+      setEditComp({ exempt: Boolean(d.billing_exempt), label: d.comp_label || null });
     }
     // Vendas (resultados) do mês atual, para corrigir/zerar valores falsos
     const now = new Date();
@@ -352,6 +357,35 @@ export default function AdminSubscriptions() {
     }
   };
 
+  // Marca/atualiza o selo de acesso (cortesia / influenciador / equipe / desconto)
+  const applyComp = async (label: string | null, exempt: boolean) => {
+    if (!editUser) return;
+    setSavingComp(true);
+    try {
+      const updates: any = { billing_exempt: exempt, comp_label: label };
+      if (exempt) { updates.plan_status = "active"; updates.plan_type = "pro"; updates.is_trial_active = false; }
+      const { error } = await supabase.from("profiles").update(updates).eq("user_id", editUser.user_id);
+      if (error) throw error;
+      setEditComp({ exempt, label });
+      setUsers((prev) => prev.map((x) => x.user_id === editUser.user_id
+        ? { ...x, billing_exempt: exempt, comp_label: label, plan_status: exempt ? "active" : x.plan_status }
+        : x));
+      toast({ title: label ? `Selo aplicado: ${label}` : "Voltou a Pagante normal" });
+    } catch (err: any) {
+      toast({ title: "Erro ao aplicar selo", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingComp(false);
+    }
+  };
+
+  const applyDesconto = () => {
+    const pct = window.prompt("Qual o desconto dele, em %? (ex.: 50)", "50");
+    if (pct === null) return;
+    const n = parseInt(String(pct).replace(/\D/g, ""), 10) || 0;
+    // Pagou com desconto = continua PAGANTE (entra na receita real da Hotmart), só leva o selo
+    applyComp(`Cortesia ${n}%`, false);
+  };
+
   const handleToggleSubscription = async (targetUserId: string, currentStatus: string) => {
     setIsUpdating(targetUserId);
     const newStatus = currentStatus === "active" ? "expired" : "active";
@@ -413,7 +447,7 @@ export default function AdminSubscriptions() {
     }
   };
 
-  const isComp = (u: SubscriptionUser) => Boolean(u.is_demo && u.billing_exempt); // contas de cortesia/admin
+  const isComp = (u: SubscriptionUser) => Boolean(u.billing_exempt); // cortesia/influenciador/equipe (acesso grátis)
   // Data de hoje no fuso do Brasil (YYYY-MM-DD) e o dia de fim do trial de cada usuário.
   const todayBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const endDay = (u: SubscriptionUser) => (u.trial_end || "").slice(0, 10);
@@ -429,6 +463,7 @@ export default function AdminSubscriptions() {
     if (statusFilter === "trial" && u.plan_status !== "trial") return false;
     if (statusFilter === "ultimo_dia" && !isUltimoDia(u)) return false;
     if (statusFilter === "expirados" && !isExpirado(u)) return false;
+    if (statusFilter === "cortesias" && !isComp(u)) return false;
     // Busca por texto
     if (!searchEmail) return true;
     const search = searchEmail.toLowerCase();
@@ -517,6 +552,7 @@ export default function AdminSubscriptions() {
               ["trial", "Trial (3 dias)"],
               ["ultimo_dia", `Último dia (${users.filter(isUltimoDia).length})`],
               ["expirados", `Expirados (${users.filter(isExpirado).length})`],
+              ["cortesias", `Cortesias (${users.filter(isComp).length})`],
               ["todos", "Todos"],
             ] as const).map(([key, label]) => (
               <button
@@ -618,7 +654,7 @@ export default function AdminSubscriptions() {
       <Card>
         <CardHeader>
           <CardTitle>
-            {statusFilter === "assinantes" ? "Assinantes" : statusFilter === "trial" ? "Em teste (3 dias)" : statusFilter === "ultimo_dia" ? "Último dia de teste — mande a mensagem! ⏳" : statusFilter === "expirados" ? "Expirados — não assinaram (win-back) 🔁" : "Todos os usuários"} ({filteredUsers.length})
+            {statusFilter === "assinantes" ? "Assinantes" : statusFilter === "trial" ? "Em teste (3 dias)" : statusFilter === "ultimo_dia" ? "Último dia de teste — mande a mensagem! ⏳" : statusFilter === "expirados" ? "Expirados — não assinaram (win-back) 🔁" : statusFilter === "cortesias" ? "Cortesias / Influenciadores" : "Todos os usuários"} ({filteredUsers.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -637,8 +673,11 @@ export default function AdminSubscriptions() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-semibold truncate">{u.nickname || "Sem nome"}</p>
-                        {u.is_demo && u.billing_exempt && (
-                          <Badge variant="secondary" className="text-xs">DEMO</Badge>
+                        {isComp(u) && (
+                          <Badge variant="secondary" className="text-xs">{u.comp_label || "Cortesia"}</Badge>
+                        )}
+                        {!isComp(u) && u.comp_label && (
+                          <Badge variant="outline" className="text-xs">{u.comp_label}</Badge>
                         )}
                         <Badge
                           className={
@@ -664,7 +703,7 @@ export default function AdminSubscriptions() {
                       size="sm"
                       variant="outline"
                       className="border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
-                      disabled={isUpdating === u.user_id || u.plan_status === "active" || Boolean(u.is_demo && u.billing_exempt)}
+                      disabled={isUpdating === u.user_id || u.plan_status === "active" || isComp(u)}
                       title="Dar +3 dias de teste gratis"
                       onClick={async () => {
                         setIsUpdating(u.user_id);
@@ -755,7 +794,7 @@ export default function AdminSubscriptions() {
                       size="sm"
                       variant={u.plan_status === "active" ? "destructive" : "default"}
                       onClick={() => handleToggleSubscription(u.user_id, u.plan_status || "trial")}
-                      disabled={isUpdating === u.user_id || Boolean(u.is_demo && u.billing_exempt)}
+                      disabled={isUpdating === u.user_id || isComp(u)}
                     >
                       {isUpdating === u.user_id ? (
                         <RefreshCw className="w-4 h-4 animate-spin" />
@@ -842,6 +881,33 @@ export default function AdminSubscriptions() {
                 <p className="text-xs text-muted-foreground">
                   Mudar o e-mail de login precisa de um passo extra — me avise se precisar.
                 </p>
+              </div>
+
+              {/* Tipo de acesso: cortesia / influenciador / equipe / desconto */}
+              <div className="rounded-lg border border-border p-3 space-y-2">
+                <p className="text-sm font-semibold">Tipo de acesso</p>
+                <p className="text-xs text-muted-foreground">
+                  {editComp.label
+                    ? `Atual: ${editComp.label}${editComp.exempt ? " — grátis, não conta como pagante" : " — pagante (entra na receita)"}`
+                    : "Atual: Pagante normal"}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant={!editComp.label ? "default" : "outline"} disabled={savingComp} onClick={() => applyComp(null, false)}>
+                    Pagante normal
+                  </Button>
+                  <Button size="sm" variant={editComp.label === "Influenciador" ? "default" : "outline"} disabled={savingComp} onClick={() => applyComp("Influenciador", true)}>
+                    Influenciador (grátis)
+                  </Button>
+                  <Button size="sm" variant={editComp.label === "Cortesia" ? "default" : "outline"} disabled={savingComp} onClick={() => applyComp("Cortesia", true)}>
+                    Cortesia (grátis)
+                  </Button>
+                  <Button size="sm" variant={editComp.label === "Equipe" ? "default" : "outline"} disabled={savingComp} onClick={() => applyComp("Equipe", true)}>
+                    Equipe / Sócio
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={savingComp} onClick={applyDesconto}>
+                    Cortesia com desconto…
+                  </Button>
+                </div>
               </div>
 
               {/* Moderação do ranking */}
