@@ -5,8 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { Textarea } from "@/shared/ui/textarea";
 import { Label } from "@/shared/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
+import { Switch } from "@/shared/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useToast } from "@/shared/hooks/use-toast";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -26,7 +28,10 @@ import {
   ImagePlus,
   Pencil,
   Sparkles,
-  PiggyBank
+  PiggyBank,
+  AlertTriangle,
+  RotateCw,
+  Copy
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -39,6 +44,8 @@ interface PlannedBill {
   due_date: string | null;
   saved_amount: number;
   paid: boolean;
+  recurring: boolean;
+  payment_code: string | null;
 }
 
 interface Goal {
@@ -96,6 +103,8 @@ export default function Finances() {
     name: "",
     amount: "",
     due_date: "",
+    recurring: false,
+    payment_code: "",
   });
 
   // Form states for new goal
@@ -118,7 +127,7 @@ export default function Finances() {
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
-  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "" });
+  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "" });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -145,7 +154,7 @@ export default function Finances() {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
       const { data: billsData, error: billsError } = await supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid")
+        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code")
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
@@ -275,6 +284,8 @@ export default function Finances() {
           due_date: newBill.due_date || null,
           saved_amount: 0,
           paid: false,
+          recurring: newBill.recurring,
+          payment_code: newBill.payment_code.trim() || null,
         });
 
       if (error) throw error;
@@ -284,7 +295,7 @@ export default function Finances() {
         description: `${newBill.name} entrou no seu planejamento`,
       });
 
-      setNewBill({ name: "", amount: "", due_date: "" });
+      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "" });
       setIsAddBillOpen(false);
       loadFinancialData();
     } catch (error) {
@@ -367,6 +378,8 @@ export default function Finances() {
       name: bill.name,
       amount: String(bill.amount ?? ""),
       due_date: bill.due_date ?? "",
+      recurring: Boolean(bill.recurring),
+      payment_code: bill.payment_code ?? "",
     });
   };
 
@@ -388,6 +401,8 @@ export default function Finances() {
           name: editBillForm.name,
           amount: parseFloat(editBillForm.amount),
           due_date: editBillForm.due_date || null,
+          recurring: editBillForm.recurring,
+          payment_code: editBillForm.payment_code.trim() || null,
         })
         .eq("id", editBill.id);
       if (error) throw error;
@@ -440,6 +455,41 @@ export default function Finances() {
     } catch (error) {
       console.error("Error deleting bill:", error);
       toast({ title: "Erro ao remover conta", variant: "destructive" });
+    }
+  };
+
+  // Copia o código de pagamento (linha digitável do boleto ou chave Pix) pra área
+  // de transferência. Usa a Clipboard API async; se não houver (contexto inseguro
+  // ou navegador antigo), cai num fallback com <textarea> + execCommand("copy").
+  const handleCopyPaymentCode = async (bill: PlannedBill) => {
+    const code = (bill.payment_code ?? "").trim();
+    if (!code) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = code;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        if (!ok) throw new Error("execCommand copy failed");
+      }
+      toast({
+        title: "Copiado!",
+        description: "Cole no seu banco pra pagar.",
+      });
+    } catch (error) {
+      console.error("Error copying payment code:", error);
+      toast({
+        title: "Não consegui copiar",
+        description: "Tente copiar manualmente o código.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -550,6 +600,66 @@ export default function Finances() {
     return Math.max(1, count);
   };
 
+  // Formata uma Date local como "YYYY-MM-DD" (pra alimentar o workingDaysUntil)
+  const toYMD = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // Próximo vencimento "efetivo" da conta (ao meio-dia local).
+  // - Recorrente: próxima ocorrência mensal do dia do due_date. Pega o dia do mês
+  //   do due_date; a próxima ocorrência é a deste mês se hoje <= esse dia, senão a
+  //   do mês que vem. O dia é limitado ao último dia do mês (ex.: 31 em mês de 30 → 30).
+  // - Não recorrente: o próprio due_date (meio-dia local). Sem due_date → null.
+  const nextDueDate = (bill: PlannedBill): Date | null => {
+    if (bill.recurring) {
+      if (!bill.due_date) {
+        // Recorrente sem data definida: usa o dia de hoje como "dia da conta"
+        const base = new Date();
+        return new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0, 0);
+      }
+      const dueDay = Number(bill.due_date.slice(8, 10)); // dia-do-mês do due_date (1–31)
+      const now = new Date();
+      const todayDay = now.getDate();
+      // Este mês se ainda dá tempo (hoje <= dia), senão mês que vem
+      let year = now.getFullYear();
+      let month = now.getMonth(); // 0-based
+      if (todayDay > dueDay) {
+        month += 1;
+        if (month > 11) { month = 0; year += 1; }
+      }
+      const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+      const day = Math.min(dueDay, lastDayOfMonth); // clamp ao último dia do mês
+      return new Date(year, month, day, 12, 0, 0, 0);
+    }
+    if (!bill.due_date) return null;
+    return new Date(bill.due_date + "T12:00:00");
+  };
+
+  // Vencida: NÃO recorrente, COM due_date, vencimento antes da meia-noite de hoje,
+  // e ainda não quitada (saved < amount E não paga).
+  const isOverdue = (bill: PlannedBill): boolean => {
+    if (bill.recurring) return false;
+    if (!bill.due_date) return false;
+    const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+    if (quitada) return false;
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const due = new Date(bill.due_date + "T12:00:00");
+    return due.getTime() < todayMidnight.getTime();
+  };
+
+  // Quanto ainda falta guardar pra conta
+  const remaining = (bill: PlannedBill): number =>
+    Math.max(0, (Number(bill.amount) || 0) - (Number(bill.saved_amount) || 0));
+
+  // Quanto guardar POR DIA DE TRABALHO. Vencida → 0 (já passou o prazo).
+  // Senão divide o que falta pelos dias úteis até o próximo vencimento (recorrente rola).
+  const perDay = (bill: PlannedBill): number => {
+    if (isOverdue(bill)) return 0;
+    const nd = nextDueDate(bill);
+    const wd = workingDaysUntil(nd ? toYMD(nd) : null);
+    return remaining(bill) / Math.max(1, wd);
+  };
+
   if (loading || !user) {
     return null;
   }
@@ -562,16 +672,20 @@ export default function Finances() {
     goals.reduce((sum, g) => sum + (Number(g.percentual_distribuicao) || 0), 0)
   );
   const goalShareToday = (Math.max(0, summary.netToday) * goalPctTotal) / 100;
+  // Soma o "por dia" só das contas NÃO pagas e NÃO vencidas (recorrentes entram, pois rolam).
+  // Vencida tem perDay = 0, mas filtramos explicitamente pra deixar claro.
   const billsShareToday = todayIsWorkDay
     ? bills.reduce((sum, bill) => {
         const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-        if (quitada) return sum;
-        const remaining = Math.max(0, (Number(bill.amount) || 0) - (Number(bill.saved_amount) || 0));
-        const wd = workingDaysUntil(bill.due_date);
-        return sum + remaining / Math.max(1, wd);
+        if (quitada || isOverdue(bill)) return sum;
+        return sum + perDay(bill);
       }, 0)
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
+
+  // Contas vencidas (não recorrentes que passaram do prazo e não estão quitadas)
+  const overdueBills = bills.filter((bill) => isOverdue(bill));
+  const vencidasTotal = overdueBills.reduce((sum, bill) => sum + remaining(bill), 0);
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -675,6 +789,28 @@ export default function Finances() {
         </CardContent>
       </Card>
 
+      {/* Contas vencidas — passaram do prazo e não foram quitadas */}
+      {!isLoadingData && overdueBills.length > 0 && (
+        <Card className="card-gradient-border bg-destructive/10 border-destructive/30">
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm text-muted-foreground">Contas vencidas</p>
+                <div className="text-3xl font-bold text-destructive whitespace-nowrap">
+                  {formatCurrency(vencidasTotal)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {overdueBills.length} {overdueBills.length === 1 ? "conta que passou" : "contas que passaram"} do prazo — pague assim que puder.
+                </p>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-destructive/15 border border-destructive/30 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Distribuição automática do líquido diário */}
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
         <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
@@ -733,6 +869,26 @@ export default function Finances() {
                       onChange={(e) => setNewBill({ ...newBill, due_date: e.target.value })}
                     />
                   </div>
+                  <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                    <div className="min-w-0 pr-3">
+                      <Label htmlFor="new-bill-recurring" className="cursor-pointer">Conta recorrente (todo mês)</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5">Repete todo mês no mesmo dia de vencimento.</p>
+                    </div>
+                    <Switch
+                      id="new-bill-recurring"
+                      checked={newBill.recurring}
+                      onCheckedChange={(checked) => setNewBill({ ...newBill, recurring: checked })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Código pra pagar (boleto ou Pix) — opcional</Label>
+                    <Textarea
+                      value={newBill.payment_code}
+                      onChange={(e) => setNewBill({ ...newBill, payment_code: e.target.value })}
+                      placeholder="Cole aqui a linha digitável do boleto ou a chave Pix"
+                      rows={3}
+                    />
+                  </div>
                   <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
                     <Button variant="outline" onClick={() => setIsAddBillOpen(false)} className="w-full sm:flex-1">
                       Voltar
@@ -762,9 +918,17 @@ export default function Finances() {
               {bills.map((bill) => {
                 const amount = Number(bill.amount) || 0;
                 const saved = Number(bill.saved_amount) || 0;
-                const remaining = Math.max(0, amount - saved);
+                const remainingValue = remaining(bill);
                 const progress = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
                 const quitada = bill.paid || saved >= amount;
+                const overdue = isOverdue(bill);
+                const isRecurring = Boolean(bill.recurring);
+
+                // Próximo vencimento efetivo (recorrente rola pro próximo mês)
+                const nextDue = nextDueDate(bill);
+                const nextDueLabel = nextDue
+                  ? nextDue.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+                  : null;
 
                 // Dias corridos até o vencimento (só pra rótulo "vence hoje/venceu")
                 let daysLeft: number | null = null;
@@ -774,27 +938,65 @@ export default function Finances() {
                   const dueMs = new Date(bill.due_date + "T12:00:00Z").getTime();
                   daysLeft = Math.ceil((dueMs - todayMs) / msPerDay);
                 }
-                // Guardar por DIA DE TRABALHO: divide o que falta pelos dias úteis até vencer
-                const workDaysLeft = workingDaysUntil(bill.due_date);
-                const perDay = remaining / Math.max(1, workDaysLeft);
+                const overdueDays = daysLeft !== null && daysLeft < 0 ? Math.abs(daysLeft) : 0;
+                // Guardar por DIA DE TRABALHO (vencida = 0; recorrente usa o próximo vencimento)
+                const workDaysLeft = workingDaysUntil(nextDue ? toYMD(nextDue) : null);
+                const perDayValue = perDay(bill);
 
                 return (
-                  <Card key={bill.id} className={quitada ? "border-success/30" : "card-gradient-border"}>
+                  <Card
+                    key={bill.id}
+                    className={
+                      quitada
+                        ? "border-success/30"
+                        : overdue
+                        ? "bg-destructive/5 border-destructive/30"
+                        : "card-gradient-border"
+                    }
+                  >
                     <CardContent className="pt-6 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="font-semibold">{bill.name}</p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-semibold">{bill.name}</p>
+                            {isRecurring && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-medium text-primary">
+                                <RotateCw className="w-3 h-3" />
+                                Recorrente
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
                             <span>Valor: <span className="font-medium text-foreground">{formatCurrency(amount)}</span></span>
-                            {bill.due_date && (
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                Vence {new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
-                              </span>
+                            {isRecurring ? (
+                              nextDueLabel && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Próxima: {nextDueLabel}
+                                </span>
+                              )
+                            ) : (
+                              bill.due_date && (
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-3 h-3" />
+                                  Vence {new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                                </span>
+                              )
                             )}
                           </div>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
+                          {bill.payment_code && bill.payment_code.trim() !== "" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCopyPaymentCode(bill)}
+                              aria-label="Copiar código de pagamento"
+                            >
+                              <Copy className="w-4 h-4 text-primary" />
+                              <span className="ml-1.5 text-xs text-primary">Copiar código</span>
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -829,17 +1031,42 @@ export default function Finances() {
                           <Check className="w-4 h-4 text-success" />
                           <p className="text-success font-semibold text-sm">Quitada ✓</p>
                         </div>
+                      ) : overdue ? (
+                        <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2">
+                          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-destructive">
+                              {overdueDays === 0
+                                ? "Venceu hoje"
+                                : `Venceu há ${overdueDays} ${overdueDays === 1 ? "dia" : "dias"}`}
+                            </p>
+                            <p className="text-xs text-destructive/80 mt-0.5">
+                              {formatCurrency(remainingValue)} em aberto
+                            </p>
+                          </div>
+                        </div>
+                      ) : isRecurring ? (
+                        <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-primary">
+                              Guardar {formatCurrency(perDayValue)} por dia de trabalho
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {`${workDaysLeft} ${workDaysLeft === 1 ? "dia" : "dias"} de trabalho${
+                                nextDueLabel ? ` até a próxima (${nextDueLabel})` : ""
+                              }`}
+                            </p>
+                          </div>
+                        </div>
                       ) : (
                         <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-primary">
-                              Guardar {formatCurrency(perDay)} por dia de trabalho
+                              Guardar {formatCurrency(perDayValue)} por dia de trabalho
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5">
                               {daysLeft === 0
                                 ? "vence hoje"
-                                : daysLeft !== null && daysLeft < 0
-                                ? "venceu"
                                 : `${workDaysLeft} ${workDaysLeft === 1 ? "dia" : "dias"} de trabalho${
                                     bill.due_date
                                       ? ` até ${new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
@@ -1126,6 +1353,26 @@ export default function Finances() {
                 type="date"
                 value={editBillForm.due_date}
                 onChange={(e) => setEditBillForm({ ...editBillForm, due_date: e.target.value })}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+              <div className="min-w-0 pr-3">
+                <Label htmlFor="edit-bill-recurring" className="cursor-pointer">Conta recorrente (todo mês)</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Repete todo mês no mesmo dia de vencimento.</p>
+              </div>
+              <Switch
+                id="edit-bill-recurring"
+                checked={editBillForm.recurring}
+                onCheckedChange={(checked) => setEditBillForm({ ...editBillForm, recurring: checked })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Código pra pagar (boleto ou Pix) — opcional</Label>
+              <Textarea
+                value={editBillForm.payment_code}
+                onChange={(e) => setEditBillForm({ ...editBillForm, payment_code: e.target.value })}
+                placeholder="Cole aqui a linha digitável do boleto ou a chave Pix"
+                rows={3}
               />
             </div>
             <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
