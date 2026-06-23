@@ -539,14 +539,28 @@ export default function Finances() {
   // Abre/baixa o boleto da conta via URL assinada temporária (válida ~60s).
   const handleViewBillFile = async (bill: PlannedBill) => {
     if (!bill.file_path) return;
+    // Abre a aba JÁ no clique (senão o navegador bloqueia o popup depois do await)
+    const win = window.open("", "_blank");
     try {
       const { data, error } = await supabase.storage
         .from("bill-files")
         .createSignedUrl(bill.file_path, 60);
       if (error || !data?.signedUrl) throw error || new Error("Sem URL");
-      window.open(data.signedUrl, "_blank");
+      if (win) {
+        win.location.href = data.signedUrl;
+      } else {
+        // popup bloqueado: clica num link (sem sair do app)
+        const a = document.createElement("a");
+        a.href = data.signedUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
     } catch (error) {
       console.error("Error opening bill file:", error);
+      if (win) win.close();
       toast({
         title: "Erro ao abrir boleto",
         description: "Não foi possível gerar o link do arquivo.",
@@ -1230,7 +1244,7 @@ export default function Finances() {
                           }}
                         />
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           disabled={isUploading}
                           onClick={() => document.getElementById(`bill-file-${bill.id}`)?.click()}
@@ -1248,7 +1262,7 @@ export default function Finances() {
                         {hasFile && (
                           <>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleViewBillFile(bill)}
                               aria-label="Ver boleto"
@@ -1257,7 +1271,7 @@ export default function Finances() {
                               <span className="ml-1.5 text-xs text-primary">Ver boleto</span>
                             </Button>
                             <Button
-                              variant="ghost"
+                              variant="outline"
                               size="sm"
                               onClick={() => handleRemoveBillFile(bill)}
                               aria-label="Remover boleto"
