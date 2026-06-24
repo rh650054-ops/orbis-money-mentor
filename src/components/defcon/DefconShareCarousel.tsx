@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Instagram, Loader2 } from "lucide-react";
+import { Instagram, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
@@ -9,75 +9,79 @@ export interface ShareStats {
   faturamento: number;
   vendas: number;
   conversao: number; // em %
-  horas: string;     // ex. "8h"
+  horas: string;     // ex. "8h12"
 }
 
-// Ordem do carrossel: 1 = EMPILHADA (padrão), 2 = DESTAQUE, 3 = GRADE
-const ORDER: (1 | 2 | 3)[] = [1, 2, 3];
+// Ordem do carrossel — a EMPILHADA (vertical) é a principal/padrão
+type TemplateId = "empilhada" | "destaque" | "faixa";
+const ORDER: TemplateId[] = ["empilhada", "destaque", "faixa"];
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
 const GOLD = "#F4A100";
 const WHITE = "#FFFFFF";
 const MUTED = "#8A8F98";
 
-// Constrói uma das 3 artes (1080x1920, fundo preto — pronta pro Instagram)
-async function buildCanvas(template: 1 | 2 | 3, s: ShareStats): Promise<HTMLCanvasElement | null> {
-  const W = 1080, H = 1920;
+// Tamanhos iguais aos das referências enviadas
+const DIMS: Record<TemplateId, [number, number]> = {
+  empilhada: [1080, 1920], // vertical (story) — padrão
+  destaque: [1080, 864],   // paisagem: faturamento + logo + linha de números
+  faixa: [1080, 568],      // faixa larga: linha de números + ORBIS
+};
+
+// Constrói uma arte (FUNDO TRANSPARENTE — pra colar como adesivo no story)
+async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCanvasElement | null> {
+  const [W, H] = DIMS[template];
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
+  ctx.clearRect(0, 0, W, H); // transparente
 
-  // Fundo TRANSPARENTE — pra postar como adesivo no story do Instagram
-  ctx.clearRect(0, 0, W, H);
-
-  // Rótulo (cinza, espaçado, maiúsculo)
-  const label = (text: string, cx: number, y: number, size: number, color = MUTED) => {
+  // Rótulo cinza/dourado, MAIÚSCULO e espaçado
+  const label = (text: string, x: number, y: number, size: number, color: string, align: "center" | "left" = "center") => {
     ctx.font = `800 ${size}px ${FONT}`;
-    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const ls = size * 0.28;
+    ctx.fillStyle = color;
+    const ls = size * 0.26;
     const chars = text.split("");
     const widths = chars.map((c) => ctx.measureText(c).width);
     const total = widths.reduce((a, b) => a + b, 0) + ls * (chars.length - 1);
-    let x = cx - total / 2;
+    let sx = align === "center" ? x - total / 2 : x;
     ctx.textAlign = "left";
-    ctx.fillStyle = color;
-    chars.forEach((c, i) => { ctx.fillText(c, x, y); x += widths[i]! + ls; });
-    ctx.textAlign = "center";
+    chars.forEach((c, i) => { ctx.fillText(c, sx, y); sx += widths[i]! + ls; });
   };
 
-  // Valor grande em branco com leve aberração cromática (visual "chique/glitch")
-  const value = (text: string, cx: number, y: number, size: number) => {
+  // Número grande branco com leve aberração cromática (visual "chique")
+  const value = (text: string, x: number, y: number, size: number, align: "center" | "left" = "center") => {
     ctx.font = `900 ${size}px ${FONT}`;
-    ctx.textAlign = "center";
+    ctx.textAlign = align;
     ctx.textBaseline = "middle";
-    ctx.globalAlpha = 0.5;
+    ctx.globalAlpha = 0.45;
     ctx.fillStyle = "#FF003C";
-    ctx.fillText(text, cx - 5, y);
+    ctx.fillText(text, x - 5, y);
     ctx.fillStyle = "#00C8FF";
-    ctx.fillText(text, cx + 5, y);
+    ctx.fillText(text, x + 5, y);
     ctx.globalAlpha = 1;
     ctx.fillStyle = WHITE;
-    ctx.fillText(text, cx, y);
+    ctx.fillText(text, x, y);
   };
 
-  // Logo Orbis (alvo: anel + ponto central), desenhado pra bater 100%
-  const bullseye = (cx: number, cy: number, r: number, color = WHITE) => {
-    ctx.strokeStyle = color;
+  // Logo Orbis (alvo: anel + ponto)
+  const bullseye = (cx: number, cy: number, r: number) => {
+    ctx.strokeStyle = WHITE;
     ctx.lineWidth = r * 0.22;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
-    ctx.fillStyle = color;
+    ctx.fillStyle = WHITE;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.34, 0, Math.PI * 2);
     ctx.fill();
   };
 
   const vline = (x: number, y0: number, y1: number) => {
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x, y0);
@@ -86,7 +90,7 @@ async function buildCanvas(template: 1 | 2 | 3, s: ShareStats): Promise<HTMLCanv
   };
 
   const hline = (x0: number, x1: number, y: number) => {
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x0, y);
@@ -99,58 +103,53 @@ async function buildCanvas(template: 1 | 2 | 3, s: ShareStats): Promise<HTMLCanv
   const conv = `${s.conversao.toFixed(0)}%`;
   const horas = s.horas;
 
-  if (template === 1) {
-    // ===== EMPILHADA (padrão) — tudo um embaixo do outro =====
-    label("FATURAMENTO", W / 2, 170, 46, GOLD);
-    value(fat, W / 2, 320, 168);
+  if (template === "empilhada") {
+    // ===== Vertical, tudo empilhado (igual à 2ª referência) — PADRÃO =====
+    label("FATURAMENTO", W / 2, 190, 46, GOLD);
+    value(fat, W / 2, 345, 165);
 
-    label("VENDAS", W / 2, 640, 40);
-    value(vendas, W / 2, 770, 150);
+    label("VENDAS", W / 2, 665, 42, MUTED);
+    value(vendas, W / 2, 795, 150);
 
-    label("CONVERSÃO", W / 2, 1060, 40);
-    value(conv, W / 2, 1190, 150);
+    label("CONVERSÃO", W / 2, 1075, 42, MUTED);
+    value(conv, W / 2, 1205, 150);
 
-    label("HORAS TRABALHADAS", W / 2, 1480, 40);
+    label("HORAS TRABALHADAS", W / 2, 1475, 40, MUTED);
     value(horas, W / 2, 1610, 150);
 
-    bullseye(W / 2, 1810, 58);
-  } else if (template === 2) {
-    // ===== DESTAQUE — faturamento herói + linha de números =====
-    bullseye(W / 2, 230, 50);
-    label("FATURAMENTO", W / 2, 470, 46, GOLD);
-    value(fat, W / 2, 640, 180);
-    hline(W / 2 - 380, W / 2 + 380, 880);
+    bullseye(W / 2, 1805, 56);
+  } else if (template === "destaque") {
+    // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
+    label("FATURAMENTO", 90, 165, 40, GOLD, "left");
+    value(fat, 92, 285, 138, "left");
+    bullseye(905, 215, 76);
 
+    hline(70, W - 70, 500);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
     const colW = W / 3;
     cols.forEach((c, i) => {
       const cx = colW * i + colW / 2;
-      label(c[0], cx, 1080, 34);
-      value(c[1], cx, 1210, 110);
-      if (i > 0) vline(colW * i, 1010, 1290);
+      label(c[0], cx, 600, 34, MUTED);
+      value(c[1], cx, 715, 108);
+      if (i > 0) vline(colW * i, 545, 775);
     });
-
-    hline(W / 2 - 380, W / 2 + 380, 1480);
-    label("ORBIS · DEFCON 4", W / 2, 1700, 34, MUTED);
   } else {
-    // ===== GRADE — os 4 números em 2x2 =====
-    label("ORBIS · DEFCON 4", W / 2, 230, 34, GOLD);
-    const cells: [string, string][] = [
-      ["FATURAMENTO", fat],
-      ["VENDAS", vendas],
-      ["CONVERSÃO", conv],
-      ["HORAS", horas],
-    ];
-    const cxs = [W / 2 - 250, W / 2 + 250];
-    const cys = [620, 1140];
-    cells.forEach((cell, i) => {
-      const cx = cxs[i % 2]!;
-      const cy = cys[Math.floor(i / 2)]!;
-      label(cell[0], cx, cy - 90, 32);
-      value(cell[1], cx, cy + 30, i === 0 ? 96 : 120);
+    // ===== Faixa larga: linha de números + logo/ORBIS embaixo (igual à 3ª) =====
+    hline(70, W - 70, 140);
+    const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
+    const colW = W / 3;
+    cols.forEach((c, i) => {
+      const cx = colW * i + colW / 2;
+      label(c[0], cx, 235, 32, MUTED);
+      value(c[1], cx, 345, 112);
+      if (i > 0) vline(colW * i, 185, 405);
     });
-    hline(W / 2 - 380, W / 2 + 380, 1560);
-    bullseye(W / 2, 1740, 54);
+    bullseye(215, 480, 50);
+    ctx.font = `900 64px ${FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = WHITE;
+    ctx.fillText("ORBIS", 865, 480);
   }
 
   return canvas;
@@ -159,19 +158,22 @@ async function buildCanvas(template: 1 | 2 | 3, s: ShareStats): Promise<HTMLCanv
 const canvasToBlob = (c: HTMLCanvasElement): Promise<Blob | null> =>
   new Promise((resolve) => c.toBlob((b) => resolve(b), "image/png"));
 
-// Carrossel deslizável (estilo Strava): arrasta pra escolher e posta no Instagram
+// Botão "Compartilhar no Instagram" → abre o carrossel deslizável (estilo Strava)
 export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
-  const [previews, setPreviews] = useState<Record<number, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
   const [index, setIndex] = useState(0); // 0 = empilhada (padrão)
   const [sharing, setSharing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Gera as 3 artes só quando o usuário abre o compartilhamento
   useEffect(() => {
+    if (!open || Object.keys(previews).length === ORDER.length) return;
     let alive = true;
     setLoading(true);
     (async () => {
-      const out: Record<number, string> = {};
+      const out: Record<string, string> = {};
       for (const t of ORDER) {
         const c = await buildCanvas(t, stats);
         if (c) out[t] = c.toDataURL("image/png");
@@ -183,7 +185,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stats.faturamento, stats.vendas, stats.conversao, stats.horas]);
+  }, [open, stats.faturamento, stats.vendas, stats.conversao, stats.horas]);
 
   const onScroll = () => {
     const el = scrollRef.current;
@@ -195,7 +197,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   const handleShare = async () => {
     try {
       setSharing(true);
-      const template = ORDER[index] ?? 1;
+      const template = ORDER[index] ?? "empilhada";
       const canvas = await buildCanvas(template, stats);
       if (!canvas) throw new Error("Falha ao gerar imagem");
       const blob = await canvasToBlob(canvas);
@@ -232,10 +234,36 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     }
   };
 
+  const igGradient = {
+    backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
+  };
+
+  // Fechado: só o botão
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        style={igGradient}
+      >
+        <Instagram className="w-4 h-4" />
+        Compartilhar no Instagram
+      </button>
+    );
+  }
+
+  // Aberto: carrossel deslizável + postar
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full rounded-2xl bg-card border border-border p-3 space-y-3">
+      <div className="flex items-center justify-between px-1">
+        <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Escolha a arte</span>
+        <button onClick={() => setOpen(false)} className="text-muted-foreground active:scale-90" aria-label="Fechar">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
       {loading ? (
-        <div className="h-80 rounded-2xl bg-card border border-border flex items-center justify-center gap-2 text-xs text-muted-foreground">
+        <div className="h-72 flex items-center justify-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="w-4 h-4 animate-spin" /> Gerando as artes...
         </div>
       ) : (
@@ -243,17 +271,17 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="flex overflow-x-auto snap-x snap-mandatory rounded-2xl"
+            className="flex overflow-x-auto snap-x snap-mandatory rounded-xl"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
             {ORDER.map((t) => (
-              <div key={t} className="snap-center shrink-0 w-full flex items-center justify-center px-1">
+              <div key={t} className="snap-center shrink-0 w-full h-72 flex items-center justify-center">
                 {previews[t] && (
                   <img
                     src={previews[t]}
                     alt={`Arte ${t}`}
-                    className="h-80 w-auto rounded-xl border border-border"
-                    style={{ background: "#000" }}
+                    className="max-h-full max-w-[94%] object-contain rounded-lg border border-border"
+                    style={{ background: "#0a0a0a" }}
                   />
                 )}
               </div>
@@ -268,7 +296,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
               />
             ))}
           </div>
-          <p className="text-center text-[11px] text-muted-foreground -mt-1">← arraste pra escolher a arte →</p>
+          <p className="text-center text-[11px] text-muted-foreground -mt-1">← arraste pra escolher →</p>
         </>
       )}
 
@@ -276,9 +304,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
         onClick={handleShare}
         disabled={sharing || loading}
         className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
-        style={{
-          backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
-        }}
+        style={igGradient}
       >
         {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
         {sharing ? "Gerando..." : "Compartilhar no Instagram"}
