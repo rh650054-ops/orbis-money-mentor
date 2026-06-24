@@ -25,7 +25,12 @@ const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
 const COACH_DAILY_CAP = 5;            // teto de mensagens por dia (4-5, escolha do usuario)
 const COACH_COOLDOWN_APPROACHES = 4;  // intervalo minimo de abordagens entre mensagens (anti-spam)
-const COACH_AI_TIMEOUT_MS = 2500;     // se a IA demorar, usa o template na hora
+const COACH_AI_TIMEOUT_MS = 6000;     // tempo p/ a IA enriquecer (o template já apareceu na hora)
+
+// Escolhe um item aleatório — garante variedade mesmo quando a IA não reescreve.
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]!;
+}
 
 export function DefconSmartNotification({
   userId,
@@ -52,6 +57,7 @@ export function DefconSmartNotification({
   const liveApproachesRef = useRef(0);
   const lastMsgApproachesRef = useRef(-99);
   const aiAvailableRef = useRef(true);
+  const aiFailuresRef = useRef(0);       // só desliga a IA após erros REPETIDOS (não por 1 timeout)
   const coachShownRef = useRef(0);       // teto POR SESSAO de DEFCON (em memoria, nao trava no dia)
   const sessionFreshRef = useRef(false);
 
@@ -118,6 +124,7 @@ export function DefconSmartNotification({
         lastMsgApproachesRef.current = -99;
         coachShownRef.current = 0;
         aiAvailableRef.current = true;
+        aiFailuresRef.current = 0;
       }
     } else if (totalApproaches > 0 || totalSalesCount > 0) {
       sessionFreshRef.current = false;
@@ -138,11 +145,17 @@ export function DefconSmartNotification({
       });
       const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), COACH_AI_TIMEOUT_MS));
       const res: any = await Promise.race([invoke, timeout]);
-      if (res?.error) { aiAvailableRef.current = false; return templateMsg; }
+      if (res?.error) {
+        // Erro REAL da função (cota/chave): conta e só desliga após 3 seguidos
+        aiFailuresRef.current += 1;
+        if (aiFailuresRef.current >= 3) aiAvailableRef.current = false;
+        return templateMsg;
+      }
       const msg = res?.data?.message?.toString().trim();
+      aiFailuresRef.current = 0; // sucesso: zera o contador
       return msg && msg.length > 0 ? msg : templateMsg;
     } catch {
-      aiAvailableRef.current = false; // para de tentar nesta sessao pra nao atrasar as proximas
+      // Timeout/rede: NÃO desliga a IA — só não enriqueceu desta vez (o template já apareceu).
       return templateMsg;
     }
   }, [historicalAvg, hasRealHistory, realConvPct]);
@@ -215,9 +228,17 @@ export function DefconSmartNotification({
       if (prevSalesRef.current === 0 && totalSalesCount > 0 && !shownTriggersRef.current.has("first_sale")) {
         shownTriggersRef.current.add("first_sale");
         if (hasRealHistory && totalApproaches <= historicalAvg) {
-          showNotification("⚡", `Primeira venda em ${totalApproaches} abordagens!\nMais rápido que o seu normal. Bora manter esse ritmo. 🔥`);
+          showNotification("⚡", pick([
+            `Primeira venda em ${totalApproaches} abordagens!\nMais rápido que o teu normal. Mantém esse pique. 🔥`,
+            `Boom! Primeira em ${totalApproaches} abordagens.\nSaiu mais rápido que de costume. Emenda a próxima! ⚡`,
+            `${totalApproaches} abordagens e já fechou a primeira!\nAcima do teu ritmo. Bora surfar essa onda. 🔥`,
+          ]));
         } else {
-          showNotification("⚡", `Primeira venda em ${totalApproaches} abordagens!\nO jogo abriu — agora é emendar a próxima. 🔥`);
+          showNotification("⚡", pick([
+            `Primeira venda em ${totalApproaches} abordagens!\nO jogo abriu — agora é emendar a próxima. 🔥`,
+            `Fechou a primeira em ${totalApproaches} abordagens!\nQuebrou o gelo. A próxima vem mais fácil. 💪`,
+            `Primeira do dia em ${totalApproaches} abordagens!\nEngata a segunda sem dar pausa. ⚡`,
+          ]));
         }
       }
 
