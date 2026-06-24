@@ -186,16 +186,16 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     });
   } else {
     // ===== Faixa larga: linha de números + logo/ORBIS embaixo (igual à 3ª) =====
-    hline(70, W - 70, 95);
+    hline(70, W - 70, 65);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
     const colW = W / 3;
     cols.forEach((c, i) => {
       const cx = colW * i + colW / 2;
-      label(c[0], cx, 190, 32, MUTED);
-      value(c[1], cx, 300, 112);
-      if (i > 0) vline(colW * i, 145, 360);
+      label(c[0], cx, 160, 32, MUTED);
+      value(c[1], cx, 275, 112);
+      if (i > 0) vline(colW * i, 115, 335);
     });
-    drawLogo(215, 460, 128);
+    drawLogo(155, 460, 128);
     drawWordmark(865, 460, 235);
   }
 
