@@ -745,10 +745,10 @@ export default function AdminSubscriptions() {
                         statusFilter === "ultimo_dia"
                           ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
                           : statusFilter === "expirados"
-                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que você deu uma pausada e fiquei pensando: o que te fez parar, parça? Pergunto de verdade — teus dados tão todos guardados (teu histórico, teus números, teu lugar no ranking) e dá pra voltar de onde parou quando quiser, por menos de R$1 por dia. Me conta o que rolou que eu te ajudo a destravar. Bora voltar pro corre? 👊`
+                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
                           : statusFilter === "assinantes"
-                          ? `Opa${nm}! Rick aqui do Orbis 👊 Vi que você fechou com a gente e vim te agradecer de coração — bem-vindo ao time, parça. Me conta: como tá sendo teu corre com o app? Qualquer coisa que precisar pra vender mais, é só me chamar aqui direto. Tô na torcida pra te ver fechando muito! 🚀`
-                          : `${saud}${nm}! Rick aqui, do time do Orbis. Vi que você entrou no teste do App. 👊`;
+                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
+                          : `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`;
                       const msg = encodeURIComponent(body);
                       return (
                         <Button
