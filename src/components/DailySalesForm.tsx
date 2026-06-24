@@ -34,6 +34,11 @@ const salesSchema = z.object({
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Calotes devem ser entre 0 e 999.999" }),
+  unpaidUnits: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseInt(val, 10);
+    return !isNaN(num) && num >= 0 && num <= 99999;
+  }, { message: "Unidades não pagas devem ser entre 0 e 99.999" }),
   cashSales: z.string().refine((val) => {
     if (!val) return true;
     const num = parseFloat(val);
@@ -79,6 +84,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     totalProfit: "",
     cost: "",
     totalDebt: "",
+    unpaidUnits: "",
     cashSales: "",
     pixSales: "",
     cardSales: "",
@@ -196,6 +202,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         total_profit: formData.totalProfit ? parseFloat(formData.totalProfit) : 0,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         total_debt: formData.totalDebt ? parseFloat(formData.totalDebt) : 0,
+        unpaid_units: formData.unpaidUnits ? parseInt(formData.unpaidUnits, 10) : 0,
         cash_sales: formData.cashSales ? parseFloat(formData.cashSales) : 0,
         pix_sales: formData.pixSales ? parseFloat(formData.pixSales) : 0,
         card_sales: formData.cardSales ? parseFloat(formData.cardSales) : 0,
@@ -225,6 +232,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             total_profit: totalDayProfit,
             cost: (existingSale.cost || 0) + salesData.cost,
             total_debt: (existingSale.total_debt || 0) + salesData.total_debt,
+            unpaid_units: ((existingSale as any).unpaid_units || 0) + salesData.unpaid_units,
             cash_sales: (existingSale.cash_sales || 0) + salesData.cash_sales,
             pix_sales: (existingSale.pix_sales || 0) + salesData.pix_sales,
             card_sales: (existingSale.card_sales || 0) + salesData.card_sales,
@@ -376,6 +384,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         totalProfit: "",
         cost: "",
         totalDebt: "",
+        unpaidUnits: "",
         cashSales: "",
         pixSales: "",
         cardSales: "",
@@ -514,6 +523,22 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 value={formData.totalDebt}
                 onChange={(e) => setFormData({ ...formData, totalDebt: e.target.value })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                Kits não pagos (unidades)
+              </Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="0"
+                placeholder="0"
+                value={formData.unpaidUnits}
+                onChange={(e) => setFormData({ ...formData, unpaidUnits: e.target.value })}
+              />
+              <p className="text-[11px] text-muted-foreground">Quantas unidades ficaram sem pagar — aparece no relatório.</p>
             </div>
           </div>
 

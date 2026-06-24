@@ -52,6 +52,7 @@ interface DailySale {
   total_profit: number | null;
   total_debt: number | null;
   cost: number | null;
+  unpaid_units?: number | null;
 }
 
 interface HourBlock {
@@ -165,7 +166,7 @@ export default function Insights() {
       const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes] = await Promise.all([
         supabase
           .from("daily_sales")
-          .select("date,total_profit,total_debt,cost,transport_cost,food_cost")
+          .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO)
@@ -218,6 +219,7 @@ export default function Insights() {
   const summary = useMemo(() => {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
     const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
+    const caloteUnidades = sales.reduce((s, d) => s + (Number((d as any).unpaid_units) || 0), 0);
     const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0);
     const custoTransporte = sales.reduce((s, d) => s + (Number((d as any).transport_cost) || 0), 0);
     const custoAlimentacao = sales.reduce((s, d) => s + (Number((d as any).food_cost) || 0), 0);
@@ -251,6 +253,7 @@ export default function Insights() {
       custoOperacao,
       custosOperacionais,
       calotes,
+      caloteUnidades,
       gorjetas,
     };
   }, [sales, blocks, expenses, challengeBlocks, rangeDays]);
@@ -512,7 +515,12 @@ export default function Insights() {
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
             <FinanceRow label="Transporte e alimentação" value={`- ${formatCurrency(summary.custoOperacao)}`} tone="muted" />
             <FinanceRow label="Despesas pessoais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
-            <FinanceRow label="Kits não pagos · já no custo" value={formatCurrency(summary.calotes)} tone="muted" />
+            <FinanceRow
+              label="Kits não pagos"
+              value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
+              sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} · já no custo` : "já no custo"}
+              tone="muted"
+            />
             <FinanceRow label="Sobra no período" value={formatCurrency(summary.sobra)} tone="white" bold />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
@@ -1021,11 +1029,13 @@ function MetricCell({
 function FinanceRow({
   label,
   value,
+  sub,
   tone = "muted",
   bold = false,
 }: {
   label: string;
   value: string;
+  sub?: string;
   tone?: "white" | "gold" | "muted";
   bold?: boolean;
 }) {
@@ -1042,12 +1052,15 @@ function FinanceRow({
       )}>
         {label}
       </span>
-      <span className={cn(
-        bold ? "text-base font-bold" : "text-sm font-semibold",
-        valueColor
-      )}>
-        {value}
-      </span>
+      <div className="flex flex-col items-end leading-tight">
+        <span className={cn(
+          bold ? "text-base font-bold" : "text-sm font-semibold",
+          valueColor
+        )}>
+          {value}
+        </span>
+        {sub && <span className="text-[11px] text-muted-foreground/70 mt-0.5">{sub}</span>}
+      </div>
     </div>
   );
 }
