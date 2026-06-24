@@ -3,7 +3,7 @@ import { Instagram, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
-import { ORBIS_LOGO } from "@/assets/orbisLogoData";
+import { ORBIS_LOGO, ORBIS_WORDMARK } from "@/assets/orbisLogoData";
 
 // Dados que entram nas artes compartilháveis
 export interface ShareStats {
@@ -94,6 +94,27 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     }
   };
 
+  // Wordmark "ORBIS" oficial (imagem com a fonte certa da marca)
+  const wordmarkImg = await new Promise<HTMLImageElement | null>((resolve) => {
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = ORBIS_WORDMARK;
+  });
+  const drawWordmark = (cx: number, cy: number, w: number) => {
+    if (wordmarkImg) {
+      const ratio = wordmarkImg.height / wordmarkImg.width;
+      ctx.drawImage(wordmarkImg, cx - w / 2, cy - (w * ratio) / 2, w, w * ratio);
+    } else {
+      ctx.font = `900 56px ${FONT}`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = WHITE;
+      ctx.fillText("ORBIS", cx, cy);
+    }
+  };
+
   const vline = (x: number, y0: number, y1: number) => {
     ctx.strokeStyle = "rgba(255,255,255,0.16)";
     ctx.lineWidth = 2;
@@ -165,21 +186,17 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     });
   } else {
     // ===== Faixa larga: linha de números + logo/ORBIS embaixo (igual à 3ª) =====
-    hline(70, W - 70, 140);
+    hline(70, W - 70, 95);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
     const colW = W / 3;
     cols.forEach((c, i) => {
       const cx = colW * i + colW / 2;
-      label(c[0], cx, 235, 32, MUTED);
-      value(c[1], cx, 345, 112);
-      if (i > 0) vline(colW * i, 185, 405);
+      label(c[0], cx, 190, 32, MUTED);
+      value(c[1], cx, 300, 112);
+      if (i > 0) vline(colW * i, 145, 360);
     });
-    drawLogo(215, 478, 135);
-    ctx.font = `900 64px ${FONT}`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillStyle = WHITE;
-    ctx.fillText("ORBIS", 865, 480);
+    drawLogo(215, 460, 128);
+    drawWordmark(865, 460, 235);
   }
 
   return canvas;
