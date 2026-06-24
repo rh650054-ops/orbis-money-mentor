@@ -394,12 +394,12 @@ export default function Insights() {
   // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
   useEffect(() => {
     setAiReport(null);
-    setAiReportError(false);
+    setAiReportError(null);
   }, [range.start.getTime(), range.end.getTime()]);
 
   async function generateReportAnalysis() {
     setAiReportLoading(true);
-    setAiReportError(false);
+    setAiReportError(null);
     try {
       const { data, error } = await supabase.functions.invoke("generate-insights", {
         body: {
@@ -424,11 +424,28 @@ export default function Insights() {
           melhoresHorarios: bestHours.slice(0, 3).map((h) => ({ label: h.label, avg: h.avg })),
         },
       });
-      if (error) throw error;
-      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
-      setAiReport(data as typeof aiReport);
-    } catch {
-      setAiReportError(true);
+      if (error) {
+        // tenta ler a mensagem REAL que o backend devolveu (fica no corpo da resposta)
+        let msg = error.message || "Erro ao chamar a função.";
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === "function") {
+            const j = await ctx.json();
+            if (j?.error) msg = String(j.error);
+          }
+        } catch { /* mantém msg */ }
+        throw new Error(msg);
+      }
+      const d = data as {
+        diagnostico?: string; gastos?: string; melhorias?: string[]; falhas?: string[]; foco?: string; error?: string;
+      } | null;
+      if (d?.error) throw new Error(d.error);
+      if (d && !d.diagnostico && !d.gastos && !d.melhorias && !d.falhas && !d.foco) {
+        throw new Error("A função respondeu, mas sem a análise. Confirma que o código novo (com report_analysis) foi colado na função 'generate-insights' e que deu Deploy.");
+      }
+      setAiReport(d as typeof aiReport);
+    } catch (e) {
+      setAiReportError(e instanceof Error ? e.message : "Não consegui analisar agora.");
     } finally {
       setAiReportLoading(false);
     }
@@ -641,7 +658,7 @@ export default function Insights() {
             )}
 
             {aiReportError && (
-              <p className="text-xs text-destructive">Não consegui analisar agora. Confirma se a função foi atualizada no Supabase e tenta de novo.</p>
+              <p className="text-xs text-destructive whitespace-pre-line">{aiReportError}</p>
             )}
 
             <Button

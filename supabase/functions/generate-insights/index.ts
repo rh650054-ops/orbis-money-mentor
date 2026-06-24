@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 // Chama o Gemini (mesma chave gratis do chat). Recebe system + user prompt e devolve texto.
-async function callGemini(systemPrompt: string, userPrompt: string): Promise<string> {
+async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = false): Promise<string> {
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY não está configurada no backend.");
   const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
@@ -16,11 +16,16 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<str
     {
       method: "POST",
       headers: { "content-type": "application/json" },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(jsonMode ? 30000 : 20000),
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: jsonMode ? 2048 : 1024,
+          // Força a IA a devolver JSON válido (evita JSON.parse quebrar com texto livre)
+          ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+        },
       }),
     },
   );
@@ -137,6 +142,7 @@ Analise e devolva SOMENTE este JSON preenchido, em português de rua, ESPECÍFIC
       const aiText = await callGemini(
         ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Responda APENAS com o JSON pedido, sem texto fora dele.",
         userPrompt,
+        true, // modo JSON — garante JSON válido
       );
       let parsed;
       try {
