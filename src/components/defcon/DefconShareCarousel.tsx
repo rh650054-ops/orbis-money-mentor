@@ -3,6 +3,7 @@ import { Instagram, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
+import orbisLogo from "@/assets/orbis-logo-share.png";
 
 // Dados que entram nas artes compartilháveis
 export interface ShareStats {
@@ -67,17 +68,29 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     ctx.fillText(text, x, y);
   };
 
-  // Logo Orbis (alvo: anel + ponto)
-  const bullseye = (cx: number, cy: number, r: number) => {
-    ctx.strokeStyle = WHITE;
-    ctx.lineWidth = r * 0.22;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = WHITE;
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * 0.34, 0, Math.PI * 2);
-    ctx.fill();
+  // Logo Orbis OFICIAL (imagem real) — com fallback desenhado se não carregar
+  const logoImg = await new Promise<HTMLImageElement | null>((resolve) => {
+    const im = new Image();
+    im.crossOrigin = "anonymous";
+    im.onload = () => resolve(im);
+    im.onerror = () => resolve(null);
+    im.src = orbisLogo;
+  });
+  const drawLogo = (cx: number, cy: number, w: number) => {
+    if (logoImg) {
+      const ratio = logoImg.height / logoImg.width;
+      ctx.drawImage(logoImg, cx - w / 2, cy - (w * ratio) / 2, w, w * ratio);
+    } else {
+      ctx.strokeStyle = WHITE;
+      ctx.lineWidth = w * 0.05;
+      ctx.beginPath();
+      ctx.arc(cx, cy, w * 0.46, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = WHITE;
+      ctx.beginPath();
+      ctx.arc(cx, cy, w * 0.16, 0, Math.PI * 2);
+      ctx.fill();
+    }
   };
 
   const vline = (x: number, y0: number, y1: number) => {
@@ -105,24 +118,25 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
 
   if (template === "empilhada") {
     // ===== Vertical, tudo empilhado (igual à 2ª referência) — PADRÃO =====
-    label("FATURAMENTO", W / 2, 190, 46, GOLD);
-    value(fat, W / 2, 345, 165);
+    // Espaçamento mais justo (grupo centralizado, sem buracos enormes)
+    label("FATURAMENTO", W / 2, 380, 46, GOLD);
+    value(fat, W / 2, 505, 158);
 
-    label("VENDAS", W / 2, 665, 42, MUTED);
-    value(vendas, W / 2, 795, 150);
+    label("VENDAS", W / 2, 690, 42, MUTED);
+    value(vendas, W / 2, 810, 145);
 
-    label("CONVERSÃO", W / 2, 1075, 42, MUTED);
-    value(conv, W / 2, 1205, 150);
+    label("CONVERSÃO", W / 2, 995, 42, MUTED);
+    value(conv, W / 2, 1115, 145);
 
-    label("HORAS TRABALHADAS", W / 2, 1475, 40, MUTED);
-    value(horas, W / 2, 1610, 150);
+    label("HORAS TRABALHADAS", W / 2, 1300, 40, MUTED);
+    value(horas, W / 2, 1420, 145);
 
-    bullseye(W / 2, 1805, 56);
+    drawLogo(W / 2, 1655, 200);
   } else if (template === "destaque") {
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
     value(fat, 92, 285, 138, "left");
-    bullseye(905, 215, 76);
+    drawLogo(905, 220, 170);
 
     hline(70, W - 70, 500);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
@@ -144,7 +158,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       value(c[1], cx, 345, 112);
       if (i > 0) vline(colW * i, 185, 405);
     });
-    bullseye(215, 480, 50);
+    drawLogo(215, 478, 135);
     ctx.font = `900 64px ${FONT}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
