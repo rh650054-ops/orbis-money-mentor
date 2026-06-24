@@ -11,35 +11,45 @@ async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = f
   const key = Deno.env.get("GEMINI_API_KEY");
   if (!key) throw new Error("GEMINI_API_KEY não está configurada no backend.");
   const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-    {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const payload = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: jsonMode ? 2048 : 1024,
+      ...(jsonMode ? { responseMimeType: "application/json" } : {}),
+    },
+  });
+
+  // Até 3 tentativas: o plano grátis do Gemini estoura o limite por minuto (429) fácil.
+  // Em 429/503/500, espera um pouco e tenta de novo antes de desistir.
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       signal: AbortSignal.timeout(jsonMode ? 30000 : 20000),
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: jsonMode ? 2048 : 1024,
-          // Força a IA a devolver JSON válido (evita JSON.parse quebrar com texto livre)
-          ...(jsonMode ? { responseMimeType: "application/json" } : {}),
-        },
-      }),
-    },
-  );
+      body: payload,
+    });
 
-  if (!res.ok) {
+    if (res.ok) {
+      const json = await res.json();
+      const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) throw new Error("Resposta inválida da IA.");
+      return content;
+    }
+
+    lastStatus = res.status;
     const err = await res.text();
-    if (res.status === 429) throw new Error("Limite de requisições atingido. Tente novamente em instantes.");
+    if ((res.status === 429 || res.status === 503 || res.status === 500) && attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); // 1.5s, depois 3s
+      continue;
+    }
+    if (res.status === 429) throw new Error("Limite do Gemini (plano grátis) atingido. Espere ~1 min e tente de novo.");
     throw new Error(`Erro na IA (${res.status}): ${err.substring(0, 200)}`);
   }
-
-  const json = await res.json();
-  const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!content) throw new Error("Resposta inválida da IA.");
-  return content;
+  throw new Error(`Limite do Gemini (plano grátis) atingido (${lastStatus}). Espere ~1 min e tente de novo.`);
 }
 
 // Persona do mentor Orbis para as dicas rápidas do DEFCON (dica do dia / dica da hora).
