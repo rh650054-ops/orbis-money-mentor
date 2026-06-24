@@ -130,29 +130,26 @@ GASTOS PESSOAIS POR CATEGORIA (no que ele gasta o dinheiro):
 ${gastosLinhas}
 Melhores horários: ${horasLinha}
 
-Analise e devolva SOMENTE este JSON preenchido, em português de rua, ESPECÍFICO (cite os números acima), sem markdown:
-{
-  "diagnostico": "como está o ${periodo} até agora, em 2-3 frases, citando faturamento, lucro e conversão",
-  "gastos": "com o que ele mais gasta e se algum gasto está pesando demais no bolso, em 2-3 frases. Se não houver gastos registrados, oriente a registrar pra enxergar pra onde vai o dinheiro",
-  "melhorias": ["2 a 3 melhorias práticas e específicas pra ele vender ou lucrar mais"],
-  "falhas": ["1 a 3 principais pontos de falha — onde ele está perdendo dinheiro, venda ou tempo"],
-  "foco": "a principal coisa pra focar agora, em 1 frase direta"
-}`;
+Escreve uma análise curta e direta pro vendedor, em português de rua, ESPECÍFICA (cite os números acima). Use EXATAMENTE estas 5 seções, cada uma com o título em CAIXA ALTA seguido de dois pontos:
 
-      const aiText = await callGemini(
-        ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Responda APENAS com o JSON pedido, sem texto fora dele.",
+COMO TÁ SEU ${periodo.toUpperCase()}: 2-3 frases sobre faturamento, lucro e conversão.
+
+PRA ONDE VAI O DINHEIRO: com o que ele mais gasta e se algo tá pesando demais. Se não houver gastos registrados, manda ele registrar pra enxergar pra onde vai o dinheiro.
+
+PRA MELHORAR: 2 a 3 pontos práticos, um por linha começando com "- ".
+
+PONTOS DE FALHA: 1 a 3 pontos onde ele perde dinheiro, venda ou tempo, um por linha começando com "- ".
+
+FOCO AGORA: 1 frase direta.
+
+Não use asteriscos, markdown nem outros títulos além desses cinco.`;
+
+      // Texto puro (mesmo método da dica do dia, que funciona 100%). Sem JSON, sem parse.
+      const analise = await callGemini(
+        ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Texto puro, direto, sem markdown.",
         userPrompt,
-        true, // modo JSON — garante JSON válido
       );
-      let parsed;
-      try {
-        const match = aiText.match(/\{[\s\S]*\}/);
-        if (!match) throw new Error("JSON não encontrado");
-        parsed = JSON.parse(match[0]);
-      } catch {
-        throw new Error("Não consegui montar a análise agora. Tenta de novo em instantes.");
-      }
-      return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ analise }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Buscar dados dos últimos 7 dias

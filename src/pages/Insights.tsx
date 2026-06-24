@@ -108,13 +108,7 @@ export default function Insights() {
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
-  const [aiReport, setAiReport] = useState<{
-    diagnostico?: string;
-    gastos?: string;
-    melhorias?: string[];
-    falhas?: string[];
-    foco?: string;
-  } | null>(null);
+  const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
   const [aiReportLoading, setAiReportLoading] = useState(false);
   const [aiReportError, setAiReportError] = useState<string | null>(null);
 
@@ -436,11 +430,9 @@ export default function Insights() {
         } catch { /* mantém msg */ }
         throw new Error(msg);
       }
-      const d = data as {
-        diagnostico?: string; gastos?: string; melhorias?: string[]; falhas?: string[]; foco?: string; error?: string;
-      } | null;
+      const d = data as { analise?: string; error?: string } | null;
       if (d?.error) throw new Error(d.error);
-      if (d && !d.diagnostico && !d.gastos && !d.melhorias && !d.falhas && !d.foco) {
+      if (d && !d.analise) {
         throw new Error("A função respondeu, mas sem a análise. Confirma que o código novo (com report_analysis) foi colado na função 'generate-insights' e que deu Deploy.");
       }
       setAiReport(d as typeof aiReport);
@@ -578,54 +570,9 @@ export default function Insights() {
 
             {aiReport ? (
               <div className="space-y-3">
-                {aiReport.diagnostico && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
-                      Como está seu {periodoShort}
-                    </p>
-                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.diagnostico}</p>
-                  </div>
-                )}
-                {aiReport.gastos && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
-                      Pra onde vai o dinheiro
-                    </p>
-                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.gastos}</p>
-                  </div>
-                )}
-                {Array.isArray(aiReport.melhorias) && aiReport.melhorias.length > 0 && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-success mb-1">Pra melhorar</p>
-                    <ul className="space-y-1.5">
-                      {aiReport.melhorias.map((m, i) => (
-                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
-                          <span className="text-success font-bold shrink-0">↑</span>
-                          <span>{m}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {Array.isArray(aiReport.falhas) && aiReport.falhas.length > 0 && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">Pontos de falha</p>
-                    <ul className="space-y-1.5">
-                      {aiReport.falhas.map((f, i) => (
-                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
-                          <span className="text-destructive font-bold shrink-0">!</span>
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {aiReport.foco && (
-                  <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-0.5">Foco agora</p>
-                    <p className="text-sm text-foreground font-medium leading-relaxed">{aiReport.foco}</p>
-                  </div>
-                )}
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
+                  {aiReport.analise}
+                </p>
                 <button
                   onClick={generateReportAnalysis}
                   disabled={aiReportLoading}
