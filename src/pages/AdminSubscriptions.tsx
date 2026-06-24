@@ -738,13 +738,15 @@ export default function AdminSubscriptions() {
                       const wa = digits.startsWith("55") ? digits : `55${digits}`;
                       const first = (u.nickname || "").trim().split(/\s+/)[0] || "";
                       const nm = first ? ` ${first}` : "";
+                      const horaBR = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }), 10);
+                      const saud = horaBR < 12 ? "Bom dia" : horaBR < 18 ? "Boa tarde" : "Boa noite";
                       // Mensagem já pronta conforme a aba: urgência no "último dia", win-back nos "expirados".
                       const body =
                         statusFilter === "ultimo_dia"
-                          ? `Opa${nm}! Aqui é o Yan, do time do Orbis 👋 Seu teste grátis termina HOJE ⏳ Pra não perder seus números, seu histórico e seu lugar no ranking, garante seu acesso por menos de R$1 por dia — é só tocar em "Assinar agora" dentro do app. Bora seguir o corre junto? 🚀`
+                          ? `Opa${nm}! Aqui é o Rick, do time do Orbis 👋 Seu teste grátis termina HOJE ⏳ Pra não perder seus números, seu histórico e seu lugar no ranking, garante seu acesso por menos de R$1 por dia — é só tocar em "Assinar agora" dentro do app. Bora seguir o corre junto? 🚀`
                           : statusFilter === "expirados"
-                          ? `Opa${nm}! Aqui é o Yan, do time do Orbis 🙏 Seu acesso pausou, mas fica tranquilo: seus dados estão guardados, você não perdeu nada. Quando quiser voltar e seguir de onde parou, é só assinar no app. Tô na torcida pelo teu corre! 💪`
-                          : `Olá${nm}! Aqui é da equipe Orbis 👋`;
+                          ? `Opa${nm}! Aqui é o Rick, do time do Orbis 🙏 Seu acesso pausou, mas fica tranquilo: seus dados estão guardados, você não perdeu nada. Quando quiser voltar e seguir de onde parou, é só assinar no app. Tô na torcida pelo teu corre! 💪`
+                          : `${saud}${nm}! Rick aqui, do time do Orbis. Vi que você entrou no teste do App. 👊`;
                       const msg = encodeURIComponent(body);
                       return (
                         <Button
