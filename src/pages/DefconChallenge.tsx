@@ -94,7 +94,6 @@ export default function DefconChallenge() {
           onLunchPause={defcon.startLunchPause}
           sessionSales={defcon.sessionSales}
           onDeleteSale={defcon.deleteSale}
-          onAddLatePix={defcon.addLatePix}
           onboardingMode={treino}
           quickSaleValue={defcon.quickSaleValue}
         />

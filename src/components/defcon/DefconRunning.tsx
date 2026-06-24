@@ -35,7 +35,6 @@ interface DefconRunningProps {
   onAddTip?: (amount: number) => void;
   sessionSales?: any[];
   onDeleteSale?: (sale: any) => void;
-  onAddLatePix?: (amount: number) => void;
   onboardingMode?: boolean;
   quickSaleValue?: number;
 }
@@ -63,7 +62,6 @@ export function DefconRunning({
   onAddTip,
   sessionSales = [],
   onDeleteSale,
-  onAddLatePix,
   onboardingMode,
   quickSaleValue,
 }: DefconRunningProps) {
@@ -85,8 +83,6 @@ export function DefconRunning({
   const [saleMessage, setSaleMessage] = useState("");
   const [showChargePreview, setShowChargePreview] = useState(false);
   const [showBlockSales, setShowBlockSales] = useState(false);
-  const [showLatePix, setShowLatePix] = useState(false);
-  const [latePixValue, setLatePixValue] = useState("");
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
   const { theme, setTheme } = useTheme();
@@ -115,18 +111,17 @@ export function DefconRunning({
 
   // Escape closes any open inline modal
   useEffect(() => {
-    if (!showAddSale && !showLunchPicker && !showAddTip && !showBlockSales && !showLatePix) return;
+    if (!showAddSale && !showLunchPicker && !showAddTip && !showBlockSales) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (showAddSale) { setShowAddSale(false); resetSaleForm(); }
       else if (showLunchPicker) { setShowLunchPicker(false); setCustomLunchMinutes(""); }
       else if (showAddTip) { setShowAddTip(false); setTipValue(""); }
-      else if (showLatePix) { setShowLatePix(false); setLatePixValue(""); }
       else if (showBlockSales) { setShowBlockSales(false); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [showAddSale, showLunchPicker, showAddTip, showBlockSales, showLatePix]);
+  }, [showAddSale, showLunchPicker, showAddTip, showBlockSales]);
 
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
@@ -320,17 +315,6 @@ export function DefconRunning({
       `Excluir esta venda de ${formatCurrency(Number(sale?.amount) || 0)}? Isso ajusta o faturado do bloco.`
     );
     if (ok) onDeleteSale(sale);
-  };
-
-  // "Pix que caiu depois" — pagamento atrasado: só dinheiro, sem nova venda.
-  const handleAddLatePix = () => {
-    const amount = parseFloat(latePixValue) || 0;
-    if (amount > 0) {
-      onAddLatePix?.(amount);
-      pushFloater(`+${formatCurrency(amount)} 💸`, "sale");
-      setLatePixValue("");
-      setShowLatePix(false);
-    }
   };
 
   // Frase de impacto inteligente — empurra ação concreta
@@ -598,18 +582,6 @@ export function DefconRunning({
               >
                 <UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" />
                 <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Almoço</span>
-              </button>
-            </>
-          )}
-          {onAddLatePix && (
-            <>
-              <span className="text-foreground/10">|</span>
-              <button
-                onClick={() => setShowLatePix(true)}
-                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
-              >
-                <span className="text-xs font-black leading-none" style={{ color: BRAND_COLORS.PIX }}>＋</span>
-                <span className="text-xs font-mono tracking-wider uppercase" style={{ color: BRAND_COLORS.PIX }}>Pix recebido</span>
               </button>
             </>
           )}
@@ -1037,56 +1009,6 @@ export function DefconRunning({
             >
               <Plus className="w-4 h-4" strokeWidth={3} />
               Registrar venda
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Pix que caiu depois — pagamento atrasado (só dinheiro, sem nova venda) */}
-      {showLatePix && (
-        <div
-          className="fixed inset-0 bg-background/90 flex items-end justify-center z-50"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="defcon-latepix-title"
-          onClick={() => { setShowLatePix(false); setLatePixValue(""); }}
-        >
-          <div
-            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-5 animate-in slide-in-from-bottom duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 id="defcon-latepix-title" className="text-lg font-bold text-foreground">💸 Pix que caiu depois</h3>
-                <p className="text-xs font-mono text-muted-foreground mt-0.5">Entra no faturado, sem contar nova venda</p>
-              </div>
-              <button onClick={() => { setShowLatePix(false); setLatePixValue(""); }}>
-                <X className="w-6 h-6 text-muted-foreground" />
-              </button>
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-bold">
-                R$
-              </span>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={latePixValue}
-                onChange={(e) => setLatePixValue(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAddLatePix()}
-                placeholder="0"
-                autoFocus
-                className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-muted-foreground"
-              />
-            </div>
-            <button
-              onClick={handleAddLatePix}
-              disabled={!latePixValue || parseFloat(latePixValue) <= 0}
-              style={{ backgroundColor: BRAND_COLORS.PIX }}
-              className="w-full h-14 text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
-            >
-              <Plus className="w-5 h-5" strokeWidth={3} />
-              REGISTRAR PIX
             </button>
           </div>
         </div>

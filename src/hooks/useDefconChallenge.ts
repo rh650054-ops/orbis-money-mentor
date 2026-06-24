@@ -738,7 +738,9 @@ export function useDefconChallenge(userId: string | undefined) {
     }
     setTotalSold(newTotal);
 
-    // 4) sales_count: só decrementa se NÃO for pix-depois (pix-depois nunca somou venda).
+    // 4) venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
+    //    então ao excluir a venda a gente tira a venda E a abordagem.
+    //    (pix-depois nunca somou venda nem abordagem, então não mexe.)
     if (!isLate && sessionId) {
       const { data: cb } = await supabase
         .from("challenge_blocks")
@@ -749,12 +751,15 @@ export function useDefconChallenge(userId: string | undefined) {
       const curApproaches = Number((cb as any)?.approaches_count || 0);
       const curSales = Number((cb as any)?.sales_count || 0);
       const newSales = Math.max(0, curSales - 1);
-      await saveBlockApproaches(sessionId, blockIdx, curApproaches, newSales);
+      const newApproaches = Math.max(0, curApproaches - 1);
+      await saveBlockApproaches(sessionId, blockIdx, newApproaches, newSales);
 
       // Atualiza contadores locais (do bloco atual e total).
       setTotalSalesCount(prev => Math.max(0, prev - 1));
+      setTotalApproaches(prev => Math.max(0, prev - 1));
       if (blockIdx === currentBlockIndex) {
         setBlockSalesCount(prev => Math.max(0, prev - 1));
+        setBlockApproaches(prev => Math.max(0, prev - 1));
       }
     }
 
