@@ -128,6 +128,16 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 - Você só fala de venda, rotina, disciplina e cabeça pro corre. Se perguntarem algo fora disso, responde em 1 linha curta e puxa de volta pro corre.
 `.trim();
 
+// Regras extras SÓ pro chat no Cerebras (gpt-oss tende a ser prolixo e a "recitar" o método).
+const CEREBRAS_CHAT_EXTRA = `
+
+MODO CONVERSA (regras extras, valem acima de tudo):
+- CURTO: no máximo 3 ou 4 frases, como parça que pensa na hora — nada de textão nem lista de robô.
+- USE OS DADOS REAIS DELE: se houver o bloco "DADOS REAIS DESTE VENDEDOR" mais acima, BASEIE a resposta nos números DELE (conversão, meta, faturamento, melhor horário, gasto). Cite o número e adapte o conselho à situação dele AGORA. Nada de resposta genérica que serviria pra qualquer um.
+- Os scripts e frases de exemplo do método são só EXEMPLOS de inspiração. NUNCA repita as mesmas frases de exemplo, nem entregue o mesmo texto duas vezes. CRIE um script NOVO, com OUTRAS palavras, adaptado à pergunta e ao vendedor — varia sempre.
+- ESPECÍFICO, nunca genérico: toda resposta entrega algo concreto — um script teu (entre aspas), uma técnica citada pelo nome, OU um número dele. PROIBIDO papo vago ("tenha foco", "acredite", "seja confiante").
+- Não despeje o método inteiro. Escolhe SÓ o que resolve a pergunta, fala com TUAS palavras e fecha com 1 próximo passo.`;
+
 // ---- Helpers de audio: o Gemini TTS devolve PCM cru; o navegador toca WAV ----
 function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
   const numChannels = 1, bitsPerSample = 16;
@@ -178,14 +188,14 @@ Deno.serve(async (req) => {
       const voiceName = Deno.env.get("GEMINI_TTS_VOICE") ?? "Kore";
       const style = Deno.env.get("GEMINI_TTS_STYLE") ??
         "Leia em português do Brasil com voz GRAVE, CALMA e confiante, num tom de mentor de rua que já viveu o corre — seguro, pausado e natural, de parceiro. Não leia esta instrução, apenas aplique o tom:";
-      const sayText = `${style}\n\n${body.tts.slice(0, 1500)}`;
+      const sayText = `${style}\n\n${body.tts.slice(0, 900)}`;
       try {
         const tRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(20000),
+            signal: AbortSignal.timeout(30000),
             body: JSON.stringify({
               contents: [{ parts: [{ text: sayText }] }],
               generationConfig: {
@@ -218,15 +228,23 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "messages vazio" });
     }
 
+    // Números reais do vendedor (mandados pelo app) — pra IA personalizar a resposta.
+    const userCtx = (typeof body?.context === "string" && body.context.trim())
+      ? `\n\n${body.context.trim()}`
+      : "";
+    console.log("CTX recebido (chars):", userCtx.length); // diagnóstico: >0 = dados chegaram
+
     // ===== TEXTO: tenta Cerebras (gratis, 1M tokens/dia); cai no Gemini se faltar chave/erro. =====
     try {
       const ckey = Deno.env.get("CEREBRAS_API_KEY");
       if (ckey) {
-        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "llama-3.3-70b";
-        // Historico capado pra caber no teto de 8K do gratis (cerebro ~3K + ultimas msgs).
-        const hist = messages.slice(-8).map((m: any) => ({
+        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
+        // Historico ENXUTO pra caber sempre no teto de 8K do gratis (cerebro ~3K + estas msgs
+        // + a resposta). Mantem so as ultimas 6 trocas, cada uma capada — evita estourar e
+        // cair no Gemini (lento) nos follow-ups.
+        const hist = messages.slice(-6).map((m: any) => ({
           role: m?.role === "assistant" ? "assistant" : "user",
-          content: String(m?.content ?? "").slice(0, 1500),
+          content: String(m?.content ?? "").slice(0, 1000),
         }));
         const cRes = await fetch("https://api.cerebras.ai/v1/chat/completions", {
           method: "POST",
@@ -234,9 +252,9 @@ Deno.serve(async (req) => {
           signal: AbortSignal.timeout(20000),
           body: JSON.stringify({
             model: cmodel,
-            messages: [{ role: "system", content: ORBIS_BRAIN }, ...hist],
+            messages: [{ role: "system", content: ORBIS_BRAIN + userCtx + CEREBRAS_CHAT_EXTRA }, ...hist],
             temperature: 0.8,
-            max_tokens: 800,
+            max_tokens: 400,
             top_p: 0.95,
           }),
         });
@@ -265,7 +283,7 @@ Deno.serve(async (req) => {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     const payload = JSON.stringify({
-      systemInstruction: { parts: [{ text: ORBIS_BRAIN }] },
+      systemInstruction: { parts: [{ text: ORBIS_BRAIN + userCtx }] },
       contents,
       generationConfig: { temperature: 0.8, maxOutputTokens: 800, topP: 0.95 },
     });

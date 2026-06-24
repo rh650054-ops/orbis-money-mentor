@@ -56,7 +56,7 @@ async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = f
 async function callCerebras(systemPrompt: string, userPrompt: string): Promise<string> {
   const key = Deno.env.get("CEREBRAS_API_KEY");
   if (!key) throw new Error("sem_cerebras_key");
-  const model = Deno.env.get("CEREBRAS_MODEL") ?? "llama-3.3-70b";
+  const model = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
   const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", "authorization": `Bearer ${key}` },
@@ -68,7 +68,7 @@ async function callCerebras(systemPrompt: string, userPrompt: string): Promise<s
         { role: "user", content: userPrompt },
       ],
       temperature: 0.7,
-      max_tokens: 1200,
+      max_tokens: 2000,
     }),
   });
   if (!res.ok) {

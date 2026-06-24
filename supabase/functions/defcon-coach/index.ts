@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     try {
       const ckey = Deno.env.get("CEREBRAS_API_KEY");
       if (ckey) {
-        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "llama-3.3-70b";
+        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
         const cRes = await fetch("https://api.cerebras.ai/v1/chat/completions", {
           method: "POST",
           headers: { "content-type": "application/json", "authorization": `Bearer ${ckey}` },
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
             model: cmodel,
             messages: [{ role: "user", content: prompt }],
             temperature: 0.95,
-            max_tokens: 90,
+            max_tokens: 256,
           }),
         });
         if (cRes.ok) {

@@ -11,6 +11,10 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+// Voz do modo VOZ: aparelho (instantânea) por padrão.
+// Troque pra false se quiser voltar pra voz do Gemini (mais bonita, porém ~30s pra gerar).
+const USE_INSTANT_VOICE = true;
+
 export default function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -26,6 +30,7 @@ export default function FloatingChatButton() {
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
+  const voiceEngineRef = useRef<"gemini" | "browser" | null>(null); // trava o motor da voz por sessão (sem flip-flop)
   const stopSpeaking = () => {
     ttsTokenRef.current++; // invalida qualquer TTS em andamento (foca na fala nova)
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
@@ -169,14 +174,23 @@ export default function FloatingChatButton() {
     stopSpeaking();                       // corta a fala anterior — foca na nova
     const myToken = ++ttsTokenRef.current; // token desta fala
     setSpeaking(true);
-    // Tenta a voz do Gemini até 2x antes de cair na voz do navegador.
-    // Evita ficar alternando entre voz boa e voz robótica quando o TTS falha pontualmente.
+
+    // Se nesta sessão a voz do Gemini já se mostrou indisponível, mantém a voz do
+    // navegador (consistência — não fica alternando robô/voz-boa no meio da conversa).
+    if (voiceEngineRef.current === "browser") {
+      setSpeaking(false);
+      speakBrowser(text);
+      return;
+    }
+
+    // Tenta a voz do Gemini até 2x.
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
         if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
         const b64 = (data as any)?.audio;
         if (b64 && audioRef.current) {
+          voiceEngineRef.current = "gemini"; // funcionou: trava na voz boa nesta sessão
           const a = audioRef.current;
           a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
           a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
@@ -191,9 +205,12 @@ export default function FloatingChatButton() {
       if (myToken !== ttsTokenRef.current) return;
       if (attempt === 0) await new Promise((r) => setTimeout(r, 600)); // respira e tenta de novo
     }
+
+    // Gemini falhou 2x. Se NUNCA funcionou nesta sessão, trava no navegador (consistência).
+    if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
     if (myToken !== ttsTokenRef.current) return;
     setSpeaking(false);
-    speakBrowser(text); // só cai na voz do navegador se o Gemini falhar 2x
+    speakBrowser(text);
   };
 
   const speakBrowser = (text: string) => {
@@ -222,6 +239,7 @@ export default function FloatingChatButton() {
     }
   };
   const enterVoiceMode = () => {
+    voiceEngineRef.current = null; // recomeça avaliando a voz do Gemini a cada sessão de voz
     setVoiceMode(true);
   };
   const exitVoiceMode = () => {
@@ -262,7 +280,8 @@ export default function FloatingChatButton() {
       lastSpokenRef.current = last.id;
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
       if (last.content.startsWith("Desculpe, tive um problema")) return;
-      speak(last.content);
+      if (USE_INSTANT_VOICE) speakBrowser(last.content); // voz do aparelho — instantânea
+      else speak(last.content);                          // voz do Gemini — bonita, porém ~30s
     }
   }, [messages, voiceMode]);
 
@@ -304,7 +323,7 @@ export default function FloatingChatButton() {
     <>
       {/* Floating Button */}
       <Button
-        onClick={() => { setIsOpen(true); setVoiceMode(true); }}
+        onClick={() => { voiceEngineRef.current = null; setIsOpen(true); setVoiceMode(true); }}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
