@@ -1,103 +1,95 @@
-import { useEffect, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/shared/ui/select";
 import { useIngredients } from "@/hooks/useIngredients";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/shared/hooks/use-toast";
 
-interface Props {
-  productId: string | null; // null se ainda não salvou produto
-  recipeMode: "none" | "per_unit" | "batch";
-  batchYield: number;
-  onChangeMode: (m: "none" | "per_unit" | "batch") => void;
-  onChangeBatchYield: (n: number) => void;
-}
+export type RecipeMode = "none" | "per_unit" | "batch";
 
-interface RecipeRow {
+export interface RecipeItem {
   id?: string;
   ingredient_id: string;
   quantity: string;
 }
 
-export default function RecipeEditor({ productId, recipeMode, batchYield, onChangeMode, onChangeBatchYield }: Props) {
-  const { user } = useAuth();
-  const { toast } = useToast();
+interface Props {
+  recipeMode: RecipeMode;
+  batchYield: number;
+  items: RecipeItem[];
+  onChangeMode: (m: RecipeMode) => void;
+  onChangeBatchYield: (n: number) => void;
+  onChangeItems: (items: RecipeItem[]) => void;
+}
+
+// Opções em linguagem do dia a dia, com exemplo — no lugar do jargão ("baixa direta", "rendimento").
+const MODES: { value: RecipeMode; emoji: string; title: string; example: string }[] = [
+  {
+    value: "none",
+    emoji: "📦",
+    title: "Sem ingredientes",
+    example: "Controlo só a quantidade do produto pronto. Ex.: revenda de bala, refri, água.",
+  },
+  {
+    value: "per_unit",
+    emoji: "🥤",
+    title: "Tira ingredientes a cada venda",
+    example: "Cada venda baixa os ingredientes do estoque. Ex.: 1 suco = 1 laranja + 1 copo.",
+  },
+  {
+    value: "batch",
+    emoji: "🍫",
+    title: "Faço em lotes",
+    example: "Produzo um monte de uma vez e o app baixa os ingredientes do lote. Ex.: 50 brigadeiros.",
+  },
+];
+
+export default function RecipeEditor({
+  recipeMode,
+  batchYield,
+  items,
+  onChangeMode,
+  onChangeBatchYield,
+  onChangeItems,
+}: Props) {
   const { ingredients } = useIngredients();
-  const [items, setItems] = useState<RecipeRow[]>([]);
 
-  useEffect(() => {
-    if (!productId) { setItems([]); return; }
-    supabase
-      .from("product_recipes")
-      .select("id, ingredient_id, quantity")
-      .eq("product_id", productId)
-      .then(({ data }) => {
-        if (data) setItems(data.map((r) => ({ id: r.id, ingredient_id: r.ingredient_id, quantity: String(r.quantity) })));
-      });
-  }, [productId]);
-
-  const addRow = () => setItems([...items, { ingredient_id: "", quantity: "" }]);
-  const removeRow = async (idx: number) => {
-    const row = items[idx];
-    if (!row) return;
-    if (row.id) await supabase.from("product_recipes").delete().eq("id", row.id);
-    setItems(items.filter((_, i) => i !== idx));
-  };
-  const updateRow = (idx: number, patch: Partial<RecipeRow>) => {
-    setItems(items.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
-  };
-
-  const persistAll = async () => {
-    if (!user || !productId) return;
-    for (const r of items) {
-      if (!r.ingredient_id || !r.quantity) continue;
-      const payload = {
-        user_id: user.id,
-        product_id: productId,
-        ingredient_id: r.ingredient_id,
-        quantity: parseFloat(r.quantity) || 0,
-      };
-      if (r.id) {
-        await supabase.from("product_recipes").update({ quantity: payload.quantity }).eq("id", r.id);
-      } else {
-        await supabase.from("product_recipes").upsert(payload, { onConflict: "product_id,ingredient_id" });
-      }
-    }
-    toast({ title: "Receita salva" });
-  };
-
-  // Exposed via window for parent quick-save (simpler than ref forwarding)
-  useEffect(() => {
-    (window as any).__saveCurrentRecipe = persistAll;
-    return () => { delete (window as any).__saveCurrentRecipe; };
-  });
+  const addRow = () => onChangeItems([...items, { ingredient_id: "", quantity: "" }]);
+  const removeRow = (idx: number) => onChangeItems(items.filter((_, i) => i !== idx));
+  const updateRow = (idx: number, patch: Partial<RecipeItem>) =>
+    onChangeItems(items.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
 
   return (
-    <div className="space-y-3 border-t pt-3">
-      <div>
-        <Label>Modo de estoque por receita</Label>
-        <Select value={recipeMode} onValueChange={(v) => onChangeMode(v as any)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Sem receita (estoque manual)</SelectItem>
-            <SelectItem value="per_unit">Por unidade vendida (baixa direta)</SelectItem>
-            <SelectItem value="batch">Por lote (rendimento)</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-xs text-muted-foreground mt-1">
-          {recipeMode === "per_unit" && "A cada venda, baixa do estoque os ingredientes na quantidade abaixo."}
-          {recipeMode === "batch" && "Você produz um lote (ex: faz 50 brigadeiros de uma vez) e o app baixa os ingredientes do lote inteiro."}
-          {recipeMode === "none" && "Apenas o estoque do produto é controlado, sem ingredientes."}
-        </p>
+    <div className="space-y-3">
+      {/* Seletor de modo — 3 cards com exemplo */}
+      <div className="space-y-2">
+        {MODES.map((m) => {
+          const active = recipeMode === m.value;
+          return (
+            <button
+              key={m.value}
+              type="button"
+              onClick={() => onChangeMode(m.value)}
+              className={`w-full text-left flex gap-3 p-3 rounded-xl border transition active:scale-[0.99] ${
+                active
+                  ? "border-primary bg-primary/10"
+                  : "border-border/60 bg-muted/30 hover:bg-muted/60"
+              }`}
+            >
+              <span className="text-xl shrink-0 leading-none mt-0.5">{m.emoji}</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-sm font-semibold text-foreground">{m.title}</span>
+                <span className="block text-xs text-muted-foreground mt-0.5 leading-snug">{m.example}</span>
+              </span>
+              {active && <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
+            </button>
+          );
+        })}
       </div>
 
       {recipeMode === "batch" && (
         <div>
-          <Label>Rendimento do lote (unidades)</Label>
+          <Label>Quantas unidades saem de um lote?</Label>
           <Input
             type="number"
             inputMode="numeric"
@@ -111,17 +103,14 @@ export default function RecipeEditor({ productId, recipeMode, batchYield, onChan
       {recipeMode !== "none" && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>Ingredientes da receita</Label>
-            <Button type="button" size="sm" variant="outline" onClick={addRow} disabled={!productId}>
+            <Label>Ingredientes que ele usa</Label>
+            <Button type="button" size="sm" variant="outline" onClick={addRow}>
               <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
             </Button>
           </div>
-          {!productId && (
-            <p className="text-xs text-muted-foreground">Salve o produto primeiro para adicionar ingredientes.</p>
-          )}
-          {ingredients.length === 0 && productId && (
+          {ingredients.length === 0 && (
             <p className="text-xs text-muted-foreground">
-              Nenhuma mercadoria cadastrada. Cadastre na aba "Mercadoria".
+              Você ainda não cadastrou ingredientes. Cadastre na aba "Mercadoria" e eles aparecem aqui.
             </p>
           )}
           {items.map((r, idx) => {
@@ -130,7 +119,7 @@ export default function RecipeEditor({ productId, recipeMode, batchYield, onChan
               <div key={idx} className="flex gap-2 items-end">
                 <div className="flex-1">
                   <Select value={r.ingredient_id} onValueChange={(v) => updateRow(idx, { ingredient_id: v })}>
-                    <SelectTrigger><SelectValue placeholder="Mercadoria" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Ingrediente" /></SelectTrigger>
                     <SelectContent>
                       {ingredients.map((i) => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
                     </SelectContent>
@@ -151,10 +140,8 @@ export default function RecipeEditor({ productId, recipeMode, batchYield, onChan
               </div>
             );
           })}
-          {productId && items.length > 0 && (
-            <Button type="button" size="sm" variant="secondary" onClick={persistAll} className="w-full">
-              Salvar receita
-            </Button>
+          {recipeMode !== "none" && items.length === 0 && ingredients.length > 0 && (
+            <p className="text-xs text-muted-foreground">Toque em "Adicionar" pra incluir um ingrediente.</p>
           )}
         </div>
       )}

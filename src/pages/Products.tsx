@@ -17,7 +17,7 @@ import {
   ChefHat,
 } from "lucide-react";
 import IngredientsManager from "@/components/products/IngredientsManager";
-import RecipeEditor from "@/components/products/RecipeEditor";
+import RecipeEditor, { type RecipeItem } from "@/components/products/RecipeEditor";
 import ProductActionsModal from "@/components/products/ProductActionsModal";
 import { useIngredients } from "@/hooks/useIngredients";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -82,6 +82,7 @@ const emptyForm = {
   pix_account_id: "",
   recipe_mode: "none" as "none" | "per_unit" | "batch",
   batch_yield: 0,
+  recipe_items: [] as RecipeItem[],
   low_stock_alerts_enabled: true,
 };
 
@@ -206,9 +207,23 @@ export default function Products() {
       pix_account_id: p.pix_account_id || defaultPixAccount?.id || "",
       recipe_mode: (p.recipe_mode ?? "none") as "none" | "per_unit" | "batch",
       batch_yield: Number(p.batch_yield ?? 0),
+      recipe_items: [],
       low_stock_alerts_enabled: p.low_stock_alerts_enabled ?? true,
     });
     setFormOpen(true);
+    // Carrega a receita já existente desse produto pra dentro do form (controlado).
+    supabase
+      .from("product_recipes")
+      .select("id, ingredient_id, quantity")
+      .eq("product_id", p.id)
+      .then(({ data }) => {
+        if (data) {
+          setForm((f) => ({
+            ...f,
+            recipe_items: data.map((r) => ({ id: r.id, ingredient_id: r.ingredient_id, quantity: String(r.quantity) })),
+          }));
+        }
+      });
   };
 
   const handlePhoto = async (file: File) => {
@@ -266,6 +281,22 @@ export default function Products() {
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
     } else {
+      // Grava a receita junto com o produto (controlada pelo form): apaga a antiga e regrava a atual.
+      const pid = (saved as any)?.id ?? editing?.id;
+      if (pid) {
+        await supabase.from("product_recipes").delete().eq("product_id", pid);
+        if (form.recipe_mode !== "none") {
+          const rows = form.recipe_items
+            .filter((r) => r.ingredient_id && r.quantity)
+            .map((r) => ({
+              user_id: user.id,
+              product_id: pid,
+              ingredient_id: r.ingredient_id,
+              quantity: parseFloat(r.quantity) || 0,
+            }));
+          if (rows.length) await supabase.from("product_recipes").insert(rows);
+        }
+      }
       toast({ title: editing ? "Produto atualizado" : "Produto criado" });
       if (!editing) emitMissionEvent("product-added");
       setFormOpen(false);
@@ -656,111 +687,134 @@ export default function Products() {
           <DialogHeader>
             <DialogTitle>{editing ? "Editar produto" : "Novo produto"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Foto */}
-            <div className="flex items-center gap-3">
-              <label className="w-20 h-20 rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:bg-muted/70 transition shrink-0">
-                {form.photo_url ? (
-                  <img src={form.photo_url} className="w-full h-full object-cover" />
-                ) : (
-                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                )}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && handlePhoto(e.target.files[0])}
+          <div className="space-y-5">
+            {/* ===== IDENTIFICAÇÃO ===== */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <label className="w-20 h-20 rounded-xl bg-muted overflow-hidden flex items-center justify-center cursor-pointer hover:bg-muted/70 transition shrink-0">
+                  {form.photo_url ? (
+                    <img src={form.photo_url} className="w-full h-full object-cover" />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => e.target.files?.[0] && handlePhoto(e.target.files[0])}
+                  />
+                </label>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Foto do produto</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {uploading ? "Enviando..." : "Toque no quadrado pra adicionar (até 5MB)"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label>Nome *</Label>
+                <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ex: Brigadeiro" />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Textarea
+                  rows={2}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Opcional"
                 />
-              </label>
-              <div className="text-xs text-muted-foreground">
-                {uploading ? "Enviando..." : "Toque para adicionar foto (até 5MB)"}
               </div>
             </div>
 
-            <div>
-              <Label>Nome *</Label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            {/* ===== PREÇO & ESTOQUE ===== */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Preço & estoque</span>
+              </div>
+
+              <Card className="bg-muted/30 border-border/50">
+                <CardContent className="p-3 flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <Label htmlFor="open-price" className="font-medium">Preço aberto</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Para vendas com valor combinado na hora. O QR Pix vai sem valor — o cliente digita.
+                    </p>
+                  </div>
+                  <Switch
+                    id="open-price"
+                    checked={form.open_price}
+                    onCheckedChange={(v) => setForm({ ...form, open_price: v })}
+                  />
+                </CardContent>
+              </Card>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Custo (R$)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={form.cost}
+                    onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label className={form.open_price ? "text-muted-foreground" : ""}>
+                    Venda (R$)
+                  </Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={form.open_price ? "" : form.sale_price}
+                    disabled={form.open_price}
+                    placeholder={form.open_price ? "—" : ""}
+                    onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Estoque atual</Label>
+                  <Input
+                    type="number"
+                    value={form.stock_quantity}
+                    onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Estoque mínimo</Label>
+                  <Input
+                    type="number"
+                    value={form.stock_min}
+                    onChange={(e) => setForm({ ...form, stock_min: e.target.value })}
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <Label>Descrição</Label>
-              <Textarea
-                rows={2}
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+
+            {/* ===== COMO O ESTOQUE BAIXA (receita) ===== */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <ChefHat className="w-4 h-4 text-primary" />
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Como o estoque baixa</span>
+              </div>
+              <RecipeEditor
+                recipeMode={form.recipe_mode}
+                batchYield={form.batch_yield}
+                items={form.recipe_items}
+                onChangeMode={(m) => setForm({ ...form, recipe_mode: m })}
+                onChangeBatchYield={(n) => setForm({ ...form, batch_yield: n })}
+                onChangeItems={(items) => setForm({ ...form, recipe_items: items })}
               />
             </div>
 
-            {/* Preço aberto toggle */}
-            <Card className="bg-muted/30 border-border/50">
-              <CardContent className="p-3 flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <Label htmlFor="open-price" className="font-medium">Preço aberto</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Para vendas com valor combinado na hora. O QR Pix vai sem valor — o cliente digita.
-                  </p>
-                </div>
-                <Switch
-                  id="open-price"
-                  checked={form.open_price}
-                  onCheckedChange={(v) => setForm({ ...form, open_price: v })}
-                />
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Custo (R$)</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={form.cost}
-                  onChange={(e) => setForm({ ...form, cost: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label className={form.open_price ? "text-muted-foreground" : ""}>
-                  Venda (R$)
-                </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={form.open_price ? "" : form.sale_price}
-                  disabled={form.open_price}
-                  placeholder={form.open_price ? "—" : ""}
-                  onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Estoque atual</Label>
-                <Input
-                  type="number"
-                  value={form.stock_quantity}
-                  onChange={(e) => setForm({ ...form, stock_quantity: e.target.value })}
-                />
-              </div>
-              <div>
-                <Label>Estoque Mínimo</Label>
-                <Input
-                  type="number"
-                  value={form.stock_min}
-                  onChange={(e) => setForm({ ...form, stock_min: e.target.value })}
-                />
-              </div>
-            </div>
-
-            {/* Receita / estoque por ingredientes */}
-            <RecipeEditor
-              productId={editing?.id ?? null}
-              recipeMode={form.recipe_mode}
-              batchYield={form.batch_yield}
-              onChangeMode={(m) => setForm({ ...form, recipe_mode: m })}
-              onChangeBatchYield={(n) => setForm({ ...form, batch_yield: n })}
-            />
-
             {/* Conta Pix */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Label>Receber Pix em</Label>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Landmark className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Receber Pix em</span>
+                </div>
                 <button
                   type="button"
                   className="text-xs text-primary hover:underline"
