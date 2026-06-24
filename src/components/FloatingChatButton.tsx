@@ -31,6 +31,7 @@ export default function FloatingChatButton() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
   const voiceEngineRef = useRef<"gemini" | "browser" | null>(null); // trava o motor da voz por sessão (sem flip-flop)
+  const isRecordingRef = useRef(false); // espelho de isRecording pra checar dentro de callbacks
   const stopSpeaking = () => {
     ttsTokenRef.current++; // invalida qualquer TTS em andamento (foca na fala nova)
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
@@ -55,7 +56,10 @@ export default function FloatingChatButton() {
       recognitionRef.current?.stop();
       return;
     }
-    stopSpeaking(); // para a fala atual quando o usuario vai gravar de novo
+    stopSpeaking(); // corta a fala da IA quando o usuario vai falar de novo
+    // garante que nenhum reconhecimento anterior ficou preso (causa de não gravar na 2a vez)
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    recognitionRef.current = null;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.lang = "pt-BR";
@@ -75,20 +79,25 @@ export default function FloatingChatButton() {
       }
       setInput(baseInputRef.current + transcript);
     };
+    rec.onstart = () => { setIsRecording(true); isRecordingRef.current = true; }; // só marca quando começou DE VERDADE
     rec.onend = () => {
       setIsRecording(false);
+      isRecordingRef.current = false;
       recognitionRef.current = null;
     };
     rec.onerror = () => {
       setIsRecording(false);
+      isRecordingRef.current = false;
       recognitionRef.current = null;
     };
     recognitionRef.current = rec;
-    setIsRecording(true);
     try {
       rec.start();
     } catch {
-      /* já em gravação */
+      // não conseguiu iniciar (estado preso): zera tudo pra o usuario tocar de novo e funcionar
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      recognitionRef.current = null;
     }
   };
 
@@ -275,6 +284,7 @@ export default function FloatingChatButton() {
   // Fala a resposta da IA quando chega (só no modo voz)
   useEffect(() => {
     if (!voiceMode) return;
+    if (isRecordingRef.current) return; // usuário está falando: não fala por cima (interrompeu)
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
       lastSpokenRef.current = last.id;
@@ -499,16 +509,15 @@ export default function FloatingChatButton() {
                 </div>
                 <button
                   onClick={isRecording ? voiceSend : voiceListen}
-                  disabled={isSending}
                   className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center transition-all disabled:opacity-50",
+                    "w-16 h-16 rounded-full flex items-center justify-center transition-all",
                     isRecording
                       ? "bg-red-500/15 border border-red-500/40 text-red-400"
                       : "bg-primary/15 border border-primary/40 text-primary"
                   )}
                   aria-label={isRecording ? "Enviar" : "Falar"}
                 >
-                  {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : isRecording ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
+                  {isRecording ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
                 </button>
               </div>
 
