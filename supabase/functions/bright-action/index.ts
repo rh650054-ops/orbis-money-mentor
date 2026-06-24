@@ -218,6 +218,40 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "messages vazio" });
     }
 
+    // ===== TEXTO: tenta Cerebras (gratis, 1M tokens/dia); cai no Gemini se faltar chave/erro. =====
+    try {
+      const ckey = Deno.env.get("CEREBRAS_API_KEY");
+      if (ckey) {
+        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "llama-3.3-70b";
+        // Historico capado pra caber no teto de 8K do gratis (cerebro ~3K + ultimas msgs).
+        const hist = messages.slice(-8).map((m: any) => ({
+          role: m?.role === "assistant" ? "assistant" : "user",
+          content: String(m?.content ?? "").slice(0, 1500),
+        }));
+        const cRes = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json", "authorization": `Bearer ${ckey}` },
+          signal: AbortSignal.timeout(20000),
+          body: JSON.stringify({
+            model: cmodel,
+            messages: [{ role: "system", content: ORBIS_BRAIN }, ...hist],
+            temperature: 0.8,
+            max_tokens: 800,
+            top_p: 0.95,
+          }),
+        });
+        if (cRes.ok) {
+          const cj = await cRes.json();
+          const ctext = (cj?.choices?.[0]?.message?.content?.toString() ?? "").replace(/\*\*/g, "").trim();
+          if (ctext) return json({ success: true, message: ctext });
+        } else {
+          console.error("Cerebras chat erro", cRes.status);
+        }
+      }
+    } catch (e) {
+      console.error("Cerebras chat exceção (cai pro Gemini)", e);
+    }
+
     const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) return json({ success: false, error: "GEMINI_API_KEY ausente nos secrets" });
 

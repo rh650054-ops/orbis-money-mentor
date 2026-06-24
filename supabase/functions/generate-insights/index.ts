@@ -52,6 +52,41 @@ async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = f
   throw new Error(`Limite do Gemini (plano grátis) atingido (${lastStatus}). Espere ~1 min e tente de novo.`);
 }
 
+// ---- Cerebras (texto, grátis 1M tokens/dia). Tenta primeiro; cai no Gemini se faltar chave/erro. ----
+async function callCerebras(systemPrompt: string, userPrompt: string): Promise<string> {
+  const key = Deno.env.get("CEREBRAS_API_KEY");
+  if (!key) throw new Error("sem_cerebras_key");
+  const model = Deno.env.get("CEREBRAS_MODEL") ?? "llama-3.3-70b";
+  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json", "authorization": `Bearer ${key}` },
+    signal: AbortSignal.timeout(20000),
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 1200,
+    }),
+  });
+  if (!res.ok) throw new Error(`cerebras_${res.status}`);
+  const j = await res.json();
+  const content = j?.choices?.[0]?.message?.content?.toString().trim();
+  if (!content) throw new Error("cerebras_vazio");
+  return content;
+}
+
+// Texto: Cerebras primeiro (grátis, generoso), Gemini de reserva.
+async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  try {
+    return await callCerebras(systemPrompt, userPrompt);
+  } catch (_e) {
+    return await callGemini(systemPrompt, userPrompt);
+  }
+}
+
 // Persona do mentor Orbis para as dicas rápidas do DEFCON (dica do dia / dica da hora).
 // Mesma alma do chat: específico, nunca genérico, linguagem de rua.
 const ORBIS_COACH = `Você é o mentor de vendas do Orbis, o app de vendedor de rua/ambulante no Brasil.
@@ -93,7 +128,7 @@ serve(async (req) => {
 - Vendas: ${body.sales}
 - Conversão: ${conv}%${goalLine}
 Dê no máximo 2 dicas curtas e práticas, baseadas NESSES números, pra ele vender mais AMANHÃ. Máximo 3 linhas no total.`;
-      const tip = await callGemini(ORBIS_COACH, prompt);
+      const tip = await callAI(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -107,7 +142,7 @@ Dê no máximo 2 dicas curtas e práticas, baseadas NESSES números, pra ele ven
 - Conversão: ${conv}%
 - Vendido na hora: R$ ${Number(body.soldAmount ?? 0).toFixed(0)}
 Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓXIMA hora. Máximo 2 linhas. Sem rodeio.`;
-      const tip = await callGemini(ORBIS_COACH, prompt);
+      const tip = await callAI(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
@@ -154,8 +189,8 @@ FOCO AGORA: 1 frase direta.
 
 Não use asteriscos, markdown nem outros títulos além desses cinco.`;
 
-      // Texto puro (mesmo método da dica do dia, que funciona 100%). Sem JSON, sem parse.
-      const analise = await callGemini(
+      // Texto puro (mesmo método da dica do dia). Cerebras primeiro, Gemini de reserva.
+      const analise = await callAI(
         ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Texto puro, direto, sem markdown.",
         userPrompt,
       );

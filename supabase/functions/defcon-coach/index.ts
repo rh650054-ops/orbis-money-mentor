@@ -27,14 +27,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key) {
-      // Sem IA configurada -> usa o template
-      return new Response(JSON.stringify({ message: template, source: "template" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
     const prompt =
       `Você é o "mentor de rua" do app Orbis, falando com um vendedor ambulante brasileiro DURANTE o corre de vendas.\n` +
@@ -44,6 +36,42 @@ Deno.serve(async (req) => {
       (avgApproachesPerSale ? `Média dele: 1 venda a cada ${avgApproachesPerSale} abordagens. ` : "") +
       `Hoje: ${dayApproaches} abordagens, ${daySales} vendas.\n\n` +
       `Mensagem original:\n${template}\n\nReescreva:`;
+
+    // 1) Cerebras (texto, grátis 1M tokens/dia) — tenta primeiro
+    try {
+      const ckey = Deno.env.get("CEREBRAS_API_KEY");
+      if (ckey) {
+        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "llama-3.3-70b";
+        const cRes = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+          method: "POST",
+          headers: { "content-type": "application/json", "authorization": `Bearer ${ckey}` },
+          signal: AbortSignal.timeout(7000),
+          body: JSON.stringify({
+            model: cmodel,
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.95,
+            max_tokens: 90,
+          }),
+        });
+        if (cRes.ok) {
+          const cj = await cRes.json();
+          const ct = cj?.choices?.[0]?.message?.content?.toString().trim();
+          if (ct && ct.length > 0) {
+            return new Response(JSON.stringify({ message: ct.replace(/^["']|["']$/g, ""), source: "cerebras" }), {
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      }
+    } catch (_e) { /* cai pro Gemini */ }
+
+    // 2) Gemini (reserva) — se não tiver chave, usa o template
+    const key = Deno.env.get("GEMINI_API_KEY");
+    if (!key) {
+      return new Response(JSON.stringify({ message: template, source: "template" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const ctrl = AbortSignal.timeout(7000);
     const gRes = await fetch(
