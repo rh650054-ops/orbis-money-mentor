@@ -3,7 +3,7 @@ import { Instagram, Loader2, X } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
-import orbisLogo from "@/assets/orbis-logo-share.png";
+import { ORBIS_LOGO } from "@/assets/orbisLogoData";
 
 // Dados que entram nas artes compartilháveis
 export interface ShareStats {
@@ -74,7 +74,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     im.crossOrigin = "anonymous";
     im.onload = () => resolve(im);
     im.onerror = () => resolve(null);
-    im.src = orbisLogo;
+    im.src = ORBIS_LOGO;
   });
   const drawLogo = (cx: number, cy: number, w: number) => {
     if (logoImg) {
@@ -118,20 +118,20 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
 
   if (template === "empilhada") {
     // ===== Vertical, tudo empilhado (igual à 2ª referência) — PADRÃO =====
-    // Espaçamento mais justo (grupo centralizado, sem buracos enormes)
-    label("FATURAMENTO", W / 2, 380, 46, GOLD);
-    value(fat, W / 2, 505, 158);
+    // Espaçamento IDÊNTICO à referência: distribuído por toda a altura
+    label("FATURAMENTO", W / 2, 125, 46, GOLD);
+    value(fat, W / 2, 280, 165);
 
-    label("VENDAS", W / 2, 690, 42, MUTED);
-    value(vendas, W / 2, 810, 145);
+    label("VENDAS", W / 2, 540, 42, MUTED);
+    value(vendas, W / 2, 665, 142);
 
-    label("CONVERSÃO", W / 2, 995, 42, MUTED);
-    value(conv, W / 2, 1115, 145);
+    label("CONVERSÃO", W / 2, 920, 42, MUTED);
+    value(conv, W / 2, 1045, 142);
 
-    label("HORAS TRABALHADAS", W / 2, 1300, 40, MUTED);
-    value(horas, W / 2, 1420, 145);
+    label("HORAS TRABALHADAS", W / 2, 1295, 40, MUTED);
+    value(horas, W / 2, 1420, 142);
 
-    drawLogo(W / 2, 1655, 200);
+    drawLogo(W / 2, 1640, 205);
   } else if (template === "destaque") {
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
