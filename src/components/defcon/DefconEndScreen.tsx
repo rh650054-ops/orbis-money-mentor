@@ -8,6 +8,7 @@ import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
+import { DefconShareCarousel } from "./DefconShareCarousel";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -16,6 +17,7 @@ interface DefconEndScreenProps {
   totalBlocks: number;
   totalApproaches?: number;
   totalSalesCount?: number;
+  workedMinutes?: number;
   userId?: string;
   onSaveBreakdown: (dinheiro: number, cartao: number, pix: number) => Promise<void>;
   onExit: () => void;
@@ -30,6 +32,7 @@ export function DefconEndScreen({
   totalBlocks,
   totalApproaches = 0,
   totalSalesCount = 0,
+  workedMinutes,
   userId,
   onSaveBreakdown,
   onExit,
@@ -188,6 +191,11 @@ export function DefconEndScreen({
   const percentage = dailyGoal > 0 ? (totalSold / dailyGoal) * 100 : 0;
   const goalReached = totalSold >= dailyGoal && totalSold > 0;
   const conversionRate = totalApproaches > 0 ? (totalSalesCount / totalApproaches) * 100 : 0;
+  // Tempo REAL trabalhado — não arredonda hora incompleta. Ex.: encerrou faltando
+  // 30min => "1h30" (e não "2h"). Cai pro nº de blocos só se não vier o tempo.
+  const horasLabel = typeof workedMinutes === "number"
+    ? `${Math.floor(workedMinutes / 60)}h${workedMinutes % 60 > 0 ? String(Math.round(workedMinutes % 60)).padStart(2, "0") : ""}`
+    : `${totalBlocks}h`;
 
   const subText = useMemo(() => {
     if (phase === "abandoned") return "Desafio encerrado antes do tempo";
@@ -515,60 +523,16 @@ export function DefconEndScreen({
           </div>
         )}
 
-        {/* 2. SHARE — escolher 1 de 3 artes e postar */}
-        {totalSold > 0 && !showShare && (
-          <button
-            onClick={openShare}
-            className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.6)]"
-          >
-            <Share2 className="w-4 h-4" />
-            Compartilhar resultado
-          </button>
-        )}
-
-        {totalSold > 0 && showShare && (
-          <div className="rounded-2xl bg-card border border-border p-3 space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Escolha a arte pra postar</span>
-              <button onClick={() => setShowShare(false)} className="text-xs text-muted-foreground active:scale-95">Fechar</button>
-            </div>
-
-            {generatingPreviews ? (
-              <div className="h-44 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="w-4 h-4 animate-spin" /> Gerando artes...
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {[1, 2, 3].map((t) => (
-                  <button
-                    key={t}
-                    onClick={() => setSelectedTemplate(t as 1 | 2 | 3)}
-                    className={`relative rounded-xl overflow-hidden border-2 transition-all ${selectedTemplate === t ? "border-primary ring-2 ring-primary/40" : "border-border"}`}
-                    style={{ aspectRatio: "9 / 16", background: "#0a0a0a" }}
-                  >
-                    {previews[t] && (
-                      <img src={previews[t]} alt={`Modelo ${t}`} className="absolute inset-0 w-full h-full object-cover" />
-                    )}
-                    {selectedTemplate === t && (
-                      <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <button
-              onClick={handleShare}
-              disabled={sharing || generatingPreviews}
-              className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
-              style={{ backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})` }}
-            >
-              {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
-              {sharing ? "Gerando..." : "Compartilhar no Instagram"}
-            </button>
-          </div>
+        {/* 2. SHARE — 3 artes transparentes (arraste pra escolher) e posta no Instagram */}
+        {totalSold > 0 && (
+          <DefconShareCarousel
+            stats={{
+              faturamento: totalSold,
+              vendas: totalSalesCount,
+              conversao: conversionRate,
+              horas: horasLabel,
+            }}
+          />
         )}
 
         {/* Empurrão de teste — aparece SEMPRE que finaliza o DEFCON (durante o trial) */}
@@ -662,7 +626,7 @@ export function DefconEndScreen({
               Relatório do dia
             </h2>
             <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
-              <ReportRow label="⏱️ Horas trabalhadas" value={`${totalBlocks}h`} />
+              <ReportRow label="⏱️ Horas trabalhadas" value={horasLabel} />
               <ReportRow label="💰 Vendido" value={formatCurrency(totalSold)} />
               <ReportRow label="👤 Abordagens" value={String(totalApproaches)} />
               <ReportRow label="🛒 Vendas" value={String(totalSalesCount)} valueClass="text-success" />

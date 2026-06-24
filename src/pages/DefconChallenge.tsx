@@ -137,6 +137,7 @@ export default function DefconChallenge() {
           totalSold={defcon.totalSold}
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.currentBlockIndex + 1}
+          workedMinutes={defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60)))}
           totalApproaches={defcon.totalApproaches}
           totalSalesCount={defcon.totalSalesCount}
           userId={user.id}
