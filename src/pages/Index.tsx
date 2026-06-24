@@ -50,6 +50,7 @@ export default function Index() {
     variation: 0
   });
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
+  const [dailyGoalPlan, setDailyGoalPlan] = useState(0); // meta do dia definida pelo usuário (mesma do DEFCON / daily_goal_plans)
   const [nickname, setNickname] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -173,6 +174,7 @@ export default function Index() {
       { data: monthData },
       { data: todayChallenge },
       { data: monthExpenses },
+      { data: todayGoalPlan },
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
@@ -180,6 +182,7 @@ export default function Index() {
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
       supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
       supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
+      supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", today).maybeSingle(),
     ]);
 
     if (profile?.monthly_goal) {
@@ -200,6 +203,7 @@ export default function Index() {
     setTodaySales(aggregatedToday);
     setSalesCountToday(((todayChallenge as any[]) || []).reduce((s, b) => s + (b.sales_count || 0), 0));
     setMonthExpensesTotal(((monthExpenses as any[]) || []).reduce((s, e) => s + Number(e.amount || 0), 0));
+    setDailyGoalPlan(Number((todayGoalPlan as any)?.daily_goal) || 0);
 
     if (weekData) {
       const formattedWeekData = weekData.map(day => ({
@@ -365,7 +369,9 @@ export default function Index() {
   const progressoMeta = calculateGoalProgress();
 
   // Daily goal calc
-  const dailyGoal = monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200;
+  // Meta do dia = a MESMA que o usuário define no DEFCON (daily_goal_plans). Só
+  // cai pra meta mensal ÷ 26 quando ainda não há meta do dia definida.
+  const dailyGoal = dailyGoalPlan > 0 ? dailyGoalPlan : (monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200);
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
   const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood;
