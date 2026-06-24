@@ -12,6 +12,10 @@ verify_jwt = true
 [functions.chat-with-ai]
 verify_jwt = true
 
+# Chat REAL do app (mentor de rua, Gemini + cerebro do Ricardo). Substitui chat-with-ai.
+[functions.bright-action]
+verify_jwt = true
+
 [functions.create-demo-user]
 verify_jwt = true
 
