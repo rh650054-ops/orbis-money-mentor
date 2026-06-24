@@ -736,6 +736,7 @@ export type Database = {
           total_debt: number | null
           total_profit: number | null
           unpaid_sales: number | null
+          unpaid_units: number | null
           updated_at: string
           user_id: string
         }
@@ -753,6 +754,7 @@ export type Database = {
           total_debt?: number | null
           total_profit?: number | null
           unpaid_sales?: number | null
+          unpaid_units?: number | null
           updated_at?: string
           user_id: string
         }
@@ -770,6 +772,7 @@ export type Database = {
           total_debt?: number | null
           total_profit?: number | null
           unpaid_sales?: number | null
+          unpaid_units?: number | null
           updated_at?: string
           user_id?: string
         }

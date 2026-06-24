@@ -3,6 +3,7 @@ import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft,
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
@@ -45,6 +46,8 @@ export function DefconEndScreen({
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [caloteAcknowledged, setCaloteAcknowledged] = useState(false);
+  const [caloteUnits, setCaloteUnits] = useState(0);
+  const [savingUnits, setSavingUnits] = useState(false);
   const [extending, setExtending] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [confirmRestart, setConfirmRestart] = useState(false);
@@ -187,6 +190,34 @@ export function DefconEndScreen({
   const calote = Math.max(0, totalSold - totalRecebido);
   const hasCalote = calote > 0 && totalRecebido > 0;
   const fullyReceived = totalRecebido >= totalSold && totalSold > 0;
+
+  // Salva a CONTAGEM de kits não pagos na linha do dia (mesma data do sync do DEFCON).
+  // O valor do calote já está em total_debt; aqui guardamos só a quantidade pro relatório.
+  const saveCaloteUnits = async () => {
+    if (!userId) { setCaloteAcknowledged(true); return; }
+    setSavingUnits(true);
+    try {
+      const today = getBrazilDate();
+      const { data: row } = await supabase
+        .from("daily_sales")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (row && row.length > 0) {
+        await supabase.from("daily_sales").update({ unpaid_units: caloteUnits } as any).eq("id", row[0].id);
+      } else {
+        await supabase.from("daily_sales").insert({ user_id: userId, date: today, unpaid_units: caloteUnits } as any);
+      }
+      setCaloteAcknowledged(true);
+      toast({ title: "Anotado", description: `${caloteUnits} ${caloteUnits === 1 ? "kit não pago" : "kits não pagos"} no relatório.` });
+    } catch {
+      setCaloteAcknowledged(true);
+    } finally {
+      setSavingUnits(false);
+    }
+  };
 
   const percentage = dailyGoal > 0 ? (totalSold / dailyGoal) * 100 : 0;
   const goalReached = totalSold >= dailyGoal && totalSold > 0;
@@ -595,23 +626,48 @@ export function DefconEndScreen({
                     <span className="font-semibold">{formatCurrency(calote)}</span> não recebidos
                   </div>
                   {!caloteAcknowledged && (
-                    <div className="flex gap-2 mt-2">
-                      <button
-                        onClick={() => setCaloteAcknowledged(true)}
-                        className="text-xs px-3 py-1.5 rounded-md bg-destructive/20 text-destructive font-medium active:scale-95 transition-transform"
-                      >
-                        Registrar depois
-                      </button>
-                      <button
-                        onClick={() => setCaloteAcknowledged(true)}
-                        className="text-xs px-3 py-1.5 rounded-md bg-muted text-foreground font-medium active:scale-95 transition-transform"
-                      >
-                        Ignorar
-                      </button>
+                    <div className="mt-2">
+                      <div className="text-xs text-muted-foreground mb-1.5">Quantos kits ficaram sem pagar?</div>
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setCaloteUnits((n) => Math.max(0, n - 1))}
+                            className="w-8 h-8 rounded-md bg-destructive/20 text-destructive font-bold text-lg leading-none active:scale-95 transition-transform"
+                          >
+                            −
+                          </button>
+                          <span className="w-7 text-center text-base font-bold tabular-nums text-foreground">{caloteUnits}</span>
+                          <button
+                            type="button"
+                            onClick={() => setCaloteUnits((n) => Math.min(9999, n + 1))}
+                            className="w-8 h-8 rounded-md bg-destructive/20 text-destructive font-bold text-lg leading-none active:scale-95 transition-transform"
+                          >
+                            +
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={savingUnits}
+                          onClick={saveCaloteUnits}
+                          className="text-xs px-3 py-1.5 rounded-md bg-destructive/20 text-destructive font-medium active:scale-95 transition-transform disabled:opacity-60"
+                        >
+                          {savingUnits ? "Salvando…" : "Salvar"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCaloteAcknowledged(true)}
+                          className="text-xs px-3 py-1.5 rounded-md bg-muted text-foreground font-medium active:scale-95 transition-transform"
+                        >
+                          Ignorar
+                        </button>
+                      </div>
                     </div>
                   )}
                   {caloteAcknowledged && (
-                    <div className="text-xs text-muted-foreground mt-1">Anotado.</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {caloteUnits > 0 ? `Anotado: ${caloteUnits} ${caloteUnits === 1 ? "unidade não paga" : "unidades não pagas"}.` : "Anotado."}
+                    </div>
                   )}
                 </div>
               </div>
