@@ -44,6 +44,8 @@ export default function Index() {
     totalIncome: 0,
     totalExpenses: 0,
     totalCost: 0,
+    totalTransport: 0,
+    totalFood: 0,
     balance: 0,
     variation: 0
   });
@@ -211,9 +213,12 @@ export default function Index() {
 
     if (monthData) {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
-      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
+      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0); // fiado: mostrado à parte, NÃO entra no líquido
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
-      const balance = totalIncome - totalExpenses - totalCost;
+      const totalTransport = monthData.reduce((sum, day) => sum + (Number((day as any).transport_cost) || 0), 0);
+      const totalFood = monthData.reduce((sum, day) => sum + (Number((day as any).food_cost) || 0), 0);
+      // Líquido = igual à planilha: vendido − mercadoria − transporte − alimentação (fiado NÃO entra)
+      const balance = totalIncome - totalCost - totalTransport - totalFood;
       
       // Calculate real daily average from NET PROFIT (lucro líquido)
       const activeDays = monthData.filter(day => (day.total_profit ?? 0) > 0).length;
@@ -226,6 +231,8 @@ export default function Index() {
         totalIncome,
         totalExpenses,
         totalCost,
+        totalTransport,
+        totalFood,
         balance,
         variation: totalIncome > 0 ? balance / totalIncome * 100 : 0
       };
@@ -354,14 +361,14 @@ export default function Index() {
   }
   const dailyProfit = todaySales?.total_profit || 0;
   const faturamentoMes = monthlyStats.totalIncome;
-  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalExpenses - monthlyStats.totalCost;
+  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood;
   const progressoMeta = calculateGoalProgress();
 
   // Daily goal calc
   const dailyGoal = monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200;
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
-  const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost + monthExpensesTotal;
+  const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;

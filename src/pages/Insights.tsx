@@ -165,7 +165,7 @@ export default function Insights() {
       const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes] = await Promise.all([
         supabase
           .from("daily_sales")
-          .select("date,total_profit,total_debt,cost")
+          .select("date,total_profit,total_debt,cost,transport_cost,food_cost")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO)
@@ -219,9 +219,14 @@ export default function Insights() {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
     const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
     const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0);
-    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
-    const custos = custoMercadoria + custosOperacionais;
-    const lucro = faturamento - calotes - custos;
+    const custoTransporte = sales.reduce((s, d) => s + (Number((d as any).transport_cost) || 0), 0);
+    const custoAlimentacao = sales.reduce((s, d) => s + (Number((d as any).food_cost) || 0), 0);
+    const custoOperacao = custoTransporte + custoAlimentacao; // transporte + alimentação do dia
+    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0); // despesas pessoais (planejador de contas)
+    const custos = custoMercadoria + custoOperacao + custosOperacionais;
+    // Lucro líquido = igual à planilha: vendido − mercadoria − transporte − alimentação (fiado e despesas pessoais ficam à parte)
+    const lucro = faturamento - custoMercadoria - custoOperacao;
+    const sobra = lucro - custosOperacionais - calotes; // resultado após despesas pessoais e calote
 
     const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
     const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
@@ -234,6 +239,7 @@ export default function Insights() {
     return {
       faturamento,
       lucro,
+      sobra,
       ticketMedio,
       conversao,
       totalAbordagens,
@@ -242,6 +248,7 @@ export default function Insights() {
       mediaDiaria,
       custos,
       custoMercadoria,
+      custoOperacao,
       custosOperacionais,
       calotes,
       gorjetas,
@@ -503,9 +510,11 @@ export default function Insights() {
           <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
-            <FinanceRow label="Custos operacionais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
-            <FinanceRow label="Kits não pagos" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
+            <FinanceRow label="Transporte e alimentação" value={`- ${formatCurrency(summary.custoOperacao)}`} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
+            <FinanceRow label="Despesas pessoais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
+            <FinanceRow label="Kits não pagos (calote)" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
+            <FinanceRow label="Sobra no período" value={formatCurrency(summary.sobra)} tone="white" bold />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
           </div>
 
