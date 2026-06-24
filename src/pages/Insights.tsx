@@ -548,6 +548,113 @@ export default function Insights() {
             </div>
           </section>
 
+          {/* Análise da IA (Gemini) — destaque no topo */}
+          <div className="rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5 space-y-3 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <p className="text-sm font-bold text-primary tracking-tight">
+                Análise da IA · Mentor Orbis
+              </p>
+            </div>
+
+            {aiReport ? (
+              <div className="space-y-3">
+                {aiReport.diagnostico && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
+                      Como está seu {periodoShort}
+                    </p>
+                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.diagnostico}</p>
+                  </div>
+                )}
+                {aiReport.gastos && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
+                      Pra onde vai o dinheiro
+                    </p>
+                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.gastos}</p>
+                  </div>
+                )}
+                {Array.isArray(aiReport.melhorias) && aiReport.melhorias.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-success mb-1">Pra melhorar</p>
+                    <ul className="space-y-1.5">
+                      {aiReport.melhorias.map((m, i) => (
+                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
+                          <span className="text-success font-bold shrink-0">↑</span>
+                          <span>{m}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(aiReport.falhas) && aiReport.falhas.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">Pontos de falha</p>
+                    <ul className="space-y-1.5">
+                      {aiReport.falhas.map((f, i) => (
+                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
+                          <span className="text-destructive font-bold shrink-0">!</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {aiReport.foco && (
+                  <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-0.5">Foco agora</p>
+                    <p className="text-sm text-foreground font-medium leading-relaxed">{aiReport.foco}</p>
+                  </div>
+                )}
+                <button
+                  onClick={generateReportAnalysis}
+                  disabled={aiReportLoading}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
+                >
+                  {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  Deixa a IA analisar seu {periodoShort}: como tá indo, pra onde vai o dinheiro, o que melhorar e onde tá furando.
+                </p>
+                {aiInsights.length > 0 && (
+                  <div className="space-y-1">
+                    {aiInsights.slice(0, 2).map((tip, i) => (
+                      <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  onClick={generateReportAnalysis}
+                  disabled={aiReportLoading}
+                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-12 text-base"
+                >
+                  {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
+                </Button>
+              </>
+            )}
+
+            {aiReportError && (
+              <p className="text-xs text-destructive">Não consegui analisar agora. Confirma se a função foi atualizada no Supabase e tenta de novo.</p>
+            )}
+
+            <Button
+              data-tour="conversar-ia"
+              variant="ghost"
+              size="sm"
+              className="text-primary hover:text-primary px-0"
+              onClick={() => navigate("/chat")}
+            >
+              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
+
           {/* KPIs principais - paleta dourada/branca */}
           <section className="grid grid-cols-2 gap-3">
             <MetricCell
@@ -797,111 +904,6 @@ export default function Insights() {
             )}
           </div>
 
-          {/* 7. Análise da IA (Gemini) */}
-          <SectionTitle>Análise da IA</SectionTitle>
-          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <p className="text-xs font-semibold text-primary uppercase tracking-wider">
-                Mentor Orbis · IA
-              </p>
-            </div>
-
-            {aiReport ? (
-              <div className="space-y-3">
-                {aiReport.diagnostico && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
-                      Como está seu {periodoShort}
-                    </p>
-                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.diagnostico}</p>
-                  </div>
-                )}
-                {aiReport.gastos && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
-                      Pra onde vai o dinheiro
-                    </p>
-                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.gastos}</p>
-                  </div>
-                )}
-                {Array.isArray(aiReport.melhorias) && aiReport.melhorias.length > 0 && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-success mb-1">Pra melhorar</p>
-                    <ul className="space-y-1.5">
-                      {aiReport.melhorias.map((m, i) => (
-                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
-                          <span className="text-success font-bold shrink-0">↑</span>
-                          <span>{m}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {Array.isArray(aiReport.falhas) && aiReport.falhas.length > 0 && (
-                  <div>
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">Pontos de falha</p>
-                    <ul className="space-y-1.5">
-                      {aiReport.falhas.map((f, i) => (
-                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
-                          <span className="text-destructive font-bold shrink-0">!</span>
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {aiReport.foco && (
-                  <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-0.5">Foco agora</p>
-                    <p className="text-sm text-foreground font-medium leading-relaxed">{aiReport.foco}</p>
-                  </div>
-                )}
-                <button
-                  onClick={generateReportAnalysis}
-                  disabled={aiReportLoading}
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
-                >
-                  {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
-                </button>
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-foreground/80 leading-relaxed">
-                  Deixa a IA analisar seu {periodoShort}: como tá indo, pra onde vai o dinheiro, o que melhorar e onde tá furando.
-                </p>
-                {aiInsights.length > 0 && (
-                  <div className="space-y-1">
-                    {aiInsights.slice(0, 2).map((tip, i) => (
-                      <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
-                    ))}
-                  </div>
-                )}
-                <Button
-                  onClick={generateReportAnalysis}
-                  disabled={aiReportLoading}
-                  className="w-full gap-2 bg-gradient-primary hover:opacity-90"
-                >
-                  {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
-                </Button>
-              </>
-            )}
-
-            {aiReportError && (
-              <p className="text-xs text-destructive">Não consegui analisar agora. Tenta de novo daqui a pouco.</p>
-            )}
-
-            <Button
-              data-tour="conversar-ia"
-              variant="ghost"
-              size="sm"
-              className="text-primary hover:text-primary px-0"
-              onClick={() => navigate("/chat")}
-            >
-              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
         </>
       )}
     </div>
