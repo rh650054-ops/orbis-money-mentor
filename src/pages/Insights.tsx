@@ -116,7 +116,7 @@ export default function Insights() {
     foco?: string;
   } | null>(null);
   const [aiReportLoading, setAiReportLoading] = useState(false);
-  const [aiReportError, setAiReportError] = useState(false);
+  const [aiReportError, setAiReportError] = useState<string | null>(null);
 
   // Computed range
   const range = useMemo(() => {
