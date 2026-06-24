@@ -195,7 +195,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       value(c[1], cx, 275, 112);
       if (i > 0) vline(colW * i, 115, 335);
     });
-    drawLogo(155, 460, 128);
+    drawLogo(180, 460, 128);
     drawWordmark(865, 460, 235);
   }
 
