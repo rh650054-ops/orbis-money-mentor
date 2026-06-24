@@ -226,7 +226,7 @@ export default function Insights() {
     const custos = custoMercadoria + custoOperacao + custosOperacionais;
     // Lucro líquido = igual à planilha: vendido − mercadoria − transporte − alimentação (fiado e despesas pessoais ficam à parte)
     const lucro = faturamento - custoMercadoria - custoOperacao;
-    const sobra = lucro - custosOperacionais - calotes; // resultado após despesas pessoais e calote
+    const sobra = lucro - custosOperacionais; // calote NÃO desconta: o custo dele já está no custo de mercadoria
 
     const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
     const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
@@ -511,11 +511,11 @@ export default function Insights() {
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
             <FinanceRow label="Transporte e alimentação" value={`- ${formatCurrency(summary.custoOperacao)}`} tone="muted" />
-            <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
             <FinanceRow label="Despesas pessoais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
-            <FinanceRow label="Kits não pagos (calote)" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
+            <FinanceRow label="Kits não pagos · já no custo" value={formatCurrency(summary.calotes)} tone="muted" />
             <FinanceRow label="Sobra no período" value={formatCurrency(summary.sobra)} tone="white" bold />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
+            <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
           </div>
 
           {/* Breakdown de custos operacionais por categoria */}
