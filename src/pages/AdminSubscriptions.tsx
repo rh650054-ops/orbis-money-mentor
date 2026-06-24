@@ -743,9 +743,11 @@ export default function AdminSubscriptions() {
                       // Mensagem já pronta conforme a aba: urgência no "último dia", win-back nos "expirados".
                       const body =
                         statusFilter === "ultimo_dia"
-                          ? `Opa${nm}! Aqui é o Rick, do time do Orbis 👋 Seu teste grátis termina HOJE ⏳ Pra não perder seus números, seu histórico e seu lugar no ranking, garante seu acesso por menos de R$1 por dia — é só tocar em "Assinar agora" dentro do app. Bora seguir o corre junto? 🚀`
+                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
                           : statusFilter === "expirados"
                           ? `Opa${nm}! Aqui é o Rick, do time do Orbis 🙏 Seu acesso pausou, mas fica tranquilo: seus dados estão guardados, você não perdeu nada. Quando quiser voltar e seguir de onde parou, é só assinar no app. Tô na torcida pelo teu corre! 💪`
+                          : statusFilter === "assinantes"
+                          ? `Opa${nm}! Rick aqui do Orbis 👊 Vi que você fechou com a gente e vim te agradecer de coração — bem-vindo ao time, parça. Me conta: como tá sendo teu corre com o app? Qualquer coisa que precisar pra vender mais, é só me chamar aqui direto. Tô na torcida pra te ver fechando muito! 🚀`
                           : `${saud}${nm}! Rick aqui, do time do Orbis. Vi que você entrou no teste do App. 👊`;
                       const msg = encodeURIComponent(body);
                       return (
