@@ -32,10 +32,9 @@ export default function FloatingChatButton() {
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
   const voiceEngineRef = useRef<"gemini" | "browser" | null>(null); // trava o motor da voz por sessão (sem flip-flop)
   const isRecordingRef = useRef(false); // espelho de isRecording pra checar dentro de callbacks
-  const autoVoiceRef = useRef(false);   // modo conversa contínua (mãos-livres) ligado
-  const [autoVoice, setAutoVoice] = useState(false);
   const speakingRef = useRef(false);    // espelho de speaking (a IA está falando agora)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTextRef = useRef("");    // transcrição atual da fala do usuário
   const stopSpeaking = () => {
     ttsTokenRef.current++; // invalida qualquer TTS em andamento (foca na fala nova)
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
@@ -136,8 +135,6 @@ export default function FloatingChatButton() {
   // Para a gravação de voz ao fechar o chat
   useEffect(() => {
     if (!isOpen) {
-      autoVoiceRef.current = false;
-      setAutoVoice(false);
       if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
       recognitionRef.current?.stop();
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
@@ -229,69 +226,58 @@ export default function FloatingChatButton() {
     speakBrowser(text);
   };
 
-  // ===== MODO CONVERSA CONTÍNUA (mãos-livres) =====
-  // Ouve; quando o usuário pausa (~1,5s), manda sozinho. Depois que a IA fala, volta a
-  // ouvir sozinha. Toque na bolinha = corta a fala da IA e já ouve de novo (barge-in).
-  const startAutoListen = () => {
-    if (!speechSupported || !autoVoiceRef.current) return;
+  // ===== VOZ POR TOQUE (1 toque por mensagem — funciona no iPhone) =====
+  // Toca o microfone, fala; quando você pausa (~1,5s) ele manda sozinho. A IA responde
+  // por voz. Pra próxima pergunta, toca de novo (o iPhone exige um toque a cada vez).
+  const sendPending = () => {
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    const text = pendingTextRef.current.trim();
+    pendingTextRef.current = "";
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    if (text) { setInput(""); sendMessage(text); }
+  };
+
+  const stopVoice = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    stopSpeaking();
+  };
+
+  const startTalk = () => {
+    if (!speechSupported) return;
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    stopSpeaking(); // corta a fala da IA (se estiver falando) e passa a te ouvir
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
     recognitionRef.current = null;
+    // desbloqueia o áudio DENTRO do toque (necessário no iPhone pra IA conseguir falar depois)
+    try {
+      window.speechSynthesis?.resume();
+      const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
+    } catch { /* noop */ }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.lang = "pt-BR";
     rec.continuous = true;
     rec.interimResults = true;
     setInput("");
-    let said = "";
-    const finalize = () => {
-      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-      const text = said.trim();
-      said = "";
-      try { rec.stop(); } catch { /* noop */ }
-      if (text) { setInput(""); sendMessage(text); }        // pausou: manda o que falou
-      else if (autoVoiceRef.current) { startAutoListen(); } // não falou nada: volta a ouvir
-    };
+    pendingTextRef.current = "";
     rec.onresult = (e: any) => {
       let full = "";
       for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
-      said = full;
+      pendingTextRef.current = full;
       setInput(full.trim());
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      if (full.trim()) silenceTimerRef.current = setTimeout(finalize, 1500); // 1,5s de silêncio = parou
+      if (full.trim()) silenceTimerRef.current = setTimeout(sendPending, 1500); // pausou ~1,5s: manda
     };
     rec.onstart = () => { setIsRecording(true); isRecordingRef.current = true; };
     rec.onend = () => { setIsRecording(false); isRecordingRef.current = false; recognitionRef.current = null; };
     rec.onerror = () => {
       setIsRecording(false); isRecordingRef.current = false; recognitionRef.current = null;
       if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-      if (autoVoiceRef.current && !speakingRef.current) setTimeout(() => startAutoListen(), 500);
     };
     recognitionRef.current = rec;
-    try { rec.start(); } catch { if (autoVoiceRef.current) setTimeout(() => startAutoListen(), 500); }
+    try { rec.start(); } catch { /* noop */ }
   };
-
-  const startAutoConversation = () => {
-    autoVoiceRef.current = true;
-    setAutoVoice(true);
-    // desbloqueia o áudio do navegador dentro do gesto do usuário (necessário no celular)
-    try {
-      window.speechSynthesis?.resume();
-      const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
-    } catch { /* noop */ }
-    startAutoListen();
-  };
-
-  const stopAutoConversation = () => {
-    autoVoiceRef.current = false;
-    setAutoVoice(false);
-    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
-    stopSpeaking();
-  };
-
-  // Toque durante a conversa: corta a fala da IA e volta a ouvir na hora.
-  const bargeIn = () => { stopSpeaking(); startAutoListen(); };
 
   const speakBrowser = (text: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis || !text) return;
@@ -307,14 +293,8 @@ export default function FloatingChatButton() {
       const pt = ptVoices.find((v) => maleHint.test(v.name)) || ptVoices[0];
       if (pt) u.voice = pt;
       u.onstart = () => { setSpeaking(true); speakingRef.current = true; };
-      u.onend = () => {
-        setSpeaking(false); speakingRef.current = false;
-        if (autoVoiceRef.current) startAutoListen(); // terminou de falar: volta a ouvir (mãos-livres)
-      };
-      u.onerror = () => {
-        setSpeaking(false); speakingRef.current = false;
-        if (autoVoiceRef.current) startAutoListen();
-      };
+      u.onend = () => { setSpeaking(false); speakingRef.current = false; };
+      u.onerror = () => { setSpeaking(false); speakingRef.current = false; };
       try { synth.resume(); } catch { /* noop */ }
       synth.speak(u);
     };
@@ -329,7 +309,7 @@ export default function FloatingChatButton() {
     setVoiceMode(true);
   };
   const exitVoiceMode = () => {
-    stopAutoConversation();
+    stopVoice();
     recognitionRef.current?.stop();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     stopSpeaking();
@@ -367,10 +347,7 @@ export default function FloatingChatButton() {
     if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
       lastSpokenRef.current = last.id;
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
-      if (last.content.startsWith("Desculpe, tive um problema")) {
-        if (autoVoiceRef.current) startAutoListen(); // erro: não fala, mas volta a ouvir
-        return;
-      }
+      if (last.content.startsWith("Desculpe, tive um problema")) return;
       if (USE_INSTANT_VOICE) speakBrowser(last.content); // voz do aparelho — instantânea
       else speak(last.content);                          // voz do Gemini — bonita, porém ~30s
     }
@@ -408,13 +385,13 @@ export default function FloatingChatButton() {
   };
 
   const voiceState: SphereState = isSending ? "processing" : speaking ? "responding" : isRecording ? "listening" : "idle";
-  const voiceLabel = isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : autoVoice ? "OUVINDO..." : "TOQUE PRA COMEÇAR";
+  const voiceLabel = isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : "TOQUE PRA FALAR";
 
   return (
     <>
       {/* Floating Button */}
       <Button
-        onClick={() => { voiceEngineRef.current = null; autoVoiceRef.current = false; setAutoVoice(false); setIsOpen(true); setVoiceMode(true); }}
+        onClick={() => { voiceEngineRef.current = null; setIsOpen(true); setVoiceMode(true); }}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
@@ -585,20 +562,20 @@ export default function FloatingChatButton() {
                 <div className="space-y-2">
                   <p className="text-[11px] tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
                   <p className="text-base text-foreground/80 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
-                    {input || (isSending ? "..." : autoVoice ? "Pode falar, tô te ouvindo..." : "Toque no microfone pra começar a conversa")}
+                    {input || (isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
                   </p>
                 </div>
                 <button
-                  onClick={autoVoice ? bargeIn : startAutoConversation}
+                  onClick={isRecording ? sendPending : startTalk}
                   className={cn(
                     "w-16 h-16 rounded-full flex items-center justify-center transition-all",
-                    autoVoice
+                    isRecording
                       ? "bg-red-500/15 border border-red-500/40 text-red-400"
                       : "bg-primary/15 border border-primary/40 text-primary"
                   )}
-                  aria-label={autoVoice ? "Interromper e falar" : "Iniciar conversa por voz"}
+                  aria-label={isRecording ? "Enviar" : "Falar"}
                 >
-                  {autoVoice ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
+                  {isRecording ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
                 </button>
               </div>
 
