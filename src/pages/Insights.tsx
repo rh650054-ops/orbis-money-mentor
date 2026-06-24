@@ -514,14 +514,12 @@ export default function Insights() {
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
             <FinanceRow label="Transporte e alimentação" value={`- ${formatCurrency(summary.custoOperacao)}`} tone="muted" />
-            <FinanceRow label="Despesas pessoais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
             <FinanceRow
               label="Kits não pagos"
               value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
               sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} · já no custo` : "já no custo"}
               tone="muted"
             />
-            <FinanceRow label="Sobra no período" value={formatCurrency(summary.sobra)} tone="white" bold />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
           </div>
