@@ -6,21 +6,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function callAnthropic(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
+// Chama o Gemini (mesma chave gratis do chat). Recebe system + user prompt e devolve texto.
+async function callGemini(systemPrompt: string, userPrompt: string): Promise<string> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY não está configurada no backend.");
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(20000),
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 },
+      }),
     },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
-  });
+  );
 
   if (!res.ok) {
     const err = await res.text();
@@ -29,7 +32,7 @@ async function callAnthropic(apiKey: string, systemPrompt: string, userPrompt: s
   }
 
   const json = await res.json();
-  const content = json.content?.[0]?.text;
+  const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!content) throw new Error("Resposta inválida da IA.");
   return content;
 }
@@ -52,16 +55,12 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY não está configurada no backend.");
-
     const body = await req.json();
 
     // Dica rápida para relatório do dia Defcon
     if (body?.type === "defcon_day_report") {
       const prompt = `O vendedor fez ${body.approaches} abordagens e ${body.sales} vendas hoje, taxa de ${body.conversionRate}%. Dê 2 dicas curtas e práticas para melhorar amanhã. Máximo 3 linhas.`;
-      const tip = await callAnthropic(
-        ANTHROPIC_API_KEY,
+      const tip = await callGemini(
         "Você é um coach de vendas ambulantes. Seja direto e prático.",
         prompt
       );
@@ -114,7 +113,7 @@ Retorne SOMENTE este JSON preenchido:
   "improvement": "sugestão acionável em 2-3 frases"
 }`;
 
-    const aiText = await callAnthropic(ANTHROPIC_API_KEY, systemPrompt, userPrompt);
+    const aiText = await callGemini(systemPrompt, userPrompt);
 
     let parsedReport;
     try {
