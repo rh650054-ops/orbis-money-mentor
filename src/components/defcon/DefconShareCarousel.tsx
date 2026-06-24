@@ -14,8 +14,8 @@ export interface ShareStats {
 }
 
 // Ordem do carrossel — a EMPILHADA (vertical) é a principal/padrão
-type TemplateId = "empilhada" | "destaque" | "faixa";
-const ORDER: TemplateId[] = ["empilhada", "destaque", "faixa"];
+type TemplateId = "empilhada" | "empilhadaSemHoras" | "destaque" | "faixa";
+const ORDER: TemplateId[] = ["empilhada", "empilhadaSemHoras", "destaque", "faixa"];
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
 const GOLD = "#F4A100";
@@ -25,6 +25,7 @@ const MUTED = "#8A8F98";
 // Tamanhos iguais aos das referências enviadas
 const DIMS: Record<TemplateId, [number, number]> = {
   empilhada: [1080, 1920], // vertical (story) — padrão
+  empilhadaSemHoras: [1080, 1920], // igual, mas sem o bloco HORAS
   destaque: [1080, 864],   // paisagem: faturamento + logo + linha de números
   faixa: [1080, 568],      // faixa larga: linha de números + ORBIS
 };
@@ -116,22 +117,37 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
   const conv = `${s.conversao.toFixed(0)}%`;
   const horas = s.horas;
 
-  if (template === "empilhada") {
-    // ===== Vertical, tudo empilhado (igual à 2ª referência) — PADRÃO =====
-    // Rótulos menores nos sub-dados, "HORAS" curto e logo mais embaixo
-    label("FATURAMENTO", W / 2, 340, 46, GOLD);
-    value(fat, W / 2, 472, 165);
+  if (template === "empilhada" || template === "empilhadaSemHoras") {
+    // ===== Vertical empilhado (PADRÃO). "SemHoras" = mesma arte sem o bloco HORAS =====
+    const semHoras = template === "empilhadaSemHoras";
+    if (semHoras) {
+      // 3 dados, grupo centralizado (sem HORAS)
+      label("FATURAMENTO", W / 2, 460, 46, GOLD);
+      value(fat, W / 2, 592, 165);
 
-    label("VENDAS", W / 2, 620, 36, MUTED);
-    value(vendas, W / 2, 740, 142);
+      label("VENDAS", W / 2, 760, 36, MUTED);
+      value(vendas, W / 2, 880, 142);
 
-    label("CONVERSÃO", W / 2, 885, 36, MUTED);
-    value(conv, W / 2, 1005, 142);
+      label("CONVERSÃO", W / 2, 1048, 36, MUTED);
+      value(conv, W / 2, 1168, 142);
 
-    label("HORAS", W / 2, 1150, 36, MUTED);
-    value(horas, W / 2, 1270, 142);
+      drawLogo(W / 2, 1385, 195);
+    } else {
+      // 4 dados (com HORAS) — logo um pouco mais pra cima
+      label("FATURAMENTO", W / 2, 340, 46, GOLD);
+      value(fat, W / 2, 472, 165);
 
-    drawLogo(W / 2, 1565, 195);
+      label("VENDAS", W / 2, 620, 36, MUTED);
+      value(vendas, W / 2, 740, 142);
+
+      label("CONVERSÃO", W / 2, 885, 36, MUTED);
+      value(conv, W / 2, 1005, 142);
+
+      label("HORAS", W / 2, 1150, 36, MUTED);
+      value(horas, W / 2, 1270, 142);
+
+      drawLogo(W / 2, 1505, 195);
+    }
   } else if (template === "destaque") {
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
