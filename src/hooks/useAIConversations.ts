@@ -151,17 +151,22 @@ export const useAIConversations = () => {
       // Build conversation history for AI
       const history = [...messages, tempUser].map((m) => ({ role: m.role, content: m.content }));
 
-      const { data, error } = await supabase.functions.invoke("bright-action", {
-        body: { messages: history },
-      });
-
-      let aiText = "";
-      if (error || !data?.success || !data?.message) {
-        aiText =
-          "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
-      } else {
-        aiText = data.message;
+      // Tenta o chat; se falhar (timeout/limite), tenta +1 vez antes de desistir.
+      // Reduz bastante o "Desculpe, tive um problema..." aparecer/ser falado na voz.
+      let chatMessage = "";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { data, error } = await supabase.functions.invoke("bright-action", {
+          body: { messages: history },
+        });
+        if (!error && data?.success && data?.message) {
+          chatMessage = data.message as string;
+          break;
+        }
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 900));
       }
+      const aiText =
+        chatMessage ||
+        "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
 
       const { data: insertedAi } = await supabase
         .from("ai_messages")

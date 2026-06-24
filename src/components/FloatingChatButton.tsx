@@ -169,25 +169,31 @@ export default function FloatingChatButton() {
     stopSpeaking();                       // corta a fala anterior — foca na nova
     const myToken = ++ttsTokenRef.current; // token desta fala
     setSpeaking(true);
-    try {
-      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
-      if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
-      const b64 = (data as any)?.audio;
-      if (b64 && audioRef.current) {
-        const a = audioRef.current;
-        a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
-        a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
-        a.onerror = () => { if (myToken === ttsTokenRef.current) { setSpeaking(false); speakBrowser(text); } };
-        await a.play();
-        return;
+    // Tenta a voz do Gemini até 2x antes de cair na voz do navegador.
+    // Evita ficar alternando entre voz boa e voz robótica quando o TTS falha pontualmente.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+        if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
+        const b64 = (data as any)?.audio;
+        if (b64 && audioRef.current) {
+          const a = audioRef.current;
+          a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
+          a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
+          a.onerror = () => { if (myToken === ttsTokenRef.current) { setSpeaking(false); speakBrowser(text); } };
+          await a.play();
+          return;
+        }
+      } catch (e) {
+        if (myToken !== ttsTokenRef.current) return; // cancelada por uma fala nova
+        console.warn("TTS Gemini falhou (tentativa " + (attempt + 1) + ")", e);
       }
-    } catch (e) {
-      if (myToken !== ttsTokenRef.current) return; // foi cancelada por uma fala nova
-      console.warn("TTS Gemini falhou, usando voz do navegador", e);
+      if (myToken !== ttsTokenRef.current) return;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 600)); // respira e tenta de novo
     }
     if (myToken !== ttsTokenRef.current) return;
     setSpeaking(false);
-    speakBrowser(text);
+    speakBrowser(text); // só cai na voz do navegador se o Gemini falhar 2x
   };
 
   const speakBrowser = (text: string) => {
@@ -254,6 +260,8 @@ export default function FloatingChatButton() {
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
       lastSpokenRef.current = last.id;
+      // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
+      if (last.content.startsWith("Desculpe, tive um problema")) return;
       speak(last.content);
     }
   }, [messages, voiceMode]);
