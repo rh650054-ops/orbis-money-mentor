@@ -173,16 +173,16 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
     value(fat, 92, 285, 138, "left");
-    drawLogo(905, 220, 170);
+    drawLogo(905, 265, 170);
 
-    hline(70, W - 70, 500);
+    hline(70, W - 70, 460);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
     const colW = W / 3;
     cols.forEach((c, i) => {
       const cx = colW * i + colW / 2;
-      label(c[0], cx, 600, 34, MUTED);
-      value(c[1], cx, 715, 108);
-      if (i > 0) vline(colW * i, 545, 775);
+      label(c[0], cx, 560, 34, MUTED);
+      value(c[1], cx, 675, 108);
+      if (i > 0) vline(colW * i, 505, 735);
     });
   } else {
     // ===== Faixa larga: linha de números + logo/ORBIS embaixo (igual à 3ª) =====
