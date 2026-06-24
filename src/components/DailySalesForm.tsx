@@ -7,7 +7,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
-import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon } from "lucide-react";
+import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon, Bus, Utensils } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
@@ -49,6 +49,16 @@ const salesSchema = z.object({
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Vendas em cartão devem ser entre 0 e 999.999" }),
+  transportCost: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Transporte deve ser entre 0 e 999.999" }),
+  foodCost: z.string().refine((val) => {
+    if (!val) return true;
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0 && num <= 999999;
+  }, { message: "Alimentação deve ser entre 0 e 999.999" }),
   notes: z.string().max(1000, { message: "Observações devem ter no máximo 1000 caracteres" }).optional()
 });
 
@@ -72,6 +82,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     cashSales: "",
     pixSales: "",
     cardSales: "",
+    transportCost: "",
+    foodCost: "",
     notes: ""
   });
   const [dateOption, setDateOption] = useState<"today" | "yesterday" | "custom">("today");
@@ -95,7 +107,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
   const handlePlannedOff = async () => {
     const today = getBrazilDate();
-    
+
     const { error } = await supabase
       .from("daily_work_log")
       .upsert({
@@ -160,26 +172,46 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         return;
       }
 
+      // Data da venda escolhida no seletor (Hoje / Ontem / Outra data).
+      // Antes o app ignorava a escolha e sempre salvava em getBrazilDate().
+      if (dateOption === "custom" && !customDate) {
+        toast({
+          title: "Escolha a data",
+          description: "Selecione a data da venda ou volte pra 'Hoje'.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      const saleDate =
+        dateOption === "yesterday"
+          ? formatBrazilDate(new Date(Date.now() - 24 * 60 * 60 * 1000))
+          : dateOption === "custom" && customDate
+          ? format(customDate, "yyyy-MM-dd")
+          : getBrazilDate();
+
       const salesData = {
         user_id: userId,
-        date: getBrazilDate(),
+        date: saleDate,
         total_profit: formData.totalProfit ? parseFloat(formData.totalProfit) : 0,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         total_debt: formData.totalDebt ? parseFloat(formData.totalDebt) : 0,
         cash_sales: formData.cashSales ? parseFloat(formData.cashSales) : 0,
         pix_sales: formData.pixSales ? parseFloat(formData.pixSales) : 0,
         card_sales: formData.cardSales ? parseFloat(formData.cardSales) : 0,
+        transport_cost: formData.transportCost ? parseFloat(formData.transportCost) : 0,
+        food_cost: formData.foodCost ? parseFloat(formData.foodCost) : 0,
         notes: formData.notes.trim()
       };
 
       const profit = parseFloat(formData.totalProfit);
 
-      // CORRIGIDO: Verificar se já existe registro para hoje e somar valores
+      // CORRIGIDO: Verificar se já existe registro para a DATA ESCOLHIDA e somar valores
       const { data: existingSale } = await supabase
         .from("daily_sales")
         .select("*")
         .eq("user_id", userId)
-        .eq("date", today)
+        .eq("date", saleDate)
         .maybeSingle();
 
       let totalDayProfit = profit;
@@ -196,18 +228,20 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             cash_sales: (existingSale.cash_sales || 0) + salesData.cash_sales,
             pix_sales: (existingSale.pix_sales || 0) + salesData.pix_sales,
             card_sales: (existingSale.card_sales || 0) + salesData.card_sales,
+            transport_cost: (existingSale.transport_cost || 0) + salesData.transport_cost,
+            food_cost: (existingSale.food_cost || 0) + salesData.food_cost,
             notes: formData.notes ? `${existingSale.notes || ''}\n${formData.notes}` : existingSale.notes,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingSale.id);
-        
+
         if (error) throw error;
       } else {
         // Inserir novo registro
         const { error } = await supabase
           .from("daily_sales")
           .insert(salesData);
-        
+
         if (error) throw error;
       }
 
@@ -223,7 +257,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       if (planData) {
         // Calcular qual bloco estamos (baseado na hora atual)
         const hourIndex = Math.min(currentHour % planData.work_hours, planData.work_hours - 1);
-        
+
         const { data: currentBlock } = await supabase
           .from("hourly_goal_blocks")
           .select("*")
@@ -270,7 +304,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         .maybeSingle();
 
       let newStreak = profile?.streak_days || 0;
-      
+
       // Se bateu a meta, avançar constância
       if (totalDayProfit >= baseDailyGoal) {
         if (profile?.last_check_in_date) {
@@ -280,7 +314,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
           const todayMs = new Date(today + "T12:00:00Z").getTime();
           const lastMs = new Date(profile.last_check_in_date + "T12:00:00Z").getTime();
           const daysDiff = Math.round((todayMs - lastMs) / msPerDay);
-          
+
           if (daysDiff === 1) {
             newStreak = newStreak + 1;
           } else if (daysDiff > 1) {
@@ -304,7 +338,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       // Log work day with details
       const goalAchieved = totalDayProfit >= baseDailyGoal;
       const percentageAchieved = percentage;
-      
+
       await supabase
         .from("daily_work_log")
         .upsert({
@@ -322,7 +356,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       // Mensagem motivacional automática
       const missing = Math.max(0, baseDailyGoal - totalDayProfit);
       const missingPercent = ((missing / baseDailyGoal) * 100).toFixed(0);
-      
+
       if (totalDayProfit >= baseDailyGoal) {
         toast({
           title: "🔥 Visionário! Meta batida!",
@@ -345,6 +379,8 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         cashSales: "",
         pixSales: "",
         cardSales: "",
+        transportCost: "",
+        foodCost: "",
         notes: ""
       });
 
@@ -363,16 +399,16 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
   return (
     <>
-      <MotivationalCard 
+      <MotivationalCard
         percentage={motivationPercentage}
         visible={showMotivation}
         onHide={() => setShowMotivation(false)}
       />
-      
+
       {showMessage && (
         <MotivationalMessage totalDayProfit={dayProfit} dailyGoal={baseDailyGoal} />
       )}
-      
+
       <Card className="card-gradient-border shadow-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -411,7 +447,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <SelectItem value="custom">Outra data</SelectItem>
                 </SelectContent>
               </Select>
-              
+
               {dateOption === "custom" && (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -481,6 +517,36 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             </div>
           </div>
 
+          {/* Custos do dia que entram no líquido: transporte e alimentação */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Bus className="h-4 w-4 text-warning" />
+                Transporte (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.transportCost}
+                onChange={(e) => setFormData({ ...formData, transportCost: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Utensils className="h-4 w-4 text-warning" />
+                Alimentação (R$)
+              </Label>
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.foodCost}
+                onChange={(e) => setFormData({ ...formData, foodCost: e.target.value })}
+              />
+            </div>
+          </div>
+
           <div className="space-y-3">
             <Label className="text-base font-semibold">Vendas por Método de Pagamento</Label>
             <div className="grid gap-4 md:grid-cols-3">
@@ -537,7 +603,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             />
           </div>
 
-          <Button 
+          <Button
             data-tour="registrar-venda"
             type="submit"
             className="w-full"

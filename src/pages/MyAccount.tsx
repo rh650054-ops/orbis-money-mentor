@@ -73,6 +73,10 @@ export default function Profile() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string>("");
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  // Meta mensal de lucro líquido (profiles.monthly_goal)
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [goalInput, setGoalInput] = useState("");
+  const [isSavingGoal, setIsSavingGoal] = useState(false);
   const [stats, setStats] = useState({
     transactions: 0,
     goals: 0,
@@ -257,12 +261,12 @@ export default function Profile() {
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-        
+
         // Converter para base64 e salvar no perfil
         const reader = new FileReader();
         reader.onloadend = async () => {
           finalAvatarUrl = reader.result as string;
-          
+
           const { error: updateError } = await supabase
             .from("profiles")
             .update({
@@ -338,12 +342,54 @@ export default function Profile() {
     }
   };
 
+  const handleStartEditGoal = () => {
+    setGoalInput(profile.monthly_goal ? String(profile.monthly_goal) : "");
+    setIsEditingGoal(true);
+  };
+
+  const handleSaveGoal = async () => {
+    if (!user) return;
+    const value = parseFloat(goalInput.replace(",", "."));
+    if (isNaN(value) || value < 0) {
+      toast({
+        title: "Valor inválido",
+        description: "Informe um valor de meta válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSavingGoal(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ monthly_goal: value })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setProfile({ ...profile, monthly_goal: value });
+      setIsEditingGoal(false);
+      toast({
+        title: "Meta atualizada!",
+        description: `Sua meta mensal de lucro líquido agora é ${value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar a meta.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingGoal(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     if (!dateString) return "---";
     const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR", { 
-      month: "long", 
-      year: "numeric" 
+    return date.toLocaleDateString("pt-BR", {
+      month: "long",
+      year: "numeric"
     });
   };
 
@@ -532,18 +578,60 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Meta mensal - linha única */}
-              <div className="flex items-center justify-between pt-2 mt-1 border-t border-border/60">
-                <span className="text-xs font-medium text-muted-foreground">Meta Mensal</span>
-                <span className={`text-base font-semibold ${
-                  profile.plan_status === "active"
-                    ? "text-primary"
-                    : isDemo
-                    ? "text-foreground/70"
-                    : "text-foreground"
-                }`}>
-                  R$ {profile.monthly_goal.toFixed(2)}
-                </span>
+              {/* Meta mensal de lucro líquido — editável aqui */}
+              <div className="pt-2 mt-1 border-t border-border/60">
+                {!isEditingGoal ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-muted-foreground">Meta mensal de lucro líquido</p>
+                      <p className={`text-base font-semibold ${
+                        profile.plan_status === "active"
+                          ? "text-primary"
+                          : isDemo
+                          ? "text-foreground/70"
+                          : "text-foreground"
+                      }`}>
+                        R$ {profile.monthly_goal.toFixed(2)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleStartEditGoal}
+                      className="shrink-0"
+                    >
+                      <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+                      Editar
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground">Meta mensal de lucro líquido (R$)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      inputMode="decimal"
+                      value={goalInput}
+                      onChange={(e) => setGoalInput(e.target.value)}
+                      placeholder="0,00"
+                      autoFocus
+                    />
+                    <div className="flex gap-2">
+                      <Button onClick={handleSaveGoal} disabled={isSavingGoal} className="flex-1">
+                        <Save className="w-4 h-4 mr-2" />
+                        {isSavingGoal ? "Salvando..." : "Salvar meta"}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsEditingGoal(false)}
+                        disabled={isSavingGoal}
+                      >
+                        <X className="w-4 h-4 mr-2" />
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -613,10 +701,10 @@ export default function Profile() {
                 />
               </div>
               <p className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                💡 Para editar a meta mensal, use o painel "Editar Planejamento" no Dashboard.
+                💡 A meta mensal de lucro líquido fica logo abaixo, em "Minha Conta" — é só tocar em Editar.
               </p>
               <div className="flex gap-2">
-                <Button 
+                <Button
                   onClick={handleSaveProfile}
                   disabled={isSaving}
                   className="flex-1"
@@ -624,7 +712,7 @@ export default function Profile() {
                   <Save className="w-4 h-4 mr-2" />
                   {isSaving ? "Salvando..." : "Salvar"}
                 </Button>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => {
                     setIsEditing(false);

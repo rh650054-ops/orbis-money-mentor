@@ -44,10 +44,13 @@ export default function Index() {
     totalIncome: 0,
     totalExpenses: 0,
     totalCost: 0,
+    totalTransport: 0,
+    totalFood: 0,
     balance: 0,
     variation: 0
   });
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
+  const [dailyGoalPlan, setDailyGoalPlan] = useState(0); // meta do dia definida pelo usuário (mesma do DEFCON / daily_goal_plans)
   const [nickname, setNickname] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -171,6 +174,7 @@ export default function Index() {
       { data: monthData },
       { data: todayChallenge },
       { data: monthExpenses },
+      { data: todayGoalPlan },
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
@@ -178,6 +182,7 @@ export default function Index() {
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
       supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
       supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
+      supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", today).maybeSingle(),
     ]);
 
     if (profile?.monthly_goal) {
@@ -198,6 +203,7 @@ export default function Index() {
     setTodaySales(aggregatedToday);
     setSalesCountToday(((todayChallenge as any[]) || []).reduce((s, b) => s + (b.sales_count || 0), 0));
     setMonthExpensesTotal(((monthExpenses as any[]) || []).reduce((s, e) => s + Number(e.amount || 0), 0));
+    setDailyGoalPlan(Number((todayGoalPlan as any)?.daily_goal) || 0);
 
     if (weekData) {
       const formattedWeekData = weekData.map(day => ({
@@ -211,9 +217,12 @@ export default function Index() {
 
     if (monthData) {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
-      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
+      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0); // fiado: mostrado à parte, NÃO entra no líquido
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
-      const balance = totalIncome - totalExpenses - totalCost;
+      const totalTransport = monthData.reduce((sum, day) => sum + (Number((day as any).transport_cost) || 0), 0);
+      const totalFood = monthData.reduce((sum, day) => sum + (Number((day as any).food_cost) || 0), 0);
+      // Líquido = igual à planilha: vendido − mercadoria − transporte − alimentação (fiado NÃO entra)
+      const balance = totalIncome - totalCost - totalTransport - totalFood;
       
       // Calculate real daily average from NET PROFIT (lucro líquido)
       const activeDays = monthData.filter(day => (day.total_profit ?? 0) > 0).length;
@@ -226,6 +235,8 @@ export default function Index() {
         totalIncome,
         totalExpenses,
         totalCost,
+        totalTransport,
+        totalFood,
         balance,
         variation: totalIncome > 0 ? balance / totalIncome * 100 : 0
       };
@@ -354,14 +365,16 @@ export default function Index() {
   }
   const dailyProfit = todaySales?.total_profit || 0;
   const faturamentoMes = monthlyStats.totalIncome;
-  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalExpenses - monthlyStats.totalCost;
+  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood;
   const progressoMeta = calculateGoalProgress();
 
   // Daily goal calc
-  const dailyGoal = monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200;
+  // Meta do dia = a MESMA que o usuário define no DEFCON (daily_goal_plans). Só
+  // cai pra meta mensal ÷ 26 quando ainda não há meta do dia definida.
+  const dailyGoal = dailyGoalPlan > 0 ? dailyGoalPlan : (monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200);
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
-  const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost + monthExpensesTotal;
+  const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;

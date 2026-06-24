@@ -4,6 +4,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
+import { DefconShareCarousel } from "./DefconShareCarousel";
 
 interface DefconBlockReportProps {
   blockIndex: number;
@@ -229,27 +230,17 @@ export function DefconBlockReport({
         "{getMessage()}"
       </p>
 
-      {/* Instagram share button */}
-      <button
-        onClick={handleShare}
-        disabled={sharing}
-        className="w-full max-w-sm h-12 mb-3 text-white font-bold text-sm rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
-        style={{
-          backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
-        }}
-      >
-        {sharing ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            GERANDO IMAGEM...
-          </>
-        ) : (
-          <>
-            <Instagram className="w-4 h-4" />
-            COMPARTILHAR NO INSTAGRAM
-          </>
-        )}
-      </button>
+      {/* 3 artes transparentes (arraste pra escolher) + compartilhar no Instagram */}
+      <div className="w-full max-w-sm mb-3">
+        <DefconShareCarousel
+          stats={{
+            faturamento: soldAmount,
+            vendas: sales,
+            conversao: conversionRate,
+            horas: `${blockIndex + 1}h`,
+          }}
+        />
+      </div>
 
       <button
         onClick={onContinue}

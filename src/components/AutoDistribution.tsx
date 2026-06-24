@@ -40,7 +40,8 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
   const [goals, setGoals] = useState<GoalRow[]>([]);
   const [liquidoHoje, setLiquidoHoje] = useState(0);
   const [grossHoje, setGrossHoje] = useState(0);
-  const [despesasHoje, setDespesasHoje] = useState(0);
+  const [transportHoje, setTransportHoje] = useState(0);
+  const [foodHoje, setFoodHoje] = useState(0);
   const [costHoje, setCostHoje] = useState(0);
   const [caloteHoje, setCaloteHoje] = useState(0);
   const [todayDistribution, setTodayDistribution] = useState<DistributionRow[]>([]);
@@ -68,37 +69,35 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
       // Vendas do dia
       const { data: salesData } = await supabase
         .from("daily_sales")
-        .select("total_profit, cost, total_debt, cash_sales, pix_sales, card_sales")
+        .select("total_profit, cost, total_debt, cash_sales, pix_sales, card_sales, transport_cost, food_cost")
         .eq("user_id", userId)
         .eq("date", today)
         .maybeSingle();
 
-      const gross =
+      // BRUTO robusto: usa "Total Vendido" (total_profit); se vier zerado, cai
+      // pra soma dos métodos de pagamento. Sem isso, lançar só o Total Vendido
+      // deixava o bruto em R$0 e o "guardar hoje" travado.
+      const payments =
         Number(salesData?.cash_sales || 0) +
         Number(salesData?.pix_sales || 0) +
         Number(salesData?.card_sales || 0);
+      const gross =
+        Number(salesData?.total_profit) > 0 ? Number(salesData?.total_profit) : payments;
       const cost = Number(salesData?.cost || 0);
+      const transport = Number(salesData?.transport_cost || 0);
+      const food = Number(salesData?.food_cost || 0);
       const calote = Number(salesData?.total_debt || 0);
-      const lucroBruto = Math.max(0, gross - cost - calote);
 
       setGrossHoje(gross);
       setCostHoje(cost);
+      setTransportHoje(transport);
+      setFoodHoje(food);
       setCaloteHoje(calote);
 
-      // Despesas pessoais do dia
-      const { data: expensesData } = await supabase
-        .from("personal_expenses")
-        .select("amount")
-        .eq("user_id", userId)
-        .eq("date", today);
-
-      const despesas = (expensesData || []).reduce(
-        (sum, e: any) => sum + (Number(e.amount) || 0),
-        0
-      );
-      setDespesasHoje(despesas);
-
-      const liquido = Math.max(0, lucroBruto - despesas);
+      // LÍQUIDO = BRUTO − MERCADORIA − TRANSPORTE − ALIMENTAÇÃO (calote NÃO entra),
+      // igual à planilha. Mantemos o piso em 0 só pra distribuição (não dá pra
+      // guardar valor negativo nas caixinhas); dia de prejuízo mostra mensagem.
+      const liquido = Math.max(0, gross - cost - transport - food);
       setLiquidoHoje(liquido);
 
       // Distribuição já registrada hoje
@@ -190,7 +189,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
     if (liquidoHoje <= 0) {
       toast({
         title: "Sem líquido pra distribuir",
-        description: "Registre vendas e despesas do dia primeiro.",
+        description: "Lance a venda de hoje primeiro pra ver quanto guardar.",
         variant: "destructive",
       });
       return;
@@ -380,51 +379,31 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Como funciona */}
-        <div className="p-3.5 bg-muted/40 border border-border/40 rounded-xl space-y-2.5">
-          <div className="flex items-center gap-2">
-            <Info className="w-4 h-4 text-primary shrink-0" />
-            <p className="text-sm font-semibold text-foreground">Como funciona — em 3 passos</p>
-          </div>
-          <div className="space-y-2">
-            <div className="flex gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">1</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Somamos suas vendas do dia e tiramos custo, calotes e despesas — sobra o seu <b className="text-primary">líquido</b>.
-              </p>
-            </div>
-            <div className="flex gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">2</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Em <b className="text-foreground">Configurar %</b>, você escolhe quanto desse líquido vai pra cada meta (ex: 30% pra moto).
-              </p>
-            </div>
-            <div className="flex gap-2.5">
-              <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0">3</span>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Toque em <b className="text-foreground">Separar nas caixinhas</b> e o app diz exatamente quanto guardar em cada uma hoje.
-              </p>
-            </div>
-          </div>
+      <CardContent className="space-y-3">
+        {/* Como funciona — resumido */}
+        <div className="flex items-start gap-2 p-3 bg-muted/40 border border-border/40 rounded-xl">
+          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Separe parte do seu <b className="text-primary">líquido</b> do dia nas caixinhas das suas metas. Em <b className="text-foreground">Configurar %</b> você escolhe quanto vai pra cada uma; depois é só <b className="text-foreground">Separar</b>.
+          </p>
         </div>
 
         {/* Resumo do líquido de hoje */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Bruto hoje</p>
+            <p className="text-xs text-muted-foreground">Vendido hoje</p>
             <p className="text-base font-bold">{formatCurrency(grossHoje)}</p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Custo + calotes</p>
+            <p className="text-xs text-muted-foreground">Mercadoria</p>
             <p className="text-base font-bold text-destructive">
-              -{formatCurrency(costHoje + caloteHoje)}
+              -{formatCurrency(costHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Despesas pessoais</p>
+            <p className="text-xs text-muted-foreground">Transporte + Alim.</p>
             <p className="text-base font-bold text-destructive">
-              -{formatCurrency(despesasHoje)}
+              -{formatCurrency(transportHoje + foodHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
@@ -432,6 +411,13 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             <p className="text-base font-bold text-primary">{formatCurrency(liquidoHoje)}</p>
           </div>
         </div>
+
+        {/* Fiado/calote do dia — informativo, não entra no líquido */}
+        {caloteHoje > 0 && (
+          <p className="text-xs text-muted-foreground -mt-1">
+            Fiado/não pago hoje: <span className="font-semibold text-warning">{formatCurrency(caloteHoje)}</span> (não entra no líquido)
+          </p>
+        )}
 
         {/* Estado: sem metas */}
         {goals.length === 0 && (
@@ -441,7 +427,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         )}
 
         {/* Estado: nenhum % configurado ainda */}
-        {goals.length > 0 && totalPercent <= 0 && !alreadyDistributed && (
+        {goals.length > 0 && liquidoHoje > 0 && totalPercent <= 0 && !alreadyDistributed && (
           <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
             <div className="text-xs">
@@ -456,7 +442,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         )}
 
         {/* Estado: passou de 100% */}
-        {goals.length > 0 && totalPercent > 100 && !alreadyDistributed && (
+        {goals.length > 0 && liquidoHoje > 0 && totalPercent > 100 && !alreadyDistributed && (
           <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
             <div className="text-xs">
@@ -474,6 +460,9 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
               Caixinhas de hoje
             </p>
+            {liquidoHoje <= 0 && (
+              <p className="text-xs text-muted-foreground">Lance a venda do dia pra calcular — por enquanto fica R$ 0,00.</p>
+            )}
             {preview.map(({ goal, amount }) => (
               <div
                 key={goal.id}

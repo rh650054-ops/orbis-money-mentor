@@ -92,6 +92,8 @@ export default function DefconChallenge() {
           onAddOccurrence={defcon.addOccurrence}
           onEnd={defcon.endChallenge}
           onLunchPause={defcon.startLunchPause}
+          sessionSales={defcon.sessionSales}
+          onDeleteSale={defcon.deleteSale}
           onboardingMode={treino}
           quickSaleValue={defcon.quickSaleValue}
         />
@@ -135,6 +137,7 @@ export default function DefconChallenge() {
           totalSold={defcon.totalSold}
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.currentBlockIndex + 1}
+          workedMinutes={defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60)))}
           totalApproaches={defcon.totalApproaches}
           totalSalesCount={defcon.totalSalesCount}
           userId={user.id}
