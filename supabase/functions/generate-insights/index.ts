@@ -71,7 +71,10 @@ async function callCerebras(systemPrompt: string, userPrompt: string): Promise<s
       max_tokens: 1200,
     }),
   });
-  if (!res.ok) throw new Error(`cerebras_${res.status}`);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`cerebras_${res.status}: ${errBody.slice(0, 250)}`);
+  }
   const j = await res.json();
   const content = j?.choices?.[0]?.message?.content?.toString().trim();
   if (!content) throw new Error("cerebras_vazio");
@@ -82,7 +85,8 @@ async function callCerebras(systemPrompt: string, userPrompt: string): Promise<s
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   try {
     return await callCerebras(systemPrompt, userPrompt);
-  } catch (_e) {
+  } catch (e) {
+    console.error("CEREBRAS_FALHOU (caindo no Gemini):", String(e));
     return await callGemini(systemPrompt, userPrompt);
   }
 }
