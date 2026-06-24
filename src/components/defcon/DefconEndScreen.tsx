@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft } from "lucide-react";
+import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
-import { readThemeColor, RANKING_TIER_COLORS } from "@/shared/lib/theme-colors";
+import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -48,6 +48,10 @@ export function DefconEndScreen({
   const [clientsCount, setClientsCount] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [totalTips, setTotalTips] = useState(0);
+  const [showShare, setShowShare] = useState(false);
+  const [previews, setPreviews] = useState<Record<number, string>>({});
+  const [selectedTemplate, setSelectedTemplate] = useState<1 | 2 | 3>(2);
+  const [generatingPreviews, setGeneratingPreviews] = useState(false);
 
   // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF + gorjetas
   useEffect(() => {
@@ -199,134 +203,213 @@ export function DefconEndScreen({
     return "Conversão baixa. Aborde com mais confiança e firmeza.";
   }, [conversionRate, totalApproaches]);
 
-  // Generate Instagram Story image (1080x1920, transparent)
-  const generateStoryImage = async (): Promise<Blob | null> => {
-    const W = 1080;
-    const H = 1920;
+  // ===== Imagens compartilháveis (3 modelos, estilo Strava) =====
+  const loadLogo = (): Promise<HTMLImageElement | null> =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = orbisLogo;
+    });
+
+  const buildCanvas = async (template: 1 | 2 | 3): Promise<HTMLCanvasElement | null> => {
+    const W = 1080, H = 1920;
     const canvas = document.createElement("canvas");
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-
     ctx.clearRect(0, 0, W, H);
 
-    const centerText = (
-      text: string,
-      y: number,
-      size: number,
-      weight: string,
-      color: string,
-      letterSpacing = 0
-    ) => {
+    const GOLD = "#F4A100", GREEN = "#22C55E", WHITE = "#FFFFFF", MUTED = "#9AA0A6";
+    const fontStack = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+
+    const centerTextAt = (text: string, cx: number, y: number, size: number, weight: string, color: string, ls = 0) => {
       ctx.fillStyle = color;
-      ctx.font = `${weight} ${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-      ctx.textAlign = "center";
+      ctx.font = `${weight} ${size}px ${fontStack}`;
       ctx.textBaseline = "middle";
-      if (letterSpacing > 0) {
+      if (ls > 0) {
         const chars = text.split("");
         const widths = chars.map((c) => ctx.measureText(c).width);
-        const total = widths.reduce((a, b) => a + b, 0) + letterSpacing * (chars.length - 1);
-        let x = W / 2 - total / 2;
-        chars.forEach((c, i) => {
-          ctx.textAlign = "left";
-          ctx.fillText(c, x, y);
-          x += widths[i]! + letterSpacing;
-        });
+        const total = widths.reduce((a, b) => a + b, 0) + ls * (chars.length - 1);
+        let x = cx - total / 2;
+        ctx.textAlign = "left";
+        chars.forEach((c, i) => { ctx.fillText(c, x, y); x += widths[i]! + ls; });
         ctx.textAlign = "center";
       } else {
-        ctx.fillText(text, W / 2, y);
+        ctx.textAlign = "center";
+        ctx.fillText(text, cx, y);
+      }
+    };
+    const centerText = (text: string, y: number, size: number, weight: string, color: string, ls = 0) =>
+      centerTextAt(text, W / 2, y, size, weight, color, ls);
+
+    const divider = (y: number, color = GOLD) => {
+      const g = ctx.createLinearGradient(W / 2 - 360, y, W / 2 + 360, y);
+      g.addColorStop(0, "rgba(244,161,0,0)");
+      g.addColorStop(0.5, color);
+      g.addColorStop(1, "rgba(244,161,0,0)");
+      ctx.strokeStyle = g;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - 360, y);
+      ctx.lineTo(W / 2 + 360, y);
+      ctx.stroke();
+    };
+
+    const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    };
+
+    const pill = (text: string, y: number, color: string) => {
+      ctx.font = `800 34px ${fontStack}`;
+      const w = ctx.measureText(text).width + 80;
+      const h = 70;
+      const x = W / 2 - w / 2;
+      ctx.fillStyle = color === GREEN ? "rgba(34,197,94,0.15)" : "rgba(244,161,0,0.15)";
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      roundRect(x, y, w, h, h / 2);
+      ctx.fill();
+      ctx.stroke();
+      centerTextAt(text, W / 2, y + h / 2, 34, "800", color);
+    };
+
+    const statCard = (label: string, value: string, cx: number, y: number, cw: number, ch: number) => {
+      const x = cx - cw / 2;
+      ctx.fillStyle = "rgba(255,255,255,0.04)";
+      ctx.strokeStyle = "rgba(255,255,255,0.08)";
+      ctx.lineWidth = 1.5;
+      roundRect(x, y, cw, ch, 24);
+      ctx.fill();
+      ctx.stroke();
+      centerTextAt(value, cx, y + ch / 2 - 6, 76, "900", WHITE);
+      centerTextAt(label, cx, y + ch / 2 + 58, 28, "700", MUTED, 4);
+    };
+
+    const drawLogo = async (y: number, w = 360, alpha = 0.65) => {
+      const logo = await loadLogo();
+      if (logo) {
+        const ratio = logo.height / logo.width;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(logo, W / 2 - w / 2, y, w, w * ratio);
+        ctx.restore();
+      } else {
+        centerText("ORBIS", y + 40, 80, "900", WHITE, 16);
       }
     };
 
-    // Golden divider with glowing center diamond
-    const drawDivider = (y: number) => {
-      const lineW = 720;
-      const xStart = W / 2 - lineW / 2;
-      const xEnd = W / 2 + lineW / 2;
+    const dateLabel = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
 
-      const grad = ctx.createLinearGradient(xStart, y, xEnd, y);
-      grad.addColorStop(0, "rgba(244,161,0,0)");
-      grad.addColorStop(0.5, "rgba(244,161,0,1)");
-      grad.addColorStop(1, "rgba(244,161,0,0)");
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(xStart, y);
-      ctx.lineTo(xEnd, y);
-      ctx.stroke();
-
-      ctx.save();
-      ctx.shadowColor = "rgba(244,161,0,0.9)";
-      ctx.shadowBlur = 40;
-      ctx.fillStyle = RANKING_TIER_COLORS.goldSoft;
-      ctx.beginPath();
-      ctx.moveTo(W / 2, y - 14);
-      ctx.lineTo(W / 2 + 14, y);
-      ctx.lineTo(W / 2, y + 14);
-      ctx.lineTo(W / 2 - 14, y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    };
-
-    const TITLE_SIZE = 72;
-    const VALUE_SIZE = 160;
-    const SPACING = 12;
-    const VALUE_COLOR = readThemeColor("--foreground");
-
-    const PRIMARY_COLOR = readThemeColor("--primary");
-    const SUCCESS_COLOR = readThemeColor("--success");
-    const DESTRUCTIVE_COLOR = readThemeColor("--destructive");
-
-    // Faturamento
-    centerText("FATURAMENTO", 200, TITLE_SIZE, "800", PRIMARY_COLOR, SPACING);
-    centerText(formatCurrency(totalSold), 360, VALUE_SIZE, "900", VALUE_COLOR);
-    drawDivider(560);
-
-    // Vendas
-    centerText("VENDAS", 700, TITLE_SIZE, "800", SUCCESS_COLOR, SPACING);
-    centerText(String(totalSalesCount || 0), 860, VALUE_SIZE, "900", VALUE_COLOR);
-    drawDivider(1080);
-
-    // Conversão
-    const convColor =
-      conversionRate >= 30 ? SUCCESS_COLOR : conversionRate >= 15 ? PRIMARY_COLOR : DESTRUCTIVE_COLOR;
-    centerText("CONVERSÃO", 1220, TITLE_SIZE, "800", convColor, SPACING);
-    centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", VALUE_COLOR);
-
-    // Orbis watermark sutil no rodapé
-    try {
-      const logo = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => resolve(img);
-        img.onerror = reject;
-        img.src = orbisLogo;
+    if (template === 1) {
+      // Limpo / transparente — adesivo pro story (acompanha o tema)
+      const FG = readThemeColor("--foreground");
+      const PRIMARY = readThemeColor("--primary");
+      const SUCCESS = readThemeColor("--success");
+      const DEST = readThemeColor("--destructive");
+      centerText("FATURAMENTO", 220, 70, "800", PRIMARY, 12);
+      centerText(formatCurrency(totalSold), 380, 150, "900", FG);
+      divider(580, PRIMARY);
+      centerText("VENDAS", 720, 70, "800", SUCCESS, 12);
+      centerText(String(totalSalesCount || 0), 880, 150, "900", FG);
+      divider(1090, PRIMARY);
+      const cc = conversionRate >= 30 ? SUCCESS : conversionRate >= 15 ? PRIMARY : DEST;
+      centerText("CONVERSÃO", 1230, 70, "800", cc, 12);
+      centerText(`${conversionRate.toFixed(0)}%`, 1390, 150, "900", FG);
+      await drawLogo(H - 320, 380, 0.55);
+    } else if (template === 2) {
+      // Card escuro com grade de números
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, "#141414");
+      g.addColorStop(1, "#080808");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      const rg = ctx.createRadialGradient(W / 2, 420, 60, W / 2, 420, 720);
+      rg.addColorStop(0, "rgba(244,161,0,0.16)");
+      rg.addColorStop(1, "rgba(244,161,0,0)");
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, W, 1000);
+      centerText("ORBIS · DEFCON 4", 170, 36, "800", GOLD, 8);
+      centerText(dateLabel.toUpperCase(), 226, 28, "600", MUTED, 4);
+      centerText("FATURAMENTO DO DIA", 400, 38, "700", MUTED, 6);
+      centerText(formatCurrency(totalSold), 520, 150, "900", WHITE);
+      pill(goalReached ? `META BATIDA · ${percentage.toFixed(0)}%` : `${percentage.toFixed(0)}% DA META`, 630, goalReached ? GREEN : GOLD);
+      const gw = 420, gh = 230, gap = 40;
+      const leftX = W / 2 - gap / 2 - gw / 2, rightX = W / 2 + gap / 2 + gw / 2;
+      const topY = 840, botY = 840 + gh + gap;
+      statCard("VENDAS", String(totalSalesCount || 0), leftX, topY, gw, gh);
+      statCard("ABORDAGENS", String(totalApproaches || 0), rightX, topY, gw, gh);
+      statCard("CONVERSÃO", `${conversionRate.toFixed(0)}%`, leftX, botY, gw, gh);
+      statCard("HORAS", `${totalBlocks}h`, rightX, botY, gw, gh);
+      await drawLogo(H - 340, 340, 0.7);
+    } else {
+      // Conquista — fundo dourado quando bate a meta
+      const reached = goalReached;
+      const g = ctx.createLinearGradient(0, 0, 0, H);
+      if (reached) {
+        g.addColorStop(0, "#2a1d00");
+        g.addColorStop(0.55, "#3a2800");
+        g.addColorStop(1, "#0d0900");
+      } else {
+        g.addColorStop(0, "#161616");
+        g.addColorStop(1, "#080808");
+      }
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+      const rg = ctx.createRadialGradient(W / 2, 720, 80, W / 2, 720, 820);
+      rg.addColorStop(0, reached ? "rgba(244,161,0,0.28)" : "rgba(244,161,0,0.1)");
+      rg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = rg;
+      ctx.fillRect(0, 0, W, H);
+      centerText(reached ? "META BATIDA" : "RESULTADO DO DIA", 470, 60, "900", reached ? GOLD : WHITE, 6);
+      centerText(formatCurrency(totalSold), 680, 170, "900", WHITE);
+      centerText(`${percentage.toFixed(0)}% DA META`, 850, 44, "800", reached ? GREEN : MUTED, 6);
+      divider(990, GOLD);
+      const cols: [string, string][] = [["VENDAS", String(totalSalesCount || 0)], ["CONVERSÃO", `${conversionRate.toFixed(0)}%`], ["HORAS", `${totalBlocks}h`]];
+      const colW = W / 3;
+      cols.forEach((c, i) => {
+        const cx = colW * i + colW / 2;
+        centerTextAt(c[1], cx, 1140, 84, "900", WHITE);
+        centerTextAt(c[0], cx, 1212, 28, "700", MUTED, 3);
       });
-      const logoW = 380;
-      const ratio = logo.height / logo.width;
-      const logoH = logoW * ratio;
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 60, logoW, logoH);
-      ctx.restore();
-    } catch {
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      centerText("ORBIS", H - 220, 90, "900", readThemeColor("--background"), 16);
-      ctx.restore();
+      await drawLogo(H - 340, 340, 0.7);
     }
+    return canvas;
+  };
 
-    return new Promise((resolve) =>
-      canvas.toBlob((blob) => resolve(blob), "image/png")
-    );
+  const canvasToBlob = (c: HTMLCanvasElement): Promise<Blob | null> =>
+    new Promise((resolve) => c.toBlob((b) => resolve(b), "image/png"));
+
+  const openShare = async () => {
+    setShowShare(true);
+    if (Object.keys(previews).length === 3) return;
+    setGeneratingPreviews(true);
+    try {
+      const out: Record<number, string> = {};
+      for (const t of [1, 2, 3] as const) {
+        const c = await buildCanvas(t);
+        if (c) out[t] = c.toDataURL("image/png");
+      }
+      setPreviews(out);
+    } finally {
+      setGeneratingPreviews(false);
+    }
   };
 
   const handleShare = async () => {
     try {
       setSharing(true);
-      const blob = await generateStoryImage();
+      const canvas = await buildCanvas(selectedTemplate);
+      if (!canvas) throw new Error("Falha ao gerar imagem");
+      const blob = await canvasToBlob(canvas);
       if (!blob) throw new Error("Falha ao gerar imagem");
       const file = new File([blob], `orbis-resultado.png`, { type: "image/png" });
       const nav = navigator as Navigator & {
@@ -432,16 +515,60 @@ export function DefconEndScreen({
           </div>
         )}
 
-        {/* 2. SHARE — Dourado, prioridade alta */}
-        {totalSold > 0 && (
+        {/* 2. SHARE — escolher 1 de 3 artes e postar */}
+        {totalSold > 0 && !showShare && (
           <button
-            onClick={handleShare}
-            disabled={sharing}
-            className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60 shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.6)]"
+            onClick={openShare}
+            className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-10px_hsl(var(--primary)/0.6)]"
           >
             <Share2 className="w-4 h-4" />
-            {sharing ? "Gerando..." : "Compartilhar resultado"}
+            Compartilhar resultado
           </button>
+        )}
+
+        {totalSold > 0 && showShare && (
+          <div className="rounded-2xl bg-card border border-border p-3 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs font-semibold text-foreground uppercase tracking-wider">Escolha a arte pra postar</span>
+              <button onClick={() => setShowShare(false)} className="text-xs text-muted-foreground active:scale-95">Fechar</button>
+            </div>
+
+            {generatingPreviews ? (
+              <div className="h-44 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" /> Gerando artes...
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 3].map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setSelectedTemplate(t as 1 | 2 | 3)}
+                    className={`relative rounded-xl overflow-hidden border-2 transition-all ${selectedTemplate === t ? "border-primary ring-2 ring-primary/40" : "border-border"}`}
+                    style={{ aspectRatio: "9 / 16", background: "#0a0a0a" }}
+                  >
+                    {previews[t] && (
+                      <img src={previews[t]} alt={`Modelo ${t}`} className="absolute inset-0 w-full h-full object-cover" />
+                    )}
+                    {selectedTemplate === t && (
+                      <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="w-3 h-3 text-primary-foreground" strokeWidth={3} />
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={handleShare}
+              disabled={sharing || generatingPreviews}
+              className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
+              style={{ backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})` }}
+            >
+              {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
+              {sharing ? "Gerando..." : "Compartilhar no Instagram"}
+            </button>
+          </div>
         )}
 
         {/* Empurrão de teste — aparece SEMPRE que finaliza o DEFCON (durante o trial) */}
@@ -528,20 +655,22 @@ export function DefconEndScreen({
           </div>
         )}
 
-        {/* 5. RELATÓRIO — cards de performance */}
-        {(totalApproaches > 0 || totalSalesCount > 0) && (
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-card border border-border px-2 py-3 text-center">
-              <div className="text-lg font-black text-foreground tabular-nums">{totalApproaches}</div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">Abordagens</div>
-            </div>
-            <div className="rounded-xl bg-card border border-border px-2 py-3 text-center">
-              <div className="text-lg font-black text-foreground tabular-nums">{totalSalesCount}</div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mt-0.5">Vendas</div>
-            </div>
-            <div className="rounded-xl bg-card border border-primary/30 px-2 py-3 text-center">
-              <div className="text-lg font-black text-primary tabular-nums">{conversionRate.toFixed(0)}%</div>
-              <div className="text-xs uppercase tracking-wider text-primary/70 font-semibold mt-0.5">Conversão</div>
+        {/* 5. RELATÓRIO DO DIA — no estilo do relatório de bloco de hora */}
+        {(totalApproaches > 0 || totalSalesCount > 0 || totalSold > 0) && (
+          <div className="space-y-2">
+            <h2 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">
+              Relatório do dia
+            </h2>
+            <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
+              <ReportRow label="⏱️ Horas trabalhadas" value={`${totalBlocks}h`} />
+              <ReportRow label="💰 Vendido" value={formatCurrency(totalSold)} />
+              <ReportRow label="👤 Abordagens" value={String(totalApproaches)} />
+              <ReportRow label="🛒 Vendas" value={String(totalSalesCount)} valueClass="text-success" />
+              <ReportRow
+                label="📊 Conversão"
+                value={`${conversionRate.toFixed(0)}%`}
+                valueClass={conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"}
+              />
             </div>
           </div>
         )}
@@ -620,6 +749,15 @@ export function DefconEndScreen({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ReportRow({ label, value, valueClass = "text-foreground" }: { label: string; value: string; valueClass?: string }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`text-lg font-black tabular-nums ${valueClass}`}>{value}</span>
     </div>
   );
 }
