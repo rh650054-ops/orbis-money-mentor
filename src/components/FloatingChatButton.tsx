@@ -25,7 +25,9 @@ export default function FloatingChatButton() {
   const [speaking, setSpeaking] = useState(false);
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
   const stopSpeaking = () => {
+    ttsTokenRef.current++; // invalida qualquer TTS em andamento (foca na fala nova)
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
     try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
     setSpeaking(false);
@@ -54,7 +56,13 @@ export default function FloatingChatButton() {
     rec.lang = "pt-BR";
     rec.continuous = true;
     rec.interimResults = true;
-    baseInputRef.current = input ? input.trim() + " " : "";
+    // No modo voz, cada fala recomeça do zero (foca na mensagem nova, não junta com a anterior).
+    if (voiceMode) {
+      baseInputRef.current = "";
+      setInput("");
+    } else {
+      baseInputRef.current = input ? input.trim() + " " : "";
+    }
     rec.onresult = (e: any) => {
       let transcript = "";
       for (let i = 0; i < e.results.length; i++) {
@@ -158,21 +166,26 @@ export default function FloatingChatButton() {
   // Voz do Gemini (servidor) — melhor e funciona no celular. Cai pra voz do navegador se falhar.
   const speak = async (text: string) => {
     if (!text) return;
+    stopSpeaking();                       // corta a fala anterior — foca na nova
+    const myToken = ++ttsTokenRef.current; // token desta fala
     setSpeaking(true);
     try {
       const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
       const b64 = (data as any)?.audio;
       if (b64 && audioRef.current) {
         const a = audioRef.current;
         a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
-        a.onended = () => setSpeaking(false);
-        a.onerror = () => { setSpeaking(false); speakBrowser(text); };
+        a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
+        a.onerror = () => { if (myToken === ttsTokenRef.current) { setSpeaking(false); speakBrowser(text); } };
         await a.play();
         return;
       }
     } catch (e) {
+      if (myToken !== ttsTokenRef.current) return; // foi cancelada por uma fala nova
       console.warn("TTS Gemini falhou, usando voz do navegador", e);
     }
+    if (myToken !== ttsTokenRef.current) return;
     setSpeaking(false);
     speakBrowser(text);
   };

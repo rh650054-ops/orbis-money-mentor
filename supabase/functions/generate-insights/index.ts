@@ -96,6 +96,59 @@ Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓ
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
+    // Análise do Relatório — IA de verdade (gastos + dia/semana/mês + melhorias + falhas)
+    if (body?.type === "report_analysis") {
+      const periodo = (body.periodo ?? "período").toString();
+      const gastos = Array.isArray(body.gastos) ? body.gastos : [];
+      const gastosLinhas = gastos.length
+        ? gastos
+            .map((g: { category?: string; total?: number; count?: number }) =>
+              `  - ${g.category ?? "Outros"}: R$ ${Number(g.total ?? 0).toFixed(0)} (${g.count ?? 0} ${Number(g.count) === 1 ? "item" : "itens"})`)
+            .join("\n")
+        : "  - (sem gastos pessoais registrados no período)";
+      const horas = Array.isArray(body.melhoresHorarios) ? body.melhoresHorarios : [];
+      const horasLinha = horas.length
+        ? horas.map((h: { label?: string; avg?: number }) => `${h.label ?? "?"} (R$ ${Number(h.avg ?? 0).toFixed(0)})`).join(", ")
+        : "sem dados";
+
+      const userPrompt = `Período analisado: ${periodo} (${body.rangeLabel ?? ""}).
+NÚMEROS:
+- Faturamento: R$ ${Number(body.faturamento ?? 0).toFixed(0)}
+- Lucro líquido: R$ ${Number(body.lucro ?? 0).toFixed(0)}
+- Vendas: ${body.totalVendas ?? 0} | Abordagens: ${body.totalAbordagens ?? 0} | Conversão: ${body.conversao ?? 0}%
+- Abordagens por venda: ${body.abordagensPorVenda ?? 0} | Ticket médio: R$ ${Number(body.ticketMedio ?? 0).toFixed(0)}
+- Média diária: R$ ${Number(body.mediaDiaria ?? 0).toFixed(0)} | Vs período anterior: ${body.comparePct ?? 0}%
+CUSTOS:
+- Mercadoria: R$ ${Number(body.custoMercadoria ?? 0).toFixed(0)} | Transporte+alimentação: R$ ${Number(body.custoOperacao ?? 0).toFixed(0)}
+- Calotes: R$ ${Number(body.calotes ?? 0).toFixed(0)} (${body.caloteUnidades ?? 0} kits não pagos)
+GASTOS PESSOAIS POR CATEGORIA (no que ele gasta o dinheiro):
+${gastosLinhas}
+Melhores horários: ${horasLinha}
+
+Analise e devolva SOMENTE este JSON preenchido, em português de rua, ESPECÍFICO (cite os números acima), sem markdown:
+{
+  "diagnostico": "como está o ${periodo} até agora, em 2-3 frases, citando faturamento, lucro e conversão",
+  "gastos": "com o que ele mais gasta e se algum gasto está pesando demais no bolso, em 2-3 frases. Se não houver gastos registrados, oriente a registrar pra enxergar pra onde vai o dinheiro",
+  "melhorias": ["2 a 3 melhorias práticas e específicas pra ele vender ou lucrar mais"],
+  "falhas": ["1 a 3 principais pontos de falha — onde ele está perdendo dinheiro, venda ou tempo"],
+  "foco": "a principal coisa pra focar agora, em 1 frase direta"
+}`;
+
+      const aiText = await callGemini(
+        ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Responda APENAS com o JSON pedido, sem texto fora dele.",
+        userPrompt,
+      );
+      let parsed;
+      try {
+        const match = aiText.match(/\{[\s\S]*\}/);
+        if (!match) throw new Error("JSON não encontrado");
+        parsed = JSON.parse(match[0]);
+      } catch {
+        throw new Error("Não consegui montar a análise agora. Tenta de novo em instantes.");
+      }
+      return new Response(JSON.stringify(parsed), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     // Buscar dados dos últimos 7 dias
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);

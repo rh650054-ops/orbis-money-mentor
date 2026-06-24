@@ -250,11 +250,23 @@ export function DefconSmartNotification({
         if (!shownTriggersRef.current.has(triggerKey)) {
           shownTriggersRef.current.add(triggerKey);
           if (hasRealHistory && convPct >= realConvPct) {
-            showNotification("🔥", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do seu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`);
+            showNotification("🔥", pick([
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do teu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`,
+              `${convPct}% de conversão (${totalSalesCount}/${totalApproaches}).\nMelhor que o teu padrão de ${realConvPct}%. Não muda nada, segue assim! 🔥`,
+              `${totalSalesCount} vendas, ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Dia de cobrar caro de si mesmo! 💪`,
+            ]));
           } else if (hasRealHistory) {
-            showNotification("🎯", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nSeu normal é ${realConvPct}%. Capricha na abordagem que você vira o jogo.`);
+            showNotification("🎯", pick([
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTeu normal é ${realConvPct}%. Capricha na abordagem que tu vira o jogo.`,
+              `${convPct}% de conversão até agora (${totalSalesCount}/${totalApproaches}).\nDá pra subir — teu padrão é ${realConvPct}%. Sorri mais e vai com firmeza.`,
+              `${totalSalesCount} vendas, ${convPct}%.\nTá abaixo do teu ${realConvPct}%. Respira, escolhe melhor a abordagem e ataca.`,
+            ]));
           } else {
-            showNotification("📈", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o seu ritmo. Cada abordagem conta — segue firme!`);
+            showNotification("📈", pick([
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o teu ritmo. Cada abordagem conta — segue firme!`,
+              `Já são ${totalSalesCount} vendas (${convPct}%).\nTá construindo o teu padrão. Mantém a constância! 📈`,
+              `${totalSalesCount} vendas, ${convPct}% de conversão.\nDia tá tomando forma. Não afrouxa o ritmo! 💪`,
+            ]));
           }
         }
       }
@@ -266,9 +278,16 @@ export function DefconSmartNotification({
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
         if (hasRealHistory && convPct >= realConvPct) {
-          showNotification("📊", `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do seu normal (${realConvPct}%). Não para agora!`);
+          showNotification("📊", pick([
+            `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do teu normal (${realConvPct}%). Não para agora!`,
+            `Marco de ${totalApproaches} abordagens! ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Tá no modo elite. 🔥`,
+          ]));
         } else {
-          showNotification("📊", `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`);
+          showNotification("📊", pick([
+            `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`,
+            `${totalApproaches} abordagens já! ${totalSalesCount} vendas no bolso.\nConstância é tudo — segue empilhando. 📊`,
+            `Bateu ${totalApproaches} abordagens. ${convPct}% de conversão.\nNão afrouxa agora, o dia tá rendendo. 💪`,
+          ]));
         }
       }
     }
@@ -279,7 +298,12 @@ export function DefconSmartNotification({
       const triggerKey = `dry_${Math.floor(dryCount / 5) * 5}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        showNotification("💪", `${dryCount} abordagens sem vender.\nFicou frio, mas a próxima venda tá logo ali. Vai com tudo — não para!`);
+        showNotification("💪", pick([
+          `${dryCount} abordagens sem vender.\nFicou frio, mas a próxima tá logo ali. Vai com tudo!`,
+          `${dryCount} sem fechar. Acontece.\nTroca a abordagem, sorri, oferece o kit. A virada vem!`,
+          `${dryCount} abordagens secas.\nQuem insiste fura a seca. A próxima é tua! 💪`,
+          `Sequência de ${dryCount} sem venda.\nRespira, muda o script e ataca a próxima com tudo.`,
+        ]));
       }
     }
 

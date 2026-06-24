@@ -107,6 +107,17 @@ export default function Insights() {
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
 
+  // Análise da IA (Gemini) — gerada sob demanda no botão
+  const [aiReport, setAiReport] = useState<{
+    diagnostico?: string;
+    gastos?: string;
+    melhorias?: string[];
+    falhas?: string[];
+    foco?: string;
+  } | null>(null);
+  const [aiReportLoading, setAiReportLoading] = useState(false);
+  const [aiReportError, setAiReportError] = useState(false);
+
   // Computed range
   const range = useMemo(() => {
     const today = startOfDay(new Date());
@@ -371,6 +382,57 @@ export default function Insights() {
     }
     return tips;
   }, [summary, isSingleDay, compareYesterday, comparePrev, bestWorstDay, bestHours]);
+
+  const periodoLabel =
+    period === "today" ? "dia de hoje"
+    : period === "7d" ? "semana (últimos 7 dias)"
+    : period === "30d" ? "mês (últimos 30 dias)"
+    : "período selecionado";
+  const periodoShort =
+    period === "today" ? "dia" : period === "7d" ? "semana" : period === "30d" ? "mês" : "período";
+
+  // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
+  useEffect(() => {
+    setAiReport(null);
+    setAiReportError(false);
+  }, [range.start.getTime(), range.end.getTime()]);
+
+  async function generateReportAnalysis() {
+    setAiReportLoading(true);
+    setAiReportError(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: {
+          type: "report_analysis",
+          periodo: periodoLabel,
+          rangeLabel: `${fmtBR(range.start)} a ${fmtBR(range.end)}`,
+          faturamento: summary.faturamento,
+          lucro: summary.lucro,
+          ticketMedio: summary.ticketMedio,
+          conversao: Number(summary.conversao.toFixed(1)),
+          totalAbordagens: summary.totalAbordagens,
+          totalVendas: summary.totalVendas,
+          abordagensPorVenda: Number(summary.abordagensPorVenda.toFixed(1)),
+          mediaDiaria: summary.mediaDiaria,
+          custoMercadoria: summary.custoMercadoria,
+          custoOperacao: summary.custoOperacao,
+          custosOperacionais: summary.custosOperacionais,
+          calotes: summary.calotes,
+          caloteUnidades: summary.caloteUnidades,
+          comparePct: comparePrev.valid ? Number(comparePrev.pct.toFixed(0)) : 0,
+          gastos: expensesByCategory.map((c) => ({ category: c.category, total: c.total, count: c.count })),
+          melhoresHorarios: bestHours.slice(0, 3).map((h) => ({ label: h.label, avg: h.avg })),
+        },
+      });
+      if (error) throw error;
+      if ((data as { error?: string } | null)?.error) throw new Error((data as { error?: string }).error);
+      setAiReport(data as typeof aiReport);
+    } catch {
+      setAiReportError(true);
+    } finally {
+      setAiReportLoading(false);
+    }
+  }
 
   if (authLoading || !user) return null;
 
@@ -735,25 +797,106 @@ export default function Insights() {
             )}
           </div>
 
-          {/* 7. Insights da IA */}
-          <SectionTitle>Insights da IA</SectionTitle>
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2.5">
-            <div className="flex items-center gap-2 mb-1">
+          {/* 7. Análise da IA (Gemini) */}
+          <SectionTitle>Análise da IA</SectionTitle>
+          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4 space-y-3">
+            <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-primary" />
               <p className="text-xs font-semibold text-primary uppercase tracking-wider">
-                Análise inteligente
+                Mentor Orbis · IA
               </p>
             </div>
-            {aiInsights.map((tip, i) => (
-              <p key={i} className="text-sm text-foreground/90 leading-relaxed">
-                • {tip}
-              </p>
-            ))}
+
+            {aiReport ? (
+              <div className="space-y-3">
+                {aiReport.diagnostico && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
+                      Como está seu {periodoShort}
+                    </p>
+                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.diagnostico}</p>
+                  </div>
+                )}
+                {aiReport.gastos && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary/80 mb-1">
+                      Pra onde vai o dinheiro
+                    </p>
+                    <p className="text-sm text-foreground/90 leading-relaxed">{aiReport.gastos}</p>
+                  </div>
+                )}
+                {Array.isArray(aiReport.melhorias) && aiReport.melhorias.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-success mb-1">Pra melhorar</p>
+                    <ul className="space-y-1.5">
+                      {aiReport.melhorias.map((m, i) => (
+                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
+                          <span className="text-success font-bold shrink-0">↑</span>
+                          <span>{m}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {Array.isArray(aiReport.falhas) && aiReport.falhas.length > 0 && (
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-destructive mb-1">Pontos de falha</p>
+                    <ul className="space-y-1.5">
+                      {aiReport.falhas.map((f, i) => (
+                        <li key={i} className="text-sm text-foreground/90 leading-relaxed flex gap-2">
+                          <span className="text-destructive font-bold shrink-0">!</span>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {aiReport.foco && (
+                  <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2.5">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-primary mb-0.5">Foco agora</p>
+                    <p className="text-sm text-foreground font-medium leading-relaxed">{aiReport.foco}</p>
+                  </div>
+                )}
+                <button
+                  onClick={generateReportAnalysis}
+                  disabled={aiReportLoading}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
+                >
+                  {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  Deixa a IA analisar seu {periodoShort}: como tá indo, pra onde vai o dinheiro, o que melhorar e onde tá furando.
+                </p>
+                {aiInsights.length > 0 && (
+                  <div className="space-y-1">
+                    {aiInsights.slice(0, 2).map((tip, i) => (
+                      <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  onClick={generateReportAnalysis}
+                  disabled={aiReportLoading}
+                  className="w-full gap-2 bg-gradient-primary hover:opacity-90"
+                >
+                  {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
+                </Button>
+              </>
+            )}
+
+            {aiReportError && (
+              <p className="text-xs text-destructive">Não consegui analisar agora. Tenta de novo daqui a pouco.</p>
+            )}
+
             <Button
               data-tour="conversar-ia"
               variant="ghost"
               size="sm"
-              className="mt-2 text-primary hover:text-primary"
+              className="text-primary hover:text-primary px-0"
               onClick={() => navigate("/chat")}
             >
               Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
