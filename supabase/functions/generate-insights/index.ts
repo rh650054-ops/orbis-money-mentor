@@ -37,6 +37,16 @@ async function callGemini(systemPrompt: string, userPrompt: string): Promise<str
   return content;
 }
 
+// Persona do mentor Orbis para as dicas rápidas do DEFCON (dica do dia / dica da hora).
+// Mesma alma do chat: específico, nunca genérico, linguagem de rua.
+const ORBIS_COACH = `Você é o mentor de vendas do Orbis, o app de vendedor de rua/ambulante no Brasil.
+Fala como parça de corre: direto, linguagem da rua, firme e motivador, mas realista — sem papo corporativo.
+REGRAS:
+- SEMPRE específico, NUNCA genérico: use os números que te passarem.
+- Dicas que dá pra aplicar JÁ: abordagem, oferta de kit/combo, fechamento, Pix na hora.
+- Curto e seco. Sem markdown, sem asteriscos, sem títulos, sem emoji em excesso.
+- Português do Brasil, tom de quem tá junto no corre.`;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,13 +67,32 @@ serve(async (req) => {
 
     const body = await req.json();
 
-    // Dica rápida para relatório do dia Defcon
+    // Dica do dia — fim do DEFCON (botão "Gerar dica do dia com IA")
     if (body?.type === "defcon_day_report") {
-      const prompt = `O vendedor fez ${body.approaches} abordagens e ${body.sales} vendas hoje, taxa de ${body.conversionRate}%. Dê 2 dicas curtas e práticas para melhorar amanhã. Máximo 3 linhas.`;
-      const tip = await callGemini(
-        "Você é um coach de vendas ambulantes. Seja direto e prático.",
-        prompt
-      );
+      const conv = body.conversionRate ?? "0";
+      const goalLine = body.goal
+        ? `\n- Meta do dia: R$ ${Number(body.goal).toFixed(0)} | Vendido: R$ ${Number(body.sold ?? 0).toFixed(0)}`
+        : "";
+      const prompt = `Acabou o dia de corre do vendedor:
+- Abordagens: ${body.approaches}
+- Vendas: ${body.sales}
+- Conversão: ${conv}%${goalLine}
+Dê no máximo 2 dicas curtas e práticas, baseadas NESSES números, pra ele vender mais AMANHÃ. Máximo 3 linhas no total.`;
+      const tip = await callGemini(ORBIS_COACH, prompt);
+      return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Dica da hora — fim de cada bloco do DEFCON (botão "Gerar dica da hora com IA")
+    if (body?.type === "defcon_block_report") {
+      const conv = body.conversionRate ?? "0";
+      const hora = Number(body.blockIndex ?? 0) + 1;
+      const prompt = `Acabou a ${hora}ª hora do corre do vendedor:
+- Abordagens nessa hora: ${body.approaches}
+- Vendas nessa hora: ${body.sales}
+- Conversão: ${conv}%
+- Vendido na hora: R$ ${Number(body.soldAmount ?? 0).toFixed(0)}
+Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓXIMA hora. Máximo 2 linhas. Sem rodeio.`;
+      const tip = await callGemini(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
