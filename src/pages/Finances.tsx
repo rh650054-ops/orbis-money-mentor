@@ -33,7 +33,8 @@ import {
   FileText,
   Download,
   PartyPopper,
-  Loader2
+  Loader2,
+  CreditCard
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -49,6 +50,8 @@ interface PlannedBill {
   recurring: boolean;
   payment_code: string | null;
   file_path: string | null;
+  is_credit_card?: boolean;
+  installments?: number | null;
 }
 
 interface Goal {
@@ -108,6 +111,9 @@ export default function Finances() {
     due_date: "",
     recurring: false,
     payment_code: "",
+    isCreditCard: false,
+    cardMode: "total" as "total" | "parcela",
+    installments: "",
   });
 
   // Form states for new goal
@@ -160,7 +166,7 @@ export default function Finances() {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
       const { data: billsData, error: billsError } = await supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path")
+        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments")
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
@@ -280,19 +286,32 @@ export default function Finances() {
       return;
     }
 
+    const parcelas = parseInt(newBill.installments) || 0;
+    if (newBill.isCreditCard && newBill.cardMode === "total" && parcelas < 1) {
+      toast({ title: "Informe as parcelas", description: "No cartão por total, diga em quantas vezes dividiu.", variant: "destructive" });
+      return;
+    }
+    // Valor MENSAL no planejamento: cartão por total → divide pelas parcelas;
+    // por parcela → é o próprio valor. Cartão é sempre recorrente.
+    const monthly = newBill.isCreditCard && newBill.cardMode === "total"
+      ? parseFloat(newBill.amount) / parcelas
+      : parseFloat(newBill.amount);
+
     try {
       const { error } = await supabase
         .from("planned_bills")
         .insert({
           user_id: user.id,
           name: newBill.name,
-          amount: parseFloat(newBill.amount),
+          amount: monthly,
           due_date: newBill.due_date || null,
           saved_amount: 0,
           paid: false,
-          recurring: newBill.recurring,
+          recurring: newBill.isCreditCard ? true : newBill.recurring,
           payment_code: newBill.payment_code.trim() || null,
           file_path: null,
+          is_credit_card: newBill.isCreditCard,
+          installments: newBill.isCreditCard && parcelas > 0 ? parcelas : null,
         });
 
       if (error) throw error;
@@ -302,7 +321,7 @@ export default function Finances() {
         description: `${newBill.name} entrou no seu planejamento`,
       });
 
-      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "" });
+      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "" });
       setIsAddBillOpen(false);
       loadFinancialData();
     } catch (error) {
@@ -936,50 +955,120 @@ export default function Finances() {
                   <DialogTitle>Nova conta a pagar</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
+                  {/* Tipo: conta normal ou cartão de crédito */}
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                    <button
+                      type="button"
+                      onClick={() => setNewBill({ ...newBill, isCreditCard: false })}
+                      className={`py-2 rounded-lg text-sm font-semibold transition-colors ${!newBill.isCreditCard ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                    >
+                      Conta normal
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewBill({ ...newBill, isCreditCard: true })}
+                      className={`py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${newBill.isCreditCard ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                    >
+                      <CreditCard className="w-4 h-4" /> Cartão
+                    </button>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Nome da conta</Label>
                     <Input
                       value={newBill.name}
                       onChange={(e) => setNewBill({ ...newBill, name: e.target.value })}
-                      placeholder="Ex: Aluguel, Luz, Internet..."
+                      placeholder={newBill.isCreditCard ? "Ex: Nubank, Itaú..." : "Ex: Aluguel, Luz, Internet..."}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Valor (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newBill.amount}
-                      onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
-                      placeholder="0,00"
-                    />
+
+                  {/* Cartão: digitar o total ou a parcela */}
+                  {newBill.isCreditCard && (
+                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                      <button
+                        type="button"
+                        onClick={() => setNewBill({ ...newBill, cardMode: "total" })}
+                        className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${newBill.cardMode === "total" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                      >
+                        Total da compra
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewBill({ ...newBill, cardMode: "parcela" })}
+                        className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${newBill.cardMode === "parcela" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                      >
+                        Valor da parcela
+                      </button>
+                    </div>
+                  )}
+
+                  <div className={newBill.isCreditCard ? "flex gap-3" : "space-y-2"}>
+                    <div className="space-y-2 flex-1 min-w-0">
+                      <Label>{newBill.isCreditCard ? (newBill.cardMode === "total" ? "Total (R$)" : "Parcela (R$)") : "Valor (R$)"}</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newBill.amount}
+                        onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    {newBill.isCreditCard && (
+                      <div className="space-y-2 w-24 shrink-0">
+                        <Label>Parcelas</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={newBill.installments}
+                          onChange={(e) => setNewBill({ ...newBill, installments: e.target.value })}
+                          placeholder="6"
+                        />
+                      </div>
+                    )}
                   </div>
+
+                  {/* Prévia do cartão */}
+                  {newBill.isCreditCard && parseFloat(newBill.amount) > 0 && (() => {
+                    const parc = parseInt(newBill.installments) || 0;
+                    const monthly = newBill.cardMode === "total" && parc > 0 ? parseFloat(newBill.amount) / parc : parseFloat(newBill.amount);
+                    return (
+                      <div className="rounded-lg bg-violet-500/10 border border-violet-500/30 px-3 py-2 text-xs text-foreground leading-relaxed">
+                        <span className="font-semibold text-violet-400">{parc > 0 ? `${parc}x de ` : ""}{formatCurrency(monthly)}</span> por mês{newBill.cardMode === "total" && parc > 0 ? ` (total ${formatCurrency(parseFloat(newBill.amount))})` : ""}. É recorrente — entra todo mês no planejamento.
+                      </div>
+                    );
+                  })()}
+
                   <div className="space-y-2">
-                    <Label>Data de vencimento</Label>
+                    <Label>{newBill.isCreditCard ? "Dia do vencimento" : "Data de vencimento"}</Label>
                     <Input
                       type="date"
                       value={newBill.due_date}
                       onChange={(e) => setNewBill({ ...newBill, due_date: e.target.value })}
                     />
                   </div>
-                  <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-                    <div className="min-w-0 pr-3">
-                      <Label htmlFor="new-bill-recurring" className="cursor-pointer">Conta recorrente (todo mês)</Label>
-                      <p className="text-xs text-muted-foreground mt-0.5">Repete todo mês no mesmo dia de vencimento.</p>
+
+                  {/* Recorrente: só conta normal (cartão já é sempre recorrente) */}
+                  {!newBill.isCreditCard && (
+                    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+                      <div className="min-w-0 pr-3">
+                        <Label htmlFor="new-bill-recurring" className="cursor-pointer">Conta recorrente (todo mês)</Label>
+                        <p className="text-xs text-muted-foreground mt-0.5">Repete todo mês no mesmo dia de vencimento.</p>
+                      </div>
+                      <Switch
+                        id="new-bill-recurring"
+                        checked={newBill.recurring}
+                        onCheckedChange={(checked) => setNewBill({ ...newBill, recurring: checked })}
+                      />
                     </div>
-                    <Switch
-                      id="new-bill-recurring"
-                      checked={newBill.recurring}
-                      onCheckedChange={(checked) => setNewBill({ ...newBill, recurring: checked })}
-                    />
-                  </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label>Código pra pagar (boleto ou Pix) — opcional</Label>
                     <Textarea
                       value={newBill.payment_code}
                       onChange={(e) => setNewBill({ ...newBill, payment_code: e.target.value })}
                       placeholder="Cole aqui a linha digitável do boleto ou a chave Pix"
-                      rows={3}
+                      rows={2}
                     />
                   </div>
                   <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
@@ -1056,7 +1145,12 @@ export default function Finances() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-semibold">{bill.name}</p>
-                            {isRecurring && (
+                            {bill.is_credit_card ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/30 px-2 py-0.5 text-[11px] font-medium text-violet-400">
+                                <CreditCard className="w-3 h-3" />
+                                Cartão{bill.installments ? ` · ${bill.installments}x` : ""}
+                              </span>
+                            ) : isRecurring && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-medium text-primary">
                                 <RotateCw className="w-3 h-3" />
                                 Recorrente
