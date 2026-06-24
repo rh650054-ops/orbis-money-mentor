@@ -118,20 +118,20 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
 
   if (template === "empilhada") {
     // ===== Vertical, tudo empilhado (igual à 2ª referência) — PADRÃO =====
-    // Gaps menores entre os dados (grupo mais junto e centralizado)
+    // Rótulos menores nos sub-dados, "HORAS" curto e logo mais embaixo
     label("FATURAMENTO", W / 2, 340, 46, GOLD);
     value(fat, W / 2, 472, 165);
 
-    label("VENDAS", W / 2, 620, 42, MUTED);
+    label("VENDAS", W / 2, 620, 36, MUTED);
     value(vendas, W / 2, 740, 142);
 
-    label("CONVERSÃO", W / 2, 885, 42, MUTED);
+    label("CONVERSÃO", W / 2, 885, 36, MUTED);
     value(conv, W / 2, 1005, 142);
 
-    label("HORAS TRABALHADAS", W / 2, 1150, 40, MUTED);
+    label("HORAS", W / 2, 1150, 36, MUTED);
     value(horas, W / 2, 1270, 142);
 
-    drawLogo(W / 2, 1455, 200);
+    drawLogo(W / 2, 1565, 195);
   } else if (template === "destaque") {
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
