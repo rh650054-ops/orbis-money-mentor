@@ -49,7 +49,7 @@ export function useTrialStatus(userId: string | undefined) {
       // Get current profile data
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('trial_end, is_trial_active, plan_status, is_demo, billing_exempt')
+        .select('trial_end, is_trial_active, plan_status, is_demo, billing_exempt, created_at')
         .eq('user_id', userId)
         .maybeSingle();
 
@@ -80,11 +80,25 @@ export function useTrialStatus(userId: string | undefined) {
       const trialEndDate = profile.trial_end
         ? new Date(profile.trial_end + "T23:59:59-03:00")
         : null;
-      const daysRemaining = trialEndDate
-        ? Math.ceil((trialEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+
+      // Fim de teste EFETIVO: se o trial_end ficou nulo (ex.: cadastro por e-mail em que
+      // o trigger de proteção reverteu a gravação), cai pra data de criação + 3 dias.
+      // Assim ninguém ganha "teste infinito" só por estar sem trial_end no banco.
+      const createdAt = (profile as any).created_at ? new Date((profile as any).created_at) : null;
+      const effectiveTrialEnd = trialEndDate
+        ?? (createdAt ? new Date(createdAt.getTime() + 3 * 24 * 60 * 60 * 1000) : null);
+
+      const daysRemaining = effectiveTrialEnd
+        ? Math.ceil((effectiveTrialEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0;
 
-      const isExpired = profile.plan_status === 'expired';
+      // Bloqueio robusto: NÃO depende só do flag plan_status==='expired' (que pode nunca
+      // ter sido setado se o trial_end ficou nulo). Considera o acesso REAL — conta demo,
+      // plano ativo, ou teste ainda dentro da data. Qualquer outro caso = expirado.
+      const isDemoAccess = !!(profile.is_demo && profile.billing_exempt);
+      const hasActivePlan = profile.plan_status === 'active';
+      const trialStillValid = effectiveTrialEnd ? Date.now() <= effectiveTrialEnd.getTime() : false;
+      const isExpired = !isDemoAccess && !hasActivePlan && (profile.plan_status === 'expired' || !trialStillValid);
 
       setTrialStatus({
         ...toTrialStatusFields(profile),
