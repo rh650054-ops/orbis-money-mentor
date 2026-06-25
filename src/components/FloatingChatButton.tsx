@@ -11,6 +11,10 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+// Voz do modo VOZ: aparelho (instantânea) por padrão.
+// Troque pra false se quiser voltar pra voz do Gemini (mais bonita, porém ~30s pra gerar).
+const USE_INSTANT_VOICE = true;
+
 export default function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -25,7 +29,14 @@ export default function FloatingChatButton() {
   const [speaking, setSpeaking] = useState(false);
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
+  const voiceEngineRef = useRef<"gemini" | "browser" | null>(null); // trava o motor da voz por sessão (sem flip-flop)
+  const isRecordingRef = useRef(false); // espelho de isRecording pra checar dentro de callbacks
+  const speakingRef = useRef(false);    // espelho de speaking (a IA está falando agora)
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingTextRef = useRef("");    // transcrição atual da fala do usuário
   const stopSpeaking = () => {
+    ttsTokenRef.current++; // invalida qualquer TTS em andamento (foca na fala nova)
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
     try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
     setSpeaking(false);
@@ -48,13 +59,22 @@ export default function FloatingChatButton() {
       recognitionRef.current?.stop();
       return;
     }
-    stopSpeaking(); // para a fala atual quando o usuario vai gravar de novo
+    stopSpeaking(); // corta a fala da IA quando o usuario vai falar de novo
+    // garante que nenhum reconhecimento anterior ficou preso (causa de não gravar na 2a vez)
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    recognitionRef.current = null;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.lang = "pt-BR";
     rec.continuous = true;
     rec.interimResults = true;
-    baseInputRef.current = input ? input.trim() + " " : "";
+    // No modo voz, cada fala recomeça do zero (foca na mensagem nova, não junta com a anterior).
+    if (voiceMode) {
+      baseInputRef.current = "";
+      setInput("");
+    } else {
+      baseInputRef.current = input ? input.trim() + " " : "";
+    }
     rec.onresult = (e: any) => {
       let transcript = "";
       for (let i = 0; i < e.results.length; i++) {
@@ -62,20 +82,25 @@ export default function FloatingChatButton() {
       }
       setInput(baseInputRef.current + transcript);
     };
+    rec.onstart = () => { setIsRecording(true); isRecordingRef.current = true; }; // só marca quando começou DE VERDADE
     rec.onend = () => {
       setIsRecording(false);
+      isRecordingRef.current = false;
       recognitionRef.current = null;
     };
     rec.onerror = () => {
       setIsRecording(false);
+      isRecordingRef.current = false;
       recognitionRef.current = null;
     };
     recognitionRef.current = rec;
-    setIsRecording(true);
     try {
       rec.start();
     } catch {
-      /* já em gravação */
+      // não conseguiu iniciar (estado preso): zera tudo pra o usuario tocar de novo e funcionar
+      setIsRecording(false);
+      isRecordingRef.current = false;
+      recognitionRef.current = null;
     }
   };
 
@@ -110,6 +135,7 @@ export default function FloatingChatButton() {
   // Para a gravação de voz ao fechar o chat
   useEffect(() => {
     if (!isOpen) {
+      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
       recognitionRef.current?.stop();
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
       setVoiceMode(false);
@@ -158,23 +184,99 @@ export default function FloatingChatButton() {
   // Voz do Gemini (servidor) — melhor e funciona no celular. Cai pra voz do navegador se falhar.
   const speak = async (text: string) => {
     if (!text) return;
+    stopSpeaking();                       // corta a fala anterior — foca na nova
+    const myToken = ++ttsTokenRef.current; // token desta fala
     setSpeaking(true);
-    try {
-      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
-      const b64 = (data as any)?.audio;
-      if (b64 && audioRef.current) {
-        const a = audioRef.current;
-        a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
-        a.onended = () => setSpeaking(false);
-        a.onerror = () => { setSpeaking(false); speakBrowser(text); };
-        await a.play();
-        return;
-      }
-    } catch (e) {
-      console.warn("TTS Gemini falhou, usando voz do navegador", e);
+
+    // Se nesta sessão a voz do Gemini já se mostrou indisponível, mantém a voz do
+    // navegador (consistência — não fica alternando robô/voz-boa no meio da conversa).
+    if (voiceEngineRef.current === "browser") {
+      setSpeaking(false);
+      speakBrowser(text);
+      return;
     }
+
+    // Tenta a voz do Gemini até 2x.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+        if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
+        const b64 = (data as any)?.audio;
+        if (b64 && audioRef.current) {
+          voiceEngineRef.current = "gemini"; // funcionou: trava na voz boa nesta sessão
+          const a = audioRef.current;
+          a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
+          a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
+          a.onerror = () => { if (myToken === ttsTokenRef.current) { setSpeaking(false); speakBrowser(text); } };
+          await a.play();
+          return;
+        }
+      } catch (e) {
+        if (myToken !== ttsTokenRef.current) return; // cancelada por uma fala nova
+        console.warn("TTS Gemini falhou (tentativa " + (attempt + 1) + ")", e);
+      }
+      if (myToken !== ttsTokenRef.current) return;
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 600)); // respira e tenta de novo
+    }
+
+    // Gemini falhou 2x. Se NUNCA funcionou nesta sessão, trava no navegador (consistência).
+    if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
+    if (myToken !== ttsTokenRef.current) return;
     setSpeaking(false);
     speakBrowser(text);
+  };
+
+  // ===== VOZ POR TOQUE (1 toque por mensagem — funciona no iPhone) =====
+  // Toca o microfone, fala; quando você pausa (~1,5s) ele manda sozinho. A IA responde
+  // por voz. Pra próxima pergunta, toca de novo (o iPhone exige um toque a cada vez).
+  const sendPending = () => {
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    const text = pendingTextRef.current.trim();
+    pendingTextRef.current = "";
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    if (text) { setInput(""); sendMessage(text); }
+  };
+
+  const stopVoice = () => {
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    stopSpeaking();
+  };
+
+  const startTalk = () => {
+    if (!speechSupported) return;
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    stopSpeaking(); // corta a fala da IA (se estiver falando) e passa a te ouvir
+    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    recognitionRef.current = null;
+    // desbloqueia o áudio DENTRO do toque (necessário no iPhone pra IA conseguir falar depois)
+    try {
+      window.speechSynthesis?.resume();
+      const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
+    } catch { /* noop */ }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const rec = new SR();
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    setInput("");
+    pendingTextRef.current = "";
+    rec.onresult = (e: any) => {
+      let full = "";
+      for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
+      pendingTextRef.current = full;
+      setInput(full.trim());
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      if (full.trim()) silenceTimerRef.current = setTimeout(sendPending, 1500); // pausou ~1,5s: manda
+    };
+    rec.onstart = () => { setIsRecording(true); isRecordingRef.current = true; };
+    rec.onend = () => { setIsRecording(false); isRecordingRef.current = false; recognitionRef.current = null; };
+    rec.onerror = () => {
+      setIsRecording(false); isRecordingRef.current = false; recognitionRef.current = null;
+      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    };
+    recognitionRef.current = rec;
+    try { rec.start(); } catch { /* noop */ }
   };
 
   const speakBrowser = (text: string) => {
@@ -190,9 +292,9 @@ export default function FloatingChatButton() {
       const maleHint = /(daniel|male|masc|homem|felipe|ricardo|jo[a\u00e3]o|ant[o\u00f4]nio|carlos|paulo|thiago|lucas)/i;
       const pt = ptVoices.find((v) => maleHint.test(v.name)) || ptVoices[0];
       if (pt) u.voice = pt;
-      u.onstart = () => setSpeaking(true);
-      u.onend = () => setSpeaking(false);
-      u.onerror = () => setSpeaking(false);
+      u.onstart = () => { setSpeaking(true); speakingRef.current = true; };
+      u.onend = () => { setSpeaking(false); speakingRef.current = false; };
+      u.onerror = () => { setSpeaking(false); speakingRef.current = false; };
       try { synth.resume(); } catch { /* noop */ }
       synth.speak(u);
     };
@@ -203,9 +305,11 @@ export default function FloatingChatButton() {
     }
   };
   const enterVoiceMode = () => {
+    voiceEngineRef.current = null; // recomeça avaliando a voz do Gemini a cada sessão de voz
     setVoiceMode(true);
   };
   const exitVoiceMode = () => {
+    stopVoice();
     recognitionRef.current?.stop();
     if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
     stopSpeaking();
@@ -238,10 +342,14 @@ export default function FloatingChatButton() {
   // Fala a resposta da IA quando chega (só no modo voz)
   useEffect(() => {
     if (!voiceMode) return;
+    if (isRecordingRef.current) return; // usuário está falando: não fala por cima (interrompeu)
     const last = messages[messages.length - 1];
     if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
       lastSpokenRef.current = last.id;
-      speak(last.content);
+      // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
+      if (last.content.startsWith("Desculpe, tive um problema")) return;
+      if (USE_INSTANT_VOICE) speakBrowser(last.content); // voz do aparelho — instantânea
+      else speak(last.content);                          // voz do Gemini — bonita, porém ~30s
     }
   }, [messages, voiceMode]);
 
@@ -283,7 +391,7 @@ export default function FloatingChatButton() {
     <>
       {/* Floating Button */}
       <Button
-        onClick={() => { setIsOpen(true); setVoiceMode(true); }}
+        onClick={() => { voiceEngineRef.current = null; setIsOpen(true); setVoiceMode(true); }}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
@@ -454,21 +562,20 @@ export default function FloatingChatButton() {
                 <div className="space-y-2">
                   <p className="text-[11px] tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
                   <p className="text-base text-foreground/80 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
-                    {input || (isSending ? "..." : "Fala sobre o teu corre, parça")}
+                    {input || (isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
                   </p>
                 </div>
                 <button
-                  onClick={isRecording ? voiceSend : voiceListen}
-                  disabled={isSending}
+                  onClick={isRecording ? sendPending : startTalk}
                   className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center transition-all disabled:opacity-50",
+                    "w-16 h-16 rounded-full flex items-center justify-center transition-all",
                     isRecording
                       ? "bg-red-500/15 border border-red-500/40 text-red-400"
                       : "bg-primary/15 border border-primary/40 text-primary"
                   )}
                   aria-label={isRecording ? "Enviar" : "Falar"}
                 >
-                  {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : isRecording ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
+                  {isRecording ? <Square className="w-6 h-6" /> : <Mic className="w-7 h-7" />}
                 </button>
               </div>
 

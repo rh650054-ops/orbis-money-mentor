@@ -6,33 +6,100 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-async function callAnthropic(apiKey: string, systemPrompt: string, userPrompt: string): Promise<string> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
+// Chama o Gemini (mesma chave gratis do chat). Recebe system + user prompt e devolve texto.
+async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = false): Promise<string> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) throw new Error("GEMINI_API_KEY não está configurada no backend.");
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const payload = JSON.stringify({
+    systemInstruction: { parts: [{ text: systemPrompt }] },
+    contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+    generationConfig: {
+      temperature: 0.7,
+      maxOutputTokens: jsonMode ? 2048 : 1024,
+      ...(jsonMode ? { responseMimeType: "application/json" } : {}),
     },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    }),
   });
 
-  if (!res.ok) {
+  // Até 3 tentativas: o plano grátis do Gemini estoura o limite por minuto (429) fácil.
+  // Em 429/503/500, espera um pouco e tenta de novo antes de desistir.
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(jsonMode ? 30000 : 20000),
+      body: payload,
+    });
+
+    if (res.ok) {
+      const json = await res.json();
+      const content = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!content) throw new Error("Resposta inválida da IA.");
+      return content;
+    }
+
+    lastStatus = res.status;
     const err = await res.text();
-    if (res.status === 429) throw new Error("Limite de requisições atingido. Tente novamente em instantes.");
+    if ((res.status === 429 || res.status === 503 || res.status === 500) && attempt < 2) {
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1))); // 1.5s, depois 3s
+      continue;
+    }
+    if (res.status === 429) throw new Error("Limite do Gemini (plano grátis) atingido. Espere ~1 min e tente de novo.");
     throw new Error(`Erro na IA (${res.status}): ${err.substring(0, 200)}`);
   }
+  throw new Error(`Limite do Gemini (plano grátis) atingido (${lastStatus}). Espere ~1 min e tente de novo.`);
+}
 
-  const json = await res.json();
-  const content = json.content?.[0]?.text;
-  if (!content) throw new Error("Resposta inválida da IA.");
+// ---- Cerebras (texto, grátis 1M tokens/dia). Tenta primeiro; cai no Gemini se faltar chave/erro. ----
+async function callCerebras(systemPrompt: string, userPrompt: string): Promise<string> {
+  const key = Deno.env.get("CEREBRAS_API_KEY");
+  if (!key) throw new Error("sem_cerebras_key");
+  const model = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
+  const res = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "content-type": "application/json", "authorization": `Bearer ${key}` },
+    signal: AbortSignal.timeout(20000),
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 2000,
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`cerebras_${res.status}: ${errBody.slice(0, 250)}`);
+  }
+  const j = await res.json();
+  const content = j?.choices?.[0]?.message?.content?.toString().trim();
+  if (!content) throw new Error("cerebras_vazio");
   return content;
 }
+
+// Texto: Cerebras primeiro (grátis, generoso), Gemini de reserva.
+async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  try {
+    return await callCerebras(systemPrompt, userPrompt);
+  } catch (e) {
+    console.error("CEREBRAS_FALHOU (caindo no Gemini):", String(e));
+    return await callGemini(systemPrompt, userPrompt);
+  }
+}
+
+// Persona do mentor Orbis para as dicas rápidas do DEFCON (dica do dia / dica da hora).
+// Mesma alma do chat: específico, nunca genérico, linguagem de rua.
+const ORBIS_COACH = `Você é o mentor de vendas do Orbis, o app de vendedor de rua/ambulante no Brasil.
+Fala como parça de corre: direto, linguagem da rua, firme e motivador, mas realista — sem papo corporativo.
+REGRAS:
+- SEMPRE específico, NUNCA genérico: use os números que te passarem.
+- Dicas que dá pra aplicar JÁ: abordagem, oferta de kit/combo, fechamento, Pix na hora.
+- Curto e seco. Sem markdown, sem asteriscos, sem títulos, sem emoji em excesso.
+- Português do Brasil, tom de quem tá junto no corre.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -52,20 +119,86 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) throw new Error("Unauthorized");
 
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY não está configurada no backend.");
-
     const body = await req.json();
 
-    // Dica rápida para relatório do dia Defcon
+    // Dica do dia — fim do DEFCON (botão "Gerar dica do dia com IA")
     if (body?.type === "defcon_day_report") {
-      const prompt = `O vendedor fez ${body.approaches} abordagens e ${body.sales} vendas hoje, taxa de ${body.conversionRate}%. Dê 2 dicas curtas e práticas para melhorar amanhã. Máximo 3 linhas.`;
-      const tip = await callAnthropic(
-        ANTHROPIC_API_KEY,
-        "Você é um coach de vendas ambulantes. Seja direto e prático.",
-        prompt
-      );
+      const conv = body.conversionRate ?? "0";
+      const goalLine = body.goal
+        ? `\n- Meta do dia: R$ ${Number(body.goal).toFixed(0)} | Vendido: R$ ${Number(body.sold ?? 0).toFixed(0)}`
+        : "";
+      const prompt = `Acabou o dia de corre do vendedor:
+- Abordagens: ${body.approaches}
+- Vendas: ${body.sales}
+- Conversão: ${conv}%${goalLine}
+Dê no máximo 2 dicas curtas e práticas, baseadas NESSES números, pra ele vender mais AMANHÃ. Máximo 3 linhas no total.`;
+      const tip = await callAI(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Dica da hora — fim de cada bloco do DEFCON (botão "Gerar dica da hora com IA")
+    if (body?.type === "defcon_block_report") {
+      const conv = body.conversionRate ?? "0";
+      const hora = Number(body.blockIndex ?? 0) + 1;
+      const prompt = `Acabou a ${hora}ª hora do corre do vendedor:
+- Abordagens nessa hora: ${body.approaches}
+- Vendas nessa hora: ${body.sales}
+- Conversão: ${conv}%
+- Vendido na hora: R$ ${Number(body.soldAmount ?? 0).toFixed(0)}
+Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓXIMA hora. Máximo 2 linhas. Sem rodeio.`;
+      const tip = await callAI(ORBIS_COACH, prompt);
+      return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Análise do Relatório — IA de verdade (gastos + dia/semana/mês + melhorias + falhas)
+    if (body?.type === "report_analysis") {
+      const periodo = (body.periodo ?? "período").toString();
+      const gastos = Array.isArray(body.gastos) ? body.gastos : [];
+      const gastosLinhas = gastos.length
+        ? gastos
+            .map((g: { category?: string; total?: number; count?: number }) =>
+              `  - ${g.category ?? "Outros"}: R$ ${Number(g.total ?? 0).toFixed(0)} (${g.count ?? 0} ${Number(g.count) === 1 ? "item" : "itens"})`)
+            .join("\n")
+        : "  - (sem gastos pessoais registrados no período)";
+      const horas = Array.isArray(body.melhoresHorarios) ? body.melhoresHorarios : [];
+      const horasLinha = horas.length
+        ? horas.map((h: { label?: string; avg?: number }) => `${h.label ?? "?"} (R$ ${Number(h.avg ?? 0).toFixed(0)})`).join(", ")
+        : "sem dados";
+
+      const userPrompt = `Período analisado: ${periodo} (${body.rangeLabel ?? ""}).
+NÚMEROS:
+- Faturamento: R$ ${Number(body.faturamento ?? 0).toFixed(0)}
+- Lucro líquido: R$ ${Number(body.lucro ?? 0).toFixed(0)}
+- Vendas: ${body.totalVendas ?? 0} | Abordagens: ${body.totalAbordagens ?? 0} | Conversão: ${body.conversao ?? 0}%
+- Abordagens por venda: ${body.abordagensPorVenda ?? 0} | Ticket médio: R$ ${Number(body.ticketMedio ?? 0).toFixed(0)}
+- Média diária: R$ ${Number(body.mediaDiaria ?? 0).toFixed(0)} | Vs período anterior: ${body.comparePct ?? 0}%
+CUSTOS:
+- Mercadoria: R$ ${Number(body.custoMercadoria ?? 0).toFixed(0)} | Transporte+alimentação: R$ ${Number(body.custoOperacao ?? 0).toFixed(0)}
+- Calotes: R$ ${Number(body.calotes ?? 0).toFixed(0)} (${body.caloteUnidades ?? 0} kits não pagos)
+GASTOS PESSOAIS POR CATEGORIA (no que ele gasta o dinheiro):
+${gastosLinhas}
+Melhores horários: ${horasLinha}
+
+Escreve uma análise curta e direta pro vendedor, em português de rua, ESPECÍFICA (cite os números acima). Use EXATAMENTE estas 5 seções, cada uma com o título em CAIXA ALTA seguido de dois pontos:
+
+COMO TÁ SEU ${periodo.toUpperCase()}: 2-3 frases sobre faturamento, lucro e conversão.
+
+PRA ONDE VAI O DINHEIRO: com o que ele mais gasta e se algo tá pesando demais. Se não houver gastos registrados, manda ele registrar pra enxergar pra onde vai o dinheiro.
+
+PRA MELHORAR: 2 a 3 pontos práticos, um por linha começando com "- ".
+
+PONTOS DE FALHA: 1 a 3 pontos onde ele perde dinheiro, venda ou tempo, um por linha começando com "- ".
+
+FOCO AGORA: 1 frase direta.
+
+Não use asteriscos, markdown nem outros títulos além desses cinco.`;
+
+      // Texto puro (mesmo método da dica do dia). Cerebras primeiro, Gemini de reserva.
+      const analise = await callAI(
+        ORBIS_COACH + "\nVocê está analisando o relatório do vendedor. Texto puro, direto, sem markdown.",
+        userPrompt,
+      );
+      return new Response(JSON.stringify({ analise }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Buscar dados dos últimos 7 dias
@@ -114,7 +247,7 @@ Retorne SOMENTE este JSON preenchido:
   "improvement": "sugestão acionável em 2-3 frases"
 }`;
 
-    const aiText = await callAnthropic(ANTHROPIC_API_KEY, systemPrompt, userPrompt);
+    const aiText = await callGemini(systemPrompt, userPrompt);
 
     let parsedReport;
     try {

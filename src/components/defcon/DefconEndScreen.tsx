@@ -58,6 +58,9 @@ export function DefconEndScreen({
   const [previews, setPreviews] = useState<Record<number, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<1 | 2 | 3>(2);
   const [generatingPreviews, setGeneratingPreviews] = useState(false);
+  const [aiTip, setAiTip] = useState<string | null>(null);
+  const [aiTipLoading, setAiTipLoading] = useState(false);
+  const [aiTipError, setAiTipError] = useState(false);
 
   // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF + gorjetas
   useEffect(() => {
@@ -241,6 +244,32 @@ export function DefconEndScreen({
     if (conversionRate >= 15) return "Bom ritmo. Mantenha a frequência de abordagens.";
     return "Conversão baixa. Aborde com mais confiança e firmeza.";
   }, [conversionRate, totalApproaches]);
+
+  // Dica do dia com IA (Gemini) — só roda quando o vendedor toca no botão.
+  const generateDayTip = async () => {
+    setAiTipLoading(true);
+    setAiTipError(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: {
+          type: "defcon_day_report",
+          approaches: totalApproaches,
+          sales: totalSalesCount,
+          conversionRate: conversionRate.toFixed(1),
+          sold: totalSold,
+          goal: dailyGoal,
+        },
+      });
+      if (error) throw error;
+      const tip = (data as { tip?: string } | null)?.tip;
+      if (!tip) throw new Error("sem dica");
+      setAiTip(tip);
+    } catch {
+      setAiTipError(true);
+    } finally {
+      setAiTipLoading(false);
+    }
+  };
 
   // ===== Imagens compartilháveis (3 modelos, estilo Strava) =====
   const loadLogo = (): Promise<HTMLImageElement | null> =>
@@ -695,12 +724,40 @@ export function DefconEndScreen({
           </div>
         )}
 
-        {/* 6. INSIGHT IA */}
-        {insight && (
+        {/* 6. INSIGHT rápido (instantâneo) — some quando a dica da IA chega */}
+        {insight && !aiTip && (
           <div className="rounded-xl bg-card border border-border px-3.5 py-3 flex items-start gap-2.5">
             <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
             <p className="text-xs text-foreground leading-relaxed">{insight}</p>
           </div>
+        )}
+
+        {/* 6.1 DICA DO DIA COM IA — botão (gera só quando o vendedor toca) */}
+        {(totalApproaches > 0 || totalSalesCount > 0) && (
+          aiTip ? (
+            <div className="rounded-xl bg-card border border-primary/40 px-3.5 py-3">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Sparkles className="w-4 h-4 text-primary shrink-0" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Dica do dia · IA</span>
+              </div>
+              <p className="text-sm text-foreground leading-relaxed whitespace-pre-line">{aiTip}</p>
+            </div>
+          ) : (
+            <button
+              onClick={generateDayTip}
+              disabled={aiTipLoading}
+              className="w-full h-11 rounded-xl bg-card border border-primary/40 text-primary font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+            >
+              {aiTipLoading ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando dica do dia...</>
+              ) : (
+                <><Sparkles className="w-3.5 h-3.5" /> Gerar dica do dia com IA</>
+              )}
+            </button>
+          )
+        )}
+        {aiTipError && (
+          <p className="text-[11px] text-destructive text-center">Não consegui gerar agora. Tenta de novo daqui a pouco.</p>
         )}
 
         {/* 6.5 PDF de clientes */}

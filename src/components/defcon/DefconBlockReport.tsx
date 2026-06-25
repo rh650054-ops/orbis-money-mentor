@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
-import { Instagram, Loader2 } from "lucide-react";
+import { Instagram, Loader2, Sparkles } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
@@ -22,7 +23,36 @@ export function DefconBlockReport({
   onContinue,
 }: DefconBlockReportProps) {
   const [sharing, setSharing] = useState(false);
+  const [aiTip, setAiTip] = useState<string | null>(null);
+  const [aiTipLoading, setAiTipLoading] = useState(false);
+  const [aiTipError, setAiTipError] = useState(false);
   const conversionRate = approaches > 0 ? (sales / approaches) * 100 : 0;
+
+  // Dica da hora com IA (Gemini) — roda só quando o vendedor toca no botão.
+  const generateBlockTip = async () => {
+    setAiTipLoading(true);
+    setAiTipError(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: {
+          type: "defcon_block_report",
+          blockIndex,
+          approaches,
+          sales,
+          conversionRate: conversionRate.toFixed(1),
+          soldAmount,
+        },
+      });
+      if (error) throw error;
+      const tip = (data as { tip?: string } | null)?.tip;
+      if (!tip) throw new Error("sem dica");
+      setAiTip(tip);
+    } catch {
+      setAiTipError(true);
+    } finally {
+      setAiTipLoading(false);
+    }
+  };
 
   const getMessage = () => {
     if (approaches === 0) return "Nenhuma abordagem registrada neste bloco.";
@@ -240,6 +270,34 @@ export function DefconBlockReport({
             horas: `${blockIndex + 1}h`,
           }}
         />
+      </div>
+
+      {/* Dica da hora com IA — gera só quando o vendedor toca */}
+      <div className="w-full max-w-sm mb-3">
+        {aiTip ? (
+          <div className="rounded-xl bg-card border border-primary/40 px-4 py-3">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Sparkles className="w-4 h-4 text-primary shrink-0" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Dica da hora · IA</span>
+            </div>
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line text-left">{aiTip}</p>
+          </div>
+        ) : (
+          <button
+            onClick={generateBlockTip}
+            disabled={aiTipLoading || approaches === 0}
+            className="w-full h-12 rounded-xl bg-card border border-primary/40 text-primary font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
+          >
+            {aiTipLoading ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Gerando dica da hora...</>
+            ) : (
+              <><Sparkles className="w-4 h-4" /> Gerar dica da hora com IA</>
+            )}
+          </button>
+        )}
+        {aiTipError && (
+          <p className="text-[11px] text-destructive text-center mt-2">Não consegui gerar agora. Tenta de novo.</p>
+        )}
       </div>
 
       <button

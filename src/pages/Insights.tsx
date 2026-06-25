@@ -107,6 +107,11 @@ export default function Insights() {
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
 
+  // Análise da IA (Gemini) — gerada sob demanda no botão
+  const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
+  const [aiReportLoading, setAiReportLoading] = useState(false);
+  const [aiReportError, setAiReportError] = useState<string | null>(null);
+
   // Computed range
   const range = useMemo(() => {
     const today = startOfDay(new Date());
@@ -372,6 +377,72 @@ export default function Insights() {
     return tips;
   }, [summary, isSingleDay, compareYesterday, comparePrev, bestWorstDay, bestHours]);
 
+  const periodoLabel =
+    period === "today" ? "dia de hoje"
+    : period === "7d" ? "semana (últimos 7 dias)"
+    : period === "30d" ? "mês (últimos 30 dias)"
+    : "período selecionado";
+  const periodoShort =
+    period === "today" ? "dia" : period === "7d" ? "semana" : period === "30d" ? "mês" : "período";
+
+  // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
+  useEffect(() => {
+    setAiReport(null);
+    setAiReportError(null);
+  }, [range.start.getTime(), range.end.getTime()]);
+
+  async function generateReportAnalysis() {
+    setAiReportLoading(true);
+    setAiReportError(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-insights", {
+        body: {
+          type: "report_analysis",
+          periodo: periodoLabel,
+          rangeLabel: `${fmtBR(range.start)} a ${fmtBR(range.end)}`,
+          faturamento: summary.faturamento,
+          lucro: summary.lucro,
+          ticketMedio: summary.ticketMedio,
+          conversao: Number(summary.conversao.toFixed(1)),
+          totalAbordagens: summary.totalAbordagens,
+          totalVendas: summary.totalVendas,
+          abordagensPorVenda: Number(summary.abordagensPorVenda.toFixed(1)),
+          mediaDiaria: summary.mediaDiaria,
+          custoMercadoria: summary.custoMercadoria,
+          custoOperacao: summary.custoOperacao,
+          custosOperacionais: summary.custosOperacionais,
+          calotes: summary.calotes,
+          caloteUnidades: summary.caloteUnidades,
+          comparePct: comparePrev.valid ? Number(comparePrev.pct.toFixed(0)) : 0,
+          gastos: expensesByCategory.map((c) => ({ category: c.category, total: c.total, count: c.count })),
+          melhoresHorarios: bestHours.slice(0, 3).map((h) => ({ label: h.label, avg: h.avg })),
+        },
+      });
+      if (error) {
+        // tenta ler a mensagem REAL que o backend devolveu (fica no corpo da resposta)
+        let msg = error.message || "Erro ao chamar a função.";
+        try {
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === "function") {
+            const j = await ctx.json();
+            if (j?.error) msg = String(j.error);
+          }
+        } catch { /* mantém msg */ }
+        throw new Error(msg);
+      }
+      const d = data as { analise?: string; error?: string } | null;
+      if (d?.error) throw new Error(d.error);
+      if (d && !d.analise) {
+        throw new Error("A função respondeu, mas sem a análise. Confirma que o código novo (com report_analysis) foi colado na função 'generate-insights' e que deu Deploy.");
+      }
+      setAiReport(d as typeof aiReport);
+    } catch (e) {
+      setAiReportError(e instanceof Error ? e.message : "Não consegui analisar agora.");
+    } finally {
+      setAiReportLoading(false);
+    }
+  }
+
   if (authLoading || !user) return null;
 
   const maxHourAvg = bestHours[0]?.avg || 1;
@@ -485,6 +556,68 @@ export default function Insights() {
               </div>
             </div>
           </section>
+
+          {/* Análise da IA (Gemini) — destaque no topo */}
+          <div className="rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5 space-y-3 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <p className="text-sm font-bold text-primary tracking-tight">
+                Análise da IA · Mentor Orbis
+              </p>
+            </div>
+
+            {aiReport ? (
+              <div className="space-y-3">
+                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
+                  {aiReport.analise}
+                </p>
+                <button
+                  onClick={generateReportAnalysis}
+                  disabled={aiReportLoading}
+                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
+                >
+                  {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-foreground/80 leading-relaxed">
+                  Deixa a IA analisar seu {periodoShort}: como tá indo, pra onde vai o dinheiro, o que melhorar e onde tá furando.
+                </p>
+                {aiInsights.length > 0 && (
+                  <div className="space-y-1">
+                    {aiInsights.slice(0, 2).map((tip, i) => (
+                      <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
+                    ))}
+                  </div>
+                )}
+                <Button
+                  onClick={generateReportAnalysis}
+                  disabled={aiReportLoading}
+                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-12 text-base"
+                >
+                  {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
+                </Button>
+              </>
+            )}
+
+            {aiReportError && (
+              <p className="text-xs text-destructive whitespace-pre-line">{aiReportError}</p>
+            )}
+
+            <Button
+              data-tour="conversar-ia"
+              variant="ghost"
+              size="sm"
+              className="text-primary hover:text-primary px-0"
+              onClick={() => navigate("/chat")}
+            >
+              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
 
           {/* KPIs principais - paleta dourada/branca */}
           <section className="grid grid-cols-2 gap-3">
@@ -735,30 +868,6 @@ export default function Insights() {
             )}
           </div>
 
-          {/* 7. Insights da IA */}
-          <SectionTitle>Insights da IA</SectionTitle>
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2.5">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <p className="text-xs font-semibold text-primary uppercase tracking-wider">
-                Análise inteligente
-              </p>
-            </div>
-            {aiInsights.map((tip, i) => (
-              <p key={i} className="text-sm text-foreground/90 leading-relaxed">
-                • {tip}
-              </p>
-            ))}
-            <Button
-              data-tour="conversar-ia"
-              variant="ghost"
-              size="sm"
-              className="mt-2 text-primary hover:text-primary"
-              onClick={() => navigate("/chat")}
-            >
-              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
         </>
       )}
     </div>

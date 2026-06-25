@@ -25,7 +25,12 @@ const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
 const COACH_DAILY_CAP = 5;            // teto de mensagens por dia (4-5, escolha do usuario)
 const COACH_COOLDOWN_APPROACHES = 4;  // intervalo minimo de abordagens entre mensagens (anti-spam)
-const COACH_AI_TIMEOUT_MS = 2500;     // se a IA demorar, usa o template na hora
+const COACH_AI_TIMEOUT_MS = 6000;     // tempo p/ a IA enriquecer (o template já apareceu na hora)
+
+// Escolhe um item aleatório — garante variedade mesmo quando a IA não reescreve.
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]!;
+}
 
 export function DefconSmartNotification({
   userId,
@@ -52,6 +57,7 @@ export function DefconSmartNotification({
   const liveApproachesRef = useRef(0);
   const lastMsgApproachesRef = useRef(-99);
   const aiAvailableRef = useRef(true);
+  const aiFailuresRef = useRef(0);       // só desliga a IA após erros REPETIDOS (não por 1 timeout)
   const coachShownRef = useRef(0);       // teto POR SESSAO de DEFCON (em memoria, nao trava no dia)
   const sessionFreshRef = useRef(false);
 
@@ -118,6 +124,7 @@ export function DefconSmartNotification({
         lastMsgApproachesRef.current = -99;
         coachShownRef.current = 0;
         aiAvailableRef.current = true;
+        aiFailuresRef.current = 0;
       }
     } else if (totalApproaches > 0 || totalSalesCount > 0) {
       sessionFreshRef.current = false;
@@ -138,11 +145,17 @@ export function DefconSmartNotification({
       });
       const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), COACH_AI_TIMEOUT_MS));
       const res: any = await Promise.race([invoke, timeout]);
-      if (res?.error) { aiAvailableRef.current = false; return templateMsg; }
+      if (res?.error) {
+        // Erro REAL da função (cota/chave): conta e só desliga após 3 seguidos
+        aiFailuresRef.current += 1;
+        if (aiFailuresRef.current >= 3) aiAvailableRef.current = false;
+        return templateMsg;
+      }
       const msg = res?.data?.message?.toString().trim();
+      aiFailuresRef.current = 0; // sucesso: zera o contador
       return msg && msg.length > 0 ? msg : templateMsg;
     } catch {
-      aiAvailableRef.current = false; // para de tentar nesta sessao pra nao atrasar as proximas
+      // Timeout/rede: NÃO desliga a IA — só não enriqueceu desta vez (o template já apareceu).
       return templateMsg;
     }
   }, [historicalAvg, hasRealHistory, realConvPct]);
@@ -215,9 +228,17 @@ export function DefconSmartNotification({
       if (prevSalesRef.current === 0 && totalSalesCount > 0 && !shownTriggersRef.current.has("first_sale")) {
         shownTriggersRef.current.add("first_sale");
         if (hasRealHistory && totalApproaches <= historicalAvg) {
-          showNotification("⚡", `Primeira venda em ${totalApproaches} abordagens!\nMais rápido que o seu normal. Bora manter esse ritmo. 🔥`);
+          showNotification("⚡", pick([
+            `Primeira venda em ${totalApproaches} abordagens!\nMais rápido que o teu normal. Mantém esse pique. 🔥`,
+            `Boom! Primeira em ${totalApproaches} abordagens.\nSaiu mais rápido que de costume. Emenda a próxima! ⚡`,
+            `${totalApproaches} abordagens e já fechou a primeira!\nAcima do teu ritmo. Bora surfar essa onda. 🔥`,
+          ]));
         } else {
-          showNotification("⚡", `Primeira venda em ${totalApproaches} abordagens!\nO jogo abriu — agora é emendar a próxima. 🔥`);
+          showNotification("⚡", pick([
+            `Primeira venda em ${totalApproaches} abordagens!\nO jogo abriu — agora é emendar a próxima. 🔥`,
+            `Fechou a primeira em ${totalApproaches} abordagens!\nQuebrou o gelo. A próxima vem mais fácil. 💪`,
+            `Primeira do dia em ${totalApproaches} abordagens!\nEngata a segunda sem dar pausa. ⚡`,
+          ]));
         }
       }
 
@@ -229,11 +250,23 @@ export function DefconSmartNotification({
         if (!shownTriggersRef.current.has(triggerKey)) {
           shownTriggersRef.current.add(triggerKey);
           if (hasRealHistory && convPct >= realConvPct) {
-            showNotification("🔥", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do seu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`);
+            showNotification("🔥", pick([
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do teu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`,
+              `${convPct}% de conversão (${totalSalesCount}/${totalApproaches}).\nMelhor que o teu padrão de ${realConvPct}%. Não muda nada, segue assim! 🔥`,
+              `${totalSalesCount} vendas, ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Dia de cobrar caro de si mesmo! 💪`,
+            ]));
           } else if (hasRealHistory) {
-            showNotification("🎯", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nSeu normal é ${realConvPct}%. Capricha na abordagem que você vira o jogo.`);
+            showNotification("🎯", pick([
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTeu normal é ${realConvPct}%. Capricha na abordagem que tu vira o jogo.`,
+              `${convPct}% de conversão até agora (${totalSalesCount}/${totalApproaches}).\nDá pra subir — teu padrão é ${realConvPct}%. Sorri mais e vai com firmeza.`,
+              `${totalSalesCount} vendas, ${convPct}%.\nTá abaixo do teu ${realConvPct}%. Respira, escolhe melhor a abordagem e ataca.`,
+            ]));
           } else {
-            showNotification("📈", `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o seu ritmo. Cada abordagem conta — segue firme!`);
+            showNotification("📈", pick([
+              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o teu ritmo. Cada abordagem conta — segue firme!`,
+              `Já são ${totalSalesCount} vendas (${convPct}%).\nTá construindo o teu padrão. Mantém a constância! 📈`,
+              `${totalSalesCount} vendas, ${convPct}% de conversão.\nDia tá tomando forma. Não afrouxa o ritmo! 💪`,
+            ]));
           }
         }
       }
@@ -245,9 +278,16 @@ export function DefconSmartNotification({
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
         if (hasRealHistory && convPct >= realConvPct) {
-          showNotification("📊", `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do seu normal (${realConvPct}%). Não para agora!`);
+          showNotification("📊", pick([
+            `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do teu normal (${realConvPct}%). Não para agora!`,
+            `Marco de ${totalApproaches} abordagens! ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Tá no modo elite. 🔥`,
+          ]));
         } else {
-          showNotification("📊", `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`);
+          showNotification("📊", pick([
+            `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`,
+            `${totalApproaches} abordagens já! ${totalSalesCount} vendas no bolso.\nConstância é tudo — segue empilhando. 📊`,
+            `Bateu ${totalApproaches} abordagens. ${convPct}% de conversão.\nNão afrouxa agora, o dia tá rendendo. 💪`,
+          ]));
         }
       }
     }
@@ -258,7 +298,12 @@ export function DefconSmartNotification({
       const triggerKey = `dry_${Math.floor(dryCount / 5) * 5}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        showNotification("💪", `${dryCount} abordagens sem vender.\nFicou frio, mas a próxima venda tá logo ali. Vai com tudo — não para!`);
+        showNotification("💪", pick([
+          `${dryCount} abordagens sem vender.\nFicou frio, mas a próxima tá logo ali. Vai com tudo!`,
+          `${dryCount} sem fechar. Acontece.\nTroca a abordagem, sorri, oferece o kit. A virada vem!`,
+          `${dryCount} abordagens secas.\nQuem insiste fura a seca. A próxima é tua! 💪`,
+          `Sequência de ${dryCount} sem venda.\nRespira, muda o script e ataca a próxima com tudo.`,
+        ]));
       }
     }
 
