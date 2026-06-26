@@ -11,9 +11,9 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: aparelho (instantânea) por padrão.
-// Troque pra false se quiser voltar pra voz do Gemini (mais bonita, porém ~30s pra gerar).
-const USE_INSTANT_VOICE = true;
+// Voz do modo VOZ: false = voz do Gemini (natural, melhor, leva ~poucos seg pra gerar);
+// true = voz do aparelho (instantânea, porém robótica). Se o Gemini falhar, cai no aparelho.
+const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -254,6 +254,13 @@ export default function FloatingChatButton() {
       window.speechSynthesis?.resume();
       const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
     } catch { /* noop */ }
+    // desbloqueia também o player de áudio (a voz do Gemini toca por ele — sem isso o iPhone bloqueia)
+    if (audioRef.current) {
+      try {
+        audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+        audioRef.current.play().catch(() => {});
+      } catch { /* noop */ }
+    }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.lang = "pt-BR";
