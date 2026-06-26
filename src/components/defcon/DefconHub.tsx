@@ -116,6 +116,7 @@ function LatePixSection() {
 
 interface DayTotals {
   cash: number; card: number; pix: number; debt: number; profit: number; cost: number; tips: number;
+  transport: number; food: number;
 }
 
 export default function DefconHub() {
@@ -124,11 +125,11 @@ export default function DefconHub() {
   const { toast } = useToast();
   const [dailyGoal, setDailyGoal] = useState(0);
   const [planId, setPlanId] = useState<string | null>(null);
-  const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0 });
+  const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0, transport: 0, food: 0 });
   const [hasSession, setHasSession] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [quickCost, setQuickCost] = useState("");
-  const [quickCostLabel, setQuickCostLabel] = useState("");
+  const [quickCostCat, setQuickCostCat] = useState<"mercadoria" | "transporte" | "alimentacao">("mercadoria");
   const [showEdit, setShowEdit] = useState(false);
   // Edição manual de "Como você recebeu" (dinheiro/cartão/pix) — p/ corrigir e lançar pagamentos tardios (ex.: Pix do outro dia)
   const [editingPay, setEditingPay] = useState(false);
@@ -153,7 +154,7 @@ export default function DefconHub() {
         .maybeSingle(),
       supabase
         .from("daily_sales")
-        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost, tip_sales")
+        .select("cash_sales, card_sales, pix_sales, total_debt, total_profit, cost, tip_sales, transport_cost, food_cost")
         .eq("user_id", user.id)
         .eq("date", today)
         .maybeSingle(),
@@ -205,6 +206,8 @@ export default function DefconHub() {
       profit: Number((sales as any)?.total_profit || 0),
       cost: Number((sales as any)?.cost || 0),
       tips: Number((sales as any)?.tip_sales || 0),
+      transport: Number((sales as any)?.transport_cost || 0),
+      food: Number((sales as any)?.food_cost || 0),
     });
     setHasSession(!!session);
   };
@@ -248,17 +251,33 @@ export default function DefconHub() {
     if (!user) return;
     const amount = parseFloat(quickCost);
     if (!amount || amount <= 0) return;
-    await supabase.from("personal_expenses").insert({
-      user_id: user.id,
-      name: quickCostLabel || "Custo do dia",
-      category: "mercadoria",
-      amount,
-      type: "variable",
-      date: today,
-    });
+    // Cada categoria vai pra coluna certa do daily_sales — e TODAS entram no relatório
+    // e ABATEM do líquido: mercadoria -> "Custo de mercadoria"; transporte/almoço ->
+    // "Transporte e alimentação". (Antes ia pra personal_expenses e sumia do relatório.)
+    const col = quickCostCat === "transporte" ? "transport_cost"
+      : quickCostCat === "alimentacao" ? "food_cost"
+      : "cost";
+    const { data: rows } = await supabase
+      .from("daily_sales")
+      .select("id, cost, transport_cost, food_cost")
+      .eq("user_id", user.id)
+      .eq("date", today)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (rows && rows.length > 0) {
+      const prev = Number((rows[0] as any)[col]) || 0;
+      await supabase
+        .from("daily_sales")
+        .update({ [col]: prev + amount } as any)
+        .eq("id", (rows[0] as any).id);
+    } else {
+      await supabase
+        .from("daily_sales")
+        .insert({ user_id: user.id, date: today, [col]: amount } as any);
+    }
     setQuickCost("");
-    setQuickCostLabel("");
-    toast({ title: "Custo registrado", description: formatCurrency(amount) });
+    const catLabel = quickCostCat === "transporte" ? "Transporte" : quickCostCat === "alimentacao" ? "Almoço" : "Mercadoria";
+    toast({ title: `${catLabel} registrado`, description: formatCurrency(amount) });
     loadAll();
   };
 
@@ -461,7 +480,7 @@ export default function DefconHub() {
           <div className="grid grid-cols-2 gap-2">
             <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
             {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
-            {totals.cost > 0 && <MiniStat label="Custos" value={formatCurrency(totals.cost)} />}
+            {(totals.cost + totals.transport + totals.food) > 0 && <MiniStat label="Custos" value={formatCurrency(totals.cost + totals.transport + totals.food)} />}
           </div>
         </div>
       )}
@@ -480,15 +499,33 @@ export default function DefconHub() {
           <h3 className="text-sm font-semibold text-foreground">Custo rápido</h3>
         </div>
         <p className="text-xs text-muted-foreground -mt-1">
-          Mercadoria, transporte, lanche. Vai entrar no lucro do dia.
+          Escolha o tipo, digite o valor. Entra no relatório e abate do líquido.
         </p>
         <div className="space-y-2">
-          <input
-            value={quickCostLabel}
-            onChange={(e) => setQuickCostLabel(e.target.value)}
-            placeholder="Descrição (opcional)"
-            className="w-full h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
-          />
+          <div className="grid grid-cols-3 gap-2">
+            {([
+              { id: "mercadoria", label: "Mercadoria", emoji: "📦" },
+              { id: "transporte", label: "Transporte", emoji: "🚌" },
+              { id: "alimentacao", label: "Almoço", emoji: "🍽️" },
+            ] as const).map((c) => {
+              const active = quickCostCat === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => setQuickCostCat(c.id)}
+                  className={`flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border text-xs font-medium transition active:scale-95 ${
+                    active
+                      ? "border-primary bg-primary/10 text-foreground"
+                      : "border-border/60 bg-background text-muted-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  <span className="text-base leading-none">{c.emoji}</span>
+                  <span>{c.label}</span>
+                </button>
+              );
+            })}
+          </div>
           <div className="flex gap-2">
             <input
               type="number"
