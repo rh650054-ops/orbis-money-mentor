@@ -11,8 +11,8 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: aparelho (instantânea) por padrão.
-// Troque pra false se quiser voltar pra voz do Gemini (mais bonita, porém ~30s pra gerar).
+// Voz do modo VOZ: true = voz do aparelho (instantânea e CONFIÁVEL no iPhone).
+// false = voz do Gemini (natural, mas NÃO toca direito no iPhone — Apple bloqueia áudio web + mic).
 const USE_INSTANT_VOICE = true;
 
 export default function FloatingChatButton() {
@@ -254,6 +254,13 @@ export default function FloatingChatButton() {
       window.speechSynthesis?.resume();
       const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
     } catch { /* noop */ }
+    // desbloqueia também o player de áudio (a voz do Gemini toca por ele — sem isso o iPhone bloqueia)
+    if (audioRef.current) {
+      try {
+        audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+        audioRef.current.play().catch(() => {});
+      } catch { /* noop */ }
+    }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
     rec.lang = "pt-BR";
@@ -290,7 +297,16 @@ export default function FloatingChatButton() {
       const voices = synth.getVoices();
       const ptVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("pt"));
       const maleHint = /(daniel|male|masc|homem|felipe|ricardo|jo[a\u00e3]o|ant[o\u00f4]nio|carlos|paulo|thiago|lucas)/i;
-      const pt = ptVoices.find((v) => maleHint.test(v.name)) || ptVoices[0];
+      // Escolhe a MELHOR voz: prefere aprimorada/premium/siri/google/neural, em pt-BR, e masculina.
+      const score = (v: SpeechSynthesisVoice) => {
+        const n = (v.name || "").toLowerCase();
+        let s = 0;
+        if ((v.lang || "").toLowerCase() === "pt-br") s += 2;
+        if (/(enhanced|premium|aprimorad|siri|neural|google|natural)/.test(n)) s += 4;
+        if (maleHint.test(n)) s += 1;
+        return s;
+      };
+      const pt = [...ptVoices].sort((a, b) => score(b) - score(a))[0];
       if (pt) u.voice = pt;
       u.onstart = () => { setSpeaking(true); speakingRef.current = true; };
       u.onend = () => { setSpeaking(false); speakingRef.current = false; };
