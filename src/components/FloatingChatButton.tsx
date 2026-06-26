@@ -11,9 +11,9 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: true = voz do aparelho (instantânea e CONFIÁVEL no iPhone).
-// false = voz do Gemini (natural, mas NÃO toca direito no iPhone — Apple bloqueia áudio web + mic).
-const USE_INSTANT_VOICE = true;
+// Voz do modo VOZ: false = voz do servidor (OpenAI, estilo JARVIS — natural, rápida, toca no iPhone).
+// true = voz do aparelho (instantânea, robótica). Se a OpenAI falhar, cai nela sozinho.
+const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -181,7 +181,7 @@ export default function FloatingChatButton() {
   };
 
   // ---- Modo voz ----
-  // Voz do Gemini (servidor) — melhor e funciona no celular. Cai pra voz do navegador se falhar.
+  // Voz do servidor (OpenAI, estilo JARVIS) — natural e rápida. Cai pra voz do navegador se falhar.
   const speak = async (text: string) => {
     if (!text) return;
     stopSpeaking();                       // corta a fala anterior — foca na nova

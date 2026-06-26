@@ -180,43 +180,35 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
 
-    // ===== VOZ (TTS): gera o audio da fala com Gemini TTS (gratis, mesma chave) =====
+    // ===== VOZ (TTS): voz estilo JARVIS com OpenAI gpt-4o-mini-tts (steerable, rápida) =====
     if (body?.tts && typeof body.tts === "string" && body.tts.trim()) {
-      const key = Deno.env.get("GEMINI_API_KEY");
-      if (!key) return json({ error: "sem_gemini_key" });
-      const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
-      const voiceName = Deno.env.get("GEMINI_TTS_VOICE") ?? "Kore";
-      const style = Deno.env.get("GEMINI_TTS_STYLE") ??
-        "Leia em português do Brasil com voz GRAVE, CALMA e confiante, num tom de mentor de rua que já viveu o corre — seguro, pausado e natural, de parceiro. Não leia esta instrução, apenas aplique o tom:";
-      const sayText = `${style}\n\n${body.tts.slice(0, 900)}`;
+      const oaKey = Deno.env.get("OPENAI_API_KEY");
+      if (!oaKey) return json({ error: "sem_openai_key" });
+      const ttsModel = Deno.env.get("OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts";
+      const voice = Deno.env.get("OPENAI_TTS_VOICE") ?? "onyx";
+      const instructions = Deno.env.get("OPENAI_TTS_STYLE") ??
+        "Fale em português do Brasil. Voz GRAVE, CALMA, composta e sofisticada — como um assistente de IA confiante e refinado (estilo JARVIS): ritmo pausado e seguro, tom caloroso porém autoritário, sem pressa e sem soar robótico.";
       try {
-        const tRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(30000),
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: sayText }] }],
-              generationConfig: {
-                responseModalities: ["AUDIO"],
-                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
-              },
-            }),
-          },
-        );
+        const tRes = await fetch("https://api.openai.com/v1/audio/speech", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${oaKey}`, "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(20000),
+          body: JSON.stringify({
+            model: ttsModel,
+            voice,
+            input: body.tts.slice(0, 900),
+            instructions,
+            response_format: "mp3",
+          }),
+        });
         if (!tRes.ok) {
           const errTxt = await tRes.text().catch(() => "");
-          console.error("Gemini TTS erro", tRes.status, errTxt.slice(0, 300));
+          console.error("OpenAI TTS erro", tRes.status, errTxt.slice(0, 300));
           return json({ error: `tts_${tRes.status}` });
         }
-        const tJson = await tRes.json();
-        const inline = tJson?.candidates?.[0]?.content?.parts?.find((pp: any) => pp?.inlineData)?.inlineData;
-        if (!inline?.data) return json({ error: "tts_vazio" });
-        const mime: string = inline.mimeType || "audio/L16;rate=24000";
-        const rate = parseInt((mime.match(/rate=(\d+)/) || [])[1] || "24000");
-        const wav = pcmToWav(b64ToBytes(inline.data), rate);
-        return json({ audio: bytesToB64(wav), mime: "audio/wav" });
+        const buf = new Uint8Array(await tRes.arrayBuffer());
+        if (!buf.length) return json({ error: "tts_vazio" });
+        return json({ audio: bytesToB64(buf), mime: "audio/mpeg" });
       } catch (e) {
         console.error("TTS erro", e);
         return json({ error: "tts_erro" });
