@@ -11,9 +11,9 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: false = voz do Gemini (natural, melhor, leva ~poucos seg pra gerar);
-// true = voz do aparelho (instantânea, porém robótica). Se o Gemini falhar, cai no aparelho.
-const USE_INSTANT_VOICE = false;
+// Voz do modo VOZ: true = voz do aparelho (instantânea e CONFIÁVEL no iPhone).
+// false = voz do Gemini (natural, mas NÃO toca direito no iPhone — Apple bloqueia áudio web + mic).
+const USE_INSTANT_VOICE = true;
 
 export default function FloatingChatButton() {
   const [isOpen, setIsOpen] = useState(false);
@@ -297,7 +297,16 @@ export default function FloatingChatButton() {
       const voices = synth.getVoices();
       const ptVoices = voices.filter((v) => v.lang && v.lang.toLowerCase().startsWith("pt"));
       const maleHint = /(daniel|male|masc|homem|felipe|ricardo|jo[a\u00e3]o|ant[o\u00f4]nio|carlos|paulo|thiago|lucas)/i;
-      const pt = ptVoices.find((v) => maleHint.test(v.name)) || ptVoices[0];
+      // Escolhe a MELHOR voz: prefere aprimorada/premium/siri/google/neural, em pt-BR, e masculina.
+      const score = (v: SpeechSynthesisVoice) => {
+        const n = (v.name || "").toLowerCase();
+        let s = 0;
+        if ((v.lang || "").toLowerCase() === "pt-br") s += 2;
+        if (/(enhanced|premium|aprimorad|siri|neural|google|natural)/.test(n)) s += 4;
+        if (maleHint.test(n)) s += 1;
+        return s;
+      };
+      const pt = [...ptVoices].sort((a, b) => score(b) - score(a))[0];
       if (pt) u.voice = pt;
       u.onstart = () => { setSpeaking(true); speakingRef.current = true; };
       u.onend = () => { setSpeaking(false); speakingRef.current = false; };
