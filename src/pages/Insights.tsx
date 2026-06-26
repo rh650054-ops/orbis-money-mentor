@@ -225,15 +225,29 @@ export default function Insights() {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
     const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
     const caloteUnidades = sales.reduce((s, d) => s + (Number((d as any).unpaid_units) || 0), 0);
-    const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0);
+    // Custos lançados no botão "Custos do dia" (personal_expenses) ENTRAM no líquido,
+    // separados por categoria: mercadoria -> custo de mercadoria; transporte/almoço ->
+    // transporte e alimentação; o resto -> outros custos. Inclui os lançamentos antigos,
+    // então o histórico já aparece (não precisa migrar nada).
+    let expMercadoria = 0, expTranspAlim = 0, expOutros = 0;
+    for (const e of expenses) {
+      const cat = String((e as any).category || "").toLowerCase();
+      const val = Number(e.amount || 0);
+      if (cat.includes("mercadoria")) expMercadoria += val;
+      else if (cat.includes("transporte") || cat.includes("combust") || cat.includes("aliment")) expTranspAlim += val;
+      else expOutros += val;
+    }
+
+    const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0) + expMercadoria;
     const custoTransporte = sales.reduce((s, d) => s + (Number((d as any).transport_cost) || 0), 0);
     const custoAlimentacao = sales.reduce((s, d) => s + (Number((d as any).food_cost) || 0), 0);
-    const custoOperacao = custoTransporte + custoAlimentacao; // transporte + alimentação do dia
-    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0); // despesas pessoais (planejador de contas)
-    const custos = custoMercadoria + custoOperacao + custosOperacionais;
-    // Lucro líquido = igual à planilha: vendido − mercadoria − transporte − alimentação (fiado e despesas pessoais ficam à parte)
-    const lucro = faturamento - custoMercadoria - custoOperacao;
-    const sobra = lucro - custosOperacionais; // calote NÃO desconta: o custo dele já está no custo de mercadoria
+    const custoOperacao = custoTransporte + custoAlimentacao + expTranspAlim; // transporte + alimentação (do dia + lançamentos)
+    const custoOutros = expOutros;
+    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0); // total dos lançamentos (detalhe por categoria)
+    const custos = custoMercadoria + custoOperacao + custoOutros;
+    // Lucro líquido = vendido − mercadoria − transporte − alimentação − outros (todo custo do dia abate)
+    const lucro = faturamento - custoMercadoria - custoOperacao - custoOutros;
+    const sobra = lucro;
 
     const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
     const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
@@ -256,6 +270,7 @@ export default function Insights() {
       custos,
       custoMercadoria,
       custoOperacao,
+      custoOutros,
       custosOperacionais,
       calotes,
       caloteUnidades,
@@ -647,6 +662,9 @@ export default function Insights() {
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
             <FinanceRow label="Transporte e alimentação" value={`- ${formatCurrency(summary.custoOperacao)}`} tone="muted" />
+            {summary.custoOutros > 0 && (
+              <FinanceRow label="Outros custos" value={`- ${formatCurrency(summary.custoOutros)}`} tone="muted" />
+            )}
             <FinanceRow
               label="Kits não pagos"
               value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
