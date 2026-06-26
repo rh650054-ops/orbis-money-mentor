@@ -128,7 +128,6 @@ export default function DefconHub() {
   const [hasSession, setHasSession] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [quickCost, setQuickCost] = useState("");
-  const [quickCostLabel, setQuickCostLabel] = useState("");
   const [showEdit, setShowEdit] = useState(false);
   // Edição manual de "Como você recebeu" (dinheiro/cartão/pix) — p/ corrigir e lançar pagamentos tardios (ex.: Pix do outro dia)
   const [editingPay, setEditingPay] = useState(false);
@@ -248,16 +247,27 @@ export default function DefconHub() {
     if (!user) return;
     const amount = parseFloat(quickCost);
     if (!amount || amount <= 0) return;
-    await supabase.from("personal_expenses").insert({
-      user_id: user.id,
-      name: quickCostLabel || "Custo do dia",
-      category: "mercadoria",
-      amount,
-      type: "variable",
-      date: today,
-    });
+    // Custo de mercadoria do dia -> daily_sales.cost. É o que o relatório mostra como
+    // "Custo de mercadoria" e ABATE do bruto pra dar o líquido. Antes ia pra
+    // personal_expenses e não entrava no relatório nem subtraía do líquido.
+    const { data: rows } = await supabase
+      .from("daily_sales")
+      .select("id, cost")
+      .eq("user_id", user.id)
+      .eq("date", today)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (rows && rows.length > 0) {
+      await supabase
+        .from("daily_sales")
+        .update({ cost: (Number((rows[0] as any).cost) || 0) + amount })
+        .eq("id", (rows[0] as any).id);
+    } else {
+      await supabase
+        .from("daily_sales")
+        .insert({ user_id: user.id, date: today, cost: amount });
+    }
     setQuickCost("");
-    setQuickCostLabel("");
     toast({ title: "Custo registrado", description: formatCurrency(amount) });
     loadAll();
   };
@@ -480,15 +490,9 @@ export default function DefconHub() {
           <h3 className="text-sm font-semibold text-foreground">Custo rápido</h3>
         </div>
         <p className="text-xs text-muted-foreground -mt-1">
-          Mercadoria, transporte, lanche. Vai entrar no lucro do dia.
+          Custo de mercadoria do dia. Entra no relatório e abate do líquido.
         </p>
         <div className="space-y-2">
-          <input
-            value={quickCostLabel}
-            onChange={(e) => setQuickCostLabel(e.target.value)}
-            placeholder="Descrição (opcional)"
-            className="w-full h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
-          />
           <div className="flex gap-2">
             <input
               type="number"
