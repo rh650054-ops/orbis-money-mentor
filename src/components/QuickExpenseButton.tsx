@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Wallet, X, Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
@@ -253,12 +254,9 @@ export default function QuickExpenseButton({
 
                 <div>
                   <label className="text-xs text-muted-foreground block mb-1.5">Valor (R$)</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))}
-                    placeholder="0,00"
+                  <MoneyInput
+                    value={parseFloat(amount) || 0}
+                    onChange={(n) => setAmount(n ? String(n) : "")}
                     autoFocus
                     className="text-2xl font-bold h-14"
                   />

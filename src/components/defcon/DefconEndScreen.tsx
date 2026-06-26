@@ -850,6 +850,9 @@ interface PaymentInputProps {
 
 function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: PaymentInputProps) {
   const hasIcon = !!emoji || !!iconSrc;
+  // Máscara BR ao vivo (estilo banco): digita só números, 2 últimos são centavos.
+  const num = parseFloat(value) || 0;
+  const display = num ? num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
   return (
     <div className="relative h-11 rounded-lg bg-card border border-border focus-within:border-muted-foreground transition-colors">
       {iconSrc ? (
@@ -870,11 +873,14 @@ function PaymentInput({ emoji, iconSrc, label, value, onChange, accent }: Paymen
         R$
       </span>
       <input
-        type="number"
-        inputMode="decimal"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="0"
+        type="text"
+        inputMode="numeric"
+        value={display}
+        onChange={(e) => {
+          const d = e.target.value.replace(/\D/g, "");
+          onChange(d ? String(parseInt(d, 10) / 100) : "");
+        }}
+        placeholder="0,00"
         className="w-full h-full bg-transparent text-right text-base font-bold text-foreground pr-3 pl-28 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded placeholder:text-muted-foreground"
       />
     </div>

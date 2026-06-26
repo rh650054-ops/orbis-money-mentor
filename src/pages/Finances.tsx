@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Label } from "@/shared/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
@@ -1020,11 +1021,9 @@ export default function Finances() {
                   <div className={newBill.isCreditCard ? "flex gap-3" : "space-y-2"}>
                     <div className="space-y-2 flex-1 min-w-0">
                       <Label>{newBill.isCreditCard ? (newBill.cardMode === "total" ? "Total (R$)" : "Parcela (R$)") : "Valor (R$)"}</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={newBill.amount}
-                        onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
+                      <MoneyInput
+                        value={parseFloat(newBill.amount) || 0}
+                        onChange={(n) => setNewBill({ ...newBill, amount: n ? String(n) : "" })}
                         placeholder="0,00"
                       />
                     </div>
@@ -1445,11 +1444,9 @@ export default function Finances() {
                   </div>
                   <div>
                     <Label>Valor Alvo (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newGoal.target_amount}
-                      onChange={(e) => setNewGoal({ ...newGoal, target_amount: e.target.value })}
+                    <MoneyInput
+                      value={parseFloat(newGoal.target_amount) || 0}
+                      onChange={(n) => setNewGoal({ ...newGoal, target_amount: n ? String(n) : "" })}
                       placeholder="0,00"
                     />
                   </div>
@@ -1609,13 +1606,10 @@ export default function Finances() {
             )}
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
+              <MoneyInput
                 autoFocus
-                value={depositValue}
-                onChange={(e) => setDepositValue(e.target.value)}
+                value={parseFloat(depositValue) || 0}
+                onChange={(n) => setDepositValue(n ? String(n) : "")}
                 onKeyDown={(e) => { if (e.key === "Enter") handleConfirmDeposit(); }}
                 placeholder="0,00"
               />
@@ -1653,11 +1647,9 @@ export default function Finances() {
             </div>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={editBillForm.amount}
-                onChange={(e) => setEditBillForm({ ...editBillForm, amount: e.target.value })}
+              <MoneyInput
+                value={parseFloat(editBillForm.amount) || 0}
+                onChange={(n) => setEditBillForm({ ...editBillForm, amount: n ? String(n) : "" })}
                 placeholder="0,00"
               />
             </div>

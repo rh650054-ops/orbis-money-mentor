@@ -403,8 +403,8 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="Ex: 3000"
-                  value={meta}
+                  placeholder="Ex: 3.000"
+                  value={meta ? parseInt(meta, 10).toLocaleString("pt-BR") : ""}
                   onChange={(e) => setMeta(e.target.value.replace(/\D/g, ''))}
                   className="w-full text-foreground text-base placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
                   style={{

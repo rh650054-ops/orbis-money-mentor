@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { Switch } from "@/shared/ui/switch";
@@ -753,24 +754,20 @@ export default function Products() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Custo (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.cost}
-                    onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                  <MoneyInput
+                    value={parseFloat(form.cost) || 0}
+                    onChange={(n) => setForm({ ...form, cost: n ? String(n) : "" })}
                   />
                 </div>
                 <div>
                   <Label className={form.open_price ? "text-muted-foreground" : ""}>
                     Venda (R$)
                   </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={form.open_price ? "" : form.sale_price}
+                  <MoneyInput
+                    value={form.open_price ? 0 : (parseFloat(form.sale_price) || 0)}
                     disabled={form.open_price}
-                    placeholder={form.open_price ? "—" : ""}
-                    onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
+                    placeholder={form.open_price ? "—" : "0,00"}
+                    onChange={(n) => setForm({ ...form, sale_price: n ? String(n) : "" })}
                   />
                 </div>
                 <div>
