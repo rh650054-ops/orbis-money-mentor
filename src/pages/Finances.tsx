@@ -136,6 +136,10 @@ export default function Finances() {
     | null
   >(null);
   const [depositValue, setDepositValue] = useState("");
+  // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
+  const [savedToday, setSavedToday] = useState(() => {
+    try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
+  });
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
@@ -404,6 +408,9 @@ export default function Finances() {
           });
         }
       }
+      // Marca que o usuário já guardou HOJE (pra não pedir de novo se vender mais à tarde).
+      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
+      setSavedToday(true);
       setDepositTarget(null);
       setDepositValue("");
       loadFinancialData();
@@ -886,12 +893,21 @@ export default function Finances() {
           <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">A guardar hoje</p>
-              <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
-                {formatCurrency(totalGuardarHoje)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
-              </p>
+              {savedToday ? (
+                <>
+                  <p className="text-base font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">Amanhã aparece o novo valor.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
+                    {formatCurrency(totalGuardarHoje)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                    metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -917,12 +933,17 @@ export default function Finances() {
                 <p className="text-xs text-muted-foreground">A guardar hoje</p>
                 {isLoadingData ? (
                   <Skeleton className="h-8 w-28 mt-1" />
+                ) : savedToday ? (
+                  <p className="text-xl font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
                 ) : (
                   <p className="text-2xl font-bold text-primary mt-1 tracking-tight whitespace-nowrap">
                     {formatCurrency(totalGuardarHoje)}
                   </p>
                 )}
-                {!isLoadingData && (
+                {!isLoadingData && savedToday && (
+                  <p className="text-xs text-muted-foreground mt-1">Amanhã aparece o novo valor.</p>
+                )}
+                {!isLoadingData && !savedToday && (
                   <p className="text-xs text-muted-foreground mt-1">
                     metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
                   </p>

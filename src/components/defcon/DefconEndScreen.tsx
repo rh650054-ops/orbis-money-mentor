@@ -53,6 +53,8 @@ export function DefconEndScreen({
   const [confirmRestart, setConfirmRestart] = useState(false);
   const [clientsCount, setClientsCount] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [exportingTx, setExportingTx] = useState(false);
+  const [daySales, setDaySales] = useState<{ amount: number; method: string; late: boolean; created_at: string }[]>([]);
   const [totalTips, setTotalTips] = useState(0);
   const [showShare, setShowShare] = useState(false);
   const [previews, setPreviews] = useState<Record<number, string>>({});
@@ -91,6 +93,29 @@ export function DefconEndScreen({
         if (px) setPix(String(px));
       });
   }, [userId]);
+
+  // Carrega as vendas-linha de hoje (defcon_sales) — pro ritmo de vendas e o PDF de transações.
+  useEffect(() => {
+    if (!userId) return;
+    const today = getBrazilDate();
+    const startISO = new Date(`${today}T00:00:00-03:00`).toISOString();
+    supabase
+      .from("defcon_sales")
+      .select("amount, method, late, created_at")
+      .eq("user_id", userId)
+      .gte("created_at", startISO)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => setDaySales((data as any) || []));
+  }, [userId]);
+
+  // Ritmo médio: minutos entre uma venda e a próxima.
+  const salesRhythmMin = useMemo(() => {
+    if (daySales.length < 2) return null;
+    const t = daySales.map((s) => new Date(s.created_at).getTime()).sort((a, b) => a - b);
+    let sum = 0;
+    for (let i = 1; i < t.length; i++) sum += t[i] - t[i - 1];
+    return sum / (t.length - 1) / 60000;
+  }, [daySales]);
 
   const exportClientsPdf = async () => {
     if (!userId) return;
@@ -183,6 +208,101 @@ export function DefconEndScreen({
       toast({ title: "Erro ao gerar PDF", variant: "destructive" });
     } finally {
       setExportingPdf(false);
+    }
+  };
+
+  const exportTransactionsPdf = async () => {
+    if (!userId) return;
+    setExportingTx(true);
+    try {
+      const today = getBrazilDate();
+      if (!daySales || daySales.length === 0) {
+        toast({ title: "Nenhuma transação hoje" });
+        return;
+      }
+      const metodoLabel = (m: string) => (m === "pix" ? "Pix" : m === "cartao" ? "Cartão" : "Dinheiro");
+
+      const doc = new jsPDF({ unit: "pt", format: "a4" });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const margin = 40;
+      let y = 56;
+
+      doc.setFillColor(13, 13, 13);
+      doc.rect(0, 0, pageWidth, 88, "F");
+      doc.setTextColor(244, 161, 0);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(20);
+      doc.text("Relatório de Transações — Orbis", margin, 40);
+      doc.setTextColor(220, 220, 220);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      const dateLabel = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+      doc.text(`Data: ${dateLabel}  •  ${daySales.length} transação(ões)`, margin, 64);
+
+      y = 120;
+      doc.setTextColor(40, 40, 40);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Hora", margin, y);
+      doc.text("Forma", margin + 80, y);
+      doc.text("Obs", margin + 220, y);
+      doc.text("Valor", pageWidth - margin, y, { align: "right" });
+      doc.setDrawColor(200);
+      doc.line(margin, y + 6, pageWidth - margin, y + 6);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      y += 22;
+
+      let totalDin = 0, totalPix = 0, totalCard = 0;
+      for (const r of daySales) {
+        if (y > 780) { doc.addPage(); y = 60; }
+        const amt = Number(r.amount || 0);
+        const m = String(r.method || "dinheiro");
+        if (m === "pix") totalPix += amt; else if (m === "cartao") totalCard += amt; else totalDin += amt;
+        const time = new Date(r.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        doc.setTextColor(80, 80, 80);
+        doc.text(time, margin, y);
+        doc.setTextColor(20, 20, 20);
+        doc.text(metodoLabel(m), margin + 80, y);
+        doc.setTextColor(120, 120, 120);
+        doc.text(r.late ? "Pix caiu depois" : "—", margin + 220, y);
+        doc.setTextColor(20, 20, 20);
+        doc.setFont("helvetica", "bold");
+        doc.text(formatCurrency(amt), pageWidth - margin, y, { align: "right" });
+        doc.setFont("helvetica", "normal");
+        y += 18;
+      }
+
+      // Resumo: split por forma + ritmo + total
+      y += 10;
+      doc.setDrawColor(180);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 22;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(40, 40, 40);
+      doc.text(`Dinheiro: ${formatCurrency(totalDin)}    Pix: ${formatCurrency(totalPix)}    Cartão: ${formatCurrency(totalCard)}`, margin, y);
+      y += 20;
+      if (salesRhythmMin != null) {
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(80, 80, 80);
+        doc.text(`Ritmo: 1 venda a cada ${salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min`, margin, y);
+        y += 20;
+      }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.setTextColor(244, 161, 0);
+      doc.text("Total", margin, y);
+      doc.setTextColor(20, 20, 20);
+      doc.text(formatCurrency(totalDin + totalPix + totalCard), pageWidth - margin, y, { align: "right" });
+
+      doc.save(`orbis-transacoes-${today}.pdf`);
+      toast({ title: "PDF gerado", description: `${daySales.length} transação(ões).` });
+    } catch (err) {
+      console.error(err);
+      toast({ title: "Erro ao gerar PDF", variant: "destructive" });
+    } finally {
+      setExportingTx(false);
     }
   };
 
@@ -720,7 +840,18 @@ export function DefconEndScreen({
                 value={`${conversionRate.toFixed(0)}%`}
                 valueClass={conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"}
               />
+              {salesRhythmMin != null && (
+                <ReportRow
+                  label="⚡ Ritmo de vendas"
+                  value={`1 a cada ${salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min`}
+                />
+              )}
             </div>
+            {salesRhythmMin != null && (
+              <p className="text-[11px] text-muted-foreground px-1">
+                No seu ritmo, você fecha uma venda a cada ~{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} minutos.
+              </p>
+            )}
           </div>
         )}
 
@@ -769,6 +900,16 @@ export function DefconEndScreen({
           >
             <FileDown className="w-3.5 h-3.5" />
             {exportingPdf ? "Gerando..." : `PDF de ${clientsCount} cliente(s)`}
+          </button>
+        )}
+        {daySales.length > 0 && (
+          <button
+            onClick={exportTransactionsPdf}
+            disabled={exportingTx}
+            className="w-full h-11 rounded-xl bg-card border border-primary/40 text-primary font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+          >
+            <FileDown className="w-3.5 h-3.5" />
+            {exportingTx ? "Gerando..." : `PDF de transações — ${daySales.length} c/ horários`}
           </button>
         )}
 
