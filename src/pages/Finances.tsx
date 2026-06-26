@@ -74,6 +74,7 @@ interface FinancialSummary {
   transportToday: number;
   foodToday: number;
   debtToday: number;
+  expensesToday: number;
   netToday: number;
   // Mês
   monthlyNetProfit: number;
@@ -93,6 +94,7 @@ export default function Finances() {
     transportToday: 0,
     foodToday: 0,
     debtToday: 0,
+    expensesToday: 0,
     netToday: 0,
     monthlyNetProfit: 0,
   });
@@ -213,6 +215,14 @@ export default function Finances() {
 
       if (salesError) throw salesError;
 
+      // Custos lançados no botão "Custos do dia" (personal_expenses) — do mês inteiro.
+      const { data: expData } = await supabase
+        .from("personal_expenses")
+        .select("amount, date")
+        .eq("user_id", user.id)
+        .gte("date", `${currentMonth}-01`)
+        .lte("date", `${currentMonth}-${String(lastDay).padStart(2, '0')}`);
+
       // Bruto do mês com o MESMO fallback robusto por dia: Total Vendido,
       // ou soma dos métodos de pagamento quando o Total Vendido vier zerado.
       const totalProfit = salesData?.reduce((sum, s) => {
@@ -244,13 +254,17 @@ export default function Finances() {
       const transportToday = Number(todaySale?.transport_cost || 0);
       const foodToday = Number(todaySale?.food_cost || 0);
       const debtToday = Number(todaySale?.total_debt || 0);
-      // LÍQUIDO = BRUTO − MERCADORIA − TRANSPORTE − ALIMENTAÇÃO (calote NÃO entra).
-      // Pode ficar negativo (dia de prejuízo), igual à planilha.
-      const netToday = grossToday - costToday - transportToday - foodToday;
+      // Custos lançados que abatem do líquido (mês inteiro e só hoje).
+      const expensesMonth = (expData || []).reduce((sum, e) => sum + (Number((e as any).amount) || 0), 0);
+      const expensesToday = (expData || []).filter((e) => (e as any).date === today).reduce((sum, e) => sum + (Number((e as any).amount) || 0), 0);
 
-      // Lucro líquido do mês = faturamento − mercadoria (CMV) − transporte − alimentação.
+      // LÍQUIDO = BRUTO − MERCADORIA − TRANSPORTE − ALIMENTAÇÃO − CUSTOS LANÇADOS (calote NÃO entra).
+      // Pode ficar negativo (dia de prejuízo), igual à planilha.
+      const netToday = grossToday - costToday - transportToday - foodToday - expensesToday;
+
+      // Lucro líquido do mês = faturamento − mercadoria − transporte − alimentação − custos lançados.
       // Calote NÃO entra; permite negativo.
-      const monthlyNetProfit = totalProfit - totalCostMonth - totalTransportMonth - totalFoodMonth;
+      const monthlyNetProfit = totalProfit - totalCostMonth - totalTransportMonth - totalFoodMonth - expensesMonth;
 
       setSummary({
         totalProfit,
@@ -260,6 +274,7 @@ export default function Finances() {
         transportToday,
         foodToday,
         debtToday,
+        expensesToday,
         netToday,
         monthlyNetProfit,
       });
@@ -848,7 +863,7 @@ export default function Finances() {
                 <Skeleton className="h-7 w-24 mt-1 ml-auto" />
               ) : (
                 <p className="text-xl font-bold text-destructive tracking-tight whitespace-nowrap">
-                  {formatCurrency(summary.costToday + summary.transportToday + summary.foodToday)}
+                  {formatCurrency(summary.costToday + summary.transportToday + summary.foodToday + summary.expensesToday)}
                 </p>
               )}
             </div>

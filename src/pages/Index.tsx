@@ -221,8 +221,10 @@ export default function Index() {
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
       const totalTransport = monthData.reduce((sum, day) => sum + (Number((day as any).transport_cost) || 0), 0);
       const totalFood = monthData.reduce((sum, day) => sum + (Number((day as any).food_cost) || 0), 0);
-      // Líquido = igual à planilha: vendido − mercadoria − transporte − alimentação (fiado NÃO entra)
-      const balance = totalIncome - totalCost - totalTransport - totalFood;
+      // Custos lançados no botão "Custos do dia" (personal_expenses) também abatem do líquido.
+      const custosLancados = ((monthExpenses as any[]) || []).reduce((s, e) => s + Number(e.amount || 0), 0);
+      // Líquido = vendido − mercadoria − transporte − alimentação − custos lançados (fiado NÃO entra)
+      const balance = totalIncome - totalCost - totalTransport - totalFood - custosLancados;
       
       // Calculate real daily average from NET PROFIT (lucro líquido)
       const activeDays = monthData.filter(day => (day.total_profit ?? 0) > 0).length;
@@ -365,7 +367,7 @@ export default function Index() {
   }
   const dailyProfit = todaySales?.total_profit || 0;
   const faturamentoMes = monthlyStats.totalIncome;
-  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood;
+  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood - monthExpensesTotal;
   const progressoMeta = calculateGoalProgress();
 
   // Daily goal calc
@@ -374,7 +376,7 @@ export default function Index() {
   const dailyGoal = dailyGoalPlan > 0 ? dailyGoalPlan : (monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200);
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
-  const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood;
+  const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood + monthExpensesTotal;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;
