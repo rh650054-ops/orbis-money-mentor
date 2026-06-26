@@ -236,12 +236,15 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               </Label>
               <Input
                 id="monthlyGoal"
-                type="number"
+                type="text"
                 inputMode="numeric"
-                value={monthlyGoal || ''}
-                onChange={(e) => setMonthlyGoal(e.target.value === '' ? 0 : Number(e.target.value))}
-                onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-                min={1}
+                value={monthlyGoal ? String(monthlyGoal) : ''}
+                onChange={(e) => {
+                  // Só dígitos (reais inteiros). Ignora ponto/vírgula pra "4.200" NÃO virar
+                  // 4,2 (bug do type=number que deixava a meta diária em centavos).
+                  const digits = e.target.value.replace(/\D/g, '');
+                  setMonthlyGoal(digits ? parseInt(digits, 10) : 0);
+                }}
                 placeholder="Ex: 4200"
                 className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
               />
