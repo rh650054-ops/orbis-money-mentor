@@ -245,21 +245,24 @@ export default function Ranking() {
     }
   };
 
-  // Dados para o share card (sempre Liga Global = faturamento)
+  // Dados do share card: reflete a aba ativa (mensal = mês; semanal = semana).
   const shareData = (() => {
-    const totalParticipants = faturamentoRanking.length;
-    const position = currentUserStats?.posicao_faturamento ?? null;
-    const primaryValue = formatCurrency(currentUserStats?.faturamento_total_mes ?? 0);
-    const secondaryValue = `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
+    const stats = isMensal ? currentUserStats : weekly.currentUserStats;
+    const totalParticipants = isMensal ? faturamentoRanking.length : weekly.ranking.length;
+    const position = stats?.posicao_faturamento ?? null;
+    const primaryValue = formatCurrency(stats?.faturamento_total_mes ?? 0);
+    const secondaryValue = isMensal
+      ? `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`
+      : `${weekly.currentUserStats?.dias_trabalhados_mes ?? 0} dias esta semana`;
     return {
       league: "faturamento" as const,
       position,
       totalParticipants,
-      nickname: userProfile.nickname || currentUserStats?.nome_usuario || "Vendedor",
-      avatarUrl: userProfile.avatar || currentUserStats?.avatar_url || null,
+      nickname: userProfile.nickname || stats?.nome_usuario || "Vendedor",
+      avatarUrl: userProfile.avatar || stats?.avatar_url || null,
       primaryValue,
       secondaryValue,
-      monthLabel: currentMonth,
+      monthLabel: isMensal ? currentMonth : "Esta semana",
     };
   })();
 
@@ -434,17 +437,45 @@ export default function Ranking() {
               <Skeleton className="h-32 w-full" />
             </div>
           ) : (
-            <FaturamentoLeague
-              ranking={weekly.ranking}
-              variant="semanal"
-              currentUserStats={weekly.currentUserStats}
-              hasParticipated={weekly.hasParticipated}
-              formatCurrency={formatCurrency}
-              onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
-              onOpenProfile={openPublicProfile}
-              onQuickPhoto={() => quickPhotoRef.current?.click()}
-              quickUploading={quickUploading}
-            />
+            <>
+              {weekly.hasParticipated && weekly.currentUserStats && (
+                <button
+                  onClick={handleShare}
+                  disabled={isSharing}
+                  className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60 hover:border-primary/50"
+                  style={{ boxShadow: "0 8px 28px -14px hsl(var(--primary) / 0.45)" }}
+                >
+                  <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
+                  <div className="relative flex items-center justify-center gap-2.5">
+                    {isSharing ? (
+                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                    ) : (
+                      <Share2 className="w-5 h-5 text-primary" />
+                    )}
+                    <div className="text-left">
+                      <p className="text-sm font-black text-foreground tracking-wide">
+                        {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
+                      </p>
+                      <p className="text-xs text-primary/70 uppercase tracking-widest">
+                        Story 9:16 · pronto pra postar
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
+              <FaturamentoLeague
+                ranking={weekly.ranking}
+                variant="semanal"
+                currentUserStats={weekly.currentUserStats}
+                hasParticipated={weekly.hasParticipated}
+                formatCurrency={formatCurrency}
+                onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+                onOpenProfile={openPublicProfile}
+                onQuickPhoto={() => quickPhotoRef.current?.click()}
+                quickUploading={quickUploading}
+              />
+            </>
           )}
         </>
       )}
