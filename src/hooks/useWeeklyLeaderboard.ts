@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
@@ -19,7 +19,6 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
   const [currentUserStats, setCurrentUserStats] = useState<LeaderboardEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasParticipated, setHasParticipated] = useState(false);
-  const loadedRef = useRef(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -60,12 +59,10 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     }
   }, [userId]);
 
-  // Só carrega quando a aba Semanal é aberta (enabled) — não pesa o load inicial do Ranking.
+  // Lazy: carrega só quando a aba Semanal é aberta (não pesa o load inicial do Ranking),
+  // e recarrega toda vez que ela é reaberta — pra refletir vendas novas do DEFCON.
   useEffect(() => {
-    if (enabled && !loadedRef.current) {
-      loadedRef.current = true;
-      load();
-    }
+    if (enabled) load();
   }, [enabled, load]);
 
   return { ranking, currentUserStats, isLoading, hasParticipated, reload: load };

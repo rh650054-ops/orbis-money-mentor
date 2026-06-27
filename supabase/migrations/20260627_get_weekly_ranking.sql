@@ -1,9 +1,15 @@
 -- ============================================================================
 -- Ranking SEMANAL do Orbis (semana de DOMINGO a SÁBADO; zera entrando no domingo).
--- Soma as vendas finalizadas da semana entre TODOS os vendedores.
--- SECURITY DEFINER: agrega por cima do RLS de work_sessions (igual o ranking mensal,
--- o faturamento no ranking já é público).
--- Como usar: cole tudo no Supabase -> SQL Editor -> Run.
+--
+-- Lê de daily_sales.total_profit — a MESMA fonte do ranking mensal, que é
+-- atualizada EM TEMPO REAL a cada venda (inclusive no DEFCON, via syncDailySales).
+-- Assim a venda entra na Liga Semanal ASSIM QUE é registrada no DEFCON, sem
+-- precisar finalizar a sessão.
+--
+-- Respeita profiles.ranking_hidden (igual o mensal). SECURITY DEFINER pra agregar
+-- por cima do RLS (o faturamento no ranking já é público).
+--
+-- Como usar: cole TUDO no Supabase -> SQL Editor -> Run (substitui a versão antiga).
 -- ============================================================================
 create or replace function public.get_weekly_ranking(p_week_start date)
 returns table (
@@ -18,18 +24,19 @@ security definer
 set search_path = public
 as $$
   select
-    ws.user_id,
-    coalesce(p.nickname, '')                     as nome_usuario,
-    coalesce(p.avatar_url, '')                   as avatar_url,
-    coalesce(sum(ws.total_vendido), 0)::numeric  as faturamento_semana,
-    count(*)::integer                            as dias_semana
-  from work_sessions ws
-  left join public_profiles p on p.user_id = ws.user_id
-  where ws.status = 'finished'
-    and ws.planning_date::date >= p_week_start
-    and ws.planning_date::date <  (p_week_start + 7)
-  group by ws.user_id, p.nickname, p.avatar_url
-  having coalesce(sum(ws.total_vendido), 0) > 0
+    ds.user_id,
+    coalesce(pp.nickname, '')                                          as nome_usuario,
+    coalesce(pp.avatar_url, '')                                        as avatar_url,
+    coalesce(sum(ds.total_profit), 0)::numeric                         as faturamento_semana,
+    count(*) filter (where coalesce(ds.total_profit, 0) > 0)::integer  as dias_semana
+  from daily_sales ds
+  left join public_profiles pp on pp.user_id = ds.user_id
+  left join profiles pr        on pr.user_id = ds.user_id
+  where ds.date::date >= p_week_start
+    and ds.date::date <  (p_week_start + 7)
+    and coalesce(pr.ranking_hidden, false) = false
+  group by ds.user_id, pp.nickname, pp.avatar_url
+  having coalesce(sum(ds.total_profit), 0) > 0
   order by faturamento_semana desc;
 $$;
 
