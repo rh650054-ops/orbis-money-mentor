@@ -18,20 +18,16 @@ captureReferralCoupon();
 // Setup offline sync listeners globally
 setupOfflineSyncListeners();
 
-// One-time cleanup of the old vite-plugin-pwa service worker that was caching
-// a broken build (tela preta no app publicado). We only register the
-// kill-switch /sw.js when an old service worker is actually present —
-// otherwise new visitors would get caught in a register → navigate → reload
-// loop and never see the app.
+// Service worker do Orbis — registrado pra TODOS os usuários.
+// NÃO faz cache (não tem listener de "fetch"), então não há como voltar o bug
+// da tela preta (servir um build velho). Ele só habilita as ações rápidas
+// (Venda / Abordagem) na notificação da tela bloqueada durante o DEFCON e
+// limpa, no activate, qualquer cache legado do worker antigo.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
-    .getRegistrations()
-    .then((registrations) => {
-      if (registrations.length === 0) return;
-      return navigator.serviceWorker.register("/sw.js", { scope: "/" });
-    })
+    .register("/sw.js", { scope: "/" })
     .catch(() => {
-      // ignore — best-effort cleanup
+      // best-effort — o app funciona normalmente mesmo sem o worker
     });
 }
 

@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
+import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
@@ -25,6 +26,38 @@ export default function DefconChallenge() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  // Valor da "venda rápida" = valor mais frequente do dia (mesmo critério dos
+  // botões de venda rápida na tela). 0 = ainda sem nenhuma venda registrada.
+  const quickSaleAmount = useMemo(() => {
+    const sales = (defcon.sessionSales || []) as Array<{ amount?: number }>;
+    const freq = new Map<number, number>();
+    for (const s of sales) {
+      const a = Number(s?.amount) || 0;
+      if (a > 0) freq.set(a, (freq.get(a) || 0) + 1);
+    }
+    let best = 0;
+    let bestN = 0;
+    freq.forEach((n, val) => {
+      if (n > bestN) {
+        bestN = n;
+        best = val;
+      }
+    });
+    return best;
+  }, [defcon.sessionSales]);
+
+  // Notificação na tela bloqueada com botões Venda/Abordagem.
+  // Só na fase ativa do DEFCON real (desligada no modo treino).
+  useDefconQuickNotification(!treino && defcon.phase === "running", {
+    totalSales: defcon.totalSalesCount ?? 0,
+    totalApproaches: defcon.totalApproaches ?? 0,
+    quickValue: quickSaleAmount,
+    onVenda: () => {
+      if (quickSaleAmount > 0) defcon.addSale(quickSaleAmount, "dinheiro");
+    },
+    onAbordagem: () => defcon.addApproach(),
+  });
 
   if (authLoading || defcon.loading || !user) {
     return (
