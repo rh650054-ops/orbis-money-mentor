@@ -168,6 +168,67 @@ function bytesToB64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
+// ---- VOZ NEURAL GRÁTIS via Microsoft Edge (edge-tts) — sem chave, sem cartão ----
+const EDGE_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
+const EDGE_GEC_VERSION = "1-143.0.3650.75";
+function xmlEscape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+}
+function edgeDateString(): string {
+  const d = new Date();
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${days[d.getUTCDay()]} ${mon[d.getUTCMonth()]} ${p(d.getUTCDate())} ${d.getUTCFullYear()} ` +
+    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} GMT+0000 (Coordinated Universal Time)`;
+}
+async function edgeSecToken(): Promise<string> {
+  let ticks = (BigInt(Math.floor(Date.now() / 1000)) + 11644473600n) * 10000000n;
+  ticks = ticks - (ticks % 3000000000n);
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${ticks}${EDGE_TOKEN}`)));
+  return [...hash].map((b) => b.toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+async function edgeTTS(text: string, voice: string, pitch: string, rate: string, volume: string): Promise<Uint8Array> {
+  const gec = await edgeSecToken();
+  const connId = crypto.randomUUID().replace(/-/g, "");
+  const url = `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1` +
+    `?TrustedClientToken=${EDGE_TOKEN}&ConnectionId=${connId}&Sec-MS-GEC=${gec}&Sec-MS-GEC-Version=${EDGE_GEC_VERSION}`;
+  const ws = new WebSocket(url);
+  ws.binaryType = "arraybuffer";
+  const chunks: Uint8Array[] = [];
+  return await new Promise<Uint8Array>((resolve, reject) => {
+    const timer = setTimeout(() => { try { ws.close(); } catch { /*noop*/ } reject(new Error("edge_timeout")); }, 17000);
+    ws.onopen = () => {
+      const date = edgeDateString();
+      ws.send(`X-Timestamp:${date}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
+        `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n`);
+      const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>` +
+        `<voice name='${voice}'><prosody pitch='${pitch}' rate='${rate}' volume='${volume}'>${xmlEscape(text)}</prosody></voice></speak>`;
+      ws.send(`X-RequestId:${connId}\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${date}Z\r\nPath:ssml\r\n\r\n${ssml}`);
+    };
+    ws.onmessage = (ev) => {
+      if (typeof ev.data === "string") {
+        if (ev.data.includes("Path:turn.end")) {
+          clearTimeout(timer);
+          let total = 0; for (const c of chunks) total += c.length;
+          const out = new Uint8Array(total);
+          let off = 0; for (const c of chunks) { out.set(c, off); off += c.length; }
+          try { ws.close(); } catch { /*noop*/ }
+          resolve(out);
+        }
+      } else {
+        const buf = new Uint8Array(ev.data as ArrayBuffer);
+        if (buf.length > 2) {
+          const headerLen = (buf[0] << 8) | buf[1];
+          if (2 + headerLen <= buf.length) chunks.push(buf.slice(2 + headerLen));
+        }
+      }
+    };
+    ws.onerror = () => { clearTimeout(timer); reject(new Error("edge_ws_error")); };
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -180,39 +241,38 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
 
-    // ===== VOZ (TTS): voz estilo JARVIS com OpenAI gpt-4o-mini-tts (steerable, rápida) =====
+    // ===== VOZ (TTS): voz NEURAL grátis via Edge (sem chave/cartão) + fallback StreamElements =====
     if (body?.tts && typeof body.tts === "string" && body.tts.trim()) {
-      const oaKey = Deno.env.get("OPENAI_API_KEY");
-      if (!oaKey) return json({ error: "sem_openai_key" });
-      const ttsModel = Deno.env.get("OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts";
-      const voice = Deno.env.get("OPENAI_TTS_VOICE") ?? "onyx";
-      const instructions = Deno.env.get("OPENAI_TTS_STYLE") ??
-        "Fale em português do Brasil. Voz GRAVE, CALMA, composta e sofisticada — como um assistente de IA confiante e refinado (estilo JARVIS): ritmo pausado e seguro, tom caloroso porém autoritário, sem pressa e sem soar robótico.";
+      const text = body.tts.slice(0, 900);
+      // 1) Edge TTS (neural, grave estilo JARVIS) — grátis, sem chave
       try {
-        const tRes = await fetch("https://api.openai.com/v1/audio/speech", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${oaKey}`, "Content-Type": "application/json" },
-          signal: AbortSignal.timeout(20000),
-          body: JSON.stringify({
-            model: ttsModel,
-            voice,
-            input: body.tts.slice(0, 900),
-            instructions,
-            response_format: "mp3",
-          }),
-        });
-        if (!tRes.ok) {
-          const errTxt = await tRes.text().catch(() => "");
-          console.error("OpenAI TTS erro", tRes.status, errTxt.slice(0, 300));
-          return json({ error: `tts_${tRes.status}` });
-        }
-        const buf = new Uint8Array(await tRes.arrayBuffer());
-        if (!buf.length) return json({ error: "tts_vazio" });
-        return json({ audio: bytesToB64(buf), mime: "audio/mpeg" });
+        const voice = Deno.env.get("EDGE_TTS_VOICE") ?? "pt-BR-AntonioNeural";
+        const pitch = Deno.env.get("EDGE_TTS_PITCH") ?? "-5Hz";
+        const rate = Deno.env.get("EDGE_TTS_RATE") ?? "-3%";
+        const volume = Deno.env.get("EDGE_TTS_VOLUME") ?? "+0%";
+        const audio = await edgeTTS(text, voice, pitch, rate, volume);
+        if (audio.length > 800) return json({ audio: bytesToB64(audio), mime: "audio/mpeg" });
+        console.error("Edge TTS vazio (cai pro StreamElements)");
       } catch (e) {
-        console.error("TTS erro", e);
-        return json({ error: "tts_erro" });
+        console.error("Edge TTS falhou (cai pro StreamElements):", String(e).slice(0, 200));
       }
+      // 2) Fallback: StreamElements (Amazon Polly) — HTTP simples, grátis
+      try {
+        const seVoice = Deno.env.get("SE_TTS_VOICE") ?? "Ricardo";
+        const r = await fetch(
+          `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text)}`,
+          { signal: AbortSignal.timeout(15000) },
+        );
+        if (r.ok) {
+          const buf = new Uint8Array(await r.arrayBuffer());
+          if (buf.length > 800) return json({ audio: bytesToB64(buf), mime: "audio/mpeg" });
+        } else {
+          console.error("StreamElements TTS erro", r.status);
+        }
+      } catch (e) {
+        console.error("StreamElements TTS falhou:", String(e).slice(0, 200));
+      }
+      return json({ error: "tts_indisponivel" }); // o app cai na voz do aparelho sozinho
     }
 
     const messages = Array.isArray(body?.messages) ? body.messages : null;

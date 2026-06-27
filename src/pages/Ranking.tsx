@@ -6,6 +6,7 @@ import { Progress } from "@/shared/ui/progress";
 import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
+import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { RankingProfileModal } from "@/components/RankingProfileModal";
@@ -17,7 +18,6 @@ import { getTier, leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
 import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
-import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toPng } from "html-to-image";
@@ -74,8 +74,9 @@ export default function Ranking() {
     faturamentoRanking, constanciaRanking, currentUserStats,
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
+  const weekly = useWeeklyLeaderboard(user?.id);
 
-  const [activeTab, setActiveTab] = useState<"global" | "competicoes">("global");
+  const [activeTab, setActiveTab] = useState<"mensal" | "semanal">("mensal");
   const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
@@ -194,7 +195,7 @@ export default function Ranking() {
     setPublicProfileUserId(uid);
   };
 
-  const isGlobal = activeTab === "global";
+  const isMensal = activeTab === "mensal";
 
   const handleShare = async () => {
     if (!shareCardRef.current || isSharing) return;
@@ -299,67 +300,67 @@ export default function Ranking() {
         />
       )}
 
-      {/* Tabs: Liga Global + Competições */}
+      {/* Tabs: Liga do Mês + Liga da Semana */}
       <div className="grid grid-cols-2 gap-2.5">
         <button
-          onClick={() => setActiveTab("global")}
+          onClick={() => setActiveTab("mensal")}
           className={cn(
             "relative overflow-hidden rounded-xl p-3.5 text-left transition-[colors,transform,opacity] duration-300 border",
-            isGlobal
+            isMensal
               ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
               : "bg-card/40 border-border/50 hover:border-primary/30",
           )}
         >
-          {isGlobal && (
+          {isMensal && (
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
           )}
           <div className="relative flex items-center gap-2.5">
             <div
               className={cn(
                 "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+                isMensal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
               )}
             >
               <Trophy className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className={cn("text-xs font-bold uppercase tracking-widest", isGlobal ? "text-primary" : "text-muted-foreground")}>
+              <p className={cn("text-xs font-bold uppercase tracking-widest", isMensal ? "text-primary" : "text-muted-foreground")}>
                 Liga
               </p>
-              <p className={cn("text-sm font-black truncate", isGlobal ? "text-foreground" : "text-foreground/70")}>
-                Global
+              <p className={cn("text-sm font-black truncate", isMensal ? "text-foreground" : "text-foreground/70")}>
+                Do Mês
               </p>
             </div>
           </div>
         </button>
 
         <button
-          onClick={() => setActiveTab("competicoes")}
+          onClick={() => setActiveTab("semanal")}
           className={cn(
             "relative overflow-hidden rounded-xl p-3.5 text-left transition-[colors,transform,opacity] duration-300 border",
-            !isGlobal
+            !isMensal
               ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
               : "bg-card/40 border-border/50 hover:border-primary/30",
           )}
         >
-          {!isGlobal && (
+          {!isMensal && (
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
           )}
           <div className="relative flex items-center gap-2.5">
             <div
               className={cn(
                 "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                !isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+                !isMensal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
               )}
             >
-              <Gift className="w-4 h-4" />
+              <Flame className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <p className={cn("text-xs font-bold uppercase tracking-widest", !isGlobal ? "text-primary" : "text-muted-foreground")}>
-                Competições
+              <p className={cn("text-xs font-bold uppercase tracking-widest", !isMensal ? "text-primary" : "text-muted-foreground")}>
+                Liga
               </p>
-              <p className={cn("text-sm font-black truncate", !isGlobal ? "text-foreground" : "text-foreground/70")}>
-                Com prêmios
+              <p className={cn("text-sm font-black truncate", !isMensal ? "text-foreground" : "text-foreground/70")}>
+                Da Semana
               </p>
             </div>
           </div>
@@ -367,23 +368,12 @@ export default function Ranking() {
       </div>
 
       <p className="text-center text-xs text-muted-foreground -mt-2">
-        {isGlobal
+        {isMensal
           ? "Maiores vendedores do mês · ofensiva 🔥 incluída"
-          : "Torneios semanais e mensais com prêmios reais"}
+          : "Maiores vendedores desta semana · zera domingo 00h"}
       </p>
 
-      {isAdmin && !isGlobal && (
-        <button
-          onClick={() => navigate("/admin/competitions")}
-          className="w-full rounded-xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-3 py-3 flex items-center justify-center gap-2 text-sm font-black text-primary hover:from-primary/25 hover:to-primary/25 transition"
-          style={{ boxShadow: "0 6px 20px -8px hsl(var(--primary) / 0.5)" }}
-        >
-          <Shield className="w-4 h-4" />
-          Admin · Criar / gerenciar competições
-        </button>
-      )}
-
-      {isGlobal && (
+      {isMensal ? (
         <>
           {/* Compartilhar no Instagram */}
           {hasParticipated && currentUserStats && (
@@ -391,20 +381,21 @@ export default function Ranking() {
               data-tour="ranking-share"
               onClick={handleShare}
               disabled={isSharing}
-              className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60"
-              style={{ background: "linear-gradient(95deg, #FEDA77 0%, #F58529 24%, #DD2A7B 56%, #8134AF 80%, #515BD4 100%)", boxShadow: "0 10px 30px -10px rgba(221,42,123,0.55)" }}
+              className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60 hover:border-primary/50"
+              style={{ boxShadow: "0 8px 28px -14px hsl(var(--primary) / 0.45)" }}
             >
+              <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
               <div className="relative flex items-center justify-center gap-2.5">
                 {isSharing ? (
-                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
                 ) : (
-                  <Share2 className="w-5 h-5 text-white" />
+                  <Share2 className="w-5 h-5 text-primary" />
                 )}
                 <div className="text-left">
-                  <p className="text-sm font-black text-white tracking-wide" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.5)" }}>
+                  <p className="text-sm font-black text-foreground tracking-wide">
                     {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
                   </p>
-                  <p className="text-xs text-white/85 uppercase tracking-widest">
+                  <p className="text-xs text-primary/70 uppercase tracking-widest">
                     Story 9:16 · pronto pra postar
                   </p>
                 </div>
@@ -435,10 +426,26 @@ export default function Ranking() {
             quickUploading={quickUploading}
           />
         </>
-      )}
-
-      {!isGlobal && (
-        <CompetitionsTab userId={user?.id} hasPhone={!!userPhone} />
+      ) : (
+        <>
+          {weekly.isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-48 w-full" />
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
+            <FaturamentoLeague
+              ranking={weekly.ranking}
+              currentUserStats={weekly.currentUserStats}
+              hasParticipated={weekly.hasParticipated}
+              formatCurrency={formatCurrency}
+              onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+              onOpenProfile={openPublicProfile}
+              onQuickPhoto={() => quickPhotoRef.current?.click()}
+              quickUploading={quickUploading}
+            />
+          )}
+        </>
       )}
 
       {user && (

@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X } from "lucide-react";
+import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Gift } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
 import { useToast } from "@/shared/hooks/use-toast";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
+import { useAuth } from "@/hooks/useAuth";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 const STORAGE_KEYS = {
   sounds: "orbis_sounds_enabled",
@@ -15,6 +17,9 @@ const STORAGE_KEYS = {
 export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { whitelisted, role } = useAdminAccess(user?.id);
+  const isAdmin = whitelisted && role === "admin";
 
   const [soundsEnabled, setSoundsEnabled] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEYS.sounds);
@@ -155,6 +160,26 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Admin — só aparece pra administradores */}
+      {isAdmin && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Admin</p>
+
+          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/competitions")}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
+                <Gift className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">Competições</p>
+                <p className="text-xs text-muted-foreground">Criar e gerenciar os desafios mensais e semanais</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
