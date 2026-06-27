@@ -253,8 +253,10 @@ export function DefconRunning({
     const phone = digits.startsWith("55") ? digits : `55${digits}`;
     const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount, saleName);
     saveChargeTemplate(text, amount, saleName);
-    registerSale(amount, "dinheiro");
-    persistClient(amount, "dinheiro");
+    // Cobrança por WhatsApp é sempre PIX (a mensagem manda a chave Pix) — antes
+    // registrava como "dinheiro" e o valor caía errado no split do fim do dia.
+    registerSale(amount, "pix");
+    persistClient(amount, "pix");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
     setShowChargePreview(false);
     resetSaleForm();

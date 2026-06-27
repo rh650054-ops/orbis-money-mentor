@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Label } from "@/shared/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
@@ -135,6 +136,10 @@ export default function Finances() {
     | null
   >(null);
   const [depositValue, setDepositValue] = useState("");
+  // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
+  const [savedToday, setSavedToday] = useState(() => {
+    try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
+  });
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
@@ -403,6 +408,9 @@ export default function Finances() {
           });
         }
       }
+      // Marca que o usuário já guardou HOJE (pra não pedir de novo se vender mais à tarde).
+      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
+      setSavedToday(true);
       setDepositTarget(null);
       setDepositValue("");
       loadFinancialData();
@@ -885,12 +893,21 @@ export default function Finances() {
           <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">A guardar hoje</p>
-              <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
-                {formatCurrency(totalGuardarHoje)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
-              </p>
+              {savedToday ? (
+                <>
+                  <p className="text-base font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">Amanhã aparece o novo valor.</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
+                    {formatCurrency(totalGuardarHoje)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 truncate">
+                    metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
 
@@ -916,12 +933,17 @@ export default function Finances() {
                 <p className="text-xs text-muted-foreground">A guardar hoje</p>
                 {isLoadingData ? (
                   <Skeleton className="h-8 w-28 mt-1" />
+                ) : savedToday ? (
+                  <p className="text-xl font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
                 ) : (
                   <p className="text-2xl font-bold text-primary mt-1 tracking-tight whitespace-nowrap">
                     {formatCurrency(totalGuardarHoje)}
                   </p>
                 )}
-                {!isLoadingData && (
+                {!isLoadingData && savedToday && (
+                  <p className="text-xs text-muted-foreground mt-1">Amanhã aparece o novo valor.</p>
+                )}
+                {!isLoadingData && !savedToday && (
                   <p className="text-xs text-muted-foreground mt-1">
                     metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
                   </p>
@@ -1020,11 +1042,9 @@ export default function Finances() {
                   <div className={newBill.isCreditCard ? "flex gap-3" : "space-y-2"}>
                     <div className="space-y-2 flex-1 min-w-0">
                       <Label>{newBill.isCreditCard ? (newBill.cardMode === "total" ? "Total (R$)" : "Parcela (R$)") : "Valor (R$)"}</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={newBill.amount}
-                        onChange={(e) => setNewBill({ ...newBill, amount: e.target.value })}
+                      <MoneyInput
+                        value={parseFloat(newBill.amount) || 0}
+                        onChange={(n) => setNewBill({ ...newBill, amount: n ? String(n) : "" })}
                         placeholder="0,00"
                       />
                     </div>
@@ -1445,11 +1465,9 @@ export default function Finances() {
                   </div>
                   <div>
                     <Label>Valor Alvo (R$)</Label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={newGoal.target_amount}
-                      onChange={(e) => setNewGoal({ ...newGoal, target_amount: e.target.value })}
+                    <MoneyInput
+                      value={parseFloat(newGoal.target_amount) || 0}
+                      onChange={(n) => setNewGoal({ ...newGoal, target_amount: n ? String(n) : "" })}
                       placeholder="0,00"
                     />
                   </div>
@@ -1609,13 +1627,10 @@ export default function Finances() {
             )}
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                inputMode="decimal"
+              <MoneyInput
                 autoFocus
-                value={depositValue}
-                onChange={(e) => setDepositValue(e.target.value)}
+                value={parseFloat(depositValue) || 0}
+                onChange={(n) => setDepositValue(n ? String(n) : "")}
                 onKeyDown={(e) => { if (e.key === "Enter") handleConfirmDeposit(); }}
                 placeholder="0,00"
               />
@@ -1653,11 +1668,9 @@ export default function Finances() {
             </div>
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={editBillForm.amount}
-                onChange={(e) => setEditBillForm({ ...editBillForm, amount: e.target.value })}
+              <MoneyInput
+                value={parseFloat(editBillForm.amount) || 0}
+                onChange={(n) => setEditBillForm({ ...editBillForm, amount: n ? String(n) : "" })}
                 placeholder="0,00"
               />
             </div>

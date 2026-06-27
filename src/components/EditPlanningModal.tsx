@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { Label } from "@/shared/ui/label";
 import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
@@ -234,15 +235,12 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                 <Target className="w-3.5 h-3.5 text-primary" />
                 Meta Mensal (R$)
               </Label>
-              <Input
+              <MoneyInput
                 id="monthlyGoal"
-                type="number"
-                inputMode="numeric"
-                value={monthlyGoal || ''}
-                onChange={(e) => setMonthlyGoal(e.target.value === '' ? 0 : Number(e.target.value))}
-                onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-                min={1}
-                placeholder="Ex: 4200"
+                value={monthlyGoal}
+                onChange={setMonthlyGoal}
+                decimals={0}
+                placeholder="Ex: 4.200"
                 className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>

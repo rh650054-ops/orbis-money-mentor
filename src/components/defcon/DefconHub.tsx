@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
@@ -527,11 +528,9 @@ export default function DefconHub() {
             })}
           </div>
           <div className="flex gap-2">
-            <input
-              type="number"
-              inputMode="decimal"
-              value={quickCost}
-              onChange={(e) => setQuickCost(e.target.value)}
+            <MoneyInput
+              value={parseFloat(quickCost) || 0}
+              onChange={(n) => setQuickCost(n ? String(n) : "")}
               placeholder="R$ 0,00"
               className="flex-1 min-w-0 h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
             />

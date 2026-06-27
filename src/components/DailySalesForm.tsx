@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
+import { MoneyInput } from "@/shared/ui/money-input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
@@ -490,12 +491,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <DollarSign className="h-4 w-4 text-success" />
                 Total Vendido (R$)
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={formData.totalProfit}
-                onChange={(e) => setFormData({ ...formData, totalProfit: e.target.value })}
+              <MoneyInput
+                value={parseFloat(formData.totalProfit) || 0}
+                onChange={(n) => setFormData({ ...formData, totalProfit: n ? String(n) : "" })}
               />
             </div>
             <div className="space-y-2">
@@ -503,12 +501,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <DollarSign className="h-4 w-4 text-warning" />
                 Gasto em Mercadoria (R$)
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={formData.cost}
-                onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+              <MoneyInput
+                value={parseFloat(formData.cost) || 0}
+                onChange={(n) => setFormData({ ...formData, cost: n ? String(n) : "" })}
               />
             </div>
             <div className="space-y-2">
@@ -516,12 +511,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <AlertTriangle className="h-4 w-4 text-destructive" />
                 Calotes (R$)
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={formData.totalDebt}
-                onChange={(e) => setFormData({ ...formData, totalDebt: e.target.value })}
+              <MoneyInput
+                value={parseFloat(formData.totalDebt) || 0}
+                onChange={(n) => setFormData({ ...formData, totalDebt: n ? String(n) : "" })}
               />
             </div>
             <div className="space-y-2">
@@ -549,12 +541,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <Bus className="h-4 w-4 text-warning" />
                 Transporte (R$)
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={formData.transportCost}
-                onChange={(e) => setFormData({ ...formData, transportCost: e.target.value })}
+              <MoneyInput
+                value={parseFloat(formData.transportCost) || 0}
+                onChange={(n) => setFormData({ ...formData, transportCost: n ? String(n) : "" })}
               />
             </div>
             <div className="space-y-2">
@@ -562,12 +551,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <Utensils className="h-4 w-4 text-warning" />
                 Alimentação (R$)
               </Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={formData.foodCost}
-                onChange={(e) => setFormData({ ...formData, foodCost: e.target.value })}
+              <MoneyInput
+                value={parseFloat(formData.foodCost) || 0}
+                onChange={(n) => setFormData({ ...formData, foodCost: n ? String(n) : "" })}
               />
             </div>
           </div>
@@ -580,12 +566,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <Banknote className="h-4 w-4 text-success" />
                   Dinheiro (R$)
                 </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={formData.cashSales}
-                  onChange={(e) => setFormData({ ...formData, cashSales: e.target.value })}
+                <MoneyInput
+                  value={parseFloat(formData.cashSales) || 0}
+                  onChange={(n) => setFormData({ ...formData, cashSales: n ? String(n) : "" })}
                 />
               </div>
               <div className="space-y-2">
@@ -593,12 +576,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <Smartphone className="h-4 w-4 text-primary" />
                   Pix (R$)
                 </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={formData.pixSales}
-                  onChange={(e) => setFormData({ ...formData, pixSales: e.target.value })}
+                <MoneyInput
+                  value={parseFloat(formData.pixSales) || 0}
+                  onChange={(n) => setFormData({ ...formData, pixSales: n ? String(n) : "" })}
                 />
               </div>
               <div className="space-y-2">
@@ -606,12 +586,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <CreditCard className="h-4 w-4 text-secondary" />
                   Cartão (R$)
                 </Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={formData.cardSales}
-                  onChange={(e) => setFormData({ ...formData, cardSales: e.target.value })}
+                <MoneyInput
+                  value={parseFloat(formData.cardSales) || 0}
+                  onChange={(n) => setFormData({ ...formData, cardSales: n ? String(n) : "" })}
                 />
               </div>
             </div>
