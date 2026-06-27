@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency, cn } from "@/shared/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 const QUICK_CATEGORIES = [
   { key: "almoco", label: "Almoço", icon: "🍽️", category: "Alimentação" },
@@ -56,7 +57,8 @@ export default function QuickExpenseButton({
   const [todayExpenses, setTodayExpenses] = useState<DayExpense[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const today = new Date().toISOString().split("T")[0]!;
+  // Data de Brasília (não UTC) — senão um custo lançado de noite "vaza" pro dia seguinte.
+  const today = getBrazilDate();
 
   const fetchTodayExpenses = async () => {
     if (!user) return;

@@ -825,6 +825,41 @@ export default function Finances() {
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
 
+  // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
+  // e marca "já guardou hoje" (renova amanhã).
+  const handleGuardeiTudo = async () => {
+    if (!user || totalGuardarHoje <= 0) return;
+    try {
+      for (const bill of bills) {
+        const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+        if (quitada || isOverdue(bill) || !todayIsWorkDay) continue;
+        const add = perDay(bill);
+        if (add > 0) {
+          await supabase
+            .from("planned_bills")
+            .update({ saved_amount: Number(bill.saved_amount) + add })
+            .eq("id", bill.id);
+        }
+      }
+      for (const goal of goals) {
+        const share = (Math.max(0, summary.netToday) * (Number(goal.percentual_distribuicao) || 0)) / 100;
+        if (share > 0) {
+          const newAmount = Number(goal.current_amount) + share;
+          await supabase
+            .from("financial_goals")
+            .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
+            .eq("id", goal.id);
+        }
+      }
+      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
+      setSavedToday(true);
+      toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(totalGuardarHoje)} guardado.` });
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao guardar", variant: "destructive" });
+    }
+  };
+
   // Contas vencidas (não recorrentes que passaram do prazo e não estão quitadas)
   const overdueBills = bills.filter((bill) => isOverdue(bill));
   const vencidasTotal = overdueBills.reduce((sum, bill) => sum + remaining(bill), 0);
@@ -958,6 +993,16 @@ export default function Finances() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Botão "Guardei tudo" — guarda a parte de hoje de tudo de uma vez */}
+      {!isLoadingData && !savedToday && todayIsWorkDay && totalGuardarHoje > 0 && (
+        <button
+          onClick={handleGuardeiTudo}
+          className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+        >
+          ✓ Guardei tudo — {formatCurrency(totalGuardarHoje)}
+        </button>
       )}
 
       {/* Distribuição automática do líquido diário */}
