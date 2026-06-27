@@ -74,9 +74,9 @@ export default function Ranking() {
     faturamentoRanking, constanciaRanking, currentUserStats,
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
-  const weekly = useWeeklyLeaderboard(user?.id);
 
   const [activeTab, setActiveTab] = useState<"mensal" | "semanal">("mensal");
+  const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
   const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
@@ -328,7 +328,7 @@ export default function Ranking() {
                 Liga
               </p>
               <p className={cn("text-sm font-black truncate", isMensal ? "text-foreground" : "text-foreground/70")}>
-                Do Mês
+                Mensal
               </p>
             </div>
           </div>
@@ -360,7 +360,7 @@ export default function Ranking() {
                 Liga
               </p>
               <p className={cn("text-sm font-black truncate", !isMensal ? "text-foreground" : "text-foreground/70")}>
-                Da Semana
+                Semanal
               </p>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
@@ -14,11 +14,12 @@ export function currentWeekStart(): string {
 
 // Lê o ranking da semana via RPC get_weekly_ranking e devolve no mesmo formato do
 // ranking mensal (pra reaproveitar os componentes de pódio/lista).
-export function useWeeklyLeaderboard(userId: string | undefined) {
+export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolean) {
   const [ranking, setRanking] = useState<LeaderboardEntry[]>([]);
   const [currentUserStats, setCurrentUserStats] = useState<LeaderboardEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasParticipated, setHasParticipated] = useState(false);
+  const loadedRef = useRef(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -59,7 +60,13 @@ export function useWeeklyLeaderboard(userId: string | undefined) {
     }
   }, [userId]);
 
-  useEffect(() => { load(); }, [load]);
+  // Só carrega quando a aba Semanal é aberta (enabled) — não pesa o load inicial do Ranking.
+  useEffect(() => {
+    if (enabled && !loadedRef.current) {
+      loadedRef.current = true;
+      load();
+    }
+  }, [enabled, load]);
 
   return { ranking, currentUserStats, isLoading, hasParticipated, reload: load };
 }
