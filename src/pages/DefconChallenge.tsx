@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
-import { useScreenWakeLock } from "@/hooks/useScreenWakeLock";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
@@ -26,9 +25,6 @@ export default function DefconChallenge() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
-
-  // Mantém a tela ligada durante a sessão ativa do DEFCON (sem ficar destravando o celular).
-  useScreenWakeLock(["running", "break", "block_report", "lunch_pause"].includes(defcon.phase));
 
   if (authLoading || defcon.loading || !user) {
     return (
