@@ -436,6 +436,7 @@ export default function Ranking() {
           ) : (
             <FaturamentoLeague
               ranking={weekly.ranking}
+              variant="semanal"
               currentUserStats={weekly.currentUserStats}
               hasParticipated={weekly.hasParticipated}
               formatCurrency={formatCurrency}
@@ -507,7 +508,7 @@ interface FaturamentoLeagueProps extends LeagueProps {
   variant?: "mensal" | "semanal";
 }
 
-function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile, onQuickPhoto, quickUploading }: FaturamentoLeagueProps) {
+function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile, onQuickPhoto, quickUploading, variant }: FaturamentoLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
   const top3 = ranking[2];
@@ -535,7 +536,7 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
 
   return (
     <div className="space-y-4">
-      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} variant={variant} />
 
       {/* A cacada - quem esta logo na frente */}
       {hasParticipated && (
