@@ -13,13 +13,11 @@ interface Props {
   variant?: Variant;
 }
 
-// Liga Semanal = AMBIENTE verde (fundo, bases, glows, badge). As medalhas continuam
-// ouro/prata/bronze: o top1 ganha borda esmeralda, mas top2/top3 mantêm a cor do tier
-// (prata/bronze) — pra não perder a leitura instantânea de 2º e 3º lugar.
-const GREEN_BASE: Record<number, string> = { 1: "#10B981", 2: "#059669", 3: "#065F46" };
+// Liga Semanal = AMBIENTE verde (fundo + badge). As medalhas continuam ouro/prata/bronze:
+// o top1 ganha ESMERALDA no lugar do ouro; top2/top3 mantêm prata/bronze. A base do pódio
+// usa a MESMA cor do círculo (medalha) de cada posição.
 const EMERALD = "#34D399";
 const EMERALD_GLOW = "rgba(52,211,153,0.55)";
-const GREEN_GLOW = "rgba(16,185,129,0.5)";
 
 function PodAvatar({ url, name, size, color, glow, icon }: { url: string | null; name: string | null; size: number; color: string; glow: string; icon: string }) {
   if (url) {
@@ -54,9 +52,9 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
   // Borda do avatar: no verde o top1 vira esmeralda; top2/top3 mantêm prata/bronze (tier).
   const avatarColor = green && position === 1 ? EMERALD : tier.color;
   const avatarGlow = green && position === 1 ? EMERALD_GLOW : tier.glow;
-  // Base do pódio: verde (intenso/médio/escuro) no semanal; cor do tier no mensal.
-  const baseColor = green ? (GREEN_BASE[position] || "#10B981") : tier.color;
-  const baseGlow = green ? GREEN_GLOW : tier.glow;
+  // Base do pódio = MESMA cor do círculo/medalha (top1 esmeralda, top2 prata, top3 bronze).
+  const baseColor = avatarColor;
+  const baseGlow = avatarGlow;
 
   return (
     <div className="flex-1 text-center min-w-0">
