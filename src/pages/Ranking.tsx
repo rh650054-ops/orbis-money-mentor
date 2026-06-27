@@ -504,6 +504,7 @@ interface FaturamentoLeagueProps extends LeagueProps {
   formatCurrency: (value: number) => string;
   onQuickPhoto: () => void;
   quickUploading: boolean;
+  variant?: "mensal" | "semanal";
 }
 
 function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile, onQuickPhoto, quickUploading }: FaturamentoLeagueProps) {
