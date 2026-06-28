@@ -3,19 +3,20 @@
 // Ações rápidas na tela bloqueada durante o DEFCON, sem destravar o celular.
 //
 // DOIS MODOS (a página decide pelo aparelho):
-//   - "buttons" (Android): UMA notificação com DOIS botões de ação (Venda/Abordagem).
-//   - "tap" (iPhone): o iOS IGNORA botão de ação em notificação web, então mostramos
-//     DUAS notificações que se registram por TOQUE (Venda e Abordagem).
-// Além disso: a cada venda dispara "✅ Venda realizada! Valor: R$X" com a logo (os dois).
+//   - "buttons" (Android): UMA notificação com DOIS botões (Venda/Abordagem),
+//     com as contagens no corpo. O Android substitui pela tag (não duplica).
+//   - "tap" (iPhone): o iOS IGNORA botão de ação em notificação web, então
+//     mostramos DUAS notificações que registram por TOQUE — uma de Venda e uma
+//     de Abordagem — cada uma com a contagem escrita. Como o iOS NÃO substitui
+//     pela tag (empilha/duplica), a gente FECHA a anterior antes de mostrar a nova.
 //
 // IMPORTANTE: sem listener de "fetch" e sem cache — nunca intercepta o
 // carregamento da página nem serve build velho (bug da tela preta do worker antigo).
 
 const ICON = "/orbis-icon-192.png";
-const TAG_MAIN = "orbis-defcon";            // Android: notificação única com botões
-const TAG_VENDA = "orbis-venda";            // iPhone: notificação de toque (venda)
-const TAG_ABORDAGEM = "orbis-abordagem";    // iPhone: notificação de toque (abordagem)
-const TAG_REALIZADA = "orbis-venda-realizada"; // "Venda realizada!" (os dois)
+const TAG_MAIN = "orbis-defcon";         // Android: notificação única com botões
+const TAG_VENDA = "orbis-venda";         // iPhone: notificação de toque (venda)
+const TAG_ABORDAGEM = "orbis-abordagem"; // iPhone: notificação de toque (abordagem)
 
 self.addEventListener("install", (event) => {
   event.waitUntil(self.skipWaiting());
@@ -51,7 +52,17 @@ function cleanData(d) {
   };
 }
 
-// ---- Android: uma notificação, dois botões ----
+// Fecha a notificação anterior dessa tag ANTES de mostrar a nova (evita empilhar no iOS).
+async function closeTag(tag) {
+  try {
+    const ns = await self.registration.getNotifications({ tag });
+    ns.forEach((n) => n.close());
+  } catch (e) {
+    // best-effort
+  }
+}
+
+// ---- Android: uma notificação, dois botões (a tag substitui sozinha) ----
 async function showButtons(data) {
   const d = cleanData(data);
   const valor = brl(d.quickValue);
@@ -71,13 +82,14 @@ async function showButtons(data) {
   });
 }
 
-// ---- iPhone: duas notificações de toque ----
+// ---- iPhone: duas notificações de toque (fecha a anterior pra não duplicar) ----
 async function showVendaTap(data) {
   const d = cleanData(data);
   const valor = brl(d.quickValue);
-  return self.registration.showNotification(valor ? `➕ VENDA  ${valor}` : "➕ VENDA", {
+  await closeTag(TAG_VENDA);
+  return self.registration.showNotification(valor ? `➕ VENDA RÁPIDA  ${valor}` : "➕ VENDA RÁPIDA", {
     tag: TAG_VENDA,
-    body: `Toque aqui pra registrar uma venda  ·  Hoje: ${d.vendas}`,
+    body: `Vendas hoje: ${d.vendas}  ·  toque pra registrar`,
     icon: ICON,
     badge: ICON,
     silent: true,
@@ -89,9 +101,10 @@ async function showVendaTap(data) {
 
 async function showAbordagemTap(data) {
   const d = cleanData(data);
+  await closeTag(TAG_ABORDAGEM);
   return self.registration.showNotification("👋 ABORDAGEM", {
     tag: TAG_ABORDAGEM,
-    body: `Toque aqui pra registrar uma abordagem  ·  Hoje: ${d.abordagens}`,
+    body: `Abordagens hoje: ${d.abordagens}  ·  toque pra registrar`,
     icon: ICON,
     badge: ICON,
     silent: true,
@@ -108,24 +121,9 @@ async function showMain(data) {
   await showAbordagemTap(d);
 }
 
-// ---- "Venda realizada!" estilo Kiwify (iPhone e Android) ----
-async function showVendaRealizada(amount) {
-  const valor = brl(amount) || "R$0,00";
-  return self.registration.showNotification("✅ Venda realizada!", {
-    tag: TAG_REALIZADA,
-    body: `Valor: ${valor}`,
-    icon: ICON,
-    badge: ICON,
-    renotify: true,
-    silent: false,
-    data: { kind: "info" },
-  });
-}
-
 async function hideMain() {
   for (const tag of [TAG_MAIN, TAG_VENDA, TAG_ABORDAGEM]) {
-    const notifs = await self.registration.getNotifications({ tag });
-    notifs.forEach((n) => n.close());
+    await closeTag(tag);
   }
 }
 
@@ -135,8 +133,6 @@ self.addEventListener("message", (event) => {
     event.waitUntil(showMain(msg.data));
   } else if (msg.type === "orbis-defcon-hide") {
     event.waitUntil(hideMain());
-  } else if (msg.type === "orbis-venda-realizada") {
-    event.waitUntil(showVendaRealizada(msg.data && msg.data.amount));
   }
 });
 
@@ -150,13 +146,6 @@ self.addEventListener("notificationclick", (event) => {
     const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const orbis = clientsList.find((c) => c.url.includes("/defcon")) || clientsList[0];
 
-    // Toque na notificação "Venda realizada!" -> só abre o app.
-    if (data.kind === "info") {
-      if (orbis && "focus" in orbis) await orbis.focus();
-      else await self.clients.openWindow("/defcon");
-      return;
-    }
-
     const next = cleanData(data);
 
     if (which === "venda") {
@@ -168,7 +157,6 @@ self.addEventListener("notificationclick", (event) => {
       next.vendas += 1;
       next.abordagens += 1; // quem comprou foi abordado (igual no app)
       await showMain(next);
-      await showVendaRealizada(next.quickValue);
       if (orbis) {
         orbis.postMessage({ type: "orbis-defcon-quick", action: "venda" });
       } else {

@@ -1,14 +1,12 @@
 import { useEffect, useRef } from "react";
 
 interface QuickNotifOptions {
-  /** Total de vendas do dia. */
+  /** Total de vendas do dia (escrito na notificação de venda). */
   totalSales: number;
-  /** Total de abordagens do dia. */
+  /** Total de abordagens do dia (escrito na notificação de abordagem). */
   totalApproaches: number;
   /** Valor da "venda rápida" (valor mais frequente do dia). 0 = ainda sem valor. */
   quickValue: number;
-  /** Valor da venda mais recente (pra notificação "Venda realizada"). */
-  lastSaleAmount: number;
   /** Registra uma venda rápida. */
   onVenda: () => void;
   /** Registra uma abordagem. */
@@ -18,10 +16,10 @@ interface QuickNotifOptions {
 /**
  * Notificação na tela bloqueada durante o DEFCON pra registrar sem destravar.
  *
- * - Android: UMA notificação com DOIS botões (Venda/Abordagem).
- * - iPhone: o iOS ignora botão de ação em notificação web, então mostramos DUAS
- *   notificações que registram por TOQUE.
- * - Em ambos: dispara "✅ Venda realizada! Valor: R$X" (estilo Kiwify) a cada venda.
+ * - Android: UMA notificação com DOIS botões (Venda/Abordagem) + contagens no corpo.
+ * - iPhone: o iOS ignora botão de ação, então são DUAS notificações de TOQUE
+ *   (Venda e Abordagem), cada uma com a contagem escrita. O service worker fecha
+ *   a anterior antes de mostrar a nova pra não duplicar.
  * - Silencioso se o aparelho não suportar (iOS sem "Adicionar à tela inicial", etc.).
  */
 export function useDefconQuickNotification(active: boolean, opts: QuickNotifOptions) {
@@ -83,7 +81,7 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
     };
   }, [supported]);
 
-  // 4) Pede permissão e mostra/atualiza a notificação enquanto ativo.
+  // 4) Pede permissão e mostra/atualiza as notificações enquanto ativo.
   useEffect(() => {
     if (!supported) return;
     let cancelled = false;
@@ -124,22 +122,4 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
       cancelled = true;
     };
   }, [supported, active, mode, opts.totalSales, opts.totalApproaches, opts.quickValue]);
-
-  // 5) "✅ Venda realizada!" a cada nova venda (estilo Kiwify), iPhone e Android.
-  const prevSalesRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!supported) return;
-    const cur = opts.totalSales;
-    if (prevSalesRef.current === null) {
-      prevSalesRef.current = cur; // pula o carregamento inicial
-      return;
-    }
-    if (active && cur > prevSalesRef.current) {
-      const amount = optsRef.current.lastSaleAmount || optsRef.current.quickValue || 0;
-      navigator.serviceWorker.ready
-        .then((reg) => reg.active?.postMessage({ type: "orbis-venda-realizada", data: { amount } }))
-        .catch(() => {});
-    }
-    prevSalesRef.current = cur;
-  }, [supported, active, opts.totalSales]);
 }
