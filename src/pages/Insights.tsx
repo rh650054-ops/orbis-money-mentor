@@ -106,6 +106,8 @@ export default function Insights() {
   const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
+  const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
+  const [defconSales, setDefconSales] = useState<{ created_at: string }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
@@ -168,7 +170,7 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales")
@@ -206,6 +208,19 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("created_at", range.start.toISOString())
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
+        supabase
+          .from("late_pix_entries")
+          .select("amount")
+          .eq("user_id", user.id)
+          .gte("sale_date", startISO)
+          .lte("sale_date", endISO),
+        supabase
+          .from("defcon_sales")
+          .select("created_at")
+          .eq("user_id", user.id)
+          .gte("created_at", range.start.toISOString())
+          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
+          .order("created_at", { ascending: true }),
       ]);
 
       setSales(salesRes.data || []);
@@ -216,6 +231,8 @@ export default function Insights() {
       setPrevRangeProfit(
         (prevRes.data || []).reduce((s, d) => s + (d.total_profit || 0), 0),
       );
+      setLatePix((lateRes.data as any) || []);
+      setDefconSales((defconRes.data as any) || []);
     } finally {
       setLoading(false);
     }
@@ -263,6 +280,38 @@ export default function Insights() {
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
 
+    // Calote e recuperação
+    const pixRecuperado = latePix.reduce((s, p) => s + (Number((p as any).amount) || 0), 0);
+    const calotePct = totalVendas > 0 ? Math.min(100, (caloteUnidades / totalVendas) * 100) : 0;
+    const caloteACada = caloteUnidades > 0 ? totalVendas / caloteUnidades : 0;
+    const recuperadoPct = calotes > 0 ? Math.min(100, (pixRecuperado / calotes) * 100) : 0;
+    const recuperadoUnid = ticketMedio > 0 ? pixRecuperado / ticketMedio : 0;
+    const diasComRegistro = sales.length;
+    const mediaCaloteDiaUnid = diasComRegistro > 0 ? caloteUnidades / diasComRegistro : 0;
+    const sugestaoUnid = mediaCaloteDiaUnid > 0 ? Math.ceil(mediaCaloteDiaUnid) : 0;
+
+    // Ritmo: minutos médios entre vendas (por dia, fuso de Brasília) — igual ao fim do DEFCON
+    const brDay = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600000).toISOString().slice(0, 10);
+    const salesByDay = new Map<string, number[]>();
+    for (const s of defconSales) {
+      const t = new Date((s as any).created_at).getTime();
+      if (!Number.isFinite(t)) continue;
+      const day = brDay((s as any).created_at);
+      const arr = salesByDay.get(day) || [];
+      arr.push(t);
+      salesByDay.set(day, arr);
+    }
+    let gapSum = 0;
+    let gapCount = 0;
+    salesByDay.forEach((arr) => {
+      arr.sort((a, b) => a - b);
+      for (let i = 1; i < arr.length; i++) {
+        gapSum += arr[i]! - arr[i - 1]!;
+        gapCount++;
+      }
+    });
+    const ritmoMin = gapCount > 0 ? gapSum / gapCount / 60000 : 0;
+
     return {
       faturamento,
       lucro,
@@ -286,8 +335,16 @@ export default function Insights() {
       pix,
       cartao,
       gorjetas,
+      pixRecuperado,
+      calotePct,
+      caloteACada,
+      recuperadoPct,
+      recuperadoUnid,
+      mediaCaloteDiaUnid,
+      sugestaoUnid,
+      ritmoMin,
     };
-  }, [sales, blocks, expenses, challengeBlocks, rangeDays]);
+  }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales]);
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, { total: number; icon: string; count: number }>();
@@ -702,6 +759,54 @@ export default function Insights() {
               <FinanceRow label="🎁 Gorjetas" value={formatCurrency(summary.gorjetas)} tone="muted" />
             )}
           </div>
+
+          {/* Calote e recuperação (período) */}
+          <SectionTitle>Calote e recuperação</SectionTitle>
+          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
+            <FinanceRow
+              label="Taxa de calote"
+              value={`${summary.calotePct.toFixed(1)}%`}
+              sub={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} · ${formatCurrency(summary.calotes)} não recebido`}
+              tone="white"
+            />
+            <FinanceRow
+              label="1 calote a cada"
+              value={summary.caloteACada > 0 ? `${summary.caloteACada.toFixed(0)} vendas` : "—"}
+              tone="muted"
+            />
+            <FinanceRow
+              label="Recuperado via Pix depois"
+              value={formatCurrency(summary.pixRecuperado)}
+              sub={
+                summary.calotes > 0
+                  ? `${summary.recuperadoPct.toFixed(0)}% do calote volta · ~${Math.round(summary.recuperadoUnid)} un`
+                  : "ainda sem recuperação"
+              }
+              tone="white"
+            />
+            <FinanceRow
+              label="Calote médio por dia"
+              value={`${summary.mediaCaloteDiaUnid.toFixed(1)} un`}
+              tone="muted"
+            />
+            <FinanceRow
+              label="Ritmo de vendas"
+              value={summary.ritmoMin > 0 ? `1 a cada ${summary.ritmoMin.toFixed(0)} min` : "—"}
+              tone="muted"
+            />
+          </div>
+          {summary.sugestaoUnid > 0 && (
+            <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3.5 flex items-start gap-2.5">
+              <span className="text-lg leading-none mt-0.5">💡</span>
+              <p className="text-sm text-foreground/90">
+                Leve{" "}
+                <span className="font-bold text-primary">
+                  +{summary.sugestaoUnid} {summary.sugestaoUnid === 1 ? "unidade" : "unidades"} por dia
+                </span>{" "}
+                pra cobrir seu calote médio.
+              </p>
+            </div>
+          )}
 
           {/* Breakdown de custos operacionais por categoria */}
           {expensesByCategory.length > 0 && (
