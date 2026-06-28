@@ -127,12 +127,27 @@ async function hideMain() {
   }
 }
 
+// "✅ Venda realizada!" (estilo Kiwify). SEM tag de propósito: pode EMPILHAR,
+// uma por venda — diferente das de Venda/Abordagem (que substituem pra não duplicar).
+async function showVendaRealizada(amount) {
+  const valor = brl(amount) || "R$0,00";
+  return self.registration.showNotification("✅ Venda realizada!", {
+    body: `Valor: ${valor}`,
+    icon: ICON,
+    badge: ICON,
+    silent: false,
+    data: { kind: "info" },
+  });
+}
+
 self.addEventListener("message", (event) => {
   const msg = event.data || {};
   if (msg.type === "orbis-defcon-show") {
     event.waitUntil(showMain(msg.data));
   } else if (msg.type === "orbis-defcon-hide") {
     event.waitUntil(hideMain());
+  } else if (msg.type === "orbis-venda-realizada") {
+    event.waitUntil(showVendaRealizada(msg.data && msg.data.amount));
   }
 });
 
