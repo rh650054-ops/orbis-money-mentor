@@ -171,7 +171,7 @@ export default function Insights() {
       const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes] = await Promise.all([
         supabase
           .from("daily_sales")
-          .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units")
+          .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO)
@@ -229,19 +229,20 @@ export default function Insights() {
     // separados por categoria: mercadoria -> custo de mercadoria; transporte/almoço ->
     // transporte e alimentação; o resto -> outros custos. Inclui os lançamentos antigos,
     // então o histórico já aparece (não precisa migrar nada).
-    let expMercadoria = 0, expTranspAlim = 0, expOutros = 0;
+    let expMercadoria = 0, expTransporte = 0, expAlimentacao = 0, expOutros = 0;
     for (const e of expenses) {
       const cat = String((e as any).category || "").toLowerCase();
       const val = Number(e.amount || 0);
       if (cat.includes("mercadoria")) expMercadoria += val;
-      else if (cat.includes("transporte") || cat.includes("combust") || cat.includes("aliment")) expTranspAlim += val;
+      else if (cat.includes("transporte") || cat.includes("combust")) expTransporte += val;
+      else if (cat.includes("aliment") || cat.includes("almoc") || cat.includes("almoç") || cat.includes("lanche")) expAlimentacao += val;
       else expOutros += val;
     }
 
     const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0) + expMercadoria;
-    const custoTransporte = sales.reduce((s, d) => s + (Number((d as any).transport_cost) || 0), 0);
-    const custoAlimentacao = sales.reduce((s, d) => s + (Number((d as any).food_cost) || 0), 0);
-    const custoOperacao = custoTransporte + custoAlimentacao + expTranspAlim; // transporte + alimentação (do dia + lançamentos)
+    const custoTransporte = sales.reduce((s, d) => s + (Number((d as any).transport_cost) || 0), 0) + expTransporte;
+    const custoAlimentacao = sales.reduce((s, d) => s + (Number((d as any).food_cost) || 0), 0) + expAlimentacao;
+    const custoOperacao = custoTransporte + custoAlimentacao; // transporte + alimentação (do dia + lançamentos)
     const custoOutros = expOutros;
     const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0); // total dos lançamentos (detalhe por categoria)
     const custos = custoMercadoria + custoOperacao + custoOutros;
@@ -249,13 +250,18 @@ export default function Insights() {
     const lucro = faturamento - custoMercadoria - custoOperacao - custoOutros;
     const sobra = lucro;
 
+    // Recebido por forma de pagamento + gorjeta (somados no período)
+    const dinheiro = sales.reduce((s, d) => s + (Number((d as any).cash_sales) || 0), 0);
+    const pix = sales.reduce((s, d) => s + (Number((d as any).pix_sales) || 0), 0);
+    const cartao = sales.reduce((s, d) => s + (Number((d as any).card_sales) || 0), 0);
+    const gorjetas = sales.reduce((s, d) => s + (Number((d as any).tip_sales) || 0), 0);
+
     const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
     const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
     const conversao = totalAbordagens > 0 ? (totalVendas / totalAbordagens) * 100 : 0;
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
-    const gorjetas = 0;
 
     return {
       faturamento,
@@ -270,10 +276,15 @@ export default function Insights() {
       custos,
       custoMercadoria,
       custoOperacao,
+      custoTransporte,
+      custoAlimentacao,
       custoOutros,
       custosOperacionais,
       calotes,
       caloteUnidades,
+      dinheiro,
+      pix,
+      cartao,
       gorjetas,
     };
   }, [sales, blocks, expenses, challengeBlocks, rangeDays]);
@@ -661,18 +672,35 @@ export default function Insights() {
           <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
-            <FinanceRow label="Transporte e alimentação" value={`- ${formatCurrency(summary.custoOperacao)}`} tone="muted" />
+            <FinanceRow label="Transporte" value={`- ${formatCurrency(summary.custoTransporte)}`} tone="muted" />
+            <FinanceRow label="Alimentação" value={`- ${formatCurrency(summary.custoAlimentacao)}`} tone="muted" />
             {summary.custoOutros > 0 && (
               <FinanceRow label="Outros custos" value={`- ${formatCurrency(summary.custoOutros)}`} tone="muted" />
             )}
             <FinanceRow
-              label="Kits não pagos"
+              label="Unidades vendidas"
+              value={`${summary.totalVendas} ${summary.totalVendas === 1 ? "unidade" : "unidades"}`}
+              tone="muted"
+            />
+            <FinanceRow
+              label="Unidades não pagas"
               value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
-              sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} · já no custo` : "já no custo"}
+              sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} não recebido · já no custo` : "já no custo"}
               tone="muted"
             />
             <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
+          </div>
+
+          {/* Recebido por forma de pagamento (somado no período) */}
+          <SectionTitle>Recebido por forma de pagamento</SectionTitle>
+          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
+            <FinanceRow label="💵 Dinheiro" value={formatCurrency(summary.dinheiro)} tone="white" />
+            <FinanceRow label="📱 Pix" value={formatCurrency(summary.pix)} tone="white" />
+            <FinanceRow label="💳 Cartão" value={formatCurrency(summary.cartao)} tone="white" />
+            {summary.gorjetas > 0 && (
+              <FinanceRow label="🎁 Gorjetas" value={formatCurrency(summary.gorjetas)} tone="muted" />
+            )}
           </div>
 
           {/* Breakdown de custos operacionais por categoria */}
