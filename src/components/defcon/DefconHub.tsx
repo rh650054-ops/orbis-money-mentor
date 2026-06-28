@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
-import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Trash2, Loader2 } from "lucide-react";
+import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2 } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
@@ -265,9 +265,10 @@ function LatePixSection() {
                   onClick={() => handleDelete(e)}
                   disabled={deletingId === e.id}
                   className="p-1.5 rounded-md text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-                  aria-label="Apagar lançamento"
+                  aria-label="Remover lançamento"
+                  title="Remover (desconta o valor de volta do dia)"
                 >
-                  {deletingId === e.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                  {deletingId === e.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
                 </button>
               </div>
             ))
