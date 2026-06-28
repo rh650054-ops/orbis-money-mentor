@@ -161,6 +161,10 @@ function LatePixSection() {
     }
   };
 
+  // O que já foi lançado PRO DIA selecionado (pra não lançar de novo sem querer).
+  const entriesForDate = history.filter((e) => e.sale_date === date);
+  const totalForDate = entriesForDate.reduce((s, e) => s + Number(e.amount || 0), 0);
+
   return (
     <div className="rounded-2xl bg-card border border-border p-4 space-y-3">
       <div className="flex items-center justify-between gap-2">
@@ -199,6 +203,25 @@ function LatePixSection() {
             className="shrink-0 h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           />
         </div>
+        {/* Aviso do dia escolhido: já lançou algum Pix nesse dia? (evita lançar 2x) */}
+        {date &&
+          (entriesForDate.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setShowHistory(true)}
+              className="w-full text-left text-xs rounded-lg px-3 py-2 bg-primary/10 border border-primary/30 text-primary flex items-center gap-1.5"
+            >
+              <History className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                Dia {prettyDate(date)}: você já lançou {formatCurrency(totalForDate)} ({entriesForDate.length}{" "}
+                {entriesForDate.length === 1 ? "Pix" : "Pix"}). Toque pra ver.
+              </span>
+            </button>
+          ) : (
+            <p className="text-[11px] text-muted-foreground px-1">
+              Dia {prettyDate(date)}: nenhum Pix tardio lançado ainda.
+            </p>
+          ))}
         <button
           onClick={handleSubmit}
           disabled={saving || !amount || parseFloat(amount) <= 0 || !date}
@@ -224,12 +247,17 @@ function LatePixSection() {
             history.map((e) => (
               <div
                 key={e.id}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-background border border-border/40"
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-background border ${
+                  e.sale_date === date ? "border-primary/50 ring-1 ring-primary/30" : "border-border/40"
+                }`}
               >
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">
                     {formatCurrency(Number(e.amount))}
                     <span className="text-xs text-muted-foreground font-normal"> · dia {prettyDate(e.sale_date)}</span>
+                    {e.sale_date === date && (
+                      <span className="text-[10px] text-primary font-semibold"> · deste dia</span>
+                    )}
                   </p>
                   <p className="text-[11px] text-muted-foreground">lançado em {prettyWhen(e.created_at)}</p>
                 </div>
