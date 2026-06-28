@@ -113,6 +113,7 @@ export default function Insights() {
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
   const [aiReportLoading, setAiReportLoading] = useState(false);
   const [aiReportError, setAiReportError] = useState<string | null>(null);
+  const [aiExpanded, setAiExpanded] = useState(false);
 
   // Computed range
   const range = useMemo(() => {
@@ -212,8 +213,8 @@ export default function Insights() {
           .from("late_pix_entries")
           .select("amount")
           .eq("user_id", user.id)
-          .gte("sale_date", startISO)
-          .lte("sale_date", endISO),
+          .gte("created_at", range.start.toISOString())
+          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
         supabase
           .from("defcon_sales")
           .select("created_at")
@@ -658,17 +659,29 @@ export default function Insights() {
             </div>
 
             {aiReport ? (
-              <div className="space-y-3">
-                <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
+              <div className="space-y-2">
+                <p
+                  className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${
+                    aiExpanded ? "" : "line-clamp-4"
+                  }`}
+                >
                   {aiReport.analise}
                 </p>
-                <button
-                  onClick={generateReportAnalysis}
-                  disabled={aiReportLoading}
-                  className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
-                >
-                  {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setAiExpanded((v) => !v)}
+                    className="text-xs font-semibold text-primary hover:underline"
+                  >
+                    {aiExpanded ? "ver menos" : "ver mais"}
+                  </button>
+                  <button
+                    onClick={generateReportAnalysis}
+                    disabled={aiReportLoading}
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
+                  >
+                    {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
+                  </button>
+                </div>
               </div>
             ) : (
               <>
@@ -798,8 +811,10 @@ export default function Insights() {
               label="Recuperado via Pix depois"
               value={formatCurrency(summary.pixRecuperado)}
               sub={
-                summary.calotes > 0
-                  ? `${summary.recuperadoPct.toFixed(0)}% do calote volta · ~${Math.round(summary.recuperadoUnid)} un`
+                summary.pixRecuperado > 0
+                  ? summary.calotes > 0
+                    ? `${summary.recuperadoPct.toFixed(0)}% do calote volta · ~${Math.round(summary.recuperadoUnid)} un`
+                    : `~${Math.round(summary.recuperadoUnid)} un recuperadas`
                   : "ainda sem recuperação"
               }
               tone="white"
