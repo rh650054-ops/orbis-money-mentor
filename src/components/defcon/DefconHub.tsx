@@ -70,13 +70,18 @@ function LatePixSection() {
     if (value <= 0 || !date) return;
     setSaving(true);
     try {
-      const { data: existing, error: selErr } = await supabase
+      // Pode existir mais de uma linha de daily_sales no mesmo dia (a constraint
+      // UNIQUE(user_id,date) foi removida) — aí .maybeSingle() quebrava ("multiple
+      // rows"). Pega a mais antiga e soma nela (sem criar linha nova/duplicada).
+      const { data: rows, error: selErr } = await supabase
         .from("daily_sales")
         .select("id, total_profit, pix_sales")
         .eq("user_id", user.id)
         .eq("date", date)
-        .maybeSingle();
+        .order("created_at", { ascending: true })
+        .limit(1);
       if (selErr) throw selErr;
+      const existing = rows && rows.length > 0 ? rows[0] : null;
 
       if (existing) {
         const { error: updErr } = await supabase
@@ -125,12 +130,14 @@ function LatePixSection() {
       return;
     setDeletingId(entry.id);
     try {
-      const { data: ds } = await supabase
+      const { data: dsRows } = await supabase
         .from("daily_sales")
         .select("id, total_profit, pix_sales")
         .eq("user_id", user.id)
         .eq("date", entry.sale_date)
-        .maybeSingle();
+        .order("created_at", { ascending: true })
+        .limit(1);
+      const ds = dsRows && dsRows.length > 0 ? dsRows[0] : null;
       if (ds) {
         await supabase
           .from("daily_sales")
