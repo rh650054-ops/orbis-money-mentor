@@ -7,8 +7,6 @@ interface QuickNotifOptions {
   totalApproaches: number;
   /** Valor da "venda rápida" (valor mais frequente do dia). 0 = ainda sem valor. */
   quickValue: number;
-  /** Valor da venda mais recente (pra notificação "Venda realizada"). */
-  lastSaleAmount: number;
   /** Registra uma venda rápida. */
   onVenda: () => void;
   /** Registra uma abordagem. */
@@ -83,7 +81,9 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
     };
   }, [supported]);
 
-  // 4) Pede permissão e mostra/atualiza as notificações enquanto ativo.
+  // 4) Pede permissão e mostra as notificações UMA VEZ ao ficar ativo.
+  //    Não re-mostra a cada venda/abordagem (senão duplicaria no iPhone); quem
+  //    atualiza a contagem é o toque (o service worker re-emite só a tocada).
   useEffect(() => {
     if (!supported) return;
     let cancelled = false;
@@ -123,23 +123,5 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
     return () => {
       cancelled = true;
     };
-  }, [supported, active, mode, opts.totalSales, opts.totalApproaches, opts.quickValue]);
-
-  // 5) "✅ Venda realizada!" a cada nova venda (estilo Kiwify, pode empilhar).
-  const prevSalesRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!supported) return;
-    const cur = opts.totalSales;
-    if (prevSalesRef.current === null) {
-      prevSalesRef.current = cur; // pula o carregamento inicial
-      return;
-    }
-    if (active && cur > prevSalesRef.current) {
-      const amount = optsRef.current.lastSaleAmount || optsRef.current.quickValue || 0;
-      navigator.serviceWorker.ready
-        .then((reg) => reg.active?.postMessage({ type: "orbis-venda-realizada", data: { amount } }))
-        .catch(() => {});
-    }
-    prevSalesRef.current = cur;
-  }, [supported, active, opts.totalSales]);
+  }, [supported, active, mode]);
 }

@@ -171,7 +171,9 @@ self.addEventListener("notificationclick", (event) => {
       }
       next.vendas += 1;
       next.abordagens += 1; // quem comprou foi abordado (igual no app)
-      await showMain(next);
+      // Re-mostra SÓ a notificação tocada (que já foi fechada acima) -> não duplica no iOS.
+      if (next.mode === "buttons") await showButtons(next);
+      else await showVendaTap(next);
       if (orbis) {
         orbis.postMessage({ type: "orbis-defcon-quick", action: "venda" });
       } else {
@@ -179,7 +181,9 @@ self.addEventListener("notificationclick", (event) => {
       }
     } else if (which === "abordagem") {
       next.abordagens += 1;
-      await showMain(next);
+      // Re-mostra SÓ a de abordagem (já fechada acima) -> não duplica no iOS.
+      if (next.mode === "buttons") await showButtons(next);
+      else await showAbordagemTap(next);
       if (orbis) {
         orbis.postMessage({ type: "orbis-defcon-quick", action: "abordagem" });
       } else {

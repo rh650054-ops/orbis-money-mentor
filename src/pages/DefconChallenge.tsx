@@ -47,26 +47,35 @@ export default function DefconChallenge() {
     return best;
   }, [defcon.sessionSales]);
 
-  // Valor da venda mais recente (pra notificação "Venda realizada").
-  const lastSaleAmount = useMemo(() => {
-    const sales = (defcon.sessionSales || []) as Array<{ amount?: number; created_at?: string }>;
-    if (!sales.length) return 0;
-    let latest = sales[0];
-    for (const s of sales) {
-      if (String(s?.created_at || "") > String(latest?.created_at || "")) latest = s;
+  // Registra uma venda E dispara a notificação "Venda realizada" com o valor EXATO
+  // (no momento da venda, sem depender de recarregar a lista — senão pegava o valor
+  // da venda anterior). Vale pra venda no app e pra venda rápida pela notificação.
+  const handleAddSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+    defcon.addSale(amount, method);
+    if (
+      !treino &&
+      amount > 0 &&
+      defcon.phase === "running" &&
+      typeof navigator !== "undefined" &&
+      "serviceWorker" in navigator
+    ) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.active?.postMessage({ type: "orbis-venda-realizada", data: { amount } }))
+        .catch(() => {});
     }
-    return Number(latest?.amount) || 0;
-  }, [defcon.sessionSales]);
+  };
 
-  // Notificação na tela bloqueada (Android: botões; iPhone: 2 notificações de toque)
-  // + "Venda realizada" a cada venda. Só na fase ativa do DEFCON real (não no treino).
-  useDefconQuickNotification(!treino && defcon.phase === "running", {
+  // Notificação na tela bloqueada (Android: botões; iPhone: 2 notificações de toque).
+  // Fica visível durante toda a sessão (running + intervalos) e some ao terminar —
+  // assim não re-emite a cada bloco (o que duplicaria no iPhone).
+  const defconAtivo =
+    !treino && ["running", "break", "block_report", "lunch_pause"].includes(defcon.phase);
+  useDefconQuickNotification(defconAtivo, {
     totalSales: defcon.totalSalesCount ?? 0,
     totalApproaches: defcon.totalApproaches ?? 0,
     quickValue: quickSaleAmount,
-    lastSaleAmount,
     onVenda: () => {
-      if (quickSaleAmount > 0) defcon.addSale(quickSaleAmount, "dinheiro");
+      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "dinheiro");
     },
     onAbordagem: () => defcon.addApproach(),
   });
@@ -131,7 +140,7 @@ export default function DefconChallenge() {
           totalApproaches={defcon.totalApproaches}
           totalSalesCount={defcon.totalSalesCount}
           blockSalesCount={defcon.blockSalesCount}
-          onAddSale={defcon.addSale}
+          onAddSale={handleAddSale}
           onAddTip={defcon.addTip}
           onAddApproach={defcon.addApproach}
           onAddOccurrence={defcon.addOccurrence}
