@@ -173,7 +173,7 @@ export default function Insights() {
       const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes] = await Promise.all([
         supabase
           .from("daily_sales")
-          .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales")
+          .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales,units_carried")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO)
@@ -290,6 +290,10 @@ export default function Insights() {
     const mediaCaloteDiaUnid = diasComRegistro > 0 ? caloteUnidades / diasComRegistro : 0;
     const sugestaoUnid = mediaCaloteDiaUnid > 0 ? Math.ceil(mediaCaloteDiaUnid) : 0;
 
+    // Unidades levadas (estoque que saiu pra rua) e sobra estimada
+    const unidLevadas = sales.reduce((s, d) => s + (Number((d as any).units_carried) || 0), 0);
+    const unidSobrou = Math.max(0, unidLevadas - totalVendas);
+
     // Ritmo: minutos médios entre vendas (por dia, fuso de Brasília) — igual ao fim do DEFCON
     const brDay = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600000).toISOString().slice(0, 10);
     const salesByDay = new Map<string, number[]>();
@@ -343,6 +347,8 @@ export default function Insights() {
       mediaCaloteDiaUnid,
       sugestaoUnid,
       ritmoMin,
+      unidLevadas,
+      unidSobrou,
     };
   }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales]);
 
@@ -734,11 +740,25 @@ export default function Insights() {
             {summary.custoOutros > 0 && (
               <FinanceRow label="Outros custos" value={`- ${formatCurrency(summary.custoOutros)}`} tone="muted" />
             )}
+            {summary.unidLevadas > 0 && (
+              <FinanceRow
+                label="Unidades levadas"
+                value={`${summary.unidLevadas} ${summary.unidLevadas === 1 ? "unidade" : "unidades"}`}
+                tone="muted"
+              />
+            )}
             <FinanceRow
               label="Unidades vendidas"
               value={`${summary.totalVendas} ${summary.totalVendas === 1 ? "unidade" : "unidades"}`}
               tone="muted"
             />
+            {summary.unidLevadas > 0 && (
+              <FinanceRow
+                label="Sobrou (estoque)"
+                value={`${summary.unidSobrou} ${summary.unidSobrou === 1 ? "unidade" : "unidades"}`}
+                tone="muted"
+              />
+            )}
             <FinanceRow
               label="Unidades não pagas"
               value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
