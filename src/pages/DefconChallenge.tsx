@@ -47,12 +47,24 @@ export default function DefconChallenge() {
     return best;
   }, [defcon.sessionSales]);
 
-  // Notificação na tela bloqueada com botões Venda/Abordagem.
+  // Valor da venda mais recente (pra notificação "Venda realizada").
+  const lastSaleAmount = useMemo(() => {
+    const sales = (defcon.sessionSales || []) as Array<{ amount?: number; created_at?: string }>;
+    if (!sales.length) return 0;
+    let latest = sales[0];
+    for (const s of sales) {
+      if (String(s?.created_at || "") > String(latest?.created_at || "")) latest = s;
+    }
+    return Number(latest?.amount) || 0;
+  }, [defcon.sessionSales]);
+
+  // Notificação na tela bloqueada (Android: botões; iPhone: toque) + "Venda realizada".
   // Só na fase ativa do DEFCON real (desligada no modo treino).
   useDefconQuickNotification(!treino && defcon.phase === "running", {
     totalSales: defcon.totalSalesCount ?? 0,
     totalApproaches: defcon.totalApproaches ?? 0,
     quickValue: quickSaleAmount,
+    lastSaleAmount,
     onVenda: () => {
       if (quickSaleAmount > 0) defcon.addSale(quickSaleAmount, "dinheiro");
     },

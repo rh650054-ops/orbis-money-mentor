@@ -1,27 +1,28 @@
 import { useEffect, useRef } from "react";
 
 interface QuickNotifOptions {
-  /** Total de vendas do dia (pra mostrar na notificação). */
+  /** Total de vendas do dia. */
   totalSales: number;
   /** Total de abordagens do dia. */
   totalApproaches: number;
-  /** Valor que a "Venda rápida" vai lançar (valor mais frequente do dia). 0 = ainda sem valor. */
+  /** Valor da "venda rápida" (valor mais frequente do dia). 0 = ainda sem valor. */
   quickValue: number;
-  /** Registra uma venda rápida (no valor de quickValue). */
+  /** Valor da venda mais recente (pra notificação "Venda realizada"). */
+  lastSaleAmount: number;
+  /** Registra uma venda rápida. */
   onVenda: () => void;
   /** Registra uma abordagem. */
   onAbordagem: () => void;
 }
 
 /**
- * Notificação fixa na tela bloqueada durante o DEFCON, com botões "Venda" e
- * "Abordagem", pra o vendedor registrar SEM destravar o celular.
+ * Notificação na tela bloqueada durante o DEFCON pra registrar sem destravar.
  *
- * - Mostra/atualiza a notificação enquanto `active` for true (fase "running").
- * - Ouve as mensagens do service worker (toque no botão) e chama onVenda/onAbordagem.
- * - Fallback: se o app estava fechado, o worker abre /defcon?quick=venda|abordagem
- *   e a gente registra ao carregar.
- * - Silencioso se o aparelho não suportar (iOS sem "Adicionar à tela", etc.).
+ * - Android: UMA notificação com DOIS botões (Venda/Abordagem).
+ * - iPhone: o iOS ignora botão de ação em notificação web, então mostramos DUAS
+ *   notificações que registram por TOQUE.
+ * - Em ambos: dispara "✅ Venda realizada! Valor: R$X" (estilo Kiwify) a cada venda.
+ * - Silencioso se o aparelho não suportar (iOS sem "Adicionar à tela inicial", etc.).
  */
 export function useDefconQuickNotification(active: boolean, opts: QuickNotifOptions) {
   const optsRef = useRef(opts);
@@ -32,7 +33,17 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
     "Notification" in window &&
     "serviceWorker" in navigator;
 
-  // 1) Toque no botão da notificação -> service worker manda mensagem -> registra de verdade.
+  // Aparelho: iPhone/iPad usam toque (sem botão); resto usa botões.
+  const mode = (() => {
+    if (typeof navigator === "undefined") return "buttons";
+    const ua = navigator.userAgent || "";
+    const isIOS =
+      /iphone|ipad|ipod/i.test(ua) ||
+      (/Macintosh/.test(ua) && typeof document !== "undefined" && "ontouchend" in document);
+    return isIOS ? "tap" : "buttons";
+  })();
+
+  // 1) Toque no botão/notificação -> service worker avisa -> registra de verdade.
   useEffect(() => {
     if (!supported) return;
     const onMsg = (e: MessageEvent) => {
@@ -62,7 +73,7 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
     }
   }, [active]);
 
-  // 3) Esconde a notificação ao sair da tela (desmontar).
+  // 3) Esconde as notificações ao sair da tela (desmontar).
   useEffect(() => {
     if (!supported) return;
     return () => {
@@ -98,6 +109,7 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
         reg.active?.postMessage({
           type: "orbis-defcon-show",
           data: {
+            mode,
             vendas: optsRef.current.totalSales,
             abordagens: optsRef.current.totalApproaches,
             quickValue: optsRef.current.quickValue,
@@ -111,5 +123,23 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
     return () => {
       cancelled = true;
     };
-  }, [supported, active, opts.totalSales, opts.totalApproaches, opts.quickValue]);
+  }, [supported, active, mode, opts.totalSales, opts.totalApproaches, opts.quickValue]);
+
+  // 5) "✅ Venda realizada!" a cada nova venda (estilo Kiwify), iPhone e Android.
+  const prevSalesRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!supported) return;
+    const cur = opts.totalSales;
+    if (prevSalesRef.current === null) {
+      prevSalesRef.current = cur; // pula o carregamento inicial
+      return;
+    }
+    if (active && cur > prevSalesRef.current) {
+      const amount = optsRef.current.lastSaleAmount || optsRef.current.quickValue || 0;
+      navigator.serviceWorker.ready
+        .then((reg) => reg.active?.postMessage({ type: "orbis-venda-realizada", data: { amount } }))
+        .catch(() => {});
+    }
+    prevSalesRef.current = cur;
+  }, [supported, active, opts.totalSales]);
 }
