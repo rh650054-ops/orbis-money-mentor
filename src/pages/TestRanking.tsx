@@ -182,7 +182,7 @@ export default function TestRanking() {
             <p className="text-2xl font-black text-foreground">{formatCurrency(myTotal)}</p>
           </div>
           <button
-            onClick={load}
+            onClick={() => load()}
             disabled={loading}
             className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 font-semibold disabled:opacity-60"
           >

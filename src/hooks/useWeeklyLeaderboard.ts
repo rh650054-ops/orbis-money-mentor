@@ -37,7 +37,7 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     try {
       const weekStart = currentWeekStart();
       const weekEnd = currentWeekEnd();
-      const { data, error } = await supabase.rpc("get_weekly_ranking", { p_week_start: weekStart, p_week_end: weekEnd });
+      const { data, error } = await supabase.rpc("get_weekly_ranking_verified", { p_week_start: weekStart, p_week_end: weekEnd });
       if (error) {
         console.error("Ranking semanal erro:", error.message);
         setRanking([]);
