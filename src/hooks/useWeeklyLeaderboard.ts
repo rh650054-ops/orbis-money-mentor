@@ -73,6 +73,18 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
         posicao_faturamento: i + 1,
         posicao_constancia: null,
       }));
+      // Presença (bolinha online): puxa o last_active_at de user_presence — igual o Mensal.
+      const ids = mapped.map((e) => e.user_id);
+      if (ids.length > 0) {
+        const { data: presence } = await supabase
+          .from("user_presence")
+          .select("user_id, last_active_at")
+          .in("user_id", ids);
+        const presMap = new Map(
+          ((presence as { user_id: string; last_active_at: string }[]) || []).map((p) => [p.user_id, p.last_active_at]),
+        );
+        for (const e of mapped) e.last_active_at = presMap.get(e.user_id) ?? null;
+      }
       setRanking(mapped);
       if (userId) {
         const me = mapped.find((e) => e.user_id === userId) || null;
