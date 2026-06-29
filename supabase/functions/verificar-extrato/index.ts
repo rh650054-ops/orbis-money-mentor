@@ -41,35 +41,45 @@ Deno.serve(async (req) => {
 
     const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) return json({ error: "sem_gemini_key" }, 500);
-    const model = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-flash-latest";
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    // Tenta varios modelos do Gemini em ordem. Se um estiver lotado (503) ou indisponivel,
+    // cai pro proximo — a leitura nao fica refem de um modelo so. Configuravel via env.
+    const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest,gemini-1.5-flash")
+      .split(",").map((s) => s.trim()).filter(Boolean);
     const reqBody = JSON.stringify({
       contents: [{ parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
       generationConfig: { temperature: 0, responseMimeType: "application/json" },
     });
 
-    // O flash gratis as vezes devolve 503/429/500 (sobrecarga/pico). Tenta ate 4x com espera
-    // crescente — quase sempre passa na 2a/3a tentativa.
-    let res: Response | null = null;
-    for (let attempt = 1; attempt <= 4; attempt++) {
-      res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(35000),
-        body: reqBody,
-      });
-      if (res.ok) break;
-      if (![429, 500, 502, 503].includes(res.status) || attempt === 4) {
-        const errTxt = await res.text().catch(() => "");
-        console.error("Gemini extrato erro", res.status, errTxt.slice(0, 300));
-        return json({ error: `gemini_${res.status}` }, 502);
+    let data: any = null;
+    let lastStatus = 0;
+    for (const m of models) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        let r: Response;
+        try {
+          r = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(35000),
+            body: reqBody,
+          });
+        } catch (e) {
+          console.error("Gemini extrato fetch erro", m, String(e).slice(0, 150));
+          break;
+        }
+        if (r.ok) { data = await r.json(); break; }
+        lastStatus = r.status;
+        const errTxt = await r.text().catch(() => "");
+        console.error("Gemini extrato erro", m, r.status, errTxt.slice(0, 200));
+        if (r.status === 400 || r.status === 404) break; // modelo invalido: pula pro proximo
+        if (attempt < 2) await new Promise((res2) => setTimeout(res2, 1500));
       }
-      await new Promise((r) => setTimeout(r, attempt * 1800));
+      if (data) break;
     }
-    if (!res || !res.ok) return json({ error: "gemini_ocupado", dica: "tente de novo em instantes" }, 503);
 
-    const data = await res.json();
+    if (!data) {
+      return json({ error: `gemini_${lastStatus || "ocupado"}`, dica: "Gemini ocupado, tente de novo em instantes" }, 503);
+    }
     const text: string = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") ?? "";
     let parsed: any = null;
     try {
