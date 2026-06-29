@@ -19,9 +19,7 @@ import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { toPng } from "html-to-image";
 import { toast } from "@/shared/hooks/use-toast";
-import confetti from "canvas-confetti";
 import { RANKING_FIRE_GRADIENT, RANKING_TIER_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 
@@ -117,7 +115,8 @@ export default function Ranking() {
     prevConstanciaPosition.current = cc;
   }, [currentUserStats?.posicao_faturamento, currentUserStats?.posicao_constancia]);
 
-  const triggerConfetti = () => {
+  const triggerConfetti = async () => {
+    const confetti = (await import("canvas-confetti")).default;
     const duration = 3000;
     const animationEnd = Date.now() + duration;
     const r = (min: number, max: number) => Math.random() * (max - min) + min;
@@ -201,6 +200,7 @@ export default function Ranking() {
     try {
       // Pequeno delay para garantir que o card off-screen foi renderizado
       await new Promise((r) => setTimeout(r, 50));
+      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(shareCardRef.current, {
         cacheBust: true,
         pixelRatio: 1,
