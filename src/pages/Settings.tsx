@@ -178,6 +178,19 @@ export default function Settings() {
               <ChevronRight className="w-4 h-4 text-muted-foreground" />
             </CardContent>
           </Card>
+
+          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/teste-extrato")}>
+            <CardContent className="p-4 flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
+                <Receipt className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold">Teste · Leitura de extrato</p>
+                <p className="text-xs text-muted-foreground">Conferir a IA lendo um extrato (não salva, não conta no ranking)</p>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground" />
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>
