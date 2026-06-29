@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
 import PublicProfileModal from "@/components/PublicProfileModal";
@@ -72,7 +73,11 @@ export default function Ranking() {
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
-  const [activeTab, setActiveTab] = useState<"mensal" | "semanal">("mensal");
+  // A partir do dia 1 (inicio do desafio), o Ranking abre direto no SEMANAL.
+  // Antes disso, abre no Mensal (o desafio ainda nao comecou).
+  const [activeTab, setActiveTab] = useState<"mensal" | "semanal">(
+    getBrazilDate() >= "2026-07-01" ? "semanal" : "mensal",
+  );
   const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
   const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(user?.id);
