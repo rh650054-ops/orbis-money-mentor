@@ -48,6 +48,9 @@ export function useDefconChallenge(userId: string | undefined) {
   const [lunchPauseStartedAt, setLunchPauseStartedAt] = useState<Date | null>(null);
   const [lunchPauseDuration, setLunchPauseDuration] = useState(0);
   const [pausedBlockRemaining, setPausedBlockRemaining] = useState(0);
+  // Tempo trabalhado RECONSTRUÍDO de uma sessão já encerrada (sobrevive ao reload).
+  // null = sessão não encerrada -> usa o cálculo ao vivo (currentBlockIndex/remainingSeconds).
+  const [workedMinutes, setWorkedMinutes] = useState<number | null>(null);
   
   // Approach & sales tracking per block
   const [blockApproaches, setBlockApproaches] = useState(0);
@@ -246,6 +249,7 @@ export function useDefconChallenge(userId: string | undefined) {
   const loadData = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setWorkedMinutes(null); // recalculado abaixo só p/ sessões já encerradas
 
     const today = getBrazilDate();
 
@@ -365,13 +369,23 @@ export function useDefconChallenge(userId: string | undefined) {
         }
       }
 
-      if (session.status === "completed") {
-        setPhase("finished");
-        setLoading(false);
-        return;
-      }
-      if (session.status === "abandoned") {
-        setPhase("abandoned");
+      if (session.status === "completed" || session.status === "abandoned") {
+        // Reconstrói o tempo trabalhado a partir de dados PERSISTIDOS — senão zera ao
+        // recarregar uma sessão já encerrada (o print do fim de dia mostrava "0h").
+        // Mesma conta do cálculo ao vivo: blocos cheios concluídos * 60min + o parcial
+        // do bloco atual (do início do bloco até o fim da sessão), travado em 60min.
+        const idx = session.current_block_index || 0;
+        const startedTs = blocksData?.[idx]?.timer_started_at;
+        let partial = 0;
+        if (startedTs && session.ended_at) {
+          const mins = Math.round(
+            (new Date(session.ended_at).getTime() - new Date(startedTs).getTime()) / 60000
+          );
+          partial = Math.min(60, Math.max(0, mins));
+        }
+        setCurrentBlockIndex(idx); // pro "totalBlocks" (currentBlockIndex+1) também não zerar
+        setWorkedMinutes(idx * 60 + partial);
+        setPhase(session.status === "completed" ? "finished" : "abandoned");
         setLoading(false);
         return;
       }
@@ -613,6 +627,7 @@ export function useDefconChallenge(userId: string | undefined) {
     setCurrentBlockIndex(0);
     setBlockStartedAt(startTime);
     setRemainingSeconds(BLOCK_DURATION);
+    setWorkedMinutes(null);
     setPhase("running");
 
     celebrationSounds.playDefconActivation();
@@ -629,24 +644,11 @@ export function useDefconChallenge(userId: string | undefined) {
     const newCartao = currentBlock.valor_cartao + (method === "cartao" ? amount : 0);
     const newAchieved = newDinheiro + newCartao + newPix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
+    const newBlockSales = blockSalesCount + 1;
+    const newApproaches = blockApproaches + 1; // quem comprou foi abordado
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: newAchieved,
-        valor_dinheiro: newDinheiro,
-        valor_pix: newPix,
-        valor_cartao: newCartao,
-      })
-      .eq("id", currentBlock.id);
-
-    if (sessionId) {
-      await supabase
-        .from("challenge_sessions")
-        .update({ total_sold: newTotal })
-        .eq("id", sessionId);
-    }
-
+    // OTIMISTA: atualiza a TELA na hora (sem esperar a rede). É isso que deixa o
+    // toque instantâneo — a gravação no banco acontece logo em seguida, em background.
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
@@ -655,37 +657,45 @@ export function useDefconChallenge(userId: string | undefined) {
       )
     );
     setTotalSold(newTotal);
-    const newBlockSales = blockSalesCount + 1;
     setBlockSalesCount(newBlockSales);
     setTotalSalesCount(prev => prev + 1);
-
-    // Auto-increment approach: whoever bought was approached
-    const newApproaches = blockApproaches + 1;
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persist approaches + sales count to DB.
-    // AWAIT obrigatório: se o app for morto logo após o toque, a contagem do
-    // bloco precisa estar gravada antes da função retornar (o dinheiro já é
-    // awaited e sobrevive; sem await aqui, a última venda/abordagem se perdia).
-    if (sessionId) {
-      await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
-    }
+    // Persiste no banco em seguida. Os awaits continuam (durabilidade: se o app
+    // fechar logo após o toque, a venda já foi gravada), mas a tela já reagiu acima.
+    try {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          achieved_amount: newAchieved,
+          valor_dinheiro: newDinheiro,
+          valor_pix: newPix,
+          valor_cartao: newCartao,
+        })
+        .eq("id", currentBlock.id);
 
-    await syncBlocksToDailySales(userId);
+      if (sessionId) {
+        await supabase
+          .from("challenge_sessions")
+          .update({ total_sold: newTotal })
+          .eq("id", sessionId);
+        await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
+        // Registra a venda como LINHA em defcon_sales (pra listar/editar/excluir).
+        await supabase.from("defcon_sales").insert({
+          user_id: userId,
+          session_id: sessionId,
+          block_index: currentBlockIndex,
+          amount,
+          method,
+          late: false,
+        });
+      }
 
-    // ADITIVO: registra a venda como LINHA em defcon_sales (sem tocar em nenhum
-    // agregado acima). Permite listar/editar/excluir cada venda individualmente.
-    if (sessionId) {
-      await supabase.from("defcon_sales").insert({
-        user_id: userId,
-        session_id: sessionId,
-        block_index: currentBlockIndex,
-        amount,
-        method,
-        late: false,
-      });
-      await loadSessionSales(sessionId);
+      await syncBlocksToDailySales(userId);
+      if (sessionId) await loadSessionSales(sessionId);
+    } catch (e) {
+      // best-effort: a tela já reflete a venda; o banco reconcilia no próximo load.
     }
   };
 
@@ -826,19 +836,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: newAchieved,
-        valor_dinheiro: newDinheiro,
-        valor_gorjeta: newGorjeta,
-      })
-      .eq("id", currentBlock.id);
-
-    if (sessionId) {
-      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-    }
-
+    // OTIMISTA: tela na hora; banco em seguida.
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
@@ -848,7 +846,24 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
 
-    await syncBlocksToDailySales(userId);
+    try {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          achieved_amount: newAchieved,
+          valor_dinheiro: newDinheiro,
+          valor_gorjeta: newGorjeta,
+        })
+        .eq("id", currentBlock.id);
+
+      if (sessionId) {
+        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+      }
+
+      await syncBlocksToDailySales(userId);
+    } catch (e) {
+      // best-effort: a tela já reflete a gorjeta.
+    }
   };
 
   const addApproach = async () => {
@@ -1008,6 +1023,7 @@ export function useDefconChallenge(userId: string | undefined) {
     setRemainingSeconds(BLOCK_DURATION);
     setBlockApproaches(0);
     setBlockSalesCount(0);
+    setWorkedMinutes(null);
     setPhase("running");
   };
 
@@ -1074,6 +1090,7 @@ export function useDefconChallenge(userId: string | undefined) {
     dailyGoal,
     totalSold,
     remainingSeconds,
+    workedMinutes,
     breakRemaining,
     blockStartedAt,
     blockEndTime,

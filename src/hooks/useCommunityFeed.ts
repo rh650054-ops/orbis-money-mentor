@@ -19,6 +19,7 @@ export interface FeedPost {
   likes_count: number;
   comments_count: number;
   liked_by_me: boolean;
+  last_active_at?: string | null;
 }
 
 export interface FeedComment {
@@ -61,10 +62,12 @@ export function useCommunityFeed() {
 
     const ids = list.map((p) => p.id);
     const idSet = new Set(ids);
-    const [{ data: likes }, { data: comments }, { data: myLikes }] = await Promise.all([
+    const authorIds = Array.from(new Set(list.map((p) => p.user_id)));
+    const [{ data: likes }, { data: comments }, { data: myLikes }, { data: presence }] = await Promise.all([
       supabase.from("community_likes").select("post_id").in("post_id", ids),
       supabase.from("community_comments").select("post_id").in("post_id", ids).eq("is_deleted", false),
       supabase.from("community_likes").select("post_id").in("post_id", ids).eq("user_id", user.id),
+      supabase.from("user_presence").select("user_id, last_active_at").in("user_id", authorIds),
     ]);
 
     const likeCount = new Map<string, number>();
@@ -72,6 +75,8 @@ export function useCommunityFeed() {
     const commentCount = new Map<string, number>();
     (comments ?? []).forEach((c: any) => commentCount.set(c.post_id, (commentCount.get(c.post_id) ?? 0) + 1));
     const mine = new Set((myLikes ?? []).map((l: any) => l.post_id));
+    const presMap = new Map<string, string>();
+    (presence ?? []).forEach((pr: any) => presMap.set(pr.user_id, pr.last_active_at));
 
     setPosts((prev) => prev.map((p) =>
       idSet.has(p.id)
@@ -80,6 +85,7 @@ export function useCommunityFeed() {
             likes_count: likeCount.get(p.id) ?? 0,
             comments_count: commentCount.get(p.id) ?? 0,
             liked_by_me: mine.has(p.id),
+            last_active_at: presMap.get(p.user_id) ?? null,
           }
         : p
     ));

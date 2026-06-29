@@ -10,6 +10,7 @@ import orbisLogo from "@/assets/orbis-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
+import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -912,6 +913,9 @@ export function DefconEndScreen({
             {exportingTx ? "Gerando..." : `PDF de transações — ${daySales.length} c/ horários`}
           </button>
         )}
+
+        {/* 6.6 Extrato do dia (competições) — só pra participantes de competição ativa */}
+        {userId && <CompetitionStatementUpload userId={userId} />}
 
         {/* 7. CTA FINAL */}
         <button

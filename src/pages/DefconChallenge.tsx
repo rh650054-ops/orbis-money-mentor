@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
 import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
+import { useDefconPresence } from "@/hooks/useDefconPresence";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
@@ -70,12 +71,16 @@ export default function DefconChallenge() {
   // assim não re-emite a cada bloco (o que duplicaria no iPhone).
   const defconAtivo =
     !treino && ["running", "break", "block_report", "lunch_pause"].includes(defcon.phase);
+
+  // Marca o usuário como "online" no ranking enquanto ele estiver no DEFCON.
+  useDefconPresence(user?.id, defconAtivo);
+
   useDefconQuickNotification(defconAtivo, {
     totalSales: defcon.totalSalesCount ?? 0,
     totalApproaches: defcon.totalApproaches ?? 0,
     quickValue: quickSaleAmount,
     onVenda: () => {
-      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "dinheiro");
+      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "pix");
     },
     onAbordagem: () => defcon.addApproach(),
   });
@@ -191,7 +196,7 @@ export default function DefconChallenge() {
           totalSold={defcon.totalSold}
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.currentBlockIndex + 1}
-          workedMinutes={defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60)))}
+          workedMinutes={defcon.workedMinutes ?? (defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60))))}
           totalApproaches={defcon.totalApproaches}
           totalSalesCount={defcon.totalSalesCount}
           userId={user.id}

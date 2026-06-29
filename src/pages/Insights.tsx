@@ -107,7 +107,7 @@ export default function Insights() {
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
   const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
-  const [defconSales, setDefconSales] = useState<{ created_at: string }[]>([]);
+  const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
@@ -217,7 +217,7 @@ export default function Insights() {
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
         supabase
           .from("defcon_sales")
-          .select("created_at")
+          .select("created_at,amount")
           .eq("user_id", user.id)
           .gte("created_at", range.start.toISOString())
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
@@ -403,22 +403,30 @@ export default function Insights() {
     return { pct, valid: true };
   }, [summary.faturamento, prevRangeProfit]);
 
+  // Melhores horários = pela HORA REAL de cada venda (defcon_sales, fuso de Brasília).
+  // Antes agrupava por hour_index (posição do bloco), que misturava horas diferentes.
   const bestHours = useMemo(() => {
-    const byHour: Record<number, { total: number; count: number; label: string }> = {};
-    for (const b of blocks) {
-      const slot = byHour[b.hour_index] ?? (byHour[b.hour_index] = { total: 0, count: 0, label: b.hour_label });
-      slot.total += b.achieved_amount || 0;
+    const byHour: Record<number, { total: number; count: number }> = {};
+    for (const s of defconSales) {
+      const t = new Date(s.created_at).getTime();
+      if (!Number.isFinite(t)) continue;
+      const h = new Date(t - 3 * 3600000).getUTCHours(); // hora de Brasília
+      const amt = Number(s.amount) || 0;
+      const slot = byHour[h] ?? (byHour[h] = { total: 0, count: 0 });
+      slot.total += amt;
       slot.count += 1;
     }
     return Object.entries(byHour)
       .map(([h, v]) => ({
         hour: parseInt(h),
-        label: v.label,
+        label: `${String(parseInt(h)).padStart(2, "0")}h`,
+        total: v.total,
+        count: v.count,
         avg: v.count > 0 ? v.total / v.count : 0,
       }))
-      .filter((h) => h.avg > 0)
-      .sort((a, b) => b.avg - a.avg);
-  }, [blocks]);
+      .filter((h) => h.total > 0)
+      .sort((a, b) => b.total - a.total);
+  }, [defconSales]);
 
   const aiInsights = useMemo(() => {
     const tips: string[] = [];
@@ -473,7 +481,7 @@ export default function Insights() {
     : period === "30d" ? "mês (últimos 30 dias)"
     : "período selecionado";
   const periodoShort =
-    period === "today" ? "dia" : period === "7d" ? "semana" : period === "30d" ? "mês" : "período";
+    period === "today" ? "o dia" : period === "7d" ? "a semana" : period === "30d" ? "o mês" : "o período";
 
   // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
   useEffect(() => {
@@ -535,7 +543,7 @@ export default function Insights() {
 
   if (authLoading || !user) return null;
 
-  const maxHourAvg = bestHours[0]?.avg || 1;
+  const maxHourTotal = bestHours[0]?.total || 1;
 
   return (
     <div className="space-y-5 pb-4 md:pb-8 text-foreground">
@@ -648,7 +656,7 @@ export default function Insights() {
           </section>
 
           {/* Análise da IA (Gemini) — destaque no topo */}
-          <div className="rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5 space-y-3 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
+          <div className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-4 space-y-2.5 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
                 <Sparkles className="w-4 h-4 text-primary" />
@@ -685,8 +693,8 @@ export default function Insights() {
               </div>
             ) : (
               <>
-                <p className="text-sm text-foreground/80 leading-relaxed">
-                  Deixa a IA analisar seu {periodoShort}: como tá indo, pra onde vai o dinheiro, o que melhorar e onde tá furando.
+                <p className="text-xs text-foreground/70 leading-relaxed">
+                  Deixa a IA analisar {periodoShort}: o que tá indo bem e onde tá furando.
                 </p>
                 {aiInsights.length > 0 && (
                   <div className="space-y-1">
@@ -698,7 +706,7 @@ export default function Insights() {
                 <Button
                   onClick={generateReportAnalysis}
                   disabled={aiReportLoading}
-                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-12 text-base"
+                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-10 text-sm"
                 >
                   {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
@@ -742,6 +750,50 @@ export default function Insights() {
               accent="gold"
             />
           </section>
+
+          {/* Melhores horários (pela hora real das vendas) */}
+          <SectionTitle>Melhores horários</SectionTitle>
+          <div className="rounded-2xl border border-border/60 bg-card p-5">
+            {bestHours.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Sem vendas registradas no período pra calcular os horários.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {bestHours.slice(0, 5).map((h, i) => (
+                  <div key={h.hour} className="flex items-center gap-3">
+                    <span
+                      className={cn(
+                        "text-xs w-16 shrink-0 font-medium",
+                        i === 0 ? "text-primary" : "text-muted-foreground",
+                      )}
+                    >
+                      {h.label}
+                    </span>
+                    <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-[colors,transform,opacity]",
+                          i === 0
+                            ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                            : "bg-primary/40",
+                        )}
+                        style={{ width: `${(h.total / maxHourTotal) * 100}%` }}
+                      />
+                    </div>
+                    <span
+                      className={cn(
+                        "text-xs font-semibold w-20 text-right",
+                        i === 0 ? "text-primary" : "text-foreground/80",
+                      )}
+                    >
+                      {formatCurrency(h.total)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Detalhamento financeiro */}
           <SectionTitle>Detalhamento financeiro</SectionTitle>
@@ -1011,46 +1063,6 @@ export default function Insights() {
                 />
                 <MetricCell label="Média diária" value={formatCurrency(summary.mediaDiaria)} />
               </>
-            )}
-          </div>
-
-          {/* Melhores horários */}
-          <SectionTitle>Melhores horários</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card p-5">
-            {bestHours.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sem dados de horários no período.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {bestHours.slice(0, 5).map((h, i) => (
-                  <div key={h.hour} className="flex items-center gap-3">
-                    <span className={cn(
-                      "text-xs w-16 shrink-0 font-medium",
-                      i === 0 ? "text-primary" : "text-muted-foreground"
-                    )}>
-                      {h.label}
-                    </span>
-                    <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-[colors,transform,opacity]",
-                          i === 0
-                            ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
-                            : "bg-primary/40",
-                        )}
-                        style={{ width: `${(h.avg / maxHourAvg) * 100}%` }}
-                      />
-                    </div>
-                    <span className={cn(
-                      "text-xs font-semibold w-20 text-right",
-                      i === 0 ? "text-primary" : "text-foreground/80"
-                    )}>
-                      {formatCurrency(h.avg)}
-                    </span>
-                  </div>
-                ))}
-              </div>
             )}
           </div>
 

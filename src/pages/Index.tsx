@@ -17,6 +17,7 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
+import CompetitionCard from "@/components/CompetitionCard";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 
 const REWARD_TIERS = [
@@ -551,6 +552,8 @@ export default function Index() {
       )}
 
       {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
+
+      {user && <CompetitionCard userId={user.id} onClick={() => navigate('/competitions')} />}
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 
