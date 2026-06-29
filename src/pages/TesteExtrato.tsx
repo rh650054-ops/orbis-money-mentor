@@ -49,7 +49,17 @@ export default function TesteExtrato() {
       });
       const res = data as (AuditResult & { error?: string }) | null;
       if (fnErr || !res?.ok) {
-        setError(res?.error || fnErr?.message || "Falha ao ler o extrato");
+        let detail = res?.error || fnErr?.message || "Falha ao ler o extrato";
+        // supabase-js poe o corpo do erro (nosso JSON {error}) em fnErr.context (Response)
+        try {
+          const ctx = (fnErr as { context?: Response } | null)?.context;
+          if (ctx && typeof ctx.json === "function") {
+            const bodyErr = await ctx.json();
+            if (bodyErr?.error) detail = String(bodyErr.error);
+            if (bodyErr?.raw) detail += ` · ${String(bodyErr.raw).slice(0, 120)}`;
+          }
+        } catch { /* noop */ }
+        setError(detail);
         return;
       }
       setResult(res);
