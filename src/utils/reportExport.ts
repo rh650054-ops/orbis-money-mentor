@@ -1,12 +1,16 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
+import { formatBrazilDate } from "@/shared/lib/date-utils";
 
 /**
  * Geração e download do "Relatório financeiro" do Orbis nos formatos
  * PDF (jsPDF, desenhado à mão), CSV (pt-BR, separado por ;) e Excel (.xls via HTML).
  *
- * Tudo é client-side. Nenhuma dependência nova é adicionada: apenas `jspdf`
- * (já instalado) é importado; CSV e Excel são construídos manualmente.
+ * A estrutura (Excel/CSV) segue a planilha do vendedor: por dia traz unidades
+ * vendidas/pagas/não pagas, gorjeta, dinheiro, Pix, Pix recebido depois, cartão,
+ * valor bruto, não recebido (prejuízo), custo, transporte, alimentação, líquido e OBS.
+ *
+ * Tudo é client-side. Só `jspdf` (já instalado) é importado; CSV e Excel são manuais.
  */
 
 export type ReportFormat = "pdf" | "csv" | "xls";
@@ -26,31 +30,44 @@ interface DailySaleRow {
   pix_sales: number | null;
   card_sales: number | null;
   tip_sales: number | null;
+  unpaid_units: number | null;
+  notes: string | null;
 }
 
 /** Linha já normalizada (sem nulls) usada por todos os formatos. */
 interface ReportDay {
   date: string; // YYYY-MM-DD
-  vendido: number; // total_profit
-  mercadoria: number; // cost
+  unidVendidas: number; // contagem de vendas do DEFCON no dia
+  unidPagas: number; // vendidas - não pagas
+  unidNaoPagas: number; // unpaid_units
+  gorjeta: number; // tip_sales
+  dinheiro: number; // cash_sales
+  pix: number; // pix_sales (inclui o Pix recebido depois)
+  pixDepois: number; // late_pix_entries (Pix que caiu depois) do dia
+  cartao: number; // card_sales
+  vendido: number; // total_profit (valor bruto)
+  fiado: number; // total_debt (não recebido / prejuízo)
+  mercadoria: number; // cost (custo produto)
   transporte: number; // transport_cost
   alimentacao: number; // food_cost
-  fiado: number; // total_debt
-  dinheiro: number; // cash_sales
-  pix: number; // pix_sales
-  cartao: number; // card_sales
   liquido: number; // vendido - mercadoria - transporte - alimentacao
+  obs: string; // notes
 }
 
 interface ReportTotals {
+  unidVendidas: number;
+  unidPagas: number;
+  unidNaoPagas: number;
+  gorjeta: number;
+  dinheiro: number;
+  pix: number;
+  pixDepois: number;
+  cartao: number;
   vendido: number;
+  fiado: number;
   mercadoria: number;
   transporte: number;
   alimentacao: number;
-  fiado: number;
-  dinheiro: number;
-  pix: number;
-  cartao: number;
   liquido: number;
   custos: number; // mercadoria + transporte + alimentacao
   dias: number; // nº de dias com registro
@@ -75,7 +92,7 @@ function brCurrency(value: number): string {
   }).format(value);
 }
 
-/** "1234,56" — número puro com vírgula decimal (pt-BR) para CSV. */
+/** "1234,56" — número puro com vírgula decimal (pt-BR) para CSV/Excel. */
 function brNumber(value: number): string {
   return new Intl.NumberFormat("pt-BR", {
     minimumFractionDigits: 2,
@@ -84,17 +101,33 @@ function brNumber(value: number): string {
   }).format(value);
 }
 
+/** Inteiro (contagem de unidades). */
+function brInt(value: number): string {
+  return String(Math.round(value || 0));
+}
+
+/** Texto seguro pra CSV/Excel (sem ; nem quebra de linha). */
+function safeText(s: string): string {
+  return (s || "").replace(/[;\r\n]+/g, " ").trim();
+}
+
 const COLUMNS = [
   "Data",
-  "Vendido",
-  "Mercadoria",
-  "Transporte",
-  "Alimentação",
-  "Fiado",
+  "Unid. vendidas",
+  "Unid. pagas",
+  "Unid. não pagas",
+  "Gorjeta",
   "Dinheiro",
   "Pix",
+  "Pix recebido depois",
   "Cartão",
+  "Valor bruto",
+  "Não recebido",
+  "Custo produto",
+  "Transporte",
+  "Alimentação",
   "Líquido",
+  "OBS",
 ] as const;
 
 /** Busca os dados do período e do usuário e normaliza em ReportDay[]. */
@@ -103,62 +136,109 @@ export async function fetchReportData(
   startISO: string,
   endISO: string,
 ): Promise<ReportDay[]> {
-  const { data, error } = await supabase
-    .from("daily_sales")
-    .select(
-      "date,total_profit,cost,transport_cost,food_cost,total_debt,cash_sales,pix_sales,card_sales,tip_sales",
-    )
-    .eq("user_id", userId)
-    .gte("date", startISO)
-    .lte("date", endISO)
-    .order("date", { ascending: true });
+  const [salesRes, blocksRes, lateRes] = await Promise.all([
+    supabase
+      .from("daily_sales")
+      .select(
+        "date,total_profit,cost,transport_cost,food_cost,total_debt,cash_sales,pix_sales,card_sales,tip_sales,unpaid_units,notes",
+      )
+      .eq("user_id", userId)
+      .gte("date", startISO)
+      .lte("date", endISO)
+      .order("date", { ascending: true }),
+    // Unidades vendidas = nº de vendas do DEFCON, agrupado por dia (fuso de Brasília).
+    supabase
+      .from("challenge_blocks")
+      .select("sales_count,created_at")
+      .eq("user_id", userId)
+      .gte("created_at", `${startISO}T00:00:00-03:00`)
+      .lte("created_at", `${endISO}T23:59:59-03:00`),
+    // Pix que caiu depois (lançado num dia anterior), por dia creditado.
+    supabase
+      .from("late_pix_entries")
+      .select("amount,sale_date")
+      .eq("user_id", userId)
+      .gte("sale_date", startISO)
+      .lte("sale_date", endISO),
+  ]);
 
-  if (error) throw error;
+  if (salesRes.error) throw salesRes.error;
 
-  return ((data as DailySaleRow[]) || []).map((r) => {
+  // Vendas (unidades) por dia
+  const vendidasByDate = new Map<string, number>();
+  for (const b of ((blocksRes.data as { sales_count: number | null; created_at: string }[]) || [])) {
+    const dt = formatBrazilDate(new Date(b.created_at));
+    vendidasByDate.set(dt, (vendidasByDate.get(dt) || 0) + n(b.sales_count));
+  }
+
+  // Pix recebido depois por dia (tolerante: se a tabela não existir, fica vazio)
+  const pixDepoisByDate = new Map<string, number>();
+  for (const p of ((lateRes.data as { amount: number | null; sale_date: string }[]) || [])) {
+    pixDepoisByDate.set(p.sale_date, (pixDepoisByDate.get(p.sale_date) || 0) + n(p.amount));
+  }
+
+  return ((salesRes.data as DailySaleRow[]) || []).map((r) => {
     const vendido = n(r.total_profit);
     const mercadoria = n(r.cost);
     const transporte = n(r.transport_cost);
     const alimentacao = n(r.food_cost);
+    const unidVendidas = vendidasByDate.get(r.date) || 0;
+    const unidNaoPagas = n(r.unpaid_units);
     return {
       date: r.date,
+      unidVendidas,
+      unidNaoPagas,
+      unidPagas: Math.max(0, unidVendidas - unidNaoPagas),
+      gorjeta: n(r.tip_sales),
+      dinheiro: n(r.cash_sales),
+      pix: n(r.pix_sales),
+      pixDepois: pixDepoisByDate.get(r.date) || 0,
+      cartao: n(r.card_sales),
       vendido,
+      fiado: n(r.total_debt),
       mercadoria,
       transporte,
       alimentacao,
-      fiado: n(r.total_debt),
-      dinheiro: n(r.cash_sales),
-      pix: n(r.pix_sales),
-      cartao: n(r.card_sales),
       liquido: vendido - mercadoria - transporte - alimentacao,
+      obs: safeText(String(r.notes || "")),
     };
   });
 }
 
 function computeTotals(days: ReportDay[]): ReportTotals {
   const t: ReportTotals = {
+    unidVendidas: 0,
+    unidPagas: 0,
+    unidNaoPagas: 0,
+    gorjeta: 0,
+    dinheiro: 0,
+    pix: 0,
+    pixDepois: 0,
+    cartao: 0,
     vendido: 0,
+    fiado: 0,
     mercadoria: 0,
     transporte: 0,
     alimentacao: 0,
-    fiado: 0,
-    dinheiro: 0,
-    pix: 0,
-    cartao: 0,
     liquido: 0,
     custos: 0,
     dias: days.length,
     mediaLiquido: 0,
   };
   for (const d of days) {
+    t.unidVendidas += d.unidVendidas;
+    t.unidPagas += d.unidPagas;
+    t.unidNaoPagas += d.unidNaoPagas;
+    t.gorjeta += d.gorjeta;
+    t.dinheiro += d.dinheiro;
+    t.pix += d.pix;
+    t.pixDepois += d.pixDepois;
+    t.cartao += d.cartao;
     t.vendido += d.vendido;
+    t.fiado += d.fiado;
     t.mercadoria += d.mercadoria;
     t.transporte += d.transporte;
     t.alimentacao += d.alimentacao;
-    t.fiado += d.fiado;
-    t.dinheiro += d.dinheiro;
-    t.pix += d.pix;
-    t.cartao += d.cartao;
     t.liquido += d.liquido;
   }
   t.custos = t.mercadoria + t.transporte + t.alimentacao;
@@ -183,49 +263,60 @@ function triggerDownload(blob: Blob, filename: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/** Célula de uma linha (dia) na ordem das COLUMNS. */
+function rowCells(d: ReportDay): string[] {
+  return [
+    brDate(d.date),
+    brInt(d.unidVendidas),
+    brInt(d.unidPagas),
+    brInt(d.unidNaoPagas),
+    brNumber(d.gorjeta),
+    brNumber(d.dinheiro),
+    brNumber(d.pix),
+    brNumber(d.pixDepois),
+    brNumber(d.cartao),
+    brNumber(d.vendido),
+    brNumber(d.fiado),
+    brNumber(d.mercadoria),
+    brNumber(d.transporte),
+    brNumber(d.alimentacao),
+    brNumber(d.liquido),
+    d.obs,
+  ];
+}
+
+/** Linha de TOTAIS na ordem das COLUMNS. */
+function totalCells(t: ReportTotals): string[] {
+  return [
+    "TOTAIS",
+    brInt(t.unidVendidas),
+    brInt(t.unidPagas),
+    brInt(t.unidNaoPagas),
+    brNumber(t.gorjeta),
+    brNumber(t.dinheiro),
+    brNumber(t.pix),
+    brNumber(t.pixDepois),
+    brNumber(t.cartao),
+    brNumber(t.vendido),
+    brNumber(t.fiado),
+    brNumber(t.mercadoria),
+    brNumber(t.transporte),
+    brNumber(t.alimentacao),
+    brNumber(t.liquido),
+    "",
+  ];
+}
+
 /* ------------------------------------------------------------------ */
 /* CSV                                                                 */
 /* ------------------------------------------------------------------ */
 
 function buildCSV(days: ReportDay[], totals: ReportTotals): string {
   const SEP = ";";
-  const cell = (v: number) => brNumber(v);
   const lines: string[] = [];
-
   lines.push(COLUMNS.join(SEP));
-
-  for (const d of days) {
-    lines.push(
-      [
-        brDate(d.date),
-        cell(d.vendido),
-        cell(d.mercadoria),
-        cell(d.transporte),
-        cell(d.alimentacao),
-        cell(d.fiado),
-        cell(d.dinheiro),
-        cell(d.pix),
-        cell(d.cartao),
-        cell(d.liquido),
-      ].join(SEP),
-    );
-  }
-
-  lines.push(
-    [
-      "TOTAIS",
-      cell(totals.vendido),
-      cell(totals.mercadoria),
-      cell(totals.transporte),
-      cell(totals.alimentacao),
-      cell(totals.fiado),
-      cell(totals.dinheiro),
-      cell(totals.pix),
-      cell(totals.cartao),
-      cell(totals.liquido),
-    ].join(SEP),
-  );
-
+  for (const d of days) lines.push(rowCells(d).join(SEP));
+  lines.push(totalCells(totals).join(SEP));
   // \r\n para máxima compatibilidade com Excel no Windows.
   return lines.join("\r\n");
 }
@@ -254,53 +345,41 @@ function buildXLS(
   totals: ReportTotals,
   periodLabel: string,
 ): string {
-  // Formata como moeda no .xls; o Excel interpreta "R$ 1.234,56" como texto,
-  // então usamos número puro (vírgula) alinhado à direita para somar/filtrar.
-  const cur = (v: number) => brNumber(v);
-
   const headCells = COLUMNS.map(
     (c) =>
       `<th style="background:#E6A817;color:#fff;font-weight:bold;border:1px solid #d0d0d0;padding:6px 8px;text-align:${
-        c === "Data" ? "left" : "right"
+        c === "Data" || c === "OBS" ? "left" : "right"
       };">${escapeHtml(c)}</th>`,
   ).join("");
+
+  const align = (col: string) => (col === "Data" || col === "OBS" ? "left" : "right");
 
   const bodyRows = days
     .map((d, i) => {
       const bg = i % 2 === 0 ? "#ffffff" : "#fbf4e3";
-      const td = (v: string, align: string) =>
-        `<td style="border:1px solid #e5e5e5;padding:5px 8px;text-align:${align};background:${bg};">${v}</td>`;
+      const cells = rowCells(d);
       return (
         "<tr>" +
-        td(brDate(d.date), "left") +
-        td(cur(d.vendido), "right") +
-        td(cur(d.mercadoria), "right") +
-        td(cur(d.transporte), "right") +
-        td(cur(d.alimentacao), "right") +
-        td(cur(d.fiado), "right") +
-        td(cur(d.dinheiro), "right") +
-        td(cur(d.pix), "right") +
-        td(cur(d.cartao), "right") +
-        td(cur(d.liquido), "right") +
+        COLUMNS.map(
+          (c, ci) =>
+            `<td style="border:1px solid #e5e5e5;padding:5px 8px;text-align:${align(c)};background:${bg};">${escapeHtml(
+              cells[ci] ?? "",
+            )}</td>`,
+        ).join("") +
         "</tr>"
       );
     })
     .join("");
 
-  const totalTd = (v: string, align: string) =>
-    `<td style="border:1px solid #d0d0d0;padding:6px 8px;text-align:${align};font-weight:bold;background:#f5e6c2;">${v}</td>`;
+  const tCells = totalCells(totals);
   const totalRow =
     "<tr>" +
-    totalTd("TOTAIS", "left") +
-    totalTd(cur(totals.vendido), "right") +
-    totalTd(cur(totals.mercadoria), "right") +
-    totalTd(cur(totals.transporte), "right") +
-    totalTd(cur(totals.alimentacao), "right") +
-    totalTd(cur(totals.fiado), "right") +
-    totalTd(cur(totals.dinheiro), "right") +
-    totalTd(cur(totals.pix), "right") +
-    totalTd(cur(totals.cartao), "right") +
-    totalTd(cur(totals.liquido), "right") +
+    COLUMNS.map(
+      (c, ci) =>
+        `<td style="border:1px solid #d0d0d0;padding:6px 8px;text-align:${align(
+          c,
+        )};font-weight:bold;background:#f5e6c2;">${escapeHtml(tCells[ci] ?? "")}</td>`,
+    ).join("") +
     "</tr>";
 
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
@@ -346,16 +425,14 @@ function exportPDF(
   const margin = 40;
   const tableW = W - margin * 2;
 
-  // Colunas da tabela do PDF (omitimos Dinheiro/Pix/Cartão p/ não poluir;
-  // exibimos uma nota compacta logo abaixo da tabela).
-  // Larguras proporcionais somando tableW.
+  // Tabela compacta no PDF (a estrutura completa fica no Excel/CSV).
   const cols = [
     { key: "data", label: "Data", w: 0.16, align: "left" as const },
-    { key: "vendido", label: "Vendido", w: 0.15, align: "right" as const },
-    { key: "mercadoria", label: "Mercad.", w: 0.15, align: "right" as const },
+    { key: "vendido", label: "Bruto", w: 0.15, align: "right" as const },
+    { key: "mercadoria", label: "Custo", w: 0.15, align: "right" as const },
     { key: "transporte", label: "Transp.", w: 0.13, align: "right" as const },
     { key: "alimentacao", label: "Aliment.", w: 0.13, align: "right" as const },
-    { key: "fiado", label: "Fiado", w: 0.12, align: "right" as const },
+    { key: "fiado", label: "N/ pago", w: 0.12, align: "right" as const },
     { key: "liquido", label: "Líquido", w: 0.16, align: "right" as const },
   ];
   const colX: number[] = [];
@@ -376,7 +453,6 @@ function exportPDF(
     year: "numeric",
   }).format(new Date());
 
-  // ---- Cabeçalho da página ----
   function drawPageHeader() {
     doc.setFillColor(DARK[0], DARK[1], DARK[2]);
     doc.rect(0, 0, W, 92, "F");
@@ -391,7 +467,6 @@ function exportPDF(
     doc.text(`Gerado em ${gen}`, margin, 78);
   }
 
-  // ---- Cabeçalho da tabela (repetido por página) ----
   function drawTableHeader(yTop: number): number {
     doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
     doc.rect(margin, yTop, tableW, rowH + 2, "F");
@@ -401,9 +476,7 @@ function exportPDF(
     const ty = yTop + rowH - 6;
     cols.forEach((c, i) => {
       if (c.align === "right") {
-        doc.text(c.label, colX[i]! + c.w * tableW - cellPadR, ty, {
-          align: "right",
-        });
+        doc.text(c.label, colX[i]! + c.w * tableW - cellPadR, ty, { align: "right" });
       } else {
         doc.text(c.label, colX[i]! + cellPadL, ty);
       }
@@ -414,7 +487,6 @@ function exportPDF(
   drawPageHeader();
   let y = 120;
 
-  // Título da seção da tabela
   doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
@@ -423,7 +495,6 @@ function exportPDF(
 
   y = drawTableHeader(y);
 
-  // ---- Linhas ----
   doc.setFontSize(9.5);
   const bottomLimit = H - 70;
 
@@ -436,7 +507,6 @@ function exportPDF(
       doc.setFontSize(9.5);
     }
 
-    // Faixa zebra
     if (idx % 2 === 1) {
       doc.setFillColor(251, 244, 227); // #FBF4E3
       doc.rect(margin, y, tableW, rowH, "F");
@@ -468,9 +538,7 @@ function exportPDF(
       }
       const txt = values[c.key]!;
       if (c.align === "right") {
-        doc.text(txt, colX[i]! + c.w * tableW - cellPadR, ty, {
-          align: "right",
-        });
+        doc.text(txt, colX[i]! + c.w * tableW - cellPadR, ty, { align: "right" });
       } else {
         doc.text(txt, colX[i]! + cellPadL, ty);
       }
@@ -478,7 +546,6 @@ function exportPDF(
     y += rowH;
   });
 
-  // Linha inferior da tabela
   doc.setDrawColor(210, 210, 210);
   doc.line(margin, y, margin + tableW, y);
 
@@ -490,9 +557,9 @@ function exportPDF(
     y += 24;
   }
 
-  // Nota compacta Dinheiro/Pix/Cartão (formas de recebimento no período)
+  // Nota compacta — formas de recebimento + gorjeta + Pix recebido depois
   y += 18;
-  if (y + 16 > bottomLimit) {
+  if (y + 30 > bottomLimit) {
     doc.addPage();
     drawPageHeader();
     y = 120;
@@ -503,7 +570,15 @@ function exportPDF(
   doc.text(
     `Recebimentos — Dinheiro: ${brCurrency(totals.dinheiro)}  ·  Pix: ${brCurrency(
       totals.pix,
-    )}  ·  Cartão: ${brCurrency(totals.cartao)}`,
+    )}  ·  Cartão: ${brCurrency(totals.cartao)}  ·  Gorjetas: ${brCurrency(totals.gorjeta)}`,
+    margin,
+    y,
+  );
+  y += 13;
+  doc.text(
+    `Unidades vendidas: ${totals.unidVendidas}  ·  pagas: ${totals.unidPagas}  ·  não pagas: ${totals.unidNaoPagas}  ·  Pix recebido depois: ${brCurrency(
+      totals.pixDepois,
+    )}`,
     margin,
     y,
   );
@@ -517,7 +592,6 @@ function exportPDF(
     y = 120;
   }
 
-  // Faixa de título dourada
   doc.setFillColor(GOLD[0], GOLD[1], GOLD[2]);
   doc.rect(margin, y, tableW, 26, "F");
   doc.setTextColor(255, 255, 255);
@@ -526,7 +600,6 @@ function exportPDF(
   doc.text("Totais do período", margin + cellPadL, y + 18);
   y += 26;
 
-  // Corpo do bloco
   doc.setFillColor(251, 247, 236); // #FBF7EC
   doc.rect(margin, y, tableW, blockH - 26, "F");
   doc.setDrawColor(GOLD[0], GOLD[1], GOLD[2]);
@@ -543,19 +616,18 @@ function exportPDF(
   };
 
   y += 22;
-  totalLine("Vendido", brCurrency(totals.vendido));
+  totalLine("Valor bruto", brCurrency(totals.vendido));
   y += 18;
   totalLine(
     "Custos (mercadoria + transporte + alimentação)",
     brCurrency(totals.custos),
   );
   y += 18;
-  totalLine("Fiado", brCurrency(totals.fiado));
+  totalLine("Não recebido (prejuízo)", brCurrency(totals.fiado));
   y += 20;
   totalLine("Líquido", brCurrency(totals.liquido), true);
   y += 18;
 
-  // Métricas auxiliares
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   doc.setTextColor(110, 110, 110);
@@ -567,7 +639,6 @@ function exportPDF(
     y,
   );
 
-  // ---- Rodapé ----
   doc.setFontSize(8.5);
   doc.setTextColor(160, 160, 160);
   doc.text("Gerado pelo Orbis", margin, H - 28);

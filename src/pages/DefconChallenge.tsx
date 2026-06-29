@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
+import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
@@ -25,6 +26,59 @@ export default function DefconChallenge() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  // Valor da "venda rápida" = valor mais frequente do dia (mesmo critério dos
+  // botões de venda rápida na tela). 0 = ainda sem nenhuma venda registrada.
+  const quickSaleAmount = useMemo(() => {
+    const sales = (defcon.sessionSales || []) as Array<{ amount?: number }>;
+    const freq = new Map<number, number>();
+    for (const s of sales) {
+      const a = Number(s?.amount) || 0;
+      if (a > 0) freq.set(a, (freq.get(a) || 0) + 1);
+    }
+    let best = 0;
+    let bestN = 0;
+    freq.forEach((n, val) => {
+      if (n > bestN) {
+        bestN = n;
+        best = val;
+      }
+    });
+    return best;
+  }, [defcon.sessionSales]);
+
+  // Registra uma venda E dispara a notificação "Venda realizada" com o valor EXATO
+  // (no momento da venda, sem depender de recarregar a lista — senão pegava o valor
+  // da venda anterior). Vale pra venda no app e pra venda rápida pela notificação.
+  const handleAddSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+    defcon.addSale(amount, method);
+    if (
+      !treino &&
+      amount > 0 &&
+      defcon.phase === "running" &&
+      typeof navigator !== "undefined" &&
+      "serviceWorker" in navigator
+    ) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.active?.postMessage({ type: "orbis-venda-realizada", data: { amount } }))
+        .catch(() => {});
+    }
+  };
+
+  // Notificação na tela bloqueada (Android: botões; iPhone: 2 notificações de toque).
+  // Fica visível durante toda a sessão (running + intervalos) e some ao terminar —
+  // assim não re-emite a cada bloco (o que duplicaria no iPhone).
+  const defconAtivo =
+    !treino && ["running", "break", "block_report", "lunch_pause"].includes(defcon.phase);
+  useDefconQuickNotification(defconAtivo, {
+    totalSales: defcon.totalSalesCount ?? 0,
+    totalApproaches: defcon.totalApproaches ?? 0,
+    quickValue: quickSaleAmount,
+    onVenda: () => {
+      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "dinheiro");
+    },
+    onAbordagem: () => defcon.addApproach(),
+  });
 
   if (authLoading || defcon.loading || !user) {
     return (
@@ -86,7 +140,7 @@ export default function DefconChallenge() {
           totalApproaches={defcon.totalApproaches}
           totalSalesCount={defcon.totalSalesCount}
           blockSalesCount={defcon.blockSalesCount}
-          onAddSale={defcon.addSale}
+          onAddSale={handleAddSale}
           onAddTip={defcon.addTip}
           onAddApproach={defcon.addApproach}
           onAddOccurrence={defcon.addOccurrence}
