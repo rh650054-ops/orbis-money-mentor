@@ -75,7 +75,7 @@ export default function DefconChallenge() {
     totalApproaches: defcon.totalApproaches ?? 0,
     quickValue: quickSaleAmount,
     onVenda: () => {
-      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "dinheiro");
+      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "pix");
     },
     onAbordagem: () => defcon.addApproach(),
   });

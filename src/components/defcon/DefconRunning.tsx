@@ -504,7 +504,7 @@ export function DefconRunning({
           <DefconQuickSaleButtons
             saleHistory={saleHistory}
             forcedValues={onboardingMode && quickSaleValue ? [quickSaleValue] : undefined}
-            onQuickSale={registerSale}
+            onQuickSale={(amount) => registerSale(amount, "pix")}
           />
         </div>
 
