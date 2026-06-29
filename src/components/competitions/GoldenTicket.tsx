@@ -250,7 +250,7 @@ export function GoldenTicket({
   };
 
   return (
-    <div className="obt" style={{ position: "relative", width: "100vw", left: "50%", marginLeft: "-50vw", minHeight: "92vh", overflow: "hidden", background: "#030303" }}>
+    <div className="obt" style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden", background: "#030303" }}>
       <style>{CSS}</style>
       <div className="obt-ambient" />
       <div className={`obt-rays ${raysShow ? "show" : ""}`}>

@@ -60,6 +60,12 @@ export default function AdminCompetitions() {
     audience_type: "open", // open | invite | city
     audience_cities: "", // comma-separated
     invited_cpfs: "", // comma or newline separated
+    bilhete_intro_sub: "",
+    bilhete_prize_desc: "",
+    bilhete_minis: "",
+    bilhete_comissao_titulo: "",
+    bilhete_comissoes: "",
+    bilhete_comissao_nota: "",
   });
 
   const isAdmin = whitelisted && role === "admin";
@@ -140,6 +146,29 @@ export default function AdminCompetitions() {
             .filter(Boolean)
         : [];
 
+    // Bilhete dourado: textareas viram listas (1 por linha, "a | b").
+    const bMinis = form.bilhete_minis
+      .split("\n")
+      .map((l) => l.split("|"))
+      .filter((p) => p[0]?.trim())
+      .map((p) => ({ valor: p[0].trim(), label: (p[1] || "").trim() }));
+    const bComis = form.bilhete_comissoes
+      .split("\n")
+      .map((l) => l.split("|"))
+      .filter((p) => p[0]?.trim())
+      .map((p) => ({ nome: p[0].trim(), val: (p[1] || "").trim() }));
+    const bilhete_config =
+      form.bilhete_intro_sub || form.bilhete_prize_desc || bMinis.length || bComis.length || form.bilhete_comissao_titulo
+        ? {
+            introSub: form.bilhete_intro_sub || null,
+            grandPrizeDesc: form.bilhete_prize_desc || null,
+            miniPrizes: bMinis,
+            commissionTitle: form.bilhete_comissao_titulo || null,
+            commissionTiers: bComis,
+            commissionNote: form.bilhete_comissao_nota || null,
+          }
+        : null;
+
     const { error } = await supabase.from("competitions" as any).insert({
       name: form.name,
       description: form.description || null,
@@ -157,6 +186,7 @@ export default function AdminCompetitions() {
       audience_type: form.audience_type,
       audience_cities,
       invited_user_ids,
+      bilhete_config,
     });
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -171,6 +201,12 @@ export default function AdminCompetitions() {
         entry_instructions: "",
         audience_cities: "",
         invited_cpfs: "",
+        bilhete_intro_sub: "",
+        bilhete_prize_desc: "",
+        bilhete_minis: "",
+        bilhete_comissao_titulo: "",
+        bilhete_comissoes: "",
+        bilhete_comissao_nota: "",
       });
       load();
     }
@@ -321,6 +357,35 @@ export default function AdminCompetitions() {
                 rows={2}
                 placeholder="Ex: envie PIX para X e avise no WhatsApp..."
               />
+            </div>
+
+            {/* Bilhete dourado (personalização) */}
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
+              <p className="text-xs font-black uppercase tracking-wider text-amber-500">🎟️ Bilhete dourado (opcional)</p>
+              <div>
+                <Label>Frase do convite</Label>
+                <Input value={form.bilhete_intro_sub} onChange={(e) => setForm({ ...form, bilhete_intro_sub: e.target.value })} placeholder="Um dos pioneiros do maior movimento..." />
+              </div>
+              <div>
+                <Label>Descrição do prêmio</Label>
+                <Input value={form.bilhete_prize_desc} onChange={(e) => setForm({ ...form, bilhete_prize_desc: e.target.value })} placeholder="Para o maior vendedor do mês — no Pix" />
+              </div>
+              <div>
+                <Label>Prêmios menores (1 por linha: valor | descrição)</Label>
+                <Textarea value={form.bilhete_minis} onChange={(e) => setForm({ ...form, bilhete_minis: e.target.value })} rows={2} placeholder={"R$100 | Top 1 da semana\nR$50 | Por 3 indicações"} />
+              </div>
+              <div>
+                <Label>Título da comissão</Label>
+                <Input value={form.bilhete_comissao_titulo} onChange={(e) => setForm({ ...form, bilhete_comissao_titulo: e.target.value })} placeholder="Ganhe indicando..." />
+              </div>
+              <div>
+                <Label>Faixas de comissão (1 por linha: descrição | valor)</Label>
+                <Textarea value={form.bilhete_comissoes} onChange={(e) => setForm({ ...form, bilhete_comissoes: e.target.value })} rows={3} placeholder={"Até 10 indicados | R$5/cada\nDe 11 a 30 | R$7/cada\n31+ | R$10/cada"} />
+              </div>
+              <div>
+                <Label>Observação da comissão</Label>
+                <Input value={form.bilhete_comissao_nota} onChange={(e) => setForm({ ...form, bilhete_comissao_nota: e.target.value })} placeholder="Cada faixa vale para os indicados dentro dela." />
+              </div>
             </div>
 
             {/* Quem pode participar */}
