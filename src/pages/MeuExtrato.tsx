@@ -4,7 +4,6 @@ import { ArrowLeft, Upload, Loader2, Smartphone, CreditCard, Clock } from "lucid
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useMeuExtrato, type ExtratoSlot } from "@/hooks/useMeuExtrato";
@@ -15,40 +14,19 @@ export default function MeuExtrato() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const dia = getBrazilDate();
-  const { pix, cartao, totalDia, reload } = useMeuExtrato(user?.id, dia);
+  const { pix, cartao, totalDia, upload } = useMeuExtrato(user?.id, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
   const [error, setError] = useState("");
-
-  const fileToB64 = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result).replace(/^data:[^;]+;base64,/, ""));
-      r.onerror = () => reject(new Error("read_error"));
-      r.readAsDataURL(file);
-    });
 
   const handleFile = async (tipo: "pix" | "cartao", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setError("");
     setBusy(tipo);
-    try {
-      const b64 = await fileToB64(file);
-      const { data, error: fnErr } = await supabase.functions.invoke("verificar-extrato", {
-        body: { file: b64, mime: file.type || "application/pdf", salvar: true, tipo, dia },
-      });
-      const res = data as { ok?: boolean; salvo?: boolean } | null;
-      if (fnErr || !res?.ok || !res?.salvo) {
-        setError("Não consegui ler esse extrato. Tenta de novo ou manda uma foto mais nítida.");
-      } else {
-        await reload();
-      }
-    } catch {
-      setError("Erro ao enviar o arquivo.");
-    } finally {
-      setBusy(null);
-      if (e.target) e.target.value = "";
-    }
+    const { ok } = await upload(tipo, file);
+    if (!ok) setError("Não consegui ler esse extrato. Tenta de novo ou manda uma foto mais nítida.");
+    setBusy(null);
+    if (e.target) e.target.value = "";
   };
 
   const renderSlot = (tipo: "pix" | "cartao", label: string, Icon: typeof Smartphone, slot: ExtratoSlot | null) => (
