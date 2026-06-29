@@ -12,6 +12,7 @@ export interface ExtratoSlot {
 
 export interface UploadResult {
   ok: boolean;
+  erro?: string;
   verificado?: number;
   suspeitas?: { valor?: number; motivo?: string; descricao?: string }[];
   defconTotal?: number;
@@ -64,8 +65,9 @@ export function useMeuExtrato(userId: string | undefined, dia: string) {
           ok?: boolean; salvo?: boolean; total_vendas?: number;
           suspeitas?: { valor?: number; motivo?: string; descricao?: string }[];
           defcon_total?: number; acima_do_defcon?: boolean;
+          dica?: string; error?: string;
         } | null;
-        if (error || !res?.ok || !res?.salvo) return { ok: false };
+        if (error || !res?.ok || !res?.salvo) return { ok: false, erro: res?.dica };
         await reload();
         return {
           ok: true,

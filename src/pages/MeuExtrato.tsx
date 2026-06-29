@@ -37,7 +37,7 @@ export default function MeuExtrato() {
     setBusy(tipo);
     const r = await upload(tipo, file);
     if (!r.ok) {
-      setError("Não consegui ler esse extrato. Tenta de novo ou manda uma foto mais nítida.");
+      setError(r.erro ?? "Não consegui ler esse extrato. Tenta de novo ou manda uma foto mais nítida.");
     } else {
       const susp = r.suspeitas?.length ?? 0;
       if (susp > 0 || r.acimaDoDefcon) {

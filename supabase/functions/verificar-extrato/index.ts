@@ -36,8 +36,10 @@ ${hint}
 total_vendas = soma SO das vendas legitimas (sem despesa e sem suspeita).
 total_ignorado = soma de despesas + suspeitas.
 
+data_dia = a DATA das vendas no extrato em YYYY-MM-DD. Use a data de LANCAMENTO/transacao (quando a venda aconteceu), NAO a data contabil. Se houver varias datas, a MAIS COMUM. Se nao der pra ler a data, deixe "".
+
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
-{"vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18}`;
+{"vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"2026-06-29"}`;
 }
 
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
@@ -202,6 +204,23 @@ Deno.serve(async (req) => {
     const qtdVendas = Number(parsed.qtd_vendas) || vendas.length;
     const totalIgnorado = Number(parsed.total_ignorado) || 0;
 
+    // VALIDA O DIA: o extrato TEM que ser do dia que esta contando. Pega quem sobe
+    // extrato de outro dia (ex: extrato de ontem contando pro desafio de hoje).
+    const dataDia = typeof parsed.data_dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data_dia)
+      ? parsed.data_dia : "";
+    if (salvar && dataDia && dataDia !== dia) {
+      const fmt = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+      const ontem = (() => {
+        const d = new Date(`${dia}T12:00:00Z`);
+        d.setUTCDate(d.getUTCDate() - 1);
+        return d.toISOString().slice(0, 10);
+      })();
+      const dica = dataDia === ontem
+        ? `O prazo das 9h pra contar o extrato do dia ${fmt(dataDia)} ja passou. Agora vale o extrato do dia ${fmt(dia)}.`
+        : `Esse extrato e do dia ${fmt(dataDia)}, mas conta pro dia ${fmt(dia)}. Envie o extrato do dia ${fmt(dia)}.`;
+      return json({ error: "extrato_dia_errado", extrato_dia: dataDia, esperado: dia, dica }, 200);
+    }
+
     // ===== ANTIFRAUDE EXTRA (no servidor, alem do que a IA ja faz no prompt) =====
     // 1) DEDUP ENTRE SLOTS: pix e cartao sao documentos DIFERENTES. Se a MESMA
     //    transacao (valor + origem) aparece nos DOIS, e o mesmo extrato subido 2x
@@ -292,6 +311,7 @@ Deno.serve(async (req) => {
       total_vendas: totalLimpo,
       total_ignorado: ignoradoFinal,
       qtd_vendas: vendasLimpas.length,
+      extrato_dia: dataDia,
       defcon_total: defconTotal,
       acima_do_defcon: defconTotal > 0 && totalLimpo > defconTotal * 1.2,
     });
