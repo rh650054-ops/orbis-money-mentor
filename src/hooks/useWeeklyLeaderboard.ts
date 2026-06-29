@@ -44,8 +44,8 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
   const [isLoading, setIsLoading] = useState(true);
   const [hasParticipated, setHasParticipated] = useState(false);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     try {
       const weekStart = currentWeekStart();
       const weekEnd = currentWeekEnd();
@@ -80,14 +80,22 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     } catch (e) {
       console.error("Ranking semanal exceção:", e);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [userId]);
 
-  // Lazy: carrega só quando a aba Semanal é aberta (não pesa o load inicial do Ranking),
-  // e recarrega toda vez que ela é reaberta — pra refletir vendas novas do DEFCON.
+  // Carrega ao abrir a aba Semanal. Enquanto aberta, atualiza SOZINHO a cada 5s
+  // (e ao voltar o foco) — pra refletir as vendas novas da galera ao vivo.
   useEffect(() => {
-    if (enabled) load();
+    if (!enabled) return;
+    load();
+    const id = setInterval(() => load(true), 5000);
+    const onFocus = () => load(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [enabled, load]);
 
   return { ranking, currentUserStats, isLoading, hasParticipated, reload: load };
