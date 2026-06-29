@@ -5,8 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { RankingPodium } from "@/components/ranking/RankingPodium";
-import type { LeaderboardEntry } from "@/hooks/useLeaderboard";
+import { CompetitionArena } from "@/components/competitions/CompetitionArena";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
 interface Comp {
@@ -275,41 +274,14 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
     };
   }, [comp.id, load]);
 
-  const podFmt = (v: number) => (comp.metric === "pix_sales_count" ? String(Math.round(v)) : fmt(v));
-  const toEntry = (r: Part & { nickname: string | null; avatar_url: string | null }) =>
-    ({
-      user_id: r.user_id,
-      nome_usuario: r.nickname,
-      avatar_url: r.avatar_url,
-      faturamento_total_mes: partValue(r),
-      last_active_at: null,
-    } as unknown as LeaderboardEntry);
-
   return (
     <div className="pb-24 px-4 pt-4 max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-xl font-bold text-foreground truncate">{comp.name}</h1>
-      </div>
-
-      <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4">
-        {comp.prize_label && (
-          <p className="text-amber-400 font-bold">
-            🏆 {comp.prize_label}
-            {comp.prize_value ? ` · ${fmt(comp.prize_value)}` : ""}
-          </p>
-        )}
-        <p className="text-xs text-muted-foreground mt-1">
-          {metricLabel(comp.metric)} · {dateBR(comp.starts_at)}–{dateBR(comp.ends_at)} ·{" "}
-          {comp.status === "active" ? "Em andamento" : "Encerrada"}
-        </p>
-        {comp.description && <p className="text-sm text-foreground/80 mt-2">{comp.description}</p>}
-      </div>
+      <button
+        onClick={onBack}
+        className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+      >
+        <ArrowLeft className="w-5 h-5" />
+      </button>
 
       {loading ? (
         <div className="space-y-1.5">
@@ -317,55 +289,19 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
             <div key={i} className="h-14 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
           ))}
         </div>
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-10">Ninguém participando ainda. Seja o primeiro!</p>
       ) : (
-        <div className="space-y-3">
-          <RankingPodium
-            variant="premium"
-            top1={rows[0] ? toEntry(rows[0]) : undefined}
-            top2={rows[1] ? toEntry(rows[1]) : undefined}
-            top3={rows[2] ? toEntry(rows[2]) : undefined}
-            formatCurrency={podFmt}
-            onOpenProfile={setProfileUid}
-          />
-          {rows.length > 3 && (
-            <div className="space-y-1.5">
-              {rows.slice(3).map((r, idx) => (
-                <div
-                  key={r.id}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-                  style={
-                    r.user_id === me
-                      ? { background: "#1a1305", border: "1px solid #F5B544" }
-                      : { background: "#0e0e10", border: "1px solid transparent" }
-                  }
-                >
-                  <span className="w-6 text-center font-black shrink-0 text-muted-foreground">{idx + 4}</span>
-                  <button onClick={() => setProfileUid(r.user_id)} className="shrink-0">
-                    {r.avatar_url ? (
-                      <img src={r.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-border" />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground">
-                        {(r.nickname ?? "?").slice(0, 2).toUpperCase()}
-                      </div>
-                    )}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">
-                      {r.nickname || "Vendedor"}
-                      {r.user_id === me && <span className="ml-1.5 align-middle text-[9px] font-black text-amber-400">VOCÊ</span>}
-                    </p>
-                    {!r.score_approved && <p className="text-[10px] text-muted-foreground">aguardando extrato</p>}
-                  </div>
-                  <span className="text-white font-black text-sm shrink-0">
-                    {comp.metric === "pix_sales_count" ? partValue(r) : fmt(partValue(r))}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <CompetitionArena
+          title={comp.name}
+          sealText={comp.entry_rule === "paid" ? "Competição Paga" : "Competição Premium"}
+          prizeLabel={comp.prize_label || "Prêmio"}
+          prizeValue={comp.prize_value || 0}
+          datesStatus={`${dateBR(comp.starts_at)} a ${dateBR(comp.ends_at)} · ${comp.status === "active" ? "Em andamento" : "Encerrada"}`}
+          rows={rows.map((r) => ({ user_id: r.user_id, nickname: r.nickname, avatar_url: r.avatar_url, value: partValue(r) }))}
+          me={me}
+          isCount={comp.metric === "pix_sales_count"}
+          formatCurrency={fmt}
+          onOpenProfile={setProfileUid}
+        />
       )}
 
       <PublicProfileModal open={!!profileUid} onOpenChange={(v) => !v && setProfileUid(null)} userId={profileUid} />
