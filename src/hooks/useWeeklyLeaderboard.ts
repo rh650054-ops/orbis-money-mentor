@@ -13,7 +13,11 @@ export function currentWeekStart(): string {
   const d = new Date(`${todayISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // volta pra segunda (0 = domingo)
   const monday = d.toISOString().slice(0, 10);
-  return monday < TEMPORADA_INICIO ? TEMPORADA_INICIO : monday;
+  // A trava do dia 1 só vale A PARTIR do dia 1 (pra 1ª semana do desafio ficar
+  // limpa: 01–05/07). Antes disso, mostra a semana natural — assim o ranking não
+  // fica vazio em junho, e zera sozinho na virada do dia 1.
+  if (todayISO >= TEMPORADA_INICIO && monday < TEMPORADA_INICIO) return TEMPORADA_INICIO;
+  return monday;
 }
 
 // Domingo desta semana (fim da janela). Sempre o domingo natural — não trava no dia 1.
