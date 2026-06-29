@@ -38,12 +38,11 @@ function RowAvatar({ url, name, color, icon, pres }: {
   return (
     <div className="relative shrink-0">
       {inner}
-      {pres.has && (
-        <span
-          className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
-          style={{ borderColor: "#0e0e10", background: pres.online ? "#22c55e" : "#6b7280" }}
-        />
-      )}
+      {/* Sempre mostra a bolinha: verde = no DEFCON agora, cinza = offline. */}
+      <span
+        className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+        style={{ borderColor: "#0e0e10", background: pres.online ? "#22c55e" : "#6b7280" }}
+      />
     </div>
   );
 }
