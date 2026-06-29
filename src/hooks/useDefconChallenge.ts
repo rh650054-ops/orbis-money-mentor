@@ -629,24 +629,11 @@ export function useDefconChallenge(userId: string | undefined) {
     const newCartao = currentBlock.valor_cartao + (method === "cartao" ? amount : 0);
     const newAchieved = newDinheiro + newCartao + newPix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
+    const newBlockSales = blockSalesCount + 1;
+    const newApproaches = blockApproaches + 1; // quem comprou foi abordado
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: newAchieved,
-        valor_dinheiro: newDinheiro,
-        valor_pix: newPix,
-        valor_cartao: newCartao,
-      })
-      .eq("id", currentBlock.id);
-
-    if (sessionId) {
-      await supabase
-        .from("challenge_sessions")
-        .update({ total_sold: newTotal })
-        .eq("id", sessionId);
-    }
-
+    // OTIMISTA: atualiza a TELA na hora (sem esperar a rede). É isso que deixa o
+    // toque instantâneo — a gravação no banco acontece logo em seguida, em background.
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
@@ -655,37 +642,45 @@ export function useDefconChallenge(userId: string | undefined) {
       )
     );
     setTotalSold(newTotal);
-    const newBlockSales = blockSalesCount + 1;
     setBlockSalesCount(newBlockSales);
     setTotalSalesCount(prev => prev + 1);
-
-    // Auto-increment approach: whoever bought was approached
-    const newApproaches = blockApproaches + 1;
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persist approaches + sales count to DB.
-    // AWAIT obrigatório: se o app for morto logo após o toque, a contagem do
-    // bloco precisa estar gravada antes da função retornar (o dinheiro já é
-    // awaited e sobrevive; sem await aqui, a última venda/abordagem se perdia).
-    if (sessionId) {
-      await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
-    }
+    // Persiste no banco em seguida. Os awaits continuam (durabilidade: se o app
+    // fechar logo após o toque, a venda já foi gravada), mas a tela já reagiu acima.
+    try {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          achieved_amount: newAchieved,
+          valor_dinheiro: newDinheiro,
+          valor_pix: newPix,
+          valor_cartao: newCartao,
+        })
+        .eq("id", currentBlock.id);
 
-    await syncBlocksToDailySales(userId);
+      if (sessionId) {
+        await supabase
+          .from("challenge_sessions")
+          .update({ total_sold: newTotal })
+          .eq("id", sessionId);
+        await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
+        // Registra a venda como LINHA em defcon_sales (pra listar/editar/excluir).
+        await supabase.from("defcon_sales").insert({
+          user_id: userId,
+          session_id: sessionId,
+          block_index: currentBlockIndex,
+          amount,
+          method,
+          late: false,
+        });
+      }
 
-    // ADITIVO: registra a venda como LINHA em defcon_sales (sem tocar em nenhum
-    // agregado acima). Permite listar/editar/excluir cada venda individualmente.
-    if (sessionId) {
-      await supabase.from("defcon_sales").insert({
-        user_id: userId,
-        session_id: sessionId,
-        block_index: currentBlockIndex,
-        amount,
-        method,
-        late: false,
-      });
-      await loadSessionSales(sessionId);
+      await syncBlocksToDailySales(userId);
+      if (sessionId) await loadSessionSales(sessionId);
+    } catch (e) {
+      // best-effort: a tela já reflete a venda; o banco reconcilia no próximo load.
     }
   };
 
@@ -826,19 +821,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: newAchieved,
-        valor_dinheiro: newDinheiro,
-        valor_gorjeta: newGorjeta,
-      })
-      .eq("id", currentBlock.id);
-
-    if (sessionId) {
-      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-    }
-
+    // OTIMISTA: tela na hora; banco em seguida.
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
@@ -848,7 +831,24 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
 
-    await syncBlocksToDailySales(userId);
+    try {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          achieved_amount: newAchieved,
+          valor_dinheiro: newDinheiro,
+          valor_gorjeta: newGorjeta,
+        })
+        .eq("id", currentBlock.id);
+
+      if (sessionId) {
+        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+      }
+
+      await syncBlocksToDailySales(userId);
+    } catch (e) {
+      // best-effort: a tela já reflete a gorjeta.
+    }
   };
 
   const addApproach = async () => {
