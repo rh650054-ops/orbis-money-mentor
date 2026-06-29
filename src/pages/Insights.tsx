@@ -473,7 +473,7 @@ export default function Insights() {
     : period === "30d" ? "mês (últimos 30 dias)"
     : "período selecionado";
   const periodoShort =
-    period === "today" ? "dia" : period === "7d" ? "semana" : period === "30d" ? "mês" : "período";
+    period === "today" ? "o dia" : period === "7d" ? "a semana" : period === "30d" ? "o mês" : "o período";
 
   // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
   useEffect(() => {
@@ -648,7 +648,7 @@ export default function Insights() {
           </section>
 
           {/* Análise da IA (Gemini) — destaque no topo */}
-          <div className="rounded-3xl border-2 border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-5 space-y-3 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
+          <div className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-4 space-y-2.5 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
                 <Sparkles className="w-4 h-4 text-primary" />
@@ -685,8 +685,8 @@ export default function Insights() {
               </div>
             ) : (
               <>
-                <p className="text-sm text-foreground/80 leading-relaxed">
-                  Deixa a IA analisar seu {periodoShort}: como tá indo, pra onde vai o dinheiro, o que melhorar e onde tá furando.
+                <p className="text-xs text-foreground/70 leading-relaxed">
+                  Deixa a IA analisar {periodoShort}: o que tá indo bem e onde tá furando.
                 </p>
                 {aiInsights.length > 0 && (
                   <div className="space-y-1">
@@ -698,7 +698,7 @@ export default function Insights() {
                 <Button
                   onClick={generateReportAnalysis}
                   disabled={aiReportLoading}
-                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-12 text-base"
+                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-10 text-sm"
                 >
                   {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
