@@ -202,6 +202,63 @@ Deno.serve(async (req) => {
     const qtdVendas = Number(parsed.qtd_vendas) || vendas.length;
     const totalIgnorado = Number(parsed.total_ignorado) || 0;
 
+    // ===== ANTIFRAUDE EXTRA (no servidor, alem do que a IA ja faz no prompt) =====
+    // 1) DEDUP ENTRE SLOTS: pix e cartao sao documentos DIFERENTES. Se a MESMA
+    //    transacao (valor + origem) aparece nos DOIS, e o mesmo extrato subido 2x
+    //    -> conta UMA vez (a copia vai pra suspeitas). Mata o bug do "soma em dobro".
+    // 2) VALOR ALTO: venda individual acima do teto (ticket de rua e pequeno) vira
+    //    suspeita e NAO conta. Teto configuravel via SUSPEITA_VALOR_MAX (default 300).
+    let outras: any[] = [];
+    if (supa && uid) {
+      try {
+        const outroTipo = tipo === "cartao" ? "pix" : "cartao";
+        const { data: o } = await supa
+          .from("extrato_uploads")
+          .select("vendas")
+          .eq("user_id", uid)
+          .eq("dia", dia)
+          .eq("tipo", outroTipo)
+          .maybeSingle();
+        outras = Array.isArray((o as any)?.vendas) ? (o as any).vendas : [];
+      } catch { /* segue sem dedup se a leitura falhar */ }
+    }
+    const LIMITE = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "300");
+    const chave = (v: any) =>
+      `${Math.round((Number(v?.valor) || 0) * 100)}|${String(v?.descricao ?? "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24)}`;
+    const outrasKeys = new Set(outras.map(chave));
+    const vendasLimpas: any[] = [];
+    const suspeitasFinal: any[] = Array.isArray(suspeitas) ? [...suspeitas] : [];
+    let addedIgnorado = 0;
+    for (const v of vendas) {
+      const val = Number(v?.valor) || 0;
+      if (outrasKeys.has(chave(v))) {
+        suspeitasFinal.push({ ...v, motivo: "duplicata (mesma venda no outro extrato)" });
+        addedIgnorado += val;
+        continue;
+      }
+      if (val > LIMITE) {
+        suspeitasFinal.push({ ...v, motivo: `valor alto (acima de R$${LIMITE}) - revisar` });
+        addedIgnorado += val;
+        continue;
+      }
+      vendasLimpas.push(v);
+    }
+    const totalLimpo = vendasLimpas.reduce((s, v) => s + (Number(v?.valor) || 0), 0);
+    const ignoradoFinal = (Number(totalIgnorado) || 0) + addedIgnorado;
+
+    // Total que o vendedor REGISTROU no DEFCON do dia (cartao + pix) — pra comparar.
+    let defconTotal = 0;
+    if (supa && uid) {
+      try {
+        const { data: ds } = await supa
+          .from("daily_sales")
+          .select("card_sales, pix_sales")
+          .eq("user_id", uid)
+          .eq("date", dia);
+        defconTotal = ((ds as any[]) || []).reduce((s, r) => s + Number(r.card_sales || 0) + Number(r.pix_sales || 0), 0);
+      } catch { /* opcional */ }
+    }
+
     // Salva so quando salvar:true (a tela de teste admin NAO salva). Usa o JWT do usuario (RLS).
     let salvo = false;
     if (salvar && supa && uid) {
@@ -210,10 +267,10 @@ Deno.serve(async (req) => {
           user_id: uid,
           dia,
           tipo,
-          total_verificado: totalVendas,
-          qtd_vendas: qtdVendas,
-          total_ignorado: totalIgnorado,
-          vendas,
+          total_verificado: totalLimpo,
+          qtd_vendas: vendasLimpas.length,
+          total_ignorado: ignoradoFinal,
+          vendas: vendasLimpas,
           motor,
           updated_at: new Date().toISOString(),
         }, { onConflict: "user_id,dia,tipo" });
@@ -230,11 +287,13 @@ Deno.serve(async (req) => {
       salvo,
       dia,
       tipo,
-      vendas,
-      suspeitas,
-      total_vendas: totalVendas,
-      total_ignorado: totalIgnorado,
-      qtd_vendas: qtdVendas,
+      vendas: vendasLimpas,
+      suspeitas: suspeitasFinal,
+      total_vendas: totalLimpo,
+      total_ignorado: ignoradoFinal,
+      qtd_vendas: vendasLimpas.length,
+      defcon_total: defconTotal,
+      acima_do_defcon: defconTotal > 0 && totalLimpo > defconTotal * 1.2,
     });
   } catch (e) {
     console.error("verificar-extrato excecao", e);
