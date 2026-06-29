@@ -15,6 +15,7 @@ import { z } from "zod";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 import { AvatarCropper } from "@/components/AvatarCropper";
+import { RankingProfileModal } from "@/components/RankingProfileModal";
 
 const BR_STATES = [
   "AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG",
@@ -49,6 +50,7 @@ export default function Profile() {
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [publicProfileOpen, setPublicProfileOpen] = useState(false);
   const [profile, setProfile] = useState({
     nickname: "",
     email: "",
@@ -737,6 +739,39 @@ export default function Profile() {
           )}
         </CardContent>
       </Card>
+
+      {/* Perfil público - como os outros vendedores te veem */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Perfil público</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Como os outros vendedores te veem no ranking e nas competições
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPublicProfileOpen(true)}
+              className="shrink-0"
+            >
+              <Edit2 className="w-3.5 h-3.5 mr-1.5" />
+              Editar perfil público
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal de edição do perfil público (ranking/competições) */}
+      <RankingProfileModal
+        open={publicProfileOpen}
+        onOpenChange={setPublicProfileOpen}
+        userId={user.id}
+        currentNickname={profile.nickname}
+        currentAvatar={profile.avatar_url}
+        onProfileUpdated={() => { loadProfile(); }}
+      />
 
       {/* Admin Panel Access Card - apenas para admins */}
       {isAdmin && (

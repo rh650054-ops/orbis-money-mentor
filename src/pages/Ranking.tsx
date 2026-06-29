@@ -9,7 +9,6 @@ import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
-import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
@@ -81,7 +80,6 @@ export default function Ranking() {
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
   const [userPhone, setUserPhone] = useState<string>("");
-  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const shareCardRef = useRef<HTMLDivElement>(null);
@@ -423,7 +421,7 @@ export default function Ranking() {
             currentUserStats={currentUserStats}
             hasParticipated={hasParticipated}
             formatCurrency={formatCurrency}
-            onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+            onEditProfile={() => navigate("/my-account")}
             onOpenProfile={openPublicProfile}
             onQuickPhoto={() => quickPhotoRef.current?.click()}
             quickUploading={quickUploading}
@@ -470,7 +468,7 @@ export default function Ranking() {
                 currentUserStats={weekly.currentUserStats}
                 hasParticipated={weekly.hasParticipated}
                 formatCurrency={formatCurrency}
-                onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
+                onEditProfile={() => navigate("/my-account")}
                 onOpenProfile={openPublicProfile}
                 onQuickPhoto={() => quickPhotoRef.current?.click()}
                 quickUploading={quickUploading}
@@ -478,17 +476,6 @@ export default function Ranking() {
             </>
           )}
         </>
-      )}
-
-      {user && (
-        <RankingProfileModal
-          open={profileModalOpen}
-          onOpenChange={setProfileModalOpen}
-          userId={user.id}
-          currentNickname={userProfile.nickname}
-          currentAvatar={userProfile.avatar}
-          onProfileUpdated={() => { loadUserProfile(); loadLeaderboard(); }}
-        />
       )}
 
       <PublicProfileModal
