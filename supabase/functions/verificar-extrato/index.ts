@@ -1,7 +1,8 @@
 // Orbis — verificar-extrato
-// A IA (Gemini visao) le um EXTRATO (print ou PDF) e separa as VENDAS (dinheiro que
-// ENTROU/foi recebido) das DESPESAS (compras/saidas do proprio vendedor). So venda conta.
-// Recebe { file: base64, mime, dia? }. Devolve { vendas[], total_vendas, total_ignorado, qtd_vendas }.
+// A IA le um EXTRATO (print ou PDF) e separa as VENDAS (dinheiro que ENTROU/foi recebido)
+// das DESPESAS (compras/saidas do proprio vendedor). So venda conta.
+// PRIMARIO: Claude (visao — nao fica sobrecarregado). FALLBACK: Gemini.
+// Recebe { file: base64, mime }. Devolve { ok, vendas[], total_vendas, total_ignorado, qtd_vendas }.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,6 +28,75 @@ Na duvida, use o SINAL do valor (positivo = entrou = venda) e a descricao.
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
 {"vendas":[{"descricao":"de quem/origem","valor":35.0}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18}`;
 
+// ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
+async function callClaude(key: string, model: string, fileB64: string, mime: string): Promise<string> {
+  const isPdf = mime.includes("pdf");
+  const mediaType = isPdf
+    ? "application/pdf"
+    : (["image/jpeg", "image/png", "image/gif", "image/webp"].includes(mime) ? mime : "image/jpeg");
+  const filePart = isPdf
+    ? { type: "document", source: { type: "base64", media_type: mediaType, data: fileB64 } }
+    : { type: "image", source: { type: "base64", media_type: mediaType, data: fileB64 } };
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    signal: AbortSignal.timeout(40000),
+    body: JSON.stringify({
+      model,
+      max_tokens: 1500,
+      messages: [{ role: "user", content: [{ type: "text", text: PROMPT }, filePart] }],
+    }),
+  });
+  if (!res.ok) {
+    const t = await res.text().catch(() => "");
+    console.error("Claude extrato erro", res.status, t.slice(0, 200));
+    throw new Error(`claude_${res.status}`);
+  }
+  const data = await res.json();
+  return (data?.content ?? []).map((b: any) => b?.text || "").join("").trim();
+}
+
+// ---- Gemini (fallback): varios modelos em ordem, desvia do que estiver lotado ----
+async function callGemini(key: string, fileB64: string, mime: string): Promise<string> {
+  const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest,gemini-1.5-flash")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+  const reqBody = JSON.stringify({
+    contents: [{ parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
+    generationConfig: { temperature: 0, responseMimeType: "application/json" },
+  });
+  for (const m of models) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      let r: Response;
+      try {
+        r = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(35000),
+          body: reqBody,
+        });
+      } catch (e) {
+        console.error("Gemini extrato fetch erro", m, String(e).slice(0, 150));
+        break;
+      }
+      if (r.ok) {
+        const data = await r.json();
+        return data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") ?? "";
+      }
+      const errTxt = await r.text().catch(() => "");
+      console.error("Gemini extrato erro", m, r.status, errTxt.slice(0, 200));
+      if (r.status === 400 || r.status === 404) break; // modelo invalido: pula pro proximo
+      if (attempt < 2) await new Promise((res2) => setTimeout(res2, 1500));
+    }
+  }
+  throw new Error("gemini_ocupado");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -39,48 +109,39 @@ Deno.serve(async (req) => {
     const mime = typeof body?.mime === "string" ? body.mime : "application/pdf";
     if (!fileB64) return json({ error: "sem_arquivo" }, 400);
 
-    const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key) return json({ error: "sem_gemini_key" }, 500);
-    // Tenta varios modelos do Gemini em ordem. Se um estiver lotado (503) ou indisponivel,
-    // cai pro proximo — a leitura nao fica refem de um modelo so. Configuravel via env.
-    const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest,gemini-1.5-flash")
-      .split(",").map((s) => s.trim()).filter(Boolean);
-    const reqBody = JSON.stringify({
-      contents: [{ parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
-      generationConfig: { temperature: 0, responseMimeType: "application/json" },
-    });
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
 
-    let data: any = null;
-    let lastStatus = 0;
-    for (const m of models) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${key}`;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        let r: Response;
-        try {
-          r = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(35000),
-            body: reqBody,
-          });
-        } catch (e) {
-          console.error("Gemini extrato fetch erro", m, String(e).slice(0, 150));
-          break;
-        }
-        if (r.ok) { data = await r.json(); break; }
-        lastStatus = r.status;
-        const errTxt = await r.text().catch(() => "");
-        console.error("Gemini extrato erro", m, r.status, errTxt.slice(0, 200));
-        if (r.status === 400 || r.status === 404) break; // modelo invalido: pula pro proximo
-        if (attempt < 2) await new Promise((res2) => setTimeout(res2, 1500));
+    let text = "";
+    let motor = "";
+    let lastErr = "";
+
+    // 1) Claude primeiro (melhor leitura, nao trava feito o Gemini gratis)
+    if (anthropicKey) {
+      try {
+        text = await callClaude(anthropicKey, model, fileB64, mime);
+        motor = "claude";
+      } catch (e) {
+        lastErr = String((e as Error)?.message || e);
       }
-      if (data) break;
     }
 
-    if (!data) {
-      return json({ error: `gemini_${lastStatus || "ocupado"}`, dica: "Gemini ocupado, tente de novo em instantes" }, 503);
+    // 2) Se o Claude falhar ou nao tiver chave, cai no Gemini
+    if (!text && geminiKey) {
+      try {
+        text = await callGemini(geminiKey, fileB64, mime);
+        motor = "gemini";
+      } catch (e) {
+        lastErr = String((e as Error)?.message || e);
+      }
     }
-    const text: string = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") ?? "";
+
+    if (!text) {
+      if (!anthropicKey && !geminiKey) return json({ error: "sem_chave_ia" }, 500);
+      return json({ error: lastErr || "leitura_indisponivel", dica: "tente de novo em instantes" }, 503);
+    }
+
     let parsed: any = null;
     try {
       parsed = JSON.parse(text);
@@ -93,6 +154,7 @@ Deno.serve(async (req) => {
     const vendas = Array.isArray(parsed.vendas) ? parsed.vendas : [];
     return json({
       ok: true,
+      motor,
       vendas,
       total_vendas: Number(parsed.total_vendas) || 0,
       total_ignorado: Number(parsed.total_ignorado) || 0,

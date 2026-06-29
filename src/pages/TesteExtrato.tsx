@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface AuditResult {
   ok: boolean;
+  motor?: string;
   vendas: { descricao: string; valor: number }[];
   total_vendas: number;
   total_ignorado: number;
@@ -114,9 +115,22 @@ export default function TesteExtrato() {
       {result && (
         <Card>
           <CardContent className="p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <Check className="w-5 h-5 text-primary" />
-              <p className="font-bold">{result.qtd_vendas} vendas encontradas</p>
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Check className="w-5 h-5 text-primary" />
+                <p className="font-bold">{result.qtd_vendas} vendas encontradas</p>
+              </div>
+              {result.motor && (
+                <span
+                  className={`text-xs font-bold px-2 py-1 rounded-full ${
+                    result.motor === "claude"
+                      ? "bg-emerald-500/15 text-emerald-500"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {result.motor === "claude" ? "✓ Lido pelo Claude" : "Lido pelo Gemini"}
+                </span>
+              )}
             </div>
             <div className="space-y-1.5 max-h-72 overflow-y-auto pr-1">
               {result.vendas.map((v, i) => (
