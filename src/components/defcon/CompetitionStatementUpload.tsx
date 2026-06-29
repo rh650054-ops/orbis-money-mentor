@@ -4,7 +4,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { getExtratoDia } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useMeuExtrato } from "@/hooks/useMeuExtrato";
-import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard, Trash2 } from "lucide-react";
 
 // Aparece no fim do DEFCON SÓ pra quem participa de competição ativa.
 // A IA (verificar-extrato) lê o extrato do dia, audita (só card+pix que ENTROU)
@@ -15,8 +15,9 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
-  const { pix, cartao, totalDia, upload } = useMeuExtrato(userId, dia);
+  const { pix, cartao, totalDia, upload, remove } = useMeuExtrato(userId, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
+  const [deleting, setDeleting] = useState<null | "pix" | "cartao">(null);
   const pixRef = useRef<HTMLInputElement>(null);
   const cartaoRef = useRef<HTMLInputElement>(null);
 
@@ -68,6 +69,14 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     }
   };
 
+  const onDelete = async (tipo: "pix" | "cartao") => {
+    if (!window.confirm("Excluir esse extrato? Você pode enviar de novo depois.")) return;
+    setDeleting(tipo);
+    const { ok } = await remove(tipo);
+    setDeleting(null);
+    if (!ok) toast({ title: "Não consegui excluir agora", variant: "destructive" });
+  };
+
   if (loading || !inComp) return null;
 
   const slotBtn = (
@@ -113,6 +122,20 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
         {slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}
         {slotBtn("cartao", "Extrato Cartão", CreditCard, cartao, cartaoRef)}
       </div>
+      {(pix || cartao) && (
+        <div className="flex gap-2">
+          {pix && (
+            <button onClick={() => onDelete("pix")} disabled={deleting !== null} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold text-destructive bg-destructive/10 disabled:opacity-60">
+              {deleting === "pix" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Excluir Pix
+            </button>
+          )}
+          {cartao && (
+            <button onClick={() => onDelete("cartao")} disabled={deleting !== null} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-semibold text-destructive bg-destructive/10 disabled:opacity-60">
+              {deleting === "cartao" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Excluir Cartão
+            </button>
+          )}
+        </div>
+      )}
       {totalDia > 0 && (
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs text-muted-foreground">Verificado hoje</span>
