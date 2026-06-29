@@ -6,6 +6,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { CompetitionArena } from "@/components/competitions/CompetitionArena";
+import { GoldenTicket } from "@/components/competitions/GoldenTicket";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
 interface Comp {
@@ -23,6 +24,17 @@ interface Comp {
   entry_instructions: string | null;
   status: string;
   winner_user_id: string | null;
+  bilhete_config?: BilheteCfg | null;
+}
+
+interface BilheteCfg {
+  introSub?: string | null;
+  grandPrizeLabel?: string | null;
+  grandPrizeDesc?: string | null;
+  miniPrizes?: { valor: string; label: string }[];
+  commissionTitle?: string | null;
+  commissionTiers?: { nome: string; val: string }[];
+  commissionNote?: string | null;
 }
 
 interface Part {
@@ -232,6 +244,7 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
   const [rows, setRows] = useState<Array<Part & { nickname: string | null; avatar_url: string | null }>>([]);
   const [loading, setLoading] = useState(true);
   const [profileUid, setProfileUid] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
     const { data: parts } = await supabase
@@ -273,6 +286,50 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
       supabase.removeChannel(channel);
     };
   }, [comp.id, load]);
+
+  const joinComp = async () => {
+    if (!me || joining) return;
+    setJoining(true);
+    const { error } = await supabase
+      .from("competition_participants" as any)
+      .insert({ competition_id: comp.id, user_id: me });
+    setJoining(false);
+    if (error) {
+      toast({ title: "Não deu pra entrar", description: error.message, variant: "destructive" });
+      return;
+    }
+    await load();
+  };
+
+  const joined = !!me && rows.some((r) => r.user_id === me);
+  const cfg = (comp.bilhete_config || {}) as BilheteCfg;
+
+  // Convidado que ainda NÃO entrou: bilhete dourado em tela cheia (overlay sobre o app).
+  if (!loading && !joined) {
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#030303", overflowY: "auto" }}>
+        <button
+          onClick={onBack}
+          className="fixed top-3 left-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-amber-500/20 flex items-center justify-center text-amber-200/70 hover:text-amber-100 active:scale-95 transition-transform"
+          style={{ zIndex: 120 }}
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <GoldenTicket
+          introTitulo={comp.name}
+          introSub={cfg.introSub || undefined}
+          grandPrizeLabel={cfg.grandPrizeLabel || "🏆 Grande Prêmio"}
+          grandPrizeValue={comp.prize_label || "Prêmio"}
+          grandPrizeDesc={cfg.grandPrizeDesc || (comp.prize_value ? fmt(comp.prize_value) : undefined)}
+          miniPrizes={cfg.miniPrizes || []}
+          commissionTitle={cfg.commissionTitle || undefined}
+          commissionTiers={cfg.commissionTiers || []}
+          commissionNote={cfg.commissionNote || undefined}
+          onAccept={joinComp}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="relative">
