@@ -11,6 +11,7 @@ import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
+import { WeeklyChallengeExtratoNudge } from "@/components/competitions/WeeklyChallenge";
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -690,6 +691,9 @@ export function DefconEndScreen({
             {subText}
           </div>
         </div>
+
+        {/* DESAFIO DA SEMANA — lembrete: manda o extrato pra contar no ranking */}
+        <WeeklyChallengeExtratoNudge />
 
         {/* Celebração — bateu/ultrapassou a meta */}
         {goalReached && (

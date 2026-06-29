@@ -11,6 +11,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
 import { ExtratoReminder } from "@/components/competitions/ExtratoReminder";
+import { WeeklyChallengeTicket } from "@/components/competitions/WeeklyChallenge";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
@@ -262,6 +263,7 @@ export default function Layout({ children }: LayoutProps) {
         {user && !["/meu-extrato", "/defcon"].includes(location.pathname) && (
           <ExtratoReminder userId={user.id} />
         )}
+        {user && <WeeklyChallengeTicket />}
         {children}
       </main>
 

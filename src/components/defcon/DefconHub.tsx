@@ -11,6 +11,7 @@ import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { Check, X } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
+import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
@@ -562,6 +563,9 @@ export default function DefconHub() {
           {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
         </button>
       </div>
+
+      {/* DESAFIO DA SEMANA — ícone dourado que reabre o bilhete (semana toda) */}
+      <WeeklyChallengeIcon />
 
       {/* LOADOUT */}
       <DefconLoadoutManager userId={user.id} />
