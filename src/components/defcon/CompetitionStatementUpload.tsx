@@ -62,7 +62,7 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     setBusy(null);
     if (!r.ok) {
       toast({
-        title: r.erro ? "Extrato de outro dia" : "Não consegui ler esse extrato",
+        title: r.erro ? "Extrato não aceito" : "Não consegui ler esse extrato",
         description: r.erro ?? "Tenta de novo ou manda uma foto mais nítida.",
         variant: "destructive",
       });

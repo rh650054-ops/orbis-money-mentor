@@ -122,8 +122,8 @@ Deno.serve(async (req) => {
     const fileB64 = typeof body?.file === "string" ? body.file.replace(/^data:[^;]+;base64,/, "") : "";
     const mime = typeof body?.mime === "string" ? body.mime : "application/pdf";
     const salvar = body?.salvar === true;
-    const dia = typeof body?.dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dia)
-      ? body.dia : new Date().toISOString().slice(0, 10);
+    const diaValido = typeof body?.dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dia);
+    const dia = diaValido ? body.dia : new Date().toISOString().slice(0, 10);
     const tipo = body?.tipo === "cartao" ? "cartao" : "pix";
     if (!fileB64) return json({ error: "sem_arquivo" }, 400);
 
@@ -208,6 +208,12 @@ Deno.serve(async (req) => {
     // extrato de outro dia (ex: extrato de ontem contando pro desafio de hoje).
     const dataDia = typeof parsed.data_dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data_dia)
       ? parsed.data_dia : "";
+    if (salvar && !diaValido) {
+      return json({ error: "dia_invalido", dica: "Nao consegui identificar o dia. Tenta de novo." }, 200);
+    }
+    if (salvar && !dataDia) {
+      return json({ error: "extrato_sem_data", dica: "Nao consegui ler a data nesse extrato. Manda um print ou PDF que mostre a data das vendas." }, 200);
+    }
     if (salvar && dataDia && dataDia !== dia) {
       const fmt = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
       const ontem = (() => {
@@ -244,17 +250,25 @@ Deno.serve(async (req) => {
     const LIMITE = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "150");
     const chave = (v: any) =>
       `${Math.round((Number(v?.valor) || 0) * 100)}|${String(v?.descricao ?? "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24)}`;
+    // #5 DEDUP POR SLOT (nao venda-a-venda): pix e cartao sao documentos DIFERENTES.
+    // Se a maioria das vendas deste slot bate com o outro slot, e o MESMO extrato
+    // subido 2x -> recusa o slot inteiro. Evita falso-positivo de fundir vendas
+    // legitimas de mesmo valor (ticket de rua e pequeno e repetitivo).
     const outrasKeys = new Set(outras.map(chave));
+    const batem = vendas.filter((v: any) => outrasKeys.has(chave(v))).length;
+    const overlap = vendas.length > 0 ? batem / vendas.length : 0;
+    if (salvar && vendas.length >= 2 && outras.length >= 2 && overlap >= 0.6) {
+      return json({
+        error: "extrato_duplicado",
+        dica: "Esse extrato parece ser o mesmo do outro slot. Pix e cartao sao documentos diferentes - mande o de cada um.",
+      }, 200);
+    }
+    // Filtro de valor alto: venda individual acima do teto nao conta (vira suspeita).
     const vendasLimpas: any[] = [];
     const suspeitasFinal: any[] = Array.isArray(suspeitas) ? [...suspeitas] : [];
     let addedIgnorado = 0;
     for (const v of vendas) {
       const val = Number(v?.valor) || 0;
-      if (outrasKeys.has(chave(v))) {
-        suspeitasFinal.push({ ...v, motivo: "duplicata (mesma venda no outro extrato)" });
-        addedIgnorado += val;
-        continue;
-      }
       if (val > LIMITE) {
         suspeitasFinal.push({ ...v, motivo: `valor alto (acima de R$${LIMITE}) - revisar` });
         addedIgnorado += val;
