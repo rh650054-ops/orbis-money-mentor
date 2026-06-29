@@ -3,7 +3,7 @@ import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
 import { Crown } from "lucide-react";
 
-type Variant = "mensal" | "semanal";
+type Variant = "mensal" | "semanal" | "premium";
 
 interface Props {
   top1?: LeaderboardEntry;
@@ -104,18 +104,24 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
 export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile, variant = "mensal" }: Props) {
   if (!top1) return null;
   const green = variant === "semanal";
+  const premium = variant === "premium";
+  const label = premium ? "PÓDIO DA COMPETIÇÃO" : green ? "PÓDIO DA SEMANA" : "PÓDIO DO MÊS";
+  const labelColor = premium ? "#F5D77A" : green ? "#6EE7B7" : "#C9A6FF";
+  const bg = premium
+    ? "radial-gradient(120% 70% at 50% 0%, rgba(245,181,68,0.20) 0%, #120d04 62%)"
+    : green
+      ? "radial-gradient(120% 70% at 50% 0%, rgba(16,185,129,0.18) 0%, #06120d 62%)"
+      : "radial-gradient(120% 70% at 50% 0%, rgba(176,124,240,0.16) 0%, #0a0a0d 62%)";
   return (
     <div
       className="rounded-2xl border p-4 pt-3"
       style={{
-        borderColor: green ? "#11352a" : "#26262e",
-        background: green
-          ? "radial-gradient(120% 70% at 50% 0%, rgba(16,185,129,0.18) 0%, #06120d 62%)"
-          : "radial-gradient(120% 70% at 50% 0%, rgba(176,124,240,0.16) 0%, #0a0a0d 62%)",
+        borderColor: premium ? "#3a2c0a" : green ? "#11352a" : "#26262e",
+        background: bg,
       }}
     >
-      <p className="text-center tracking-[0.3em] text-[11px] mb-3" style={{ color: green ? "#6EE7B7" : "#C9A6FF" }}>
-        {green ? "PÓDIO DA SEMANA" : "PÓDIO DO MÊS"}
+      <p className="text-center tracking-[0.3em] text-[11px] mb-3" style={{ color: labelColor }}>
+        {label}
       </p>
       <div className="flex items-end justify-center gap-2">
         <Col entry={top2} position={2} avatarSize={56} barHeight={72} green={green} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />

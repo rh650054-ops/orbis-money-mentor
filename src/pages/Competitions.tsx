@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
+import { RankingPodium } from "@/components/ranking/RankingPodium";
+import type { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
 interface Comp {
@@ -232,41 +234,56 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
   const [loading, setLoading] = useState(true);
   const [profileUid, setProfileUid] = useState<string | null>(null);
 
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      setLoading(true);
-      const { data: parts } = await supabase
-        .from("competition_participants" as any)
-        .select("*")
-        .eq("competition_id", comp.id);
-      const list = ((parts as any[]) || []) as Part[];
-      const ids = Array.from(new Set(list.map((p) => p.user_id)));
-      let profMap = new Map<string, any>();
-      if (ids.length) {
-        const { data: profs } = await supabase
-          .from("public_profiles")
-          .select("user_id, nickname, avatar_url")
-          .in("user_id", ids);
-        profMap = new Map(((profs as any[]) || []).map((p) => [p.user_id, p]));
-      }
-      const merged = list.map((p) => ({
-        ...p,
-        nickname: profMap.get(p.user_id)?.nickname ?? null,
-        avatar_url: profMap.get(p.user_id)?.avatar_url ?? null,
-      }));
-      merged.sort((a, b) => partValue(b) - partValue(a));
-      if (alive) {
-        setRows(merged);
-        setLoading(false);
-      }
-    })().catch(() => {
-      if (alive) setLoading(false);
-    });
-    return () => {
-      alive = false;
-    };
+  const load = useCallback(async () => {
+    const { data: parts } = await supabase
+      .from("competition_participants" as any)
+      .select("*")
+      .eq("competition_id", comp.id);
+    const list = ((parts as any[]) || []) as Part[];
+    const ids = Array.from(new Set(list.map((p) => p.user_id)));
+    let profMap = new Map<string, any>();
+    if (ids.length) {
+      const { data: profs } = await supabase
+        .from("public_profiles")
+        .select("user_id, nickname, avatar_url")
+        .in("user_id", ids);
+      profMap = new Map(((profs as any[]) || []).map((p) => [p.user_id, p]));
+    }
+    const merged = list.map((p) => ({
+      ...p,
+      nickname: profMap.get(p.user_id)?.nickname ?? null,
+      avatar_url: profMap.get(p.user_id)?.avatar_url ?? null,
+    }));
+    merged.sort((a, b) => partValue(b) - partValue(a));
+    setRows(merged);
+    setLoading(false);
   }, [comp.id]);
+
+  // Carrega + escuta em tempo real: quando o placar muda (DEFCON/extrato), recarrega na hora.
+  useEffect(() => {
+    load();
+    const channel = supabase
+      .channel(`comp-rank-${comp.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "competition_participants", filter: `competition_id=eq.${comp.id}` },
+        () => load(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [comp.id, load]);
+
+  const podFmt = (v: number) => (comp.metric === "pix_sales_count" ? String(Math.round(v)) : fmt(v));
+  const toEntry = (r: Part & { nickname: string | null; avatar_url: string | null }) =>
+    ({
+      user_id: r.user_id,
+      nome_usuario: r.nickname,
+      avatar_url: r.avatar_url,
+      faturamento_total_mes: partValue(r),
+      last_active_at: null,
+    } as unknown as LeaderboardEntry);
 
   return (
     <div className="pb-24 px-4 pt-4 max-w-2xl mx-auto space-y-4">
@@ -303,41 +320,51 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-10">Ninguém participando ainda. Seja o primeiro!</p>
       ) : (
-        <div className="space-y-1.5">
-          {rows.map((r, i) => (
-            <div
-              key={r.id}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
-              style={
-                r.user_id === me
-                  ? { background: "#1a1305", border: "1px solid #F5B544" }
-                  : { background: "#0e0e10", border: "1px solid transparent" }
-              }
-            >
-              <span className="w-6 text-center font-black shrink-0" style={{ color: i < 3 ? "#F5B544" : "#6b7280" }}>
-                {i + 1}
-              </span>
-              <button onClick={() => setProfileUid(r.user_id)} className="shrink-0">
-                {r.avatar_url ? (
-                  <img src={r.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-border" />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground">
-                    {(r.nickname ?? "?").slice(0, 2).toUpperCase()}
+        <div className="space-y-3">
+          <RankingPodium
+            variant="premium"
+            top1={rows[0] ? toEntry(rows[0]) : undefined}
+            top2={rows[1] ? toEntry(rows[1]) : undefined}
+            top3={rows[2] ? toEntry(rows[2]) : undefined}
+            formatCurrency={podFmt}
+            onOpenProfile={setProfileUid}
+          />
+          {rows.length > 3 && (
+            <div className="space-y-1.5">
+              {rows.slice(3).map((r, idx) => (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                  style={
+                    r.user_id === me
+                      ? { background: "#1a1305", border: "1px solid #F5B544" }
+                      : { background: "#0e0e10", border: "1px solid transparent" }
+                  }
+                >
+                  <span className="w-6 text-center font-black shrink-0 text-muted-foreground">{idx + 4}</span>
+                  <button onClick={() => setProfileUid(r.user_id)} className="shrink-0">
+                    {r.avatar_url ? (
+                      <img src={r.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-border" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground">
+                        {(r.nickname ?? "?").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate">
+                      {r.nickname || "Vendedor"}
+                      {r.user_id === me && <span className="ml-1.5 align-middle text-[9px] font-black text-amber-400">VOCÊ</span>}
+                    </p>
+                    {!r.score_approved && <p className="text-[10px] text-muted-foreground">aguardando extrato</p>}
                   </div>
-                )}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white truncate">
-                  {r.nickname || "Vendedor"}
-                  {r.user_id === me && <span className="ml-1.5 align-middle text-[9px] font-black text-amber-400">VOCÊ</span>}
-                </p>
-                {!r.score_approved && <p className="text-[10px] text-muted-foreground">aguardando extrato</p>}
-              </div>
-              <span className="text-white font-black text-sm shrink-0">
-                {comp.metric === "pix_sales_count" ? partValue(r) : fmt(partValue(r))}
-              </span>
+                  <span className="text-white font-black text-sm shrink-0">
+                    {comp.metric === "pix_sales_count" ? partValue(r) : fmt(partValue(r))}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
