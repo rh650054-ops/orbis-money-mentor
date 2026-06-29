@@ -49,7 +49,9 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     try {
       const weekStart = currentWeekStart();
       const weekEnd = currentWeekEnd();
-      const { data, error } = await supabase.rpc("get_weekly_ranking_verified", { p_week_start: weekStart, p_week_end: weekEnd });
+      // Antes do dia 1 (teste): IGNORA extrato, usa só o DEFCON ao vivo. Do dia 1: extrato vale.
+      const usarExtrato = getBrazilDate() >= "2026-07-01";
+      const { data, error } = await supabase.rpc("get_weekly_ranking_verified", { p_week_start: weekStart, p_week_end: weekEnd, p_usar_extrato: usarExtrato });
       if (error) {
         console.error("Ranking semanal erro:", error.message);
         setRanking([]);
