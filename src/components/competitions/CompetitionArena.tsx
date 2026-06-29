@@ -1,5 +1,5 @@
-import { useEffect, useRef } from "react";
-import { Share2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Info, Share2 } from "lucide-react";
 import { getTier } from "@/components/ranking/tier";
 
 // Cores metalicas (dourado / platina / bronze) — identidade premium da competicao.
@@ -156,6 +156,7 @@ function PodCol({ row, pos, isCount, formatCurrency, onOpenProfile }: {
 export function CompetitionArena({ title, sealText, prizeLabel, prizeValue, datesStatus, rows, me, isCount, formatCurrency, onOpenProfile, onShare }: Props) {
   const top1 = rows[0], top2 = rows[1], top3 = rows[2];
   const rest = rows.slice(3, 20);
+  const [showHow, setShowHow] = useState(false);
 
   return (
     <div style={{ position: "relative", width: "100vw", left: "50%", marginLeft: "-50vw", minHeight: "82vh", overflow: "hidden", background: "radial-gradient(ellipse 90% 36% at 50% 0%, rgba(201,168,76,0.14) 0%, transparent 58%), linear-gradient(180deg, #0D0B07 0%, #080808 55%, #060606 100%)" }}>
@@ -180,6 +181,22 @@ export function CompetitionArena({ title, sealText, prizeLabel, prizeValue, date
             </div>
             <div style={{ fontSize: 11, color: "#666", marginTop: 6, letterSpacing: 0.5 }}>{datesStatus}</div>
           </div>
+
+          <button
+            onClick={() => setShowHow((v) => !v)}
+            style={{ marginTop: 16, background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, letterSpacing: 1, color: "rgba(201,168,76,0.85)", fontWeight: 600 }}
+          >
+            <Info style={{ width: 13, height: 13 }} /> COMO FUNCIONA {showHow ? "▲" : "▼"}
+          </button>
+          {showHow && (
+            <div style={{ marginTop: 12, textAlign: "left", maxWidth: 360, marginLeft: "auto", marginRight: "auto", padding: 14, borderRadius: 12, background: "rgba(201,168,76,0.06)", border: "1px solid rgba(201,168,76,0.2)", fontSize: 12, lineHeight: 1.7, color: "rgba(229,228,226,0.85)", display: "flex", flexDirection: "column", gap: 6 }}>
+            <div>💳 Só <b style={{ color: "#fff" }}>cartão + Pix</b> conta. Dinheiro vivo não entra.</div>
+            <div>📤 No fim do DEFCON, <b style={{ color: "#fff" }}>suba seu extrato</b> do dia.</div>
+            <div>⚡ Durante o dia conta <b style={{ color: "#fff" }}>ao vivo</b>; o extrato confirma o valor.</div>
+            <div>⏰ Prazo: até as <b style={{ color: "#fff" }}>9h</b> da manhã seguinte (Pix atrasado).</div>
+            <div>🛡️ A IA confere e ignora auto-transferência e duplicata.</div>
+            </div>
+          )}
         </div>
 
         {/* Pódio */}

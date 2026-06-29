@@ -10,6 +10,7 @@ import { Button } from "@/shared/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
+import { ExtratoReminder } from "@/components/competitions/ExtratoReminder";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
@@ -257,6 +258,9 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </div>
           </div>
+        )}
+        {user && !["/meu-extrato", "/defcon"].includes(location.pathname) && (
+          <ExtratoReminder userId={user.id} />
         )}
         {children}
       </main>
