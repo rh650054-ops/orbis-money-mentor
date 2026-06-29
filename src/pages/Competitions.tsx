@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords } from "lucide-react";
+import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
 interface Comp {
   id: string;
@@ -48,6 +49,8 @@ const partValue = (p: Part) => (p.score_approved ? p.approved_score ?? 0 : p.sco
 export default function Competitions() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { whitelisted, role } = useAdminAccess(user?.id);
+  const isAdmin = whitelisted && role === "admin";
   const [comps, setComps] = useState<Comp[]>([]);
   const [joined, setJoined] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -124,6 +127,14 @@ export default function Competitions() {
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-2xl font-bold text-foreground flex-1">Competições</h1>
+        {isAdmin && (
+          <button
+            onClick={() => navigate("/admin/competitions")}
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-sm font-bold active:scale-[0.97] transition-transform"
+          >
+            <Plus className="w-4 h-4" /> Criar
+          </button>
+        )}
         <button
           onClick={() => navigate("/x1")}
           className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-sm font-bold active:scale-[0.97] transition-transform"
