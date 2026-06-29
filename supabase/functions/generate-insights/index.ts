@@ -159,9 +159,12 @@ serve(async (req) => {
 
     const body = await req.json();
 
-    // Trava de uso: teto de gerações de IA por dia (protege o gasto).
-    try {
-      const { data: usage } = await supabase.rpc("bump_ai_usage", { p_feature: "insights", p_limit: 25 });
+    // Trava de uso: teto de gerações de IA por dia (protege o gasto). Falha FECHADO.
+    {
+      const { data: usage, error: usageErr } = await supabase.rpc("bump_ai_usage", { p_feature: "insights", p_limit: 25 });
+      if (usageErr) {
+        return new Response(JSON.stringify({ error: "trava_indisponivel" }), { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
       if ((usage as any)?.over) {
         const msg = "Você já usou bastante a IA hoje! 💪 Amanhã ela volta com tudo.";
         const t = body?.type;
@@ -171,7 +174,7 @@ serve(async (req) => {
           return new Response(JSON.stringify({ analise: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({ message: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
-    } catch { /* deixa passar se a trava falhar */ }
+    }
 
     // Dica do dia — fim do DEFCON (botão "Gerar dica do dia com IA")
     if (body?.type === "defcon_day_report") {

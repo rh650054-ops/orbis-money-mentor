@@ -49,26 +49,13 @@ export async function syncBlocksToDailySales(userId: string) {
     unpaid_sales: totalCalote > 0 ? 1 : 0,
   };
 
-  const { data: existingSale } = await supabase
+  // Upsert ATOMICO: 1 linha por (user_id, date). Usa o indice unico
+  // daily_sales_user_date_unique (migration 20260620). Substitui o antigo
+  // "le-depois-insere" que, em duas atualizacoes concorrentes do DEFCON,
+  // criava linha duplicada e dobrava o faturamento no ranking.
+  await supabase
     .from("daily_sales")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("date", today)
-    .order("created_at", { ascending: true })
-    .limit(1);
-
-  if (existingSale && existingSale.length > 0) {
-    const saleId = existingSale[0]?.id;
-    if (!saleId) return;
-    await supabase
-      .from("daily_sales")
-      .update(salesRow as any)
-      .eq("id", saleId);
-  } else {
-    await supabase
-      .from("daily_sales")
-      .insert({ user_id: userId, date: today, ...salesRow } as any);
-  }
+    .upsert({ user_id: userId, date: today, ...salesRow } as any, { onConflict: "user_id,date" });
 
   // Also update leaderboard revenue in real-time
   await syncLeaderboardRevenue(userId);

@@ -288,17 +288,29 @@ Deno.serve(async (req) => {
       : "";
     console.log("CTX recebido (chars):", userCtx.length); // diagnóstico: >0 = dados chegaram
 
-    // Trava de uso: teto de chats por dia (protege o gasto). Só se autenticado.
-    try {
+    // Trava de uso (protege o gasto): EXIGE login + falha FECHADO (bloqueia se a trava errar).
+    {
       const authH = req.headers.get("Authorization") ?? "";
-      if (authH) {
+      if (!authH) {
+        return json({ success: false, message: "Entra na tua conta pra falar com o mentor." }, 401);
+      }
+      try {
         const supa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authH } } });
-        const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: 30 });
+        const { data: u } = await supa.auth.getUser();
+        if (!u?.user?.id) {
+          return json({ success: false, message: "Tua sessão expirou — entra de novo." }, 401);
+        }
+        const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: 30 });
+        if (usageErr) {
+          return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
+        }
         if ((usage as any)?.over) {
           return json({ success: true, message: "Mandou bem hoje, parça! 💪 Você já usou bastante o mentor — amanhã ele volta com tudo. Bora vender." });
         }
+      } catch (_e) {
+        return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
       }
-    } catch (_e) { /* se a trava falhar, deixa passar */ }
+    }
 
     // ===== TEXTO: tenta CLAUDE (Anthropic) primeiro; cai no Cerebras/Gemini (gratis) se faltar chave/erro/credito. =====
     try {
