@@ -14,6 +14,7 @@ export interface LeaderboardEntry {
   constancia_streak_atual: number;
   posicao_faturamento: number | null;
   posicao_constancia: number | null;
+  last_active_at?: string | null;
 }
 
 export function useLeaderboard(userId: string | undefined) {
@@ -98,10 +99,13 @@ export function useLeaderboard(userId: string | undefined) {
       // sem segurar a abertura. Quando voltar, re-publica com os dados frescos.
       const ids = entries.map((e) => e.user_id);
       if (ids.length > 0) {
-        const { data: profs } = await supabase
-          .from("public_profiles")
-          .select("user_id, nickname, avatar_url")
-          .in("user_id", ids);
+        // Em paralelo: foto/nome mais recentes + presença online (última atividade no DEFCON).
+        const [profsRes, presenceRes] = await Promise.all([
+          supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", ids),
+          supabase.from("user_presence").select("user_id, last_active_at").in("user_id", ids),
+        ]);
+        let changed = false;
+        const profs = profsRes.data;
         if (profs && profs.length > 0) {
           const profMap = new Map((profs as any[]).map((p) => [p.user_id, p]));
           entries.forEach((e: any) => {
@@ -111,8 +115,17 @@ export function useLeaderboard(userId: string | undefined) {
               if (p.nickname) e.nome_usuario = p.nickname;
             }
           });
-          applyAndSet(entries);
+          changed = true;
         }
+        const presence = presenceRes.data;
+        if (presence && presence.length > 0) {
+          const presMap = new Map((presence as any[]).map((p) => [p.user_id, p.last_active_at]));
+          entries.forEach((e: any) => {
+            e.last_active_at = presMap.get(e.user_id) ?? null;
+          });
+          changed = true;
+        }
+        if (changed) applyAndSet(entries);
       }
     } catch (err) {
       console.error("Error in loadLeaderboard:", err);

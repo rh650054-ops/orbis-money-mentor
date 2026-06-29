@@ -10,11 +10,42 @@ interface Props {
   onOpenProfile: (uid: string) => void;
 }
 
-function RowAvatar({ url, name, color, icon }: { url: string | null; name: string | null; color: string; icon: string }) {
-  if (url) {
-    return <img src={url} alt={name || ""} className="w-9 h-9 rounded-full object-cover border-2 shrink-0" style={{ borderColor: color }} />;
+const ONLINE_MS = 90_000; // 90s (2x o heartbeat) = considerado "online agora" no DEFCON
+
+function presenceInfo(lastActive?: string | null): { has: boolean; online: boolean; label: string } {
+  if (!lastActive) return { has: false, online: false, label: "" };
+  const t = new Date(lastActive).getTime();
+  if (!Number.isFinite(t)) return { has: false, online: false, label: "" };
+  const diff = Date.now() - t;
+  if (diff <= ONLINE_MS) return { has: true, online: true, label: "no DEFCON agora" };
+  const min = Math.floor(diff / 60000);
+  let label: string;
+  if (min < 60) label = `ativo há ${min} min`;
+  else {
+    const h = Math.floor(min / 60);
+    label = h < 24 ? `ativo há ${h}h` : `ativo há ${Math.floor(h / 24)}d`;
   }
-  return <img src={icon} alt={name || ""} className="w-9 h-9 object-contain shrink-0" style={{ filter: `drop-shadow(0 0 5px ${color}99)` }} />;
+  return { has: true, online: false, label };
+}
+
+function RowAvatar({ url, name, color, icon, pres }: {
+  url: string | null; name: string | null; color: string; icon: string;
+  pres: { has: boolean; online: boolean };
+}) {
+  const inner = url
+    ? <img src={url} alt={name || ""} className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />
+    : <img src={icon} alt={name || ""} className="w-9 h-9 object-contain" style={{ filter: `drop-shadow(0 0 5px ${color}99)` }} />;
+  return (
+    <div className="relative shrink-0">
+      {inner}
+      {pres.has && (
+        <span
+          className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+          style={{ borderColor: "#0e0e10", background: pres.online ? "#22c55e" : "#6b7280" }}
+        />
+      )}
+    </div>
+  );
 }
 
 function Divider({ label, color }: { label: string; color: string }) {
@@ -32,6 +63,8 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
   formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
 }) {
   const tier = getTier(position);
+  const pres = presenceInfo(entry.last_active_at);
+  const sub = !pres.online && pres.label ? `${subtitle} · ${pres.label}` : subtitle;
   return (
     <button onClick={() => onOpenProfile(entry.user_id)} className="w-full text-left active:scale-[0.99] transition-transform">
       <div
@@ -39,13 +72,14 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
         style={isMe ? { background: "#1a1305", border: `1px solid ${tier.color}`, boxShadow: `0 0 14px ${tier.glow}` } : { background: "#0e0e10" }}
       >
         <span className="w-6 text-center font-black shrink-0" style={{ color: tier.color }}>{position}</span>
-        <RowAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} icon={tier.icon} />
+        <RowAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} icon={tier.icon} pres={pres} />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white truncate">
             {entry.nome_usuario || "Vendedor"}
+            {pres.online && <span className="ml-1.5 align-middle text-[9px] font-black text-green-400">no DEFCON</span>}
             {isMe && <span className="ml-1.5 align-middle text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: tier.color, color: "#1a1305" }}>VOCÊ</span>}
           </p>
-          <p className="text-[10px] truncate" style={{ color: tier.color }}>{subtitle}</p>
+          <p className="text-[10px] truncate" style={{ color: tier.color }}>{sub}</p>
         </div>
         <span className="text-white font-black text-sm shrink-0">{formatCurrency(entry.faturamento_total_mes || 0)}</span>
       </div>
