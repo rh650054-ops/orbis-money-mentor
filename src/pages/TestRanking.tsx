@@ -1,73 +1,102 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
-import { CompetitionArena, type ArenaRow } from "@/components/competitions/CompetitionArena";
+import { supabase } from "@/integrations/supabase/client";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
+import { RankingPodium } from "@/components/ranking/RankingPodium";
+import { RankingList } from "@/components/ranking/RankingList";
+import type { LeaderboardEntry } from "@/hooks/useLeaderboard";
 
-// Simulador do ranking (SÓ ADMIN). Vendedores fake + controle de Dia/Hora pra
-// verificar todos os momentos: disputa ao vivo, corte das 9h, encerramento de domingo.
-// 100% client-side — não toca em nenhum dado real, ninguém além do admin vê.
+// Ranking de TESTE (só admin). Cópia do Semanal real (pódio verde + lista), com
+// vendedores FAKE pra encher + a SUA conta DE VERDADE: cada venda do DEFCON e cada
+// extrato que você sobe entra aqui, pra você conferir se contou. 100% isolado.
 
-interface FakeVendor {
-  id: string;
-  nome: string;
-  dias: number[]; // faturamento de cada dia (01–05/07)
+function entry(id: string, nome: string, fat: number): LeaderboardEntry {
+  return {
+    id, user_id: id, nome_usuario: nome, avatar_url: null, mes_referencia: "teste",
+    faturamento_total_mes: fat, dias_trabalhados_mes: 0,
+    constancia_maior_streak: 0, constancia_streak_atual: 0,
+    posicao_faturamento: null, posicao_constancia: null, last_active_at: null,
+  };
 }
 
-const FAKES: FakeVendor[] = [
-  { id: "f1", nome: "Zé do Açaí", dias: [450, 380, 420, 500, 460] },
-  { id: "f2", nome: "Lu Brigadeiro", dias: [380, 350, 390, 360, 400] },
-  { id: "f3", nome: "Carlos Doceiro", dias: [320, 280, 410, 350, 300] },
-  { id: "f4", nome: "Rosa Tapioca", dias: [290, 310, 280, 330, 300] },
-  { id: "f5", nome: "Bia Salgados", dias: [260, 300, 240, 280, 320] },
-  { id: "f6", nome: "Pedro Caldo", dias: [210, 230, 250, 220, 240] },
-  { id: "f7", nome: "Marina Pipoca", dias: [180, 220, 190, 250, 210] },
-  { id: "f8", nome: "Tonho Churros", dias: [150, 170, 200, 180, 160] },
+const FAKES: LeaderboardEntry[] = [
+  entry("fake-1", "Zé do Açaí", 1480),
+  entry("fake-2", "Lu Brigadeiro", 1170),
+  entry("fake-3", "Carlos Doceiro", 920),
+  entry("fake-4", "Rosa Tapioca", 740),
+  entry("fake-5", "Bia Salgados", 560),
+  entry("fake-6", "Pedro Caldo", 390),
+  entry("fake-7", "Tonho Churros", 240),
 ];
-const EU: FakeVendor = { id: "me-teste", nome: "VOCÊ (teste)", dias: [340, 360, 380, 400, 420] };
 
-// Vende das 8h às 20h — quanto do dia já rolou até a hora atual (0 a 1).
-function progressoDia(hora: number): number {
-  return Math.max(0, Math.min(1, (hora - 8) / 12));
+// Segunda-feira desta semana (sem trava do dia 1 — pra dar pra testar hoje).
+function mondayOf(todayISO: string): string {
+  const d = new Date(`${todayISO}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
 }
-// Faturamento acumulado até (dia, hora): dias anteriores completos + dia atual parcial.
-function faturamento(dias: number[], dia: number, hora: number): number {
-  let total = 0;
-  for (let d = 1; d < dia; d++) total += dias[d - 1] ?? 0;
-  total += (dias[dia - 1] ?? 0) * progressoDia(hora);
-  return Math.round(total);
+function diaLabel(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  const wd = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"][d.getUTCDay()];
+  return `${wd} ${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-const JUMPS = [
-  { lbl: "🌅 D1 · 6h", d: 1, h: 6 },
-  { lbl: "🌞 D1 · 14h", d: 1, h: 14 },
-  { lbl: "🌙 D2 · 8h", d: 2, h: 8 },
-  { lbl: "🔥 D3 · 16h", d: 3, h: 16 },
-  { lbl: "🏁 D5 · 23h", d: 5, h: 23 },
-];
+interface DiaBreak { dia: string; valor: number; fonte: "extrato" | "ao vivo"; temDado: boolean; }
 
 export default function TestRanking() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { whitelisted, role, loading } = useAdminAccess(user?.id);
+  const { whitelisted, role, loading: adminLoading } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
 
-  const [dia, setDia] = useState(1);
-  const [hora, setHora] = useState(14);
+  const [myTotal, setMyTotal] = useState(0);
+  const [breakdown, setBreakdown] = useState<DiaBreak[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const rows = useMemo<ArenaRow[]>(() => {
-    const all = [EU, ...FAKES].map((v) => ({
-      user_id: v.id,
-      nickname: v.nome,
-      avatar_url: null,
-      value: faturamento(v.dias, dia, hora),
-    }));
-    return all.sort((a, b) => b.value - a.value);
-  }, [dia, hora]);
+  const load = useCallback(async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const today = getBrazilDate();
+      const weekStart = mondayOf(today);
+      const [{ data: ds }, { data: ex }] = await Promise.all([
+        supabase.from("daily_sales").select("date, card_sales, pix_sales").eq("user_id", user.id).gte("date", weekStart).lte("date", today),
+        supabase.from("extrato_uploads" as any).select("dia, total_verificado").eq("user_id", user.id).gte("dia", weekStart).lte("dia", today),
+      ]);
+      const live: Record<string, number> = {};
+      (ds as any[] | null)?.forEach((r) => {
+        const day = String(r.date).slice(0, 10);
+        live[day] = (live[day] ?? 0) + Number(r.card_sales || 0) + Number(r.pix_sales || 0);
+      });
+      const extrato: Record<string, number> = {};
+      (ex as any[] | null)?.forEach((r) => {
+        const day = String(r.dia).slice(0, 10);
+        extrato[day] = (extrato[day] ?? 0) + Number(r.total_verificado || 0);
+      });
+      const days: string[] = [];
+      const d = new Date(`${weekStart}T12:00:00Z`);
+      const end = new Date(`${today}T12:00:00Z`);
+      while (d.getTime() <= end.getTime()) { days.push(d.toISOString().slice(0, 10)); d.setUTCDate(d.getUTCDate() + 1); }
+      const bd: DiaBreak[] = days.map((dia) => {
+        const ext = extrato[dia] ?? 0;
+        const lv = live[dia] ?? 0;
+        const usaExtrato = ext > 0;
+        return { dia, valor: usaExtrato ? ext : lv, fonte: usaExtrato ? "extrato" : "ao vivo", temDado: ext > 0 || lv > 0 };
+      });
+      setBreakdown(bd);
+      setMyTotal(bd.reduce((s, b) => s + b.valor, 0));
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
 
-  if (loading) return <div className="p-8 text-center text-muted-foreground">Carregando…</div>;
+  useEffect(() => { if (isAdmin) load(); }, [isAdmin, load]);
+
+  if (adminLoading) return <div className="p-8 text-center text-muted-foreground">Carregando…</div>;
   if (!isAdmin) {
     return (
       <div className="p-8 text-center space-y-3">
@@ -77,63 +106,55 @@ export default function TestRanking() {
     );
   }
 
-  const dataLabel = `0${dia}/07`;
-  const encerrado = dia === 5 && hora >= 23;
-  const momento = encerrado
-    ? "🏁 Encerrou! (domingo 23:59) — vencedor definido."
-    : hora < 9
-      ? "🕘 Antes das 9h — o extrato de ontem ainda pode subir e contar."
-      : "🟢 Disputa rolando ao vivo.";
-  const datesStatus = `SIMULAÇÃO · ${dataLabel} · ${String(hora).padStart(2, "0")}h · ${encerrado ? "encerrada" : "ao vivo"}`;
+  const meEntry = entry(user?.id ?? "me", "VOCÊ (teste)", myTotal);
+  const all = [...FAKES, meEntry]
+    .sort((a, b) => b.faturamento_total_mes - a.faturamento_total_mes)
+    .map((e, i) => ({ ...e, posicao_faturamento: i + 1 }));
+  const meRanked = all.find((e) => e.user_id === meEntry.user_id) ?? null;
+  const [top1, top2, top3] = all;
 
   return (
-    <div>
-      {/* Painel de controle do tempo (sticky) */}
-      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "#0a0a0a", borderBottom: "1px solid #222", padding: "12px 16px", marginBottom: 4 }}>
-        <div className="flex items-center justify-between mb-2">
-          <button onClick={() => navigate("/ranking")} className="flex items-center gap-1 text-xs text-muted-foreground">
-            <ArrowLeft className="w-3.5 h-3.5" /> Voltar
-          </button>
-          <span className="text-[11px] font-bold tracking-wider" style={{ color: "#C9A84C" }}>🧪 SIMULADOR · SÓ VOCÊ VÊ</span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-1.5">
-          <span className="text-xs text-muted-foreground w-10">Dia</span>
-          <input type="range" min={1} max={5} value={dia} onChange={(e) => setDia(Number(e.target.value))} className="flex-1" />
-          <span className="text-xs font-bold text-foreground w-16 text-right">{dataLabel}</span>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground w-10">Hora</span>
-          <input type="range" min={0} max={23} value={hora} onChange={(e) => setHora(Number(e.target.value))} className="flex-1" />
-          <span className="text-xs font-bold text-foreground w-16 text-right">{String(hora).padStart(2, "0")}:00</span>
-        </div>
-
-        <div className="text-[11px] mt-2" style={{ color: encerrado ? "#F5D78E" : hora < 9 ? "#e0b15a" : "#8fd19e" }}>{momento}</div>
-
-        <div className="flex gap-1.5 mt-2 flex-wrap">
-          {JUMPS.map((j) => (
-            <button
-              key={j.lbl}
-              onClick={() => { setDia(j.d); setHora(j.h); }}
-              className="text-[10px] px-2 py-1 rounded-md border border-border bg-card text-muted-foreground active:scale-95 transition"
-            >
-              {j.lbl}
-            </button>
-          ))}
-        </div>
+    <div className="px-4 py-4 space-y-4 max-w-md mx-auto">
+      <div className="flex items-center justify-between">
+        <button onClick={() => navigate("/ranking")} className="flex items-center gap-1 text-xs text-muted-foreground">
+          <ArrowLeft className="w-3.5 h-3.5" /> Voltar
+        </button>
+        <span className="text-[11px] font-bold tracking-wider text-emerald-400">🧪 RANKING TESTE · SÓ VOCÊ VÊ</span>
       </div>
 
-      <CompetitionArena
-        title="Liga Semanal"
-        sealText="Modo Teste"
-        prizeLabel="Campeão"
-        prizeValue={100}
-        datesStatus={datesStatus}
-        rows={rows}
-        me="me-teste"
-        formatCurrency={formatCurrency}
-        onOpenProfile={() => {}}
-      />
+      {/* Painel: a SUA conta de verdade — o que contou */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-emerald-400 font-bold">Sua conta (real) · #{meRanked?.posicao_faturamento}</p>
+            <p className="text-2xl font-black text-foreground">{formatCurrency(myTotal)}</p>
+          </div>
+          <button onClick={load} disabled={loading} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg bg-emerald-500/15 text-emerald-300 font-semibold active:scale-95 transition disabled:opacity-60">
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} /> Atualizar
+          </button>
+        </div>
+        <div className="space-y-1 pt-1">
+          {breakdown.filter((b) => b.temDado).length === 0 ? (
+            <p className="text-xs text-muted-foreground">Nenhuma venda/extrato esta semana ainda. Faça uma venda no DEFCON ou suba um extrato e toque <b>Atualizar</b>.</p>
+          ) : (
+            breakdown.filter((b) => b.temDado).map((b) => (
+              <div key={b.dia} className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">{diaLabel(b.dia)}</span>
+                <span className="flex items-center gap-2">
+                  <span className="text-foreground font-semibold tabular-nums">{formatCurrency(b.valor)}</span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${b.fonte === "extrato" ? "bg-emerald-500/20 text-emerald-300" : "bg-muted text-muted-foreground"}`}>
+                    {b.fonte === "extrato" ? "extrato ✓" : "ao vivo"}
+                  </span>
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+        <p className="text-[10px] text-muted-foreground pt-1">Regra: o extrato do dia substitui o "ao vivo". Só cartão + pix verificado conta.</p>
+      </div>
+
+      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={() => {}} variant="semanal" />
+      <RankingList ranking={all} me={meRanked} formatCurrency={formatCurrency} onOpenProfile={() => {}} />
     </div>
   );
 }
