@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
-import { getBrazilDate } from "@/shared/lib/date-utils";
+import { getExtratoDia } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useMeuExtrato } from "@/hooks/useMeuExtrato";
 import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard } from "lucide-react";
@@ -13,7 +13,8 @@ import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard } from "lucide-
 export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const [inComp, setInComp] = useState(false);
   const [loading, setLoading] = useState(true);
-  const dia = getBrazilDate();
+  const dia = getExtratoDia();
+  const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
   const { pix, cartao, totalDia, upload } = useMeuExtrato(userId, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
   const pixRef = useRef<HTMLInputElement>(null);
@@ -104,6 +105,9 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
       <p className="text-xs text-muted-foreground">
         Suba o extrato do <b className="text-foreground">Pix</b> e da <b className="text-foreground">maquininha</b>. A IA
         confere na hora e só o que entrou (cartão + pix) vale no ranking. Dá pra reenviar se cair mais Pix.
+      </p>
+      <p className="text-[11px] font-semibold text-amber-400/90">
+        Conta pro dia {diaLabel} · você pode enviar o extrato até as 9h da manhã.
       </p>
       <div className="flex gap-2">
         {slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}

@@ -4,7 +4,7 @@ import { ArrowLeft, Upload, Loader2, Smartphone, CreditCard, Clock } from "lucid
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { getBrazilDate } from "@/shared/lib/date-utils";
+import { getExtratoDia } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useMeuExtrato, type ExtratoSlot } from "@/hooks/useMeuExtrato";
 
@@ -13,7 +13,8 @@ import { useMeuExtrato, type ExtratoSlot } from "@/hooks/useMeuExtrato";
 export default function MeuExtrato() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const dia = getBrazilDate();
+  const dia = getExtratoDia();
+  const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
   const { pix, cartao, totalDia, upload } = useMeuExtrato(user?.id, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
   const [error, setError] = useState("");
@@ -101,7 +102,7 @@ export default function MeuExtrato() {
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center text-center">
         <Clock className="w-3.5 h-3.5 shrink-0" />
-        Você tem até as 9h da manhã seguinte pra enviar. Pode reenviar quando quiser.
+        Esse extrato conta pro dia {diaLabel} · envie até as 9h da manhã (pra contar Pix atrasado). Pode reenviar.
       </div>
     </div>
   );
