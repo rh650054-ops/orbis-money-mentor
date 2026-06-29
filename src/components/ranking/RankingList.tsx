@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
+import { presenceInfo } from "@/shared/lib/presence";
 import { ChevronRight, ChevronUp } from "lucide-react";
 
 interface Props {
@@ -10,27 +11,11 @@ interface Props {
   onOpenProfile: (uid: string) => void;
 }
 
-const ONLINE_MS = 90_000; // 90s (2x o heartbeat) = considerado "online agora" no DEFCON
-
-function presenceInfo(lastActive?: string | null): { has: boolean; online: boolean; label: string } {
-  if (!lastActive) return { has: false, online: false, label: "" };
-  const t = new Date(lastActive).getTime();
-  if (!Number.isFinite(t)) return { has: false, online: false, label: "" };
-  const diff = Date.now() - t;
-  if (diff <= ONLINE_MS) return { has: true, online: true, label: "no DEFCON agora" };
-  const min = Math.floor(diff / 60000);
-  let label: string;
-  if (min < 60) label = `ativo há ${min} min`;
-  else {
-    const h = Math.floor(min / 60);
-    label = h < 24 ? `ativo há ${h}h` : `ativo há ${Math.floor(h / 24)}d`;
-  }
-  return { has: true, online: false, label };
-}
+// presenceInfo/ONLINE_MS vêm de "@/shared/lib/presence" (compartilhado: pódio, chase, comunidade, perfil).
 
 function RowAvatar({ url, name, color, icon, pres }: {
   url: string | null; name: string | null; color: string; icon: string;
-  pres: { has: boolean; online: boolean };
+  pres: { online: boolean };
 }) {
   const inner = url
     ? <img src={url} alt={name || ""} className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />

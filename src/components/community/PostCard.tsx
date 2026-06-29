@@ -4,6 +4,7 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/shared/lib/utils";
 import type { FeedPost } from "@/hooks/useCommunityFeed";
+import { presenceInfo } from "@/shared/lib/presence";
 
 interface Props {
   post: FeedPost;
@@ -31,12 +32,19 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepo
   return (
     <article className="px-4 py-3 transition-colors hover:bg-muted/20">
       <div className="flex gap-3">
-        <Avatar className="h-11 w-11 shrink-0 ring-1 ring-border/50">
-          <AvatarImage src={post.avatar_url ?? undefined} />
-          <AvatarFallback className="bg-muted text-xs font-semibold">
-            {(post.nickname ?? "?").slice(0, 2).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <div className="relative shrink-0">
+          <Avatar className="h-11 w-11 ring-1 ring-border/50">
+            <AvatarImage src={post.avatar_url ?? undefined} />
+            <AvatarFallback className="bg-muted text-xs font-semibold">
+              {(post.nickname ?? "?").slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          {/* Bolinha: verde = no DEFCON agora, cinza = offline. */}
+          <span
+            className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background"
+            style={{ background: presenceInfo(post.last_active_at).online ? "#22c55e" : "#6b7280" }}
+          />
+        </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-sm">
             <span className="font-bold truncate">{post.nickname ?? "Vendedor"}</span>

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
+import { presenceInfo } from "@/shared/lib/presence";
 import { useNavigate } from "react-router-dom";
 import { Zap, Crown, Swords, TrendingUp, Clock, Target } from "lucide-react";
 
@@ -55,6 +56,11 @@ function DuelSide({
           {tag}
         </span>
         <DuelAvatar url={entry.avatar_url} name={entry.nome_usuario} color={tier.color} glow={tier.glow} icon={tier.icon} />
+        {/* Bolinha: verde = no DEFCON agora, cinza = offline. */}
+        <span
+          className="absolute w-4 h-4 rounded-full border-2"
+          style={{ bottom: 2, right: 6, borderColor: "#070707", background: presenceInfo(entry.last_active_at).online ? "#22c55e" : "#6b7280" }}
+        />
       </div>
       <p className="text-[14px] font-black mt-2 truncate px-1" style={{ color: tier.color }}>
         {entry.nome_usuario || "Vendedor"}

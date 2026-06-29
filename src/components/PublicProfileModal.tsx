@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/shared/lib/utils";
+import { presenceInfo } from "@/shared/lib/presence";
 import { Instagram, MessageCircle, MapPin, Package, Store, Loader2, Trophy, Flame, X } from "lucide-react";
 
 const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];
@@ -38,6 +39,7 @@ interface Props {
 export default function PublicProfileModal({ open, onOpenChange, userId }: Props) {
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [lastActive, setLastActive] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -46,9 +48,10 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
     setLoading(true);
     setProfile(null);
     setStats(null);
+    setLastActive(null);
 
     (async () => {
-      const [{ data: prof }, { data: lb }] = await Promise.all([
+      const [{ data: prof }, { data: lb }, { data: pres }] = await Promise.all([
         supabase.from("public_profiles").select("*").eq("user_id", userId).maybeSingle(),
         supabase
           .from("leaderboard_stats")
@@ -56,10 +59,12 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
           .eq("user_id", userId)
           .eq("mes_referencia", new Date().toISOString().slice(0, 7))
           .maybeSingle(),
+        supabase.from("user_presence").select("last_active_at").eq("user_id", userId).maybeSingle(),
       ]);
       if (!active) return;
       setProfile(prof as PublicProfile);
       setStats(lb as Stats);
+      setLastActive((pres as { last_active_at?: string } | null)?.last_active_at ?? null);
       setLoading(false);
     })();
 
@@ -92,6 +97,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
   const igHandle = profile?.instagram?.replace(/^@/, "").trim();
   const waNumber = profile?.whatsapp_public?.replace(/\D/g, "");
   const cityState = [profile?.city, profile?.state].filter(Boolean).join(" / ");
+  const pres = presenceInfo(lastActive);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,10 +125,25 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
             <>
               {/* Header */}
               <div className="relative px-5 pt-8 pb-5 text-center">
-                <div className="flex justify-center mb-3">{renderAvatar()}</div>
+                <div className="flex justify-center mb-3">
+                  <div className="relative">
+                    {renderAvatar()}
+                    {/* Bolinha de presença (verde = no DEFCON agora, cinza = offline). */}
+                    <span
+                      className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-2 border-background"
+                      style={{ background: pres.online ? "#22c55e" : "#6b7280" }}
+                    />
+                  </div>
+                </div>
                 <h2 className="text-xl font-black text-foreground tracking-tight">
                   {profile.nickname || "Usuário Orbis"}
                 </h2>
+                {pres.label && (
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5 text-xs font-semibold" style={{ color: pres.online ? "#22c55e" : "#9ca3af" }}>
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: pres.online ? "#22c55e" : "#6b7280" }} />
+                    <span>{pres.online ? "No DEFCON agora" : pres.label}</span>
+                  </div>
+                )}
                 {cityState && (
                   <div className="flex items-center justify-center gap-1 mt-1.5 text-xs text-muted-foreground">
                     <MapPin className="w-3 h-3" />
