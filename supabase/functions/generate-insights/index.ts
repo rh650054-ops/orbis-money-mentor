@@ -159,6 +159,20 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // Trava de uso: teto de gerações de IA por dia (protege o gasto).
+    try {
+      const { data: usage } = await supabase.rpc("bump_ai_usage", { p_feature: "insights", p_limit: 25 });
+      if ((usage as any)?.over) {
+        const msg = "Você já usou bastante a IA hoje! 💪 Amanhã ela volta com tudo.";
+        const t = body?.type;
+        if (t === "defcon_day_report" || t === "defcon_block_report")
+          return new Response(JSON.stringify({ tip: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (t === "report_analysis")
+          return new Response(JSON.stringify({ analise: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ message: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } catch { /* deixa passar se a trava falhar */ }
+
     // Dica do dia — fim do DEFCON (botão "Gerar dica do dia com IA")
     if (body?.type === "defcon_day_report") {
       const conv = body.conversionRate ?? "0";

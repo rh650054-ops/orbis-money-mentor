@@ -146,6 +146,16 @@ Deno.serve(async (req) => {
       } catch { /* best-effort */ }
     }
 
+    // Trava de uso: teto de extratos por dia (protege o gasto da IA).
+    if (supa && uid) {
+      try {
+        const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "extrato", p_limit: 6 });
+        if ((usage as any)?.over) {
+          return json({ error: "limite_diario", dica: "Você já enviou bastante extrato hoje. Volta amanhã." }, 200);
+        }
+      } catch { /* deixa passar se a trava falhar */ }
+    }
+
     const prompt = buildPrompt(nome);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");

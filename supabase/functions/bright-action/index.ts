@@ -5,6 +5,8 @@
 // (substitui a antiga chat-with-ai/Claude). Publicada no Supabase como bright-action.
 // Precisa do secret GEMINI_API_KEY.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -285,6 +287,18 @@ Deno.serve(async (req) => {
       ? `\n\n${body.context.trim()}`
       : "";
     console.log("CTX recebido (chars):", userCtx.length); // diagnóstico: >0 = dados chegaram
+
+    // Trava de uso: teto de chats por dia (protege o gasto). Só se autenticado.
+    try {
+      const authH = req.headers.get("Authorization") ?? "";
+      if (authH) {
+        const supa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authH } } });
+        const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: 30 });
+        if ((usage as any)?.over) {
+          return json({ success: true, message: "Mandou bem hoje, parça! 💪 Você já usou bastante o mentor — amanhã ele volta com tudo. Bora vender." });
+        }
+      }
+    } catch (_e) { /* se a trava falhar, deixa passar */ }
 
     // ===== TEXTO: tenta CLAUDE (Anthropic) primeiro; cai no Cerebras/Gemini (gratis) se faltar chave/erro/credito. =====
     try {
