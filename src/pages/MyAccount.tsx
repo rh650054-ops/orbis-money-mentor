@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getCheckoutUrl } from "@/shared/lib/checkout";
 import { useNavigate } from "react-router-dom";
-import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft, Brain } from "lucide-react";
+import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft, Brain, Ticket } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
@@ -816,6 +816,15 @@ export default function Profile() {
             >
               <Upload className="w-3.5 h-3.5 mr-2" />
               Teste · Extrato
+            </Button>
+            <Button
+              onClick={() => navigate("/bilhete")}
+              className="w-full h-9 text-xs"
+              variant="outline"
+              size="sm"
+            >
+              <Ticket className="w-3.5 h-3.5 mr-2" />
+              Bilhete dourado
             </Button>
           </CardContent>
         </Card>
