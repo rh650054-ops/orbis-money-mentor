@@ -60,38 +60,41 @@ const CSS = `
 .obt-canvas { position:absolute; inset:0; z-index:2; pointer-events:none; }
 .obt-rays { position:absolute; inset:0; z-index:1; opacity:0; transition:opacity 1s; overflow:hidden; }
 .obt-rays.show { opacity:.5; }
-.obt-ray { position:absolute; top:30%; left:50%; transform-origin:top center; width:2px; height:500px; background:linear-gradient(to bottom, rgba(245,215,142,.4), transparent); }
+.obt-ray { position:absolute; top:30%; left:50%; transform-origin:top center; width:2px; height:400px; background:linear-gradient(to bottom, rgba(245,215,142,.4), transparent); }
 .obt-flash { position:absolute; inset:0; z-index:4; background:#F5D78E; opacity:0; pointer-events:none; }
 .obt-flash.fire { animation: obtFlash .6s ease-out; }
 @keyframes obtFlash { 0%{opacity:0} 15%{opacity:.9} 100%{opacity:0} }
-.obt-stage { position:relative; z-index:3; min-height:90vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px 14px; gap:16px; transition:opacity .5s; }
-.obt-intro-tag { font-size:10px; letter-spacing:5px; color:#C9A84C; text-transform:uppercase; text-align:center; position:relative; }
+.obt-stage { position:relative; z-index:3; min-height:90vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; transition:opacity .5s, transform .5s; }
+.obt-intro-tag { font-size:10px; letter-spacing:5px; color:#C9A84C; text-transform:uppercase; margin-bottom:14px; text-align:center; position:relative; }
 .obt-intro-tag::before,.obt-intro-tag::after { content:''; position:absolute; top:50%; width:20px; height:1px; background:linear-gradient(90deg, transparent, rgba(201,168,76,.6)); }
 .obt-intro-tag::before { left:-28px; } .obt-intro-tag::after { right:-28px; transform:scaleX(-1); }
-.obt-intro-titulo { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:2px; text-align:center; line-height:1; background:linear-gradient(135deg,#C9A84C 0%,#F5D78E 50%,#C9A84C 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 16px rgba(201,168,76,.3)); }
-.obt-ticket { width:min(88vw,400px); min-height:64vh; display:flex; flex-direction:column; position:relative; border-radius:24px; overflow:hidden; touch-action:none; cursor:grab; will-change:transform; background:linear-gradient(135deg,#0F0B04 0%,#2A2008 25%,#4A3810 50%,#2A2008 75%,#0F0B04 100%); box-shadow:0 0 60px rgba(201,168,76,.3), inset 0 1px 0 rgba(245,215,142,.4), inset 0 -1px 0 rgba(0,0,0,.5); transform-style:preserve-3d; }
-.obt-ticket:active { cursor:grabbing; }
-.obt-ticket::after { content:''; position:absolute; inset:0; border-radius:24px; padding:1.5px; background:linear-gradient(135deg, rgba(245,215,142,.8), rgba(201,168,76,.2), rgba(245,215,142,.8)); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
-.obt-ticket-shine { position:absolute; top:-50%; left:-100%; width:50%; height:200%; background:linear-gradient(90deg, transparent, rgba(245,215,142,.35), transparent); transform:rotate(25deg); animation: obtShine 4s ease-in-out infinite; pointer-events:none; }
+.obt-intro-titulo { font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px; text-align:center; line-height:1; margin-bottom:10px; background:linear-gradient(135deg,#C9A84C 0%,#F5D78E 50%,#C9A84C 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 20px rgba(201,168,76,.3)); }
+.obt-intro-sub { font-size:13px; color:#999; text-align:center; line-height:1.5; margin-bottom:36px; max-width:250px; }
+.obt-ticket-3d { perspective:1000px; }
+.obt-ticket { width:290px; position:relative; border-radius:22px; overflow:hidden; background:linear-gradient(135deg,#0F0B04 0%,#2A2008 25%,#4A3810 50%,#2A2008 75%,#0F0B04 100%); box-shadow:0 0 50px rgba(201,168,76,.25), inset 0 1px 0 rgba(245,215,142,.4), inset 0 -1px 0 rgba(0,0,0,.5); animation: obtFloat 4s ease-in-out infinite; transform-style:preserve-3d; }
+.obt-ticket::after { content:''; position:absolute; inset:0; border-radius:22px; padding:1.5px; background:linear-gradient(135deg, rgba(245,215,142,.8), rgba(201,168,76,.2), rgba(245,215,142,.8)); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
+@keyframes obtFloat { 0%,100%{transform:translateY(0) rotateX(0) rotateY(-2deg)} 50%{transform:translateY(-10px) rotateX(2deg) rotateY(2deg)} }
+.obt-ticket-shine { position:absolute; top:-50%; left:-100%; width:50%; height:200%; background:linear-gradient(90deg, transparent, rgba(245,215,142,.35), transparent); transform:rotate(25deg); animation: obtShine 4s ease-in-out infinite; }
 @keyframes obtShine { 0%{left:-100%} 45%,100%{left:200%} }
-.obt-ticket-texture { position:absolute; inset:0; opacity:.06; mix-blend-mode:overlay; background-image:repeating-linear-gradient(45deg,#C9A84C 0,#C9A84C 1px,transparent 1px,transparent 8px); pointer-events:none; }
-.obt-ticket-top { padding:24px 24px 18px; text-align:center; border-bottom:1.5px dashed rgba(201,168,76,.35); position:relative; }
+.obt-ticket-texture { position:absolute; inset:0; opacity:.06; mix-blend-mode:overlay; background-image:repeating-linear-gradient(45deg,#C9A84C 0,#C9A84C 1px,transparent 1px,transparent 8px); }
+.obt-ticket-top { padding:26px 24px 18px; text-align:center; border-bottom:1.5px dashed rgba(201,168,76,.35); position:relative; }
 .obt-notch-l,.obt-notch-r { position:absolute; bottom:-10px; width:20px; height:20px; border-radius:50%; background:#030303; z-index:2; }
 .obt-notch-l { left:-10px; } .obt-notch-r { right:-10px; }
-.obt-ticket-logo { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:8px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:5px; filter:drop-shadow(0 0 10px rgba(201,168,76,.4)); }
+.obt-ticket-logo { font-family:'Bebas Neue',sans-serif; font-size:28px; letter-spacing:7px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:5px; filter:drop-shadow(0 0 10px rgba(201,168,76,.4)); }
 .obt-ticket-evento { font-size:9px; letter-spacing:3px; color:rgba(245,215,142,.7); text-transform:uppercase; }
-.obt-ticket-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px; text-align:center; position:relative; }
-.obt-ticket-num { position:absolute; top:14px; right:18px; font-size:8px; letter-spacing:1px; color:rgba(245,215,142,.4); }
-.obt-ticket-sel { font-size:10px; letter-spacing:3px; color:rgba(245,215,142,.6); text-transform:uppercase; }
-.obt-ticket-titulo { font-family:'Bebas Neue',sans-serif; font-size:36px; letter-spacing:1px; color:#F5D78E; line-height:1; filter:drop-shadow(0 0 12px rgba(245,215,142,.4)); }
-.obt-ticket-lock { width:92px; height:92px; border-radius:50%; background:radial-gradient(circle, rgba(245,215,142,.3), rgba(201,168,76,.08)); border:2px solid rgba(245,215,142,.5); display:flex; align-items:center; justify-content:center; font-size:44px; animation: obtSeal 2s ease-in-out infinite; }
-@keyframes obtSeal { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.4)} 50%{box-shadow:0 0 0 10px rgba(201,168,76,0)} }
-.obt-hint { display:flex; align-items:center; justify-content:center; gap:12px; font-size:11px; letter-spacing:2px; color:rgba(245,215,142,.75); text-transform:uppercase; animation: obtTextPulse 1.6s ease-in-out infinite; }
-@keyframes obtTextPulse { 0%,100%{opacity:.45} 50%{opacity:1} }
-.obt-arrow-l { animation: obtArrowL 1.4s ease-in-out infinite; }
-.obt-arrow-r { animation: obtArrowR 1.4s ease-in-out infinite; }
-@keyframes obtArrowL { 0%,100%{transform:translateX(0)} 50%{transform:translateX(-6px)} }
-@keyframes obtArrowR { 0%,100%{transform:translateX(0)} 50%{transform:translateX(6px)} }
+.obt-ticket-body { padding:22px 24px 26px; text-align:center; position:relative; }
+.obt-ticket-num { position:absolute; top:12px; right:16px; font-size:8px; letter-spacing:1px; color:rgba(245,215,142,.4); }
+.obt-ticket-sel { font-size:10px; letter-spacing:3px; color:rgba(245,215,142,.6); text-transform:uppercase; margin-bottom:8px; }
+.obt-ticket-titulo { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; color:#F5D78E; line-height:1; margin-bottom:10px; filter:drop-shadow(0 0 12px rgba(245,215,142,.4)); }
+.obt-ticket-frase { font-size:11px; color:rgba(255,255,255,.45); line-height:1.5; margin-bottom:18px; }
+.obt-ticket-seal { width:60px; height:60px; border-radius:50%; margin:0 auto; background:radial-gradient(circle, rgba(245,215,142,.3), rgba(201,168,76,.08)); border:1.5px solid rgba(245,215,142,.5); display:flex; align-items:center; justify-content:center; font-size:28px; animation: obtSeal 2s ease-in-out infinite; }
+@keyframes obtSeal { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.4)} 50%{box-shadow:0 0 0 8px rgba(201,168,76,0)} }
+.obt-unlock { margin-top:32px; width:290px; background:rgba(0,0,0,.5); border:1.5px solid rgba(201,168,76,.35); border-radius:40px; padding:6px; position:relative; overflow:hidden; box-shadow:inset 0 2px 8px rgba(0,0,0,.5); }
+.obt-unlock-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:11px; letter-spacing:3px; color:rgba(245,215,142,.55); text-transform:uppercase; white-space:nowrap; pointer-events:none; animation: obtTextPulse 2s ease-in-out infinite; }
+@keyframes obtTextPulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
+.obt-unlock-fill { position:absolute; top:6px; left:6px; bottom:6px; width:58px; border-radius:40px; z-index:1; pointer-events:none; background:linear-gradient(90deg, rgba(201,168,76,.4), rgba(245,215,142,.25)); }
+.obt-unlock-handle { width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,#F5D78E,#C9A84C); display:flex; align-items:center; justify-content:center; font-size:22px; color:#1A1408; cursor:grab; position:relative; z-index:2; box-shadow:0 0 24px rgba(201,168,76,.6), inset 0 1px 0 rgba(255,255,255,.4); touch-action:none; }
+.obt-unlock-handle:active { cursor:grabbing; }
 .obt-revealed { position:absolute; inset:0; z-index:5; background:radial-gradient(ellipse 100% 60% at 50% 15%, rgba(201,168,76,.18) 0%, transparent 55%), #030303; display:flex; flex-direction:column; padding:30px 22px 120px; overflow-y:auto; opacity:0; pointer-events:none; }
 .obt-revealed.show { opacity:1; pointer-events:auto; }
 .obt-rev-item { opacity:0; transform:translateY(20px); }
@@ -129,6 +132,7 @@ const CSS = `
 export function GoldenTicket({
   introTag = "Você foi selecionado",
   introTitulo,
+  introSub = "Um dos pioneiros do maior movimento de vendedores do Brasil.",
   eventoLabel = "Bilhete de Acesso · Pioneiro",
   ticketNumber = "001",
   ticketTitulo = "VOCÊ ESTÁ DENTRO",
@@ -146,12 +150,14 @@ export function GoldenTicket({
   const [flash, setFlash] = useState(false);
   const [raysShow, setRaysShow] = useState(false);
   const [stageOut, setStageOut] = useState(false);
-  const [lockOpen, setLockOpen] = useState(false);
+  const [handleIcon, setHandleIcon] = useState("🔓");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const ticketRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const fillRef = useRef<HTMLDivElement>(null);
   const burstRef = useRef<(() => void) | null>(null);
-  const drag = useRef({ on: false, startX: 0, dx: 0, th: 120, done: false });
+  const drag = useRef({ on: false, startX: 0, max: 0, done: false });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -170,9 +176,9 @@ export function GoldenTicket({
     }));
     let burst: Array<{ x: number; y: number; vx: number; vy: number; r: number; life: number; o: number }> = [];
     burstRef.current = () => {
-      const cx = canvas.width / 2, cy = canvas.height * 0.45;
-      for (let i = 0; i < 90; i++) {
-        const a = Math.random() * Math.PI * 2, sp = Math.random() * 9 + 3;
+      const cx = canvas.width / 2, cy = canvas.height * 0.4;
+      for (let i = 0; i < 80; i++) {
+        const a = Math.random() * Math.PI * 2, sp = Math.random() * 8 + 3;
         burst.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: Math.random() * 2.5 + 1, life: 1, o: 1 });
       }
     };
@@ -202,52 +208,44 @@ export function GoldenTicket({
     };
   }, []);
 
-  const complete = (dir: number) => {
+  const complete = () => {
     if (drag.current.done) return;
     drag.current.done = true;
     drag.current.on = false;
-    setLockOpen(true);
+    setHandleIcon("🔥");
     playUnlockSound();
     if (navigator.vibrate) navigator.vibrate([40, 30, 80]);
     burstRef.current?.();
     setFlash(true);
     setRaysShow(true);
-    const t = ticketRef.current;
-    if (t) {
-      t.style.transition = "transform 0.5s ease-in, opacity 0.5s";
-      t.style.transform = `translateX(${dir * 140}vw) rotate(${dir * 35}deg)`;
-      t.style.opacity = "0";
-    }
-    setTimeout(() => {
-      setStageOut(true);
-      setRevealed(true);
-    }, 450);
+    setStageOut(true);
+    setTimeout(() => setRevealed(true), 400);
   };
 
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (drag.current.done) return;
-    const t = ticketRef.current;
-    if (!t) return;
-    drag.current = { on: true, startX: e.clientX, dx: 0, th: Math.max(90, window.innerWidth * 0.28), done: false };
-    t.style.transition = "none";
-    t.setPointerCapture(e.pointerId);
+    const track = trackRef.current, handle = handleRef.current;
+    if (!track || !handle) return;
+    drag.current = { on: true, startX: e.clientX, max: track.offsetWidth - handle.offsetWidth - 12, done: false };
+    handle.setPointerCapture(e.pointerId);
   };
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d.on) return;
-    d.dx = e.clientX - d.startX;
-    const t = ticketRef.current;
-    if (t) t.style.transform = `translateX(${d.dx}px) rotate(${d.dx * 0.03}deg)`;
-    if (Math.abs(d.dx) >= d.th) complete(d.dx > 0 ? 1 : -1);
+    const delta = Math.max(0, Math.min(e.clientX - d.startX, d.max));
+    if (handleRef.current) handleRef.current.style.transform = `translateX(${delta}px)`;
+    if (fillRef.current) fillRef.current.style.width = `${58 + delta}px`;
+    if (delta >= d.max - 4) complete();
   };
   const onUp = () => {
     const d = drag.current;
     if (!d.on || d.done) return;
     d.on = false;
-    const t = ticketRef.current;
-    if (t) {
-      t.style.transition = "transform 0.35s cubic-bezier(.2,.8,.3,1)";
-      t.style.transform = "translateX(0) rotate(0deg)";
+    const handle = handleRef.current, fill = fillRef.current;
+    if (handle && fill) {
+      handle.style.transition = "transform 0.3s"; fill.style.transition = "width 0.3s";
+      handle.style.transform = "translateX(0)"; fill.style.width = "58px";
+      setTimeout(() => { handle.style.transition = ""; fill.style.transition = ""; }, 300);
     }
   };
 
@@ -263,27 +261,36 @@ export function GoldenTicket({
       <canvas ref={canvasRef} className="obt-canvas" />
       <div className={`obt-flash ${flash ? "fire" : ""}`} />
 
-      <div className="obt-stage" style={{ opacity: stageOut ? 0 : 1 }}>
+      <div className="obt-stage" style={{ opacity: stageOut ? 0 : 1, transform: stageOut ? "scale(1.1)" : "scale(1)" }}>
         <div className="obt-intro-tag">{introTag}</div>
         <div className="obt-intro-titulo">{introTitulo}</div>
+        {introSub && <div className="obt-intro-sub">{introSub}</div>}
 
-        <div className="obt-ticket" ref={ticketRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
-          <div className="obt-ticket-shine" />
-          <div className="obt-ticket-texture" />
-          <div className="obt-ticket-top">
-            <div className="obt-ticket-logo">ORBIS</div>
-            <div className="obt-ticket-evento">{eventoLabel}</div>
-            <div className="obt-notch-l" />
-            <div className="obt-notch-r" />
-          </div>
-          <div className="obt-ticket-body">
-            <div className="obt-ticket-num">Nº {ticketNumber}</div>
-            <div className="obt-ticket-sel">Convite exclusivo</div>
-            <div className="obt-ticket-titulo">{ticketTitulo}</div>
-            <div className="obt-ticket-lock">{lockOpen ? "🔓" : "🔒"}</div>
-            <div className="obt-hint">
-              <span className="obt-arrow-l">⟵</span> Arraste o bilhete pro lado <span className="obt-arrow-r">⟶</span>
+        <div className="obt-ticket-3d">
+          <div className="obt-ticket">
+            <div className="obt-ticket-shine" />
+            <div className="obt-ticket-texture" />
+            <div className="obt-ticket-top">
+              <div className="obt-ticket-logo">ORBIS</div>
+              <div className="obt-ticket-evento">{eventoLabel}</div>
+              <div className="obt-notch-l" />
+              <div className="obt-notch-r" />
             </div>
+            <div className="obt-ticket-body">
+              <div className="obt-ticket-num">Nº {ticketNumber}</div>
+              <div className="obt-ticket-sel">Convite exclusivo</div>
+              <div className="obt-ticket-titulo">{ticketTitulo}</div>
+              <div className="obt-ticket-frase">Desbloqueie para revelar seus prêmios</div>
+              <div className="obt-ticket-seal">🎟️</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="obt-unlock" ref={trackRef}>
+          <div className="obt-unlock-fill" ref={fillRef} />
+          <div className="obt-unlock-text">ARRASTE PARA DESBLOQUEAR →</div>
+          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+            {handleIcon}
           </div>
         </div>
       </div>

@@ -91,6 +91,7 @@ export function AppRouter() {
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/install" element={<Install />} />
           <Route path="/defcon" element={<DefconChallenge />} />
+          <Route path="/bilhete" element={<BilhetePreview />} />
           <Route
             path="/*"
             element={
@@ -116,7 +117,6 @@ export function AppRouter() {
                     <Route path="/bank-connections" element={<BankConnections />} />
                     <Route path="/spot-finder" element={<SpotFinder />} />
                     <Route path="/meu-extrato" element={<MeuExtrato />} />
-                    <Route path="/bilhete" element={<BilhetePreview />} />
                     <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                     <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                     <Route path="/admin/competitions" element={<AdminCompetitions />} />
