@@ -826,6 +826,14 @@ export default function Profile() {
               <Ticket className="w-3.5 h-3.5 mr-2" />
               Bilhete dourado
             </Button>
+            <Button
+              onClick={() => navigate("/admin/teste-ranking")}
+              className="w-full h-9 text-xs"
+              variant="outline"
+              size="sm"
+            >
+              🏆 Ranking Teste (simulador)
+            </Button>
           </CardContent>
         </Card>
       )}
