@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
 import { getActiveWeeklyChallenge, isFirstDay } from "@/shared/lib/weeklyChallenge";
 
@@ -62,6 +62,36 @@ export function WeeklyChallengeTicket() {
         acceptLabel={challenge.acceptLabel}
         onAccept={aceitar}
       />
+    </div>
+  );
+}
+
+// ===== Barra "Continuar" do fluxo do desafio =====
+// Depois de aceitar o bilhete, o cara cai no /ranking. Aqui aparece o botão pra
+// seguir pra meta de julho (e de lá pro DEFCON, fechado no Index).
+export function DesafioFluxoBar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  if (location.pathname !== "/ranking") return null;
+  if (sessionStorage.getItem("orbis_desafio_passo") !== "ranking") return null;
+  return (
+    <div
+      style={{
+        position: "fixed", left: 0, right: 0, zIndex: 60,
+        bottom: "calc(env(safe-area-inset-bottom) + 76px)",
+        padding: "0 16px", pointerEvents: "none",
+      }}
+    >
+      <button
+        onClick={() => {
+          sessionStorage.setItem("orbis_desafio_passo", "meta");
+          navigate("/");
+        }}
+        className="w-full max-w-md mx-auto block py-3.5 rounded-2xl font-bold text-black"
+        style={{ background: "linear-gradient(135deg, #C9A84C, #F5D78E)", boxShadow: "0 0 30px rgba(201,168,76,0.45)", pointerEvents: "auto" }}
+      >
+        Continuar → definir minha meta de julho
+      </button>
     </div>
   );
 }

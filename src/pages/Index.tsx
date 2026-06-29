@@ -576,6 +576,11 @@ export default function Index() {
               if (forced) onMonthlyGoalCompleted();
               setShowEditPlanning(false);
               loadDashboardData();
+              // Fluxo do desafio: depois de definir a meta de julho, vai pro DEFCON 4.
+              if (sessionStorage.getItem("orbis_desafio_passo") === "meta") {
+                sessionStorage.removeItem("orbis_desafio_passo");
+                navigate("/defcon");
+              }
             }}
             isRequired={forced}
             requiredReason={monthlyGoalReason}
