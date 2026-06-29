@@ -57,6 +57,7 @@ const AdminCompetitions = lazyWithReload(() => import("@/pages/AdminCompetitions
 const AdminBrain = lazyWithReload(() => import("@/pages/AdminBrain"));
 const TesteExtrato = lazyWithReload(() => import("@/pages/TesteExtrato"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
+const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
 const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
 const DailyGoals = lazyWithReload(() => import("@/pages/DailyGoals"));
@@ -115,6 +116,7 @@ export function AppRouter() {
                     <Route path="/bank-connections" element={<BankConnections />} />
                     <Route path="/spot-finder" element={<SpotFinder />} />
                     <Route path="/meu-extrato" element={<MeuExtrato />} />
+                    <Route path="/bilhete" element={<BilhetePreview />} />
                     <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                     <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                     <Route path="/admin/competitions" element={<AdminCompetitions />} />
