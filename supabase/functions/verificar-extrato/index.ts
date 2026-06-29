@@ -43,24 +43,31 @@ Deno.serve(async (req) => {
     if (!key) return json({ error: "sem_gemini_key" }, 500);
     const model = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-flash-latest";
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
-      {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+    const reqBody = JSON.stringify({
+      contents: [{ parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
+      generationConfig: { temperature: 0, responseMimeType: "application/json" },
+    });
+
+    // O flash gratis as vezes devolve 503/429/500 (sobrecarga/pico). Tenta ate 4x com espera
+    // crescente — quase sempre passa na 2a/3a tentativa.
+    let res: Response | null = null;
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(45000),
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
-          generationConfig: { temperature: 0, responseMimeType: "application/json" },
-        }),
-      },
-    );
-
-    if (!res.ok) {
-      const errTxt = await res.text().catch(() => "");
-      console.error("Gemini extrato erro", res.status, errTxt.slice(0, 300));
-      return json({ error: `gemini_${res.status}` }, 502);
+        signal: AbortSignal.timeout(35000),
+        body: reqBody,
+      });
+      if (res.ok) break;
+      if (![429, 500, 502, 503].includes(res.status) || attempt === 4) {
+        const errTxt = await res.text().catch(() => "");
+        console.error("Gemini extrato erro", res.status, errTxt.slice(0, 300));
+        return json({ error: `gemini_${res.status}` }, 502);
+      }
+      await new Promise((r) => setTimeout(r, attempt * 1800));
     }
+    if (!res || !res.ok) return json({ error: "gemini_ocupado", dica: "tente de novo em instantes" }, 503);
 
     const data = await res.json();
     const text: string = data?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text || "").join("") ?? "";
