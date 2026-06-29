@@ -773,6 +773,15 @@ export default function Profile() {
               <Brain className="w-3.5 h-3.5 mr-2" />
               Cérebro da IA
             </Button>
+            <Button
+              onClick={() => navigate("/admin/teste-extrato")}
+              className="w-full h-9 text-xs"
+              variant="outline"
+              size="sm"
+            >
+              <Upload className="w-3.5 h-3.5 mr-2" />
+              Teste · Extrato
+            </Button>
           </CardContent>
         </Card>
       )}
