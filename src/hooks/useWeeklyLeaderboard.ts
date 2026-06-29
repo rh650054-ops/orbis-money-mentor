@@ -7,22 +7,30 @@ import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 // a semana é sempre SEGUNDA → DOMINGO: encerra domingo 23:59 e zera na segunda.
 const TEMPORADA_INICIO = "2026-07-01";
 
-// Segunda-feira desta semana (fuso BR). Na 1ª semana, não conta antes do dia 1.
+// Início da janela do ranking (fuso BR).
+// - ATÉ 30/06 (teste pré-lançamento): janela = ONTEM + HOJE, pra mostrar as vendas
+//   recentes da galera sem exigir extrato (só o DEFCON ao vivo).
+// - A PARTIR DE 01/07: semana SEGUNDA→DOMINGO, com a 1ª semana travada em 01–05/07.
 export function currentWeekStart(): string {
   const todayISO = getBrazilDate(); // "YYYY-MM-DD" no fuso BR
+  if (todayISO < TEMPORADA_INICIO) {
+    const y = new Date(`${todayISO}T12:00:00Z`);
+    y.setUTCDate(y.getUTCDate() - 1);
+    return y.toISOString().slice(0, 10); // ontem
+  }
   const d = new Date(`${todayISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // volta pra segunda (0 = domingo)
   const monday = d.toISOString().slice(0, 10);
-  // A trava do dia 1 só vale A PARTIR do dia 1 (pra 1ª semana do desafio ficar
-  // limpa: 01–05/07). Antes disso, mostra a semana natural — assim o ranking não
-  // fica vazio em junho, e zera sozinho na virada do dia 1.
-  if (todayISO >= TEMPORADA_INICIO && monday < TEMPORADA_INICIO) return TEMPORADA_INICIO;
+  if (monday < TEMPORADA_INICIO) return TEMPORADA_INICIO;
   return monday;
 }
 
-// Domingo desta semana (fim da janela). Sempre o domingo natural — não trava no dia 1.
+// Fim da janela do ranking (fuso BR).
+// - ATÉ 30/06: termina HOJE (teste com ontem + hoje).
+// - A PARTIR DE 01/07: domingo da semana.
 export function currentWeekEnd(): string {
   const todayISO = getBrazilDate();
+  if (todayISO < TEMPORADA_INICIO) return todayISO;
   const d = new Date(`${todayISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 6); // segunda + 6 = domingo
   return d.toISOString().slice(0, 10);
