@@ -6,10 +6,9 @@
 -- Lê de daily_sales.total_profit (mesma fonte do mensal, atualizada em tempo real
 -- pelo DEFCON). Respeita profiles.ranking_hidden. SECURITY DEFINER.
 --
--- Como usar: cole TUDO no Supabase -> SQL Editor -> Run (substitui a versão antiga).
+-- Como usar: cole TUDO no Supabase -> SQL Editor -> Run.
+-- (Mantém a versão antiga de 1 argumento convivendo, pra não quebrar na transição.)
 -- ============================================================================
-drop function if exists public.get_weekly_ranking(date);
-
 create or replace function public.get_weekly_ranking(p_week_start date, p_week_end date)
 returns table (
   user_id            uuid,
