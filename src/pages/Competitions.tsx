@@ -275,16 +275,16 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
   }, [comp.id, load]);
 
   return (
-    <div className="pb-24 px-4 pt-4 max-w-2xl mx-auto space-y-4">
+    <div className="relative">
       <button
         onClick={onBack}
-        className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
+        className="absolute top-3 left-3 z-30 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white/80 hover:text-white active:scale-95 transition-transform"
       >
         <ArrowLeft className="w-5 h-5" />
       </button>
 
       {loading ? (
-        <div className="space-y-1.5">
+        <div className="px-4 pt-16 space-y-1.5 max-w-md mx-auto">
           {[0, 1, 2].map((i) => (
             <div key={i} className="h-14 rounded-xl bg-card/40 border border-border/40 animate-pulse" />
           ))}

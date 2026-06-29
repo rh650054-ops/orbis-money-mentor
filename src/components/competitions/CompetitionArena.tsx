@@ -158,17 +158,13 @@ export function CompetitionArena({ title, sealText, prizeLabel, prizeValue, date
   const rest = rows.slice(3, 20);
 
   return (
-    <div style={{ width: "100%", maxWidth: 440, margin: "0 auto", position: "relative" }}>
+    <div style={{ position: "relative", width: "100vw", left: "50%", marginLeft: "-50vw", minHeight: "82vh", overflow: "hidden", background: "radial-gradient(ellipse 90% 36% at 50% 0%, rgba(201,168,76,0.14) 0%, transparent 58%), linear-gradient(180deg, #0D0B07 0%, #080808 55%, #060606 100%)" }}>
       <style>{`
         @keyframes orbisCrownFloat { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-4px)} }
         @keyframes orbisBaseShine { 0%{left:-100%} 50%,100%{left:200%} }
       `}</style>
-
-      {/* Borda premium dourado/platina */}
-      <div style={{ position: "absolute", inset: -2, borderRadius: 28, background: `linear-gradient(135deg, rgba(201,168,76,0.5), rgba(229,228,226,0.3), rgba(201,168,76,0.5))`, zIndex: 0 }} />
-
-      <div style={{ position: "relative", zIndex: 1, borderRadius: 26, overflow: "hidden", background: "radial-gradient(ellipse 90% 50% at 50% 0%, rgba(201,168,76,0.12) 0%, transparent 55%), linear-gradient(180deg, #0D0B07 0%, #080808 100%)" }}>
-        <Particles />
+      <Particles />
+      <div style={{ position: "relative", zIndex: 2, maxWidth: 520, margin: "0 auto", paddingBottom: "6.5rem" }}>
 
         {/* Header: selo + título + prêmio */}
         <div style={{ textAlign: "center", padding: "32px 28px 24px", position: "relative", zIndex: 2 }}>

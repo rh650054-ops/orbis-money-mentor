@@ -230,7 +230,7 @@ export default function Layout({ children }: LayoutProps) {
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
       >
         {/* Back button - hidden on Dashboard and pages that already have their own back button */}
-        {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits"].includes(location.pathname) && (
+        {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits", "/competitions"].includes(location.pathname) && (
           <div className="mb-2 md:hidden">
             <BackButton to={location.pathname === "/profile" ? "/" : undefined} />
           </div>
