@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Gift } from "lucide-react";
+import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Gift, Receipt } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
