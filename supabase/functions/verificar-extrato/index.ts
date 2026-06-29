@@ -1,9 +1,9 @@
 // Orbis — verificar-extrato
 // A IA le um EXTRATO (print ou PDF) e separa as VENDAS (dinheiro que ENTROU/foi recebido)
-// das DESPESAS (compras/saidas do proprio vendedor). So venda conta.
-// PRIMARIO: Claude (visao — nao fica sobrecarregado). FALLBACK: Gemini.
+// das DESPESAS e dos itens SUSPEITOS DE FRAUDE (auto-transferencia, duplicata).
+// PRIMARIO: Claude (visao). FALLBACK: Gemini.
 // Recebe { file: base64, mime, salvar?, dia?, tipo? }.
-// Devolve { ok, motor, salvo, dia, tipo, vendas[], total_vendas, total_ignorado, qtd_vendas }.
+// Devolve { ok, motor, salvo, dia, tipo, vendas[], suspeitas[], total_vendas, total_ignorado, qtd_vendas }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -12,27 +12,36 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PROMPT = `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um EXTRATO bancario/de pagamentos brasileiro.
+// Monta o prompt com o nome do vendedor (pra IA pegar auto-transferencia).
+function buildPrompt(nome: string): string {
+  const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
+  return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um EXTRATO bancario/de pagamentos brasileiro.
 
-Tarefa: listar APENAS as VENDAS = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE todas as despesas/saidas.
+Tarefa: listar APENAS as VENDAS = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE despesas/saidas E itens suspeitos de fraude.
 
 CONTA como venda (dinheiro que ENTROU):
 - "Pix recebido", "Entrada PIX", "Credito", "Recebimento"
 - Venda no cartao recebida (credito/debito) que CAIU pra ele
 - Qualquer valor de ENTRADA (positivo, recebido)
 
-NAO CONTA (despesa/saida do vendedor — ele gastando):
-- "Debito de Cartao" (compras em lojas, ex: ATACADAO, MERCADO, SUPERMERCADO)
-- "Saida PIX", "Pix enviado", "Pagamento", "Transferencia enviada"
+NAO CONTA (despesa/saida do vendedor):
+- "Debito de Cartao" (compras em lojas, ex: ATACADAO, MERCADO), "Saida PIX", "Pix enviado", "Pagamento", "Transferencia enviada"
 - Qualquer valor NEGATIVO ou de saida
 
-Na duvida, use o SINAL do valor (positivo = entrou = venda) e a descricao.
+ANTIFRAUDE — NAO CONTA como venda e coloque em "suspeitas" com o motivo:
+- AUTO-TRANSFERENCIA: o extrato mostra o NOME DO TITULAR da conta. Pix recebido cujo REMETENTE seja o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}) NAO e venda — e o vendedor mandando dinheiro pra si mesmo pra inflar o ranking.
+- DUPLICATA: se a MESMA venda aparecer repetida (mesmo valor + mesmo remetente, em horarios colados), conte SO UMA vez; as copias vao pra "suspeitas".
+${hint}
+
+total_vendas = soma SO das vendas legitimas (sem despesa e sem suspeita).
+total_ignorado = soma de despesas + suspeitas.
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
-{"vendas":[{"descricao":"de quem/origem","valor":35.0}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18}`;
+{"vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18}`;
+}
 
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
-async function callClaude(key: string, model: string, fileB64: string, mime: string): Promise<string> {
+async function callClaude(key: string, model: string, prompt: string, fileB64: string, mime: string): Promise<string> {
   const isPdf = mime.includes("pdf");
   const mediaType = isPdf
     ? "application/pdf"
@@ -51,8 +60,8 @@ async function callClaude(key: string, model: string, fileB64: string, mime: str
     signal: AbortSignal.timeout(40000),
     body: JSON.stringify({
       model,
-      max_tokens: 1500,
-      messages: [{ role: "user", content: [{ type: "text", text: PROMPT }, filePart] }],
+      max_tokens: 1800,
+      messages: [{ role: "user", content: [{ type: "text", text: prompt }, filePart] }],
     }),
   });
   if (!res.ok) {
@@ -65,11 +74,11 @@ async function callClaude(key: string, model: string, fileB64: string, mime: str
 }
 
 // ---- Gemini (fallback): varios modelos em ordem, desvia do que estiver lotado ----
-async function callGemini(key: string, fileB64: string, mime: string): Promise<string> {
+async function callGemini(key: string, prompt: string, fileB64: string, mime: string): Promise<string> {
   const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest,gemini-1.5-flash")
     .split(",").map((s) => s.trim()).filter(Boolean);
   const reqBody = JSON.stringify({
-    contents: [{ parts: [{ text: PROMPT }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
+    contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
     generationConfig: { temperature: 0, responseMimeType: "application/json" },
   });
   for (const m of models) {
@@ -93,7 +102,7 @@ async function callGemini(key: string, fileB64: string, mime: string): Promise<s
       }
       const errTxt = await r.text().catch(() => "");
       console.error("Gemini extrato erro", m, r.status, errTxt.slice(0, 200));
-      if (r.status === 400 || r.status === 404) break; // modelo invalido: pula pro proximo
+      if (r.status === 400 || r.status === 404) break;
       if (attempt < 2) await new Promise((res2) => setTimeout(res2, 1500));
     }
   }
@@ -116,6 +125,28 @@ Deno.serve(async (req) => {
     const tipo = body?.tipo === "cartao" ? "cartao" : "pix";
     if (!fileB64) return json({ error: "sem_arquivo" }, 400);
 
+    // Auth: pega o usuario + nickname (pra IA detectar auto-transferencia).
+    let supa: ReturnType<typeof createClient> | null = null;
+    let uid: string | null = null;
+    let nome = "";
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (authHeader) {
+      try {
+        supa = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          { global: { headers: { Authorization: authHeader } } },
+        );
+        const { data: u } = await supa.auth.getUser();
+        uid = u?.user?.id ?? null;
+        if (uid) {
+          const { data: prof } = await supa.from("public_profiles").select("nickname").eq("user_id", uid).maybeSingle();
+          nome = ((prof as any)?.nickname ?? "").toString().trim();
+        }
+      } catch { /* best-effort */ }
+    }
+
+    const prompt = buildPrompt(nome);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -124,20 +155,17 @@ Deno.serve(async (req) => {
     let motor = "";
     let lastErr = "";
 
-    // 1) Claude primeiro (melhor leitura, nao trava feito o Gemini gratis)
     if (anthropicKey) {
       try {
-        text = await callClaude(anthropicKey, model, fileB64, mime);
+        text = await callClaude(anthropicKey, model, prompt, fileB64, mime);
         motor = "claude";
       } catch (e) {
         lastErr = String((e as Error)?.message || e);
       }
     }
-
-    // 2) Se o Claude falhar ou nao tiver chave, cai no Gemini
     if (!text && geminiKey) {
       try {
-        text = await callGemini(geminiKey, fileB64, mime);
+        text = await callGemini(geminiKey, prompt, fileB64, mime);
         motor = "gemini";
       } catch (e) {
         lastErr = String((e as Error)?.message || e);
@@ -159,36 +187,28 @@ Deno.serve(async (req) => {
     if (!parsed) return json({ error: "leitura_falhou", raw: text.slice(0, 400) }, 422);
 
     const vendas = Array.isArray(parsed.vendas) ? parsed.vendas : [];
+    const suspeitas = Array.isArray(parsed.suspeitas) ? parsed.suspeitas : [];
     const totalVendas = Number(parsed.total_vendas) || 0;
     const qtdVendas = Number(parsed.qtd_vendas) || vendas.length;
     const totalIgnorado = Number(parsed.total_ignorado) || 0;
 
     // Salva so quando salvar:true (a tela de teste admin NAO salva). Usa o JWT do usuario (RLS).
     let salvo = false;
-    if (salvar) {
+    if (salvar && supa && uid) {
       try {
-        const supa = createClient(
-          Deno.env.get("SUPABASE_URL") ?? "",
-          Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-          { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } },
-        );
-        const { data: u } = await supa.auth.getUser();
-        const uid = u?.user?.id;
-        if (uid) {
-          const { error: upErr } = await supa.from("extrato_uploads").upsert({
-            user_id: uid,
-            dia,
-            tipo,
-            total_verificado: totalVendas,
-            qtd_vendas: qtdVendas,
-            total_ignorado: totalIgnorado,
-            vendas,
-            motor,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: "user_id,dia,tipo" });
-          if (upErr) console.error("extrato upsert erro", upErr.message);
-          else salvo = true;
-        }
+        const { error: upErr } = await supa.from("extrato_uploads").upsert({
+          user_id: uid,
+          dia,
+          tipo,
+          total_verificado: totalVendas,
+          qtd_vendas: qtdVendas,
+          total_ignorado: totalIgnorado,
+          vendas,
+          motor,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,dia,tipo" });
+        if (upErr) console.error("extrato upsert erro", upErr.message);
+        else salvo = true;
       } catch (e) {
         console.error("extrato salvar excecao", String(e).slice(0, 150));
       }
@@ -201,6 +221,7 @@ Deno.serve(async (req) => {
       dia,
       tipo,
       vendas,
+      suspeitas,
       total_vendas: totalVendas,
       total_ignorado: totalIgnorado,
       qtd_vendas: qtdVendas,

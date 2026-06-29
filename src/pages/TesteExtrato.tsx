@@ -11,6 +11,7 @@ interface AuditResult {
   ok: boolean;
   motor?: string;
   vendas: { descricao: string; valor: number }[];
+  suspeitas?: { descricao: string; valor: number; motivo?: string }[];
   total_vendas: number;
   total_ignorado: number;
   qtd_vendas: number;
@@ -140,6 +141,17 @@ export default function TesteExtrato() {
                 </div>
               ))}
             </div>
+            {result.suspeitas && result.suspeitas.length > 0 && (
+              <div className="space-y-1.5 pt-2 border-t border-amber-500/30">
+                <p className="text-xs font-bold text-amber-500">⚠ {result.suspeitas.length} suspeita(s) — NÃO contam (fraude)</p>
+                {result.suspeitas.map((s, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span className="text-amber-500/80 truncate pr-2">{s.descricao}{s.motivo ? ` · ${s.motivo}` : ""}</span>
+                    <span className="text-amber-500/80 font-semibold whitespace-nowrap line-through">{fmt(s.valor)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex justify-between text-sm pt-2 border-t border-border/50">
               <span className="text-muted-foreground">Ignorado (despesas / compras)</span>
               <span className="text-muted-foreground">{fmt(result.total_ignorado)}</span>
