@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords } from "lucide-react";
 
 interface Comp {
   id: string;
@@ -123,7 +123,13 @@ export default function Competitions() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-foreground">Competições</h1>
+        <h1 className="text-2xl font-bold text-foreground flex-1">Competições</h1>
+        <button
+          onClick={() => navigate("/x1")}
+          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-sm font-bold active:scale-[0.97] transition-transform"
+        >
+          <Swords className="w-4 h-4" /> X1
+        </button>
       </div>
 
       {loading ? (

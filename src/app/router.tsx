@@ -61,6 +61,7 @@ const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
 const DailyGoals = lazyWithReload(() => import("@/pages/DailyGoals"));
 const Ranking = lazyWithReload(() => import("@/pages/Ranking"));
 const Competitions = lazyWithReload(() => import("@/pages/Competitions"));
+const X1 = lazyWithReload(() => import("@/pages/X1"));
 const Rewards = lazyWithReload(() => import("@/pages/Rewards"));
 const DefconChallenge = lazyWithReload(() => import("@/pages/DefconChallenge"));
 const BankConnections = lazyWithReload(() => import("@/pages/BankConnections"));
@@ -104,6 +105,7 @@ export function AppRouter() {
                     <Route path="/daily-goals" element={<DailyGoals />} />
                     <Route path="/ranking" element={<Ranking />} />
                     <Route path="/competitions" element={<Competitions />} />
+                    <Route path="/x1" element={<X1 />} />
                     <Route path="/rewards" element={<Rewards />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/my-account" element={<MyAccount />} />
