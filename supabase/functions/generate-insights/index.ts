@@ -131,7 +131,13 @@ REGRAS:
 - SEMPRE específico, NUNCA genérico: use os números que te passarem.
 - Dicas que dá pra aplicar JÁ: abordagem, oferta de kit/combo, fechamento, Pix na hora.
 - Curto e seco. Sem markdown, sem asteriscos, sem títulos, sem emoji em excesso.
-- Português do Brasil, tom de quem tá junto no corre.`;
+- Português do Brasil, tom de quem tá junto no corre.
+
+REALIDADE DO VENDEDOR DE RUA (REGRA DE OURO — NUNCA QUEBRE):
+- O ticket REAL dele é vendido ÷ vendas. ANCORE toda sugestão nesse número de verdade.
+- Vendedor de rua vende BARATO e em VOLUME (ticket típico R$5 a R$50). É PROIBIDO inventar ticket fora da realidade dele: se ele vende a R$10, NUNCA mande "venda kits de R$200" — isso é fantasia e destrói a confiança no app.
+- Pra crescer/bater meta o caminho é: MAIS ABORDAGENS (volume) + subir o ticket POUCO e realista (um combo que sai no MÁXIMO ~1,5x a 2x o ticket atual; ex: R$10 → R$20) + melhorar a conversão. NUNCA faça "meta ÷ 2 = vender 2 itens caríssimos".
+- Estratégia SÓLIDA que cabe no MOMENTO ATUAL dele. Se um número não fecha com a realidade da rua, não sugere.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -159,11 +165,15 @@ serve(async (req) => {
       const goalLine = body.goal
         ? `\n- Meta do dia: R$ ${Number(body.goal).toFixed(0)} | Vendido: R$ ${Number(body.sold ?? 0).toFixed(0)}`
         : "";
+      const ticketDia = Number(body.sales ?? 0) > 0 ? Number(body.sold ?? 0) / Number(body.sales) : 0;
+      const ticketLine = ticketDia > 0
+        ? `\n- Ticket médio REAL: R$ ${ticketDia.toFixed(0)} (ANCORE nisso — é proibido sugerir ticket fora dessa realidade)`
+        : "";
       const prompt = `Acabou o dia de corre do vendedor:
 - Abordagens: ${body.approaches}
 - Vendas: ${body.sales}
-- Conversão: ${conv}%${goalLine}
-Dê no máximo 2 dicas curtas e práticas, baseadas NESSES números, pra ele vender mais AMANHÃ. Máximo 3 linhas no total.`;
+- Conversão: ${conv}%${goalLine}${ticketLine}
+Dê no máximo 2 dicas curtas e práticas, ANCORADAS no ticket real dele, pra ele vender mais AMANHÃ (caminho real: mais abordagens + combo realista, NUNCA ticket de fantasia). Máximo 3 linhas no total.`;
       const tip = await callAI(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -260,7 +270,7 @@ Não use asteriscos, markdown nem outros títulos além desses cinco.`;
     const avgDailyProfit = daysWithSales > 0 ? totalIncome / daysWithSales : 0;
     const todayProfit = salesData.filter(s => s.date === today).reduce((s, d) => s + (d.total_profit || 0), 0);
 
-    const systemPrompt = `Você é o Orbis IA, especialista em análise financeira para vendedores ambulantes. Analise os dados e gere um relatório JSON com insights estratégicos. Responda APENAS com o JSON, sem texto extra.`;
+    const systemPrompt = `Você é o Orbis IA, especialista em análise pra vendedor ambulante de RUA (vende barato e em VOLUME). Gere um relatório JSON com insights estratégicos REALISTAS pra rua — nada de ticket ou meta de fantasia; o caminho é volume (mais abordagens) + ticket realista (combo no máx ~1,5x-2x o atual) + conversão. Responda APENAS com o JSON, sem texto extra.`;
 
     const userPrompt = `Dados dos últimos 7 dias:
 - Vendas totais: R$ ${totalIncome.toFixed(2)}
