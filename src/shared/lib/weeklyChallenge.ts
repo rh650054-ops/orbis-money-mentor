@@ -46,8 +46,13 @@ const DESAFIOS: WeeklyChallenge[] = [
   },
 ];
 
+// Bilhete dourado / desafio PAUSADO (estratégia adiada). Com isso, o bilhete não
+// abre, o ícone some, o lembrete some e o fluxo não dispara. Pra REATIVAR: PAUSADO = false.
+const PAUSADO = true;
+
 // Desafio ativo hoje (fuso BR), ou null.
 export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null {
+  if (PAUSADO) return null;
   const t = today ?? getBrazilDate();
   return DESAFIOS.find((d) => t >= d.inicio && t <= d.fim) ?? null;
 }
