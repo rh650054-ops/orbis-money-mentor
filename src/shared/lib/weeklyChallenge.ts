@@ -32,16 +32,17 @@ const DESAFIOS: WeeklyChallenge[] = [
     eventoLabel: "Liga Semanal · Orbis",
     ticketTitulo: "VALENDO R$100",
     grandPrizeValue: "R$ 100",
-    grandPrizeDesc: "pro 1º lugar da semana (01 a 05/07)",
-    miniPrizes: [],
-    regrasTitulo: "Como funciona",
-    regras: [
-      { nome: "Quando", val: "01–05/07" },
-      { nome: "Encerra", val: "Dom 23:59" },
-      { nome: "Vence", val: "+ Faturamento" },
+    grandPrizeDesc: "🏆 1º lugar da semana · pago no Pix dia 07/07",
+    miniPrizes: [
+      { valor: "01–05/07", label: "Período do desafio" },
+      { valor: "Dom 23:59", label: "Encerra" },
     ],
-    regrasNota: "Suba teu extrato todo dia até as 9h pra venda contar. Dinheiro vivo não entra — só cartão e pix verificado.",
-    acceptLabel: "TÔ NA DISPUTA →",
+    regrasTitulo: "🤝 Sistema de Afiliados",
+    regras: [
+      { nome: "Traga 3 pessoas pro Orbis", val: "R$ 50" },
+    ],
+    regrasNota: "Indique 3 amigos e ganhe R$50. · Vence quem fizer + faturamento — só cartão e pix contam.",
+    acceptLabel: "PARTICIPAR DO DESAFIO AGORA →",
   },
 ];
 

@@ -6,16 +6,25 @@ import { getActiveWeeklyChallenge, isFirstDay } from "@/shared/lib/weeklyChallen
 // Evento pra o ícone dourado (no DEFCON) reabrir o bilhete que mora no Layout.
 const OPEN_EVENT = "orbis:open-weekly-ticket";
 
+// Hora atual no fuso do Brasil (0–23).
+function brazilHour(): number {
+  return Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(new Date()),
+  );
+}
+
 // ===== Overlay do bilhete (vive no Layout, tela cheia, por cima do menu) =====
 // Abre sozinho no 1º dia (uma vez, até aceitar). Depois só reabre pelo ícone.
 export function WeeklyChallengeTicket() {
+  const navigate = useNavigate();
   const challenge = getActiveWeeklyChallenge();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
     if (!challenge) return;
     const seenKey = `orbis_wc_seen_${challenge.id}`;
-    if (isFirstDay(challenge) && localStorage.getItem(seenKey) !== "1") {
+    // Abre sozinho só no 1º dia, A PARTIR DAS 5H (fuso BR), uma vez (até aceitar).
+    if (isFirstDay(challenge) && brazilHour() >= 5 && localStorage.getItem(seenKey) !== "1") {
       setOpen(true);
     }
   }, [challenge?.id]);
@@ -28,9 +37,12 @@ export function WeeklyChallengeTicket() {
 
   if (!challenge || !open) return null;
 
-  const close = () => {
+  // Aceitar: marca visto, fecha o bilhete e começa o fluxo guiado → ranking.
+  const aceitar = () => {
     localStorage.setItem(`orbis_wc_seen_${challenge.id}`, "1");
+    sessionStorage.setItem("orbis_desafio_passo", "ranking");
     setOpen(false);
+    navigate("/ranking");
   };
 
   return (
@@ -48,7 +60,7 @@ export function WeeklyChallengeTicket() {
         commissionTiers={challenge.regras.map((r) => ({ nome: r.nome, val: r.val }))}
         commissionNote={challenge.regrasNota}
         acceptLabel={challenge.acceptLabel}
-        onAccept={close}
+        onAccept={aceitar}
       />
     </div>
   );
