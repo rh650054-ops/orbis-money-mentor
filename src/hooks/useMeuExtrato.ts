@@ -10,6 +10,14 @@ export interface ExtratoSlot {
   updated_at: string;
 }
 
+export interface UploadResult {
+  ok: boolean;
+  verificado?: number;
+  suspeitas?: { valor?: number; motivo?: string; descricao?: string }[];
+  defconTotal?: number;
+  acimaDoDefcon?: boolean;
+}
+
 function fileToB64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -46,16 +54,26 @@ export function useMeuExtrato(userId: string | undefined, dia: string) {
 
   // Manda o arquivo pra IA (verificar-extrato) que le, audita e SALVA no extrato_uploads.
   const upload = useCallback(
-    async (tipo: "pix" | "cartao", file: File): Promise<{ ok: boolean }> => {
+    async (tipo: "pix" | "cartao", file: File): Promise<UploadResult> => {
       try {
         const b64 = await fileToB64(file);
         const { data, error } = await supabase.functions.invoke("verificar-extrato", {
           body: { file: b64, mime: file.type || "application/pdf", salvar: true, tipo, dia },
         });
-        const res = data as { ok?: boolean; salvo?: boolean } | null;
+        const res = data as {
+          ok?: boolean; salvo?: boolean; total_vendas?: number;
+          suspeitas?: { valor?: number; motivo?: string; descricao?: string }[];
+          defcon_total?: number; acima_do_defcon?: boolean;
+        } | null;
         if (error || !res?.ok || !res?.salvo) return { ok: false };
         await reload();
-        return { ok: true };
+        return {
+          ok: true,
+          verificado: Number(res.total_vendas ?? 0),
+          suspeitas: res.suspeitas ?? [],
+          defconTotal: Number(res.defcon_total ?? 0),
+          acimaDoDefcon: !!res.acima_do_defcon,
+        };
       } catch {
         return { ok: false };
       }

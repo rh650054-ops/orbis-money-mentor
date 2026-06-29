@@ -207,7 +207,7 @@ Deno.serve(async (req) => {
     //    transacao (valor + origem) aparece nos DOIS, e o mesmo extrato subido 2x
     //    -> conta UMA vez (a copia vai pra suspeitas). Mata o bug do "soma em dobro".
     // 2) VALOR ALTO: venda individual acima do teto (ticket de rua e pequeno) vira
-    //    suspeita e NAO conta. Teto configuravel via SUSPEITA_VALOR_MAX (default 300).
+    //    suspeita e NAO conta. Teto configuravel via SUSPEITA_VALOR_MAX (default 150).
     let outras: any[] = [];
     if (supa && uid) {
       try {
@@ -222,7 +222,7 @@ Deno.serve(async (req) => {
         outras = Array.isArray((o as any)?.vendas) ? (o as any).vendas : [];
       } catch { /* segue sem dedup se a leitura falhar */ }
     }
-    const LIMITE = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "300");
+    const LIMITE = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "150");
     const chave = (v: any) =>
       `${Math.round((Number(v?.valor) || 0) * 100)}|${String(v?.descricao ?? "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24)}`;
     const outrasKeys = new Set(outras.map(chave));

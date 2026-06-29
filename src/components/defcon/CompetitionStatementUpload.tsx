@@ -58,13 +58,21 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     e.target.value = "";
     if (!file) return;
     setBusy(tipo);
-    const { ok } = await upload(tipo, file);
+    const r = await upload(tipo, file);
     setBusy(null);
-    if (!ok) {
+    if (!r.ok) {
       toast({
         title: "Não consegui ler esse extrato",
         description: "Tenta de novo ou manda uma foto mais nítida.",
         variant: "destructive",
+      });
+      return;
+    }
+    const susp = r.suspeitas?.length ?? 0;
+    if (susp > 0 || r.acimaDoDefcon) {
+      toast({
+        title: "Extrato conferido — com avisos",
+        description: `${susp > 0 ? `${susp} venda(s) suspeita(s) ignorada(s). ` : ""}${r.acimaDoDefcon ? "Passou do total do DEFCON — marcado pra revisão." : ""}`.trim(),
       });
     }
   };

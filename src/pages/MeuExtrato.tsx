@@ -6,6 +6,7 @@ import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { getExtratoDia } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
+import { toast } from "@/shared/hooks/use-toast";
 import { useMeuExtrato, type ExtratoSlot } from "@/hooks/useMeuExtrato";
 
 // Tela do vendedor: manda o extrato do Pix e da maquininha pra comprovar as vendas.
@@ -34,8 +35,18 @@ export default function MeuExtrato() {
     if (!file) return;
     setError("");
     setBusy(tipo);
-    const { ok } = await upload(tipo, file);
-    if (!ok) setError("Não consegui ler esse extrato. Tenta de novo ou manda uma foto mais nítida.");
+    const r = await upload(tipo, file);
+    if (!r.ok) {
+      setError("Não consegui ler esse extrato. Tenta de novo ou manda uma foto mais nítida.");
+    } else {
+      const susp = r.suspeitas?.length ?? 0;
+      if (susp > 0 || r.acimaDoDefcon) {
+        toast({
+          title: "Extrato conferido — com avisos",
+          description: `${susp > 0 ? `${susp} venda(s) suspeita(s) ignorada(s). ` : ""}${r.acimaDoDefcon ? "Passou do total do DEFCON — marcado pra revisão." : ""}`.trim(),
+        });
+      }
+    }
     setBusy(null);
     if (e.target) e.target.value = "";
   };
