@@ -3,12 +3,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 
-// Domingo desta semana (00h) no fuso do Brasil. A semana conta de domingo a sábado;
-// quando vira o domingo, o week_start muda e o ranking "zera" sozinho.
+// A 1ª temporada começa no dia 1 (julho começou quebrado, numa quarta). Depois disso
+// a semana é sempre SEGUNDA → DOMINGO: encerra domingo 23:59 e zera na segunda.
+const TEMPORADA_INICIO = "2026-07-01";
+
+// Segunda-feira desta semana (fuso BR). Na 1ª semana, não conta antes do dia 1.
 export function currentWeekStart(): string {
   const todayISO = getBrazilDate(); // "YYYY-MM-DD" no fuso BR
   const d = new Date(`${todayISO}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() - d.getUTCDay()); // getUTCDay: 0 = domingo
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // volta pra segunda (0 = domingo)
+  const monday = d.toISOString().slice(0, 10);
+  return monday < TEMPORADA_INICIO ? TEMPORADA_INICIO : monday;
+}
+
+// Domingo desta semana (fim da janela). Sempre o domingo natural — não trava no dia 1.
+export function currentWeekEnd(): string {
+  const todayISO = getBrazilDate();
+  const d = new Date(`${todayISO}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7) + 6); // segunda + 6 = domingo
   return d.toISOString().slice(0, 10);
 }
 
@@ -24,7 +36,8 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     setIsLoading(true);
     try {
       const weekStart = currentWeekStart();
-      const { data, error } = await supabase.rpc("get_weekly_ranking", { p_week_start: weekStart });
+      const weekEnd = currentWeekEnd();
+      const { data, error } = await supabase.rpc("get_weekly_ranking", { p_week_start: weekStart, p_week_end: weekEnd });
       if (error) {
         console.error("Ranking semanal erro:", error.message);
         setRanking([]);

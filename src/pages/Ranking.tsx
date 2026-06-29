@@ -371,7 +371,7 @@ export default function Ranking() {
       <p className="text-center text-xs text-muted-foreground -mt-2">
         {isMensal
           ? "Maiores vendedores do mês · ofensiva 🔥 incluída"
-          : "Maiores vendedores desta semana · zera domingo 00h"}
+          : "Maiores vendedores desta semana · encerra domingo 23:59"}
       </p>
 
       {isMensal ? (
