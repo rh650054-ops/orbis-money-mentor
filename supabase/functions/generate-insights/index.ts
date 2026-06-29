@@ -81,13 +81,45 @@ async function callCerebras(systemPrompt: string, userPrompt: string): Promise<s
   return content;
 }
 
-// Texto: Cerebras primeiro (grátis, generoso), Gemini de reserva.
+// ---- Claude (Anthropic, texto). Primeiro da fila; cai no Cerebras/Gemini se faltar chave/erro/credito. ----
+async function callClaude(systemPrompt: string, userPrompt: string): Promise<string> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) throw new Error("sem_anthropic_key");
+  const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+    signal: AbortSignal.timeout(30000),
+    body: JSON.stringify({
+      model,
+      max_tokens: 2000,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userPrompt }],
+    }),
+  });
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => "");
+    throw new Error(`claude_${res.status}: ${errBody.slice(0, 250)}`);
+  }
+  const j = await res.json();
+  const content = ((j?.content ?? []).map((b: any) => b?.text || "").join("")).trim();
+  if (!content) throw new Error("claude_vazio");
+  return content;
+}
+
+// Texto: Claude primeiro; Cerebras de reserva; Gemini por último.
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   try {
-    return await callCerebras(systemPrompt, userPrompt);
+    return await callClaude(systemPrompt, userPrompt);
   } catch (e) {
-    console.error("CEREBRAS_FALHOU (caindo no Gemini):", String(e));
-    return await callGemini(systemPrompt, userPrompt);
+    console.error("CLAUDE_FALHOU (caindo no Cerebras):", String(e));
+    try {
+      return await callCerebras(systemPrompt, userPrompt);
+    } catch (e2) {
+      console.error("CEREBRAS_FALHOU (caindo no Gemini):", String(e2));
+      return await callGemini(systemPrompt, userPrompt);
+    }
   }
 }
 
@@ -247,7 +279,7 @@ Retorne SOMENTE este JSON preenchido:
   "improvement": "sugestão acionável em 2-3 frases"
 }`;
 
-    const aiText = await callGemini(systemPrompt, userPrompt);
+    const aiText = await callAI(systemPrompt, userPrompt);
 
     let parsedReport;
     try {

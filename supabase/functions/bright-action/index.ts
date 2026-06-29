@@ -286,6 +286,43 @@ Deno.serve(async (req) => {
       : "";
     console.log("CTX recebido (chars):", userCtx.length); // diagnóstico: >0 = dados chegaram
 
+    // ===== TEXTO: tenta CLAUDE (Anthropic) primeiro; cai no Cerebras/Gemini (gratis) se faltar chave/erro/credito. =====
+    try {
+      const akey = Deno.env.get("ANTHROPIC_API_KEY");
+      if (akey) {
+        const amodel = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
+        const ahist = messages.slice(-8).map((m: any) => ({
+          role: m?.role === "assistant" ? "assistant" : "user",
+          content: String(m?.content ?? "").slice(0, 2000),
+        }));
+        // Claude exige que a 1a mensagem seja do "user".
+        while (ahist.length && ahist[0].role !== "user") ahist.shift();
+        if (ahist.length) {
+          const aRes = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
+            signal: AbortSignal.timeout(25000),
+            body: JSON.stringify({
+              model: amodel,
+              max_tokens: 500,
+              temperature: 0.8,
+              system: ORBIS_BRAIN + userCtx + CEREBRAS_CHAT_EXTRA,
+              messages: ahist,
+            }),
+          });
+          if (aRes.ok) {
+            const aj = await aRes.json();
+            const atext = ((aj?.content ?? []).map((b: any) => b?.text || "").join("")).replace(/\*\*/g, "").trim();
+            if (atext) return json({ success: true, message: atext });
+          } else {
+            console.error("Claude chat erro", aRes.status);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Claude chat exceção (cai pro Cerebras)", e);
+    }
+
     // ===== TEXTO: tenta Cerebras (gratis, 1M tokens/dia); cai no Gemini se faltar chave/erro. =====
     try {
       const ckey = Deno.env.get("CEREBRAS_API_KEY");
