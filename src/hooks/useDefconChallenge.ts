@@ -48,6 +48,9 @@ export function useDefconChallenge(userId: string | undefined) {
   const [lunchPauseStartedAt, setLunchPauseStartedAt] = useState<Date | null>(null);
   const [lunchPauseDuration, setLunchPauseDuration] = useState(0);
   const [pausedBlockRemaining, setPausedBlockRemaining] = useState(0);
+  // Tempo trabalhado RECONSTRUÍDO de uma sessão já encerrada (sobrevive ao reload).
+  // null = sessão não encerrada -> usa o cálculo ao vivo (currentBlockIndex/remainingSeconds).
+  const [workedMinutes, setWorkedMinutes] = useState<number | null>(null);
   
   // Approach & sales tracking per block
   const [blockApproaches, setBlockApproaches] = useState(0);
@@ -246,6 +249,7 @@ export function useDefconChallenge(userId: string | undefined) {
   const loadData = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
+    setWorkedMinutes(null); // recalculado abaixo só p/ sessões já encerradas
 
     const today = getBrazilDate();
 
@@ -365,13 +369,23 @@ export function useDefconChallenge(userId: string | undefined) {
         }
       }
 
-      if (session.status === "completed") {
-        setPhase("finished");
-        setLoading(false);
-        return;
-      }
-      if (session.status === "abandoned") {
-        setPhase("abandoned");
+      if (session.status === "completed" || session.status === "abandoned") {
+        // Reconstrói o tempo trabalhado a partir de dados PERSISTIDOS — senão zera ao
+        // recarregar uma sessão já encerrada (o print do fim de dia mostrava "0h").
+        // Mesma conta do cálculo ao vivo: blocos cheios concluídos * 60min + o parcial
+        // do bloco atual (do início do bloco até o fim da sessão), travado em 60min.
+        const idx = session.current_block_index || 0;
+        const startedTs = blocksData?.[idx]?.timer_started_at;
+        let partial = 0;
+        if (startedTs && session.ended_at) {
+          const mins = Math.round(
+            (new Date(session.ended_at).getTime() - new Date(startedTs).getTime()) / 60000
+          );
+          partial = Math.min(60, Math.max(0, mins));
+        }
+        setCurrentBlockIndex(idx); // pro "totalBlocks" (currentBlockIndex+1) também não zerar
+        setWorkedMinutes(idx * 60 + partial);
+        setPhase(session.status === "completed" ? "finished" : "abandoned");
         setLoading(false);
         return;
       }
@@ -613,6 +627,7 @@ export function useDefconChallenge(userId: string | undefined) {
     setCurrentBlockIndex(0);
     setBlockStartedAt(startTime);
     setRemainingSeconds(BLOCK_DURATION);
+    setWorkedMinutes(null);
     setPhase("running");
 
     celebrationSounds.playDefconActivation();
@@ -1008,6 +1023,7 @@ export function useDefconChallenge(userId: string | undefined) {
     setRemainingSeconds(BLOCK_DURATION);
     setBlockApproaches(0);
     setBlockSalesCount(0);
+    setWorkedMinutes(null);
     setPhase("running");
   };
 
@@ -1074,6 +1090,7 @@ export function useDefconChallenge(userId: string | undefined) {
     dailyGoal,
     totalSold,
     remainingSeconds,
+    workedMinutes,
     breakRemaining,
     blockStartedAt,
     blockEndTime,
