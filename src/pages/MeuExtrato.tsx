@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Upload, Loader2, Smartphone, CreditCard, Clock } from "lucide-react";
+import { ArrowLeft, Upload, Loader2, Smartphone, CreditCard, Clock, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,9 +15,19 @@ export default function MeuExtrato() {
   const { user } = useAuth();
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
-  const { pix, cartao, totalDia, upload } = useMeuExtrato(user?.id, dia);
+  const { pix, cartao, totalDia, upload, remove } = useMeuExtrato(user?.id, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
+  const [deleting, setDeleting] = useState<null | "pix" | "cartao">(null);
   const [error, setError] = useState("");
+
+  const handleDelete = async (tipo: "pix" | "cartao") => {
+    if (!window.confirm("Excluir esse extrato? Você pode enviar de novo depois.")) return;
+    setError("");
+    setDeleting(tipo);
+    const { ok } = await remove(tipo);
+    if (!ok) setError("Não consegui excluir agora. Tenta de novo.");
+    setDeleting(null);
+  };
 
   const handleFile = async (tipo: "pix" | "cartao", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -61,6 +71,16 @@ export default function MeuExtrato() {
             {busy === tipo ? "Lendo..." : slot ? "Reenviar" : "Enviar extrato"}
           </span>
         </label>
+        {slot && (
+          <button
+            onClick={() => handleDelete(tipo)}
+            disabled={deleting !== null || busy !== null}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold text-destructive bg-destructive/10 disabled:opacity-60"
+          >
+            {deleting === tipo ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            {deleting === tipo ? "Excluindo..." : "Excluir extrato"}
+          </button>
+        )}
       </CardContent>
     </Card>
   );

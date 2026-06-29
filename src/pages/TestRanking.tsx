@@ -72,9 +72,9 @@ export default function TestRanking() {
   const [breakdown, setBreakdown] = useState<DiaBreak[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!user?.id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const today = getBrazilDate();
       const weekStart = mondayOf(today);
@@ -126,12 +126,21 @@ export default function TestRanking() {
       setBreakdown(bd);
       setMyTotal(bd.reduce((s, b) => s + b.valor, 0));
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [user?.id]);
 
+  // Ao vivo: recarrega sozinho a cada 4s (pega as vendas do DEFCON na hora) + ao voltar o foco.
   useEffect(() => {
-    if (isAdmin) load();
+    if (!isAdmin) return;
+    load();
+    const id = setInterval(() => load(true), 4000);
+    const onFocus = () => load(true);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("focus", onFocus);
+    };
   }, [isAdmin, load]);
 
   if (adminLoading) {

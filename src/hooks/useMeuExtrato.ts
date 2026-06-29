@@ -63,6 +63,27 @@ export function useMeuExtrato(userId: string | undefined, dia: string) {
     [dia, reload],
   );
 
+  // Exclui o extrato ja enviado (slot pix ou cartao) do dia.
+  const remove = useCallback(
+    async (tipo: "pix" | "cartao"): Promise<{ ok: boolean }> => {
+      if (!userId) return { ok: false };
+      try {
+        const { error } = await supabase
+          .from("extrato_uploads")
+          .delete()
+          .eq("user_id", userId)
+          .eq("dia", dia)
+          .eq("tipo", tipo);
+        if (error) return { ok: false };
+        await reload();
+        return { ok: true };
+      } catch {
+        return { ok: false };
+      }
+    },
+    [userId, dia, reload],
+  );
+
   const totalDia = (pix?.total_verificado ?? 0) + (cartao?.total_verificado ?? 0);
-  return { pix, cartao, totalDia, loading, reload, upload };
+  return { pix, cartao, totalDia, loading, reload, upload, remove };
 }
