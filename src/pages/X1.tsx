@@ -23,6 +23,12 @@ interface X1 {
   opponent_paid: boolean;
   money_status: string;
   winner_user_id: string | null;
+  modo: string | null;
+  challenger_pix: string | null;
+  challenger_pix_nome: string | null;
+  opponent_pix: string | null;
+  opponent_pix_nome: string | null;
+  last_proposed_by: string | null;
 }
 interface RankUser {
   user_id: string;
@@ -32,6 +38,15 @@ interface RankUser {
 interface Settings {
   pix_account: string | null;
   fee_flat: number;
+}
+interface NegForm {
+  open: "accept" | "counter" | null;
+  pix: string;
+  nome: string;
+  modo: string;
+  goal: string;
+  stakes: string;
+  date: string;
 }
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
@@ -44,8 +59,9 @@ const dateBR = (iso: string | null) => {
   }
 };
 const statusLabel: Record<string, string> = {
-  pending: "Aguardando aceite",
-  accepted: "Aceito",
+  pending: "Em negociação",
+  accepted: "Acordo fechado · aguardando pagamento",
+  active: "Em andamento",
   declined: "Recusado",
   cancelled: "Cancelado",
   awaiting_result: "Aguardando resultado",
@@ -79,7 +95,25 @@ export default function X1() {
   const [schedDate, setSchedDate] = useState(getBrazilDate());
   const [goal, setGoal] = useState("");
   const [stakes, setStakes] = useState("0");
+  const [modo, setModo] = useState("");
+  const [myPix, setMyPix] = useState("");
+  const [myNome, setMyNome] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // formulários inline de negociação por desafio (chave = id do desafio)
+  const [negState, setNegState] = useState<Record<string, NegForm>>({});
+  const negFor = (c: X1): NegForm =>
+    negState[c.id] ?? {
+      open: null,
+      pix: c.challenger_id === user?.id ? c.challenger_pix ?? "" : c.opponent_pix ?? "",
+      nome: c.challenger_id === user?.id ? c.challenger_pix_nome ?? "" : c.opponent_pix_nome ?? "",
+      modo: c.modo ?? "",
+      goal: c.goal_amount != null ? String(c.goal_amount) : "",
+      stakes: String(c.stakes_amount ?? 0),
+      date: c.scheduled_date ?? getBrazilDate(),
+    };
+  const patchNeg = (c: X1, patch: Partial<NegForm>) =>
+    setNegState((s) => ({ ...s, [c.id]: { ...negFor(c), ...patch } }));
 
   const loadAll = async () => {
     if (!user) return;
@@ -123,6 +157,9 @@ export default function X1() {
       setSchedDate(getBrazilDate());
       setGoal("");
       setStakes("0");
+      setModo("");
+      setMyPix("");
+      setMyNome("");
       setMode("new");
     })().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,6 +181,9 @@ export default function X1() {
     setSearch("");
     setGoal("");
     setStakes("0");
+    setModo("");
+    setMyPix("");
+    setMyNome("");
     setSchedDate(getBrazilDate());
     setMode("new");
     loadRanking();
@@ -158,12 +198,17 @@ export default function X1() {
     const { error } = await supabase.from("x1_challenges" as any).insert({
       challenger_id: user.id,
       opponent_id: opp.user_id,
+      status: "pending",
       scheduled_date: schedDate || null,
       goal_amount: Number(goal) || null,
       stakes_amount: s,
       fee_amount: fee,
       prize_amount: prize,
       pix_account: settings?.pix_account ?? null,
+      modo: modo.trim() || null,
+      challenger_pix: myPix.trim() || null,
+      challenger_pix_nome: myNome.trim() || null,
+      last_proposed_by: user.id,
     });
     setSaving(false);
     if (error) {
@@ -185,10 +230,29 @@ export default function X1() {
     loadAll();
   };
 
-  const respond = (id: string, accept: boolean) =>
-    rpc("x1_respond", { p_id: id, p_accept: accept }, accept ? "Desafio aceito! ⚔️" : "Desafio recusado");
+  const negotiate = (
+    id: string,
+    action: "accept" | "decline" | "counter",
+    extra: { pix?: string | null; nome?: string | null; modo?: string | null; goal?: number | null; stakes?: number | null; date?: string | null } = {},
+    okMsg?: string,
+  ) =>
+    rpc(
+      "x1_negotiate",
+      {
+        p_id: id,
+        p_action: action,
+        p_pix: extra.pix ?? null,
+        p_nome: extra.nome ?? null,
+        p_modo: extra.modo ?? null,
+        p_goal: extra.goal ?? null,
+        p_stakes: extra.stakes ?? null,
+        p_date: extra.date ?? null,
+      },
+      okMsg ?? (action === "accept" ? "Acordo fechado! ⚔️" : action === "decline" ? "Desafio recusado" : "Contra-proposta enviada"),
+    );
   const markPaid = (id: string) => rpc("x1_mark_paid", { p_id: id }, "Marcado como pago — admin vai confirmar");
   const cancelX1 = (id: string) => rpc("x1_cancel", { p_id: id }, "Desafio cancelado");
+  const adminConfirmPayment = (id: string) => rpc("x1_admin_confirm_payment", { p_id: id }, "Pagamentos confirmados — duelo liberado");
   const setWinner = (c: X1, winner: string) =>
     rpc(
       "x1_admin_set_result",
@@ -258,6 +322,15 @@ export default function X1() {
               </div>
             </div>
             <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">O que é o desafio</label>
+              <input
+                value={modo}
+                onChange={(e) => setModo(e.target.value)}
+                placeholder="Ex: quem fatura mais no dia"
+                className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1"
+              />
+            </div>
+            <div>
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dia do duelo</label>
               <input type="date" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1" />
             </div>
@@ -273,6 +346,21 @@ export default function X1() {
                   Prêmio do vencedor ≈ {fmt(Math.max(0, Number(stakes) * 2 - (settings?.fee_flat ?? 0)))} (taxa Orbis {fmt(settings?.fee_flat ?? 0)}). O dinheiro vai pro Pix do admin e fica seguro até o resultado.
                 </p>
               )}
+            </div>
+            <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2">
+              <label className="text-xs font-bold uppercase tracking-wider text-amber-400">Seu Pix pra receber se ganhar</label>
+              <input
+                value={myPix}
+                onChange={(e) => setMyPix(e.target.value)}
+                placeholder="Chave Pix (CPF, e-mail, telefone…)"
+                className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
+              />
+              <input
+                value={myNome}
+                onChange={(e) => setMyNome(e.target.value)}
+                placeholder="Nome do titular da conta"
+                className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
+              />
             </div>
             <button onClick={createX1} disabled={saving} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm active:scale-[0.98] disabled:opacity-60">
               {saving ? "Enviando…" : "Enviar desafio ⚔️"}
@@ -331,9 +419,12 @@ export default function X1() {
                     <p className="text-sm font-bold text-foreground truncate">
                       vs {name(other)} {iAmChallenger ? "(você chamou)" : "(te chamou)"}
                     </p>
+                    {c.modo && <p className="text-[11px] text-amber-400 font-semibold truncate">{c.modo}</p>}
                     <p className="text-[11px] text-muted-foreground">
                       {statusLabel[c.status] || c.status} · {dateBR(c.scheduled_date)}
                       {c.goal_amount ? ` · meta ${fmt(c.goal_amount)}` : ""}
+                      {c.stakes_amount > 0 ? ` · aposta ${fmt(c.stakes_amount)}` : ""}
+                      {c.prize_amount > 0 ? ` · prêmio ${fmt(c.prize_amount)}` : ""}
                     </p>
                   </div>
                   {c.winner_user_id && (
@@ -343,52 +434,162 @@ export default function X1() {
                   )}
                 </div>
 
-                {c.stakes_amount > 0 && (
-                  <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-2.5 text-[11px] text-muted-foreground">
-                    <p>Aposta: {fmt(c.stakes_amount)} cada · Prêmio: <span className="text-amber-400 font-bold">{fmt(c.prize_amount)}</span></p>
-                    <p className="mt-0.5">{moneyLabel[c.money_status] || c.money_status}</p>
-                    {c.money_status === "awaiting_payment" && c.pix_account && (
+                {/* ----- pending: negociação ----- */}
+                {c.status === "pending" && (() => {
+                  const myTurn = c.last_proposed_by !== user?.id;
+                  const f = negFor(c);
+                  return (
+                    <div className="space-y-2">
+                      {!myTurn ? (
+                        <p className="text-[11px] text-muted-foreground rounded-lg bg-muted/30 border border-border/50 p-2.5">
+                          Aguardando {name(other)} responder à sua proposta…
+                        </p>
+                      ) : (
+                        <>
+                          {f.open === null && (
+                            <div className="flex flex-wrap gap-2">
+                              <button onClick={() => patchNeg(c, { open: "accept" })} className="flex-1 h-9 rounded-lg bg-green-600 text-white text-xs font-bold flex items-center justify-center gap-1">
+                                <Check className="w-3.5 h-3.5" /> Aceitar
+                              </button>
+                              <button onClick={() => negotiate(c.id, "decline")} className="flex-1 h-9 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold flex items-center justify-center gap-1">
+                                <X className="w-3.5 h-3.5" /> Recusar
+                              </button>
+                              <button onClick={() => patchNeg(c, { open: "counter" })} className="flex-1 h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-400 text-xs font-bold">
+                                Contra-proposta
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Aceitar → meu Pix */}
+                          {f.open === "accept" && (
+                            <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Seu Pix pra receber se ganhar</p>
+                              <input value={f.pix} onChange={(e) => patchNeg(c, { pix: e.target.value })} placeholder="Chave Pix" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              <input value={f.nome} onChange={(e) => patchNeg(c, { nome: e.target.value })} placeholder="Nome do titular" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={() => negotiate(c.id, "accept", { pix: f.pix.trim() || null, nome: f.nome.trim() || null })} className="flex-1 h-9 rounded-lg bg-green-600 text-white text-xs font-bold">
+                                  Confirmar e fechar acordo
+                                </button>
+                                <button onClick={() => patchNeg(c, { open: null })} className="h-9 px-3 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold">
+                                  Voltar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Contra-proposta */}
+                          {f.open === "counter" && (
+                            <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2">
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Sua contra-proposta</p>
+                              <input value={f.modo} onChange={(e) => patchNeg(c, { modo: e.target.value })} placeholder="O que é o desafio" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              <div className="flex gap-2">
+                                <input type="number" inputMode="numeric" value={f.goal} onChange={(e) => patchNeg(c, { goal: e.target.value })} placeholder="Meta (R$)" className="flex-1 h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                                <input type="number" inputMode="numeric" value={f.stakes} onChange={(e) => patchNeg(c, { stakes: e.target.value })} placeholder="Aposta (R$)" className="flex-1 h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              </div>
+                              <input type="date" value={f.date} onChange={(e) => patchNeg(c, { date: e.target.value })} className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400 pt-1">Seu Pix pra receber se ganhar</p>
+                              <input value={f.pix} onChange={(e) => patchNeg(c, { pix: e.target.value })} placeholder="Chave Pix" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              <input value={f.nome} onChange={(e) => patchNeg(c, { nome: e.target.value })} placeholder="Nome do titular" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={() =>
+                                    negotiate(c.id, "counter", {
+                                      pix: f.pix.trim() || null,
+                                      nome: f.nome.trim() || null,
+                                      modo: f.modo.trim() || null,
+                                      goal: f.goal === "" ? null : Number(f.goal),
+                                      stakes: f.stakes === "" ? null : Number(f.stakes),
+                                      date: f.date || null,
+                                    })
+                                  }
+                                  className="flex-1 h-9 rounded-lg bg-amber-500 text-black text-xs font-bold"
+                                >
+                                  Enviar contra-proposta
+                                </button>
+                                <button onClick={() => patchNeg(c, { open: null })} className="h-9 px-3 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold">
+                                  Voltar
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {iAmChallenger && (
+                        <button onClick={() => cancelX1(c.id)} className="w-full h-9 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold">
+                          Cancelar desafio
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* ----- accepted: fluxo do dinheiro ----- */}
+                {c.status === "accepted" && c.stakes_amount > 0 && (
+                  <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-2.5 space-y-2 text-[11px] text-muted-foreground">
+                    <p>
+                      Faça o Pix de <span className="text-amber-400 font-bold">{fmt(c.stakes_amount)}</span> pra a conta do Orbis:
+                    </p>
+                    {c.pix_account && (
                       <button
-                        onClick={() => {
-                          navigator.clipboard?.writeText(c.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {});
-                        }}
-                        className="mt-1 inline-flex items-center gap-1 text-amber-400 font-semibold"
+                        onClick={() => navigator.clipboard?.writeText(c.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {})}
+                        className="inline-flex items-center gap-1 text-amber-400 font-semibold"
                       >
-                        <Copy className="w-3 h-3" /> Pix do admin: {c.pix_account}
+                        <Copy className="w-3 h-3" /> {c.pix_account}
+                      </button>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {!iPaid ? (
+                        <button onClick={() => markPaid(c.id)} className="flex-1 h-9 rounded-lg bg-amber-500 text-black text-xs font-bold">
+                          Já enviei meu Pix
+                        </button>
+                      ) : (
+                        <span className="flex-1 inline-flex items-center gap-1 text-green-400 font-semibold">
+                          <Check className="w-3.5 h-3.5" /> Você pagou {!(iAmChallenger ? c.opponent_paid : c.challenger_paid) && "· aguardando o outro"}
+                        </span>
+                      )}
+                    </div>
+                    {isAdmin && (
+                      <button onClick={() => adminConfirmPayment(c.id)} className="w-full h-9 rounded-lg border border-primary/40 bg-primary/10 text-primary text-xs font-bold">
+                        Confirmei o Pix dos dois
                       </button>
                     )}
                   </div>
                 )}
 
-                {/* Ações do participante */}
-                <div className="flex flex-wrap gap-2">
-                  {c.status === "pending" && !iAmChallenger && (
-                    <>
-                      <button onClick={() => respond(c.id, true)} className="flex-1 h-9 rounded-lg bg-green-600 text-white text-xs font-bold flex items-center justify-center gap-1">
-                        <Check className="w-3.5 h-3.5" /> Aceitar
-                      </button>
-                      <button onClick={() => respond(c.id, false)} className="flex-1 h-9 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold flex items-center justify-center gap-1">
-                        <X className="w-3.5 h-3.5" /> Recusar
-                      </button>
-                    </>
-                  )}
-                  {c.status === "pending" && iAmChallenger && (
-                    <button onClick={() => cancelX1(c.id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold">
-                      Cancelar desafio
-                    </button>
-                  )}
-                  {c.status === "accepted" && c.stakes_amount > 0 && !iPaid && (
-                    <button onClick={() => markPaid(c.id)} className="flex-1 h-9 rounded-lg bg-amber-500 text-black text-xs font-bold">
-                      Já enviei meu Pix
-                    </button>
-                  )}
-                  {c.status === "accepted" && c.stakes_amount > 0 && iPaid && (
-                    <span className="text-[11px] text-green-400 font-semibold">Você marcou como pago ✓ {!(iAmChallenger ? c.opponent_paid : c.challenger_paid) && "· aguardando o outro"}</span>
-                  )}
-                </div>
+                {/* ----- active: em andamento ----- */}
+                {c.status === "active" && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-amber-400">⚔️ Desafio em andamento</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {dateBR(c.scheduled_date)}
+                      {c.goal_amount ? ` · meta ${fmt(c.goal_amount)}` : ""}
+                    </p>
+                    {isAdmin && (
+                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · premiar vencedor</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setWinner(c, c.challenger_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
+                            <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.challenger_id)}
+                          </button>
+                          <button onClick={() => setWinner(c, c.opponent_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
+                            <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.opponent_id)}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
-                {/* Ações do admin */}
-                {isAdmin && (c.status === "accepted" || c.status === "awaiting_result") && (
+                {/* ----- finished: vencedor ----- */}
+                {c.status === "finished" && c.winner_user_id && (
+                  <p className="text-[11px] font-semibold text-muted-foreground">
+                    🏆 Vencedor: <span className="text-amber-400">{name(c.winner_user_id)}</span>
+                    {c.prize_amount > 0 ? ` · prêmio ${fmt(c.prize_amount)}` : ""}
+                  </p>
+                )}
+
+                {/* ----- admin: aguardando resultado (legado) ----- */}
+                {isAdmin && c.status === "awaiting_result" && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · definir vencedor</p>
                     <div className="flex gap-2">
