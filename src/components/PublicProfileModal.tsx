@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
   const [lastActive, setLastActive] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { user: viewer } = useAuth();
+  const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(viewer?.id);
   const canSeeWinnings = !!userId && (viewer?.id === userId || (whitelisted && role === "admin"));
   const [winTotal, setWinTotal] = useState<number | null>(null);
@@ -213,6 +215,21 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                   </p>
                 )}
               </div>
+
+              {/* Chamar pra X1 — livre pra qualquer usuário (menos você mesmo) */}
+              {viewer && userId && viewer.id !== userId && (
+                <div className="px-5 mt-3">
+                  <button
+                    onClick={() => {
+                      onOpenChange(false);
+                      navigate(`/x1?desafiar=${userId}`);
+                    }}
+                    className="w-full h-11 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                  >
+                    <Swords className="w-4 h-4" /> Chamar pra X1
+                  </button>
+                </div>
+              )}
 
               {/* Stats from ranking */}
               {stats && (

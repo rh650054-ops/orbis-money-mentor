@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -61,6 +61,7 @@ const moneyLabel: Record<string, string> = {
 export default function X1() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
 
@@ -106,6 +107,26 @@ export default function X1() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Pré-seleciona o oponente quando vem de "Chamar pra X1" (/x1?desafiar=<uid>).
+  useEffect(() => {
+    const uid = searchParams.get("desafiar");
+    if (!uid || !user || uid === user.id) return;
+    (async () => {
+      const { data } = await supabase
+        .from("public_profiles")
+        .select("user_id, nickname, avatar_url")
+        .eq("user_id", uid)
+        .maybeSingle();
+      const p = data as any;
+      setOpp({ user_id: uid, nome_usuario: p?.nickname ?? null, avatar_url: p?.avatar_url ?? null });
+      setSchedDate(getBrazilDate());
+      setGoal("");
+      setStakes("0");
+      setMode("new");
+    })().catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, searchParams]);
 
   const loadRanking = async () => {
     const month = getBrazilDate().slice(0, 7);
