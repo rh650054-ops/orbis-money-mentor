@@ -7,6 +7,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
 import { CompetitionArena } from "@/components/competitions/CompetitionArena";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
+import { X1Andamento } from "@/components/competitions/X1Andamento";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
 interface Comp {
@@ -155,6 +156,9 @@ export default function Competitions() {
           <Swords className="w-4 h-4" /> X1
         </button>
       </div>
+
+      {/* X1 em andamento dos usuários (espectador) — junto das competições dos admins */}
+      <X1Andamento onOpen={() => navigate("/x1")} />
 
       {loading ? (
         <div className="space-y-3">
