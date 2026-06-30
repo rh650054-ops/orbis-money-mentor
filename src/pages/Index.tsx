@@ -18,6 +18,7 @@ import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
 import CompetitionCard from "@/components/CompetitionCard";
+import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 
 const REWARD_TIERS = [
@@ -399,6 +400,7 @@ export default function Index() {
   const greeting = getGreeting();
 
   return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+      {user && <X1InvitePopup userId={user.id} />}
       {/* Greeting */}
       <div className="flex items-center gap-3 py-2">
         <img
