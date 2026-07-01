@@ -199,7 +199,7 @@ export function GoldenTicket({
   const trackRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const burstRef = useRef<(() => void) | null>(null);
-  const drag = useRef({ on: false, startX: 0, max: 0, done: false });
+  const drag = useRef({ on: false, startX: 0, max: 0, done: false, moved: false });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -272,26 +272,33 @@ export function GoldenTicket({
     if (drag.current.done) return;
     const track = trackRef.current, handle = handleRef.current;
     if (!track || !handle) return;
-    drag.current = { on: true, startX: e.clientX, max: track.offsetWidth - handle.offsetWidth - 12, done: false };
-    handle.setPointerCapture(e.pointerId);
+    drag.current = { on: true, startX: e.clientX, max: track.offsetWidth - handle.offsetWidth - 12, done: false, moved: false };
+    // setPointerCapture pode lançar em alguns navegadores mobile — não pode quebrar o arrasto.
+    try { handle.setPointerCapture(e.pointerId); } catch { /* noop */ }
   };
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
     if (!d.on) return;
-    const delta = Math.max(0, Math.min(e.clientX - d.startX, d.max));
+    const raw = e.clientX - d.startX;
+    if (Math.abs(raw) > 6) d.moved = true; // passou a ser arrasto, não toque
+    const delta = Math.max(0, Math.min(raw, d.max));
     if (handleRef.current) handleRef.current.style.transform = `translateX(${delta}px)`;
     if (fillRef.current) fillRef.current.style.width = `${58 + delta}px`;
     if (delta >= d.max - 4) complete();
   };
-  const onUp = () => {
+  const onUp = (e: React.PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
-    if (!d.on || d.done) return;
+    try { handleRef.current?.releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    if (!d.on || d.done) { d.on = false; return; }
     d.on = false;
+    // Soltou sem arrastar = foi um TOQUE no cadeado → abre.
+    if (!d.moved) { complete(); return; }
+    // Arrastou mas não chegou ao fim → volta o cadeado pro começo (sem abrir).
     const handle = handleRef.current, fill = fillRef.current;
     if (handle && fill) {
       handle.style.transition = "transform 0.3s"; fill.style.transition = "width 0.3s";
       handle.style.transform = "translateX(0)"; fill.style.width = "58px";
-      setTimeout(() => { handle.style.transition = ""; fill.style.transition = ""; }, 300);
+      setTimeout(() => { if (handle) handle.style.transition = ""; if (fill) fill.style.transition = ""; }, 300);
     }
   };
 
@@ -332,10 +339,15 @@ export function GoldenTicket({
           </div>
         </div>
 
-        <div className="obt-unlock" ref={trackRef}>
+        <div
+          className="obt-unlock"
+          ref={trackRef}
+          style={{ cursor: "pointer" }}
+          onClick={() => { if (!drag.current.moved) complete(); drag.current.moved = false; }}
+        >
           <div className="obt-unlock-fill" ref={fillRef} />
           <div className="obt-unlock-text">ARRASTE OU TOQUE PARA ABRIR →</div>
-          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={complete}>
+          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
             {handleIcon}
           </div>
         </div>
