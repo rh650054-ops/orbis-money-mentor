@@ -69,10 +69,14 @@ export function WeeklyChallengeTicket() {
             ticketTitulo={challenge.ticketTitulo}
             grandPrizeValue={challenge.grandPrizeValue}
             grandPrizeDesc={challenge.grandPrizeDesc}
+            grandPrizeBadge={challenge.grandPrizeBadge}
+            grandPrizeBadgeTone={challenge.grandPrizeBadgeTone}
             miniPrizes={challenge.miniPrizes}
             commissionTitle={challenge.regrasTitulo}
             commissionTiers={challenge.regras.map((r) => ({ nome: r.nome, val: r.val }))}
             commissionNote={challenge.regrasNota}
+            commissionBadge={challenge.commissionBadge}
+            commissionBadgeTone={challenge.commissionBadgeTone}
             acceptLabel={challenge.acceptLabel}
             onAccept={aceitar}
           />

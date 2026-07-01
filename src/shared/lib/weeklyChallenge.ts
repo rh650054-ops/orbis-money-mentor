@@ -14,10 +14,14 @@ export interface WeeklyChallenge {
   ticketTitulo: string;
   grandPrizeValue: string;
   grandPrizeDesc: string;
-  miniPrizes: { valor: string; label: string }[];
+  grandPrizeBadge?: string;
+  grandPrizeBadgeTone?: "sub" | "hot";
+  miniPrizes: { valor: string; label: string; badge?: string; badgeTone?: "sub" | "hot" }[];
   regrasTitulo: string;
   regras: { nome: string; val: string }[];
   regrasNota: string;
+  commissionBadge?: string;
+  commissionBadgeTone?: "sub" | "hot";
   acceptLabel: string;
 }
 
@@ -32,18 +36,22 @@ const DESAFIOS: WeeklyChallenge[] = [
     eventoLabel: "Elite Orbis · Julho",
     ticketTitulo: "VOCÊ ESTÁ DENTRO",
     grandPrizeValue: "R$ 500",
-    grandPrizeDesc: "Ranking oficial · abre 06/07",
+    grandPrizeDesc: "Prêmio máximo do desafio",
+    grandPrizeBadge: "RANKING ABRE 06/07",
+    grandPrizeBadgeTone: "sub",
     miniPrizes: [
-      { valor: "R$ 100", label: "Top 1 da semana\nRanking · 06/07" },
-      { valor: "R$ 50", label: "Por 3 indicações\nHOJE!" },
+      { valor: "R$ 100", label: "Top 1 da semana", badge: "RANKING · 06/07", badgeTone: "sub" },
+      { valor: "R$ 50", label: "Por 3 indicações", badge: "LIBERADO HOJE", badgeTone: "hot" },
     ],
-    regrasTitulo: "🤝 Comissão por indicação · HOJE",
+    regrasTitulo: "🤝 Comissão por indicação",
     regras: [
       { nome: "1º indicado", val: "R$ 5" },
       { nome: "2º indicado", val: "R$ 7" },
       { nome: "3º indicado", val: "R$ 10" },
     ],
-    regrasNota: "Recrutamento LIBERADO HOJE. O ranking de vendas abre segunda (06/07).",
+    regrasNota: "O ranking de vendas abre segunda (06/07).",
+    commissionBadge: "MISSÃO LIBERADA HOJE",
+    commissionBadgeTone: "hot",
     acceptLabel: "ACEITAR O DESAFIO →",
   },
 ];
