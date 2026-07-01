@@ -122,7 +122,7 @@ const CSS = `
 .obt-prize-label { font-size:9px; letter-spacing:3px; color:rgba(245,215,142,.8); text-transform:uppercase; margin-bottom:6px; }
 .obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; filter:drop-shadow(0 0 24px rgba(201,168,76,.5)); animation: obtPrizeGlow 2s ease-in-out infinite; }
 @keyframes obtPrizeGlow { 0%,100%{filter:drop-shadow(0 0 24px rgba(201,168,76,.4))} 50%{filter:drop-shadow(0 0 40px rgba(201,168,76,.7))} }
-.obt-prize-desc { font-size:10px; color:#999; margin-top:6px; }
+.obt-prize-desc { font-size:12.5px; color:#F5D78E; margin-top:7px; font-weight:600; letter-spacing:.3px; }
 .obt-prize-row { display:flex; gap:10px; margin-bottom:12px; }
 .obt-prize-mini { flex:1; background:rgba(255,255,255,.03); border:.5px solid rgba(201,168,76,.25); border-radius:16px; padding:16px; text-align:center; }
 .obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
