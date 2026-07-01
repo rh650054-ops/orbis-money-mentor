@@ -118,7 +118,7 @@ const CSS = `
 .obt-rev-tag { font-size:10px; letter-spacing:4px; color:#C9A84C; text-transform:uppercase; margin-bottom:8px; }
 .obt-rev-logo { font-family:'Bebas Neue',sans-serif; font-size:38px; letter-spacing:5px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:4px; filter:drop-shadow(0 0 16px rgba(201,168,76,.4)); }
 .obt-rev-sub { font-size:11px; color:#888; letter-spacing:2px; }
-.obt-prize-big { background:linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.04)); border:1.5px solid rgba(201,168,76,.45); border-radius:20px; padding:24px; text-align:center; margin-bottom:12px; position:relative; overflow:hidden; }
+.obt-prize-big { background:linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.04)); border:1.5px solid rgba(201,168,76,.45); border-radius:20px; padding:24px; text-align:center; margin-bottom:12px; position:relative; }
 .obt-prize-label { font-size:9px; letter-spacing:3px; color:rgba(245,215,142,.8); text-transform:uppercase; margin-bottom:6px; }
 .obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; line-height:1; text-shadow:0 0 26px rgba(201,168,76,.55); }
 @keyframes obtPrizeGlow { 0%,100%{filter:drop-shadow(0 0 24px rgba(201,168,76,.4))} 50%{filter:drop-shadow(0 0 40px rgba(201,168,76,.7))} }
