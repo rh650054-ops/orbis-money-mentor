@@ -104,7 +104,7 @@ const CSS = `
 .obt-ticket-frase { font-size:11px; color:rgba(255,255,255,.45); line-height:1.5; margin-bottom:18px; }
 .obt-ticket-seal { width:60px; height:60px; border-radius:50%; margin:0 auto; background:radial-gradient(circle, rgba(245,215,142,.3), rgba(201,168,76,.08)); border:1.5px solid rgba(245,215,142,.5); display:flex; align-items:center; justify-content:center; font-size:28px; animation: obtSeal 2s ease-in-out infinite; }
 @keyframes obtSeal { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.4)} 50%{box-shadow:0 0 0 8px rgba(201,168,76,0)} }
-.obt-unlock { margin-top:32px; width:min(290px, calc(100vw - 56px)); background:rgba(0,0,0,.5); border:1.5px solid rgba(201,168,76,.35); border-radius:40px; padding:6px; position:relative; overflow:hidden; box-shadow:inset 0 2px 8px rgba(0,0,0,.5); }
+.obt-unlock { margin-top:32px; width:min(290px, calc(100vw - 56px)); background:rgba(0,0,0,.5); border:1.5px solid rgba(201,168,76,.35); border-radius:40px; padding:6px; position:relative; overflow:hidden; box-shadow:inset 0 2px 8px rgba(0,0,0,.5); touch-action:none; }
 .obt-unlock-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:clamp(9px,2.7vw,11px); letter-spacing:2px; color:rgba(245,215,142,.55); text-transform:uppercase; white-space:nowrap; pointer-events:none; animation: obtTextPulse 2s ease-in-out infinite; max-width:82%; overflow:hidden; text-overflow:ellipsis; }
 @keyframes obtTextPulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
 .obt-unlock-fill { position:absolute; top:6px; left:6px; bottom:6px; width:58px; border-radius:40px; z-index:1; pointer-events:none; background:linear-gradient(90deg, rgba(201,168,76,.4), rgba(245,215,142,.25)); }
@@ -199,7 +199,7 @@ export function GoldenTicket({
   const trackRef = useRef<HTMLDivElement>(null);
   const fillRef = useRef<HTMLDivElement>(null);
   const burstRef = useRef<(() => void) | null>(null);
-  const drag = useRef({ on: false, startX: 0, max: 0, done: false, moved: false });
+  const drag = useRef({ on: false, startX: 0, max: 0, done: false });
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -268,38 +268,44 @@ export function GoldenTicket({
     }, 460);
   };
 
-  const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (drag.current.done) return;
-    const track = trackRef.current, handle = handleRef.current;
-    if (!track || !handle) return;
-    drag.current = { on: true, startX: e.clientX, max: track.offsetWidth - handle.offsetWidth - 12, done: false, moved: false };
-    // setPointerCapture pode lançar em alguns navegadores mobile — não pode quebrar o arrasto.
-    try { handle.setPointerCapture(e.pointerId); } catch { /* noop */ }
-  };
-  const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    if (!d.on) return;
-    const raw = e.clientX - d.startX;
-    if (Math.abs(raw) > 6) d.moved = true; // passou a ser arrasto, não toque
-    const delta = Math.max(0, Math.min(raw, d.max));
-    if (handleRef.current) handleRef.current.style.transform = `translateX(${delta}px)`;
-    if (fillRef.current) fillRef.current.style.width = `${58 + delta}px`;
-    if (delta >= d.max - 4) complete();
-  };
-  const onUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    try { handleRef.current?.releasePointerCapture(e.pointerId); } catch { /* noop */ }
-    if (!d.on || d.done) { d.on = false; return; }
-    d.on = false;
-    // Soltou sem arrastar = foi um TOQUE no cadeado → abre.
-    if (!d.moved) { complete(); return; }
-    // Arrastou mas não chegou ao fim → volta o cadeado pro começo (sem abrir).
-    const handle = handleRef.current, fill = fillRef.current;
-    if (handle && fill) {
-      handle.style.transition = "transform 0.3s"; fill.style.transition = "width 0.3s";
-      handle.style.transform = "translateX(0)"; fill.style.width = "58px";
-      setTimeout(() => { if (handle) handle.style.transition = ""; if (fill) fill.style.transition = ""; }, 300);
+  // Arrastar o cadeado — fluido em QUALQUER celular. Escuta o movimento na janela
+  // inteira (não depende de setPointerCapture, que falha em vários mobiles),
+  // bloqueia o scroll durante o gesto e completa com folga (75% já abre).
+  const beginDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (drag.current.done || drag.current.on) return; // evita sessão dupla (multi-touch)
+    const track = trackRef.current, handle = handleRef.current, fill = fillRef.current;
+    if (!track || !handle || !fill) return;
+    drag.current.on = true;
+    const startX = e.clientX;
+    const max = track.offsetWidth - handle.offsetWidth - 12;
+    let delta = 0;
+    handle.style.transition = ""; fill.style.transition = "";
+
+    const cleanup = () => {
+      drag.current.on = false;
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+    };
+    function move(ev: PointerEvent) {
+      if (ev.cancelable) ev.preventDefault();
+      delta = Math.max(0, Math.min(ev.clientX - startX, max));
+      handle.style.transform = `translateX(${delta}px)`;
+      fill.style.width = `${58 + delta}px`;
+      if (max > 0 && delta >= max - 6) { cleanup(); complete(); }
     }
+    function up() {
+      cleanup();
+      if (drag.current.done) return;
+      if (max > 0 && delta >= max * 0.75) { complete(); return; }
+      handle.style.transition = "transform .22s ease"; fill.style.transition = "width .22s ease";
+      handle.style.transform = "translateX(0)"; fill.style.width = "58px";
+      window.setTimeout(() => { handle.style.transition = ""; fill.style.transition = ""; }, 240);
+    }
+
+    window.addEventListener("pointermove", move, { passive: false });
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
   };
 
   return (
@@ -339,15 +345,10 @@ export function GoldenTicket({
           </div>
         </div>
 
-        <div
-          className="obt-unlock"
-          ref={trackRef}
-          style={{ cursor: "pointer" }}
-          onClick={() => { if (!drag.current.moved) complete(); drag.current.moved = false; }}
-        >
+        <div className="obt-unlock" ref={trackRef}>
           <div className="obt-unlock-fill" ref={fillRef} />
           <div className="obt-unlock-text">ARRASTE OU TOQUE PARA ABRIR →</div>
-          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={beginDrag} onClick={complete}>
             {handleIcon}
           </div>
         </div>

@@ -69,7 +69,7 @@ export function DefconEndScreen({
   // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF + gorjetas
   useEffect(() => {
     if (!userId) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getBrazilDate();
     supabase
       .from("defcon_clients")
       .select("id", { count: "exact", head: true })
@@ -123,7 +123,7 @@ export function DefconEndScreen({
     if (!userId) return;
     setExportingPdf(true);
     try {
-      const today = new Date().toISOString().slice(0, 10);
+      const today = getBrazilDate();
       const { data, error } = await supabase
         .from("defcon_clients")
         .select("amount, method, customer_name, customer_phone, created_at")

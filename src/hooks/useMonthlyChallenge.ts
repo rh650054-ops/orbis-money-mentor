@@ -90,7 +90,7 @@ export const useMonthlyChallenge = (userId: string | undefined) => {
     setIsCreating(true);
     try {
       const mesRef = getCurrentMonthRef();
-      const today = new Date().toISOString().split('T')[0]!;
+      const today = getBrazilDate();
       
       const newChallenge = {
         user_id: userId,

@@ -9,7 +9,7 @@ import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
 import AntiProcrastination from "@/components/AntiProcrastination";
 import { formatCurrency } from "@/shared/lib/utils";
-import { getBrazilDate } from "@/shared/lib/date-utils";
+import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
 import { TrialNudge } from "@/components/TrialNudge";
@@ -168,8 +168,7 @@ export default function Index() {
     setIsLoadingData(true);
 
     const today = getBrazilDate();
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const sevenDaysAgo = getBrazilDateDaysAgo(7);
 
     let dateStart: string;
     let dateEnd: string;
@@ -177,10 +176,8 @@ export default function Index() {
       dateStart = customStartDate;
       dateEnd = customEndDate;
     } else {
-      const firstDayOfMonth = new Date();
-      firstDayOfMonth.setDate(1);
-      dateStart = firstDayOfMonth.toISOString().split('T')[0]!;
-      dateEnd = new Date().toISOString().split('T')[0]!;
+      dateStart = getBrazilMonthStart();
+      dateEnd = today;
     }
 
     // Fan-out: profile + today + week + month in parallel (was 4 serial awaits).
@@ -195,7 +192,7 @@ export default function Index() {
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
-      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo.toISOString().split('T')[0]!).order("date", { ascending: true }),
+      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo).order("date", { ascending: true }),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
       supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
       supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
@@ -302,8 +299,7 @@ export default function Index() {
   };
 
   const handleQuickFilter = (type: "day" | "week" | "month" | "all") => {
-    const today = new Date();
-    const end: string = today.toISOString().split('T')[0]!;
+    const end: string = getBrazilDate();
     let start: string;
 
     switch (type) {
@@ -311,14 +307,11 @@ export default function Index() {
         start = end;
         break;
       case "week": {
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        start = weekAgo.toISOString().split('T')[0]!;
+        start = getBrazilDateDaysAgo(7);
         break;
       }
       case "month": {
-        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        start = firstDayOfMonth.toISOString().split('T')[0]!;
+        start = getBrazilMonthStart();
         break;
       }
       case "all":
