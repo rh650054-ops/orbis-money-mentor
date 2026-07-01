@@ -51,14 +51,6 @@ export function WeeklyChallengeTicket() {
     setShowSuccess(true);
   };
 
-  // Fechar (X): sai do bilhete sem ir pro sucesso. Marca visto pra não reabrir sozinho.
-  // Dispara o evento de "fim do bilhete" → o dashboard abre a tela de meta do mês.
-  const fechar = () => {
-    if (!isTeste) localStorage.setItem(seenKey, "1");
-    setOpen(false);
-    window.dispatchEvent(new Event(WEEKLY_TICKET_DONE_EVENT));
-  };
-
   const contatoWpp = () => window.open(
     "https://wa.me/5511915054830?text=" + encodeURIComponent("Oi! Quero fazer meu link de afiliado do Orbis pra comecar a lucrar com as assinaturas."),
     "_blank",
@@ -67,7 +59,7 @@ export function WeeklyChallengeTicket() {
   return (
     <>
       {open && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#030303", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100000, background: "#030303", overflowY: "auto" }}>
           <GoldenTicket
             introTag={challenge.introTag}
             introTitulo={challenge.introTitulo}
@@ -89,13 +81,12 @@ export function WeeklyChallengeTicket() {
             onWhatsapp={contatoWpp}
             acceptLabel={challenge.acceptLabel}
             onAccept={aceitar}
-            onClose={fechar}
           />
         </div>
       )}
 
       {showSuccess && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 101, background: "rgba(3,3,3,0.96)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 100001, background: "rgba(3,3,3,0.96)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, overflowY: "auto" }}>
           <div style={{ maxWidth: 380, width: "100%", background: "linear-gradient(135deg,#100B03,#1E1608)", border: "1px solid rgba(201,168,76,0.45)", borderRadius: 22, padding: 24, boxShadow: "0 0 60px rgba(201,168,76,0.22)", color: "#fff" }}>
             <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 27, letterSpacing: 1, textAlign: "center", background: "linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 12 }}>
               VOCÊ ESTÁ DENTRO DA ELITE 🏆

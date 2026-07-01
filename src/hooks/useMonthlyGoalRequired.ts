@@ -40,29 +40,13 @@ export function useMonthlyGoalRequired(userId: string | undefined): UseMonthlyGo
       const hasWorkHours = profile?.goal_hours && profile.goal_hours > 0;
       const hasWorkDays = profile?.weekly_work_days && profile.weekly_work_days > 0;
       
+      // A meta mensal é configurada UMA ÚNICA VEZ (primeira vez). Não força mais
+      // a cada início de mês — o usuário só define de novo se quiser (pelo dashboard).
       if (!hasMonthlyGoal || !hasWorkHours || !hasWorkDays) {
         setIsRequired(true);
         setReason("first_time");
         setIsLoading(false);
         return;
-      }
-
-      // Check if it's the first day of the month and no plan for current month
-      const today = new Date();
-      const isFirstDayOfMonth = today.getDate() === 1;
-      
-      if (isFirstDayOfMonth) {
-        // Check if we've already configured for this month
-        const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-        const lastConfigDate = profile?.week_start_date ? new Date(profile.week_start_date) : null;
-        
-        // If last config was before current month, need to reconfigure
-        if (!lastConfigDate || lastConfigDate < currentMonthStart) {
-          setIsRequired(true);
-          setReason("new_month");
-          setIsLoading(false);
-          return;
-        }
       }
 
       setIsRequired(false);

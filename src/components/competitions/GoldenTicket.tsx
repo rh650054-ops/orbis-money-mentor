@@ -34,7 +34,6 @@ interface Props {
   onWhatsapp?: () => void;
   acceptLabel?: string;
   onAccept: () => void;
-  onClose?: () => void;
 }
 
 // Toca um "chime" dourado de desbloqueio (sintetizado). Respeita o ajuste de sons do app.
@@ -84,6 +83,12 @@ const CSS = `
 .obt-ticket { width:290px; position:relative; border-radius:22px; overflow:hidden; background:linear-gradient(135deg,#0F0B04 0%,#2A2008 25%,#4A3810 50%,#2A2008 75%,#0F0B04 100%); box-shadow:0 0 50px rgba(201,168,76,.25), inset 0 1px 0 rgba(245,215,142,.4), inset 0 -1px 0 rgba(0,0,0,.5); animation: obtFloat 4s ease-in-out infinite; transform-style:preserve-3d; }
 .obt-ticket::after { content:''; position:absolute; inset:0; border-radius:22px; padding:1.5px; background:linear-gradient(135deg, rgba(245,215,142,.8), rgba(201,168,76,.2), rgba(245,215,142,.8)); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
 @keyframes obtFloat { 0%,100%{transform:translateY(0) rotateX(0) rotateY(-2deg)} 50%{transform:translateY(-10px) rotateX(2deg) rotateY(2deg)} }
+.obt-ticket.tear { overflow:visible; animation:none; }
+.obt-ticket.tear .obt-ticket-shine, .obt-ticket.tear .obt-ticket-texture { opacity:0; transition:opacity .2s; }
+.obt-ticket.tear .obt-ticket-top { animation:obtTearTop .5s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; }
+.obt-ticket.tear .obt-ticket-body { animation:obtTearBottom .5s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; }
+@keyframes obtTearTop { 35%{transform:translateY(-3px) rotate(-2deg)} 100%{transform:translate(-14px,-36px) rotate(-9deg); opacity:.08} }
+@keyframes obtTearBottom { 35%{transform:translateY(3px) rotate(2deg)} 100%{transform:translate(14px,42px) rotate(8deg); opacity:.08} }
 .obt-ticket-shine { position:absolute; top:-50%; left:-100%; width:50%; height:200%; background:linear-gradient(90deg, transparent, rgba(245,215,142,.35), transparent); transform:rotate(25deg); animation: obtShine 4s ease-in-out infinite; }
 @keyframes obtShine { 0%{left:-100%} 45%,100%{left:200%} }
 .obt-ticket-texture { position:absolute; inset:0; opacity:.06; mix-blend-mode:overlay; background-image:repeating-linear-gradient(45deg,#C9A84C 0,#C9A84C 1px,transparent 1px,transparent 8px); }
@@ -171,12 +176,12 @@ export function GoldenTicket({
   onWhatsapp,
   acceptLabel = "ACEITAR O DESAFIO →",
   onAccept,
-  onClose,
 }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [flash, setFlash] = useState(false);
   const [raysShow, setRaysShow] = useState(false);
   const [stageOut, setStageOut] = useState(false);
+  const [tearing, setTearing] = useState(false);
   const [handleIcon, setHandleIcon] = useState("🔓");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -242,11 +247,15 @@ export function GoldenTicket({
     setHandleIcon("🔥");
     playUnlockSound();
     if (navigator.vibrate) navigator.vibrate([40, 30, 80]);
-    burstRef.current?.();
-    setFlash(true);
-    setRaysShow(true);
-    setStageOut(true);
-    setTimeout(() => setRevealed(true), 400);
+    // 1) Rasga o bilhete no meio (com o barulho). 2) Depois estoura + revela prêmios.
+    setTearing(true);
+    setTimeout(() => {
+      burstRef.current?.();
+      setFlash(true);
+      setRaysShow(true);
+      setStageOut(true);
+      setTimeout(() => setRevealed(true), 380);
+    }, 460);
   };
 
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -279,20 +288,6 @@ export function GoldenTicket({
   return (
     <div className="obt" style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden", background: "#030303" }}>
       <style>{CSS}</style>
-      {onClose && (
-        <button
-          onClick={onClose}
-          aria-label="Fechar"
-          style={{
-            position: "fixed", top: 14, right: 14, zIndex: 30, width: 40, height: 40,
-            borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(245,215,142,0.45)",
-            color: "#F5D78E", fontSize: 20, lineHeight: 1, cursor: "pointer",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}
-        >
-          ✕
-        </button>
-      )}
       <div className="obt-ambient" />
       <div className={`obt-rays ${raysShow ? "show" : ""}`}>
         {Array.from({ length: 12 }).map((_, i) => (
@@ -308,7 +303,7 @@ export function GoldenTicket({
         {introSub && <div className="obt-intro-sub">{introSub}</div>}
 
         <div className="obt-ticket-3d">
-          <div className="obt-ticket">
+          <div className={`obt-ticket ${tearing ? "tear" : ""}`}>
             <div className="obt-ticket-shine" />
             <div className="obt-ticket-texture" />
             <div className="obt-ticket-top">
@@ -376,7 +371,7 @@ export function GoldenTicket({
                 <div className={`obt-comissao-item${isTop ? " top" : ""}`} key={i}>
                   <span className="obt-comissao-nome">
                     {t.nome}
-                    {isTop && <span className="obt-comissao-tag">Maior margem</span>}
+                    {isTop && <span className="obt-comissao-tag">Máximo</span>}
                   </span>
                   <span className="obt-comissao-val">{t.val}</span>
                 </div>
