@@ -34,6 +34,7 @@ interface Props {
   onWhatsapp?: () => void;
   acceptLabel?: string;
   onAccept: () => void;
+  onClose?: () => void;
 }
 
 // Toca um "chime" dourado de desbloqueio (sintetizado). Respeita o ajuste de sons do app.
