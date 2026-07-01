@@ -28,27 +28,29 @@ const DESAFIOS: WeeklyChallenge[] = [
     fim: "2026-07-05",
     introTag: "Você foi convidado",
     introTitulo: "DESAFIO DA SEMANA",
-    introSub: "A primeira disputa de julho começou. Arrasta o cadeado pra ver o que tá valendo.",
-    eventoLabel: "Liga Semanal · Orbis",
-    ticketTitulo: "VALENDO R$100",
-    grandPrizeValue: "R$ 100",
-    grandPrizeDesc: "🏆 1º lugar da semana · pago no Pix dia 07/07",
+    introSub: "Semana de alistamento. Arrasta o cadeado — e monta teu esquadrão antes do ranking abrir.",
+    eventoLabel: "Elite Orbis · Julho",
+    ticketTitulo: "VOCÊ ESTÁ DENTRO",
+    grandPrizeValue: "R$ 500",
+    grandPrizeDesc: "Ranking oficial · abre 06/07",
     miniPrizes: [
-      { valor: "01–05/07", label: "Período do desafio" },
-      { valor: "Dom 23:59", label: "Encerra" },
+      { valor: "R$ 100", label: "Top 1 da semana\nRanking · 06/07" },
+      { valor: "R$ 50", label: "Por 3 indicações\nHOJE!" },
     ],
-    regrasTitulo: "🤝 Sistema de Afiliados",
+    regrasTitulo: "🤝 Comissão por indicação · HOJE",
     regras: [
-      { nome: "Traga 3 pessoas pro Orbis", val: "R$ 50" },
+      { nome: "1º indicado", val: "R$ 5" },
+      { nome: "2º indicado", val: "R$ 7" },
+      { nome: "3º indicado", val: "R$ 10" },
     ],
-    regrasNota: "Indique 3 amigos e ganhe R$50. · Vence quem fizer + faturamento — só cartão e pix contam.",
-    acceptLabel: "PARTICIPAR DO DESAFIO AGORA →",
+    regrasNota: "Recrutamento LIBERADO HOJE. O ranking de vendas abre segunda (06/07).",
+    acceptLabel: "ACEITAR O DESAFIO →",
   },
 ];
 
 // Bilhete dourado / desafio PAUSADO (estratégia adiada). Com isso, o bilhete não
 // abre, o ícone some, o lembrete some e o fluxo não dispara. Pra REATIVAR: PAUSADO = false.
-const PAUSADO = true;
+const PAUSADO = false;
 
 // Desafio ativo hoje (fuso BR), ou null.
 export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null {

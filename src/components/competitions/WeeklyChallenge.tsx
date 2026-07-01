@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
+import { useAuth } from "@/hooks/useAuth";
 import { getActiveWeeklyChallenge, isFirstDay } from "@/shared/lib/weeklyChallenge";
 
 // Evento pra o ícone dourado (no DEFCON) reabrir o bilhete que mora no Layout.
@@ -16,9 +17,11 @@ function brazilHour(): number {
 // ===== Overlay do bilhete (vive no Layout, tela cheia, por cima do menu) =====
 // Abre sozinho no 1º dia (uma vez, até aceitar). Depois só reabre pelo ícone.
 export function WeeklyChallengeTicket() {
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const challenge = getActiveWeeklyChallenge();
   const [open, setOpen] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
     if (!challenge) return;
@@ -35,34 +38,72 @@ export function WeeklyChallengeTicket() {
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
 
-  if (!challenge || !open) return null;
+  if (!challenge) return null;
 
-  // Aceitar: marca visto, fecha o bilhete e começa o fluxo guiado → ranking.
+  // Aceitar: marca visto, fecha o bilhete e abre a TELA DE SUCESSO (recrutamento) —
+  // nunca joga pro ranking vazio; joga pro link de parceiro + gatilho de ação.
   const aceitar = () => {
     localStorage.setItem(`orbis_wc_seen_${challenge.id}`, "1");
-    sessionStorage.setItem("orbis_desafio_passo", "ranking");
     setOpen(false);
-    navigate("/ranking");
+    setShowSuccess(true);
+  };
+
+  const link = `${window.location.origin}/?ref=${user?.id ?? ""}`;
+  const msgWpp = "Tô no Orbis — o app dos vendedor de rua (meta, ranking e um mentor que te ajuda a vender mais). Entra pelo meu link e bora competir 👇";
+  const compartilhar = () => window.open(`https://wa.me/?text=${encodeURIComponent(msgWpp + "\n" + link)}`, "_blank");
+  const copiar = () => {
+    navigator.clipboard?.writeText(link).then(() => setCopiado(true)).catch(() => {});
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#030303", overflowY: "auto" }}>
-      <GoldenTicket
-        introTag={challenge.introTag}
-        introTitulo={challenge.introTitulo}
-        introSub={challenge.introSub}
-        eventoLabel={challenge.eventoLabel}
-        ticketTitulo={challenge.ticketTitulo}
-        grandPrizeValue={challenge.grandPrizeValue}
-        grandPrizeDesc={challenge.grandPrizeDesc}
-        miniPrizes={challenge.miniPrizes}
-        commissionTitle={challenge.regrasTitulo}
-        commissionTiers={challenge.regras.map((r) => ({ nome: r.nome, val: r.val }))}
-        commissionNote={challenge.regrasNota}
-        acceptLabel={challenge.acceptLabel}
-        onAccept={aceitar}
-      />
-    </div>
+    <>
+      {open && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "#030303", overflowY: "auto" }}>
+          <GoldenTicket
+            introTag={challenge.introTag}
+            introTitulo={challenge.introTitulo}
+            introSub={challenge.introSub}
+            eventoLabel={challenge.eventoLabel}
+            ticketTitulo={challenge.ticketTitulo}
+            grandPrizeValue={challenge.grandPrizeValue}
+            grandPrizeDesc={challenge.grandPrizeDesc}
+            miniPrizes={challenge.miniPrizes}
+            commissionTitle={challenge.regrasTitulo}
+            commissionTiers={challenge.regras.map((r) => ({ nome: r.nome, val: r.val }))}
+            commissionNote={challenge.regrasNota}
+            acceptLabel={challenge.acceptLabel}
+            onAccept={aceitar}
+          />
+        </div>
+      )}
+
+      {showSuccess && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 101, background: "rgba(3,3,3,0.96)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18, overflowY: "auto" }}>
+          <div style={{ maxWidth: 380, width: "100%", background: "linear-gradient(135deg,#100B03,#1E1608)", border: "1px solid rgba(201,168,76,0.45)", borderRadius: 22, padding: 24, boxShadow: "0 0 60px rgba(201,168,76,0.22)", color: "#fff" }}>
+            <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: 27, letterSpacing: 1, textAlign: "center", background: "linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", marginBottom: 12 }}>
+              VOCÊ ESTÁ DENTRO DA ELITE 🏆
+            </div>
+            <p style={{ fontSize: 13, color: "#cfcfcf", lineHeight: 1.6, marginBottom: 12 }}>
+              O <b style={{ color: "#fff" }}>Ranking de Vendas</b> pra disputar os R$100 semanais começa oficialmente na <b style={{ color: "#fff" }}>próxima segunda (06/07)</b>.
+            </p>
+            <p style={{ fontSize: 13, color: "#cfcfcf", lineHeight: 1.6, marginBottom: 16 }}>
+              Mas a sua <b style={{ color: "#34D399" }}>Fase de Recrutamento começou AGORA</b>. Pega teu link de parceiro. Os <b style={{ color: "#F5D78E" }}>3 primeiros guerreiros</b> que você trouxer esta semana já te garantem <b style={{ color: "#F5D78E" }}>R$50 no Pix</b> — antes mesmo da competição abrir.
+            </p>
+            <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(201,168,76,0.7)", marginBottom: 6, textTransform: "uppercase" }}>Seu link de parceiro</div>
+            <div style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 12, padding: "10px 12px", fontSize: 12, color: "#F5D78E", marginBottom: 12, wordBreak: "break-all" }}>{link}</div>
+            <button onClick={compartilhar} style={{ width: "100%", padding: 14, borderRadius: 12, background: "#25D366", color: "#000", fontWeight: 700, fontSize: 14, border: "none", marginBottom: 8, cursor: "pointer" }}>
+              📲 Compartilhar no WhatsApp
+            </button>
+            <button onClick={copiar} style={{ width: "100%", padding: 12, borderRadius: 12, background: "rgba(201,168,76,0.14)", color: "#F5D78E", fontWeight: 600, fontSize: 13, border: "1px solid rgba(201,168,76,0.3)", marginBottom: 8, cursor: "pointer" }}>
+              {copiado ? "✓ Copiado!" : "Copiar link"}
+            </button>
+            <button onClick={() => setShowSuccess(false)} style={{ width: "100%", padding: 14, borderRadius: 12, background: "linear-gradient(135deg,#C9A84C,#F5D78E)", color: "#000", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
+              Monte seu esquadrão →
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

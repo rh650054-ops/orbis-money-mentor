@@ -5,9 +5,9 @@ import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 
 // A 1ª temporada começa no dia 1 (julho começou quebrado, numa quarta). Depois disso
 // a semana é sempre SEGUNDA → DOMINGO: encerra domingo 23:59 e zera na segunda.
-// PAUSADO: desafio adiado. Data no futuro = app NÃO muda de modelo no dia 1
-// (mantém a janela atual + sem exigir extrato). Pra reativar, volte pra "2026-07-01".
-const TEMPORADA_INICIO = "2099-01-01";
+// Fase 2 (ranking de vendas OFICIAL) abre dia 06/07. Antes é só recrutamento (Fase 1):
+// o ranking fica no modo ao vivo, sem exigir extrato, e vira oficial a partir do dia 06.
+const TEMPORADA_INICIO = "2026-07-06";
 
 // Início da janela do ranking (fuso BR).
 // - ATÉ 30/06 (teste pré-lançamento): janela = ONTEM + HOJE, pra mostrar as vendas

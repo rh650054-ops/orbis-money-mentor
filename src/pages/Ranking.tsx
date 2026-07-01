@@ -73,10 +73,10 @@ export default function Ranking() {
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
-  // Desafio adiado (PAUSADO) — data no futuro = abre sempre no Mensal (modelo atual).
-  // Pra reativar o Semanal como padrão no dia 1, volte pra "2026-07-01".
+  // Fase 2 (06/07): o ranking de vendas abre → o Ranking abre direto no Semanal.
+  // Antes disso (semana de recrutamento), abre no Mensal.
   const [activeTab, setActiveTab] = useState<"mensal" | "semanal">(
-    getBrazilDate() >= "2099-01-01" ? "semanal" : "mensal",
+    getBrazilDate() >= "2026-07-06" ? "semanal" : "mensal",
   );
   const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
   const navigate = useNavigate();
