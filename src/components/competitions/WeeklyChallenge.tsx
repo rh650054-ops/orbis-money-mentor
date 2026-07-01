@@ -20,13 +20,16 @@ export function WeeklyChallengeTicket() {
   const [open, setOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
+  const isTeste = typeof window !== "undefined" && window.location.search.includes("bilhete-teste");
+  // v2: reseta quem já "viu" durante os testes — assim TODO usuário (inclusive testers)
+  // vê o bilhete uma vez no lançamento real.
+  const seenKey = challenge ? `orbis_wc_seen2_${challenge.id}` : "";
+
   useEffect(() => {
     if (!challenge) return;
-    const teste = typeof window !== "undefined" && window.location.search.includes("bilhete-teste");
-    const seenKey = `orbis_wc_seen_${challenge.id}`;
-    // Abre sozinho só no 1º dia, A PARTIR DAS 5H (fuso BR), uma vez (até aceitar).
+    // Abre sozinho só no 1º dia, A PARTIR DAS 5H (fuso BR), uma vez.
     // Em modo teste (?bilhete-teste), abre na hora e sempre (pra poder retestar).
-    if (teste || (isFirstDay(challenge) && brazilHour() >= 5 && localStorage.getItem(seenKey) !== "1")) {
+    if (isTeste || (isFirstDay(challenge) && brazilHour() >= 5 && localStorage.getItem(seenKey) !== "1")) {
       setOpen(true);
     }
   }, [challenge?.id]);
@@ -42,7 +45,8 @@ export function WeeklyChallengeTicket() {
   // Aceitar: marca visto, fecha o bilhete e abre a TELA DE SUCESSO (recrutamento) —
   // nunca joga pro ranking vazio; joga pro link de parceiro + gatilho de ação.
   const aceitar = () => {
-    localStorage.setItem(`orbis_wc_seen_${challenge.id}`, "1");
+    // Em teste não marca como visto, pra não "gastar" o 1º acesso real do usuário.
+    if (!isTeste) localStorage.setItem(seenKey, "1");
     setOpen(false);
     setShowSuccess(true);
   };
