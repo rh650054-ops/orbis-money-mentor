@@ -14,6 +14,7 @@ interface Props {
   onShare: () => void;
   onRepost: () => void;
   onDelete: () => void;
+  onOpenAuthor?: (userId: string) => void;
 }
 
 // Destaca #hashtags e @menções no texto do post
@@ -28,11 +29,16 @@ function renderContent(text: string) {
   );
 }
 
-export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepost, onDelete }: Props) {
+export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepost, onDelete, onOpenAuthor }: Props) {
   return (
     <article className="px-4 py-3 transition-colors hover:bg-muted/20">
       <div className="flex gap-3">
-        <div className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => onOpenAuthor?.(post.user_id)}
+          className="relative shrink-0 active:scale-95 transition-transform"
+          aria-label={`Ver perfil de ${post.nickname ?? "vendedor"}`}
+        >
           <Avatar className="h-11 w-11 ring-1 ring-border/50">
             <AvatarImage src={post.avatar_url ?? undefined} />
             <AvatarFallback className="bg-muted text-xs font-semibold">
@@ -44,10 +50,16 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepo
             className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-background"
             style={{ background: presenceInfo(post.last_active_at).online ? "#22c55e" : "#6b7280" }}
           />
-        </div>
+        </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-sm">
-            <span className="font-bold truncate">{post.nickname ?? "Vendedor"}</span>
+            <button
+              type="button"
+              onClick={() => onOpenAuthor?.(post.user_id)}
+              className="font-bold truncate hover:underline text-left min-w-0"
+            >
+              {post.nickname ?? "Vendedor"}
+            </button>
             {post.city && (
               <span className="text-muted-foreground truncate">· {post.city}/{post.state}</span>
             )}

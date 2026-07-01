@@ -8,12 +8,14 @@ import { PostComposer } from "@/components/community/PostComposer";
 import { PostCard } from "@/components/community/PostCard";
 import { CommentsSheet } from "@/components/community/CommentsSheet";
 import { generatePostShareImage } from "@/components/community/postShareImage";
+import PublicProfileModal from "@/components/PublicProfileModal";
 
 export default function Chat() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [profile, setProfile] = useState<{ nickname: string | null; avatar_url: string | null; city: string | null; state: string | null } | null>(null);
   const [openCommentsFor, setOpenCommentsFor] = useState<string | null>(null);
+  const [profileUid, setProfileUid] = useState<string | null>(null);
 
   const loadProfile = useCallback(async () => {
     if (!user) return;
@@ -113,6 +115,7 @@ export default function Chat() {
                 onShare={() => handleShare(p)}
                 onRepost={() => handleRepost(p)}
                 onDelete={() => handleDelete(p.id)}
+                onOpenAuthor={(uid) => setProfileUid(uid)}
               />
             ))}
           </div>
@@ -123,6 +126,12 @@ export default function Chat() {
         postId={openCommentsFor}
         onClose={() => { setOpenCommentsFor(null); reload(); }}
         profile={profile}
+      />
+
+      <PublicProfileModal
+        open={!!profileUid}
+        onOpenChange={(v) => !v && setProfileUid(null)}
+        userId={profileUid}
       />
     </div>
   );

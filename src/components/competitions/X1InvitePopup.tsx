@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Swords } from "lucide-react";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 interface Challenge {
   id: string;
@@ -37,6 +38,16 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [other, setOther] = useState<{ nome: string; avatar: string | null } | null>(null);
   const [open, setOpen] = useState(false);
+
+  // Contraproposta direto no popup.
+  const [showCounter, setShowCounter] = useState(false);
+  const [cModo, setCModo] = useState("");
+  const [cDia, setCDia] = useState("");
+  const [cMeta, setCMeta] = useState("");
+  const [cAposta, setCAposta] = useState("0");
+  const [cPix, setCPix] = useState("");
+  const [cNome, setCNome] = useState("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -105,8 +116,45 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
     markSeen();
   };
 
+  const openCounter = () => {
+    setCModo(challenge.modo ?? "");
+    setCDia(challenge.scheduled_date ?? getBrazilDate());
+    setCMeta(challenge.goal_amount != null ? String(challenge.goal_amount) : "");
+    setCAposta(challenge.stakes_amount != null ? String(challenge.stakes_amount) : "0");
+    setCPix("");
+    setCNome("");
+    setShowCounter(true);
+  };
+
+  const sendCounter = async () => {
+    const aposta = Number(String(cAposta).replace(",", ".")) || 0;
+    if (aposta > 0 && (!cPix.trim() || !cNome.trim())) {
+      toast({ title: "Faltou seu Pix", description: "Com aposta, informe sua chave Pix e o nome do titular.", variant: "destructive" });
+      return;
+    }
+    setSending(true);
+    const { error } = await (supabase as any).rpc("x1_negotiate", {
+      p_id: challenge.id,
+      p_action: "counter",
+      p_pix: aposta > 0 ? cPix.trim() : null,
+      p_nome: aposta > 0 ? cNome.trim() : null,
+      p_modo: cModo.trim() || null,
+      p_goal: cMeta ? Number(String(cMeta).replace(",", ".")) : null,
+      p_stakes: aposta,
+      p_date: cDia || null,
+    });
+    setSending(false);
+    if (error) {
+      toast({ title: "Erro ao enviar", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Contraproposta enviada! ⚔️", description: `Agora é a vez de ${other.nome} responder.` });
+    markSeen();
+  };
+
   const dia = dateBR(challenge.scheduled_date);
   const stakes = challenge.stakes_amount ?? 0;
+  const cApostaNum = Number(String(cAposta).replace(",", ".")) || 0;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && markSeen()}>
@@ -158,27 +206,107 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
         </div>
 
         {/* ações */}
-        <div className="px-6 pt-4 pb-6 space-y-2">
-          <button
-            onClick={accept}
-            className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
-            style={{ boxShadow: "0 8px 24px -8px rgba(245,181,68,0.7)" }}
-          >
-            <Swords className="w-4 h-4" /> Aceitar
-          </button>
-          <button
-            onClick={decline}
-            className="w-full h-11 rounded-xl bg-transparent border border-border text-muted-foreground font-bold text-sm active:scale-[0.98] transition-transform"
-          >
-            Recusar
-          </button>
-          <button
-            onClick={markSeen}
-            className="w-full h-8 text-xs text-muted-foreground/70 hover:text-muted-foreground"
-          >
-            ver depois
-          </button>
-        </div>
+        {!showCounter ? (
+          <div className="px-6 pt-4 pb-6 space-y-2">
+            <button
+              onClick={accept}
+              className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+              style={{ boxShadow: "0 8px 24px -8px rgba(245,181,68,0.7)" }}
+            >
+              <Swords className="w-4 h-4" /> Aceitar
+            </button>
+            <button
+              onClick={openCounter}
+              className="w-full h-11 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-400 font-bold text-sm active:scale-[0.98] transition-transform"
+            >
+              Fazer contraproposta
+            </button>
+            <button
+              onClick={decline}
+              className="w-full h-11 rounded-xl bg-transparent border border-border text-muted-foreground font-bold text-sm active:scale-[0.98] transition-transform"
+            >
+              Recusar
+            </button>
+            <button
+              onClick={markSeen}
+              className="w-full h-8 text-xs text-muted-foreground/70 hover:text-muted-foreground"
+            >
+              ver depois
+            </button>
+          </div>
+        ) : (
+          <div className="px-6 pt-3 pb-6 space-y-2.5">
+            <p className="text-xs text-muted-foreground text-center">Proponha os seus termos — {other.nome} decide depois.</p>
+            <input
+              value={cModo}
+              onChange={(e) => setCModo(e.target.value)}
+              placeholder="Modo (ex: quem vender mais ganha)"
+              className="w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-amber-400/60 outline-none"
+            />
+            <div className="flex gap-2">
+              <label className="flex-1 text-[11px] text-muted-foreground">
+                Dia
+                <input
+                  type="date"
+                  value={cDia}
+                  onChange={(e) => setCDia(e.target.value)}
+                  className="mt-0.5 w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-2 text-sm text-foreground focus:border-amber-400/60 outline-none"
+                />
+              </label>
+              <label className="flex-1 text-[11px] text-muted-foreground">
+                Meta R$ (opcional)
+                <input
+                  inputMode="decimal"
+                  value={cMeta}
+                  onChange={(e) => setCMeta(e.target.value)}
+                  placeholder="0"
+                  className="mt-0.5 w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-amber-400/60 outline-none"
+                />
+              </label>
+            </div>
+            <label className="block text-[11px] text-muted-foreground">
+              Aposta R$ cada (0 = amistoso)
+              <input
+                inputMode="decimal"
+                value={cAposta}
+                onChange={(e) => setCAposta(e.target.value)}
+                placeholder="0"
+                className="mt-0.5 w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-amber-400/60 outline-none"
+              />
+            </label>
+            {cApostaNum > 0 && (
+              <div className="space-y-2 rounded-lg bg-amber-500/5 border border-amber-500/20 p-2.5">
+                <p className="text-[11px] text-amber-400/90">Com aposta, informe sua chave Pix (sem CPF):</p>
+                <input
+                  value={cPix}
+                  onChange={(e) => setCPix(e.target.value)}
+                  placeholder="Sua chave Pix"
+                  className="w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-amber-400/60 outline-none"
+                />
+                <input
+                  value={cNome}
+                  onChange={(e) => setCNome(e.target.value)}
+                  placeholder="Nome do titular da chave"
+                  className="w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-amber-400/60 outline-none"
+                />
+              </div>
+            )}
+            <button
+              onClick={sendCounter}
+              disabled={sending}
+              className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-60"
+              style={{ boxShadow: "0 8px 24px -8px rgba(245,181,68,0.7)" }}
+            >
+              <Swords className="w-4 h-4" /> {sending ? "Enviando..." : "Enviar contraproposta"}
+            </button>
+            <button
+              onClick={() => setShowCounter(false)}
+              className="w-full h-9 text-xs text-muted-foreground/80 hover:text-muted-foreground"
+            >
+              Voltar
+            </button>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

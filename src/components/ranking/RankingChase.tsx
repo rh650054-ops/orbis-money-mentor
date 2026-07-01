@@ -173,6 +173,14 @@ export function RankingChase({ ranking, me, formatCurrency }: Props) {
       >
         <Swords className="w-4 h-4" /> ATACAR — IR VENDER
       </button>
+
+      {/* Desafiar o ALVO pra um X1 — leva pro /x1 com ele já selecionado (?desafiar=uid). */}
+      <button
+        onClick={() => navigate(`/x1?desafiar=${ahead.user_id}`)}
+        className="mt-2 w-full flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/40 text-amber-400 font-black text-sm py-3 rounded-xl active:scale-[0.98] transition-transform"
+      >
+        <Swords className="w-4 h-4" /> Chamar {ahead.nome_usuario || "o alvo"} pra X1
+      </button>
     </div>
   );
 }
