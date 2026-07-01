@@ -79,9 +79,11 @@ export async function syncLeaderboardRevenue(userId: string) {
     .gte("date", startOfMonth)
     .lte("date", today);
 
-  // Use total_profit as the single source of truth (matches Dashboard exactly)
+  // RANKING = só card + pix (dinheiro vivo NÃO conta, igual ao ranking semanal — não
+  // dá pra comprovar dinheiro no extrato). Antes somava total_profit (que INCLUI dinheiro),
+  // por isso o mensal ficava maior que o semanal (ex: 520 x 420 = os R$100 em dinheiro).
   const totalFaturamento = (monthlySales || []).reduce(
-    (sum, s) => sum + (s.total_profit || 0),
+    (sum, s) => sum + (s.card_sales || 0) + (s.pix_sales || 0),
     0
   );
 
@@ -105,9 +107,9 @@ export async function syncLeaderboardRevenue(userId: string) {
   const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.avatar_url;
 
-  // Count days with sales > 0 this month (using total_profit for consistency)
+  // Dias com venda que CONTA no ranking (card + pix), pra bater com o faturamento acima.
   const daysWithSales = (monthlySales || []).filter(
-    s => (s.total_profit || 0) > 0
+    s => ((s.card_sales || 0) + (s.pix_sales || 0)) > 0
   ).length;
 
   // Get or create leaderboard entry
