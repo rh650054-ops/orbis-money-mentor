@@ -75,8 +75,9 @@ export default function Index() {
   // Fim do bilhete → libera e abre a tela de meta do mês (o "final do bilhete leva à meta").
   useEffect(() => {
     const onTicketDone = () => {
+      // Libera o modal de meta (se ainda for necessário). Se o usuário JÁ configurou
+      // a meta uma vez, nada abre — a meta é só uma vez.
       setTicketPending(false);
-      setShowEditPlanning(true);
     };
     window.addEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
     return () => window.removeEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
