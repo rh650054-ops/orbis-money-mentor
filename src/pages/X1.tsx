@@ -89,6 +89,8 @@ export default function X1() {
   // Extratos verificados pela IA (total do dia por duelista) — pro admin decidir o vencedor.
   const [extratos, setExtratos] = useState<Record<string, { total: number; qtd: number }>>({});
   const [uploadingProof, setUploadingProof] = useState<string | null>(null); // id do X1 subindo comprovante
+  const [openPlacar, setOpenPlacar] = useState<string | null>(null); // id do X1 com o placar aberto
+  const [placar, setPlacar] = useState<Record<string, { ch: number; op: number }>>({}); // totais ao vivo por duelo
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
@@ -169,6 +171,20 @@ export default function X1() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+  // Placar ao vivo: enquanto aberto, atualiza os dois totais a cada 8s.
+  useEffect(() => {
+    if (!openPlacar) return;
+    const id = openPlacar;
+    const run = async () => {
+      const { data } = await (supabase as any).rpc("x1_placar", { p_id: id });
+      const row = ((data as any[]) || [])[0];
+      if (row) setPlacar((p) => ({ ...p, [id]: { ch: Number(row.challenger_total) || 0, op: Number(row.opponent_total) || 0 } }));
+    };
+    run();
+    const t = setInterval(run, 8000);
+    return () => clearInterval(t);
+  }, [openPlacar]);
 
   // Pré-seleciona o oponente quando vem de "Chamar pra X1" (/x1?desafiar=<uid>).
   useEffect(() => {
@@ -340,6 +356,37 @@ export default function X1() {
         </p>
         {row(c.challenger_id)}
         {row(c.opponent_id)}
+      </div>
+    );
+  };
+
+  const togglePlacar = (id: string) => setOpenPlacar((cur) => (cur === id ? null : id));
+
+  // Placar do duelo (você vs oponente) com os totais ao vivo do DEFCON.
+  const placarView = (c: X1, iAmCh: boolean) => {
+    const p = placar[c.id];
+    const my = p ? (iAmCh ? p.ch : p.op) : 0;
+    const opp = p ? (iAmCh ? p.op : p.ch) : 0;
+    const otherName = name(iAmCh ? c.opponent_id : c.challenger_id);
+    const lead = !p ? "load" : my > opp ? "me" : opp > my ? "opp" : "tie";
+    return (
+      <div className="rounded-xl border border-amber-500/25 bg-[#0f0f13] p-3 space-y-2">
+        <div className="flex items-center justify-between gap-1">
+          <div className="flex-1 min-w-0 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-sky-400/80 font-bold">Você</p>
+            <p className="text-lg font-black" style={{ color: lead === "me" ? "#22c55e" : "#fff" }}>{fmt(my)}</p>
+          </div>
+          <span className="px-1 text-sm font-black italic text-amber-400 shrink-0">VS</span>
+          <div className="flex-1 min-w-0 text-center">
+            <p className="text-[10px] uppercase tracking-wider text-amber-400/80 font-bold truncate">{otherName}</p>
+            <p className="text-lg font-black" style={{ color: lead === "opp" ? "#22c55e" : "#fff" }}>{fmt(opp)}</p>
+          </div>
+        </div>
+        <p className="text-center text-[11px] font-bold" style={{ color: lead === "me" ? "#22c55e" : lead === "opp" ? "#ff9b9b" : "#9ca3af" }}>
+          {lead === "load" ? "carregando…" : lead === "me" ? "🔥 Você está na frente!" : lead === "opp" ? `⚠️ ${otherName} está na frente` : "Empate — bora vender!"}
+        </p>
+        {c.goal_amount ? <p className="text-center text-[10px] text-muted-foreground">Meta do duelo: {fmt(c.goal_amount)}</p> : null}
+        <p className="text-center text-[9px] text-muted-foreground/70">atualiza sozinho a cada 8s</p>
       </div>
     );
   };
@@ -688,6 +735,16 @@ export default function X1() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* ----- placar ao vivo (duelo aceito / em andamento) ----- */}
+                {(c.status === "accepted" || c.status === "active") && (
+                  <div className="space-y-2 pt-1">
+                    <button onClick={() => togglePlacar(c.id)} className="w-full h-9 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform">
+                      <Swords className="w-3.5 h-3.5" /> {openPlacar === c.id ? "Esconder placar" : "Placar ao vivo do duelo"}
+                    </button>
+                    {openPlacar === c.id && placarView(c, iAmChallenger)}
                   </div>
                 )}
 
