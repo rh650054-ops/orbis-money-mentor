@@ -84,6 +84,8 @@ export default function X1() {
   const [list, setList] = useState<X1[]>([]);
   const [profiles, setProfiles] = useState<Record<string, RankUser>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
+  // Extratos verificados pela IA (total do dia por duelista) — pro admin decidir o vencedor.
+  const [extratos, setExtratos] = useState<Record<string, { total: number; qtd: number }>>({});
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
@@ -132,6 +134,29 @@ export default function X1() {
       ((profs as any[]) || []).forEach((p) => (map[p.user_id] = { user_id: p.user_id, nome_usuario: p.nickname, avatar_url: p.avatar_url }));
       setProfiles(map);
     }
+
+    // Extratos verificados (IA) dos duelistas nos duelos em andamento / aguardando resultado.
+    const relev = challenges.filter((c) => c.scheduled_date && (c.status === "active" || c.status === "awaiting_result"));
+    if (relev.length) {
+      const uids = Array.from(new Set(relev.flatMap((c) => [c.challenger_id, c.opponent_id])));
+      const dias = Array.from(new Set(relev.map((c) => c.scheduled_date))) as string[];
+      const { data: ex } = await supabase
+        .from("extrato_uploads")
+        .select("user_id, dia, total_verificado, qtd_vendas")
+        .in("user_id", uids)
+        .in("dia", dias);
+      const em: Record<string, { total: number; qtd: number }> = {};
+      ((ex as any[]) || []).forEach((r) => {
+        const k = `${r.user_id}|${r.dia}`;
+        if (!em[k]) em[k] = { total: 0, qtd: 0 };
+        em[k].total += Number(r.total_verificado) || 0;
+        em[k].qtd += Number(r.qtd_vendas) || 0;
+      });
+      setExtratos(em);
+    } else {
+      setExtratos({});
+    }
+
     const { data: st } = await supabase.from("x1_settings" as any).select("pix_account, fee_flat").eq("id", 1).maybeSingle();
     setSettings((st as any) || { pix_account: null, fee_flat: 0 });
     setLoading(false);
@@ -261,6 +286,31 @@ export default function X1() {
     );
 
   const name = (uid: string) => profiles[uid]?.nome_usuario || "Vendedor";
+
+  // Painel de evidência (admin): total do extrato verificado pela IA de cada duelista + ✓ se bateu a meta.
+  const evidence = (c: X1) => {
+    const row = (uid: string) => {
+      const e = extratos[`${uid}|${c.scheduled_date}`];
+      const hitGoal = c.goal_amount != null && e != null && e.total >= c.goal_amount;
+      return (
+        <div className="flex items-center justify-between gap-2 rounded-lg bg-card border border-border/60 px-2.5 py-1.5">
+          <span className="text-xs font-semibold text-foreground truncate">{name(uid)}</span>
+          <span className="text-xs font-black tabular-nums shrink-0" style={{ color: e ? "#22c55e" : "#6b7280" }}>
+            {e ? fmt(e.total) : "sem extrato"}{hitGoal ? " · ✓ meta" : ""}
+          </span>
+        </div>
+      );
+    };
+    return (
+      <div className="space-y-1.5">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          Extrato verificado pela IA — dia {dateBR(c.scheduled_date)}
+        </p>
+        {row(c.challenger_id)}
+        {row(c.opponent_id)}
+      </div>
+    );
+  };
   const filteredRanking = useMemo(
     () => ranking.filter((r) => (r.nome_usuario || "").toLowerCase().includes(search.toLowerCase())),
     [ranking, search],
@@ -567,6 +617,7 @@ export default function X1() {
                     {isAdmin && (
                       <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
                         <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · premiar vencedor</p>
+                        {evidence(c)}
                         <div className="flex gap-2">
                           <button onClick={() => setWinner(c, c.challenger_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
                             <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.challenger_id)}
@@ -592,6 +643,7 @@ export default function X1() {
                 {isAdmin && c.status === "awaiting_result" && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · definir vencedor</p>
+                    {evidence(c)}
                     <div className="flex gap-2">
                       <button onClick={() => setWinner(c, c.challenger_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
                         <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.challenger_id)}

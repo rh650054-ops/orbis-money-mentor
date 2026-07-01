@@ -12,6 +12,7 @@ import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard, Trash2 } from 
 // Dá pra reenviar (substitui) se cair mais Pix depois.
 export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const [inComp, setInComp] = useState(false);
+  const [inX1, setInX1] = useState(false); // tem X1 marcado pro dia do extrato
   const [loading, setLoading] = useState(true);
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
@@ -24,34 +25,36 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const { data: parts } = await supabase
-        .from("competition_participants" as any)
-        .select("competition_id")
-        .eq("user_id", userId);
+      // Roda as duas checagens em paralelo: competição ativa E X1 marcado pro dia.
+      const [{ data: parts }, { data: x1s }] = await Promise.all([
+        supabase.from("competition_participants" as any).select("competition_id").eq("user_id", userId),
+        supabase
+          .from("x1_challenges" as any)
+          .select("id")
+          .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
+          .eq("scheduled_date", dia)
+          .in("status", ["accepted", "active"]),
+      ]);
+
+      // Competição: participa de alguma que esteja ativa?
+      let comp = false;
       const ids = Array.from(new Set(((parts as any[]) || []).map((p) => p.competition_id))).filter(Boolean);
-      if (ids.length === 0) {
-        if (alive) {
-          setInComp(false);
-          setLoading(false);
-        }
-        return;
+      if (ids.length > 0) {
+        const { data: cs } = await supabase.from("competitions" as any).select("id").in("id", ids).eq("status", "active");
+        comp = ((cs as any[]) || []).length > 0;
       }
-      const { data: cs } = await supabase
-        .from("competitions" as any)
-        .select("id")
-        .in("id", ids)
-        .eq("status", "active");
-      if (alive) {
-        setInComp(((cs as any[]) || []).length > 0);
-        setLoading(false);
-      }
+
+      if (!alive) return;
+      setInComp(comp);
+      setInX1(((x1s as any[]) || []).length > 0);
+      setLoading(false);
     })().catch(() => {
       if (alive) setLoading(false);
     });
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, dia]);
 
   const onFile = async (tipo: "pix" | "cartao", e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -85,7 +88,9 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     if (!ok) toast({ title: "Não consegui excluir agora", variant: "destructive" });
   };
 
-  if (loading || !inComp) return null;
+  if (loading || (!inComp && !inX1)) return null;
+
+  const contexto = inComp && inX1 ? "competição + X1" : inX1 ? "seu X1" : "competição";
 
   const slotBtn = (
     tipo: "pix" | "cartao",
@@ -117,7 +122,7 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <FileText className="w-4 h-4 text-amber-400" />
-        <p className="text-sm font-bold text-amber-400">Extrato do dia — competição</p>
+        <p className="text-sm font-bold text-amber-400">Extrato do dia — {contexto}</p>
       </div>
       <p className="text-xs text-muted-foreground">
         Suba o extrato do <b className="text-foreground">Pix</b> e da <b className="text-foreground">maquininha</b>. A IA
