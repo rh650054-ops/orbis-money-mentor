@@ -8,17 +8,19 @@ import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 // Fase 2 (ranking de vendas OFICIAL) abre dia 06/07. Antes é só recrutamento (Fase 1):
 // o ranking fica no modo ao vivo, sem exigir extrato, e vira oficial a partir do dia 06.
 const TEMPORADA_INICIO = "2026-07-06";
+// Aquecimento (Fase 1): a janela do ranking começa FIXA no dia 01/07. Assim ele
+// arranca limpo no dia 1 — SEM contar o dia anterior (30/06) — e a temporada
+// oficial (segunda→domingo) assume no dia 06/07.
+const PRE_SEASON_START = "2026-07-01";
 
 // Início da janela do ranking (fuso BR).
-// - ATÉ 30/06 (teste pré-lançamento): janela = ONTEM + HOJE, pra mostrar as vendas
-//   recentes da galera sem exigir extrato (só o DEFCON ao vivo).
-// - A PARTIR DE 01/07: semana SEGUNDA→DOMINGO, com a 1ª semana travada em 01–05/07.
+// - Fase 1 (01–05/07): janela começa FIXA em 01/07 (não conta o dia 30/06).
+// - A PARTIR DE 06/07: semana SEGUNDA→DOMINGO.
 export function currentWeekStart(): string {
   const todayISO = getBrazilDate(); // "YYYY-MM-DD" no fuso BR
   if (todayISO < TEMPORADA_INICIO) {
-    const y = new Date(`${todayISO}T12:00:00Z`);
-    y.setUTCDate(y.getUTCDate() - 1);
-    return y.toISOString().slice(0, 10); // ontem
+    // Trava o começo no dia 01/07 (se por acaso for antes disso, usa o próprio dia).
+    return todayISO < PRE_SEASON_START ? todayISO : PRE_SEASON_START;
   }
   const d = new Date(`${todayISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // volta pra segunda (0 = domingo)
@@ -28,8 +30,8 @@ export function currentWeekStart(): string {
 }
 
 // Fim da janela do ranking (fuso BR).
-// - ATÉ 30/06: termina HOJE (teste com ontem + hoje).
-// - A PARTIR DE 01/07: domingo da semana.
+// - Fase 1 (01–05/07): termina HOJE (janela = 01/07 → hoje).
+// - A PARTIR DE 06/07: domingo da semana.
 export function currentWeekEnd(): string {
   const todayISO = getBrazilDate();
   if (todayISO < TEMPORADA_INICIO) return todayISO;
