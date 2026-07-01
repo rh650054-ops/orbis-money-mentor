@@ -19,6 +19,8 @@ import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
 import CompetitionCard from "@/components/CompetitionCard";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
+import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
+import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 
 const REWARD_TIERS = [
@@ -67,6 +69,19 @@ export default function Index() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showEditPlanning, setShowEditPlanning] = useState(false);
   const [isRestDay, setIsRestDay] = useState(false);
+  // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
+  const [ticketPending, setTicketPending] = useState(() => isWeeklyTicketPending());
+
+  // Fim do bilhete → libera e abre a tela de meta do mês (o "final do bilhete leva à meta").
+  useEffect(() => {
+    const onTicketDone = () => {
+      // Libera o modal de meta (se ainda for necessário). Se o usuário JÁ configurou
+      // a meta uma vez, nada abre — a meta é só uma vez.
+      setTicketPending(false);
+    };
+    window.addEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
+    return () => window.removeEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
+  }, []);
   
   // Hook for required monthly goal check
   const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
@@ -503,6 +518,9 @@ export default function Index() {
         </Card>
       </div>
 
+      {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
+      <WeeklyChallengeDashboardCard />
+
       {/* Próxima patente — compact, no shine, no float */}
       <button
         onClick={() => navigate('/rewards')}
@@ -567,7 +585,8 @@ export default function Index() {
         // vale DEPOIS que a missão terminou; durante o onboarding ele nunca força,
         // senão o usuário não consegue definir a meta e fica preso (tinha que pular).
         const missionDone = localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true';
-        const forced = isMonthlyGoalRequired && missionDone;
+        // Não força a meta enquanto o bilhete do dia 1 ainda não terminou (evita 2 telas juntas).
+        const forced = isMonthlyGoalRequired && missionDone && !ticketPending;
         const open = showEditPlanning || forced;
         if (!open) return null;
         return (
@@ -578,6 +597,11 @@ export default function Index() {
               if (forced) onMonthlyGoalCompleted();
               setShowEditPlanning(false);
               loadDashboardData();
+              // Fluxo do desafio: depois de definir a meta de julho, vai pro DEFCON 4.
+              if (sessionStorage.getItem("orbis_desafio_passo") === "meta") {
+                sessionStorage.removeItem("orbis_desafio_passo");
+                navigate("/defcon");
+              }
             }}
             isRequired={forced}
             requiredReason={monthlyGoalReason}

@@ -292,11 +292,18 @@ Deno.serve(async (req) => {
       } catch { /* opcional */ }
     }
 
-    // Salva so quando salvar:true (a tela de teste admin NAO salva). Usa o JWT do usuario (RLS).
+    // Salva so quando salvar:true (a tela de teste admin NAO salva).
+    // ANTI-FRAUDE: grava com SERVICE_ROLE (nao com o JWT do usuario). A RLS bloqueia escrita
+    // direta do cliente em extrato_uploads, entao a UNICA forma de gravar total_verificado e
+    // por aqui, DEPOIS da IA auditar. user_id vem do JWT verificado (uid), nunca do cliente.
     let salvo = false;
-    if (salvar && supa && uid) {
+    if (salvar && uid) {
       try {
-        const { error: upErr } = await supa.from("extrato_uploads").upsert({
+        const admin = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        );
+        const { error: upErr } = await admin.from("extrato_uploads").upsert({
           user_id: uid,
           dia,
           tipo,

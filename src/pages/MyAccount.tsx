@@ -818,7 +818,7 @@ export default function Profile() {
               Teste · Extrato
             </Button>
             <Button
-              onClick={() => navigate("/bilhete")}
+              onClick={() => navigate("/?bilhete-teste=1")}
               className="w-full h-9 text-xs"
               variant="outline"
               size="sm"

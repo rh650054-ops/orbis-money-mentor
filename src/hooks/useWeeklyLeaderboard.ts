@@ -5,7 +5,9 @@ import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 
 // A 1ª temporada começa no dia 1 (julho começou quebrado, numa quarta). Depois disso
 // a semana é sempre SEGUNDA → DOMINGO: encerra domingo 23:59 e zera na segunda.
-const TEMPORADA_INICIO = "2026-07-01";
+// Fase 2 (ranking de vendas OFICIAL) abre dia 06/07. Antes é só recrutamento (Fase 1):
+// o ranking fica no modo ao vivo, sem exigir extrato, e vira oficial a partir do dia 06.
+const TEMPORADA_INICIO = "2026-07-06";
 
 // Início da janela do ranking (fuso BR).
 // - ATÉ 30/06 (teste pré-lançamento): janela = ONTEM + HOJE, pra mostrar as vendas
@@ -50,7 +52,7 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
       const weekStart = currentWeekStart();
       const weekEnd = currentWeekEnd();
       // Antes do dia 1 (teste): IGNORA extrato, usa só o DEFCON ao vivo. Do dia 1: extrato vale.
-      const usarExtrato = getBrazilDate() >= "2026-07-01";
+      const usarExtrato = getBrazilDate() >= TEMPORADA_INICIO;
       const { data, error } = await supabase.rpc("get_weekly_ranking_verified", { p_week_start: weekStart, p_week_end: weekEnd, p_usar_extrato: usarExtrato });
       if (error) {
         console.error("Ranking semanal erro:", error.message);

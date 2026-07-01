@@ -14,10 +14,16 @@ export interface WeeklyChallenge {
   ticketTitulo: string;
   grandPrizeValue: string;
   grandPrizeDesc: string;
-  miniPrizes: { valor: string; label: string }[];
+  grandPrizeBadge?: string;
+  grandPrizeBadgeTone?: "sub" | "hot" | "red";
+  miniPrizes: { valor: string; label: string; badge?: string; badgeTone?: "sub" | "hot" | "red" }[];
   regrasTitulo: string;
   regras: { nome: string; val: string }[];
   regrasNota: string;
+  regrasHighlight?: string;
+  commissionBadge?: string;
+  commissionBadgeTone?: "sub" | "hot" | "red";
+  whatsappLabel?: string;
   acceptLabel: string;
 }
 
@@ -28,25 +34,44 @@ const DESAFIOS: WeeklyChallenge[] = [
     fim: "2026-07-05",
     introTag: "Você foi convidado",
     introTitulo: "DESAFIO DA SEMANA",
-    introSub: "A primeira disputa de julho começou. Arrasta o cadeado pra ver o que tá valendo.",
-    eventoLabel: "Liga Semanal · Orbis",
-    ticketTitulo: "VALENDO R$100",
-    grandPrizeValue: "R$ 100",
-    grandPrizeDesc: "pro 1º lugar da semana (01 a 05/07)",
-    miniPrizes: [],
-    regrasTitulo: "Como funciona",
-    regras: [
-      { nome: "Quando", val: "01–05/07" },
-      { nome: "Encerra", val: "Dom 23:59" },
-      { nome: "Vence", val: "+ Faturamento" },
+    introSub: "Arraste e descubra quanto dá pra faturar já nesta semana — antes mesmo do ranking abrir.",
+    eventoLabel: "Elite Orbis · Julho",
+    ticketTitulo: "VOCÊ ESTÁ DENTRO",
+    grandPrizeValue: "R$ 500",
+    grandPrizeDesc: "Prêmio mensal",
+    grandPrizeBadge: "COMEÇA 06/07",
+    grandPrizeBadgeTone: "red",
+    miniPrizes: [
+      { valor: "R$ 100", label: "Top 1 da semana", badge: "COMEÇA 06/07", badgeTone: "red" },
+      { valor: "R$ 50", label: "Por 3 assinaturas", badge: "LIBERADO HOJE", badgeTone: "hot" },
     ],
-    regrasNota: "Suba teu extrato todo dia até as 9h pra venda contar. Dinheiro vivo não entra — só cartão e pix verificado.",
-    acceptLabel: "TÔ NA DISPUTA →",
+    regrasTitulo: "💰 Quanto você ganha",
+    regras: [
+      { nome: "10 assinaturas", val: "R$ 100" },
+      { nome: "20 assinaturas", val: "R$ 170" },
+      { nome: "30 assinaturas", val: "R$ 300" },
+    ],
+    regrasHighlight: "🔥 Bateu 30 assinaturas? São R$ 300 direto no seu Pix.",
+    regrasNota: "Os valores são o total que você leva ao chegar em cada marca.",
+    commissionBadge: "MISSÃO LIBERADA HOJE",
+    commissionBadgeTone: "hot",
+    whatsappLabel: "Pegar meu link de afiliado",
+    acceptLabel: "ACEITAR O DESAFIO →",
   },
 ];
 
+// Bilhete dourado / desafio PAUSADO (estratégia adiada). Com isso, o bilhete não
+// abre, o ícone some, o lembrete some e o fluxo não dispara. Pra REATIVAR: PAUSADO = false.
+const PAUSADO = false;
+
 // Desafio ativo hoje (fuso BR), ou null.
 export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null {
+  // Modo TESTE: abre o bilhete via URL (?bilhete-teste), ignorando data e pausa.
+  // Não afeta usuário normal (só quem entra com o parâmetro).
+  if (typeof window !== "undefined" && window.location.search.includes("bilhete-teste")) {
+    return DESAFIOS[0] ?? null;
+  }
+  if (PAUSADO) return null;
   const t = today ?? getBrazilDate();
   return DESAFIOS.find((d) => t >= d.inicio && t <= d.fim) ?? null;
 }
@@ -55,3 +80,17 @@ export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null
 export function isFirstDay(c: WeeklyChallenge, today?: string): boolean {
   return (today ?? getBrazilDate()) === c.inicio;
 }
+
+// O bilhete ainda precisa aparecer/terminar? (1º dia e ainda não visto).
+// Usado no dashboard pra SEGURAR o modal de "meta do mês" até o bilhete acabar,
+// evitando os dois overlays abrindo juntos (o que travava o app no dia 1).
+export function isWeeklyTicketPending(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.search.includes("bilhete-teste")) return false;
+  const c = getActiveWeeklyChallenge();
+  if (!c) return false;
+  return isFirstDay(c) && localStorage.getItem(`orbis_wc_seen2_${c.id}`) !== "1";
+}
+
+// Nome do evento disparado quando o bilhete termina (aceitar/fechar) → abre a meta.
+export const WEEKLY_TICKET_DONE_EVENT = "orbis:weekly-ticket-done";

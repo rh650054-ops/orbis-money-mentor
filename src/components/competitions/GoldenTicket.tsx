@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 export interface MiniPrize {
   valor: string;
   label: string;
+  badge?: string;
+  badgeTone?: "sub" | "hot" | "red";
 }
 export interface CommissionTier {
   nome: string;
@@ -19,10 +21,17 @@ interface Props {
   grandPrizeLabel?: string;
   grandPrizeValue: string;
   grandPrizeDesc?: string;
+  grandPrizeBadge?: string;
+  grandPrizeBadgeTone?: "sub" | "hot" | "red";
   miniPrizes?: MiniPrize[];
   commissionTitle?: string;
   commissionTiers?: CommissionTier[];
   commissionNote?: string;
+  commissionHighlight?: string;
+  commissionBadge?: string;
+  commissionBadgeTone?: "sub" | "hot" | "red";
+  whatsappLabel?: string;
+  onWhatsapp?: () => void;
   acceptLabel?: string;
   onAccept: () => void;
 }
@@ -74,6 +83,12 @@ const CSS = `
 .obt-ticket { width:290px; position:relative; border-radius:22px; overflow:hidden; background:linear-gradient(135deg,#0F0B04 0%,#2A2008 25%,#4A3810 50%,#2A2008 75%,#0F0B04 100%); box-shadow:0 0 50px rgba(201,168,76,.25), inset 0 1px 0 rgba(245,215,142,.4), inset 0 -1px 0 rgba(0,0,0,.5); animation: obtFloat 4s ease-in-out infinite; transform-style:preserve-3d; }
 .obt-ticket::after { content:''; position:absolute; inset:0; border-radius:22px; padding:1.5px; background:linear-gradient(135deg, rgba(245,215,142,.8), rgba(201,168,76,.2), rgba(245,215,142,.8)); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
 @keyframes obtFloat { 0%,100%{transform:translateY(0) rotateX(0) rotateY(-2deg)} 50%{transform:translateY(-10px) rotateX(2deg) rotateY(2deg)} }
+.obt-ticket.tear { overflow:visible; animation:none; }
+.obt-ticket.tear .obt-ticket-shine, .obt-ticket.tear .obt-ticket-texture { opacity:0; transition:opacity .2s; }
+.obt-ticket.tear .obt-ticket-top { animation:obtTearTop .5s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; }
+.obt-ticket.tear .obt-ticket-body { animation:obtTearBottom .5s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; }
+@keyframes obtTearTop { 35%{transform:translateY(-3px) rotate(-2deg)} 100%{transform:translate(-14px,-36px) rotate(-9deg); opacity:.08} }
+@keyframes obtTearBottom { 35%{transform:translateY(3px) rotate(2deg)} 100%{transform:translate(14px,42px) rotate(8deg); opacity:.08} }
 .obt-ticket-shine { position:absolute; top:-50%; left:-100%; width:50%; height:200%; background:linear-gradient(90deg, transparent, rgba(245,215,142,.35), transparent); transform:rotate(25deg); animation: obtShine 4s ease-in-out infinite; }
 @keyframes obtShine { 0%{left:-100%} 45%,100%{left:200%} }
 .obt-ticket-texture { position:absolute; inset:0; opacity:.06; mix-blend-mode:overlay; background-image:repeating-linear-gradient(45deg,#C9A84C 0,#C9A84C 1px,transparent 1px,transparent 8px); }
@@ -109,24 +124,33 @@ const CSS = `
 .obt-rev-tag { font-size:10px; letter-spacing:4px; color:#C9A84C; text-transform:uppercase; margin-bottom:8px; }
 .obt-rev-logo { font-family:'Bebas Neue',sans-serif; font-size:38px; letter-spacing:5px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:4px; filter:drop-shadow(0 0 16px rgba(201,168,76,.4)); }
 .obt-rev-sub { font-size:11px; color:#888; letter-spacing:2px; }
-.obt-prize-big { background:linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.04)); border:1.5px solid rgba(201,168,76,.45); border-radius:20px; padding:24px; text-align:center; margin-bottom:12px; position:relative; overflow:hidden; }
+.obt-prize-big { background:linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.04)); border:1.5px solid rgba(201,168,76,.45); border-radius:20px; padding:24px; text-align:center; margin-bottom:12px; position:relative; }
 .obt-prize-label { font-size:9px; letter-spacing:3px; color:rgba(245,215,142,.8); text-transform:uppercase; margin-bottom:6px; }
-.obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; filter:drop-shadow(0 0 24px rgba(201,168,76,.5)); animation: obtPrizeGlow 2s ease-in-out infinite; }
+.obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; line-height:1; text-shadow:0 0 26px rgba(201,168,76,.55); }
 @keyframes obtPrizeGlow { 0%,100%{filter:drop-shadow(0 0 24px rgba(201,168,76,.4))} 50%{filter:drop-shadow(0 0 40px rgba(201,168,76,.7))} }
-.obt-prize-desc { font-size:10px; color:#999; margin-top:6px; }
+.obt-prize-desc { font-size:12.5px; color:#F5D78E; margin-top:7px; font-weight:600; letter-spacing:.3px; }
 .obt-prize-row { display:flex; gap:10px; margin-bottom:12px; }
 .obt-prize-mini { flex:1; background:rgba(255,255,255,.03); border:.5px solid rgba(201,168,76,.25); border-radius:16px; padding:16px; text-align:center; }
-.obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; text-shadow:0 0 14px rgba(201,168,76,.4); }
 .obt-prize-mini-lbl { font-size:9px; color:#888; letter-spacing:1px; margin-top:3px; line-height:1.3; white-space:pre-line; }
-.obt-comissao { background:rgba(255,255,255,.03); border:.5px solid rgba(255,255,255,.06); border-radius:16px; padding:18px; margin-bottom:16px; }
-.obt-comissao-titulo { font-size:10px; letter-spacing:2px; color:#C9A84C; text-transform:uppercase; margin-bottom:12px; text-align:center; }
-.obt-comissao-item { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid rgba(255,255,255,.04); }
-.obt-comissao-item:last-child { border-bottom:none; }
-.obt-comissao-nome { font-size:12px; color:#ccc; }
-.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-.obt-comissao-note { text-align:center; font-size:10px; color:#666; margin-top:10px; line-height:1.4; }
+.obt-comissao { background:linear-gradient(160deg, rgba(201,168,76,.1), rgba(255,255,255,.015)); border:1px solid rgba(201,168,76,.32); border-radius:18px; padding:18px 16px 16px; margin-bottom:16px; box-shadow:inset 0 1px 0 rgba(245,215,142,.15); }
+.obt-comissao-titulo { font-size:11px; letter-spacing:2px; color:#F5D78E; text-transform:uppercase; margin-bottom:14px; text-align:center; font-weight:700; }
+.obt-comissao-item { display:flex; justify-content:space-between; align-items:center; padding:10px 13px; margin-bottom:7px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05); }
+.obt-comissao-item:last-child { margin-bottom:0; }
+.obt-comissao-item.top { background:linear-gradient(135deg, rgba(201,168,76,.22), rgba(245,215,142,.05)); border:1px solid rgba(245,215,142,.55); box-shadow:0 0 20px rgba(201,168,76,.28); }
+.obt-comissao-nome { font-size:12.5px; color:#dcdcdc; display:flex; align-items:center; gap:8px; }
+.obt-comissao-tag { font-size:7px; letter-spacing:.8px; font-weight:800; color:#1a1408; background:linear-gradient(135deg,#F5D78E,#C9A84C); padding:2px 6px; border-radius:5px; text-transform:uppercase; white-space:nowrap; }
+.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; }
+.obt-comissao-hl { margin-top:13px; background:rgba(52,211,153,.09); border:1px solid rgba(52,211,153,.32); border-radius:12px; padding:12px 14px; text-align:center; font-size:12px; color:#cfe9dd; line-height:1.5; }
+.obt-comissao-note { text-align:center; font-size:10px; color:#777; margin-top:11px; line-height:1.4; }
+.obt-wpp { width:100%; margin-top:12px; padding:13px; border-radius:13px; background:#25D366; color:#04160c; font-weight:800; font-size:13.5px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 0 22px rgba(37,211,102,.35); }
 .obt-btn-aceitar { width:100%; padding:16px; border-radius:14px; background:linear-gradient(135deg,#C9A84C,#F5D78E); color:#000; font-weight:700; font-size:15px; letter-spacing:1px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; box-shadow:0 0 30px rgba(201,168,76,.4); margin-top:auto; animation: obtBtn 2s ease-in-out infinite; }
 @keyframes obtBtn { 0%,100%{box-shadow:0 0 24px rgba(201,168,76,.3)} 50%{box-shadow:0 0 44px rgba(201,168,76,.6)} }
+.obt-badge { display:inline-block; font-size:8.5px; letter-spacing:1.2px; font-weight:800; padding:3px 9px; border-radius:6px; text-transform:uppercase; margin-top:9px; }
+.obt-badge-sub { background:rgba(201,168,76,.09); border:1px solid rgba(201,168,76,.28); color:rgba(201,168,76,.72); }
+.obt-badge-hot { background:rgba(52,211,153,.16); border:1px solid #34D399; color:#5df0bd; box-shadow:0 0 12px rgba(52,211,153,.35); animation:obtBadgePulse 1.6s ease-in-out infinite; }
+.obt-badge-red { background:rgba(239,68,68,.16); border:1px solid rgba(239,68,68,.7); color:#ff9b9b; box-shadow:0 0 16px rgba(239,68,68,.35); padding:4px 12px; font-size:9px; }
+@keyframes obtBadgePulse { 0%,100%{box-shadow:0 0 8px rgba(52,211,153,.3)} 50%{box-shadow:0 0 18px rgba(52,211,153,.6)} }
 `;
 
 export function GoldenTicket({
@@ -139,10 +163,17 @@ export function GoldenTicket({
   grandPrizeLabel = "🏆 Grande Prêmio",
   grandPrizeValue,
   grandPrizeDesc,
+  grandPrizeBadge,
+  grandPrizeBadgeTone,
   miniPrizes = [],
   commissionTitle,
   commissionTiers = [],
   commissionNote,
+  commissionHighlight,
+  commissionBadge,
+  commissionBadgeTone,
+  whatsappLabel,
+  onWhatsapp,
   acceptLabel = "ACEITAR O DESAFIO →",
   onAccept,
 }: Props) {
@@ -150,6 +181,7 @@ export function GoldenTicket({
   const [flash, setFlash] = useState(false);
   const [raysShow, setRaysShow] = useState(false);
   const [stageOut, setStageOut] = useState(false);
+  const [tearing, setTearing] = useState(false);
   const [handleIcon, setHandleIcon] = useState("🔓");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -169,7 +201,7 @@ export function GoldenTicket({
       canvas.height = canvas.offsetHeight;
     };
     resize();
-    const ambient = Array.from({ length: 40 }, () => ({
+    const ambient = Array.from({ length: 16 }, () => ({
       x: Math.random() * canvas.width, y: Math.random() * canvas.height,
       r: Math.random() * 1.2 + 0.3, vx: (Math.random() - 0.5) * 0.15, vy: (Math.random() - 0.5) * 0.15,
       o: Math.random() * 0.4 + 0.2, p: Math.random() * Math.PI * 2,
@@ -177,7 +209,7 @@ export function GoldenTicket({
     let burst: Array<{ x: number; y: number; vx: number; vy: number; r: number; life: number; o: number }> = [];
     burstRef.current = () => {
       const cx = canvas.width / 2, cy = canvas.height * 0.4;
-      for (let i = 0; i < 80; i++) {
+      for (let i = 0; i < 45; i++) {
         const a = Math.random() * Math.PI * 2, sp = Math.random() * 8 + 3;
         burst.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: Math.random() * 2.5 + 1, life: 1, o: 1 });
       }
@@ -215,11 +247,15 @@ export function GoldenTicket({
     setHandleIcon("🔥");
     playUnlockSound();
     if (navigator.vibrate) navigator.vibrate([40, 30, 80]);
-    burstRef.current?.();
-    setFlash(true);
-    setRaysShow(true);
-    setStageOut(true);
-    setTimeout(() => setRevealed(true), 400);
+    // 1) Rasga o bilhete no meio (com o barulho). 2) Depois estoura + revela prêmios.
+    setTearing(true);
+    setTimeout(() => {
+      burstRef.current?.();
+      setFlash(true);
+      setRaysShow(true);
+      setStageOut(true);
+      setTimeout(() => setRevealed(true), 380);
+    }, 460);
   };
 
   const onDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -267,7 +303,7 @@ export function GoldenTicket({
         {introSub && <div className="obt-intro-sub">{introSub}</div>}
 
         <div className="obt-ticket-3d">
-          <div className="obt-ticket">
+          <div className={`obt-ticket ${tearing ? "tear" : ""}`}>
             <div className="obt-ticket-shine" />
             <div className="obt-ticket-texture" />
             <div className="obt-ticket-top">
@@ -288,8 +324,8 @@ export function GoldenTicket({
 
         <div className="obt-unlock" ref={trackRef}>
           <div className="obt-unlock-fill" ref={fillRef} />
-          <div className="obt-unlock-text">ARRASTE PARA DESBLOQUEAR →</div>
-          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+          <div className="obt-unlock-text">ARRASTE OU TOQUE PARA ABRIR →</div>
+          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={complete}>
             {handleIcon}
           </div>
         </div>
@@ -306,6 +342,7 @@ export function GoldenTicket({
           <div className="obt-prize-label">{grandPrizeLabel}</div>
           <div className="obt-prize-valor">{grandPrizeValue}</div>
           {grandPrizeDesc && <div className="obt-prize-desc">{grandPrizeDesc}</div>}
+          {grandPrizeBadge && <div className={`obt-badge obt-badge-${grandPrizeBadgeTone || "sub"}`}>{grandPrizeBadge}</div>}
         </div>
 
         {miniPrizes.length > 0 && (
@@ -314,6 +351,7 @@ export function GoldenTicket({
               <div className="obt-prize-mini" key={i}>
                 <div className="obt-prize-mini-valor">{m.valor}</div>
                 <div className="obt-prize-mini-lbl">{m.label}</div>
+                {m.badge && <div className={`obt-badge obt-badge-${m.badgeTone || "sub"}`}>{m.badge}</div>}
               </div>
             ))}
           </div>
@@ -322,13 +360,30 @@ export function GoldenTicket({
         {commissionTiers.length > 0 && (
           <div className="obt-comissao obt-rev-item">
             {commissionTitle && <div className="obt-comissao-titulo">{commissionTitle}</div>}
-            {commissionTiers.map((t, i) => (
-              <div className="obt-comissao-item" key={i}>
-                <span className="obt-comissao-nome">{t.nome}</span>
-                <span className="obt-comissao-val">{t.val}</span>
+            {commissionBadge && (
+              <div style={{ textAlign: "center", marginBottom: 12 }}>
+                <span className={`obt-badge obt-badge-${commissionBadgeTone || "sub"}`} style={{ marginTop: 0 }}>{commissionBadge}</span>
               </div>
-            ))}
+            )}
+            {commissionTiers.map((t, i) => {
+              const isTop = i === commissionTiers.length - 1;
+              return (
+                <div className={`obt-comissao-item${isTop ? " top" : ""}`} key={i}>
+                  <span className="obt-comissao-nome">
+                    {t.nome}
+                    {isTop && <span className="obt-comissao-tag">Máximo</span>}
+                  </span>
+                  <span className="obt-comissao-val">{t.val}</span>
+                </div>
+              );
+            })}
+            {commissionHighlight && <div className="obt-comissao-hl">{commissionHighlight}</div>}
             {commissionNote && <div className="obt-comissao-note">{commissionNote}</div>}
+            {onWhatsapp && (
+              <button className="obt-wpp" onClick={onWhatsapp}>
+                📲 {whatsappLabel || "Pegar meu link de afiliado"}
+              </button>
+            )}
           </div>
         )}
 
