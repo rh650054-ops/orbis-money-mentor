@@ -15,13 +15,13 @@ export interface WeeklyChallenge {
   grandPrizeValue: string;
   grandPrizeDesc: string;
   grandPrizeBadge?: string;
-  grandPrizeBadgeTone?: "sub" | "hot";
-  miniPrizes: { valor: string; label: string; badge?: string; badgeTone?: "sub" | "hot" }[];
+  grandPrizeBadgeTone?: "sub" | "hot" | "red";
+  miniPrizes: { valor: string; label: string; badge?: string; badgeTone?: "sub" | "hot" | "red" }[];
   regrasTitulo: string;
   regras: { nome: string; val: string }[];
   regrasNota: string;
   commissionBadge?: string;
-  commissionBadgeTone?: "sub" | "hot";
+  commissionBadgeTone?: "sub" | "hot" | "red";
   acceptLabel: string;
 }
 
@@ -36,20 +36,20 @@ const DESAFIOS: WeeklyChallenge[] = [
     eventoLabel: "Elite Orbis · Julho",
     ticketTitulo: "VOCÊ ESTÁ DENTRO",
     grandPrizeValue: "R$ 500",
-    grandPrizeDesc: "Prêmio máximo do desafio",
-    grandPrizeBadge: "RANKING ABRE 06/07",
-    grandPrizeBadgeTone: "sub",
+    grandPrizeDesc: "Prêmio mensal",
+    grandPrizeBadge: "COMEÇA 06/07",
+    grandPrizeBadgeTone: "red",
     miniPrizes: [
-      { valor: "R$ 100", label: "Top 1 da semana", badge: "RANKING · 06/07", badgeTone: "sub" },
-      { valor: "R$ 50", label: "Por 3 indicações", badge: "LIBERADO HOJE", badgeTone: "hot" },
+      { valor: "R$ 100", label: "Top 1 da semana", badge: "COMEÇA 06/07", badgeTone: "red" },
+      { valor: "R$ 50", label: "Por 3 assinaturas", badge: "LIBERADO HOJE", badgeTone: "hot" },
     ],
-    regrasTitulo: "🤝 Comissão por indicação",
+    regrasTitulo: "🤝 Comissão por assinatura",
     regras: [
-      { nome: "1º indicado", val: "R$ 5" },
-      { nome: "2º indicado", val: "R$ 7" },
-      { nome: "3º indicado", val: "R$ 10" },
+      { nome: "Até 10 assinaturas", val: "R$ 5" },
+      { nome: "11 a 30 assinaturas", val: "R$ 7" },
+      { nome: "31+ assinaturas", val: "R$ 10" },
     ],
-    regrasNota: "O ranking de vendas abre segunda (06/07).",
+    regrasNota: "Quanto mais assinaturas você trouxer, maior a margem por cada.",
     commissionBadge: "MISSÃO LIBERADA HOJE",
     commissionBadgeTone: "hot",
     acceptLabel: "ACEITAR O DESAFIO →",

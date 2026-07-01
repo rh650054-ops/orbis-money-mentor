@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
-import { useAuth } from "@/hooks/useAuth";
 import { getActiveWeeklyChallenge, isFirstDay } from "@/shared/lib/weeklyChallenge";
 
 // Evento pra o ícone dourado (no DEFCON) reabrir o bilhete que mora no Layout.
@@ -17,11 +16,9 @@ function brazilHour(): number {
 // ===== Overlay do bilhete (vive no Layout, tela cheia, por cima do menu) =====
 // Abre sozinho no 1º dia (uma vez, até aceitar). Depois só reabre pelo ícone.
 export function WeeklyChallengeTicket() {
-  const { user } = useAuth();
   const challenge = getActiveWeeklyChallenge();
   const [open, setOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [copiado, setCopiado] = useState(false);
 
   useEffect(() => {
     if (!challenge) return;
@@ -50,12 +47,10 @@ export function WeeklyChallengeTicket() {
     setShowSuccess(true);
   };
 
-  const link = `${window.location.origin}/?ref=${user?.id ?? ""}`;
-  const msgWpp = "Tô no Orbis — o app dos vendedor de rua (meta, ranking e um mentor que te ajuda a vender mais). Entra pelo meu link e bora competir 👇";
-  const compartilhar = () => window.open(`https://wa.me/?text=${encodeURIComponent(msgWpp + "\n" + link)}`, "_blank");
-  const copiar = () => {
-    navigator.clipboard?.writeText(link).then(() => setCopiado(true)).catch(() => {});
-  };
+  const contatoWpp = () => window.open(
+    "https://wa.me/5511915054830?text=" + encodeURIComponent("Oi! Quero fazer meu link de afiliado do Orbis pra comecar a lucrar com as assinaturas."),
+    "_blank",
+  );
 
   return (
     <>
@@ -93,15 +88,13 @@ export function WeeklyChallengeTicket() {
               O <b style={{ color: "#fff" }}>Ranking de Vendas</b> pra disputar os R$100 semanais começa oficialmente na <b style={{ color: "#fff" }}>próxima segunda (06/07)</b>.
             </p>
             <p style={{ fontSize: 13, color: "#cfcfcf", lineHeight: 1.6, marginBottom: 16 }}>
-              Mas a sua <b style={{ color: "#34D399" }}>Fase de Recrutamento começou AGORA</b>. Pega teu link de parceiro. Os <b style={{ color: "#F5D78E" }}>3 primeiros guerreiros</b> que você trouxer esta semana já te garantem <b style={{ color: "#F5D78E" }}>R$50 no Pix</b> — antes mesmo da competição abrir.
+              Mas a sua <b style={{ color: "#34D399" }}>Fase de Recrutamento começou AGORA</b>. As <b style={{ color: "#F5D78E" }}>3 primeiras assinaturas</b> que você trouxer esta semana já te garantem <b style={{ color: "#F5D78E" }}>R$50 no Pix</b> — antes mesmo da competição abrir.
             </p>
-            <div style={{ fontSize: 10, letterSpacing: 2, color: "rgba(201,168,76,0.7)", marginBottom: 6, textTransform: "uppercase" }}>Seu link de parceiro</div>
-            <div style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(201,168,76,0.3)", borderRadius: 12, padding: "10px 12px", fontSize: 12, color: "#F5D78E", marginBottom: 12, wordBreak: "break-all" }}>{link}</div>
-            <button onClick={compartilhar} style={{ width: "100%", padding: 14, borderRadius: 12, background: "#25D366", color: "#000", fontWeight: 700, fontSize: 14, border: "none", marginBottom: 8, cursor: "pointer" }}>
-              📲 Compartilhar no WhatsApp
-            </button>
-            <button onClick={copiar} style={{ width: "100%", padding: 12, borderRadius: 12, background: "rgba(201,168,76,0.14)", color: "#F5D78E", fontWeight: 600, fontSize: 13, border: "1px solid rgba(201,168,76,0.3)", marginBottom: 8, cursor: "pointer" }}>
-              {copiado ? "✓ Copiado!" : "Copiar link"}
+            <div style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.35)", borderRadius: 12, padding: "12px 14px", fontSize: 12.5, color: "#cfe9dd", lineHeight: 1.5, marginBottom: 12 }}>
+              Ainda não tem seu <b style={{ color: "#5df0bd" }}>link de afiliado</b>? Fala com a gente e faça o seu pra começar a lucrar 👇
+            </div>
+            <button onClick={contatoWpp} style={{ width: "100%", padding: 14, borderRadius: 12, background: "#25D366", color: "#000", fontWeight: 700, fontSize: 14, border: "none", marginBottom: 8, cursor: "pointer" }}>
+              📲 Fazer meu link de afiliado
             </button>
             <button onClick={() => setShowSuccess(false)} style={{ width: "100%", padding: 14, borderRadius: 12, background: "linear-gradient(135deg,#C9A84C,#F5D78E)", color: "#000", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
               Monte seu esquadrão →
