@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
-import { getActiveWeeklyChallenge, isFirstDay } from "@/shared/lib/weeklyChallenge";
+import { getActiveWeeklyChallenge, isFirstDay, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 
 // Evento pra o ícone dourado (no DEFCON) reabrir o bilhete que mora no Layout.
 const OPEN_EVENT = "orbis:open-weekly-ticket";
@@ -52,9 +52,11 @@ export function WeeklyChallengeTicket() {
   };
 
   // Fechar (X): sai do bilhete sem ir pro sucesso. Marca visto pra não reabrir sozinho.
+  // Dispara o evento de "fim do bilhete" → o dashboard abre a tela de meta do mês.
   const fechar = () => {
     if (!isTeste) localStorage.setItem(seenKey, "1");
     setOpen(false);
+    window.dispatchEvent(new Event(WEEKLY_TICKET_DONE_EVENT));
   };
 
   const contatoWpp = () => window.open(
@@ -110,8 +112,8 @@ export function WeeklyChallengeTicket() {
             <button onClick={contatoWpp} style={{ width: "100%", padding: 14, borderRadius: 12, background: "#25D366", color: "#000", fontWeight: 700, fontSize: 14, border: "none", marginBottom: 8, cursor: "pointer" }}>
               📲 Fazer meu link de afiliado
             </button>
-            <button onClick={() => setShowSuccess(false)} style={{ width: "100%", padding: 14, borderRadius: 12, background: "linear-gradient(135deg,#C9A84C,#F5D78E)", color: "#000", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
-              Monte seu esquadrão →
+            <button onClick={() => { setShowSuccess(false); window.dispatchEvent(new Event(WEEKLY_TICKET_DONE_EVENT)); }} style={{ width: "100%", padding: 14, borderRadius: 12, background: "linear-gradient(135deg,#C9A84C,#F5D78E)", color: "#000", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
+              Continuar → definir minha meta de julho
             </button>
           </div>
         </div>

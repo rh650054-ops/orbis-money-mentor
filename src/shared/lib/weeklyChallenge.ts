@@ -62,7 +62,7 @@ const DESAFIOS: WeeklyChallenge[] = [
 
 // Bilhete dourado / desafio PAUSADO (estratégia adiada). Com isso, o bilhete não
 // abre, o ícone some, o lembrete some e o fluxo não dispara. Pra REATIVAR: PAUSADO = false.
-const PAUSADO = true;
+const PAUSADO = false;
 
 // Desafio ativo hoje (fuso BR), ou null.
 export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null {
@@ -80,3 +80,17 @@ export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null
 export function isFirstDay(c: WeeklyChallenge, today?: string): boolean {
   return (today ?? getBrazilDate()) === c.inicio;
 }
+
+// O bilhete ainda precisa aparecer/terminar? (1º dia e ainda não visto).
+// Usado no dashboard pra SEGURAR o modal de "meta do mês" até o bilhete acabar,
+// evitando os dois overlays abrindo juntos (o que travava o app no dia 1).
+export function isWeeklyTicketPending(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.search.includes("bilhete-teste")) return false;
+  const c = getActiveWeeklyChallenge();
+  if (!c) return false;
+  return isFirstDay(c) && localStorage.getItem(`orbis_wc_seen2_${c.id}`) !== "1";
+}
+
+// Nome do evento disparado quando o bilhete termina (aceitar/fechar) → abre a meta.
+export const WEEKLY_TICKET_DONE_EVENT = "orbis:weekly-ticket-done";

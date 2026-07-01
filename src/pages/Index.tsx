@@ -20,6 +20,7 @@ import RankingCard from "@/components/RankingCard";
 import CompetitionCard from "@/components/CompetitionCard";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
+import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 
 const REWARD_TIERS = [
@@ -68,6 +69,18 @@ export default function Index() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showEditPlanning, setShowEditPlanning] = useState(false);
   const [isRestDay, setIsRestDay] = useState(false);
+  // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
+  const [ticketPending, setTicketPending] = useState(() => isWeeklyTicketPending());
+
+  // Fim do bilhete → libera e abre a tela de meta do mês (o "final do bilhete leva à meta").
+  useEffect(() => {
+    const onTicketDone = () => {
+      setTicketPending(false);
+      setShowEditPlanning(true);
+    };
+    window.addEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
+    return () => window.removeEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
+  }, []);
   
   // Hook for required monthly goal check
   const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
@@ -571,7 +584,8 @@ export default function Index() {
         // vale DEPOIS que a missão terminou; durante o onboarding ele nunca força,
         // senão o usuário não consegue definir a meta e fica preso (tinha que pular).
         const missionDone = localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true';
-        const forced = isMonthlyGoalRequired && missionDone;
+        // Não força a meta enquanto o bilhete do dia 1 ainda não terminou (evita 2 telas juntas).
+        const forced = isMonthlyGoalRequired && missionDone && !ticketPending;
         const open = showEditPlanning || forced;
         if (!open) return null;
         return (
