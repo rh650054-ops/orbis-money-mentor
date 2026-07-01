@@ -19,6 +19,7 @@ import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
 import CompetitionCard from "@/components/CompetitionCard";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
+import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 
 const REWARD_TIERS = [
@@ -502,6 +503,9 @@ export default function Index() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
+      <WeeklyChallengeDashboardCard />
 
       {/* Próxima patente — compact, no shine, no float */}
       <button

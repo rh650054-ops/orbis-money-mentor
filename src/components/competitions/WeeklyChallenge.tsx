@@ -168,6 +168,47 @@ export function WeeklyChallengeIcon() {
   );
 }
 
+// ===== Card dourado no DASHBOARD (abaixo de Lucro líquido / Custos) =================
+// "Bilhete Dourado" — bonito, com brilho, reabre o bilhete. Só aparece com o desafio ativo.
+export function WeeklyChallengeDashboardCard() {
+  const challenge = getActiveWeeklyChallenge();
+  if (!challenge) return null;
+  return (
+    <button
+      onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
+      className="w-full flex items-center gap-3 rounded-2xl px-4 py-3.5 active:scale-[0.98] transition-transform text-left relative overflow-hidden"
+      style={{
+        background: "linear-gradient(135deg, rgba(201,168,76,0.24), rgba(201,168,76,0.06))",
+        border: "1px solid rgba(201,168,76,0.55)",
+        boxShadow: "0 0 26px rgba(201,168,76,0.2)",
+      }}
+    >
+      <style>{`@keyframes wcShine{0%{left:-60%}55%,100%{left:130%}}`}</style>
+      <span
+        aria-hidden
+        style={{
+          position: "absolute", top: 0, bottom: 0, left: "-60%", width: "45%",
+          background: "linear-gradient(90deg, transparent, rgba(245,215,142,0.28), transparent)",
+          transform: "skewX(-18deg)", animation: "wcShine 3.6s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: "linear-gradient(135deg,#C9A84C,#F5D78E)", boxShadow: "0 0 16px rgba(201,168,76,0.55)" }}
+      >
+        <span style={{ fontSize: 22, lineHeight: 1 }}>🎟️</span>
+      </div>
+      <div className="flex-1 min-w-0">
+        <div style={{ color: "#F5D78E", fontWeight: 800, fontSize: 15.5, letterSpacing: 0.3 }}>Bilhete Dourado</div>
+        <div style={{ color: "#cbb884", fontSize: 12, marginTop: 1 }}>
+          Toca pra ver seus prêmios · {challenge.grandPrizeValue}
+        </div>
+      </div>
+      <span style={{ color: "#F5D78E", fontSize: 18 }}>→</span>
+    </button>
+  );
+}
+
 // ===== Lembrete no fim do DEFCON — manda o extrato pra contar no ranking =====
 export function WeeklyChallengeExtratoNudge() {
   const navigate = useNavigate();
