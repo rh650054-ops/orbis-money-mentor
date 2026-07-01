@@ -20,8 +20,10 @@ export interface WeeklyChallenge {
   regrasTitulo: string;
   regras: { nome: string; val: string }[];
   regrasNota: string;
+  regrasHighlight?: string;
   commissionBadge?: string;
   commissionBadgeTone?: "sub" | "hot" | "red";
+  whatsappLabel?: string;
   acceptLabel: string;
 }
 
@@ -32,7 +34,7 @@ const DESAFIOS: WeeklyChallenge[] = [
     fim: "2026-07-05",
     introTag: "Você foi convidado",
     introTitulo: "DESAFIO DA SEMANA",
-    introSub: "Semana de alistamento. Arrasta o cadeado — e monta teu esquadrão antes do ranking abrir.",
+    introSub: "Arraste e descubra quanto dá pra faturar já nesta semana — antes mesmo do ranking abrir.",
     eventoLabel: "Elite Orbis · Julho",
     ticketTitulo: "VOCÊ ESTÁ DENTRO",
     grandPrizeValue: "R$ 500",
@@ -43,15 +45,17 @@ const DESAFIOS: WeeklyChallenge[] = [
       { valor: "R$ 100", label: "Top 1 da semana", badge: "COMEÇA 06/07", badgeTone: "red" },
       { valor: "R$ 50", label: "Por 3 assinaturas", badge: "LIBERADO HOJE", badgeTone: "hot" },
     ],
-    regrasTitulo: "🤝 Comissão por assinatura",
+    regrasTitulo: "💰 Sua comissão por assinatura",
     regras: [
       { nome: "Até 10 assinaturas", val: "R$ 5" },
       { nome: "11 a 30 assinaturas", val: "R$ 7" },
       { nome: "31+ assinaturas", val: "R$ 10" },
     ],
-    regrasNota: "Quanto mais assinaturas você trouxer, maior a margem por cada.",
+    regrasHighlight: "🔥 30 assinaturas ativas = R$ 210 no seu Pix TODO mês. E é recorrente — cai de novo no mês seguinte.",
+    regrasNota: "Quanto mais você traz, maior a margem por cada.",
     commissionBadge: "MISSÃO LIBERADA HOJE",
     commissionBadgeTone: "hot",
+    whatsappLabel: "Pegar meu link de afiliado",
     acceptLabel: "ACEITAR O DESAFIO →",
   },
 ];

@@ -30,6 +30,8 @@ interface Props {
   commissionHighlight?: string;
   commissionBadge?: string;
   commissionBadgeTone?: "sub" | "hot" | "red";
+  whatsappLabel?: string;
+  onWhatsapp?: () => void;
   acceptLabel?: string;
   onAccept: () => void;
 }
@@ -125,19 +127,23 @@ const CSS = `
 .obt-prize-mini { flex:1; background:rgba(255,255,255,.03); border:.5px solid rgba(201,168,76,.25); border-radius:16px; padding:16px; text-align:center; }
 .obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 .obt-prize-mini-lbl { font-size:9px; color:#888; letter-spacing:1px; margin-top:3px; line-height:1.3; white-space:pre-line; }
-.obt-comissao { background:rgba(255,255,255,.03); border:.5px solid rgba(255,255,255,.06); border-radius:16px; padding:18px; margin-bottom:16px; }
-.obt-comissao-titulo { font-size:10px; letter-spacing:2px; color:#C9A84C; text-transform:uppercase; margin-bottom:12px; text-align:center; }
-.obt-comissao-item { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-bottom:.5px solid rgba(255,255,255,.04); }
-.obt-comissao-item:last-child { border-bottom:none; }
-.obt-comissao-nome { font-size:12px; color:#ccc; }
-.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-.obt-comissao-note { text-align:center; font-size:10px; color:#666; margin-top:10px; line-height:1.4; }
+.obt-comissao { background:linear-gradient(160deg, rgba(201,168,76,.1), rgba(255,255,255,.015)); border:1px solid rgba(201,168,76,.32); border-radius:18px; padding:18px 16px 16px; margin-bottom:16px; box-shadow:inset 0 1px 0 rgba(245,215,142,.15); }
+.obt-comissao-titulo { font-size:11px; letter-spacing:2px; color:#F5D78E; text-transform:uppercase; margin-bottom:14px; text-align:center; font-weight:700; }
+.obt-comissao-item { display:flex; justify-content:space-between; align-items:center; padding:10px 13px; margin-bottom:7px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05); }
+.obt-comissao-item:last-child { margin-bottom:0; }
+.obt-comissao-item.top { background:linear-gradient(135deg, rgba(201,168,76,.22), rgba(245,215,142,.05)); border:1px solid rgba(245,215,142,.55); box-shadow:0 0 20px rgba(201,168,76,.28); }
+.obt-comissao-nome { font-size:12.5px; color:#dcdcdc; display:flex; align-items:center; gap:8px; }
+.obt-comissao-tag { font-size:7px; letter-spacing:.8px; font-weight:800; color:#1a1408; background:linear-gradient(135deg,#F5D78E,#C9A84C); padding:2px 6px; border-radius:5px; text-transform:uppercase; white-space:nowrap; }
+.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.obt-comissao-hl { margin-top:13px; background:rgba(52,211,153,.09); border:1px solid rgba(52,211,153,.32); border-radius:12px; padding:12px 14px; text-align:center; font-size:12px; color:#cfe9dd; line-height:1.5; }
+.obt-comissao-note { text-align:center; font-size:10px; color:#777; margin-top:11px; line-height:1.4; }
+.obt-wpp { width:100%; margin-top:12px; padding:13px; border-radius:13px; background:#25D366; color:#04160c; font-weight:800; font-size:13.5px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 0 22px rgba(37,211,102,.35); }
 .obt-btn-aceitar { width:100%; padding:16px; border-radius:14px; background:linear-gradient(135deg,#C9A84C,#F5D78E); color:#000; font-weight:700; font-size:15px; letter-spacing:1px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; box-shadow:0 0 30px rgba(201,168,76,.4); margin-top:auto; animation: obtBtn 2s ease-in-out infinite; }
 @keyframes obtBtn { 0%,100%{box-shadow:0 0 24px rgba(201,168,76,.3)} 50%{box-shadow:0 0 44px rgba(201,168,76,.6)} }
 .obt-badge { display:inline-block; font-size:8.5px; letter-spacing:1.2px; font-weight:800; padding:3px 9px; border-radius:6px; text-transform:uppercase; margin-top:9px; }
 .obt-badge-sub { background:rgba(201,168,76,.09); border:1px solid rgba(201,168,76,.28); color:rgba(201,168,76,.72); }
 .obt-badge-hot { background:rgba(52,211,153,.16); border:1px solid #34D399; color:#5df0bd; box-shadow:0 0 12px rgba(52,211,153,.35); animation:obtBadgePulse 1.6s ease-in-out infinite; }
-.obt-badge-red { background:rgba(239,68,68,.15); border:1px solid #ef4444; color:#ff8a8a; box-shadow:0 0 12px rgba(239,68,68,.3); }
+.obt-badge-red { background:rgba(239,68,68,.16); border:1px solid rgba(239,68,68,.7); color:#ff9b9b; box-shadow:0 0 16px rgba(239,68,68,.35); padding:4px 12px; font-size:9px; }
 @keyframes obtBadgePulse { 0%,100%{box-shadow:0 0 8px rgba(52,211,153,.3)} 50%{box-shadow:0 0 18px rgba(52,211,153,.6)} }
 `;
 
@@ -157,8 +163,11 @@ export function GoldenTicket({
   commissionTitle,
   commissionTiers = [],
   commissionNote,
+  commissionHighlight,
   commissionBadge,
   commissionBadgeTone,
+  whatsappLabel,
+  onWhatsapp,
   acceptLabel = "ACEITAR O DESAFIO →",
   onAccept,
 }: Props) {
@@ -345,13 +354,25 @@ export function GoldenTicket({
                 <span className={`obt-badge obt-badge-${commissionBadgeTone || "sub"}`} style={{ marginTop: 0 }}>{commissionBadge}</span>
               </div>
             )}
-            {commissionTiers.map((t, i) => (
-              <div className="obt-comissao-item" key={i}>
-                <span className="obt-comissao-nome">{t.nome}</span>
-                <span className="obt-comissao-val">{t.val}</span>
-              </div>
-            ))}
+            {commissionTiers.map((t, i) => {
+              const isTop = i === commissionTiers.length - 1;
+              return (
+                <div className={`obt-comissao-item${isTop ? " top" : ""}`} key={i}>
+                  <span className="obt-comissao-nome">
+                    {t.nome}
+                    {isTop && <span className="obt-comissao-tag">Maior margem</span>}
+                  </span>
+                  <span className="obt-comissao-val">{t.val}</span>
+                </div>
+              );
+            })}
+            {commissionHighlight && <div className="obt-comissao-hl">{commissionHighlight}</div>}
             {commissionNote && <div className="obt-comissao-note">{commissionNote}</div>}
+            {onWhatsapp && (
+              <button className="obt-wpp" onClick={onWhatsapp}>
+                📲 {whatsappLabel || "Pegar meu link de afiliado"}
+              </button>
+            )}
           </div>
         )}
 

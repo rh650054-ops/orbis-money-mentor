@@ -70,8 +70,11 @@ export function WeeklyChallengeTicket() {
             commissionTitle={challenge.regrasTitulo}
             commissionTiers={challenge.regras.map((r) => ({ nome: r.nome, val: r.val }))}
             commissionNote={challenge.regrasNota}
+            commissionHighlight={challenge.regrasHighlight}
             commissionBadge={challenge.commissionBadge}
             commissionBadgeTone={challenge.commissionBadgeTone}
+            whatsappLabel={challenge.whatsappLabel}
+            onWhatsapp={contatoWpp}
             acceptLabel={challenge.acceptLabel}
             onAccept={aceitar}
           />
