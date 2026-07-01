@@ -35,6 +35,25 @@ export function formatBrazilDate(date: Date): string {
 }
 
 /**
+ * Primeiro dia do mês atual (YYYY-MM-DD) no timezone do Brasil.
+ * Use para montar o range "do começo do mês até hoje" sem escorregar de fuso.
+ */
+export function getBrazilMonthStart(): string {
+  return getBrazilDate().slice(0, 7) + "-01";
+}
+
+/**
+ * Data (YYYY-MM-DD) N dias antes de HOJE no timezone do Brasil.
+ * Aritmética de calendário a partir da data BR (sem drift de fuso).
+ */
+export function getBrazilDateDaysAgo(days: number): string {
+  const [y, m, d] = getBrazilDate().split("-").map(Number);
+  const dt = new Date(Date.UTC(y!, m! - 1, d!));
+  dt.setUTCDate(dt.getUTCDate() - days);
+  return dt.toISOString().slice(0, 10);
+}
+
+/**
  * Retorna a hora atual no timezone do Brasil no formato HH:MM.
  */
 export function getBrazilTime(): string {
