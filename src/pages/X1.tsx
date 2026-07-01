@@ -6,7 +6,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, Swords, Plus, Trophy, Check, X, Search, Copy } from "lucide-react";
+import { ArrowLeft, Swords, Plus, Trophy, Check, X, Search, Copy, Upload, Loader2, Eye } from "lucide-react";
 
 interface X1 {
   id: string;
@@ -29,6 +29,8 @@ interface X1 {
   opponent_pix: string | null;
   opponent_pix_nome: string | null;
   last_proposed_by: string | null;
+  challenger_proof_url: string | null;
+  opponent_proof_url: string | null;
 }
 interface RankUser {
   user_id: string;
@@ -86,6 +88,7 @@ export default function X1() {
   const [settings, setSettings] = useState<Settings | null>(null);
   // Extratos verificados pela IA (total do dia por duelista) — pro admin decidir o vencedor.
   const [extratos, setExtratos] = useState<Record<string, { total: number; qtd: number }>>({});
+  const [uploadingProof, setUploadingProof] = useState<string | null>(null); // id do X1 subindo comprovante
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
@@ -277,6 +280,35 @@ export default function X1() {
     );
   const markPaid = (id: string) => rpc("x1_mark_paid", { p_id: id }, "Marcado como pago — admin vai confirmar");
   const cancelX1 = (id: string) => rpc("x1_cancel", { p_id: id }, "Desafio cancelado");
+
+  // Sobe o comprovante do Pix pro bucket privado, grava no desafio e marca como pago.
+  const uploadProof = async (c: X1, file: File) => {
+    if (!user) return;
+    setUploadingProof(c.id);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${c.id}/${user.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("x1-proofs").upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { error: rpcErr } = await (supabase as any).rpc("x1_set_proof", { p_id: c.id, p_url: path });
+      if (rpcErr) throw rpcErr;
+      await (supabase as any).rpc("x1_mark_paid", { p_id: c.id }); // comprovante enviado = paguei
+      toast({ title: "Comprovante enviado ✅", description: "O admin vai conferir e liberar o duelo." });
+      await loadAll();
+    } catch (e: any) {
+      toast({ title: "Não consegui enviar o comprovante", description: e?.message || "Tenta de novo com uma foto mais nítida.", variant: "destructive" });
+    } finally {
+      setUploadingProof(null);
+    }
+  };
+
+  // Admin abre o comprovante (URL assinada temporária do bucket privado).
+  const viewProof = async (path: string | null) => {
+    if (!path) return;
+    const { data } = await supabase.storage.from("x1-proofs").createSignedUrl(path, 120);
+    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    else toast({ title: "Não consegui abrir o comprovante", variant: "destructive" });
+  };
   const adminConfirmPayment = (id: string) => rpc("x1_admin_confirm_payment", { p_id: id }, "Pagamentos confirmados — duelo liberado");
   const setWinner = (c: X1, winner: string) =>
     rpc(
@@ -575,33 +607,61 @@ export default function X1() {
 
                 {/* ----- accepted: fluxo do dinheiro ----- */}
                 {c.status === "accepted" && c.stakes_amount > 0 && (
-                  <div className="rounded-lg bg-amber-500/5 border border-amber-500/20 p-2.5 space-y-2 text-[11px] text-muted-foreground">
-                    <p>
-                      Faça o Pix de <span className="text-amber-400 font-bold">{fmt(c.stakes_amount)}</span> pra a conta do Orbis:
-                    </p>
-                    {c.pix_account && (
+                  <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2.5">
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Pagamento da aposta</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                        Faça um Pix de <span className="text-amber-400 font-bold">{fmt(c.stakes_amount)}</span> pra a conta do Orbis usando a chave abaixo — é o nosso <b className="text-foreground">CNPJ</b>. Depois suba o comprovante; o admin confere e libera o duelo.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
                       <button
                         onClick={() => navigator.clipboard?.writeText(c.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {})}
-                        className="inline-flex items-center gap-1 text-amber-400 font-semibold"
+                        className="flex-1 min-w-0 rounded-xl bg-card border border-border p-2.5 text-left active:scale-[0.98] transition-transform"
                       >
-                        <Copy className="w-3 h-3" /> {c.pix_account}
+                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground"><Copy className="w-3 h-3" /> Copiar chave Pix</span>
+                        <span className="block text-[12px] font-semibold text-amber-400 truncate mt-0.5">{c.pix_account || "—"}</span>
                       </button>
-                    )}
-                    <div className="flex flex-wrap gap-2 pt-1">
+
                       {!iPaid ? (
-                        <button onClick={() => markPaid(c.id)} className="flex-1 h-9 rounded-lg bg-amber-500 text-black text-xs font-bold">
-                          Já enviei meu Pix
-                        </button>
+                        <label className={`flex-1 min-w-0 rounded-xl border border-dashed border-amber-500/50 bg-amber-500/5 p-2.5 flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-[0.98] transition-transform ${uploadingProof === c.id ? "opacity-60 pointer-events-none" : ""}`}>
+                          {uploadingProof === c.id ? <Loader2 className="w-4 h-4 animate-spin text-amber-400" /> : <Upload className="w-4 h-4 text-amber-400" />}
+                          <span className="text-[10px] font-bold text-amber-400 text-center leading-tight">{uploadingProof === c.id ? "Enviando…" : "Subir comprovante"}</span>
+                          <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) uploadProof(c, f); }} />
+                        </label>
                       ) : (
-                        <span className="flex-1 inline-flex items-center gap-1 text-green-400 font-semibold">
-                          <Check className="w-3.5 h-3.5" /> Você pagou {!(iAmChallenger ? c.opponent_paid : c.challenger_paid) && "· aguardando o outro"}
-                        </span>
+                        <div className="flex-1 min-w-0 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-2.5 flex flex-col items-center justify-center gap-1">
+                          <Check className="w-4 h-4 text-emerald-400" />
+                          <span className="text-[10px] font-bold text-emerald-400 text-center leading-tight">Comprovante enviado</span>
+                        </div>
                       )}
                     </div>
+
+                    {iPaid && (
+                      <div className="flex items-center justify-center gap-2 rounded-lg bg-card border border-border/60 py-2">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                        <span className="text-[11px] font-semibold text-muted-foreground">
+                          {(iAmChallenger ? c.opponent_paid : c.challenger_paid) ? "Admins avaliando a competição…" : "Aguardando o oponente enviar o comprovante…"}
+                        </span>
+                      </div>
+                    )}
+
                     {isAdmin && (
-                      <button onClick={() => adminConfirmPayment(c.id)} className="w-full h-9 rounded-lg border border-primary/40 bg-primary/10 text-primary text-xs font-bold">
-                        Confirmei o Pix dos dois
-                      </button>
+                      <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · conferir pagamento</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => viewProof(c.challenger_proof_url)} disabled={!c.challenger_proof_url} className="flex-1 min-w-0 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground disabled:opacity-40 inline-flex items-center justify-center gap-1">
+                            <Eye className="w-3.5 h-3.5" /> {name(c.challenger_id)}
+                          </button>
+                          <button onClick={() => viewProof(c.opponent_proof_url)} disabled={!c.opponent_proof_url} className="flex-1 min-w-0 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground disabled:opacity-40 inline-flex items-center justify-center gap-1">
+                            <Eye className="w-3.5 h-3.5" /> {name(c.opponent_id)}
+                          </button>
+                        </div>
+                        <button onClick={() => adminConfirmPayment(c.id)} className="w-full h-9 rounded-lg border border-primary/40 bg-primary/10 text-primary text-xs font-bold">
+                          Confirmar pagamento dos dois → liberar duelo
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
