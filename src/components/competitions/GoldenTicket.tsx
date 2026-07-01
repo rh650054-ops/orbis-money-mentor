@@ -27,6 +27,7 @@ interface Props {
   commissionTitle?: string;
   commissionTiers?: CommissionTier[];
   commissionNote?: string;
+  commissionHighlight?: string;
   commissionBadge?: string;
   commissionBadgeTone?: "sub" | "hot" | "red";
   acceptLabel?: string;
