@@ -5,6 +5,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Swords, Calendar, Target, Coins } from "lucide-react";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import PublicProfileModal from "@/components/PublicProfileModal";
 
 // Anti-spam: intervalo mínimo pra reabrir o MESMO convite (vale entre todas as telas).
 const COOLDOWN_MS = 10 * 60 * 1000; // 10 min
@@ -42,6 +43,8 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   const [other, setOther] = useState<{ nome: string; avatar: string | null } | null>(null);
   const [me, setMe] = useState<{ nome: string; avatar: string | null } | null>(null);
   const [open, setOpen] = useState(false);
+  const [otherUid, setOtherUid] = useState<string | null>(null); // id do desafiante (pra abrir o perfil)
+  const [profileUid, setProfileUid] = useState<string | null>(null); // perfil aberto por cima do convite
 
   // Contraproposta direto no popup.
   const [showCounter, setShowCounter] = useState(false);
@@ -78,16 +81,22 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
           : mine.challenger_id === userId
             ? mine.opponent_id
             : mine.challenger_id;
-      const { data: profs } = await supabase
-        .from("public_profiles")
-        .select("user_id, nickname, avatar_url")
-        .in("user_id", [otherId, userId]);
+      // Nome/avatar: usa o mesmo do ranking (leaderboard_stats, sempre preenchido) com reserva no public_profiles.
+      const [{ data: ls }, { data: pp }] = await Promise.all([
+        supabase.from("leaderboard_stats").select("user_id, nome_usuario, avatar_url").in("user_id", [otherId, userId]),
+        supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", [otherId, userId]),
+      ]);
       if (!alive) return;
-      const arr = (profs as any[]) || [];
-      const po = arr.find((x) => x.user_id === otherId);
-      const pm = arr.find((x) => x.user_id === userId);
-      setOther({ nome: po?.nickname || "Um vendedor", avatar: po?.avatar_url ?? null });
-      setMe({ nome: pm?.nickname || "Você", avatar: pm?.avatar_url ?? null });
+      const lsArr = (ls as any[]) || [];
+      const ppArr = (pp as any[]) || [];
+      const resolve = (uid: string, fallback: string) => {
+        const a = lsArr.find((x) => x.user_id === uid);
+        const b = ppArr.find((x) => x.user_id === uid);
+        return { nome: a?.nome_usuario || b?.nickname || fallback, avatar: a?.avatar_url || b?.avatar_url || null };
+      };
+      setOther(resolve(otherId, "Vendedor"));
+      setMe(resolve(userId, "Você"));
+      setOtherUid(otherId);
       localStorage.setItem(`x1invite_ts_${mine.id}`, String(Date.now()));
       setChallenge(mine);
       setOpen(true);
@@ -166,9 +175,10 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   const cApostaNum = Number(String(cAposta).replace(",", ".")) || 0;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(v) => !v && markSeen()}>
       <DialogContent
-        className="max-w-sm border-amber-500/40 bg-[#0c0c0f] p-0 overflow-hidden [&>button]:hidden"
+        className="max-w-sm rounded-[28px] border-amber-500/40 bg-[#0c0c0f] p-0 overflow-hidden [&>button]:hidden"
         style={{ boxShadow: "0 20px 60px -15px rgba(245,181,68,0.45)" }}
       >
         <style>{`
@@ -193,7 +203,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
           </div>
 
           <div className="relative mt-5 flex items-start justify-center gap-1">
-            <div className="flex-1 min-w-0 text-center" style={{ animation: "x1iSlideL .5s ease both" }}>
+            <button type="button" onClick={() => otherUid && setProfileUid(otherUid)} className="flex-1 min-w-0 text-center active:scale-95 transition-transform" style={{ animation: "x1iSlideL .5s ease both" }}>
               <div className="mx-auto w-[80px] h-[80px] rounded-full p-[3px]" style={{ background: "linear-gradient(135deg,#F5B544,#e24b4a)", boxShadow: "0 0 26px -4px rgba(245,181,68,.7)" }}>
                 {other.avatar ? (
                   <img src={other.avatar} alt="" className="w-full h-full rounded-full object-cover" />
@@ -202,14 +212,14 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
                 )}
               </div>
               <p className="mt-2 text-sm font-black text-foreground truncate px-0.5">{other.nome}</p>
-              <p className="text-[9px] font-bold tracking-[0.2em] text-amber-400/80 uppercase">Desafiante</p>
-            </div>
+              <p className="text-[9px] font-bold tracking-[0.2em] text-amber-400/80 uppercase">Ver perfil ›</p>
+            </button>
 
             <div className="shrink-0 pt-5">
               <div className="text-3xl font-black italic text-amber-400" style={{ animation: "x1iVs .6s .15s ease both, x1iVsPulse 1.8s 1s ease-in-out infinite" }}>VS</div>
             </div>
 
-            <div className="flex-1 min-w-0 text-center" style={{ animation: "x1iSlideR .5s ease both" }}>
+            <button type="button" onClick={() => setProfileUid(userId)} className="flex-1 min-w-0 text-center active:scale-95 transition-transform" style={{ animation: "x1iSlideR .5s ease both" }}>
               <div className="mx-auto w-[80px] h-[80px] rounded-full p-[3px]" style={{ background: "linear-gradient(135deg,#3b82f6,#22c55e)", boxShadow: "0 0 26px -4px rgba(59,130,246,.6)" }}>
                 {me?.avatar ? (
                   <img src={me.avatar} alt="" className="w-full h-full rounded-full object-cover" />
@@ -219,7 +229,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
               </div>
               <p className="mt-2 text-sm font-black text-foreground truncate px-0.5">{me?.nome || "Você"}</p>
               <p className="text-[9px] font-bold tracking-[0.2em] text-sky-400/80 uppercase">Você</p>
-            </div>
+            </button>
           </div>
 
           <h2 className="relative mt-4 text-center text-lg font-black text-foreground leading-tight px-2" style={{ animation: "x1iIn .5s .2s ease both" }}>
@@ -361,5 +371,8 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
         )}
       </DialogContent>
     </Dialog>
+
+    <PublicProfileModal open={!!profileUid} onOpenChange={(v) => !v && setProfileUid(null)} userId={profileUid} />
+    </>
   );
 }
