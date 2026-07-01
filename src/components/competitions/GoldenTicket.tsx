@@ -120,12 +120,12 @@ const CSS = `
 .obt-rev-sub { font-size:11px; color:#888; letter-spacing:2px; }
 .obt-prize-big { background:linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.04)); border:1.5px solid rgba(201,168,76,.45); border-radius:20px; padding:24px; text-align:center; margin-bottom:12px; position:relative; overflow:hidden; }
 .obt-prize-label { font-size:9px; letter-spacing:3px; color:rgba(245,215,142,.8); text-transform:uppercase; margin-bottom:6px; }
-.obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; filter:drop-shadow(0 0 24px rgba(201,168,76,.5)); animation: obtPrizeGlow 2s ease-in-out infinite; }
+.obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; line-height:1; filter:drop-shadow(0 0 24px rgba(201,168,76,.5)); animation: obtPrizeGlow 2s ease-in-out infinite; }
 @keyframes obtPrizeGlow { 0%,100%{filter:drop-shadow(0 0 24px rgba(201,168,76,.4))} 50%{filter:drop-shadow(0 0 40px rgba(201,168,76,.7))} }
 .obt-prize-desc { font-size:12.5px; color:#F5D78E; margin-top:7px; font-weight:600; letter-spacing:.3px; }
 .obt-prize-row { display:flex; gap:10px; margin-bottom:12px; }
 .obt-prize-mini { flex:1; background:rgba(255,255,255,.03); border:.5px solid rgba(201,168,76,.25); border-radius:16px; padding:16px; text-align:center; }
-.obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; text-shadow:0 0 14px rgba(201,168,76,.4); }
 .obt-prize-mini-lbl { font-size:9px; color:#888; letter-spacing:1px; margin-top:3px; line-height:1.3; white-space:pre-line; }
 .obt-comissao { background:linear-gradient(160deg, rgba(201,168,76,.1), rgba(255,255,255,.015)); border:1px solid rgba(201,168,76,.32); border-radius:18px; padding:18px 16px 16px; margin-bottom:16px; box-shadow:inset 0 1px 0 rgba(245,215,142,.15); }
 .obt-comissao-titulo { font-size:11px; letter-spacing:2px; color:#F5D78E; text-transform:uppercase; margin-bottom:14px; text-align:center; font-weight:700; }
@@ -134,7 +134,7 @@ const CSS = `
 .obt-comissao-item.top { background:linear-gradient(135deg, rgba(201,168,76,.22), rgba(245,215,142,.05)); border:1px solid rgba(245,215,142,.55); box-shadow:0 0 20px rgba(201,168,76,.28); }
 .obt-comissao-nome { font-size:12.5px; color:#dcdcdc; display:flex; align-items:center; gap:8px; }
 .obt-comissao-tag { font-size:7px; letter-spacing:.8px; font-weight:800; color:#1a1408; background:linear-gradient(135deg,#F5D78E,#C9A84C); padding:2px 6px; border-radius:5px; text-transform:uppercase; white-space:nowrap; }
-.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; background:linear-gradient(135deg,#C9A84C,#F5D78E); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; }
 .obt-comissao-hl { margin-top:13px; background:rgba(52,211,153,.09); border:1px solid rgba(52,211,153,.32); border-radius:12px; padding:12px 14px; text-align:center; font-size:12px; color:#cfe9dd; line-height:1.5; }
 .obt-comissao-note { text-align:center; font-size:10px; color:#777; margin-top:11px; line-height:1.4; }
 .obt-wpp { width:100%; margin-top:12px; padding:13px; border-radius:13px; background:#25D366; color:#04160c; font-weight:800; font-size:13.5px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 0 22px rgba(37,211,102,.35); }
