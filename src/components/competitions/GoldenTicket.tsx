@@ -63,7 +63,7 @@ function playUnlockSound() {
 }
 
 const CSS = `
-.obt { font-family: 'DM Sans', sans-serif; color: #fff; -webkit-user-select: none; user-select: none; }
+.obt { font-family: 'DM Sans', sans-serif; color: #fff; -webkit-user-select: none; user-select: none; min-height:100vh; min-height:100dvh; }
 .obt-ambient { position:absolute; inset:0; z-index:1; background: radial-gradient(ellipse 90% 50% at 50% 35%, rgba(201,168,76,0.15) 0%, transparent 55%); animation: obtAmbient 4s ease-in-out infinite; }
 @keyframes obtAmbient { 0%,100%{opacity:.6} 50%{opacity:1} }
 .obt-canvas { position:absolute; inset:0; z-index:2; pointer-events:none; }
@@ -73,7 +73,7 @@ const CSS = `
 .obt-flash { position:absolute; inset:0; z-index:4; background:#F5D78E; opacity:0; pointer-events:none; }
 .obt-flash.fire { animation: obtFlash .6s ease-out; }
 @keyframes obtFlash { 0%{opacity:0} 15%{opacity:.9} 100%{opacity:0} }
-.obt-stage { position:relative; z-index:3; min-height:90vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; transition:opacity .5s, transform .5s; }
+.obt-stage { position:relative; z-index:3; min-height:90vh; min-height:90dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; transition:opacity .5s, transform .5s; }
 .obt-intro-tag { font-size:10px; letter-spacing:5px; color:#C9A84C; text-transform:uppercase; margin-bottom:14px; text-align:center; position:relative; }
 .obt-intro-tag::before,.obt-intro-tag::after { content:''; position:absolute; top:50%; width:20px; height:1px; background:linear-gradient(90deg, transparent, rgba(201,168,76,.6)); }
 .obt-intro-tag::before { left:-28px; } .obt-intro-tag::after { right:-28px; transform:scaleX(-1); }
@@ -110,7 +110,7 @@ const CSS = `
 .obt-unlock-fill { position:absolute; top:6px; left:6px; bottom:6px; width:58px; border-radius:40px; z-index:1; pointer-events:none; background:linear-gradient(90deg, rgba(201,168,76,.4), rgba(245,215,142,.25)); }
 .obt-unlock-handle { width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,#F5D78E,#C9A84C); display:flex; align-items:center; justify-content:center; font-size:22px; color:#1A1408; cursor:grab; position:relative; z-index:2; box-shadow:0 0 24px rgba(201,168,76,.6), inset 0 1px 0 rgba(255,255,255,.4); touch-action:none; }
 .obt-unlock-handle:active { cursor:grabbing; }
-.obt-revealed { position:absolute; inset:0; z-index:5; background:radial-gradient(ellipse 100% 60% at 50% 15%, rgba(201,168,76,.18) 0%, transparent 55%), #030303; display:flex; flex-direction:column; padding:30px 22px 120px; overflow-y:auto; opacity:0; pointer-events:none; }
+.obt-revealed { position:absolute; inset:0; z-index:5; background:radial-gradient(ellipse 100% 60% at 50% 15%, rgba(201,168,76,.18) 0%, transparent 55%), #030303; display:flex; flex-direction:column; padding:calc(26px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; opacity:0; pointer-events:none; }
 .obt-revealed.show { opacity:1; pointer-events:auto; }
 .obt-rev-item { opacity:0; transform:translateY(20px); }
 .obt-revealed.show .obt-rev-item { animation: obtRevIn .6s ease forwards; }
@@ -296,7 +296,7 @@ export function GoldenTicket({
   };
 
   return (
-    <div className="obt" style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden", background: "#030303" }}>
+    <div className="obt" style={{ position: "relative", width: "100%", overflow: "hidden", background: "#030303" }}>
       <style>{CSS}</style>
       <div className="obt-ambient" />
       <div className={`obt-rays ${raysShow ? "show" : ""}`}>
