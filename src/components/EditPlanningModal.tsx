@@ -9,6 +9,7 @@ import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 
 interface EditPlanningModalProps {
   userId: string;
@@ -79,7 +80,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
         weekly_work_days: workDaysPerWeek,
         base_daily_goal: dailyGoal,
         weekly_goal: weeklyGoal,
-        week_start_date: new Date().toISOString().split('T')[0]!,
+        week_start_date: getBrazilDate(),
       })
       .eq("user_id", userId);
 
@@ -94,7 +95,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
     }
 
     // Update today's plan if exists
-    const today = new Date().toISOString().split('T')[0]!;
+    const today = getBrazilDate();
     const { data: todayPlan } = await supabase
       .from("daily_goal_plans")
       .select("id")

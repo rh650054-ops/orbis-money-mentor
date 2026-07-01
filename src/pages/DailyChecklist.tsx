@@ -7,6 +7,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { 
   CheckCircle2, 
   Circle, 
@@ -49,7 +50,7 @@ export default function DailyChecklist() {
   const { toast } = useToast();
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]!);
+  const [selectedDate, setSelectedDate] = useState(getBrazilDate());
   const [totalFocusTime, setTotalFocusTime] = useState(0);
 
   useEffect(() => {
@@ -339,7 +340,7 @@ export default function DailyChecklist() {
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  max={new Date().toISOString().split('T')[0]!}
+                  max={getBrazilDate()}
                   className="bg-card border border-primary/30 rounded-lg px-3 py-1.5 text-sm hover:border-primary transition-smooth focus:ring-2 focus:ring-primary/20"
                 />
               </div>
