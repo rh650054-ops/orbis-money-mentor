@@ -272,15 +272,17 @@ export function GoldenTicket({
   // inteira (não depende de setPointerCapture, que falha em vários mobiles),
   // bloqueia o scroll durante o gesto e completa com folga (75% já abre).
   const beginDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (drag.current.done) return;
+    if (drag.current.done || drag.current.on) return; // evita sessão dupla (multi-touch)
     const track = trackRef.current, handle = handleRef.current, fill = fillRef.current;
     if (!track || !handle || !fill) return;
+    drag.current.on = true;
     const startX = e.clientX;
     const max = track.offsetWidth - handle.offsetWidth - 12;
     let delta = 0;
     handle.style.transition = ""; fill.style.transition = "";
 
     const cleanup = () => {
+      drag.current.on = false;
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
