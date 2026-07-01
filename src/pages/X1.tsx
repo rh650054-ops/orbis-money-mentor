@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -91,6 +91,7 @@ export default function X1() {
   const [uploadingProof, setUploadingProof] = useState<string | null>(null); // id do X1 subindo comprovante
   const [openPlacar, setOpenPlacar] = useState<string | null>(null); // id do X1 com o placar aberto
   const [placar, setPlacar] = useState<Record<string, { ch: number; op: number }>>({}); // totais ao vivo por duelo
+  const prevStatusRef = useRef<Record<string, string>>({}); // status anterior de cada duelo (pra avisar "liberado")
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
@@ -132,6 +133,22 @@ export default function X1() {
       .order("created_at", { ascending: false });
     const challenges = ((rows as any[]) || []) as X1[];
     setList(challenges);
+
+    // Avisa quando um duelo seu foi LIBERADO (virou "active") desde a última leitura.
+    const prev = prevStatusRef.current;
+    if (Object.keys(prev).length > 0) {
+      for (const c of challenges) {
+        if (prev[c.id] && prev[c.id] !== "active" && c.status === "active") {
+          toast({ title: "✅ Duelo liberado!", description: "Pagamento confirmado pelo admin — seu X1 já está valendo. Bora! ⚔️" });
+          if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+            navigator.serviceWorker.ready
+              .then((reg) => reg.active?.postMessage({ type: "orbis-x1-alert", data: { title: "✅ X1 liberado!", body: "Pagamento confirmado — seu duelo já está valendo." } }))
+              .catch(() => {});
+          }
+        }
+      }
+    }
+    prevStatusRef.current = Object.fromEntries(challenges.map((c) => [c.id, c.status]));
     const ids = Array.from(new Set(challenges.flatMap((c) => [c.challenger_id, c.opponent_id])));
     if (ids.length) {
       const { data: profs } = await supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", ids);

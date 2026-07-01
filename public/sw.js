@@ -144,6 +144,20 @@ async function showVendaRealizada(amount) {
   });
 }
 
+// "⚔️ X1 — ..." alerta do duelo (oponente passou / você retomou). Substitui o anterior
+// (só o placar mais recente importa) e leva kind:"x1" pra abrir a aba do X1 no toque.
+async function showX1Alert(d) {
+  return self.registration.showNotification((d && d.title) || "⚔️ X1", {
+    body: (d && d.body) || "",
+    icon: ICON,
+    badge: ICON,
+    silent: false,
+    tag: "orbis-x1-alert",
+    renotify: true,
+    data: { kind: "x1" },
+  });
+}
+
 self.addEventListener("message", (event) => {
   const msg = event.data || {};
   if (msg.type === "orbis-defcon-show") {
@@ -152,6 +166,8 @@ self.addEventListener("message", (event) => {
     event.waitUntil(hideMain());
   } else if (msg.type === "orbis-venda-realizada") {
     event.waitUntil(showVendaRealizada(msg.data && msg.data.amount));
+  } else if (msg.type === "orbis-x1-alert") {
+    event.waitUntil(showX1Alert(msg.data));
   }
 });
 
@@ -164,6 +180,14 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil((async () => {
     const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const orbis = clientsList.find((c) => c.url.includes("/defcon")) || clientsList[0];
+
+    // Alerta de X1: só traz o app pra frente (ou abre o X1 se estiver fechado).
+    if (which === "x1") {
+      const win = clientsList.find((c) => "focus" in c);
+      if (win) await win.focus();
+      else await self.clients.openWindow("/x1");
+      return;
+    }
 
     const next = cleanData(data);
 
