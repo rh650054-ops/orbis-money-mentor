@@ -11,6 +11,7 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
 import PublicProfileModal from "@/components/PublicProfileModal";
+import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
@@ -289,6 +290,7 @@ export default function Ranking() {
 
   return (
     <div className="pb-8 space-y-5">
+      {user && <X1InvitePopup userId={user.id} />}
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">

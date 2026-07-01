@@ -533,8 +533,8 @@ export default function X1() {
                               <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Sua contra-proposta</p>
                               <input value={f.modo} onChange={(e) => patchNeg(c, { modo: e.target.value })} placeholder="O que é o desafio" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
                               <div className="flex gap-2">
-                                <input type="number" inputMode="numeric" value={f.goal} onChange={(e) => patchNeg(c, { goal: e.target.value })} placeholder="Meta (R$)" className="flex-1 h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
-                                <input type="number" inputMode="numeric" value={f.stakes} onChange={(e) => patchNeg(c, { stakes: e.target.value })} placeholder="Aposta (R$)" className="flex-1 h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                                <input type="number" inputMode="numeric" value={f.goal} onChange={(e) => patchNeg(c, { goal: e.target.value })} placeholder="Meta (R$)" className="flex-1 min-w-0 h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                                <input type="number" inputMode="numeric" value={f.stakes} onChange={(e) => patchNeg(c, { stakes: e.target.value })} placeholder="Aposta (R$)" className="flex-1 min-w-0 h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
                               </div>
                               <input type="date" value={f.date} onChange={(e) => patchNeg(c, { date: e.target.value })} className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
                               <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400 pt-1">Seu Pix pra receber se ganhar</p>

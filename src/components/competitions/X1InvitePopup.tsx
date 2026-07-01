@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
-import { Swords } from "lucide-react";
+import { Swords, Calendar, Target, Coins } from "lucide-react";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+
+// Anti-spam: intervalo mínimo pra reabrir o MESMO convite (vale entre todas as telas).
+const COOLDOWN_MS = 10 * 60 * 1000; // 10 min
 
 interface Challenge {
   id: string;
@@ -37,6 +40,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   const navigate = useNavigate();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [other, setOther] = useState<{ nome: string; avatar: string | null } | null>(null);
+  const [me, setMe] = useState<{ nome: string; avatar: string | null } | null>(null);
   const [open, setOpen] = useState(false);
 
   // Contraproposta direto no popup.
@@ -63,8 +67,9 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
       // É a minha vez quando a última proposta não foi minha.
       const mine = rows.find((c) => c.last_proposed_by !== userId);
       if (!mine || !alive) return;
-      // Já vi este convite nesta sessão? Não reabre.
-      if (sessionStorage.getItem(`x1invite_seen_${mine.id}`)) return;
+      // Anti-spam: não reabre o mesmo convite antes do cooldown (vale entre todas as telas).
+      const ts = Number(localStorage.getItem(`x1invite_ts_${mine.id}`) || 0);
+      if (Date.now() - ts < COOLDOWN_MS) return;
 
       // O proponente (quem mandou a bola) é o "outro": last_proposed_by, ou o outro participante.
       const otherId =
@@ -73,14 +78,17 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
           : mine.challenger_id === userId
             ? mine.opponent_id
             : mine.challenger_id;
-      const { data: prof } = await supabase
+      const { data: profs } = await supabase
         .from("public_profiles")
-        .select("nickname, avatar_url")
-        .eq("user_id", otherId)
-        .maybeSingle();
+        .select("user_id, nickname, avatar_url")
+        .in("user_id", [otherId, userId]);
       if (!alive) return;
-      const p = prof as any;
-      setOther({ nome: p?.nickname || "Um vendedor", avatar: p?.avatar_url ?? null });
+      const arr = (profs as any[]) || [];
+      const po = arr.find((x) => x.user_id === otherId);
+      const pm = arr.find((x) => x.user_id === userId);
+      setOther({ nome: po?.nickname || "Um vendedor", avatar: po?.avatar_url ?? null });
+      setMe({ nome: pm?.nickname || "Você", avatar: pm?.avatar_url ?? null });
+      localStorage.setItem(`x1invite_ts_${mine.id}`, String(Date.now()));
       setChallenge(mine);
       setOpen(true);
     })().catch(() => {});
@@ -92,7 +100,8 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   if (!challenge || !other) return null;
 
   const markSeen = () => {
-    sessionStorage.setItem(`x1invite_seen_${challenge.id}`, "1");
+    // Reinicia o cooldown ao fechar (não incomoda de novo tão cedo).
+    localStorage.setItem(`x1invite_ts_${challenge.id}`, String(Date.now()));
     setOpen(false);
   };
 
@@ -162,46 +171,89 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
         className="max-w-sm border-amber-500/40 bg-[#0c0c0f] p-0 overflow-hidden [&>button]:hidden"
         style={{ boxShadow: "0 20px 60px -15px rgba(245,181,68,0.45)" }}
       >
-        {/* brilho dourado no topo */}
-        <div className="relative px-6 pt-8 pb-5 text-center bg-gradient-to-b from-amber-500/15 to-transparent">
-          <div className="mx-auto mb-4 flex items-center justify-center animate-in zoom-in-50 duration-500">
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center border-2 border-amber-400"
-              style={{ background: "rgba(245,181,68,0.12)", boxShadow: "0 0 32px -4px rgba(245,181,68,0.6)" }}
-            >
-              <Swords className="w-9 h-9 text-amber-400" />
+        <style>{`
+@keyframes x1iSlideL{0%{opacity:0;transform:translateX(-26px)}100%{opacity:1;transform:none}}
+@keyframes x1iSlideR{0%{opacity:0;transform:translateX(26px)}100%{opacity:1;transform:none}}
+@keyframes x1iIn{0%{opacity:0;transform:translateY(12px)}100%{opacity:1;transform:none}}
+@keyframes x1iVs{0%{opacity:0;transform:scale(0) rotate(-25deg)}60%{opacity:1;transform:scale(1.25) rotate(8deg)}100%{opacity:1;transform:scale(1) rotate(-5deg)}}
+@keyframes x1iVsPulse{0%,100%{transform:scale(1) rotate(-5deg);text-shadow:0 0 16px rgba(245,181,68,.7)}50%{transform:scale(1.12) rotate(-5deg);text-shadow:0 0 30px rgba(245,181,68,1)}}
+@keyframes x1iAura{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+@keyframes x1iShine{0%{left:-60%}55%,100%{left:130%}}
+.x1i-aura{position:absolute;left:50%;top:-130px;width:320px;height:320px;margin-left:-160px;background:conic-gradient(from 0deg,transparent,rgba(245,181,68,.16),transparent 45%);animation:x1iAura 10s linear infinite;pointer-events:none;filter:blur(3px);}
+        `}</style>
+
+        {/* arena com energia + matchup VS */}
+        <div className="relative overflow-hidden px-5 pt-6 pb-3" style={{ background: "radial-gradient(120% 80% at 50% 0%, rgba(245,181,68,0.16) 0%, transparent 58%)" }}>
+          <div className="x1i-aura" />
+
+          <div className="relative text-center">
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-[0.3em] text-amber-400 uppercase px-3 py-1 rounded-full border border-amber-500/40 bg-amber-500/10">
+              <Swords className="w-3 h-3" /> Desafio · X1
+            </span>
+          </div>
+
+          <div className="relative mt-5 flex items-start justify-center gap-1">
+            <div className="flex-1 min-w-0 text-center" style={{ animation: "x1iSlideL .5s ease both" }}>
+              <div className="mx-auto w-[80px] h-[80px] rounded-full p-[3px]" style={{ background: "linear-gradient(135deg,#F5B544,#e24b4a)", boxShadow: "0 0 26px -4px rgba(245,181,68,.7)" }}>
+                {other.avatar ? (
+                  <img src={other.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-[#141418] flex items-center justify-center text-lg font-black text-amber-400">{other.nome.slice(0, 2).toUpperCase()}</div>
+                )}
+              </div>
+              <p className="mt-2 text-sm font-black text-foreground truncate px-0.5">{other.nome}</p>
+              <p className="text-[9px] font-bold tracking-[0.2em] text-amber-400/80 uppercase">Desafiante</p>
+            </div>
+
+            <div className="shrink-0 pt-5">
+              <div className="text-3xl font-black italic text-amber-400" style={{ animation: "x1iVs .6s .15s ease both, x1iVsPulse 1.8s 1s ease-in-out infinite" }}>VS</div>
+            </div>
+
+            <div className="flex-1 min-w-0 text-center" style={{ animation: "x1iSlideR .5s ease both" }}>
+              <div className="mx-auto w-[80px] h-[80px] rounded-full p-[3px]" style={{ background: "linear-gradient(135deg,#3b82f6,#22c55e)", boxShadow: "0 0 26px -4px rgba(59,130,246,.6)" }}>
+                {me?.avatar ? (
+                  <img src={me.avatar} alt="" className="w-full h-full rounded-full object-cover" />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-[#141418] flex items-center justify-center text-lg font-black text-sky-400">{(me?.nome || "VC").slice(0, 2).toUpperCase()}</div>
+                )}
+              </div>
+              <p className="mt-2 text-sm font-black text-foreground truncate px-0.5">{me?.nome || "Você"}</p>
+              <p className="text-[9px] font-bold tracking-[0.2em] text-sky-400/80 uppercase">Você</p>
             </div>
           </div>
 
-          <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {other.avatar ? (
-              <img
-                src={other.avatar}
-                alt=""
-                className="w-12 h-12 rounded-full object-cover border-2 border-amber-400/60"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-sm font-bold text-foreground border-2 border-amber-400/60">
-                {other.nome.slice(0, 2).toUpperCase()}
-              </div>
-            )}
-            <h2 className="text-xl font-black text-foreground leading-tight px-2">
-              {other.nome} te chamou pra um X1!
-            </h2>
-          </div>
+          <h2 className="relative mt-4 text-center text-lg font-black text-foreground leading-tight px-2" style={{ animation: "x1iIn .5s .2s ease both" }}>
+            <span className="text-amber-400">{other.nome}</span> te chamou pra um duelo!
+          </h2>
         </div>
 
-        {/* termos do desafio */}
-        <div className="px-6 pb-2 animate-in fade-in duration-700">
-          <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-1.5 text-center">
+        {/* carta de batalha (stats do duelo) */}
+        <div className="px-5 pt-1 pb-2">
+          <div className="relative overflow-hidden rounded-2xl border border-amber-500/25 bg-[#0f0f13] p-3 space-y-2" style={{ animation: "x1iIn .5s .3s ease both" }}>
+            <span className="pointer-events-none absolute inset-y-0 w-[45%] -skew-x-12" style={{ left: "-60%", background: "linear-gradient(90deg,transparent,rgba(245,215,142,.14),transparent)", animation: "x1iShine 3.6s ease-in-out infinite" }} />
             {challenge.modo && (
-              <p className="text-sm font-bold text-amber-400">{challenge.modo}</p>
+              <p className="relative text-center text-sm font-black text-amber-400 break-words">“{challenge.modo}”</p>
             )}
-            <p className="text-xs text-muted-foreground">
-              {dia ? `dia ${dia}` : "dia a combinar"}
-              {challenge.goal_amount ? ` · meta ${fmt(challenge.goal_amount)}` : ""}
-              {stakes > 0 ? ` · aposta ${fmt(stakes)} cada` : " · amistoso"}
-            </p>
+            <div className="relative grid grid-cols-3 gap-2">
+              <div className="rounded-xl bg-[#141418] border border-white/5 py-2 px-1 text-center min-w-0">
+                <Calendar className="w-3.5 h-3.5 mx-auto text-amber-400/80" />
+                <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5">Dia</p>
+                <p className="text-[12px] font-black text-foreground truncate">{dia || "combinar"}</p>
+              </div>
+              <div className="rounded-xl bg-[#141418] border border-white/5 py-2 px-1 text-center min-w-0">
+                <Target className="w-3.5 h-3.5 mx-auto text-amber-400/80" />
+                <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5">Meta</p>
+                <p className="text-[12px] font-black text-foreground truncate">{challenge.goal_amount ? fmt(challenge.goal_amount) : "—"}</p>
+              </div>
+              <div className="rounded-xl bg-[#141418] border border-white/5 py-2 px-1 text-center min-w-0">
+                <Coins className="w-3.5 h-3.5 mx-auto text-amber-400/80" />
+                <p className="text-[9px] uppercase tracking-wide text-muted-foreground mt-0.5">{stakes > 0 ? "Aposta" : "Tipo"}</p>
+                <p className="text-[12px] font-black text-foreground truncate">{stakes > 0 ? fmt(stakes) : "Amistoso"}</p>
+              </div>
+            </div>
+            {stakes > 0 && (
+              <p className="relative text-center text-[11px] font-bold text-amber-300">🏆 Vencedor leva o pote — {fmt(stakes * 2)} em jogo</p>
+            )}
           </div>
         </div>
 
@@ -213,7 +265,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
               className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
               style={{ boxShadow: "0 8px 24px -8px rgba(245,181,68,0.7)" }}
             >
-              <Swords className="w-4 h-4" /> Aceitar
+              <Swords className="w-4 h-4" /> Aceitar o duelo
             </button>
             <button
               onClick={openCounter}
@@ -244,7 +296,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
               className="w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-3 text-sm text-foreground placeholder:text-muted-foreground/60 focus:border-amber-400/60 outline-none"
             />
             <div className="flex gap-2">
-              <label className="flex-1 text-[11px] text-muted-foreground">
+              <label className="flex-1 min-w-0 text-[11px] text-muted-foreground">
                 Dia
                 <input
                   type="date"
@@ -253,7 +305,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
                   className="mt-0.5 w-full h-10 rounded-lg bg-[#141418] border border-border/70 px-2 text-sm text-foreground focus:border-amber-400/60 outline-none"
                 />
               </label>
-              <label className="flex-1 text-[11px] text-muted-foreground">
+              <label className="flex-1 min-w-0 text-[11px] text-muted-foreground">
                 Meta R$ (opcional)
                 <input
                   inputMode="decimal"
