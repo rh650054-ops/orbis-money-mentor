@@ -25,9 +25,11 @@ export function WeeklyChallengeTicket() {
 
   useEffect(() => {
     if (!challenge) return;
+    const teste = typeof window !== "undefined" && window.location.search.includes("bilhete-teste");
     const seenKey = `orbis_wc_seen_${challenge.id}`;
     // Abre sozinho só no 1º dia, A PARTIR DAS 5H (fuso BR), uma vez (até aceitar).
-    if (isFirstDay(challenge) && brazilHour() >= 5 && localStorage.getItem(seenKey) !== "1") {
+    // Em modo teste (?bilhete-teste), abre na hora e sempre (pra poder retestar).
+    if (teste || (isFirstDay(challenge) && brazilHour() >= 5 && localStorage.getItem(seenKey) !== "1")) {
       setOpen(true);
     }
   }, [challenge?.id]);

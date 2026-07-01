@@ -54,6 +54,11 @@ const PAUSADO = false;
 
 // Desafio ativo hoje (fuso BR), ou null.
 export function getActiveWeeklyChallenge(today?: string): WeeklyChallenge | null {
+  // Modo TESTE: abre o bilhete via URL (?bilhete-teste), ignorando data e pausa.
+  // Não afeta usuário normal (só quem entra com o parâmetro).
+  if (typeof window !== "undefined" && window.location.search.includes("bilhete-teste")) {
+    return DESAFIOS[0] ?? null;
+  }
   if (PAUSADO) return null;
   const t = today ?? getBrazilDate();
   return DESAFIOS.find((d) => t >= d.inicio && t <= d.fim) ?? null;
