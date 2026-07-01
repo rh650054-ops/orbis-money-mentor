@@ -127,15 +127,19 @@ async function hideMain() {
   }
 }
 
-// "✅ Venda realizada!" (estilo Kiwify). SEM tag de propósito: pode EMPILHAR,
-// uma por venda — diferente das de Venda/Abordagem (que substituem pra não duplicar).
+// "✅ Venda realizada!" (estilo Kiwify). Uma por venda, EMPILHANDO — diferente das
+// de Venda/Abordagem (que substituem pra não duplicar). Pra empilhar de verdade no
+// iPhone (que agrupa por título igual e trocava), cada uma leva um tag ÚNICO.
 async function showVendaRealizada(amount) {
   const valor = brl(amount) || "R$0,00";
+  const uniq = "venda-" + Date.now() + "-" + Math.floor(Math.random() * 1e6);
   return self.registration.showNotification("✅ Venda realizada!", {
     body: `Valor: ${valor}`,
     icon: ICON,
     badge: ICON,
     silent: false,
+    tag: uniq,
+    renotify: true,
     data: { kind: "info" },
   });
 }

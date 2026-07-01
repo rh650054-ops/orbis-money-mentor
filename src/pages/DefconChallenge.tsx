@@ -115,6 +115,22 @@ export default function DefconChallenge() {
 
   const handleExit = () => navigate("/daily-goals");
 
+  // Inicia o DEFCON. Pede a permissão de notificação AQUI, dentro do toque — porque
+  // o iPhone só mostra o prompt se ele for disparado por um gesto do usuário. Sem
+  // isso, quem está no iOS nunca era perguntado e a notificação de venda/abordagem
+  // (e a de "venda realizada") não aparecia. Espera a resposta antes de começar,
+  // assim a sessão já arranca com a permissão resolvida.
+  const handleStart = async () => {
+    try {
+      if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
+    } catch {
+      /* ignora — em aparelho sem suporte, segue sem notificação */
+    }
+    defcon.startChallenge();
+  };
+
   const screen = (() => {
   switch (defcon.phase) {
     case "idle":
@@ -122,7 +138,7 @@ export default function DefconChallenge() {
         <DefconStartScreen
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.blocks.length}
-          onStart={defcon.startChallenge}
+          onStart={handleStart}
           onExit={handleExit}
           onboardingMode={treino}
         />
