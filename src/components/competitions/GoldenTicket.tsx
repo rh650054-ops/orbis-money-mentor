@@ -85,15 +85,10 @@ const CSS = `
 @keyframes obtFloat { 0%,100%{transform:translateY(0) rotateX(0) rotateY(-2deg)} 50%{transform:translateY(-10px) rotateX(2deg) rotateY(2deg)} }
 .obt-ticket.tear { overflow:visible; animation:none; }
 .obt-ticket.tear .obt-ticket-shine, .obt-ticket.tear .obt-ticket-texture { opacity:0; transition:opacity .2s; }
-.obt-ticket.tear .obt-ticket-top { animation:obtTearTop .55s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; clip-path:polygon(0 0,100% 0,100% 78%,90% 97%,80% 78%,70% 97%,60% 78%,50% 97%,40% 78%,30% 97%,20% 78%,10% 97%,0 78%); }
-.obt-ticket.tear .obt-ticket-body { animation:obtTearBottom .55s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; clip-path:polygon(0 22%,10% 3%,20% 22%,30% 3%,40% 22%,50% 3%,60% 22%,70% 3%,80% 22%,90% 3%,100% 22%,100% 100%,0 100%); }
-@keyframes obtTearTop { 30%{transform:translateY(-3px) rotate(-2deg)} 100%{transform:translate(-20px,-46px) rotate(-11deg); opacity:.06} }
-@keyframes obtTearBottom { 30%{transform:translateY(3px) rotate(2deg)} 100%{transform:translate(20px,52px) rotate(10deg); opacity:.06} }
-/* Corte em zig-zag (raio dourado) que risca o bilhete no meio */
-.obt-zigzag { position:absolute; left:0; right:0; top:calc(40% - 34px); height:68px; width:100%; z-index:6; pointer-events:none; animation:obtZigIn .6s ease-out forwards; }
-.obt-zigzag polyline { fill:none; stroke:#fff; stroke-width:7; stroke-linejoin:miter; filter:drop-shadow(0 0 6px #F5D78E) drop-shadow(0 0 16px #C9A84C); stroke-dasharray:1600; stroke-dashoffset:1600; animation:obtZigDraw .32s ease-out forwards; }
-@keyframes obtZigDraw { to{stroke-dashoffset:0} }
-@keyframes obtZigIn { 0%{opacity:0; transform:scaleX(.55)} 22%{opacity:1} 80%{opacity:1} 100%{opacity:.7; transform:scaleX(1)} }
+.obt-ticket.tear .obt-ticket-top { animation:obtTearTop .5s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; }
+.obt-ticket.tear .obt-ticket-body { animation:obtTearBottom .5s cubic-bezier(.45,0,.7,.2) forwards; will-change:transform; }
+@keyframes obtTearTop { 35%{transform:translateY(-3px) rotate(-2deg)} 100%{transform:translate(-14px,-36px) rotate(-9deg); opacity:.08} }
+@keyframes obtTearBottom { 35%{transform:translateY(3px) rotate(2deg)} 100%{transform:translate(14px,42px) rotate(8deg); opacity:.08} }
 .obt-ticket-shine { position:absolute; top:-50%; left:-100%; width:50%; height:200%; background:linear-gradient(90deg, transparent, rgba(245,215,142,.35), transparent); transform:rotate(25deg); animation: obtShine 4s ease-in-out infinite; }
 @keyframes obtShine { 0%{left:-100%} 45%,100%{left:200%} }
 .obt-ticket-texture { position:absolute; inset:0; opacity:.06; mix-blend-mode:overlay; background-image:repeating-linear-gradient(45deg,#C9A84C 0,#C9A84C 1px,transparent 1px,transparent 8px); }
@@ -311,11 +306,6 @@ export function GoldenTicket({
           <div className={`obt-ticket ${tearing ? "tear" : ""}`}>
             <div className="obt-ticket-shine" />
             <div className="obt-ticket-texture" />
-            {tearing && (
-              <svg className="obt-zigzag" viewBox="0 0 300 68" preserveAspectRatio="none" aria-hidden="true">
-                <polyline points="0,34 16,8 34,60 52,8 70,60 88,8 106,60 124,8 142,60 160,8 178,60 196,8 214,60 232,8 250,60 268,8 286,60 300,34" />
-              </svg>
-            )}
             <div className="obt-ticket-top">
               <div className="obt-ticket-logo">ORBIS</div>
               <div className="obt-ticket-evento">{eventoLabel}</div>
