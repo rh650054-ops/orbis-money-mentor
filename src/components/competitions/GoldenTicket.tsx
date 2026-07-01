@@ -171,6 +171,7 @@ export function GoldenTicket({
   onWhatsapp,
   acceptLabel = "ACEITAR O DESAFIO →",
   onAccept,
+  onClose,
 }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [flash, setFlash] = useState(false);
@@ -195,7 +196,7 @@ export function GoldenTicket({
       canvas.height = canvas.offsetHeight;
     };
     resize();
-    const ambient = Array.from({ length: 40 }, () => ({
+    const ambient = Array.from({ length: 16 }, () => ({
       x: Math.random() * canvas.width, y: Math.random() * canvas.height,
       r: Math.random() * 1.2 + 0.3, vx: (Math.random() - 0.5) * 0.15, vy: (Math.random() - 0.5) * 0.15,
       o: Math.random() * 0.4 + 0.2, p: Math.random() * Math.PI * 2,
@@ -203,7 +204,7 @@ export function GoldenTicket({
     let burst: Array<{ x: number; y: number; vx: number; vy: number; r: number; life: number; o: number }> = [];
     burstRef.current = () => {
       const cx = canvas.width / 2, cy = canvas.height * 0.4;
-      for (let i = 0; i < 80; i++) {
+      for (let i = 0; i < 45; i++) {
         const a = Math.random() * Math.PI * 2, sp = Math.random() * 8 + 3;
         burst.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: Math.random() * 2.5 + 1, life: 1, o: 1 });
       }
@@ -278,6 +279,20 @@ export function GoldenTicket({
   return (
     <div className="obt" style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden", background: "#030303" }}>
       <style>{CSS}</style>
+      {onClose && (
+        <button
+          onClick={onClose}
+          aria-label="Fechar"
+          style={{
+            position: "fixed", top: 14, right: 14, zIndex: 30, width: 40, height: 40,
+            borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(245,215,142,0.45)",
+            color: "#F5D78E", fontSize: 20, lineHeight: 1, cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          ✕
+        </button>
+      )}
       <div className="obt-ambient" />
       <div className={`obt-rays ${raysShow ? "show" : ""}`}>
         {Array.from({ length: 12 }).map((_, i) => (
@@ -314,8 +329,8 @@ export function GoldenTicket({
 
         <div className="obt-unlock" ref={trackRef}>
           <div className="obt-unlock-fill" ref={fillRef} />
-          <div className="obt-unlock-text">ARRASTE PARA DESBLOQUEAR →</div>
-          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp}>
+          <div className="obt-unlock-text">ARRASTE OU TOQUE PARA ABRIR →</div>
+          <div className="obt-unlock-handle" ref={handleRef} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onClick={complete}>
             {handleIcon}
           </div>
         </div>

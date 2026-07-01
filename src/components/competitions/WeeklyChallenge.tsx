@@ -51,6 +51,12 @@ export function WeeklyChallengeTicket() {
     setShowSuccess(true);
   };
 
+  // Fechar (X): sai do bilhete sem ir pro sucesso. Marca visto pra não reabrir sozinho.
+  const fechar = () => {
+    if (!isTeste) localStorage.setItem(seenKey, "1");
+    setOpen(false);
+  };
+
   const contatoWpp = () => window.open(
     "https://wa.me/5511915054830?text=" + encodeURIComponent("Oi! Quero fazer meu link de afiliado do Orbis pra comecar a lucrar com as assinaturas."),
     "_blank",
@@ -81,6 +87,7 @@ export function WeeklyChallengeTicket() {
             onWhatsapp={contatoWpp}
             acceptLabel={challenge.acceptLabel}
             onAccept={aceitar}
+            onClose={fechar}
           />
         </div>
       )}
