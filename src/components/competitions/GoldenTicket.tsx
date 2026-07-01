@@ -4,7 +4,7 @@ export interface MiniPrize {
   valor: string;
   label: string;
   badge?: string;
-  badgeTone?: "sub" | "hot";
+  badgeTone?: "sub" | "hot" | "red";
 }
 export interface CommissionTier {
   nome: string;
@@ -22,13 +22,13 @@ interface Props {
   grandPrizeValue: string;
   grandPrizeDesc?: string;
   grandPrizeBadge?: string;
-  grandPrizeBadgeTone?: "sub" | "hot";
+  grandPrizeBadgeTone?: "sub" | "hot" | "red";
   miniPrizes?: MiniPrize[];
   commissionTitle?: string;
   commissionTiers?: CommissionTier[];
   commissionNote?: string;
   commissionBadge?: string;
-  commissionBadgeTone?: "sub" | "hot";
+  commissionBadgeTone?: "sub" | "hot" | "red";
   acceptLabel?: string;
   onAccept: () => void;
 }
@@ -136,6 +136,7 @@ const CSS = `
 .obt-badge { display:inline-block; font-size:8.5px; letter-spacing:1.2px; font-weight:800; padding:3px 9px; border-radius:6px; text-transform:uppercase; margin-top:9px; }
 .obt-badge-sub { background:rgba(201,168,76,.09); border:1px solid rgba(201,168,76,.28); color:rgba(201,168,76,.72); }
 .obt-badge-hot { background:rgba(52,211,153,.16); border:1px solid #34D399; color:#5df0bd; box-shadow:0 0 12px rgba(52,211,153,.35); animation:obtBadgePulse 1.6s ease-in-out infinite; }
+.obt-badge-red { background:rgba(239,68,68,.15); border:1px solid #ef4444; color:#ff8a8a; box-shadow:0 0 12px rgba(239,68,68,.3); }
 @keyframes obtBadgePulse { 0%,100%{box-shadow:0 0 8px rgba(52,211,153,.3)} 50%{box-shadow:0 0 18px rgba(52,211,153,.6)} }
 `;
 
@@ -320,7 +321,7 @@ export function GoldenTicket({
           <div className="obt-prize-label">{grandPrizeLabel}</div>
           <div className="obt-prize-valor">{grandPrizeValue}</div>
           {grandPrizeDesc && <div className="obt-prize-desc">{grandPrizeDesc}</div>}
-          {grandPrizeBadge && <div className={`obt-badge obt-badge-${grandPrizeBadgeTone === "hot" ? "hot" : "sub"}`}>{grandPrizeBadge}</div>}
+          {grandPrizeBadge && <div className={`obt-badge obt-badge-${grandPrizeBadgeTone || "sub"}`}>{grandPrizeBadge}</div>}
         </div>
 
         {miniPrizes.length > 0 && (
@@ -329,7 +330,7 @@ export function GoldenTicket({
               <div className="obt-prize-mini" key={i}>
                 <div className="obt-prize-mini-valor">{m.valor}</div>
                 <div className="obt-prize-mini-lbl">{m.label}</div>
-                {m.badge && <div className={`obt-badge obt-badge-${m.badgeTone === "hot" ? "hot" : "sub"}`}>{m.badge}</div>}
+                {m.badge && <div className={`obt-badge obt-badge-${m.badgeTone || "sub"}`}>{m.badge}</div>}
               </div>
             ))}
           </div>
@@ -340,7 +341,7 @@ export function GoldenTicket({
             {commissionTitle && <div className="obt-comissao-titulo">{commissionTitle}</div>}
             {commissionBadge && (
               <div style={{ textAlign: "center", marginBottom: 12 }}>
-                <span className={`obt-badge obt-badge-${commissionBadgeTone === "hot" ? "hot" : "sub"}`} style={{ marginTop: 0 }}>{commissionBadge}</span>
+                <span className={`obt-badge obt-badge-${commissionBadgeTone || "sub"}`} style={{ marginTop: 0 }}>{commissionBadge}</span>
               </div>
             )}
             {commissionTiers.map((t, i) => (
