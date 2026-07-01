@@ -241,7 +241,6 @@ export default function Insights() {
 
   const summary = useMemo(() => {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
-    const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
     const caloteUnidades = sales.reduce((s, d) => s + (Number((d as any).unpaid_units) || 0), 0);
     // Custos lançados no botão "Custos do dia" (personal_expenses) ENTRAM no líquido,
     // separados por categoria: mercadoria -> custo de mercadoria; transporte/almoço ->
@@ -278,6 +277,10 @@ export default function Insights() {
     const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
     const conversao = totalAbordagens > 0 ? (totalVendas / totalAbordagens) * 100 : 0;
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
+    // "Não recebido" (calote) = SÓ as unidades marcadas como não pagas × ticket médio.
+    // Antes vinha de total_debt, que era o RESÍDUO da conferência (vendido − o que foi
+    // digitado em dinheiro/pix/cartão) — qualquer diferencinha virava "calote" sem ter calote.
+    const calotes = Math.round(caloteUnidades * ticketMedio * 100) / 100;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
 

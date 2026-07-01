@@ -63,7 +63,7 @@ function playUnlockSound() {
 }
 
 const CSS = `
-.obt { font-family: 'DM Sans', sans-serif; color: #fff; -webkit-user-select: none; user-select: none; }
+.obt { font-family: 'DM Sans', sans-serif; color: #fff; -webkit-user-select: none; user-select: none; min-height:100vh; min-height:100dvh; }
 .obt-ambient { position:absolute; inset:0; z-index:1; background: radial-gradient(ellipse 90% 50% at 50% 35%, rgba(201,168,76,0.15) 0%, transparent 55%); animation: obtAmbient 4s ease-in-out infinite; }
 @keyframes obtAmbient { 0%,100%{opacity:.6} 50%{opacity:1} }
 .obt-canvas { position:absolute; inset:0; z-index:2; pointer-events:none; }
@@ -73,14 +73,14 @@ const CSS = `
 .obt-flash { position:absolute; inset:0; z-index:4; background:#F5D78E; opacity:0; pointer-events:none; }
 .obt-flash.fire { animation: obtFlash .6s ease-out; }
 @keyframes obtFlash { 0%{opacity:0} 15%{opacity:.9} 100%{opacity:0} }
-.obt-stage { position:relative; z-index:3; min-height:90vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; transition:opacity .5s, transform .5s; }
+.obt-stage { position:relative; z-index:3; min-height:90vh; min-height:90dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:40px 24px; transition:opacity .5s, transform .5s; }
 .obt-intro-tag { font-size:10px; letter-spacing:5px; color:#C9A84C; text-transform:uppercase; margin-bottom:14px; text-align:center; position:relative; }
 .obt-intro-tag::before,.obt-intro-tag::after { content:''; position:absolute; top:50%; width:20px; height:1px; background:linear-gradient(90deg, transparent, rgba(201,168,76,.6)); }
 .obt-intro-tag::before { left:-28px; } .obt-intro-tag::after { right:-28px; transform:scaleX(-1); }
-.obt-intro-titulo { font-family:'Bebas Neue',sans-serif; font-size:32px; letter-spacing:2px; text-align:center; line-height:1; margin-bottom:10px; background:linear-gradient(135deg,#C9A84C 0%,#F5D78E 50%,#C9A84C 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 20px rgba(201,168,76,.3)); }
+.obt-intro-titulo { font-family:'Bebas Neue',sans-serif; font-size:clamp(24px,8vw,32px); letter-spacing:2px; overflow-wrap:break-word; max-width:100%; text-align:center; line-height:1; margin-bottom:10px; background:linear-gradient(135deg,#C9A84C 0%,#F5D78E 50%,#C9A84C 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; filter:drop-shadow(0 0 20px rgba(201,168,76,.3)); }
 .obt-intro-sub { font-size:13px; color:#999; text-align:center; line-height:1.5; margin-bottom:36px; max-width:250px; }
 .obt-ticket-3d { perspective:1000px; }
-.obt-ticket { width:290px; position:relative; border-radius:22px; overflow:hidden; background:linear-gradient(135deg,#0F0B04 0%,#2A2008 25%,#4A3810 50%,#2A2008 75%,#0F0B04 100%); box-shadow:0 0 50px rgba(201,168,76,.25), inset 0 1px 0 rgba(245,215,142,.4), inset 0 -1px 0 rgba(0,0,0,.5); animation: obtFloat 4s ease-in-out infinite; transform-style:preserve-3d; }
+.obt-ticket { width:min(290px, calc(100vw - 56px)); position:relative; border-radius:22px; overflow:hidden; background:linear-gradient(135deg,#0F0B04 0%,#2A2008 25%,#4A3810 50%,#2A2008 75%,#0F0B04 100%); box-shadow:0 0 50px rgba(201,168,76,.25), inset 0 1px 0 rgba(245,215,142,.4), inset 0 -1px 0 rgba(0,0,0,.5); animation: obtFloat 4s ease-in-out infinite; transform-style:preserve-3d; }
 .obt-ticket::after { content:''; position:absolute; inset:0; border-radius:22px; padding:1.5px; background:linear-gradient(135deg, rgba(245,215,142,.8), rgba(201,168,76,.2), rgba(245,215,142,.8)); -webkit-mask:linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite:xor; mask-composite:exclude; pointer-events:none; }
 @keyframes obtFloat { 0%,100%{transform:translateY(0) rotateX(0) rotateY(-2deg)} 50%{transform:translateY(-10px) rotateX(2deg) rotateY(2deg)} }
 .obt-ticket.tear { overflow:visible; animation:none; }
@@ -100,17 +100,17 @@ const CSS = `
 .obt-ticket-body { padding:22px 24px 26px; text-align:center; position:relative; }
 .obt-ticket-num { position:absolute; top:12px; right:16px; font-size:8px; letter-spacing:1px; color:rgba(245,215,142,.4); }
 .obt-ticket-sel { font-size:10px; letter-spacing:3px; color:rgba(245,215,142,.6); text-transform:uppercase; margin-bottom:8px; }
-.obt-ticket-titulo { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; color:#F5D78E; line-height:1; margin-bottom:10px; filter:drop-shadow(0 0 12px rgba(245,215,142,.4)); }
+.obt-ticket-titulo { font-family:'Bebas Neue',sans-serif; font-size:clamp(23px,7vw,30px); letter-spacing:1px; color:#F5D78E; line-height:1; margin-bottom:10px; filter:drop-shadow(0 0 12px rgba(245,215,142,.4)); }
 .obt-ticket-frase { font-size:11px; color:rgba(255,255,255,.45); line-height:1.5; margin-bottom:18px; }
 .obt-ticket-seal { width:60px; height:60px; border-radius:50%; margin:0 auto; background:radial-gradient(circle, rgba(245,215,142,.3), rgba(201,168,76,.08)); border:1.5px solid rgba(245,215,142,.5); display:flex; align-items:center; justify-content:center; font-size:28px; animation: obtSeal 2s ease-in-out infinite; }
 @keyframes obtSeal { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,.4)} 50%{box-shadow:0 0 0 8px rgba(201,168,76,0)} }
-.obt-unlock { margin-top:32px; width:290px; background:rgba(0,0,0,.5); border:1.5px solid rgba(201,168,76,.35); border-radius:40px; padding:6px; position:relative; overflow:hidden; box-shadow:inset 0 2px 8px rgba(0,0,0,.5); }
-.obt-unlock-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:11px; letter-spacing:3px; color:rgba(245,215,142,.55); text-transform:uppercase; white-space:nowrap; pointer-events:none; animation: obtTextPulse 2s ease-in-out infinite; }
+.obt-unlock { margin-top:32px; width:min(290px, calc(100vw - 56px)); background:rgba(0,0,0,.5); border:1.5px solid rgba(201,168,76,.35); border-radius:40px; padding:6px; position:relative; overflow:hidden; box-shadow:inset 0 2px 8px rgba(0,0,0,.5); }
+.obt-unlock-text { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:clamp(9px,2.7vw,11px); letter-spacing:2px; color:rgba(245,215,142,.55); text-transform:uppercase; white-space:nowrap; pointer-events:none; animation: obtTextPulse 2s ease-in-out infinite; max-width:82%; overflow:hidden; text-overflow:ellipsis; }
 @keyframes obtTextPulse { 0%,100%{opacity:.4} 50%{opacity:.9} }
 .obt-unlock-fill { position:absolute; top:6px; left:6px; bottom:6px; width:58px; border-radius:40px; z-index:1; pointer-events:none; background:linear-gradient(90deg, rgba(201,168,76,.4), rgba(245,215,142,.25)); }
 .obt-unlock-handle { width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,#F5D78E,#C9A84C); display:flex; align-items:center; justify-content:center; font-size:22px; color:#1A1408; cursor:grab; position:relative; z-index:2; box-shadow:0 0 24px rgba(201,168,76,.6), inset 0 1px 0 rgba(255,255,255,.4); touch-action:none; }
 .obt-unlock-handle:active { cursor:grabbing; }
-.obt-revealed { position:absolute; inset:0; z-index:5; background:radial-gradient(ellipse 100% 60% at 50% 15%, rgba(201,168,76,.18) 0%, transparent 55%), #030303; display:flex; flex-direction:column; padding:30px 22px 120px; overflow-y:auto; opacity:0; pointer-events:none; }
+.obt-revealed { position:absolute; inset:0; z-index:5; background:radial-gradient(ellipse 100% 60% at 50% 15%, rgba(201,168,76,.18) 0%, transparent 55%), #030303; display:flex; flex-direction:column; padding:calc(26px + env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom)); overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; opacity:0; pointer-events:none; }
 .obt-revealed.show { opacity:1; pointer-events:auto; }
 .obt-rev-item { opacity:0; transform:translateY(20px); }
 .obt-revealed.show .obt-rev-item { animation: obtRevIn .6s ease forwards; }
@@ -122,25 +122,26 @@ const CSS = `
 @keyframes obtRevIn { to { opacity:1; transform:translateY(0); } }
 .obt-rev-header { text-align:center; margin-bottom:22px; }
 .obt-rev-tag { font-size:10px; letter-spacing:4px; color:#C9A84C; text-transform:uppercase; margin-bottom:8px; }
-.obt-rev-logo { font-family:'Bebas Neue',sans-serif; font-size:38px; letter-spacing:5px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:4px; filter:drop-shadow(0 0 16px rgba(201,168,76,.4)); }
+.obt-rev-logo { font-family:'Bebas Neue',sans-serif; font-size:clamp(30px,10vw,38px); letter-spacing:5px; background:linear-gradient(135deg,#C9A84C,#F5D78E,#C9A84C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:4px; filter:drop-shadow(0 0 16px rgba(201,168,76,.4)); }
 .obt-rev-sub { font-size:11px; color:#888; letter-spacing:2px; }
 .obt-prize-big { background:linear-gradient(135deg, rgba(201,168,76,.18), rgba(201,168,76,.04)); border:1.5px solid rgba(201,168,76,.45); border-radius:20px; padding:24px; text-align:center; margin-bottom:12px; position:relative; }
 .obt-prize-label { font-size:9px; letter-spacing:3px; color:rgba(245,215,142,.8); text-transform:uppercase; margin-bottom:6px; }
-.obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:2px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; line-height:1; text-shadow:0 0 26px rgba(201,168,76,.55); }
+.obt-prize-valor { font-family:'Bebas Neue',sans-serif; font-size:clamp(40px,14vw,64px); letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; line-height:1; text-shadow:0 0 26px rgba(201,168,76,.55); overflow-wrap:break-word; max-width:100%; }
 @keyframes obtPrizeGlow { 0%,100%{filter:drop-shadow(0 0 24px rgba(201,168,76,.4))} 50%{filter:drop-shadow(0 0 40px rgba(201,168,76,.7))} }
 .obt-prize-desc { font-size:12.5px; color:#F5D78E; margin-top:7px; font-weight:600; letter-spacing:.3px; }
 .obt-prize-row { display:flex; gap:10px; margin-bottom:12px; }
 .obt-prize-mini { flex:1; background:rgba(255,255,255,.03); border:.5px solid rgba(201,168,76,.25); border-radius:16px; padding:16px; text-align:center; }
-.obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; text-shadow:0 0 14px rgba(201,168,76,.4); }
+.obt-prize-mini-valor { font-family:'Bebas Neue',sans-serif; font-size:clamp(22px,7.5vw,30px); letter-spacing:1px; overflow-wrap:break-word; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; text-shadow:0 0 14px rgba(201,168,76,.4); }
 .obt-prize-mini-lbl { font-size:9px; color:#888; letter-spacing:1px; margin-top:3px; line-height:1.3; white-space:pre-line; }
 .obt-comissao { background:linear-gradient(160deg, rgba(201,168,76,.1), rgba(255,255,255,.015)); border:1px solid rgba(201,168,76,.32); border-radius:18px; padding:18px 16px 16px; margin-bottom:16px; box-shadow:inset 0 1px 0 rgba(245,215,142,.15); }
 .obt-comissao-titulo { font-size:11px; letter-spacing:2px; color:#F5D78E; text-transform:uppercase; margin-bottom:14px; text-align:center; font-weight:700; }
 .obt-comissao-item { display:flex; justify-content:space-between; align-items:center; padding:10px 13px; margin-bottom:7px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.05); }
 .obt-comissao-item:last-child { margin-bottom:0; }
 .obt-comissao-item.top { background:linear-gradient(135deg, rgba(201,168,76,.22), rgba(245,215,142,.05)); border:1px solid rgba(245,215,142,.55); box-shadow:0 0 20px rgba(201,168,76,.28); }
-.obt-comissao-nome { font-size:12.5px; color:#dcdcdc; display:flex; align-items:center; gap:8px; }
+.obt-comissao-nome { font-size:12.5px; color:#dcdcdc; display:flex; align-items:center; gap:8px; flex-wrap:wrap; min-width:0; }
+.obt-comissao-item { gap:10px; }
 .obt-comissao-tag { font-size:7px; letter-spacing:.8px; font-weight:800; color:#1a1408; background:linear-gradient(135deg,#F5D78E,#C9A84C); padding:2px 6px; border-radius:5px; text-transform:uppercase; white-space:nowrap; }
-.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:1px; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; }
+.obt-comissao-val { font-family:'Bebas Neue',sans-serif; font-size:clamp(20px,6.5vw,26px); letter-spacing:1px; flex-shrink:0; color:#F8DFA0; -webkit-text-fill-color:#F8DFA0; }
 .obt-comissao-hl { margin-top:13px; background:rgba(52,211,153,.09); border:1px solid rgba(52,211,153,.32); border-radius:12px; padding:12px 14px; text-align:center; font-size:12px; color:#cfe9dd; line-height:1.5; }
 .obt-comissao-note { text-align:center; font-size:10px; color:#777; margin-top:11px; line-height:1.4; }
 .obt-wpp { width:100%; margin-top:12px; padding:13px; border-radius:13px; background:#25D366; color:#04160c; font-weight:800; font-size:13.5px; border:none; cursor:pointer; font-family:'DM Sans',sans-serif; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 0 22px rgba(37,211,102,.35); }
@@ -151,6 +152,15 @@ const CSS = `
 .obt-badge-hot { background:rgba(52,211,153,.16); border:1px solid #34D399; color:#5df0bd; box-shadow:0 0 12px rgba(52,211,153,.35); animation:obtBadgePulse 1.6s ease-in-out infinite; }
 .obt-badge-red { background:rgba(239,68,68,.16); border:1px solid rgba(239,68,68,.7); color:#ff9b9b; box-shadow:0 0 16px rgba(239,68,68,.35); padding:4px 12px; font-size:9px; }
 @keyframes obtBadgePulse { 0%,100%{box-shadow:0 0 8px rgba(52,211,153,.3)} 50%{box-shadow:0 0 18px rgba(52,211,153,.6)} }
+/* Telas estreitas (iPhone SE/mini): menos padding lateral + prêmios empilhados se apertar */
+@media (max-width:360px){
+  .obt-stage { padding:34px 14px; }
+  .obt-revealed { padding:26px 14px 110px; }
+  .obt-intro-sub { margin-bottom:26px; }
+  .obt-prize-big { padding:20px 16px; }
+  .obt-prize-mini { padding:14px 10px; }
+  .obt-comissao-tag { font-size:6.5px; padding:2px 5px; }
+}
 `;
 
 export function GoldenTicket({
@@ -286,7 +296,7 @@ export function GoldenTicket({
   };
 
   return (
-    <div className="obt" style={{ position: "relative", width: "100%", minHeight: "100vh", overflow: "hidden", background: "#030303" }}>
+    <div className="obt" style={{ position: "relative", width: "100%", overflow: "hidden", background: "#030303" }}>
       <style>{CSS}</style>
       <div className="obt-ambient" />
       <div className={`obt-rays ${raysShow ? "show" : ""}`}>
