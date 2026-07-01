@@ -195,7 +195,8 @@ export async function fetchReportData(
       pixDepois: pixDepoisByDate.get(r.date) || 0,
       cartao: n(r.card_sales),
       vendido,
-      fiado: n(r.total_debt),
+      // "Não recebido" = unidades não pagas × ticket médio do dia (não o resíduo total_debt).
+      fiado: Math.round(unidNaoPagas * (unidVendidas > 0 ? vendido / unidVendidas : 0) * 100) / 100,
       mercadoria,
       transporte,
       alimentacao,
