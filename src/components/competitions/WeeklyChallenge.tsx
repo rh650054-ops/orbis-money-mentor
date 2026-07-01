@@ -27,9 +27,9 @@ export function WeeklyChallengeTicket() {
 
   useEffect(() => {
     if (!challenge) return;
-    // Abre sozinho só no 1º dia, A PARTIR DAS 5H (fuso BR), uma vez.
+    // Abre sozinho só no 1º dia, A PARTIR DA 00H (fuso BR), uma vez.
     // Em modo teste (?bilhete-teste), abre na hora e sempre (pra poder retestar).
-    if (isTeste || (isFirstDay(challenge) && brazilHour() >= 5 && localStorage.getItem(seenKey) !== "1")) {
+    if (isTeste || (isFirstDay(challenge) && brazilHour() >= 0 && localStorage.getItem(seenKey) !== "1")) {
       setOpen(true);
     }
   }, [challenge?.id]);
