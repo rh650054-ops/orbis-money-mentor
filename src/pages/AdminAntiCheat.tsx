@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
-import { ArrowLeft, ShieldAlert, Loader2, EyeOff, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, ShieldAlert, Loader2, EyeOff, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 
 interface Suspect {
   user_id: string;
@@ -47,6 +47,7 @@ export default function AdminAntiCheat() {
   const [openUid, setOpenUid] = useState<string | null>(null);
   const [hist, setHist] = useState<Record<string, HistRow[]>>({});
   const [hiding, setHiding] = useState<string | null>(null);
+  const [aiById, setAiById] = useState<Record<string, { loading?: boolean; suspeito?: boolean; score?: number; motivo?: string; erro?: string }>>({});
 
   const load = async () => {
     setLoading(true);
@@ -90,6 +91,19 @@ export default function AdminAntiCheat() {
       toast({ title: "Erro ao ocultar", description: e?.message, variant: "destructive" });
     } finally {
       setHiding(null);
+    }
+  };
+
+  const analisarIA = async (uid: string) => {
+    setAiById((a) => ({ ...a, [uid]: { loading: true } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("analisar-anomalia", { body: { user_id: uid } });
+      if (error) throw error;
+      const r = data as any;
+      if (r?.error) throw new Error(r.error);
+      setAiById((a) => ({ ...a, [uid]: { suspeito: !!r.suspeito, score: Number(r.score ?? 0), motivo: r.motivo || "" } }));
+    } catch (e: any) {
+      setAiById((a) => ({ ...a, [uid]: { erro: e?.message || "Falhou — tenta de novo." } }));
     }
   };
 
@@ -180,6 +194,32 @@ export default function AdminAntiCheat() {
                     {hiding === s.user_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <EyeOff className="w-3.5 h-3.5" />} Ocultar do ranking
                   </button>
                 </div>
+
+                <button
+                  onClick={() => analisarIA(s.user_id)}
+                  disabled={aiById[s.user_id]?.loading}
+                  className="mt-2 w-full h-9 rounded-lg bg-primary/10 border border-primary/40 text-primary text-xs font-bold inline-flex items-center justify-center gap-1 disabled:opacity-60"
+                >
+                  {aiById[s.user_id]?.loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />} Analisar com IA
+                </button>
+                {aiById[s.user_id] && !aiById[s.user_id].loading && (
+                  aiById[s.user_id].erro ? (
+                    <p className="mt-2 text-[11px] text-red-400">Erro: {aiById[s.user_id].erro}</p>
+                  ) : (
+                    <div
+                      className="mt-2 rounded-lg border p-2.5"
+                      style={{
+                        borderColor: (aiById[s.user_id].score ?? 0) >= 60 ? "rgba(239,68,68,.45)" : "rgba(34,197,94,.4)",
+                        background: (aiById[s.user_id].score ?? 0) >= 60 ? "rgba(239,68,68,.08)" : "rgba(34,197,94,.06)",
+                      }}
+                    >
+                      <p className="text-[11px] font-black" style={{ color: (aiById[s.user_id].score ?? 0) >= 60 ? "#f87171" : "#4ade80" }}>
+                        IA: {aiById[s.user_id].suspeito ? "🚩 Suspeito" : "✅ Parece normal"} · score {aiById[s.user_id].score}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">{aiById[s.user_id].motivo}</p>
+                    </div>
+                  )
+                )}
               </div>
 
               {openUid === s.user_id && (
