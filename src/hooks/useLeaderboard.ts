@@ -65,7 +65,7 @@ export function useLeaderboard(userId: string | undefined) {
     try {
       const { data: allEntries, error } = await supabase
         .from("leaderboard_stats")
-        .select("*")
+        .select("id, user_id, nome_usuario, avatar_url, mes_referencia, faturamento_total_mes, dias_trabalhados_mes, constancia_maior_streak, constancia_streak_atual, posicao_faturamento, posicao_constancia")
         .eq("mes_referencia", currentMonth)
         .gt("dias_trabalhados_mes", 0)
         .order("faturamento_total_mes", { ascending: false })
@@ -105,7 +105,7 @@ export function useLeaderboard(userId: string | undefined) {
       if (userId && !entries.find((e) => e.user_id === userId)) {
         const { data: userEntry } = await supabase
           .from("leaderboard_stats")
-          .select("*")
+          .select("id, user_id, nome_usuario, avatar_url, mes_referencia, faturamento_total_mes, dias_trabalhados_mes, constancia_maior_streak, constancia_streak_atual, posicao_faturamento, posicao_constancia")
           .eq("user_id", userId)
           .eq("mes_referencia", currentMonth)
           .maybeSingle();
