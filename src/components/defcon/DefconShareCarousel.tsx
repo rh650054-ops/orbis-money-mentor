@@ -40,6 +40,20 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
   if (!ctx) return null;
   ctx.clearRect(0, 0, W, H); // transparente
 
+  // Textura sutil: linhas douradas diagonais em baixa opacidade — dá acabamento
+  // sem tampar o story (a arte continua semi-transparente).
+  ctx.save();
+  ctx.globalAlpha = 0.06;
+  ctx.strokeStyle = GOLD;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let tx = -H; tx < W; tx += 46) {
+    ctx.moveTo(tx, 0);
+    ctx.lineTo(tx + H, H);
+  }
+  ctx.stroke();
+  ctx.restore();
+
   // Rótulo cinza/dourado, MAIÚSCULO e espaçado
   const label = (text: string, x: number, y: number, size: number, color: string, align: "center" | "left" = "center") => {
     ctx.font = `800 ${size}px ${FONT}`;
@@ -241,10 +255,10 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     if (i !== index) setIndex(i);
   };
 
-  const handleShare = async () => {
+  const handleShare = async (templateOverride?: TemplateId) => {
     try {
       setSharing(true);
-      const template = ORDER[index] ?? "empilhada";
+      const template = templateOverride ?? ORDER[index] ?? "empilhada";
       const canvas = await buildCanvas(template, stats);
       if (!canvas) throw new Error("Falha ao gerar imagem");
       const blob = await canvasToBlob(canvas);
@@ -285,17 +299,26 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
   };
 
-  // Fechado: só o botão
+  // Fechado: botão que JÁ compartilha a arte padrão (1 toque) + link pra escolher outra.
   if (!open) {
     return (
-      <button
-        onClick={() => setOpen(true)}
-        className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
-        style={igGradient}
-      >
-        <Instagram className="w-4 h-4" />
-        Compartilhar no Instagram
-      </button>
+      <div className="space-y-1.5">
+        <button
+          onClick={() => handleShare("empilhada")}
+          disabled={sharing}
+          className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
+          style={igGradient}
+        >
+          {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
+          {sharing ? "Gerando..." : "Compartilhar no Instagram"}
+        </button>
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full text-xs text-muted-foreground hover:text-foreground active:scale-95 transition"
+        >
+          ou escolher outra arte
+        </button>
+      </div>
     );
   }
 
