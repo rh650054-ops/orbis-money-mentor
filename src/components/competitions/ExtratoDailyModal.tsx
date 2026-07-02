@@ -18,9 +18,8 @@ export default function ExtratoDailyModal({ userId }: { userId: string }) {
     if (!userId) return;
     let alive = true;
     (async () => {
-      // Já dispensou hoje? não reabre.
-      if (localStorage.getItem(`orbis_extrato_pop_${dia}`) === "1") return;
-      // Já subiu o extrato do dia? então não incomoda.
+      // Só NÃO aparece se a pessoa já subiu o extrato do dia (aí não precisa incomodar).
+      // Se ainda não subiu, aparece SEMPRE que o DEFCON termina — pra reforçar o envio.
       const { data } = await supabase
         .from("extrato_uploads")
         .select("tipo")
@@ -36,14 +35,7 @@ export default function ExtratoDailyModal({ userId }: { userId: string }) {
     };
   }, [userId, dia]);
 
-  const dismiss = () => {
-    try {
-      localStorage.setItem(`orbis_extrato_pop_${dia}`, "1");
-    } catch {
-      /* noop */
-    }
-    setOpen(false);
-  };
+  const dismiss = () => setOpen(false);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && dismiss()}>

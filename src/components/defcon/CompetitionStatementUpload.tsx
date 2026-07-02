@@ -88,9 +88,11 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     if (!ok) toast({ title: "Não consegui excluir agora", variant: "destructive" });
   };
 
-  if (loading || (!inComp && !inX1)) return null;
+  // Agora o extrato vale pro ranking de TODO mundo, então o bloco aparece pra todos
+  // no fim do DEFCON (não só quem está em competição/X1).
+  if (loading) return null;
 
-  const contexto = inComp && inX1 ? "competição + X1" : inX1 ? "seu X1" : "competição";
+  const contexto = inComp && inX1 ? "competição + X1" : inX1 ? "seu X1" : inComp ? "competição" : "o ranking";
 
   const slotBtn = (
     tipo: "pix" | "cartao",
