@@ -21,27 +21,31 @@ type Props = {
 
 declare global {
   interface Window {
-    google: any;
-    __initSpotMap?: () => void;
+    L: any;
   }
 }
 
-const BROWSER_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY;
-const TRACKING_ID = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID;
-
-let loaderPromise: Promise<void> | null = null;
-function loadMaps(): Promise<void> {
-  if (loaderPromise) return loaderPromise;
-  if (window.google?.maps) return Promise.resolve();
-  loaderPromise = new Promise((resolve, reject) => {
-    window.__initSpotMap = () => resolve();
+// Carrega o Leaflet (mapa OpenStreetMap) via CDN — sem chave, sem billing.
+let leafletPromise: Promise<void> | null = null;
+function loadLeaflet(): Promise<void> {
+  if (window.L) return Promise.resolve();
+  if (leafletPromise) return leafletPromise;
+  leafletPromise = new Promise((resolve, reject) => {
+    if (!document.getElementById("leaflet-css")) {
+      const link = document.createElement("link");
+      link.id = "leaflet-css";
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+    }
     const s = document.createElement("script");
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${BROWSER_KEY}&loading=async&callback=__initSpotMap${TRACKING_ID ? `&channel=${TRACKING_ID}` : ""}`;
+    s.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
     s.async = true;
-    s.onerror = () => reject(new Error("Falha ao carregar Google Maps"));
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error("Falha ao carregar o mapa"));
     document.head.appendChild(s);
   });
-  return loaderPromise;
+  return leafletPromise;
 }
 
 function scoreColor(score?: number) {
@@ -52,106 +56,70 @@ function scoreColor(score?: number) {
   return readThemeColor("--destructive");
 }
 
-function buildMapStyles() {
-  const card = readThemeColor("--card");
-  const mutedFg = readThemeColor("--muted-foreground");
-  const background = readThemeColor("--background");
-  const border = readThemeColor("--border");
-  const muted = readThemeColor("--muted");
-  const secondary = readThemeColor("--secondary");
-  return [
-    { elementType: "geometry", stylers: [{ color: card }] },
-    { elementType: "labels.text.fill", stylers: [{ color: mutedFg }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: background }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: muted }] },
-    { featureType: "road.arterial", elementType: "geometry", stylers: [{ color: border }] },
-    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: secondary }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: background }] },
-    { featureType: "poi", stylers: [{ visibility: "off" }] },
-    { featureType: "transit", stylers: [{ visibility: "off" }] },
-  ];
-}
-
 export default function SpotMap({ center, spots, signals, onSelect }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const signalMarkersRef = useRef<any[]>([]);
+  const layerRef = useRef<any>(null);
 
   useEffect(() => {
     let cancelled = false;
-    loadMaps()
+    loadLeaflet()
       .then(() => {
         if (cancelled || !ref.current) return;
+        const L = window.L;
+
         if (!mapRef.current) {
-          mapRef.current = new window.google.maps.Map(ref.current, {
-            center,
-            zoom: 13,
-            disableDefaultUI: true,
-            zoomControl: true,
-            gestureHandling: "greedy",
-            styles: buildMapStyles(),
-          });
+          mapRef.current = L.map(ref.current, { zoomControl: true }).setView(
+            [center.lat, center.lng],
+            13,
+          );
+          // Tiles escuros (CartoDB) — gratuitos, combinam com o tema do app.
+          L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+            attribution: "&copy; OpenStreetMap &copy; CARTO",
+            maxZoom: 19,
+          }).addTo(mapRef.current);
+          layerRef.current = L.layerGroup().addTo(mapRef.current);
         }
 
-        // clear old markers
-        markersRef.current.forEach((m) => m.setMap(null));
-        markersRef.current = [];
-        signalMarkersRef.current.forEach((m) => m.setMap(null));
-        signalMarkersRef.current = [];
+        const group = layerRef.current;
+        group.clearLayers();
+        const pts: [number, number][] = [];
 
-        const bounds = new window.google.maps.LatLngBounds();
-        bounds.extend(center);
-
-        // Camada de SEMÁFOROS REAIS (OSM): pontinhos pequenos, sem rótulo.
+        // Semáforos REAIS (OSM): pontinhos pequenos.
         (signals ?? []).forEach((sig) => {
           if (!sig.lat || !sig.lng) return;
-          const dot = new window.google.maps.Marker({
-            position: { lat: sig.lat, lng: sig.lng },
-            map: mapRef.current,
-            title: "Semáforo",
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 5,
-              fillColor: readThemeColor("--warning"),
-              fillOpacity: 0.9,
-              strokeColor: readThemeColor("--background"),
-              strokeWeight: 1,
-            },
-            zIndex: 1,
-          });
-          signalMarkersRef.current.push(dot);
-          bounds.extend({ lat: sig.lat, lng: sig.lng });
+          L.circleMarker([sig.lat, sig.lng], {
+            radius: 4,
+            color: readThemeColor("--background"),
+            weight: 1,
+            fillColor: readThemeColor("--warning"),
+            fillOpacity: 0.9,
+          }).addTo(group);
+          pts.push([sig.lat, sig.lng]);
         });
 
+        // Spots pontuados: círculo colorido com a nota.
         spots.forEach((s) => {
           if (!s.lat || !s.lng) return;
           const color = scoreColor(s.score);
-          const marker = new window.google.maps.Marker({
-            position: { lat: s.lat, lng: s.lng },
-            map: mapRef.current,
-            title: s.name,
-            label: {
-              text: s.score != null ? s.score.toFixed(1) : "?",
-              color: readThemeColor("--background"),
-              fontSize: "11px",
-              fontWeight: "700",
-            },
-            icon: {
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 16,
-              fillColor: color,
-              fillOpacity: 1,
-              strokeColor: readThemeColor("--background"),
-              strokeWeight: 2,
-            },
-          });
-          marker.addListener("click", () => onSelect?.(s.id));
-          markersRef.current.push(marker);
-          bounds.extend({ lat: s.lat, lng: s.lng });
+          const bg = readThemeColor("--background");
+          const html =
+            `<div style="width:30px;height:30px;border-radius:50%;background:${color};` +
+            `border:2px solid ${bg};display:flex;align-items:center;justify-content:center;` +
+            `color:${bg};font-weight:700;font-size:11px;">${s.score != null ? s.score.toFixed(1) : "?"}</div>`;
+          const icon = L.divIcon({ html, className: "", iconSize: [30, 30], iconAnchor: [15, 15] });
+          const marker = L.marker([s.lat, s.lng], { icon, title: s.name }).addTo(group);
+          marker.on("click", () => onSelect?.(s.id));
+          pts.push([s.lat, s.lng]);
         });
 
-        if (spots.length > 0 || (signals?.length ?? 0) > 0) mapRef.current.fitBounds(bounds, 60);
+        if (pts.length > 0) {
+          mapRef.current.fitBounds(pts, { padding: [40, 40], maxZoom: 15 });
+        } else {
+          mapRef.current.setView([center.lat, center.lng], 13);
+        }
+        // Corrige o layout dos tiles quando o container acabou de aparecer.
+        setTimeout(() => mapRef.current && mapRef.current.invalidateSize(), 120);
       })
       .catch((err) => console.error(err));
 
@@ -159,14 +127,6 @@ export default function SpotMap({ center, spots, signals, onSelect }: Props) {
       cancelled = true;
     };
   }, [center.lat, center.lng, spots, signals, onSelect]);
-
-  if (!BROWSER_KEY) {
-    return (
-      <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
-        Mapa indisponível: chave do Google Maps não configurada.
-      </div>
-    );
-  }
 
   return (
     <div
