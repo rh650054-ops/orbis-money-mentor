@@ -227,8 +227,8 @@ export default function DefconChallenge() {
             onExtend={treino ? undefined : defcon.extendChallenge}
             onRestart={treino ? undefined : defcon.restartChallenge}
           />
-          {/* Popup do extrato do dia — só quando terminou de verdade (não treino/abandono). */}
-          {defcon.phase === "finished" && !treino && <ExtratoDailyModal userId={user.id} />}
+          {/* Popup do extrato do dia — ao terminar OU sair do DEFCON (não no treino). */}
+          {["finished", "abandoned"].includes(defcon.phase) && !treino && <ExtratoDailyModal userId={user.id} />}
         </>
       );
 

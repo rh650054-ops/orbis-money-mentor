@@ -9,7 +9,7 @@ import { getExtratoDia } from "@/shared/lib/date-utils";
 export function ExtratoReminder({ userId }: { userId: string }) {
   const navigate = useNavigate();
   const [show, setShow] = useState(false);
-  const [ctx, setCtx] = useState<"comp" | "x1" | "both">("comp"); // é de competição, X1, ou os dois
+  const [ctx, setCtx] = useState<"comp" | "x1" | "both" | "geral">("comp"); // competição, X1, os dois, ou geral
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
 
@@ -51,7 +51,8 @@ export function ExtratoReminder({ userId }: { userId: string }) {
         .eq("scheduled_date", dia)
         .in("status", ["accepted", "active"]);
       const temX1 = ((x1s as any[]) || []).length > 0;
-      if (!cobreDia && !temX1) return; // não é dia de competição nem de X1
+      // Agora vale pra TODOS (o extrato conta no ranking de todo mundo) — não trava mais
+      // por competição/X1. Só precisa ter vendido no dia e ainda não ter subido o extrato.
 
       // 2) Vendeu nesse dia? (sem venda, não há o que comprovar)
       const { data: sale } = await supabase
@@ -69,7 +70,7 @@ export function ExtratoReminder({ userId }: { userId: string }) {
         .eq("dia", dia);
       if (ext && ext.length > 0) return;
       if (alive) {
-        setCtx(cobreDia && temX1 ? "both" : temX1 ? "x1" : "comp");
+        setCtx(cobreDia && temX1 ? "both" : temX1 ? "x1" : cobreDia ? "comp" : "geral");
         setShow(true);
       }
     })().catch(() => {
@@ -98,7 +99,7 @@ export function ExtratoReminder({ userId }: { userId: string }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-foreground">
-          {ctx === "both" ? "Competição + X1" : ctx === "x1" ? "X1" : "Competição"}: sobe teu extrato! ⏰
+          {ctx === "both" ? "Competição + X1: " : ctx === "x1" ? "X1: " : ctx === "comp" ? "Competição: " : ""}Sobe teu extrato! ⏰
         </p>
         <p className="text-xs text-muted-foreground">
           {ctx === "x1"
