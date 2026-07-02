@@ -102,6 +102,59 @@ Deno.serve(async (req) => {
           plan_status: "trial",
         })
         .eq("user_id", authData.user.id);
+
+      // RECONCILIACAO: a pessoa pode ter PAGO na Hotmart antes de criar a conta e a
+      // compra ter caido em unlinked_purchases sem nunca liberar acesso. Casamos SO por
+      // CPF (a identidade da conta que esta sendo criada) — casar por email seria inseguro
+      // (alguem poderia se cadastrar com o email de outra pessoa e roubar a compra dela).
+      try {
+        const { data: pending } = await supabase
+          .from("unlinked_purchases")
+          .select("hotmart_purchase_id, hotmart_subscription_id, event_type")
+          .eq("buyer_cpf", cleanedCpf)
+          .is("linked_to_user_id", null)
+          .order("created_at", { ascending: false });
+
+        const latest = (pending ?? [])[0];
+        if (latest) {
+          const ev = (latest.event_type ?? "").toUpperCase();
+          const isActivating =
+            ev.includes("APPROVED") || ev.includes("COMPLETE") || ev.includes("RENEWAL");
+          if (isActivating) {
+            const now = new Date();
+            const periodEnd = new Date(now);
+            periodEnd.setDate(periodEnd.getDate() + 30);
+            const graceEnd = new Date(periodEnd);
+            graceEnd.setDate(graceEnd.getDate() + 3);
+            await supabase.from("subscriptions").upsert(
+              {
+                user_id: authData.user.id,
+                provider: "hotmart",
+                status: "active",
+                current_period_end: periodEnd.toISOString(),
+                grace_until: graceEnd.toISOString(),
+                hotmart_purchase_id: latest.hotmart_purchase_id,
+                hotmart_subscription_id: latest.hotmart_subscription_id,
+                last_event_at: now.toISOString(),
+              },
+              { onConflict: "user_id" }
+            );
+            await supabase
+              .from("profiles")
+              .update({ plan_status: "active", is_trial_active: false })
+              .eq("user_id", authData.user.id);
+          }
+          // Marca as compras desse CPF como vinculadas (mesmo se o ultimo evento nao ativa,
+          // ex: cancelada) pra nao reprocessar depois.
+          await supabase
+            .from("unlinked_purchases")
+            .update({ linked_at: new Date().toISOString(), linked_to_user_id: authData.user.id })
+            .eq("buyer_cpf", cleanedCpf)
+            .is("linked_to_user_id", null);
+        }
+      } catch (e) {
+        console.error("register-user: reconcile unlinked falhou", (e as { message?: string })?.message);
+      }
     }
 
     return new Response(
