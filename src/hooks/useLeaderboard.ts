@@ -35,9 +35,10 @@ export function useLeaderboard(userId: string | undefined) {
 
     // Ordena e publica o ranking na tela (faturamento + constancia + posicao do usuario).
     const applyAndSet = (entries: any[]) => {
-      const faturamentoSorted = [...entries].sort(
-        (a, b) => b.faturamento_total_mes - a.faturamento_total_mes
-      );
+      // Faturamento = só quem tem valor VERIFICADO > 0 (anti-fraude, igual ao semanal).
+      const faturamentoSorted = [...entries]
+        .filter((e) => (e.faturamento_total_mes || 0) > 0)
+        .sort((a, b) => b.faturamento_total_mes - a.faturamento_total_mes);
       const constanciaSorted = [...entries].sort((a, b) => {
         if (b.dias_trabalhados_mes !== a.dias_trabalhados_mes) {
           return b.dias_trabalhados_mes - a.dias_trabalhados_mes;
@@ -49,9 +50,13 @@ export function useLeaderboard(userId: string | undefined) {
       if (userId) {
         const userStats = entries.find((e) => e.user_id === userId);
         if (userStats) {
-          const faturamentoPos = faturamentoSorted.findIndex((e) => e.user_id === userId) + 1;
-          const constanciaPos = constanciaSorted.findIndex((e) => e.user_id === userId) + 1;
-          setCurrentUserStats({ ...userStats, posicao_faturamento: faturamentoPos, posicao_constancia: constanciaPos });
+          const fIdx = faturamentoSorted.findIndex((e) => e.user_id === userId);
+          const cIdx = constanciaSorted.findIndex((e) => e.user_id === userId);
+          setCurrentUserStats({
+            ...userStats,
+            posicao_faturamento: fIdx >= 0 ? fIdx + 1 : null,
+            posicao_constancia: cIdx >= 0 ? cIdx + 1 : null,
+          });
           setHasParticipated(true);
         }
       }
@@ -72,6 +77,26 @@ export function useLeaderboard(userId: string | undefined) {
       }
 
       const entries = (allEntries || []) as any[];
+
+      // FATURAMENTO ANTI-FRAUDE: troca o valor do cache pelo VERIFICADO do extrato (mês),
+      // reaproveitando a mesma RPC do semanal com o intervalo do mês. A constância continua
+      // vindo do cache. Fase 1 (antes de 06/07) = ao vivo; Fase 2 = só extrato.
+      try {
+        const monthStart = `${currentMonth}-01`;
+        const today = getBrazilDate();
+        const usarExtrato = today >= "2026-07-06";
+        const { data: ver } = await supabase.rpc("get_weekly_ranking_verified", {
+          p_week_start: monthStart,
+          p_week_end: today,
+          p_usar_extrato: usarExtrato,
+        });
+        const vmap = new Map(((ver as any[]) || []).map((r: any) => [r.user_id, Number(r.faturamento_semana) || 0]));
+        entries.forEach((e: any) => {
+          e.faturamento_total_mes = vmap.get(e.user_id) ?? 0;
+        });
+      } catch {
+        /* se a RPC falhar, mantém o valor do cache */
+      }
 
       // 1) Abre JA com nome/foto do proprio leaderboard_stats — nao espera mais nada.
       applyAndSet(entries);

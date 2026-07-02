@@ -6,7 +6,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, Swords, Plus, Trophy, Check, X, Search, Copy, Upload, Loader2, Eye } from "lucide-react";
+import { ArrowLeft, Swords, Plus, Trophy, Check, X, Search, Copy, Upload, Loader2, Eye, Sparkles } from "lucide-react";
 
 interface X1 {
   id: string;
@@ -92,6 +92,7 @@ export default function X1() {
   const [openPlacar, setOpenPlacar] = useState<string | null>(null); // id do X1 com o placar aberto
   const [placar, setPlacar] = useState<Record<string, { ch: number; op: number }>>({}); // totais ao vivo por duelo
   const prevStatusRef = useRef<Record<string, string>>({}); // status anterior de cada duelo (pra avisar "liberado")
+  const [aiById, setAiById] = useState<Record<string, { loading?: boolean; suspeito?: boolean; score?: number; motivo?: string; erro?: string }>>({}); // parecer da IA por duelista
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
@@ -335,6 +336,20 @@ export default function X1() {
     }
   };
 
+  // Admin: análise da IA de um duelista (anti-burla) — parecer antes de premiar.
+  const analisarIA = async (uid: string) => {
+    setAiById((a) => ({ ...a, [uid]: { loading: true } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("analisar-anomalia", { body: { user_id: uid } });
+      if (error) throw error;
+      const r = data as any;
+      if (r?.error) throw new Error(r.error);
+      setAiById((a) => ({ ...a, [uid]: { suspeito: !!r.suspeito, score: Number(r.score ?? 0), motivo: r.motivo || "" } }));
+    } catch (e: any) {
+      setAiById((a) => ({ ...a, [uid]: { erro: e?.message || "Falhou — tenta de novo." } }));
+    }
+  };
+
   // Admin abre o comprovante (URL assinada temporária do bucket privado).
   const viewProof = async (path: string | null) => {
     if (!path) return;
@@ -357,22 +372,41 @@ export default function X1() {
     const row = (uid: string) => {
       const e = extratos[`${uid}|${c.scheduled_date}`];
       const hitGoal = c.goal_amount != null && e != null && e.total >= c.goal_amount;
+      const ai = aiById[uid];
       return (
-        <div className="flex items-center justify-between gap-2 rounded-lg bg-card border border-border/60 px-2.5 py-1.5">
-          <span className="text-xs font-semibold text-foreground truncate">{name(uid)}</span>
-          <span className="text-xs font-black tabular-nums shrink-0" style={{ color: e ? "#22c55e" : "#6b7280" }}>
-            {e ? fmt(e.total) : "sem extrato"}{hitGoal ? " · ✓ meta" : ""}
-          </span>
+        <div className="rounded-lg bg-card border border-border/60 px-2.5 py-1.5 space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-foreground truncate">{name(uid)}</span>
+            <span className="text-xs font-black tabular-nums shrink-0" style={{ color: e ? "#22c55e" : "#6b7280" }}>
+              {e ? fmt(e.total) : "sem extrato"}{hitGoal ? " · ✓ meta" : ""}
+            </span>
+          </div>
+          <button
+            onClick={() => analisarIA(uid)}
+            disabled={ai?.loading}
+            className="w-full h-7 rounded-md bg-primary/10 border border-primary/40 text-primary text-[11px] font-bold inline-flex items-center justify-center gap-1 disabled:opacity-60"
+          >
+            {ai?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Analisar com IA
+          </button>
+          {ai && !ai.loading &&
+            (ai.erro ? (
+              <p className="text-[10px] text-red-400">Erro: {ai.erro}</p>
+            ) : (
+              <p className="text-[10px] leading-snug" style={{ color: (ai.score ?? 0) >= 60 ? "#f87171" : "#4ade80" }}>
+                IA: {ai.suspeito ? "🚩 Suspeito" : "✅ Normal"} · {ai.score} — <span className="text-muted-foreground">{ai.motivo}</span>
+              </p>
+            ))}
         </div>
       );
     };
     return (
       <div className="space-y-1.5">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Extrato verificado pela IA — dia {dateBR(c.scheduled_date)}
+          Análise: extrato verificado + IA — dia {dateBR(c.scheduled_date)}
         </p>
         {row(c.challenger_id)}
         {row(c.opponent_id)}
+        <p className="text-[9px] text-muted-foreground/70">A IA dá o parecer; você decide o vencedor abaixo.</p>
       </div>
     );
   };
