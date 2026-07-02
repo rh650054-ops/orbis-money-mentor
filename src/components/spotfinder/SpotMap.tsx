@@ -9,9 +9,13 @@ type Spot = {
   score?: number;
 };
 
+// Camada opcional de semáforos reais (OSM) plotada junto dos spots.
+type Signal = { id: string; lat: number; lng: number };
+
 type Props = {
   center: { lat: number; lng: number };
   spots: Spot[];
+  signals?: Signal[];
   onSelect?: (id: string) => void;
 };
 
@@ -68,10 +72,11 @@ function buildMapStyles() {
   ];
 }
 
-export default function SpotMap({ center, spots, onSelect }: Props) {
+export default function SpotMap({ center, spots, signals, onSelect }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const signalMarkersRef = useRef<any[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,9 +97,32 @@ export default function SpotMap({ center, spots, onSelect }: Props) {
         // clear old markers
         markersRef.current.forEach((m) => m.setMap(null));
         markersRef.current = [];
+        signalMarkersRef.current.forEach((m) => m.setMap(null));
+        signalMarkersRef.current = [];
 
         const bounds = new window.google.maps.LatLngBounds();
         bounds.extend(center);
+
+        // Camada de SEMÁFOROS REAIS (OSM): pontinhos pequenos, sem rótulo.
+        (signals ?? []).forEach((sig) => {
+          if (!sig.lat || !sig.lng) return;
+          const dot = new window.google.maps.Marker({
+            position: { lat: sig.lat, lng: sig.lng },
+            map: mapRef.current,
+            title: "Semáforo",
+            icon: {
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 5,
+              fillColor: readThemeColor("--warning"),
+              fillOpacity: 0.9,
+              strokeColor: readThemeColor("--background"),
+              strokeWeight: 1,
+            },
+            zIndex: 1,
+          });
+          signalMarkersRef.current.push(dot);
+          bounds.extend({ lat: sig.lat, lng: sig.lng });
+        });
 
         spots.forEach((s) => {
           if (!s.lat || !s.lng) return;
@@ -123,14 +151,14 @@ export default function SpotMap({ center, spots, onSelect }: Props) {
           bounds.extend({ lat: s.lat, lng: s.lng });
         });
 
-        if (spots.length > 0) mapRef.current.fitBounds(bounds, 60);
+        if (spots.length > 0 || (signals?.length ?? 0) > 0) mapRef.current.fitBounds(bounds, 60);
       })
       .catch((err) => console.error(err));
 
     return () => {
       cancelled = true;
     };
-  }, [center.lat, center.lng, spots, onSelect]);
+  }, [center.lat, center.lng, spots, signals, onSelect]);
 
   if (!BROWSER_KEY) {
     return (
