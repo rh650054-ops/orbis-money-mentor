@@ -21,7 +21,11 @@ interface HistRow {
   valor: number;
   qtd: number;
   worked_min: number;
-  ritmo: number;
+  ritmo: number | null;
+  ticket_medio: number | null;
+  calote: number;
+  gorjeta: number;
+  min_intervalo_seg: number | null;
 }
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
@@ -229,19 +233,23 @@ export default function AdminAntiCheat() {
                   ) : hist[s.user_id].length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-2">Sem histórico.</p>
                   ) : (
-                    <div className="space-y-1">
-                      <div className="grid grid-cols-4 gap-1 text-[9px] uppercase text-muted-foreground px-1">
-                        <span>Dia</span>
-                        <span className="text-right">Valor</span>
-                        <span className="text-right">Vendas</span>
-                        <span className="text-right">Ritmo</span>
-                      </div>
+                    <div className="space-y-1.5">
                       {hist[s.user_id].map((h) => (
-                        <div key={h.dia} className="grid grid-cols-4 gap-1 text-[11px] px-1 py-1 rounded bg-card/60">
-                          <span className="text-muted-foreground">{dMM(h.dia)}</span>
-                          <span className="text-right font-semibold text-foreground">{fmt(h.valor)}</span>
-                          <span className="text-right text-muted-foreground">{h.qtd}</span>
-                          <span className="text-right text-muted-foreground">{h.ritmo != null ? `${h.ritmo}min` : "—"}</span>
+                        <div key={h.dia} className="rounded-lg bg-card/60 px-2.5 py-1.5">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-muted-foreground">{dMM(h.dia)}</span>
+                            <span className="font-semibold text-foreground">
+                              {fmt(h.valor)} · {h.qtd} venda{h.qtd === 1 ? "" : "s"} · ticket {h.ticket_medio != null ? fmt(h.ticket_medio) : "—"}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex flex-wrap gap-x-2.5 gap-y-0.5 text-[10px] text-muted-foreground">
+                            <span>ritmo {h.ritmo != null ? `${h.ritmo}min/venda` : "—"}</span>
+                            <span className={h.min_intervalo_seg != null && h.min_intervalo_seg < 15 ? "text-red-400 font-semibold" : ""}>
+                              intervalo mín {h.min_intervalo_seg != null ? `${Math.round(h.min_intervalo_seg)}s` : "—"}
+                            </span>
+                            {h.calote > 0 && <span className="text-amber-400">calote {fmt(h.calote)}</span>}
+                            {h.gorjeta > 0 && <span>gorjeta {fmt(h.gorjeta)}</span>}
+                          </div>
                         </div>
                       ))}
                     </div>

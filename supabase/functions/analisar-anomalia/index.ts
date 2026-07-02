@@ -17,17 +17,21 @@ interface HistRow {
   qtd: number;
   worked_min: number;
   ritmo: number | null;
+  ticket_medio: number | null;
+  calote: number;
+  gorjeta: number;
+  min_intervalo_seg: number | null;
 }
 
 function buildPrompt(nome: string, rows: HistRow[]): string {
   const linhas = rows
     .map(
       (r) =>
-        `${r.dia}: R$${Number(r.valor || 0).toFixed(2)} | ${r.qtd} vendas | ${Math.round(Number(r.worked_min || 0))} min trabalhados | ritmo ${r.ritmo != null ? r.ritmo + " min/venda" : "-"}`,
+        `${r.dia}: R$${Number(r.valor || 0).toFixed(2)} (card+pix) | ${r.qtd} vendas | ticket médio R$${r.ticket_medio != null ? Number(r.ticket_medio).toFixed(2) : "-"} | ${Math.round(Number(r.worked_min || 0))} min trabalhados | ritmo ${r.ritmo != null ? r.ritmo + " min/venda" : "-"} | menor intervalo entre 2 vendas: ${r.min_intervalo_seg != null ? Math.round(Number(r.min_intervalo_seg)) + "s" : "-"} | calote R$${Number(r.calote || 0).toFixed(2)} | gorjeta R$${Number(r.gorjeta || 0).toFixed(2)}`,
     )
     .join("\n");
 
-  return `Você é um auditor anti-fraude do Orbis (app de vendedores de rua). Recebe o histórico DIÁRIO de um vendedor${nome ? ` chamado "${nome}"` : ""}. Cada dia traz: o valor que conta no ranking (cartão + pix, em reais), quantas vendas fez, quantos minutos trabalhou no DEFCON, e o ritmo (minutos por venda).
+  return `Você é um auditor anti-fraude do Orbis (app de vendedores de rua). Recebe o histórico DIÁRIO de um vendedor${nome ? ` chamado "${nome}"` : ""}. Cada dia traz: o valor que conta no ranking (cartão + pix), quantas vendas, o ticket médio, os minutos trabalhados, o ritmo (min/venda), o MENOR INTERVALO entre duas vendas (em segundos), o calote (não recebido) e a gorjeta.
 
 Sua tarefa: dizer se o padrão é CONSISTENTE ou se tem sinais de resultado INFLADO/fraudado.
 
@@ -35,7 +39,10 @@ Sinais suspeitos (quanto mais, maior o score):
 - Um dia MUITO acima da média dos outros dias dele (pico isolado, sem construção gradual).
 - Valor alto com POUQUÍSSIMO tempo trabalhado (ex: R$1000 em 20 minutos).
 - Valor alto com POUQUÍSSIMAS vendas (tudo concentrado numa "super-venda").
+- TEMPO das vendas: menor intervalo entre duas vendas muito curto (ex: várias vendas em poucos segundos) = provável registro em massa / fabricado. ESTE É O SINAL MAIS IMPORTANTE.
+- TICKET MÉDIO que salta muito acima do normal dele de repente, sem explicação.
 - Ritmo absurdamente rápido comparado ao histórico dele.
+- CALOTE anormalmente alto (muita venda "não recebida" pode ser usada pra inflar sem comprovação real).
 - Mudança brusca de patamar sem transição (fazia 500/dia e do nada 1000 todo dia).
 
 Sinais de que é LEGÍTIMO:
