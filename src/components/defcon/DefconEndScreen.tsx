@@ -410,20 +410,7 @@ export function DefconEndScreen({
     canvas.height = H;
     const ctx = canvas.getContext("2d");
     if (!ctx) return null;
-    ctx.clearRect(0, 0, W, H);
-
-    // Textura sutil: linhas douradas diagonais em baixa opacidade (acabamento, sem tampar o story).
-    ctx.save();
-    ctx.globalAlpha = 0.06;
-    ctx.strokeStyle = "#F4A100";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let tx = -H; tx < W; tx += 46) {
-      ctx.moveTo(tx, 0);
-      ctx.lineTo(tx + H, H);
-    }
-    ctx.stroke();
-    ctx.restore();
+    ctx.clearRect(0, 0, W, H); // FUNDO 100% TRANSPARENTE (PNG sem fundo, tipo Strava)
 
     const GOLD = "#F4A100", GREEN = "#22C55E", WHITE = "#FFFFFF", MUTED = "#9AA0A6";
     const fontStack = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Instagram, Loader2, X } from "lucide-react";
+import { Instagram, Loader2, X, Download, Copy, Check } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
@@ -13,9 +13,21 @@ export interface ShareStats {
   horas: string;     // ex. "8h12"
 }
 
-// Ordem do carrossel — a EMPILHADA (vertical) é a principal/padrão
-type TemplateId = "empilhada" | "empilhadaSemHoras" | "destaque" | "faixa";
-const ORDER: TemplateId[] = ["empilhada", "empilhadaSemHoras", "destaque", "faixa"];
+// Ordem do carrossel. "post" = COM FUNDO (design escuro, ideal WhatsApp/feed/status).
+// As demais são TRANSPARENTES (adesivo pro Story).
+type TemplateId = "post" | "empilhada" | "empilhadaSemHoras" | "destaque" | "faixa";
+const ORDER: TemplateId[] = ["post", "empilhada", "empilhadaSemHoras", "destaque", "faixa"];
+
+// Legenda por arte — pra que serve (aparece embaixo do preview, estilo Strava)
+const CAPTIONS: Record<TemplateId, string> = {
+  post: "Com fundo · WhatsApp, feed e status",
+  empilhada: "Transparente · adesivo no Story",
+  empilhadaSemHoras: "Transparente · adesivo no Story",
+  destaque: "Transparente · adesivo no Story",
+  faixa: "Transparente · faixa pro Story",
+};
+// Artes COM fundo (não transparentes)
+const WITH_BG: Set<TemplateId> = new Set(["post"]);
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
 const GOLD = "#F4A100";
@@ -24,7 +36,8 @@ const MUTED = "#8A8F98";
 
 // Tamanhos iguais aos das referências enviadas
 const DIMS: Record<TemplateId, [number, number]> = {
-  empilhada: [1080, 1920], // vertical (story) — padrão
+  post: [1080, 1350],      // COM FUNDO — retrato 4:5 (WhatsApp/feed/status)
+  empilhada: [1080, 1920], // vertical (story) — transparente
   empilhadaSemHoras: [1080, 1920], // igual, mas sem o bloco HORAS
   destaque: [1080, 864],   // paisagem: faturamento + logo + linha de números
   faixa: [1080, 568],      // faixa larga: linha de números + ORBIS
@@ -38,21 +51,43 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  ctx.clearRect(0, 0, W, H); // transparente
+  ctx.clearRect(0, 0, W, H); // por padrão: FUNDO 100% TRANSPARENTE (adesivo p/ Story)
 
-  // Textura sutil: linhas douradas diagonais em baixa opacidade — dá acabamento
-  // sem tampar o story (a arte continua semi-transparente).
-  ctx.save();
-  ctx.globalAlpha = 0.06;
-  ctx.strokeStyle = GOLD;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  for (let tx = -H; tx < W; tx += 46) {
-    ctx.moveTo(tx, 0);
-    ctx.lineTo(tx + H, H);
+  // Artes COM fundo (WhatsApp/feed): pinta um fundo escuro texturizado dourado.
+  if (WITH_BG.has(template)) {
+    // base: gradiente escuro
+    const base = ctx.createLinearGradient(0, 0, 0, H);
+    base.addColorStop(0, "#151311");
+    base.addColorStop(1, "#0A0A0B");
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, W, H);
+    // brilho dourado no topo
+    const glow = ctx.createRadialGradient(W / 2, H * 0.16, 0, W / 2, H * 0.16, W * 0.85);
+    glow.addColorStop(0, "rgba(244,161,0,0.20)");
+    glow.addColorStop(1, "rgba(244,161,0,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    // faixas diagonais douradas sutis (acabamento tipo Strava)
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.strokeStyle = GOLD;
+    ctx.lineWidth = 60;
+    ctx.beginPath();
+    ctx.moveTo(-100, 260); ctx.lineTo(360, -140);
+    ctx.moveTo(W - 260, H + 140); ctx.lineTo(W + 160, H - 240);
+    ctx.stroke();
+    ctx.restore();
+    // grão/textura fina
+    ctx.save();
+    ctx.globalAlpha = 0.04;
+    ctx.fillStyle = WHITE;
+    for (let i = 0; i < 1400; i++) {
+      const gx = Math.random() * W;
+      const gy = Math.random() * H;
+      ctx.fillRect(gx, gy, 2, 2);
+    }
+    ctx.restore();
   }
-  ctx.stroke();
-  ctx.restore();
 
   // Rótulo cinza/dourado, MAIÚSCULO e espaçado
   const label = (text: string, x: number, y: number, size: number, color: string, align: "center" | "left" = "center") => {
@@ -152,7 +187,27 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
   const conv = `${s.conversao.toFixed(0)}%`;
   const horas = s.horas;
 
-  if (template === "empilhada" || template === "empilhadaSemHoras") {
+  if (template === "post") {
+    // ===== COM FUNDO (retrato 4:5) — logo topo, faturamento, linha de números, ORBIS =====
+    drawLogo(W / 2, 175, 150);
+
+    label("FATURAMENTO", W / 2, 415, 42, GOLD);
+    value(fat, W / 2, 540, 150);
+
+    hline(80, W - 80, 700);
+    const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
+    const colW = (W - 160) / 3;
+    cols.forEach((c, i) => {
+      const cx = 80 + colW * i + colW / 2;
+      label(c[0], cx, 800, 32, MUTED);
+      value(c[1], cx, 910, 106);
+      if (i > 0) vline(80 + colW * i, 745, 985);
+    });
+    hline(80, W - 80, 1040);
+
+    drawWordmark(W / 2, 1180, 230);
+    label("DEFCON 4", W / 2, 1270, 26, MUTED);
+  } else if (template === "empilhada" || template === "empilhadaSemHoras") {
     // ===== Vertical empilhado (PADRÃO). "SemHoras" = mesma arte sem o bloco HORAS =====
     const semHoras = template === "empilhadaSemHoras";
     if (semHoras) {
@@ -295,30 +350,81 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     }
   };
 
+  // Salvar a arte atual na galeria/downloads
+  const handleSave = async () => {
+    try {
+      setSharing(true);
+      const template = ORDER[index] ?? "post";
+      const canvas = await buildCanvas(template, stats);
+      const blob = canvas ? await canvasToBlob(canvas) : null;
+      if (!blob) throw new Error("Falha ao gerar imagem");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "orbis-resultado.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast({ title: "Imagem salva", description: "Confira nas suas fotos / downloads." });
+    } catch {
+      toast({ title: "Erro ao salvar", description: "Tente de novo.", variant: "destructive" });
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  // Copiar a arte atual pra área de transferência
+  const [copied, setCopied] = useState(false);
+  const handleCopy = async () => {
+    try {
+      setSharing(true);
+      const template = ORDER[index] ?? "post";
+      const canvas = await buildCanvas(template, stats);
+      const blob = canvas ? await canvasToBlob(canvas) : null;
+      if (!blob) throw new Error("Falha ao gerar imagem");
+      const clip = navigator as Navigator & {
+        clipboard?: { write?: (items: ClipboardItem[]) => Promise<void> };
+      };
+      if (clip.clipboard?.write && typeof ClipboardItem !== "undefined") {
+        await clip.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1600);
+        toast({ title: "Imagem copiada", description: "Cole no WhatsApp, Instagram, onde quiser." });
+      } else {
+        await handleSave();
+      }
+    } catch {
+      toast({ title: "Não deu pra copiar", description: "Use Salvar e anexe manualmente.", variant: "destructive" });
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const igGradient = {
     backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
   };
 
-  // Fechado: botão que JÁ compartilha a arte padrão (1 toque) + link pra escolher outra.
+  // Xadrez de transparência (igual editores de imagem) — mostra que o PNG não tem fundo
+  const checkerboard = {
+    backgroundColor: "#3a3a3a",
+    backgroundImage:
+      "linear-gradient(45deg, #555 25%, transparent 25%), linear-gradient(-45deg, #555 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #555 75%), linear-gradient(-45deg, transparent 75%, #555 75%)",
+    backgroundSize: "20px 20px",
+    backgroundPosition: "0 0, 0 10px, 10px -10px, -10px 0",
+  };
+
+  // Fechado: botão que abre a tela de compartilhamento (estilo Strava).
   if (!open) {
     return (
-      <div className="space-y-1.5">
-        <button
-          onClick={() => handleShare("empilhada")}
-          disabled={sharing}
-          className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
-          style={igGradient}
-        >
-          {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
-          {sharing ? "Gerando..." : "Compartilhar no Instagram"}
-        </button>
-        <button
-          onClick={() => setOpen(true)}
-          className="w-full text-xs text-muted-foreground hover:text-foreground active:scale-95 transition"
-        >
-          ou escolher outra arte
-        </button>
-      </div>
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform"
+        style={igGradient}
+      >
+        <Instagram className="w-4 h-4" />
+        Compartilhar resultado
+      </button>
     );
   }
 
@@ -347,12 +453,21 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
             {ORDER.map((t) => (
               <div key={t} className="snap-center shrink-0 w-full h-72 flex items-center justify-center">
                 {previews[t] && (
-                  <img
-                    src={previews[t]}
-                    alt={`Arte ${t}`}
-                    className="max-h-full max-w-[94%] object-contain rounded-lg border border-border"
-                    style={{ background: "#0a0a0a" }}
-                  />
+                  <div
+                    className="relative max-h-full max-w-[94%] rounded-lg border border-border overflow-hidden"
+                    style={WITH_BG.has(t) ? undefined : checkerboard}
+                  >
+                    {!WITH_BG.has(t) && (
+                      <span className="absolute top-2 left-2 z-10 text-[9px] font-bold tracking-wider text-white/90 bg-black/50 px-1.5 py-0.5 rounded">
+                        TRANSPARENTE
+                      </span>
+                    )}
+                    <img
+                      src={previews[t]}
+                      alt={`Arte ${t}`}
+                      className="max-h-72 max-w-full object-contain block"
+                    />
+                  </div>
                 )}
               </div>
             ))}
@@ -366,19 +481,42 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
               />
             ))}
           </div>
-          <p className="text-center text-[11px] text-muted-foreground -mt-1">← arraste pra escolher →</p>
+          <p className="text-center text-[11px] font-medium text-foreground -mt-1">
+            {CAPTIONS[ORDER[index] ?? "post"]}
+          </p>
+          <p className="text-center text-[10px] text-muted-foreground -mt-2">← arraste pra escolher →</p>
         </>
       )}
 
+      {/* Ação principal: compartilhar (abre a bandeja do celular → Story, WhatsApp, etc.) */}
       <button
-        onClick={handleShare}
+        onClick={() => handleShare()}
         disabled={sharing || loading}
         className="w-full h-12 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-60"
         style={igGradient}
       >
         {sharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Instagram className="w-4 h-4" />}
-        {sharing ? "Gerando..." : "Compartilhar no Instagram"}
+        {sharing ? "Gerando..." : "Compartilhar"}
       </button>
+
+      {/* Ações rápidas estilo Strava: Salvar / Copiar */}
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          onClick={handleSave}
+          disabled={sharing || loading}
+          className="h-11 rounded-xl bg-muted/60 border border-border text-foreground font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition disabled:opacity-60"
+        >
+          <Download className="w-4 h-4" /> Salvar
+        </button>
+        <button
+          onClick={handleCopy}
+          disabled={sharing || loading}
+          className="h-11 rounded-xl bg-muted/60 border border-border text-foreground font-semibold text-xs flex items-center justify-center gap-2 active:scale-95 transition disabled:opacity-60"
+        >
+          {copied ? <Check className="w-4 h-4 text-success" /> : <Copy className="w-4 h-4" />}
+          {copied ? "Copiado!" : "Copiar"}
+        </button>
+      </div>
     </div>
   );
 }
