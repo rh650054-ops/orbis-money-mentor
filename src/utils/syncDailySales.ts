@@ -79,9 +79,9 @@ export async function syncLeaderboardRevenue(userId: string) {
     .gte("date", startOfMonth)
     .lte("date", today);
 
-  // RANKING = só card + pix (dinheiro vivo NÃO conta, igual ao ranking semanal — não
-  // dá pra comprovar dinheiro no extrato). Antes somava total_profit (que INCLUI dinheiro),
-  // por isso o mensal ficava maior que o semanal (ex: 520 x 420 = os R$100 em dinheiro).
+  // A PARTIR DE 01/07/2026: dinheiro NÃO conta em NENHUM ranking (mensal, semanal,
+  // competições, X1) — só cartão + pix, porque precisa ser comprovável pelo extrato.
+  // O dinheiro continua salvo nos RELATÓRIOS do usuário; só não vale no ranking.
   const totalFaturamento = (monthlySales || []).reduce(
     (sum, s) => sum + (s.card_sales || 0) + (s.pix_sales || 0),
     0
@@ -107,7 +107,7 @@ export async function syncLeaderboardRevenue(userId: string) {
   const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.avatar_url;
 
-  // Dias com venda que CONTA no ranking (card + pix), pra bater com o faturamento acima.
+  // Dias com venda que conta no ranking (card + pix), mesma base do faturamento acima.
   const daysWithSales = (monthlySales || []).filter(
     s => ((s.card_sales || 0) + (s.pix_sales || 0)) > 0
   ).length;

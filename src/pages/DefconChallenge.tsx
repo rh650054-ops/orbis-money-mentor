@@ -12,6 +12,7 @@ import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
+import ExtratoDailyModal from "@/components/competitions/ExtratoDailyModal";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
 import { DefconDayReport } from "@/components/defcon/DefconDayReport";
@@ -211,20 +212,24 @@ export default function DefconChallenge() {
     case "finished":
     case "abandoned":
       return (
-        <DefconEndScreen
-          phase={defcon.phase}
-          totalSold={defcon.totalSold}
-          dailyGoal={defcon.dailyGoal}
-          totalBlocks={defcon.currentBlockIndex + 1}
-          workedMinutes={defcon.workedMinutes ?? (defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60))))}
-          totalApproaches={defcon.totalApproaches}
-          totalSalesCount={defcon.totalSalesCount}
-          userId={user.id}
-          onSaveBreakdown={defcon.savePaymentBreakdown}
-          onExit={handleExit}
-          onExtend={treino ? undefined : defcon.extendChallenge}
-          onRestart={treino ? undefined : defcon.restartChallenge}
-        />
+        <>
+          <DefconEndScreen
+            phase={defcon.phase}
+            totalSold={defcon.totalSold}
+            dailyGoal={defcon.dailyGoal}
+            totalBlocks={defcon.currentBlockIndex + 1}
+            workedMinutes={defcon.workedMinutes ?? (defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60))))}
+            totalApproaches={defcon.totalApproaches}
+            totalSalesCount={defcon.totalSalesCount}
+            userId={user.id}
+            onSaveBreakdown={defcon.savePaymentBreakdown}
+            onExit={handleExit}
+            onExtend={treino ? undefined : defcon.extendChallenge}
+            onRestart={treino ? undefined : defcon.restartChallenge}
+          />
+          {/* Popup do extrato do dia — só quando terminou de verdade (não treino/abandono). */}
+          {defcon.phase === "finished" && !treino && <ExtratoDailyModal userId={user.id} />}
+        </>
       );
 
     default:
