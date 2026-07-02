@@ -1,11 +1,8 @@
 // Orbis — find-good-spots (versão GRÁTIS, sem Google)
-// Antes dependia do Google (geocode + Places) + IA. Agora roda 100% de graça:
-//   - Geocode da cidade pela Nominatim (OSM).
-//   - Candidatos = SEMÁFOROS REAIS do OSM (tabela caca_sinais; se faltar, busca na
-//     Overpass e salva).
-//   - Pontua por DENSIDADE de semáforos (cruzamento de vias grandes tem vários
-//     sinais perto) + FEEDBACK da comunidade (spot_feedback).
-// Sem chave nenhuma. O Google fica pra Fase 2 (trânsito por horário), opcional.
+// Candidatos = SEMÁFOROS REAIS do OSM (tabela caca_sinais; se faltar, busca na
+// Overpass e salva). Pontua por DENSIDADE de semáforos + FEEDBACK da comunidade.
+// Robusto: tenta vários servidores Overpass, distingue "servidor falhou" de
+// "cidade sem semáforo mapeado". Sem chave nenhuma.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -16,6 +13,14 @@ const corsHeaders = {
 const UA = "OrbisCacaSinal/1.0 (https://orbis.app; contato@orbis.app)";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+// Servidores Overpass (o público vive sobrecarregado; tentamos vários).
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
+];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -35,40 +40,70 @@ function distanceM(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
 }
 
 async function geocode(city: string, state: string): Promise<{ lat: number; lng: number } | null> {
-  const q = `${city}, ${state}, Brasil`;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`;
-  const r = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "pt-BR" } });
-  if (!r.ok) return null;
-  const data = await r.json();
-  const hit = Array.isArray(data) ? data[0] : null;
-  if (!hit) return null;
-  return { lat: Number(hit.lat), lng: Number(hit.lon) };
-}
-
-async function overpassSignals(lat: number, lng: number, radiusMeters: number) {
-  const query =
-    `[out:json][timeout:60];` +
-    `node["highway"="traffic_signals"](around:${radiusMeters},${lat},${lng});` +
-    `out body;`;
-  const r = await fetch("https://overpass-api.de/api/interpreter", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA },
-    body: "data=" + encodeURIComponent(query),
-  });
-  if (!r.ok) return [];
-  const data = await r.json();
-  const els = Array.isArray(data?.elements) ? data.elements : [];
-  return els
-    .filter((e: any) => e.type === "node" && typeof e.lat === "number" && typeof e.lon === "number")
-    .map((e: any) => ({
-      osm_id: e.id as number,
-      lat: e.lat as number,
-      lng: e.lon as number,
-      vias: (e.tags?.name || e.tags?.["addr:street"] || null) as string | null,
-    }));
+  const tries = [`${city}, ${state}, Brasil`, `${city}, Brasil`, `${city} ${state}`];
+  for (const q of tries) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(q)}`;
+      const r = await fetch(url, { headers: { "User-Agent": UA, "Accept-Language": "pt-BR" } });
+      if (!r.ok) continue;
+      const data = await r.json();
+      const hit = Array.isArray(data) ? data[0] : null;
+      if (hit) return { lat: Number(hit.lat), lng: Number(hit.lon) };
+    } catch { /* tenta o próximo */ }
+  }
+  return null;
 }
 
 type Sig = { osm_id: number; lat: number; lng: number; vias: string | null };
+
+// Retorna { list, ok }. ok=false significa que TODOS os servidores falharam
+// (≠ de "a região não tem semáforo"). Tenta cada servidor até 2x.
+async function overpassSignals(
+  lat: number,
+  lng: number,
+  radiusMeters: number,
+): Promise<{ list: Sig[]; ok: boolean }> {
+  const query =
+    `[out:json][timeout:90];` +
+    `node["highway"="traffic_signals"](around:${radiusMeters},${lat},${lng});` +
+    `out body;`;
+
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 60000);
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": UA },
+          body: "data=" + encodeURIComponent(query),
+          signal: ctrl.signal,
+        });
+        clearTimeout(timer);
+        if (!r.ok) {
+          if (r.status === 429 || r.status >= 500) { await sleep(800); continue; }
+          break; // erro "definitivo" desse endpoint → próximo
+        }
+        const data = await r.json();
+        const els = Array.isArray(data?.elements) ? data.elements : [];
+        const list = els
+          .filter((e: any) => e.type === "node" && typeof e.lat === "number" && typeof e.lon === "number")
+          .map((e: any) => ({
+            osm_id: e.id as number,
+            lat: e.lat as number,
+            lng: e.lon as number,
+            vias: (e.tags?.name || e.tags?.["addr:street"] || null) as string | null,
+          }));
+        return { list, ok: true }; // servidor respondeu (mesmo que 0 elementos)
+      } catch {
+        await sleep(500); // timeout/rede → tenta de novo / próximo servidor
+      }
+    }
+  }
+  return { list: [], ok: false };
+}
+
+const sleep = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -78,7 +113,7 @@ Deno.serve(async (req) => {
     if (!city || !state) return json({ error: "city e state obrigatórios" }, 400);
 
     const radiusMeters = Math.min(Math.max(Number(radius_km) * 1000, 500), 25000);
-    const cacheKey = `v3|${String(city).toLowerCase()}|${String(state).toLowerCase()}|${radiusMeters}`;
+    const cacheKey = `v4|${String(city).toLowerCase()}|${String(state).toLowerCase()}|${radiusMeters}`;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     if (!force_refresh) {
@@ -110,13 +145,17 @@ Deno.serve(async (req) => {
       .limit(5000);
 
     let signals: Sig[] = (dbRows as Sig[]) ?? [];
+    let near = signals.filter((s) => distanceM(geo, s) <= radiusMeters);
 
-    // 2) Poucos? Busca na Overpass ao vivo e salva (auto-seed).
-    if (signals.length < 5) {
-      const fetched = await overpassSignals(geo.lat, geo.lng, radiusMeters);
-      if (fetched.length) {
-        signals = fetched;
-        const rows = fetched.map((s) => ({
+    // 2) Poucos no banco perto? Busca na Overpass (robusta) e salva.
+    let overpassOk = true;
+    if (near.length < 5) {
+      const { list, ok } = await overpassSignals(geo.lat, geo.lng, radiusMeters);
+      overpassOk = ok;
+      if (list.length) {
+        signals = list;
+        near = list.filter((s) => distanceM(geo, s) <= radiusMeters);
+        const rows = list.map((s) => ({
           osm_id: s.osm_id, lat: s.lat, lng: s.lng, cidade: city, uf: String(state).toUpperCase(),
           vias: s.vias, fonte: "osm", atualizado_em: new Date().toISOString(),
         }));
@@ -126,9 +165,13 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Só o que está de fato dentro do raio (o box é quadrado).
-    const near = signals.filter((s) => distanceM(geo, s) <= radiusMeters).slice(0, 4000);
-    if (near.length === 0) return json({ center: geo, spots: [] });
+    if (near.length === 0) {
+      // Distingue "servidor falhou" de "região sem semáforo mapeado".
+      const note = !overpassOk
+        ? "O servidor de mapas está sobrecarregado agora. Tente de novo em alguns segundos."
+        : "Ainda não há semáforos mapeados no OpenStreetMap nesta região. Tente uma cidade maior por perto ou aumente o raio.";
+      return json({ center: geo, spots: [], note, overpass_ok: overpassOk });
+    }
 
     // Dedupe por célula (~200m) pra não listar 5 sinais do mesmo cruzamento.
     const cell = 200;
@@ -192,7 +235,6 @@ async function attachFeedback(supabase: any, spots: any[]) {
     else if (f.rating === "ruim") map[f.place_id].bad++;
     map[f.place_id].total++;
   }
-  // Feedback da comunidade ajusta o score (bom sobe, ruim desce).
   return spots.map((s) => {
     const fb = map[s.id];
     let score = s.score;

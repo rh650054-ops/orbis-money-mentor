@@ -157,7 +157,10 @@ export default function SpotFinder() {
       if (c) loadSignals(c.lat, c.lng, radius[0]);
       setCached(!!data?.cached);
       if ((data?.spots ?? []).length === 0) {
-        toast({ title: "Nenhum ponto encontrado", description: "Tente aumentar o raio." });
+        toast({
+          title: "Nenhum sinal encontrado",
+          description: data?.note ?? "Tente aumentar o raio ou uma cidade maior por perto.",
+        });
       }
     } catch (e: any) {
       toast({ title: "Erro", description: e.message ?? "Falha ao buscar", variant: "destructive" });
