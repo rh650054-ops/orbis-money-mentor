@@ -56,6 +56,7 @@ const AdminSubscriptions = lazyWithReload(() => import("@/pages/AdminSubscriptio
 const AdminCompetitions = lazyWithReload(() => import("@/pages/AdminCompetitions"));
 const AdminBrain = lazyWithReload(() => import("@/pages/AdminBrain"));
 const AdminAntiCheat = lazyWithReload(() => import("@/pages/AdminAntiCheat"));
+const AdminExtratoConfig = lazyWithReload(() => import("@/pages/AdminExtratoConfig"));
 const TesteExtrato = lazyWithReload(() => import("@/pages/TesteExtrato"));
 const TestRanking = lazyWithReload(() => import("@/pages/TestRanking"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
@@ -124,6 +125,7 @@ export function AppRouter() {
                     <Route path="/admin/competitions" element={<AdminCompetitions />} />
                     <Route path="/admin/ai-brain" element={<AdminBrain />} />
                     <Route path="/admin/anti-trapaca" element={<AdminAntiCheat />} />
+                    <Route path="/admin/extrato-config" element={<AdminExtratoConfig />} />
                     <Route path="/admin/teste-extrato" element={<TesteExtrato />} />
                     <Route path="/admin/teste-ranking" element={<TestRanking />} />
                     <Route path="*" element={<NotFound />} />

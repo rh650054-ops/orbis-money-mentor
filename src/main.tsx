@@ -3,6 +3,7 @@ import Root from "@/app/root";
 import "./index.css";
 import { setupOfflineSyncListeners } from "@/shared/lib/offline-sync";
 import { captureReferralCoupon } from "@/shared/lib/checkout";
+import { loadExtratoDeadline } from "@/shared/lib/extrato-config";
 
 window.addEventListener("error", (event) => {
   console.error("[Orbis] Unhandled error:", event.error ?? event.message);
@@ -17,6 +18,9 @@ captureReferralCoupon();
 
 // Setup offline sync listeners globally
 setupOfflineSyncListeners();
+
+// Carrega o horário-limite do extrato do banco (config mudável pelo admin) pro cache.
+loadExtratoDeadline();
 
 // Service worker do Orbis — registrado pra TODOS os usuários.
 // NÃO faz cache (não tem listener de "fetch"), então não há como voltar o bug

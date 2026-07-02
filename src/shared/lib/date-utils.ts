@@ -1,4 +1,4 @@
-import { EXTRATO_DEADLINE_HOUR } from "./extrato-config";
+import { getExtratoDeadlineHour } from "./extrato-config";
 
 const BRAZIL_TZ = "America/Sao_Paulo";
 
@@ -22,7 +22,7 @@ export function getExtratoDia(): string {
       new Intl.DateTimeFormat("en-GB", { timeZone: BRAZIL_TZ, hour: "2-digit", hour12: false }).format(new Date()),
     ) % 24;
   const today = getBrazilDate();
-  if (hour >= EXTRATO_DEADLINE_HOUR) return today;
+  if (hour >= getExtratoDeadlineHour()) return today;
   const [y, m, d] = today.split("-").map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() - 1);
