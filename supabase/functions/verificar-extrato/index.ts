@@ -13,9 +13,19 @@ const corsHeaders = {
 };
 
 // Monta o prompt com o nome do vendedor (pra IA pegar auto-transferencia).
-function buildPrompt(nome: string): string {
+function buildPrompt(nome: string, tipo: string): string {
   const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
-  return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um EXTRATO bancario/de pagamentos brasileiro.
+  const esperado = tipo === "cartao"
+    ? "EXTRATO/RELATORIO DE MAQUININHA DE CARTAO (adquirente: Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.) — mostra vendas no cartao, taxas e recebiveis."
+    : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos) — mostra Pix recebidos, saldo e transacoes da conta.";
+  return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
+
+CLASSIFICACAO (faca isto ANTES de tudo): o usuario esta enviando isto como o ${esperado}
+Classifique o documento no campo "documento":
+- "banco" = extrato/app de BANCO ou conta de pagamento (Pix recebidos, saldo, transacoes da conta).
+- "cartao" = extrato/relatorio de MAQUININHA/adquirente (vendas no cartao, taxas, previsao de recebiveis).
+- "outro" = qualquer outra coisa (foto aleatoria, UM comprovante unico, print sem lista de transacoes, algo que NAO e um extrato).
+Seja honesto na classificacao: se nao for claramente um extrato do tipo certo, marque o que realmente e.
 
 Tarefa: listar APENAS as VENDAS = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE despesas/saidas E itens suspeitos de fraude.
 
@@ -39,7 +49,7 @@ total_ignorado = soma de despesas + suspeitas.
 data_dia = a DATA das vendas no extrato em YYYY-MM-DD. Use a data de LANCAMENTO/transacao (quando a venda aconteceu), NAO a data contabil. Se houver varias datas, a MAIS COMUM. Se nao der pra ler a data, deixe "".
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
-{"vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"2026-06-29"}`;
+{"documento":"banco","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"2026-06-29"}`;
 }
 
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
@@ -158,7 +168,7 @@ Deno.serve(async (req) => {
       } catch { /* deixa passar se a trava falhar */ }
     }
 
-    const prompt = buildPrompt(nome);
+    const prompt = buildPrompt(nome, tipo);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -203,6 +213,27 @@ Deno.serve(async (req) => {
     const totalVendas = Number(parsed.total_vendas) || 0;
     const qtdVendas = Number(parsed.qtd_vendas) || vendas.length;
     const totalIgnorado = Number(parsed.total_ignorado) || 0;
+
+    // VALIDA O TIPO DE DOCUMENTO: slot "pix" -> tem que ser extrato de BANCO;
+    // slot "cartao" -> tem que ser extrato de MAQUININHA. Rejeita o arquivo errado.
+    const documento = typeof parsed.documento === "string" ? parsed.documento.toLowerCase() : "";
+    if (salvar) {
+      if (documento === "outro" || documento === "") {
+        return json({
+          error: "documento_invalido",
+          dica: `Esse arquivo nao parece um extrato. Manda o ${tipo === "cartao" ? "extrato/relatorio da maquininha de cartao" : "extrato do banco (onde caem os Pix)"}.`,
+        }, 200);
+      }
+      const esperadoDoc = tipo === "cartao" ? "cartao" : "banco";
+      if (documento !== esperadoDoc) {
+        const certo = tipo === "cartao" ? "extrato da MAQUININHA de cartao" : "extrato do BANCO (onde caem os Pix)";
+        const enviou = documento === "cartao" ? "de maquininha de cartao" : "de banco";
+        return json({
+          error: "documento_tipo_errado",
+          dica: `Voce enviou um extrato ${enviou}, mas aqui e pro ${certo}. Manda o arquivo certo nesse campo.`,
+        }, 200);
+      }
+    }
 
     // VALIDA O DIA: o extrato TEM que ser do dia que esta contando. Pega quem sobe
     // extrato de outro dia (ex: extrato de ontem contando pro desafio de hoje).
