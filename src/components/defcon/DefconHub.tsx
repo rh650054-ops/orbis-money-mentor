@@ -11,6 +11,7 @@ import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { Check, X } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
+import { CompetitionStatementUpload } from "@/components/defcon/CompetitionStatementUpload";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -562,6 +563,11 @@ export default function DefconHub() {
           <Zap className="w-5 h-5 fill-white" />
           {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
         </button>
+
+        {/* Extrato do dia — logo abaixo do botão de continuar/iniciar o DEFCON. */}
+        <div className="mt-3">
+          <CompetitionStatementUpload userId={user.id} />
+        </div>
       </div>
 
       {/* DESAFIO DA SEMANA — ícone dourado que reabre o bilhete (semana toda) */}
