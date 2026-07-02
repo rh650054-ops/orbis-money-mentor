@@ -30,9 +30,9 @@ const CAPTIONS: Record<TemplateId, string> = {
 const WITH_BG: Set<TemplateId> = new Set(["post"]);
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
-const GOLD = "#F4A100";
+const GOLD = "#FFB627";       // dourado brilhante (FATURAMENTO)
 const WHITE = "#FFFFFF";
-const MUTED = "#8A8F98";
+const MUTED = "#E6A93C";      // dourado suave p/ letreiros (VENDAS/CONVERSÃO/HORAS)
 
 // Tamanhos iguais aos das referências enviadas
 const DIMS: Record<TemplateId, [number, number]> = {
@@ -103,16 +103,11 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     chars.forEach((c, i) => { ctx.fillText(c, sx, y); sx += widths[i]! + ls; });
   };
 
-  // Número grande branco com leve aberração cromática (visual "chique")
+  // Número grande, BRANCO puro (sem aberração cromática — só branco limpo)
   const value = (text: string, x: number, y: number, size: number, align: "center" | "left" = "center") => {
     ctx.font = `900 ${size}px ${FONT}`;
     ctx.textAlign = align;
     ctx.textBaseline = "middle";
-    ctx.globalAlpha = 0.45;
-    ctx.fillStyle = "#FF003C";
-    ctx.fillText(text, x - 5, y);
-    ctx.fillStyle = "#00C8FF";
-    ctx.fillText(text, x + 5, y);
     ctx.globalAlpha = 1;
     ctx.fillStyle = WHITE;
     ctx.fillText(text, x, y);

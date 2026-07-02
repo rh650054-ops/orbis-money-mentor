@@ -412,7 +412,7 @@ export function DefconEndScreen({
     if (!ctx) return null;
     ctx.clearRect(0, 0, W, H); // FUNDO 100% TRANSPARENTE (PNG sem fundo, tipo Strava)
 
-    const GOLD = "#F4A100", GREEN = "#22C55E", WHITE = "#FFFFFF", MUTED = "#9AA0A6";
+    const GOLD = "#FFB627", GREEN = "#22C55E", WHITE = "#FFFFFF", MUTED = "#E6A93C";
     const fontStack = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
 
     const centerTextAt = (text: string, cx: number, y: number, size: number, weight: string, color: string, ls = 0) => {
