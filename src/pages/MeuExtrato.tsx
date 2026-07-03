@@ -134,6 +134,7 @@ export default function MeuExtrato() {
       <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center text-center">
         <Clock className="w-3.5 h-3.5 shrink-0" />
         Esse extrato conta pro dia {diaLabel} · envie até as 9h da manhã (pra contar Pix atrasado). Pode reenviar.
+        Seu banco não deixa pedir extrato de um dia só? Manda o do mês inteiro — a IA separa e conta só o dia {diaLabel}.
       </div>
     </div>
   );

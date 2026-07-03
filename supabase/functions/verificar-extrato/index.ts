@@ -12,8 +12,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Monta o prompt com o nome do vendedor (pra IA pegar auto-transferencia).
-function buildPrompt(nome: string, tipo: string): string {
+// Monta o prompt com o nome do vendedor (pra IA pegar auto-transferencia) e o DIA auditado.
+function buildPrompt(nome: string, tipo: string, dia: string): string {
   const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
   const esperado = tipo === "cartao"
     ? "EXTRATO/RELATORIO DE MAQUININHA DE CARTAO (adquirente: Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.) — mostra vendas no cartao, taxas e recebiveis."
@@ -27,7 +27,18 @@ Classifique o documento no campo "documento":
 - "outro" = qualquer outra coisa (foto aleatoria, UM comprovante unico, print sem lista de transacoes, algo que NAO e um extrato).
 Seja honesto na classificacao: se nao for claramente um extrato do tipo certo, marque o que realmente e.
 
-Tarefa: listar APENAS as VENDAS = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE despesas/saidas E itens suspeitos de fraude.
+DIA AUDITADO: ${dia}
+O extrato pode cobrir UM dia, VARIOS dias ou o MES INTEIRO (alguns bancos nao deixam
+pedir extrato de um dia so). Voce esta auditando SOMENTE o dia ${dia}:
+- Liste APENAS transacoes cuja data de LANCAMENTO seja EXATAMENTE ${dia}.
+- IGNORE COMPLETAMENTE as transacoes dos outros dias (nao entram em vendas, nem em
+  suspeitas, nem em nenhum total). Faca de conta que nao existem.
+- "periodo_inicio" e "periodo_fim" = primeira e ultima data de transacao visiveis no
+  extrato (YYYY-MM-DD), pra sabermos qual intervalo o arquivo cobre.
+- "cobre_dia" = true se o dia ${dia} estiver DENTRO do periodo do extrato (mesmo que
+  nao tenha nenhuma venda nesse dia); false se o extrato nao alcancar esse dia.
+
+Tarefa: listar APENAS as VENDAS do dia ${dia} = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE despesas/saidas E itens suspeitos de fraude.
 
 CONTA como venda (dinheiro que ENTROU):
 - "Pix recebido", "Entrada PIX", "Credito", "Recebimento"
@@ -43,13 +54,13 @@ ANTIFRAUDE — NAO CONTA como venda e coloque em "suspeitas" com o motivo:
 - DUPLICATA: se a MESMA venda aparecer repetida (mesmo valor + mesmo remetente, em horarios colados), conte SO UMA vez; as copias vao pra "suspeitas".
 ${hint}
 
-total_vendas = soma SO das vendas legitimas (sem despesa e sem suspeita).
-total_ignorado = soma de despesas + suspeitas.
+total_vendas = soma SO das vendas legitimas do dia ${dia} (sem despesa e sem suspeita).
+total_ignorado = soma de despesas + suspeitas do dia ${dia}.
 
-data_dia = a DATA das vendas no extrato em YYYY-MM-DD. Use a data de LANCAMENTO/transacao (quando a venda aconteceu), NAO a data contabil. Se houver varias datas, a MAIS COMUM. Se nao der pra ler a data, deixe "".
+data_dia = "${dia}" se cobre_dia for true; senao "". Use a data de LANCAMENTO/transacao, NAO a data contabil.
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
-{"documento":"banco","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"2026-06-29"}`;
+{"documento":"banco","cobre_dia":true,"periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"${dia}"}`;
 }
 
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
@@ -69,7 +80,8 @@ async function callClaude(key: string, model: string, prompt: string, fileB64: s
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
-    signal: AbortSignal.timeout(40000),
+    // Extrato do mes inteiro pode ser um PDF grande — folga maior de tempo.
+    signal: AbortSignal.timeout(60000),
     body: JSON.stringify({
       model,
       max_tokens: 1800,
@@ -168,7 +180,7 @@ Deno.serve(async (req) => {
       } catch { /* deixa passar se a trava falhar */ }
     }
 
-    const prompt = buildPrompt(nome, tipo);
+    const prompt = buildPrompt(nome, tipo, dia);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -235,27 +247,27 @@ Deno.serve(async (req) => {
       }
     }
 
-    // VALIDA O DIA: o extrato TEM que ser do dia que esta contando. Pega quem sobe
-    // extrato de outro dia (ex: extrato de ontem contando pro desafio de hoje).
+    // VALIDA O DIA: o extrato pode cobrir varios dias / o mes inteiro (alguns bancos
+    // nao deixam pedir extrato de um dia so). A IA ja filtrou SO as vendas do dia
+    // auditado. Aqui validamos se o PERIODO do arquivo alcanca esse dia.
     const dataDia = typeof parsed.data_dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.data_dia)
       ? parsed.data_dia : "";
+    const cobreDia = parsed.cobre_dia === true || dataDia === dia;
+    const fmt = (d: string) => (d && d.length >= 10 ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : d);
+    const pIni = typeof parsed.periodo_inicio === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.periodo_inicio) ? parsed.periodo_inicio : "";
+    const pFim = typeof parsed.periodo_fim === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.periodo_fim) ? parsed.periodo_fim : "";
     if (salvar && !diaValido) {
       return json({ error: "dia_invalido", dica: "Nao consegui identificar o dia. Tenta de novo." }, 200);
     }
-    if (salvar && !dataDia) {
-      return json({ error: "extrato_sem_data", dica: "Nao consegui ler a data nesse extrato. Manda um print ou PDF que mostre a data das vendas." }, 200);
-    }
-    if (salvar && dataDia && dataDia !== dia) {
-      const fmt = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
-      const ontem = (() => {
-        const d = new Date(`${dia}T12:00:00Z`);
-        d.setUTCDate(d.getUTCDate() - 1);
-        return d.toISOString().slice(0, 10);
-      })();
-      const dica = dataDia === ontem
-        ? `O prazo das 9h pra contar o extrato do dia ${fmt(dataDia)} ja passou. Agora vale o extrato do dia ${fmt(dia)}.`
-        : `Esse extrato e do dia ${fmt(dataDia)}, mas conta pro dia ${fmt(dia)}. Envie o extrato do dia ${fmt(dia)}.`;
-      return json({ error: "extrato_dia_errado", extrato_dia: dataDia, esperado: dia, dica }, 200);
+    if (salvar && !cobreDia) {
+      const periodo = pIni && pFim ? ` (esse arquivo cobre ${fmt(pIni)} a ${fmt(pFim)})` : "";
+      return json({
+        error: "extrato_fora_do_periodo",
+        periodo_inicio: pIni,
+        periodo_fim: pFim,
+        esperado: dia,
+        dica: `Esse extrato nao inclui o dia ${fmt(dia)}${periodo}. Manda um extrato que cubra o dia ${fmt(dia)} — pode ser o do mes inteiro, eu separo so o dia certo.`,
+      }, 200);
     }
 
     // ===== ANTIFRAUDE EXTRA (no servidor, alem do que a IA ja faz no prompt) =====
