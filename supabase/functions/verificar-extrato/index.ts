@@ -53,9 +53,11 @@ NAO CONTA (despesa/saida do vendedor):
 - "Debito de Cartao" (compras em lojas, ex: ATACADAO, MERCADO), "Saida PIX", "Pix enviado", "Pagamento", "Transferencia enviada"
 - Qualquer valor NEGATIVO ou de saida
 
-ANTIFRAUDE — NAO CONTA como venda e coloque em "suspeitas" com o motivo:
-- AUTO-TRANSFERENCIA: o extrato mostra o NOME DO TITULAR da conta. Pix recebido cujo REMETENTE seja o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}) NAO e venda — e o vendedor mandando dinheiro pra si mesmo pra inflar o ranking.
-- DUPLICATA: se a MESMA venda aparecer repetida (mesmo valor + mesmo remetente, em horarios colados), conte SO UMA vez; as copias vao pra "suspeitas".
+ANTIFRAUDE — SO estas 3 coisas NAO contam. Coloque em "suspeitas" com um "motivo" CURTO e EXATO (dizendo o valor e por que nao passou):
+- AUTO-TRANSFERENCIA: Pix recebido cujo REMETENTE e o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}) — o vendedor mandou pra si mesmo. motivo: "voce mandou pra voce mesmo".
+- PIX DE R$100 OU MAIS: qualquer Pix de valor >= R$100 NAO conta (venda de rua e de ticket baixo). motivo: "Pix de R$X: valores de R$100 ou mais nao contam".
+- VARIOS PIX REPETIDOS DA MESMA PESSOA: se o MESMO remetente aparecer com 3 OU MAIS Pix repetidos (valores iguais/colados), conte SO O PRIMEIRO; os repetidos vao pra suspeitas. motivo: "Pix repetido de [nome]: so o 1o conta". OBS: 1 ou 2 Pix da mesma pessoa PODE ser cliente de verdade — so marque a partir do 3o.
+REGRA DE OURO: fora dessas 3 coisas, TUDO que ENTROU conta como venda. Vendedor de rua recebe MUITOS Pix pequenos de gente diferente — isso e NORMAL e TEM que contar. Nao invente outros motivos pra recusar.
 ${hint}
 
 total_vendas = soma SO das vendas legitimas do dia ${dia} (sem despesa e sem suspeita).
@@ -86,15 +88,45 @@ MODO MES: este extrato cobre VARIOS dias. Separe as VENDAS POR DIA.
 VENDA (conta) = dinheiro que ENTROU: "Pix recebido", "Entrada PIX", "Credito", "Recebimento", venda no cartao que caiu pra ele.
 NAO CONTA = saida/despesa: "Debito de Cartao", "Saida PIX", "Pix enviado", "Pagamento", "Transferencia enviada", valores negativos.
 
-ANTIFRAUDE — vai em "suspeitas" do dia, com motivo, e NAO soma:
-- AUTO-TRANSFERENCIA: Pix recebido cujo remetente e o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}).
-- DUPLICATA: mesma venda repetida (mesmo valor + remetente em horarios colados) conta SO UMA vez.
+ANTIFRAUDE — SO estas 3 coisas vao em "suspeitas" do dia (com "motivo" curto e EXATO) e NAO somam:
+- AUTO-TRANSFERENCIA: Pix recebido cujo remetente e o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}). motivo: "voce mandou pra voce mesmo".
+- PIX DE R$100 OU MAIS: Pix de valor >= R$100 NAO conta. motivo: "Pix de R$X: valores de R$100 ou mais nao contam".
+- VARIOS PIX REPETIDOS DA MESMA PESSOA: mesmo remetente com 3+ Pix repetidos -> conta SO O PRIMEIRO. motivo: "Pix repetido de [nome]: so o 1o conta". (1 ou 2 da mesma pessoa PODE ser cliente real — so a partir do 3o.)
+REGRA DE OURO: fora dessas 3, TUDO que entrou conta. Muitos Pix pequenos de gente diferente e NORMAL e TEM que contar.
 ${hint}
 
 "periodo_inicio"/"periodo_fim" = primeira e ultima data de transacao visiveis no extrato (YYYY-MM-DD).
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
 {"documento":"banco","periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","dias":[{"data":"2026-07-03","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}]}]}`;
+}
+
+// Teto: Pix de R$100 ou mais NAO conta (venda de rua e de ticket baixo).
+const TETO_PIX = 100;
+
+// Backstop no servidor (alem da IA): mesmo remetente + mesmo valor repetido 3x ou mais
+// = alguem inflando. Conta SO O PRIMEIRO; os repetidos viram suspeita com motivo exato.
+function separaRepetidos(vendas: any[]): { limpas: any[]; repetidas: any[] } {
+  const norm = (v: any) =>
+    String(v?.descricao ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 24) +
+    "|" + Math.round((Number(v?.valor) || 0) * 100);
+  const counts = new Map<string, number>();
+  for (const v of vendas) { const k = norm(v); counts.set(k, (counts.get(k) || 0) + 1); }
+  const seen = new Map<string, number>();
+  const limpas: any[] = [];
+  const repetidas: any[] = [];
+  for (const v of vendas) {
+    const k = norm(v);
+    if ((counts.get(k) || 0) >= 3) {
+      const n = (seen.get(k) || 0) + 1; seen.set(k, n);
+      if (n === 1) { limpas.push(v); continue; }
+      const quem = String(v?.descricao ?? "mesma pessoa").slice(0, 30);
+      repetidas.push({ ...v, motivo: `Pix repetido de ${quem}: so o 1o conta (${n}o de varios iguais)` });
+    } else {
+      limpas.push(v);
+    }
+  }
+  return { limpas, repetidas };
 }
 
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
@@ -267,12 +299,12 @@ Deno.serve(async (req) => {
     // DEFCON naquele dia; (3) ainda NAO tem extrato enviado (nao sobrescreve).
     if (modo === "mes") {
       const documentoMes = typeof parsed.documento === "string" ? parsed.documento.toLowerCase() : "";
-      const esperadoDocMes = tipo === "cartao" ? "cartao" : "banco";
-      if (documentoMes !== esperadoDocMes) {
-        return json({
-          error: "documento_invalido",
-          dica: `Esse arquivo nao parece o ${tipo === "cartao" ? "extrato da maquininha de cartao" : "extrato do banco (onde caem os Pix)"}.`,
-        }, 200);
+      // Pix precisa ser banco. Cartao aceita de qualquer lugar; so barra foto aleatoria.
+      if (documentoMes === "outro" || documentoMes === "") {
+        return json({ error: "documento_invalido", dica: "Esse arquivo nao parece um extrato. Manda o extrato certo." }, 200);
+      }
+      if (tipo === "pix" && documentoMes !== "banco") {
+        return json({ error: "documento_invalido", dica: "Esse arquivo nao parece o extrato do banco (onde caem os Pix)." }, 200);
       }
       if (!uid || !supa) return json({ error: "sem_login", dica: "Faca login de novo e tente outra vez." }, 200);
 
@@ -307,7 +339,6 @@ Deno.serve(async (req) => {
         outroPorDia.set(String(r.dia).slice(0, 10), Array.isArray(r.vendas) ? r.vendas : []);
       }
 
-      const LIMITE_MES = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "150");
       const chaveMes = (v: any) =>
         `${Math.round((Number(v?.valor) || 0) * 100)}|${String(v?.descricao ?? "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24)}`;
       const adminMes = createClient(
@@ -334,13 +365,14 @@ Deno.serve(async (req) => {
           diasPulados.push({ dia: c.data, motivo: "parece o mesmo extrato do outro slot" });
           continue;
         }
-        // Filtro de valor alto (mesma regra do modo dia).
+        // Regras: repetidos da mesma pessoa (3x+) + Pix de R$100+ nao conta.
+        const semRepDia = separaRepetidos(c.vendas);
         const limpas: any[] = [];
-        const suspDia: any[] = [...c.suspeitas];
-        for (const v of c.vendas) {
+        const suspDia: any[] = [...c.suspeitas, ...semRepDia.repetidas];
+        for (const v of semRepDia.limpas) {
           const val = Number(v?.valor) || 0;
-          if (val > LIMITE_MES) {
-            suspDia.push({ ...v, motivo: `valor alto (acima de R$${LIMITE_MES}) - revisar` });
+          if (val >= TETO_PIX) {
+            suspDia.push({ ...v, motivo: `Pix de R$${val.toFixed(2)}: valores de R$${TETO_PIX} ou mais nao contam` });
             continue;
           }
           limpas.push(v);
@@ -398,13 +430,13 @@ Deno.serve(async (req) => {
           dica: `Esse arquivo nao parece um extrato. Manda o ${tipo === "cartao" ? "extrato/relatorio da maquininha de cartao" : "extrato do banco (onde caem os Pix)"}.`,
         }, 200);
       }
-      const esperadoDoc = tipo === "cartao" ? "cartao" : "banco";
-      if (documento !== esperadoDoc) {
-        const certo = tipo === "cartao" ? "extrato da MAQUININHA de cartao" : "extrato do BANCO (onde caem os Pix)";
-        const enviou = documento === "cartao" ? "de maquininha de cartao" : "de banco";
+      // Pix -> precisa ser extrato de BANCO (onde caem os Pix). Cartao -> pode vir de
+      // QUALQUER lugar (maquininha, banco ou outro relatorio de vendas no cartao); so a
+      // foto aleatoria ("outro", ja barrada acima) nao vale.
+      if (tipo === "pix" && documento !== "banco") {
         return json({
           error: "documento_tipo_errado",
-          dica: `Voce enviou um extrato ${enviou}, mas aqui e pro ${certo}. Manda o arquivo certo nesse campo.`,
+          dica: "Voce enviou um extrato de maquininha, mas aqui e pro extrato do BANCO (onde caem os Pix). Manda o extrato do banco.",
         }, 200);
       }
     }
@@ -452,7 +484,6 @@ Deno.serve(async (req) => {
         outras = Array.isArray((o as any)?.vendas) ? (o as any).vendas : [];
       } catch { /* segue sem dedup se a leitura falhar */ }
     }
-    const LIMITE = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "150");
     const chave = (v: any) =>
       `${Math.round((Number(v?.valor) || 0) * 100)}|${String(v?.descricao ?? "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24)}`;
     // #5 DEDUP POR SLOT (nao venda-a-venda): pix e cartao sao documentos DIFERENTES.
@@ -468,14 +499,15 @@ Deno.serve(async (req) => {
         dica: "Esse extrato parece ser o mesmo do outro slot. Pix e cartao sao documentos diferentes - mande o de cada um.",
       }, 200);
     }
-    // Filtro de valor alto: venda individual acima do teto nao conta (vira suspeita).
+    // Regra 1: repetidos da mesma pessoa (3x+) -> so o 1o conta. Regra 2: Pix de R$100+ nao conta.
+    const semRep = separaRepetidos(vendas);
     const vendasLimpas: any[] = [];
-    const suspeitasFinal: any[] = Array.isArray(suspeitas) ? [...suspeitas] : [];
-    let addedIgnorado = 0;
-    for (const v of vendas) {
+    const suspeitasFinal: any[] = [...(Array.isArray(suspeitas) ? suspeitas : []), ...semRep.repetidas];
+    let addedIgnorado = semRep.repetidas.reduce((s: number, v: any) => s + (Number(v?.valor) || 0), 0);
+    for (const v of semRep.limpas) {
       const val = Number(v?.valor) || 0;
-      if (val > LIMITE) {
-        suspeitasFinal.push({ ...v, motivo: `valor alto (acima de R$${LIMITE}) - revisar` });
+      if (val >= TETO_PIX) {
+        suspeitasFinal.push({ ...v, motivo: `Pix de R$${val.toFixed(2)}: valores de R$${TETO_PIX} ou mais nao contam` });
         addedIgnorado += val;
         continue;
       }
