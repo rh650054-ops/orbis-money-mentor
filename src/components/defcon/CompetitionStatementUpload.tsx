@@ -14,6 +14,10 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const [inComp, setInComp] = useState(false);
   const [inX1, setInX1] = useState(false); // tem X1 marcado pro dia do extrato
   const [loading, setLoading] = useState(true);
+  // O que o vendedor REALMENTE usou no DEFCON do dia (R$ em pix e cartão):
+  // só pedimos o extrato dos métodos usados — dia 100% Pix não pede maquininha.
+  const [metodos, setMetodos] = useState<{ pix: number; cartao: number } | null>(null);
+  const [forceShow, setForceShow] = useState<{ pix: boolean; cartao: boolean }>({ pix: false, cartao: false });
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
   const { pix, cartao, totalDia, upload, remove } = useMeuExtrato(userId, dia);
@@ -27,8 +31,9 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      // Roda as duas checagens em paralelo: competição ativa E X1 marcado pro dia.
-      const [{ data: parts }, { data: x1s }] = await Promise.all([
+      // Checagens em paralelo: competição ativa, X1 marcado pro dia e os métodos
+      // que ele usou no DEFCON (pra pedir só o extrato que importa).
+      const [{ data: parts }, { data: x1s }, { data: ds }] = await Promise.all([
         supabase.from("competition_participants" as any).select("competition_id").eq("user_id", userId),
         supabase
           .from("x1_challenges" as any)
@@ -36,6 +41,7 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
           .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
           .eq("scheduled_date", dia)
           .in("status", ["accepted", "active"]),
+        supabase.from("daily_sales").select("pix_sales, card_sales").eq("user_id", userId).eq("date", dia),
       ]);
 
       // Competição: participa de alguma que esteja ativa?
@@ -49,6 +55,11 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
       if (!alive) return;
       setInComp(comp);
       setInX1(((x1s as any[]) || []).length > 0);
+      const rows = (ds as any[]) || [];
+      setMetodos({
+        pix: rows.reduce((s, r) => s + (Number(r.pix_sales) || 0), 0),
+        cartao: rows.reduce((s, r) => s + (Number(r.card_sales) || 0), 0),
+      });
       setLoading(false);
     })().catch(() => {
       if (alive) setLoading(false);
@@ -102,6 +113,15 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
 
   const contexto = inComp && inX1 ? "competição + X1" : inX1 ? "seu X1" : inComp ? "competição" : "o ranking";
 
+  // Pede SÓ o extrato dos métodos usados no DEFCON. Regras:
+  // - já enviou → slot continua visível (pra reenviar/ver o valor)
+  // - usou o método no DEFCON → visível
+  // - não usou nenhum dos dois → mostra só o Pix (caso mais comum)
+  // - dá pra forçar o slot escondido pelo link "recebi fora do DEFCON"
+  const nadaNosDois = !!metodos && metodos.pix <= 0 && metodos.cartao <= 0;
+  const showPix = !!pix || forceShow.pix || !metodos || metodos.pix > 0 || nadaNosDois;
+  const showCartao = !!cartao || forceShow.cartao || !metodos || metodos.cartao > 0;
+
   const slotBtn = (
     tipo: "pix" | "cartao",
     label: string,
@@ -135,16 +155,35 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
         <p className="text-sm font-bold text-amber-400">Extrato do dia — {contexto}</p>
       </div>
       <p className="text-xs text-muted-foreground">
-        Suba o extrato do <b className="text-foreground">Pix</b> e da <b className="text-foreground">maquininha</b>. A IA
-        confere na hora e só o que entrou (cartão + pix) vale no ranking. Dá pra reenviar se cair mais Pix.
+        {showPix && showCartao ? (
+          <>Suba o extrato do <b className="text-foreground">Pix</b> e da <b className="text-foreground">maquininha</b>. </>
+        ) : showPix ? (
+          <>Seu dia foi só <b className="text-foreground">Pix</b> — um envio resolve. </>
+        ) : (
+          <>Seu dia foi só <b className="text-foreground">maquininha</b> — um envio resolve. </>
+        )}
+        A IA confere na hora e só o que entrou (cartão + pix) vale no ranking. Dá pra reenviar se cair mais Pix.
       </p>
       <p className="text-[11px] font-semibold text-amber-400/90">
         Conta pro dia {diaLabel} · você pode enviar o extrato até as 9h da manhã.
       </p>
+      {inX1 && (
+        <p className="text-[11px] font-bold text-red-400">
+          ⚔️ Este envio JÁ vale pro seu X1 — o resultado sai sozinho às 9h. Nada mais pra mandar.
+        </p>
+      )}
       <div className="flex gap-2">
-        {slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}
-        {slotBtn("cartao", "Extrato Cartão", CreditCard, cartao, cartaoRef)}
+        {showPix && slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}
+        {showCartao && slotBtn("cartao", "Extrato Cartão", CreditCard, cartao, cartaoRef)}
       </div>
+      {(!showCartao || !showPix) && (
+        <button
+          onClick={() => setForceShow((s) => ({ pix: s.pix || !showPix, cartao: s.cartao || !showCartao }))}
+          className="text-[10px] text-muted-foreground underline"
+        >
+          {!showCartao ? "Recebi no cartão fora do DEFCON — enviar extrato da maquininha" : "Recebi Pix fora do DEFCON — enviar extrato do Pix"}
+        </button>
+      )}
       {(pix || cartao) && (
         <div className="flex gap-2">
           {pix && (
