@@ -839,18 +839,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const newAchieved = currentBlock.valor_dinheiro + currentBlock.valor_cartao + newPix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: newAchieved,
-        valor_pix: newPix,
-      })
-      .eq("id", currentBlock.id);
-
-    if (sessionId) {
-      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-    }
-
+    // OTIMISTA: tela na hora; banco em seguida.
     setBlocks(prev =>
       prev.map((b, i) =>
         i === blockIdx ? { ...b, achieved_amount: newAchieved, valor_pix: newPix } : b
@@ -858,19 +847,37 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
 
-    if (sessionId) {
-      await supabase.from("defcon_sales").insert({
-        user_id: userId,
-        session_id: sessionId,
-        block_index: blockIdx,
-        amount,
-        method: "pix",
-        late: true,
-      });
-    }
+    try {
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          achieved_amount: newAchieved,
+          valor_pix: newPix,
+        })
+        .eq("id", currentBlock.id);
 
-    await syncBlocksToDailySales(userId);
-    await loadSessionSales(sessionId);
+      if (sessionId) {
+        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+        await supabase.from("defcon_sales").insert({
+          user_id: userId,
+          session_id: sessionId,
+          block_index: blockIdx,
+          amount,
+          method: "pix",
+          late: true,
+        });
+      }
+
+      await syncBlocksToDailySales(userId);
+      if (sessionId) await loadSessionSales(sessionId);
+    } catch (e) {
+      // Offline / erro de rede: enfileira o estado do bloco pra sincronizar depois.
+      await queueBlockOffline(
+        { ...currentBlock, achieved_amount: newAchieved, valor_pix: newPix },
+        userId,
+        planIdRef.current,
+      );
+    }
   };
 
   const addTip = async (amount: number) => {
