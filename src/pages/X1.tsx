@@ -755,7 +755,7 @@ export default function X1() {
 
       {/* TELA da carteira (abre por cima): saque + depósito + histórico */}
       {walletOpen && (
-      <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+      <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-24 space-y-3">
           <div className="flex items-center gap-3">
             <button onClick={() => { setWalletOpen(false); setWithdrawOpen(false); setDepositOpen(false); }} className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted/40">
@@ -1164,7 +1164,20 @@ export default function X1() {
                         💰 {fmt(c.stakes_amount * 2)} garantidos na carteira · resultado automático às 9h do dia seguinte pelo extrato verificado — não esquece de subir o seu!
                       </p>
                     )}
-                    {/* Premiação pelo admin → Perfil → Administração */}
+                    {isAdmin && (
+                      <div className="pt-2 mt-1 border-t border-amber-500/15 space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">🛠️ Admin</p>
+                        <button
+                          onClick={() => cancelX1(c.id)}
+                          className="w-full h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px] font-bold active:scale-[0.98] transition-transform"
+                        >
+                          Cancelar / encerrar este desafio
+                        </button>
+                        <p className="text-[9px] text-muted-foreground leading-snug">
+                          Definir vencedor com prêmio: Perfil → Administração.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
 
