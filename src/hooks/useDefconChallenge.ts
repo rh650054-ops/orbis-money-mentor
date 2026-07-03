@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
+import { addOfflineRecord } from "@/shared/lib/offline-db";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -28,6 +29,46 @@ export interface BlockReportData {
   approaches: number;
   sales: number;
   soldAmount: number;
+}
+
+/**
+ * Offline: enfileira o ESTADO ABSOLUTO de um bloco no celular pra subir quando a
+ * conexao voltar. Idempotente — a fila usa o id do bloco como chave e syncSaleRecord
+ * faz upsert com valores absolutos, entao re-aplicar (ou aplicar 2x) NUNCA duplica dinheiro.
+ */
+async function queueBlockOffline(
+  block: {
+    id: string; hour_index: number; hour_label: string; target_amount: number;
+    achieved_amount: number; valor_dinheiro: number; valor_cartao: number;
+    valor_pix: number; valor_calote: number; valor_gorjeta: number;
+  },
+  userId: string,
+  planId: string | null,
+) {
+  try {
+    await addOfflineRecord("pending_sales", {
+      id: block.id,
+      store: "pending_sales",
+      data: {
+        block_id: block.id,
+        user_id: userId,
+        plan_id: planId ?? "",
+        hour_index: block.hour_index,
+        hour_label: block.hour_label,
+        target_amount: block.target_amount,
+        achieved_amount: block.achieved_amount,
+        valor_dinheiro: block.valor_dinheiro,
+        valor_cartao: block.valor_cartao,
+        valor_pix: block.valor_pix,
+        valor_calote: block.valor_calote,
+        valor_gorjeta: block.valor_gorjeta,
+      },
+      created_at: new Date().toISOString(),
+      synced: false,
+    });
+  } catch {
+    // IndexedDB indisponivel (aba anonima / storage cheio): resta so o estado otimista da tela.
+  }
 }
 
 export function useDefconChallenge(userId: string | undefined) {
@@ -695,7 +736,13 @@ export function useDefconChallenge(userId: string | undefined) {
       await syncBlocksToDailySales(userId);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
-      // best-effort: a tela já reflete a venda; o banco reconcilia no próximo load.
+      // Offline / erro de rede: enfileira o estado ABSOLUTO do bloco pra sincronizar
+      // quando a conexao voltar (antes a venda so vivia na tela e sumia no reload).
+      await queueBlockOffline(
+        { ...currentBlock, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao },
+        userId,
+        planIdRef.current,
+      );
     }
   };
 
@@ -862,7 +909,12 @@ export function useDefconChallenge(userId: string | undefined) {
 
       await syncBlocksToDailySales(userId);
     } catch (e) {
-      // best-effort: a tela já reflete a gorjeta.
+      // Offline / erro de rede: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
+      await queueBlockOffline(
+        { ...currentBlock, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_gorjeta: newGorjeta },
+        userId,
+        planIdRef.current,
+      );
     }
   };
 
