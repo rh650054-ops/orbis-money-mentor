@@ -61,7 +61,7 @@ interface NegForm {
 // LANCAMENTO DA CARTEIRA: enquanto false, o card da carteira so aparece pra ADMINS
 // (previa de teste). Vire true pra liberar pra todo mundo. A seguranca real esta
 // no banco (RLS/RPCs) — isto aqui e so o interruptor visual.
-const CARTEIRA_LIBERADA = false;
+const CARTEIRA_LIBERADA = true;
 // Tesouraria: SO Rick e Mohamed (o banco tambem barra — funcao x1_tesouraria).
 const TESOURARIA_UIDS = ["79312077-3496-44b0-b543-4c9f81425425", "e38b0499-abbc-439d-b592-c8cac4c83741"];
 
@@ -254,10 +254,16 @@ export default function X1() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Placar ao vivo: enquanto aberto, atualiza os dois totais a cada 8s.
+  // Placar ao vivo: atualiza a cada 8s o duelo aberto manualmente OU a arena
+  // auto-aberta (duelo ativo de hoje).
+  const autoArenaId = useMemo(() => {
+    const hoje = getBrazilDate();
+    return list.find((c) => c.status === "active" && c.scheduled_date === hoje)?.id ?? null;
+  }, [list]);
   useEffect(() => {
-    if (!openPlacar) return;
-    const id = openPlacar;
+    const manual = openPlacar && !openPlacar.startsWith("fechado:") ? openPlacar : null;
+    const id = manual ?? (openPlacar?.startsWith("fechado:") && openPlacar === `fechado:${autoArenaId}` ? null : autoArenaId);
+    if (!id) return;
     const run = async () => {
       const { data } = await (supabase as any).rpc("x1_placar", { p_id: id });
       const row = ((data as any[]) || [])[0];
@@ -266,7 +272,7 @@ export default function X1() {
     run();
     const t = setInterval(run, 8000);
     return () => clearInterval(t);
-  }, [openPlacar]);
+  }, [openPlacar, autoArenaId]);
 
   // Pré-seleciona o oponente quando vem de "Chamar pra X1" (/x1?desafiar=<uid>).
   useEffect(() => {
@@ -319,7 +325,8 @@ export default function X1() {
     if (!user || !opp) return;
     setSaving(true);
     const s = Number(stakes) || 0;
-    const fee = s > 0 ? settings?.fee_flat ?? 0 : 0;
+    // Taxa do Orbis: 10% do pote (rake), descontada do prêmio na liquidação.
+    const fee = s > 0 ? Math.round(s * 2 * 0.10 * 100) / 100 : 0;
     const prize = s > 0 ? Math.max(0, s * 2 - fee) : 0;
     const { error } = await supabase.from("x1_challenges" as any).insert({
       challenger_id: user.id,
@@ -537,31 +544,64 @@ export default function X1() {
 
   const togglePlacar = (id: string) => setOpenPlacar((cur) => (cur === id ? null : id));
 
-  // Placar do duelo (você vs oponente) com os totais ao vivo do DEFCON.
+  // ARENA: placar do duelo estilo jogo de luta — avatares frente a frente, barras
+  // de energia proporcionais, pote em jogo e status da liderança.
   const placarView = (c: X1, iAmCh: boolean) => {
     const p = placar[c.id];
     const my = p ? (iAmCh ? p.ch : p.op) : 0;
     const opp = p ? (iAmCh ? p.op : p.ch) : 0;
-    const otherName = name(iAmCh ? c.opponent_id : c.challenger_id);
+    const meId = iAmCh ? c.challenger_id : c.opponent_id;
+    const otherId = iAmCh ? c.opponent_id : c.challenger_id;
+    const otherName = name(otherId);
     const lead = !p ? "load" : my > opp ? "me" : opp > my ? "opp" : "tie";
+    const max = Math.max(my, opp, c.goal_amount ?? 0, 1);
+    const barMy = Math.max(4, Math.round((my / max) * 100));
+    const barOpp = Math.max(4, Math.round((opp / max) * 100));
+    const av = (uid: string, ring: string, glow: string) => (
+      profiles[uid]?.avatar_url ? (
+        <img src={profiles[uid]!.avatar_url!} alt="" className="w-14 h-14 rounded-full object-cover border-[3px]" style={{ borderColor: ring, boxShadow: `0 0 18px ${glow}` }} />
+      ) : (
+        <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-sm font-black border-[3px]" style={{ borderColor: ring, boxShadow: `0 0 18px ${glow}` }}>
+          {name(uid).slice(0, 2).toUpperCase()}
+        </div>
+      )
+    );
     return (
-      <div className="rounded-xl border border-amber-500/25 bg-[#0f0f13] p-3 space-y-2">
-        <div className="flex items-center justify-between gap-1">
-          <div className="flex-1 min-w-0 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-sky-400/80 font-bold">Você</p>
-            <p className="text-lg font-black" style={{ color: lead === "me" ? "#22c55e" : "#fff" }}>{fmt(my)}</p>
+      <div className="rounded-2xl border border-amber-500/40 p-4 space-y-3" style={{ background: "radial-gradient(ellipse at top, #1a1206 0%, #0c0c0f 65%)" }}>
+        {c.stakes_amount > 0 && (
+          <p className="text-center text-[11px] font-black tracking-widest text-amber-400 uppercase">💰 {fmt(c.stakes_amount * 2)} em jogo</p>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex-1 min-w-0 flex flex-col items-center gap-1">
+            {av(meId, lead === "me" ? "#22c55e" : "#38bdf8", lead === "me" ? "rgba(34,197,94,.6)" : "rgba(56,189,248,.35)")}
+            <p className="text-[10px] uppercase tracking-wider text-sky-400 font-bold">Você</p>
+            <p className="text-xl font-black tabular-nums" style={{ color: lead === "me" ? "#22c55e" : "#fff" }}>{fmt(my)}</p>
           </div>
-          <span className="px-1 text-sm font-black italic text-amber-400 shrink-0">VS</span>
-          <div className="flex-1 min-w-0 text-center">
-            <p className="text-[10px] uppercase tracking-wider text-amber-400/80 font-bold truncate">{otherName}</p>
-            <p className="text-lg font-black" style={{ color: lead === "opp" ? "#22c55e" : "#fff" }}>{fmt(opp)}</p>
+          <div className="shrink-0 flex flex-col items-center">
+            <span className="text-2xl font-black italic text-amber-400" style={{ textShadow: "0 0 16px rgba(245,158,11,.8)" }}>VS</span>
+            {lead !== "load" && lead !== "tie" && <span className="text-lg">{lead === "me" ? "🔥" : "⚠️"}</span>}
+          </div>
+          <div className="flex-1 min-w-0 flex flex-col items-center gap-1">
+            {av(otherId, lead === "opp" ? "#22c55e" : "#f59e0b", lead === "opp" ? "rgba(34,197,94,.6)" : "rgba(245,158,11,.35)")}
+            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold truncate max-w-full">{otherName}</p>
+            <p className="text-xl font-black tabular-nums" style={{ color: lead === "opp" ? "#22c55e" : "#fff" }}>{fmt(opp)}</p>
           </div>
         </div>
-        <p className="text-center text-[11px] font-bold" style={{ color: lead === "me" ? "#22c55e" : lead === "opp" ? "#ff9b9b" : "#9ca3af" }}>
-          {lead === "load" ? "carregando…" : lead === "me" ? "🔥 Você está na frente!" : lead === "opp" ? `⚠️ ${otherName} está na frente` : "Empate — bora vender!"}
+        {/* Barras de energia */}
+        <div className="space-y-1.5">
+          <div className="h-2.5 rounded-full bg-black/50 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barMy}%`, background: "linear-gradient(90deg,#0284c7,#38bdf8)", boxShadow: "0 0 10px rgba(56,189,248,.6)" }} />
+          </div>
+          <div className="h-2.5 rounded-full bg-black/50 overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barOpp}%`, background: "linear-gradient(90deg,#b45309,#f59e0b)", boxShadow: "0 0 10px rgba(245,158,11,.6)" }} />
+          </div>
+        </div>
+        <p className="text-center text-xs font-black" style={{ color: lead === "me" ? "#22c55e" : lead === "opp" ? "#ff9b9b" : "#9ca3af" }}>
+          {lead === "load" ? "carregando…" : lead === "me" ? "🔥 VOCÊ ESTÁ NA FRENTE — não para!" : lead === "opp" ? `⚠️ ${otherName.toUpperCase()} PASSOU — reage!` : "⚡ EMPATE — a próxima venda decide"}
         </p>
-        {c.goal_amount ? <p className="text-center text-[10px] text-muted-foreground">Meta do duelo: {fmt(c.goal_amount)}</p> : null}
-        <p className="text-center text-[9px] text-muted-foreground/70">atualiza sozinho a cada 8s</p>
+        <p className="text-center text-[9px] text-muted-foreground/70">
+          {c.goal_amount ? `meta ${fmt(c.goal_amount)} · ` : ""}ao vivo (8s) · resultado oficial às 9h pelo extrato verificado
+        </p>
       </div>
     );
   };
@@ -647,7 +687,7 @@ export default function X1() {
               <input type="number" inputMode="numeric" value={stakes} onChange={(e) => setStakes(e.target.value)} className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1" />
               {Number(stakes) > 0 && (
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Prêmio do vencedor ≈ {fmt(Math.max(0, Number(stakes) * 2 - (settings?.fee_flat ?? 0)))}{(settings?.fee_flat ?? 0) > 0 ? ` (taxa Orbis ${fmt(settings?.fee_flat ?? 0)})` : ""}.
+                  Prêmio do vencedor ≈ {fmt(Math.max(0, Number(stakes) * 2 * 0.9))} (pote {fmt(Number(stakes) * 2)} − taxa Orbis 10%).
                   A aposta sai da <b className="text-emerald-400">carteira X1</b> dos dois quando o desafio for aceito — e o prêmio cai lá na hora do resultado (9h, pelo extrato).
                   {saldo < Number(stakes) ? ` ⚠️ Seu saldo é ${fmt(saldo)} — deposita antes do aceite.` : ""}
                 </p>
@@ -1077,15 +1117,22 @@ export default function X1() {
                   </div>
                 )}
 
-                {/* ----- placar ao vivo (duelo aceito / em andamento) ----- */}
-                {(c.status === "accepted" || c.status === "active") && (
-                  <div className="space-y-2 pt-1">
-                    <button onClick={() => togglePlacar(c.id)} className="w-full h-9 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-400 text-xs font-bold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform">
-                      <Swords className="w-3.5 h-3.5" /> {openPlacar === c.id ? "Esconder placar" : "Placar ao vivo do duelo"}
-                    </button>
-                    {openPlacar === c.id && placarView(c, iAmChallenger)}
-                  </div>
-                )}
+                {/* ----- ARENA ao vivo: abre SOZINHA no dia do duelo ----- */}
+                {(c.status === "accepted" || c.status === "active") && (() => {
+                  const hojeEhODia = c.scheduled_date === getBrazilDate();
+                  const aberto = openPlacar === c.id || (c.status === "active" && hojeEhODia && openPlacar !== `fechado:${c.id}`);
+                  return (
+                    <div className="space-y-2 pt-1">
+                      {aberto && placarView(c, iAmChallenger)}
+                      <button
+                        onClick={() => setOpenPlacar(aberto ? `fechado:${c.id}` : c.id)}
+                        className="w-full h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400/80 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                      >
+                        <Swords className="w-3 h-3" /> {aberto ? "Esconder arena" : "Abrir arena ⚔️"}
+                      </button>
+                    </div>
+                  );
+                })()}
 
                 {/* ----- finished: vencedor ----- */}
                 {c.status === "finished" && c.winner_user_id && (
