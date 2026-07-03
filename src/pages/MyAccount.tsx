@@ -259,81 +259,57 @@ export default function Profile() {
 
       let finalAvatarUrl = editForm.avatar_url;
 
-      // Upload avatar se houver
+      // Upload avatar para o Storage (nunca salvar base64 no banco!)
       if (avatarFile) {
-        const fileExt = avatarFile.name.split('.').pop();
-        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+        const fileExt = avatarFile.name.split('.').pop() || "jpg";
+        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
 
-        // Converter para base64 e salvar no perfil
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          finalAvatarUrl = reader.result as string;
-
-          const { error: updateError } = await supabase
-            .from("profiles")
-            .update({
-              nickname: editForm.nickname.trim(),
-              email: editForm.email.trim() || null,
-              avatar_url: finalAvatarUrl,
-              phone: editForm.phone.replace(/\D/g, ""),
-              state: editForm.state,
-              city: editForm.city.trim(),
-            })
-            .eq("user_id", user.id);
-
-          if (updateError) throw updateError;
-
-          setProfile({
-            ...profile,
-            nickname: editForm.nickname,
-            email: editForm.email,
-            avatar_url: finalAvatarUrl,
-            phone: editForm.phone,
-            state: editForm.state,
-            city: editForm.city,
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, avatarFile, {
+            contentType: avatarFile.type || "image/jpeg",
+            upsert: true,
           });
 
-          setIsEditing(false);
-          setAvatarFile(null);
-          toast({
-            title: "Perfil atualizado!",
-            description: "Suas informações foram salvas com sucesso.",
-          });
-          setIsSaving(false);
-        };
-        reader.readAsDataURL(avatarFile);
-      } else {
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            nickname: editForm.nickname.trim(),
-            email: editForm.email.trim() || null,
-            avatar_url: finalAvatarUrl,
-            phone: editForm.phone.replace(/\D/g, ""),
-            state: editForm.state,
-            city: editForm.city.trim(),
-          })
-          .eq("user_id", user.id);
+        if (uploadError) throw uploadError;
 
-        if (error) throw error;
-
-        setProfile({
-          ...profile,
-          nickname: editForm.nickname,
-          email: editForm.email,
-          avatar_url: finalAvatarUrl,
-          phone: editForm.phone,
-          state: editForm.state,
-          city: editForm.city,
-        });
-
-        setIsEditing(false);
-        toast({
-          title: "Perfil atualizado!",
-          description: "Suas informações foram salvas com sucesso.",
-        });
-        setIsSaving(false);
+        const { data: publicData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(filePath);
+        finalAvatarUrl = publicData.publicUrl;
       }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          nickname: editForm.nickname.trim(),
+          email: editForm.email.trim() || null,
+          avatar_url: finalAvatarUrl,
+          phone: editForm.phone.replace(/\D/g, ""),
+          state: editForm.state,
+          city: editForm.city.trim(),
+        })
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setProfile({
+        ...profile,
+        nickname: editForm.nickname,
+        email: editForm.email,
+        avatar_url: finalAvatarUrl,
+        phone: editForm.phone,
+        state: editForm.state,
+        city: editForm.city,
+      });
+
+      setIsEditing(false);
+      setAvatarFile(null);
+      toast({
+        title: "Perfil atualizado!",
+        description: "Suas informações foram salvas com sucesso.",
+      });
+      setIsSaving(false);
     } catch (error) {
       toast({
         title: "Erro",
