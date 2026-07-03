@@ -213,8 +213,13 @@ export default function AdminCompetitions() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Excluir competição?")) return;
-    await supabase.from("competitions" as any).delete().eq("id", id);
+    if (!confirm("Excluir esta competição? Isso apaga os participantes e não dá pra desfazer.")) return;
+    const { error } = await (supabase as any).rpc("admin_delete_competition", { p_id: id });
+    if (error) {
+      toast({ title: "Não consegui excluir", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Competição excluída" });
     load();
   };
 
