@@ -137,7 +137,8 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   // no fim do DEFCON (não só quem está em competição/X1).
   if (loading) return null;
 
-  const contexto = inComp && inX1 ? "competição + X1" : inX1 ? "seu X1" : inComp ? "competição" : "o ranking";
+  // Selinho discreto de contexto (X1 / competição) — substitui o texto comprido.
+  const selo = inX1 && inComp ? "vale p/ competição + X1" : inX1 ? "vale pro X1" : inComp ? "vale p/ competição" : null;
 
   // Pede SÓ o extrato dos métodos usados no DEFCON. Regras:
   // - já enviou → slot continua visível (pra reenviar/ver o valor)
@@ -176,28 +177,28 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
 
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <FileText className="w-4 h-4 text-amber-400" />
-        <p className="text-sm font-bold text-amber-400">Extrato do dia — {contexto}</p>
+      {/* Cabeçalho enxuto: título + data + selinho de contexto */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-amber-400" />
+          <p className="text-sm font-bold text-amber-400">Extrato do dia {diaLabel}</p>
+        </div>
+        {selo && (
+          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">
+            {selo}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {showPix && showCartao ? (
-          <>Suba o extrato do <b className="text-foreground">Pix</b> e da <b className="text-foreground">maquininha</b>. </>
+          <>Suba o <b className="text-foreground">Pix</b> e a <b className="text-foreground">maquininha</b>. </>
         ) : showPix ? (
-          <>Seu dia foi só <b className="text-foreground">Pix</b> — um envio resolve. </>
+          <>Só <b className="text-foreground">Pix</b> hoje — um envio resolve. </>
         ) : (
-          <>Seu dia foi só <b className="text-foreground">maquininha</b> — um envio resolve. </>
+          <>Só <b className="text-foreground">maquininha</b> hoje — um envio resolve. </>
         )}
-        A IA confere na hora e só o que entrou (cartão + pix) vale no ranking. Dá pra reenviar se cair mais Pix.
+        A IA confere na hora; só Pix + cartão contam no ranking. <b className="text-foreground">Envie até as 9h de amanhã.</b>
       </p>
-      <p className="text-[11px] font-semibold text-amber-400/90">
-        Conta pro dia {diaLabel} · você pode enviar o extrato até as 9h da manhã.
-      </p>
-      {inX1 && (
-        <p className="text-[11px] font-bold text-red-400">
-          ⚔️ Este envio JÁ vale pro seu X1 — o resultado sai sozinho às 9h. Nada mais pra mandar.
-        </p>
-      )}
       <div className="flex gap-2">
         {showPix && slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}
         {showCartao && slotBtn("cartao", "Extrato Cartão", CreditCard, cartao, cartaoRef)}
@@ -248,10 +249,10 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
       <label className={`block rounded-xl border border-dashed border-border bg-card/40 p-2.5 cursor-pointer active:scale-[0.99] transition-transform ${busyMes ? "opacity-60 pointer-events-none" : ""}`}>
         <span className="flex items-center justify-center gap-2 text-[11px] font-bold text-foreground/80">
           {busyMes ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : "📅"}
-          {busyMes ? "Lendo o mês e separando por dia…" : "Esqueceu de mandar o extrato de um dia? Manda ele aqui"}
+          {busyMes ? "Separando por dia…" : "Faltou algum dia? Envie o extrato do mês aqui"}
         </span>
         <span className="block text-center text-[9px] text-muted-foreground mt-0.5">
-          Vale a qualquer hora: envia o extrato do mês que a IA separa e preenche cada dia que faltou
+          A IA separa por dia e preenche os que faltaram
         </span>
         <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onFileMes} disabled={busyMes} />
       </label>
