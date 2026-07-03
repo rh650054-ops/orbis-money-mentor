@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import { extratoValendo } from "@/shared/lib/ranking-config";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 
 // A 1ª temporada começa no dia 1 (julho começou quebrado, numa quarta). Depois disso
@@ -53,8 +54,9 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     try {
       const weekStart = currentWeekStart();
       const weekEnd = currentWeekEnd();
-      // Antes do dia 1 (teste): IGNORA extrato, usa só o DEFCON ao vivo. Do dia 1: extrato vale.
-      const usarExtrato = getBrazilDate() >= TEMPORADA_INICIO;
+      // Extrato passa a valer na data de EXTRATO_VALENDO (desacoplado da janela da
+      // temporada). Antes: DEFCON ao vivo. A partir dela: só conta com extrato enviado.
+      const usarExtrato = extratoValendo(getBrazilDate());
       const { data, error } = await supabase.rpc("get_weekly_ranking_verified", { p_week_start: weekStart, p_week_end: weekEnd, p_usar_extrato: usarExtrato });
       if (error) {
         console.error("Ranking semanal erro:", error.message);
