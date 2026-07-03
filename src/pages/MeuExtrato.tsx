@@ -160,11 +160,12 @@ export default function MeuExtrato() {
       {/* Extrato do MES: preenche dias esquecidos (so dias com DEFCON iniciado e sem extrato) */}
       <Card className="border-dashed border-primary/30">
         <CardContent className="p-5 space-y-3">
-          <p className="font-bold">Esqueceu de enviar algum dia? Passou das 9h?</p>
+          <p className="font-bold">📅 Extrato da semana — manda 1× que a IA separa por dia</p>
           <p className="text-xs text-muted-foreground">
-            Manda o extrato do <b className="text-foreground">mês inteiro</b> — pode ser a <b className="text-foreground">qualquer
-            hora do dia</b>. A IA separa por dia e preenche o que entrou em cada dia que você trabalhou
-            (DEFCON iniciado) e ainda está sem extrato. Não mexe nos dias já enviados.
+            Cansou de mandar todo dia? Manda o extrato da <b className="text-foreground">semana</b> (ou do mês)
+            <b className="text-foreground"> a qualquer hora</b>. A IA separa por dia e preenche o que entrou em cada
+            dia que você trabalhou (DEFCON iniciado) e ainda está sem extrato. Não mexe nos dias já enviados.
+            <b className="text-foreground"> Só dia de X1 valendo dinheiro exige o extrato do dia até as 9h</b> — o duelo paga às 9h05.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {(["pix", "cartao"] as const).map((t) => (
