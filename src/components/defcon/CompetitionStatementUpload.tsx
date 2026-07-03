@@ -92,7 +92,7 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   // no fim do DEFCON (não só quem está em competição/X1).
   if (loading) return null;
 
-  const contexto = inComp && inX1 ? "competição + X1" : inX1 ? "seu X1" : inComp ? "competição" : "o ranking";
+  const selo = inX1 && inComp ? "vale p/ competição + X1" : inX1 ? "vale pro X1" : inComp ? "vale p/ competição" : null;
 
   const slotBtn = (
     tipo: "pix" | "cartao",
@@ -122,16 +122,20 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
 
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <FileText className="w-4 h-4 text-amber-400" />
-        <p className="text-sm font-bold text-amber-400">Extrato do dia — {contexto}</p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <FileText className="w-4 h-4 text-amber-400" />
+          <p className="text-sm font-bold text-amber-400">Extrato do dia {diaLabel}</p>
+        </div>
+        {selo && (
+          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">
+            {selo}
+          </span>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
-        Suba o extrato do <b className="text-foreground">Pix</b> e da <b className="text-foreground">maquininha</b>. A IA
-        confere na hora e só o que entrou (cartão + pix) vale no ranking. Dá pra reenviar se cair mais Pix.
-      </p>
-      <p className="text-[11px] font-semibold text-amber-400/90">
-        Conta pro dia {diaLabel} · você pode enviar o extrato até as 9h da manhã.
+        Só o que a IA confere no extrato (<b className="text-foreground">Pix + cartão</b>) conta no ranking. Envie até as{" "}
+        <b className="text-foreground">9h de amanhã</b> · dá pra reenviar.
       </p>
       <div className="flex gap-2">
         {slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}
