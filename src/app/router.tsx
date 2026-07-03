@@ -132,12 +132,3 @@ export function AppRouter() {
                     <Route path="/admin/teste-ranking" element={<TestRanking />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                </Suspense>
-              </Layout>
-            }
-          />
-        </Routes>
-      </Suspense>
-    </BrowserRouter>
-  );
-}

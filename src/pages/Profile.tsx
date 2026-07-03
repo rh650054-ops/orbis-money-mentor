@@ -186,44 +186,4 @@ export default function Profile() {
             await supabase
               .from("profiles")
               .update({ onboarding_completed: false, onboarding_step: 0 })
-              .eq("user_id", user.id);
-          }
-          localStorage.removeItem(`orbis_mission_completed_${user?.id}`);
-          localStorage.setItem(`orbis_onboarding_step_${user?.id}`, "0");
-          // Reativa e zera os tutoriais por tela (pra ver todos de novo)
-          try {
-            Object.keys(localStorage)
-              .filter((k) => k.startsWith("orbis_screen_seen_"))
-              .forEach((k) => localStorage.removeItem(k));
-            localStorage.removeItem("orbis_screen_tours_off");
-            localStorage.setItem(`orbis_screen_tours_enabled_${user?.id}`, "1");
-          } catch {
-            /* ignore */
-          }
-          window.location.assign("/");
-        }}
-        className="w-full text-muted-foreground hover:text-foreground"
-      >
-        <Target className="w-4 h-4 mr-2" />
-        Refazer tour de boas-vindas
-      </Button>
-
-      <Button
-        variant="outline"
-        onClick={handleSignOut}
-        className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
-      >
-        <LogOut className="w-4 h-4 mr-2" />
-        Sair da conta
-      </Button>
-
-      {user && (
-        <EditPlanningModal
-          userId={user.id}
-          isOpen={planningOpen}
-          onClose={() => setPlanningOpen(false)}
-        />
-      )}
-    </div>
-  );
-}
+   
