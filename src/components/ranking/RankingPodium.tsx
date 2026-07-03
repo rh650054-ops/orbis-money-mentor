@@ -1,6 +1,7 @@
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
+import { avatarThumb } from "@/shared/lib/avatar";
 import { Crown } from "lucide-react";
 
 type Variant = "mensal" | "semanal" | "premium";
@@ -25,7 +26,7 @@ function PodAvatar({ url, name, size, color, glow, icon, online }: { url: string
   const inset = Math.round(size * 0.06);
   const img = url ? (
     <img
-      src={url}
+      src={avatarThumb(url, 192)}
       alt={name || ""}
       className="rounded-full object-cover border-[3px] block"
       style={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` }}

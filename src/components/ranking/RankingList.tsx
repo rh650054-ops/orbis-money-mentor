@@ -2,6 +2,7 @@ import { useState } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
+import { avatarThumb } from "@/shared/lib/avatar";
 import { ChevronRight, ChevronUp } from "lucide-react";
 
 interface Props {
@@ -18,7 +19,7 @@ function RowAvatar({ url, name, color, icon, pres }: {
   pres: { online: boolean };
 }) {
   const inner = url
-    ? <img src={url} alt={name || ""} className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />
+    ? <img src={avatarThumb(url, 72)} alt={name || ""} loading="lazy" className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />
     : <img src={icon} alt={name || ""} className="w-9 h-9 object-contain" style={{ filter: `drop-shadow(0 0 5px ${color}99)` }} />;
   return (
     <div className="relative shrink-0">

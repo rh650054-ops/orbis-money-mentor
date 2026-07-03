@@ -102,12 +102,13 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
     }
   }, [userId]);
 
-  // Carrega ao abrir a aba Semanal. Enquanto aberta, atualiza SOZINHO a cada 5s
-  // (e ao voltar o foco) — pra refletir as vendas novas da galera ao vivo.
+  // Carrega ao abrir a aba Semanal. Enquanto aberta, atualiza SOZINHO a cada 30s
+  // (e ao voltar o foco). 5s era pesado demais: RPC completa + presenca por usuario
+  // com a tela aberta = centenas de queries/minuto no banco a toa.
   useEffect(() => {
     if (!enabled) return;
     load();
-    const id = setInterval(() => load(true), 5000);
+    const id = setInterval(() => load(true), 30000);
     const onFocus = () => load(true);
     window.addEventListener("focus", onFocus);
     return () => {
