@@ -678,36 +678,113 @@ export default function X1() {
               </div>
               <button onClick={() => setOpp(null)} className="block mx-auto mt-2 text-[10px] text-muted-foreground underline">trocar oponente</button>
             </div>
+            {/* REGRAS DO COMBATE */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">O que é o desafio</label>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 mb-1.5">⚡ Regra do combate</p>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {["Quem fatura mais no dia", "Quem bate a meta primeiro", "Só Pix: quem recebe mais"].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setModo(m)}
+                    className="px-2.5 py-1.5 rounded-full text-[10px] font-bold transition-all active:scale-95"
+                    style={modo === m
+                      ? { background: "#f59e0b", color: "#000", boxShadow: "0 0 10px rgba(245,158,11,.5)" }
+                      : { background: "#141417", color: "#9ca3af", border: "1px solid #26262e" }}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
               <input
                 value={modo}
                 onChange={(e) => setModo(e.target.value)}
-                placeholder="Ex: quem fatura mais no dia"
-                className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1"
+                placeholder="…ou escreve a sua regra"
+                className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
               />
             </div>
+
+            {/* DIA */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Dia do duelo</label>
-              <input type="date" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400 mb-1.5">📅 Dia do duelo</p>
+              <div className="flex gap-1.5">
+                {(() => {
+                  const hoje = getBrazilDate();
+                  const amanha = (() => { const d = new Date(`${hoje}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); return d.toISOString().slice(0, 10); })();
+                  return (
+                    <>
+                      {[["HOJE", hoje], ["AMANHÃ", amanha]].map(([lbl, val]) => (
+                        <button
+                          key={lbl}
+                          onClick={() => setSchedDate(val!)}
+                          className="flex-1 h-10 rounded-xl text-xs font-black transition-all active:scale-95"
+                          style={schedDate === val
+                            ? { background: "#f59e0b", color: "#000", boxShadow: "0 0 10px rgba(245,158,11,.5)" }
+                            : { background: "#141417", color: "#9ca3af", border: "1px solid #26262e" }}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                      <input type="date" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} className="flex-1 h-10 px-2 rounded-xl bg-card border border-border text-xs text-foreground" />
+                    </>
+                  );
+                })()}
+              </div>
             </div>
+
+            {/* APOSTA: fichas de cassino */}
             <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Meta pra ganhar (R$) — opcional</label>
-              <input type="number" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Ex: 1000" className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1" />
-            </div>
-            <div>
-              <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Aposta de CADA um (R$) — 0 = amistoso</label>
-              <input type="number" inputMode="numeric" value={stakes} onChange={(e) => setStakes(e.target.value)} className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400 mb-1.5">💰 Aposta de cada um</p>
+              <div className="grid grid-cols-5 gap-1.5 mb-2">
+                {[0, 10, 20, 50, 100].map((v) => {
+                  const ativo = Number(stakes) === v;
+                  return (
+                    <button
+                      key={v}
+                      onClick={() => setStakes(String(v))}
+                      className="h-12 rounded-xl flex flex-col items-center justify-center font-black transition-all active:scale-90"
+                      style={ativo
+                        ? v === 0
+                          ? { background: "#1c2a1e", color: "#4ade80", border: "1px solid #22c55e", boxShadow: "0 0 12px rgba(34,197,94,.4)" }
+                          : { background: "linear-gradient(160deg,#3b0a0a,#1a0505)", color: "#f87171", border: "1px solid rgba(239,68,68,.7)", boxShadow: "0 0 14px rgba(239,68,68,.5)" }
+                        : { background: "#141417", color: "#9ca3af", border: "1px solid #26262e" }}
+                    >
+                      <span className="text-[13px] leading-none">{v === 0 ? "🤝" : `R$${v}`}</span>
+                      <span className="text-[7px] uppercase tracking-wider mt-0.5">{v === 0 ? "amistoso" : "cada"}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <input type="number" inputMode="numeric" value={stakes} onChange={(e) => setStakes(e.target.value)} placeholder="Outro valor" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+              {/* Prêmio em destaque */}
               {Number(stakes) > 0 && (
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Prêmio do vencedor ≈ {fmt(Math.max(0, Number(stakes) * 2 * 0.9))} (pote {fmt(Number(stakes) * 2)} − taxa Orbis 10%).
-                  A aposta sai da <b className="text-emerald-400">carteira X1</b> dos dois quando o desafio for aceito — e o prêmio cai lá na hora do resultado (9h, pelo extrato).
-                  {saldo < Number(stakes) ? ` ⚠️ Seu saldo é ${fmt(saldo)} — deposita antes do aceite.` : ""}
-                </p>
+                <div className="mt-2 rounded-xl border border-amber-500/40 p-3 text-center" style={{ background: "radial-gradient(ellipse at top,#1a1206,#0c0c0f)" }}>
+                  <p className="text-[9px] font-black uppercase tracking-[0.25em] text-muted-foreground">O vencedor leva</p>
+                  <p className="text-2xl font-black text-amber-400 tabular-nums" style={{ textShadow: "0 0 16px rgba(245,158,11,.6)" }}>
+                    🏆 {fmt(Math.max(0, Number(stakes) * 2 * 0.9))}
+                  </p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">pote {fmt(Number(stakes) * 2)} − 10% do Orbis · sai da carteira no aceite · cai na carteira às 9h pelo extrato</p>
+                  {saldo < Number(stakes) && (
+                    <p className="text-[10px] font-bold text-red-400 mt-1">⚠️ Seu saldo é {fmt(saldo)} — deposita antes do aceite!</p>
+                  )}
+                </div>
               )}
             </div>
-            <button onClick={createX1} disabled={saving} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm active:scale-[0.98] disabled:opacity-60">
-              {saving ? "Enviando…" : "Enviar desafio ⚔️"}
+
+            {/* Meta opcional (discreta) */}
+            <details className="rounded-xl bg-card/40 border border-border/50 px-3 py-2">
+              <summary className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground cursor-pointer">🎯 Meta pra ganhar (opcional)</summary>
+              <input type="number" inputMode="numeric" value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Ex: 1000" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-2" />
+            </details>
+
+            <button
+              onClick={createX1}
+              disabled={saving}
+              className="w-full h-14 rounded-2xl font-black text-base active:scale-[0.97] transition-transform disabled:opacity-60"
+              style={Number(stakes) > 0
+                ? { background: "linear-gradient(160deg,#7f1d1d,#450a0a)", color: "#fecaca", border: "1px solid rgba(239,68,68,.6)", boxShadow: "0 0 24px rgba(239,68,68,.45)", textShadow: "0 0 10px rgba(239,68,68,.8)" }
+                : { background: "#f59e0b", color: "#000" }}
+            >
+              {saving ? "Enviando…" : Number(stakes) > 0 ? `⚔️ DESAFIAR VALENDO ${fmt(Number(stakes) * 2)}` : "⚔️ Enviar desafio amistoso"}
             </button>
           </div>
         )}
