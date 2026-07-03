@@ -19,6 +19,7 @@ import { getTier, leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
 import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
+import { ExtratoRankingNotice } from "@/components/ranking/ExtratoRankingNotice";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
@@ -298,6 +299,9 @@ export default function Ranking() {
         </h1>
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
+
+      {/* Aviso da nova regra: valor entra no ranking só depois do extrato enviado. */}
+      <ExtratoRankingNotice userId={user?.id} />
 
       {showRankNudge && user && (
         <TrialNudge

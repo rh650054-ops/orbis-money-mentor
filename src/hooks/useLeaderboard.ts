@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
+import { extratoValendo } from "@/shared/lib/ranking-config";
 
 export interface LeaderboardEntry {
   id: string;
@@ -84,7 +85,7 @@ export function useLeaderboard(userId: string | undefined) {
       try {
         const monthStart = `${currentMonth}-01`;
         const today = getBrazilDate();
-        const usarExtrato = today >= "2026-07-06";
+        const usarExtrato = extratoValendo(today);
         const { data: ver } = await supabase.rpc("get_weekly_ranking_verified", {
           p_week_start: monthStart,
           p_week_end: today,
