@@ -41,6 +41,13 @@ interface Settings {
   pix_account: string | null;
   fee_flat: number;
 }
+interface WalletTx {
+  id: string;
+  amount: number;
+  tipo: string;
+  notes: string | null;
+  created_at: string;
+}
 interface NegForm {
   open: "accept" | "counter" | null;
   pix: string;
@@ -96,6 +103,13 @@ export default function X1() {
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
+
+  // Carteira X1: saldo interno — aposta sai daqui na hora do aceite, prêmio cai aqui.
+  const [saldo, setSaldo] = useState(0);
+  const [txs, setTxs] = useState<WalletTx[]>([]);
+  const [depositOpen, setDepositOpen] = useState(false);
+  // Admin: creditar depósito / registrar saque na carteira de alguém.
+  const [admWallet, setAdmWallet] = useState({ busca: "", achados: [] as RankUser[], sel: null as RankUser | null, valor: "", tipo: "deposito" as "deposito" | "saque" });
 
   // novo desafio
   const [ranking, setRanking] = useState<RankUser[]>([]);
@@ -182,6 +196,14 @@ export default function X1() {
 
     const { data: st } = await supabase.from("x1_settings" as any).select("pix_account, fee_flat").eq("id", 1).maybeSingle();
     setSettings((st as any) || { pix_account: null, fee_flat: 0 });
+
+    // Carteira: saldo + últimas movimentações.
+    const [{ data: w }, { data: tx }] = await Promise.all([
+      supabase.from("x1_wallets" as any).select("balance").eq("user_id", user.id).maybeSingle(),
+      supabase.from("x1_wallet_transactions" as any).select("id, amount, tipo, notes, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+    ]);
+    setSaldo(Number((w as any)?.balance ?? 0));
+    setTxs(((tx as any[]) || []) as WalletTx[]);
     setLoading(false);
   };
 
@@ -367,6 +389,31 @@ export default function X1() {
 
   const name = (uid: string) => profiles[uid]?.nome_usuario || "Vendedor";
 
+  // Admin: busca usuário por nome pra creditar/debitar carteira.
+  const admBuscar = async (q: string) => {
+    setAdmWallet((s) => ({ ...s, busca: q, sel: null }));
+    if (q.trim().length < 2) {
+      setAdmWallet((s) => ({ ...s, achados: [] }));
+      return;
+    }
+    const { data } = await supabase.from("public_profiles").select("user_id, nickname, avatar_url").ilike("nickname", `%${q.trim()}%`).limit(5);
+    setAdmWallet((s) => ({ ...s, achados: (((data as any[]) || []).map((p) => ({ user_id: p.user_id, nome_usuario: p.nickname, avatar_url: p.avatar_url })) as RankUser[]) }));
+  };
+  const admMoverCarteira = async () => {
+    const v = Number(admWallet.valor);
+    if (!admWallet.sel || !v || v <= 0) {
+      toast({ title: "Escolhe o vendedor e um valor válido", variant: "destructive" });
+      return;
+    }
+    await rpc(
+      "x1_admin_wallet_move",
+      { p_user: admWallet.sel.user_id, p_amount: v, p_tipo: admWallet.tipo, p_notes: `${admWallet.tipo} via painel X1` },
+      admWallet.tipo === "deposito" ? `Crédito de ${fmt(v)} pra ${admWallet.sel.nome_usuario} ✅` : `Saque de ${fmt(v)} registrado ✅`,
+    );
+    setAdmWallet({ busca: "", achados: [], sel: null, valor: "", tipo: "deposito" });
+  };
+  const admLiquidarAgora = () => rpc("x1_settle_due", {}, "Liquidação executada — confere os resultados 🏁");
+
   // Painel de evidência (admin): total do extrato verificado pela IA de cada duelista + ✓ se bateu a meta.
   const evidence = (c: X1) => {
     const row = (uid: string) => {
@@ -523,24 +570,11 @@ export default function X1() {
               <input type="number" inputMode="numeric" value={stakes} onChange={(e) => setStakes(e.target.value)} className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground mt-1" />
               {Number(stakes) > 0 && (
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Prêmio do vencedor ≈ {fmt(Math.max(0, Number(stakes) * 2 - (settings?.fee_flat ?? 0)))} (taxa Orbis {fmt(settings?.fee_flat ?? 0)}). O dinheiro vai pro Pix do admin e fica seguro até o resultado.
+                  Prêmio do vencedor ≈ {fmt(Math.max(0, Number(stakes) * 2 - (settings?.fee_flat ?? 0)))}{(settings?.fee_flat ?? 0) > 0 ? ` (taxa Orbis ${fmt(settings?.fee_flat ?? 0)})` : ""}.
+                  A aposta sai da <b className="text-emerald-400">carteira X1</b> dos dois quando o desafio for aceito — e o prêmio cai lá na hora do resultado (9h, pelo extrato).
+                  {saldo < Number(stakes) ? ` ⚠️ Seu saldo é ${fmt(saldo)} — deposita antes do aceite.` : ""}
                 </p>
               )}
-            </div>
-            <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2">
-              <label className="text-xs font-bold uppercase tracking-wider text-amber-400">Seu Pix pra receber se ganhar</label>
-              <input
-                value={myPix}
-                onChange={(e) => setMyPix(e.target.value)}
-                placeholder="Chave Pix (CPF, e-mail, telefone…)"
-                className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
-              />
-              <input
-                value={myNome}
-                onChange={(e) => setMyNome(e.target.value)}
-                placeholder="Nome do titular da conta"
-                className="w-full h-11 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
-              />
             </div>
             <button onClick={createX1} disabled={saving} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm active:scale-[0.98] disabled:opacity-60">
               {saving ? "Enviando…" : "Enviar desafio ⚔️"}
@@ -563,9 +597,86 @@ export default function X1() {
         </h1>
       </div>
 
+      {/* ===== Carteira X1: deposita uma vez, duela sem burocracia ===== */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">💰 Sua carteira X1</p>
+            <p className="text-2xl font-black text-foreground tabular-nums">{fmt(saldo)}</p>
+          </div>
+          <button onClick={() => setDepositOpen((v) => !v)} className="h-10 px-4 rounded-xl bg-emerald-500 text-black text-xs font-bold active:scale-[0.98]">
+            {depositOpen ? "Fechar" : "Depositar"}
+          </button>
+        </div>
+        {depositOpen && (
+          <div className="rounded-xl bg-card border border-border/60 p-3 space-y-2">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Faça um Pix de qualquer valor pra chave abaixo e avise o admin — o crédito cai na sua carteira e
+              aí é só duelar: <b className="text-foreground">a aposta sai do saldo na hora do aceite, sem comprovante e sem espera</b>.
+              O prêmio também cai aqui. Pra sacar, chama o admin.
+            </p>
+            <button
+              onClick={() => navigator.clipboard?.writeText(settings?.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {})}
+              className="w-full rounded-xl bg-[#0e0e10] border border-border p-2.5 text-left active:scale-[0.98] transition-transform"
+            >
+              <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground"><Copy className="w-3 h-3" /> Copiar chave Pix do Orbis</span>
+              <span className="block text-[12px] font-semibold text-emerald-400 truncate mt-0.5">{settings?.pix_account || "—"}</span>
+            </button>
+          </div>
+        )}
+        {txs.length > 0 && (
+          <div className="space-y-1 pt-1">
+            {txs.map((t) => (
+              <div key={t.id} className="flex items-center justify-between text-[11px]">
+                <span className="text-muted-foreground truncate">{t.notes || t.tipo}</span>
+                <span className={`font-bold tabular-nums shrink-0 ${t.amount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  {t.amount >= 0 ? "+" : ""}{fmt(t.amount)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <button onClick={openNew} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98]">
         <Plus className="w-4 h-4" /> Chamar alguém pra X1
       </button>
+
+      {/* ===== Admin: carteira + liquidação ===== */}
+      {isAdmin && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2.5">
+          <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · Carteiras e liquidação</p>
+          <input
+            value={admWallet.busca}
+            onChange={(e) => admBuscar(e.target.value)}
+            placeholder="Buscar vendedor pra creditar/debitar…"
+            className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
+          />
+          {admWallet.achados.length > 0 && !admWallet.sel && (
+            <div className="space-y-1">
+              {admWallet.achados.map((r) => (
+                <button key={r.user_id} onClick={() => setAdmWallet((s) => ({ ...s, sel: r, achados: [] }))} className="w-full text-left px-3 py-2 rounded-lg bg-card border border-border/60 text-xs text-foreground">
+                  {r.nome_usuario || "Vendedor"}
+                </button>
+              ))}
+            </div>
+          )}
+          {admWallet.sel && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-foreground">{admWallet.sel.nome_usuario}</span>
+              <input type="number" inputMode="numeric" value={admWallet.valor} onChange={(e) => setAdmWallet((s) => ({ ...s, valor: e.target.value }))} placeholder="R$" className="w-24 h-9 px-2 rounded-lg bg-card border border-border text-sm text-foreground" />
+              <select value={admWallet.tipo} onChange={(e) => setAdmWallet((s) => ({ ...s, tipo: e.target.value as "deposito" | "saque" }))} className="h-9 px-2 rounded-lg bg-card border border-border text-xs text-foreground">
+                <option value="deposito">Depósito</option>
+                <option value="saque">Saque</option>
+              </select>
+              <button onClick={admMoverCarteira} className="h-9 px-3 rounded-lg bg-primary/15 border border-primary/40 text-primary text-xs font-bold">Aplicar</button>
+            </div>
+          )}
+          <button onClick={admLiquidarAgora} className="w-full h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
+            🏁 Liquidar duelos vencidos agora (roda sozinho às 9h05)
+          </button>
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-3">
@@ -640,15 +751,25 @@ export default function X1() {
                             </div>
                           )}
 
-                          {/* Aceitar → meu Pix */}
+                          {/* Aceitar → desconta do saldo e o duelo começa NA HORA */}
                           {f.open === "accept" && (
                             <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2">
-                              <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Seu Pix pra receber se ganhar</p>
-                              <input value={f.pix} onChange={(e) => patchNeg(c, { pix: e.target.value })} placeholder="Chave Pix" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
-                              <input value={f.nome} onChange={(e) => patchNeg(c, { nome: e.target.value })} placeholder="Nome do titular" className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground" />
+                              {c.stakes_amount > 0 ? (
+                                <>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    Ao confirmar, <b className="text-amber-400">{fmt(c.stakes_amount)}</b> sai da carteira de cada um e o duelo
+                                    <b className="text-foreground"> começa na hora</b> — sem comprovante, sem espera. O prêmio cai direto na carteira do vencedor às 9h do dia seguinte, pelo extrato verificado.
+                                  </p>
+                                  <p className={`text-[11px] font-bold ${saldo >= c.stakes_amount ? "text-emerald-400" : "text-red-400"}`}>
+                                    Seu saldo: {fmt(saldo)} {saldo < c.stakes_amount ? `— falta ${fmt(c.stakes_amount - saldo)}. Deposita primeiro!` : "✓"}
+                                  </p>
+                                </>
+                              ) : (
+                                <p className="text-[11px] text-muted-foreground">Duelo amistoso (sem aposta) — começa na hora. Valendo a glória! 🏆</p>
+                              )}
                               <div className="flex gap-2 pt-1">
-                                <button onClick={() => negotiate(c.id, "accept", { pix: f.pix.trim() || null, nome: f.nome.trim() || null })} className="flex-1 h-9 rounded-lg bg-green-600 text-white text-xs font-bold">
-                                  Confirmar e fechar acordo
+                                <button onClick={() => negotiate(c.id, "accept", {}, "⚔️ DUELO VALENDO! Bora vender!")} disabled={c.stakes_amount > 0 && saldo < c.stakes_amount} className="flex-1 h-9 rounded-lg bg-green-600 text-white text-xs font-bold disabled:opacity-50">
+                                  Confirmar — começar duelo ⚔️
                                 </button>
                                 <button onClick={() => patchNeg(c, { open: null })} className="h-9 px-3 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold">
                                   Voltar
@@ -772,6 +893,11 @@ export default function X1() {
                       {dateBR(c.scheduled_date)}
                       {c.goal_amount ? ` · meta ${fmt(c.goal_amount)}` : ""}
                     </p>
+                    {c.stakes_amount > 0 && (
+                      <p className="text-[11px] text-emerald-400 font-semibold">
+                        💰 {fmt(c.stakes_amount * 2)} garantidos na carteira · resultado automático às 9h do dia seguinte pelo extrato verificado — não esquece de subir o seu!
+                      </p>
+                    )}
                     {isAdmin && (
                       <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
                         <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · premiar vencedor</p>
