@@ -83,6 +83,40 @@ export function useMeuExtrato(userId: string | undefined, dia: string) {
     [dia, reload],
   );
 
+  // MODO MES: manda o extrato do mes inteiro; a IA separa por dia e PREENCHE os
+  // dias esquecidos (so dias com DEFCON iniciado e sem extrato ja enviado).
+  const uploadMes = useCallback(
+    async (tipo: "pix" | "cartao", file: File): Promise<{
+      ok: boolean; erro?: string;
+      diasSalvos?: { dia: string; total: number; qtd: number }[];
+      diasPulados?: { dia: string; motivo: string }[];
+      totalSalvo?: number;
+    }> => {
+      try {
+        const b64 = await fileToB64(file);
+        const { data, error } = await supabase.functions.invoke("verificar-extrato", {
+          body: { file: b64, mime: file.type || "application/pdf", salvar: true, tipo, dia, modo: "mes" },
+        });
+        const res = data as {
+          ok?: boolean; dica?: string; error?: string; total_salvo?: number;
+          dias_salvos?: { dia: string; total: number; qtd: number }[];
+          dias_pulados?: { dia: string; motivo: string }[];
+        } | null;
+        if (error || !res?.ok) return { ok: false, erro: res?.dica };
+        await reload();
+        return {
+          ok: true,
+          diasSalvos: res.dias_salvos ?? [],
+          diasPulados: res.dias_pulados ?? [],
+          totalSalvo: Number(res.total_salvo ?? 0),
+        };
+      } catch {
+        return { ok: false };
+      }
+    },
+    [dia, reload],
+  );
+
   // Exclui o extrato ja enviado (slot pix ou cartao) do dia.
   const remove = useCallback(
     async (tipo: "pix" | "cartao"): Promise<{ ok: boolean }> => {
@@ -105,5 +139,5 @@ export function useMeuExtrato(userId: string | undefined, dia: string) {
   );
 
   const totalDia = (pix?.total_verificado ?? 0) + (cartao?.total_verificado ?? 0);
-  return { pix, cartao, totalDia, loading, reload, upload, remove };
+  return { pix, cartao, totalDia, loading, reload, upload, uploadMes, remove };
 }

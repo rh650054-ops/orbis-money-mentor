@@ -1,7 +1,10 @@
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
-import { Crown } from "lucide-react";
+import { avatarThumb } from "@/shared/lib/avatar";
+import { Crown, Swords } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 
 type Variant = "mensal" | "semanal" | "premium";
 
@@ -25,7 +28,7 @@ function PodAvatar({ url, name, size, color, glow, icon, online }: { url: string
   const inset = Math.round(size * 0.06);
   const img = url ? (
     <img
-      src={url}
+      src={avatarThumb(url, 192)}
       alt={name || ""}
       className="rounded-full object-cover border-[3px] block"
       style={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` }}
@@ -83,6 +86,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         <p className="text-white text-[14px] font-black">{formatCurrency(entry.faturamento_total_mes || 0)}</p>
         <p className="text-[10px] font-black tracking-wider" style={{ color: avatarColor }}>{tier.label}</p>
       </button>
+      <DesafiarPodio uid={entry.user_id} champion={champion} />
       <div
         className="mt-2 rounded-t-xl flex items-center justify-center font-black relative overflow-hidden"
         style={{
@@ -98,6 +102,33 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         <span style={{ textShadow: `0 0 16px ${baseGlow}` }}>{position}</span>
       </div>
     </div>
+  );
+}
+
+// DESAFIO AO PÓDIO: qualquer um pode chamar os tops pro X1 — inclusive o 20º
+// contra o 1º. No rei o botão é "DERRUBAR O REI"; nos outros, espadas vermelhas.
+function DesafiarPodio({ uid, champion }: { uid: string; champion?: boolean }) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  if (!user || user.id === uid) return null;
+  return (
+    <button
+      onClick={() => navigate(`/x1?desafiar=${uid}`)}
+      className="mt-1.5 mx-auto flex items-center justify-center gap-1 rounded-lg font-black active:scale-90 transition-transform"
+      style={{
+        padding: champion ? "5px 10px" : "4px 8px",
+        fontSize: champion ? 10 : 9,
+        color: "#f87171",
+        background: "linear-gradient(160deg,#3b0a0a,#1a0505)",
+        border: "1px solid rgba(239,68,68,.55)",
+        boxShadow: "0 0 12px rgba(239,68,68,.35)",
+        textShadow: "0 0 8px rgba(239,68,68,.6)",
+        letterSpacing: "0.08em",
+      }}
+    >
+      <Swords style={{ width: champion ? 13 : 11, height: champion ? 13 : 11 }} />
+      {champion ? "DERRUBAR O REI 👑" : "DESAFIAR"}
+    </button>
   );
 }
 

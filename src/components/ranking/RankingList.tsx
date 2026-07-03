@@ -2,7 +2,9 @@ import { useState } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
-import { ChevronRight, ChevronUp } from "lucide-react";
+import { avatarThumb } from "@/shared/lib/avatar";
+import { ChevronRight, ChevronUp, Swords } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Props {
   ranking: LeaderboardEntry[];
@@ -18,7 +20,7 @@ function RowAvatar({ url, name, color, icon, pres }: {
   pres: { online: boolean };
 }) {
   const inner = url
-    ? <img src={url} alt={name || ""} className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />
+    ? <img src={avatarThumb(url, 72)} alt={name || ""} loading="lazy" className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />
     : <img src={icon} alt={name || ""} className="w-9 h-9 object-contain" style={{ filter: `drop-shadow(0 0 5px ${color}99)` }} />;
   return (
     <div className="relative shrink-0">
@@ -46,6 +48,7 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
   entry: LeaderboardEntry; position: number; isMe: boolean; subtitle: string;
   formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
 }) {
+  const navigate = useNavigate();
   const tier = getTier(position);
   const pres = presenceInfo(entry.last_active_at);
   const sub = !pres.online && pres.label ? `${subtitle} · ${pres.label}` : subtitle;
@@ -66,6 +69,25 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
           <p className="text-[10px] truncate" style={{ color: tier.color }}>{sub}</p>
         </div>
         <span className="text-white font-black text-sm shrink-0">{formatCurrency(entry.faturamento_total_mes || 0)}</span>
+        {/* DESAFIAR: botão de X1 direto do ranking — vermelho sangue, estilo "apontar o dedo" */}
+        {!isMe && (
+          <span
+            role="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/x1?desafiar=${entry.user_id}`);
+            }}
+            className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center active:scale-90 transition-transform"
+            style={{
+              background: "linear-gradient(160deg,#3b0a0a,#1a0505)",
+              border: "1px solid rgba(239,68,68,.55)",
+              boxShadow: "0 0 10px rgba(239,68,68,.35)",
+            }}
+            aria-label={`Desafiar ${entry.nome_usuario || "vendedor"} pro X1`}
+          >
+            <Swords className="w-4 h-4 text-red-500" />
+          </span>
+        )}
       </div>
     </button>
   );

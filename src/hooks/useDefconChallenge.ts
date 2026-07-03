@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
+import { addOfflineRecord } from "@/shared/lib/offline-db";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -28,6 +29,46 @@ export interface BlockReportData {
   approaches: number;
   sales: number;
   soldAmount: number;
+}
+
+/**
+ * Offline: enfileira o ESTADO ABSOLUTO de um bloco no celular pra subir quando a
+ * conexao voltar. Idempotente — a fila usa o id do bloco como chave e syncSaleRecord
+ * faz upsert com valores absolutos, entao re-aplicar (ou aplicar 2x) NUNCA duplica dinheiro.
+ */
+async function queueBlockOffline(
+  block: {
+    id: string; hour_index: number; hour_label: string; target_amount: number;
+    achieved_amount: number; valor_dinheiro: number; valor_cartao: number;
+    valor_pix: number; valor_calote: number; valor_gorjeta: number;
+  },
+  userId: string,
+  planId: string | null,
+) {
+  try {
+    await addOfflineRecord("pending_sales", {
+      id: block.id,
+      store: "pending_sales",
+      data: {
+        block_id: block.id,
+        user_id: userId,
+        plan_id: planId ?? "",
+        hour_index: block.hour_index,
+        hour_label: block.hour_label,
+        target_amount: block.target_amount,
+        achieved_amount: block.achieved_amount,
+        valor_dinheiro: block.valor_dinheiro,
+        valor_cartao: block.valor_cartao,
+        valor_pix: block.valor_pix,
+        valor_calote: block.valor_calote,
+        valor_gorjeta: block.valor_gorjeta,
+      },
+      created_at: new Date().toISOString(),
+      synced: false,
+    });
+  } catch {
+    // IndexedDB indisponivel (aba anonima / storage cheio): resta so o estado otimista da tela.
+  }
 }
 
 export function useDefconChallenge(userId: string | undefined) {
@@ -662,10 +703,23 @@ export function useDefconChallenge(userId: string | undefined) {
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persiste no banco em seguida. Os awaits continuam (durabilidade: se o app
-    // fechar logo após o toque, a venda já foi gravada), mas a tela já reagiu acima.
+    // Persiste no banco. IMPORTANTE: o supabase-js NAO lanca excecao quando esta
+    // offline — ele RETORNA { error }. Por isso a gente (1) checa navigator.onLine pra
+    // enfileirar direto sem nem tentar a rede e (2) checa o error retornado como
+    // fallback. Enfileira o estado ABSOLUTO do bloco (idempotente no upsert por id).
+    const blockState = {
+      ...currentBlock,
+      achieved_amount: newAchieved,
+      valor_dinheiro: newDinheiro,
+      valor_pix: newPix,
+      valor_cartao: newCartao,
+    };
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      await queueBlockOffline(blockState, userId, planIdRef.current);
+      return;
+    }
     try {
-      await supabase
+      const { error: blkErr } = await supabase
         .from("hourly_goal_blocks")
         .update({
           achieved_amount: newAchieved,
@@ -674,6 +728,7 @@ export function useDefconChallenge(userId: string | undefined) {
           valor_cartao: newCartao,
         })
         .eq("id", currentBlock.id);
+      if (blkErr) throw blkErr;
 
       if (sessionId) {
         await supabase
@@ -695,7 +750,8 @@ export function useDefconChallenge(userId: string | undefined) {
       await syncBlocksToDailySales(userId);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
-      // best-effort: a tela já reflete a venda; o banco reconcilia no próximo load.
+      // Rede caiu no meio (ou { error } retornado): enfileira pra subir ao reconectar.
+      await queueBlockOffline(blockState, userId, planIdRef.current);
     }
   };
 
@@ -792,18 +848,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const newAchieved = currentBlock.valor_dinheiro + currentBlock.valor_cartao + newPix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
 
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: newAchieved,
-        valor_pix: newPix,
-      })
-      .eq("id", currentBlock.id);
-
-    if (sessionId) {
-      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-    }
-
+    // OTIMISTA: tela na hora; banco em seguida.
     setBlocks(prev =>
       prev.map((b, i) =>
         i === blockIdx ? { ...b, achieved_amount: newAchieved, valor_pix: newPix } : b
@@ -811,19 +856,39 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
 
-    if (sessionId) {
-      await supabase.from("defcon_sales").insert({
-        user_id: userId,
-        session_id: sessionId,
-        block_index: blockIdx,
-        amount,
-        method: "pix",
-        late: true,
-      });
+    const blockState = { ...currentBlock, achieved_amount: newAchieved, valor_pix: newPix };
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      await queueBlockOffline(blockState, userId, planIdRef.current);
+      return;
     }
+    try {
+      const { error: blkErr } = await supabase
+        .from("hourly_goal_blocks")
+        .update({
+          achieved_amount: newAchieved,
+          valor_pix: newPix,
+        })
+        .eq("id", currentBlock.id);
+      if (blkErr) throw blkErr;
 
-    await syncBlocksToDailySales(userId);
-    await loadSessionSales(sessionId);
+      if (sessionId) {
+        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+        await supabase.from("defcon_sales").insert({
+          user_id: userId,
+          session_id: sessionId,
+          block_index: blockIdx,
+          amount,
+          method: "pix",
+          late: true,
+        });
+      }
+
+      await syncBlocksToDailySales(userId);
+      if (sessionId) await loadSessionSales(sessionId);
+    } catch (e) {
+      // Offline / rede caiu: enfileira o estado do bloco pra sincronizar depois.
+      await queueBlockOffline(blockState, userId, planIdRef.current);
+    }
   };
 
   const addTip = async (amount: number) => {
@@ -846,8 +911,13 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
 
+    const blockState = { ...currentBlock, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_gorjeta: newGorjeta };
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      await queueBlockOffline(blockState, userId, planIdRef.current);
+      return;
+    }
     try {
-      await supabase
+      const { error: blkErr } = await supabase
         .from("hourly_goal_blocks")
         .update({
           achieved_amount: newAchieved,
@@ -855,6 +925,7 @@ export function useDefconChallenge(userId: string | undefined) {
           valor_gorjeta: newGorjeta,
         })
         .eq("id", currentBlock.id);
+      if (blkErr) throw blkErr;
 
       if (sessionId) {
         await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
@@ -862,7 +933,8 @@ export function useDefconChallenge(userId: string | undefined) {
 
       await syncBlocksToDailySales(userId);
     } catch (e) {
-      // best-effort: a tela já reflete a gorjeta.
+      // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
+      await queueBlockOffline(blockState, userId, planIdRef.current);
     }
   };
 

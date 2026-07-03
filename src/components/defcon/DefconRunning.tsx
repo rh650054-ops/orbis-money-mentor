@@ -7,6 +7,8 @@ import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
+import { DefconX1Live } from "./DefconX1Live";
+import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
@@ -37,6 +39,8 @@ interface DefconRunningProps {
   onDeleteSale?: (sale: any) => void;
   onboardingMode?: boolean;
   quickSaleValue?: number;
+  /** X1 do dia (se houver): faixa de placar ao vivo + banner de virada na tela */
+  x1Live?: X1LiveState;
 }
 
 export function DefconRunning({
@@ -64,6 +68,7 @@ export function DefconRunning({
   onDeleteSale,
   onboardingMode,
   quickSaleValue,
+  x1Live,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -398,6 +403,12 @@ export function DefconRunning({
         <div className="mt-1 text-xs font-mono text-muted-foreground">
           Meta: {formatCurrency(dailyGoal)} • Feito: <span className="text-success">{formatCurrency(totalSold)}</span>
         </div>
+        {/* X1 ao vivo — placar simultâneo ao DEFCON + banner quando a liderança vira */}
+        {x1Live && (
+          <div className="mt-2 flex justify-center">
+            <DefconX1Live x1={x1Live} />
+          </div>
+        )}
       </div>
 
       {/* Main content */}
@@ -425,7 +436,7 @@ export function DefconRunning({
         {/* Timer — elemento dominante */}
         <div className="flex flex-col items-center gap-3 -my-1">
           <div
-            className={`text-[104px] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
+            className={`text-[clamp(64px,26vw,104px)] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
               isUrgent ? "text-destructive animate-pulse" : "text-foreground"
             }`}
             style={{
@@ -450,17 +461,18 @@ export function DefconRunning({
           </div>
         </div>
 
-        {/* Bloco info — métricas em colunas com label */}
-        <div className="flex items-center justify-center gap-6 px-2">
+        {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
+            fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
+        <div className="w-full flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2">
           {/* Faturado */}
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Bloco</span>
-            <span className="font-black text-success text-[20px] font-mono tabular-nums leading-none">
+            <span className="font-black text-success text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
               {formatCurrency(blockSold)}
             </span>
           </div>
 
-          <span className="w-px h-8 bg-border" />
+          <span className="w-px h-8 bg-border shrink-0" />
 
           {/* Vendas — tocável: abre o detalhe por venda do bloco */}
           <button
@@ -470,28 +482,28 @@ export function DefconRunning({
             className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
           >
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Vendas</span>
-            <span className="font-black text-foreground text-[20px] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
+            <span className="font-black text-foreground text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
               {blockSalesCount}
             </span>
           </button>
 
-          <span className="w-px h-8 bg-border" />
+          <span className="w-px h-8 bg-border shrink-0" />
 
           {/* Abordagens */}
           <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Abord.</span>
-            <span className="font-black text-foreground text-[20px] font-mono tabular-nums leading-none">
+            <span className="font-black text-foreground text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
               {blockApproaches}
             </span>
           </div>
 
           {blockApproaches > 0 && (
             <>
-              <span className="w-px h-8 bg-border" />
+              <span className="w-px h-8 bg-border shrink-0" />
               {/* Conversão */}
               <div className="flex flex-col items-center gap-0.5">
                 <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Conv.</span>
-                <span className="font-black text-primary text-[20px] font-mono tabular-nums leading-none">
+                <span className="font-black text-primary text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
                   {conversionRate}%
                 </span>
               </div>

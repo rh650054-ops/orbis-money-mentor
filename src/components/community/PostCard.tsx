@@ -5,6 +5,7 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/shared/lib/utils";
 import type { FeedPost } from "@/hooks/useCommunityFeed";
 import { presenceInfo } from "@/shared/lib/presence";
+import { avatarThumb } from "@/shared/lib/avatar";
 
 interface Props {
   post: FeedPost;
@@ -40,7 +41,7 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepo
           aria-label={`Ver perfil de ${post.nickname ?? "vendedor"}`}
         >
           <Avatar className="h-11 w-11 ring-1 ring-border/50">
-            <AvatarImage src={post.avatar_url ?? undefined} />
+            <AvatarImage src={avatarThumb(post.avatar_url, 88)} />
             <AvatarFallback className="bg-muted text-xs font-semibold">
               {(post.nickname ?? "?").slice(0, 2).toUpperCase()}
             </AvatarFallback>
