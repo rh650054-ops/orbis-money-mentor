@@ -16,8 +16,9 @@ export default function MeuExtrato() {
   const { user } = useAuth();
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
-  const { pix, cartao, totalDia, upload, remove } = useMeuExtrato(user?.id, dia);
+  const { pix, cartao, totalDia, upload, uploadMes, remove } = useMeuExtrato(user?.id, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
+  const [busyMes, setBusyMes] = useState<null | "pix" | "cartao">(null);
   const [deleting, setDeleting] = useState<null | "pix" | "cartao">(null);
   const [error, setError] = useState("");
 
@@ -48,6 +49,31 @@ export default function MeuExtrato() {
       }
     }
     setBusy(null);
+    if (e.target) e.target.value = "";
+  };
+
+  // Extrato do MES: preenche os dias que ficaram sem extrato (so dias com DEFCON iniciado).
+  const handleFileMes = async (tipo: "pix" | "cartao", e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    setBusyMes(tipo);
+    const r = await uploadMes(tipo, file);
+    if (!r.ok) {
+      setError(r.erro ?? "Não consegui ler esse extrato. Tenta um PDF ou print mais nítido.");
+    } else {
+      const salvos = r.diasSalvos ?? [];
+      const pulados = r.diasPulados ?? [];
+      const fmtD = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+      toast({
+        title: salvos.length > 0 ? `${salvos.length} dia(s) preenchido(s)!` : "Nenhum dia novo pra preencher",
+        description: [
+          salvos.length > 0 ? `Salvos: ${salvos.map((d) => `${fmtD(d.dia)} (${formatCurrency(d.total)})`).join(", ")}.` : "",
+          pulados.length > 0 ? `Pulados: ${pulados.map((d) => `${fmtD(d.dia)} — ${d.motivo}`).join("; ")}.` : "",
+        ].filter(Boolean).join(" "),
+      });
+    }
+    setBusyMes(null);
     if (e.target) e.target.value = "";
   };
 
@@ -128,6 +154,34 @@ export default function MeuExtrato() {
         <CardContent className="p-5 flex justify-between items-center">
           <span className="font-bold">Total verificado hoje</span>
           <span className="text-2xl font-black text-emerald-500">{formatCurrency(totalDia)}</span>
+        </CardContent>
+      </Card>
+
+      {/* Extrato do MES: preenche dias esquecidos (so dias com DEFCON iniciado e sem extrato) */}
+      <Card className="border-dashed border-primary/30">
+        <CardContent className="p-5 space-y-3">
+          <p className="font-bold">Esqueceu de enviar algum dia?</p>
+          <p className="text-xs text-muted-foreground">
+            Manda o extrato do <b className="text-foreground">mês inteiro</b> que a IA separa por dia e preenche
+            os dias que você trabalhou (DEFCON iniciado) e ainda estão sem extrato. Não mexe nos dias já enviados.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["pix", "cartao"] as const).map((t) => (
+              <label key={t} className="block">
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  className="hidden"
+                  onChange={(e) => handleFileMes(t, e)}
+                  disabled={busy !== null || busyMes !== null}
+                />
+                <span className="cursor-pointer w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-bold bg-muted text-foreground">
+                  {busyMes === t ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {busyMes === t ? "Lendo o mês..." : t === "pix" ? "Mês — Pix" : "Mês — Cartão"}
+                </span>
+              </label>
+            ))}
+          </div>
         </CardContent>
       </Card>
 

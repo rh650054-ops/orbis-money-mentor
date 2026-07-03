@@ -2,8 +2,12 @@
 // A IA le um EXTRATO (print ou PDF) e separa as VENDAS (dinheiro que ENTROU/foi recebido)
 // das DESPESAS e dos itens SUSPEITOS DE FRAUDE (auto-transferencia, duplicata).
 // PRIMARIO: Claude (visao). FALLBACK: Gemini.
-// Recebe { file: base64, mime, salvar?, dia?, tipo? }.
-// Devolve { ok, motor, salvo, dia, tipo, vendas[], suspeitas[], total_vendas, total_ignorado, qtd_vendas }.
+// Recebe { file: base64, mime, salvar?, dia?, tipo?, modo? }.
+// modo "dia" (padrao): audita SO o dia informado.
+// modo "mes": le o extrato do MES e PREENCHE os dias esquecidos — so dias do mes
+//   atual, ate hoje, em que o vendedor INICIOU O DEFCON, e que ainda nao tem extrato.
+// Devolve (dia): { ok, motor, salvo, dia, tipo, vendas[], suspeitas[], total_vendas, total_ignorado, qtd_vendas }.
+// Devolve (mes): { ok, motor, modo, dias_salvos[], dias_pulados[], total_salvo }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -63,8 +67,38 @@ Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
 {"documento":"banco","cobre_dia":true,"periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"${dia}"}`;
 }
 
+// Prompt do modo MES: a IA separa as vendas POR DIA, dentro da janela pedida.
+function buildPromptMes(nome: string, tipo: string, iniJanela: string, fimJanela: string): string {
+  const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
+  const esperado = tipo === "cartao"
+    ? "EXTRATO/RELATORIO DE MAQUININHA DE CARTAO (adquirente: Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.)"
+    : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos)";
+  return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
+
+CLASSIFICACAO (faca isto ANTES de tudo): o usuario esta enviando isto como o ${esperado}.
+Classifique no campo "documento": "banco", "cartao" ou "outro" (mesmos criterios de um extrato real; foto aleatoria/comprovante unico = "outro"). Seja honesto.
+
+MODO MES: este extrato cobre VARIOS dias. Separe as VENDAS POR DIA.
+- Considere SOMENTE dias entre ${iniJanela} e ${fimJanela} (inclusive). Ignore transacoes fora dessa janela.
+- Para CADA dia dessa janela que aparecer no extrato COM entrada de dinheiro, crie um item em "dias".
+- Use a data de LANCAMENTO/transacao, NAO a data contabil.
+
+VENDA (conta) = dinheiro que ENTROU: "Pix recebido", "Entrada PIX", "Credito", "Recebimento", venda no cartao que caiu pra ele.
+NAO CONTA = saida/despesa: "Debito de Cartao", "Saida PIX", "Pix enviado", "Pagamento", "Transferencia enviada", valores negativos.
+
+ANTIFRAUDE — vai em "suspeitas" do dia, com motivo, e NAO soma:
+- AUTO-TRANSFERENCIA: Pix recebido cujo remetente e o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}).
+- DUPLICATA: mesma venda repetida (mesmo valor + remetente em horarios colados) conta SO UMA vez.
+${hint}
+
+"periodo_inicio"/"periodo_fim" = primeira e ultima data de transacao visiveis no extrato (YYYY-MM-DD).
+
+Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
+{"documento":"banco","periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","dias":[{"data":"2026-07-03","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}]}]}`;
+}
+
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
-async function callClaude(key: string, model: string, prompt: string, fileB64: string, mime: string): Promise<string> {
+async function callClaude(key: string, model: string, prompt: string, fileB64: string, mime: string, maxTokens = 1800): Promise<string> {
   const isPdf = mime.includes("pdf");
   const mediaType = isPdf
     ? "application/pdf"
@@ -84,7 +118,7 @@ async function callClaude(key: string, model: string, prompt: string, fileB64: s
     signal: AbortSignal.timeout(60000),
     body: JSON.stringify({
       model,
-      max_tokens: 1800,
+      max_tokens: maxTokens,
       messages: [{ role: "user", content: [{ type: "text", text: prompt }, filePart] }],
     }),
   });
@@ -147,6 +181,7 @@ Deno.serve(async (req) => {
     const diaValido = typeof body?.dia === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.dia);
     const dia = diaValido ? body.dia : new Date().toISOString().slice(0, 10);
     const tipo = body?.tipo === "cartao" ? "cartao" : "pix";
+    const modo = body?.modo === "mes" ? "mes" : "dia";
     if (!fileB64) return json({ error: "sem_arquivo" }, 400);
 
     // Auth: pega o usuario + nickname (pra IA detectar auto-transferencia).
@@ -180,10 +215,17 @@ Deno.serve(async (req) => {
       } catch { /* deixa passar se a trava falhar */ }
     }
 
-    const prompt = buildPrompt(nome, tipo, dia);
+    // Janela do modo MES: do dia 1 do mes atual (fuso BR) ate hoje.
+    const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const iniJanela = `${hojeBR.slice(0, 7)}-01`;
+
+    const prompt = modo === "mes"
+      ? buildPromptMes(nome, tipo, iniJanela, hojeBR)
+      : buildPrompt(nome, tipo, dia);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
+    const maxTokens = modo === "mes" ? 8000 : 1800;
 
     let text = "";
     let motor = "";
@@ -191,7 +233,7 @@ Deno.serve(async (req) => {
 
     if (anthropicKey) {
       try {
-        text = await callClaude(anthropicKey, model, prompt, fileB64, mime);
+        text = await callClaude(anthropicKey, model, prompt, fileB64, mime, maxTokens);
         motor = "claude";
       } catch (e) {
         lastErr = String((e as Error)?.message || e);
@@ -219,6 +261,126 @@ Deno.serve(async (req) => {
       if (m) { try { parsed = JSON.parse(m[0]); } catch { /* noop */ } }
     }
     if (!parsed) return json({ error: "leitura_falhou", raw: text.slice(0, 400) }, 422);
+
+    // ===== MODO MES: preenche os dias esquecidos do mes =====
+    // So salva dias que: (1) estao no mes atual ate hoje; (2) o vendedor INICIOU O
+    // DEFCON naquele dia; (3) ainda NAO tem extrato enviado (nao sobrescreve).
+    if (modo === "mes") {
+      const documentoMes = typeof parsed.documento === "string" ? parsed.documento.toLowerCase() : "";
+      const esperadoDocMes = tipo === "cartao" ? "cartao" : "banco";
+      if (documentoMes !== esperadoDocMes) {
+        return json({
+          error: "documento_invalido",
+          dica: `Esse arquivo nao parece o ${tipo === "cartao" ? "extrato da maquininha de cartao" : "extrato do banco (onde caem os Pix)"}.`,
+        }, 200);
+      }
+      if (!uid || !supa) return json({ error: "sem_login", dica: "Faca login de novo e tente outra vez." }, 200);
+
+      const isDate = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+      const diasArr = Array.isArray(parsed.dias) ? parsed.dias : [];
+      const candidatos = diasArr
+        .filter((d: any) => isDate(d?.data) && d.data >= iniJanela && d.data <= hojeBR)
+        .map((d: any) => ({
+          data: d.data as string,
+          vendas: Array.isArray(d.vendas) ? d.vendas : [],
+          suspeitas: Array.isArray(d.suspeitas) ? d.suspeitas : [],
+        }));
+      if (candidatos.length === 0) {
+        return json({ error: "sem_dias", dica: "Nao achei entradas deste mes nesse extrato. Confere se e o extrato do mes atual." }, 200);
+      }
+      const datas = candidatos.map((c: any) => c.data);
+
+      // Em paralelo: dias com DEFCON iniciado, dias que ja tem extrato, e o outro slot (dedup).
+      const [csRes, wsRes, exRes, outroRes] = await Promise.all([
+        supa.from("challenge_sessions").select("date").eq("user_id", uid).in("date", datas).not("started_at", "is", null),
+        supa.from("work_sessions").select("planning_date").eq("user_id", uid).in("planning_date", datas),
+        supa.from("extrato_uploads").select("dia").eq("user_id", uid).eq("tipo", tipo).in("dia", datas),
+        supa.from("extrato_uploads").select("dia, vendas").eq("user_id", uid).eq("tipo", tipo === "cartao" ? "pix" : "cartao").in("dia", datas),
+      ]);
+      const trabalhou = new Set<string>([
+        ...(((csRes.data as any[]) ?? []).map((r) => String(r.date).slice(0, 10))),
+        ...(((wsRes.data as any[]) ?? []).map((r) => String(r.planning_date).slice(0, 10))),
+      ]);
+      const jaTem = new Set(((exRes.data as any[]) ?? []).map((r) => String(r.dia).slice(0, 10)));
+      const outroPorDia = new Map<string, any[]>();
+      for (const r of ((outroRes.data as any[]) ?? [])) {
+        outroPorDia.set(String(r.dia).slice(0, 10), Array.isArray(r.vendas) ? r.vendas : []);
+      }
+
+      const LIMITE_MES = Number(Deno.env.get("SUSPEITA_VALOR_MAX") ?? "150");
+      const chaveMes = (v: any) =>
+        `${Math.round((Number(v?.valor) || 0) * 100)}|${String(v?.descricao ?? "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 24)}`;
+      const adminMes = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      );
+
+      const diasSalvos: any[] = [];
+      const diasPulados: any[] = [];
+      for (const c of candidatos) {
+        if (!trabalhou.has(c.data)) {
+          diasPulados.push({ dia: c.data, motivo: "sem DEFCON iniciado nesse dia" });
+          continue;
+        }
+        if (jaTem.has(c.data)) {
+          diasPulados.push({ dia: c.data, motivo: "ja tem extrato enviado" });
+          continue;
+        }
+        // Dedup contra o outro slot (pix x cartao) do MESMO dia.
+        const outrasDia = outroPorDia.get(c.data) ?? [];
+        const okeys = new Set(outrasDia.map(chaveMes));
+        const batemDia = c.vendas.filter((v: any) => okeys.has(chaveMes(v))).length;
+        if (c.vendas.length >= 2 && outrasDia.length >= 2 && batemDia / c.vendas.length >= 0.6) {
+          diasPulados.push({ dia: c.data, motivo: "parece o mesmo extrato do outro slot" });
+          continue;
+        }
+        // Filtro de valor alto (mesma regra do modo dia).
+        const limpas: any[] = [];
+        const suspDia: any[] = [...c.suspeitas];
+        for (const v of c.vendas) {
+          const val = Number(v?.valor) || 0;
+          if (val > LIMITE_MES) {
+            suspDia.push({ ...v, motivo: `valor alto (acima de R$${LIMITE_MES}) - revisar` });
+            continue;
+          }
+          limpas.push(v);
+        }
+        const totDia = limpas.reduce((s: number, v: any) => s + (Number(v?.valor) || 0), 0);
+        if (totDia <= 0) {
+          diasPulados.push({ dia: c.data, motivo: "sem venda valida nesse dia" });
+          continue;
+        }
+        const ignoradoDia = suspDia.reduce((s: number, v: any) => s + (Number(v?.valor) || 0), 0);
+        const { error: upErrMes } = await adminMes.from("extrato_uploads").upsert({
+          user_id: uid,
+          dia: c.data,
+          tipo,
+          total_verificado: totDia,
+          qtd_vendas: limpas.length,
+          total_ignorado: ignoradoDia,
+          vendas: limpas,
+          motor,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "user_id,dia,tipo" });
+        if (upErrMes) {
+          console.error("extrato mes upsert erro", c.data, upErrMes.message);
+          diasPulados.push({ dia: c.data, motivo: "erro ao salvar" });
+          continue;
+        }
+        diasSalvos.push({ dia: c.data, total: totDia, qtd: limpas.length, suspeitas: suspDia.length });
+      }
+
+      return json({
+        ok: true,
+        modo: "mes",
+        motor,
+        periodo_inicio: isDate(parsed.periodo_inicio) ? parsed.periodo_inicio : "",
+        periodo_fim: isDate(parsed.periodo_fim) ? parsed.periodo_fim : "",
+        dias_salvos: diasSalvos,
+        dias_pulados: diasPulados,
+        total_salvo: diasSalvos.reduce((s: number, d: any) => s + d.total, 0),
+      });
+    }
 
     const vendas = Array.isArray(parsed.vendas) ? parsed.vendas : [];
     const suspeitas = Array.isArray(parsed.suspeitas) ? parsed.suspeitas : [];
