@@ -117,6 +117,11 @@ export default function X1() {
   const [depositOpen, setDepositOpen] = useState(false);
   // Admin: creditar depósito / registrar saque na carteira de alguém.
   const [admWallet, setAdmWallet] = useState({ busca: "", achados: [] as RankUser[], sel: null as RankUser | null, valor: "", tipo: "deposito" as "deposito" | "saque" });
+  // Depósito por comprovante: sobe o recibo do Pix, a IA valida e credita sozinha.
+  const [enviandoComprovante, setEnviandoComprovante] = useState(false);
+  // Admin: fila de depósitos pendentes de conferência + últimos auto-creditados.
+  const [depsPendentes, setDepsPendentes] = useState<{ id: string; user_id: string; valor: number; motivo: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
+  const [depsRecentes, setDepsRecentes] = useState<{ id: string; user_id: string; valor: number; e2e_id: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
   // Tesouraria (só Rick e Mohamed): resumo financeiro da carteira.
   const [tesouraria, setTesouraria] = useState<null | {
     total_devido: number; depositos: number; saques: number; em_jogo: number;
@@ -223,6 +228,23 @@ export default function X1() {
     if (TESOURARIA_UIDS.includes(user.id)) {
       const { data: tes } = await (supabase as any).rpc("x1_tesouraria");
       if (tes) setTesouraria(tes as any);
+    }
+
+    // Admin: fila de depósitos pendentes + últimos auto-creditados (pra bater com o banco).
+    if (whitelisted && role === "admin") {
+      const [{ data: pend }, { data: rec }] = await Promise.all([
+        supabase.from("x1_deposit_requests" as any).select("id, user_id, valor, motivo, remetente, created_at").eq("status", "pendente_revisao").order("created_at", { ascending: true }),
+        supabase.from("x1_deposit_requests" as any).select("id, user_id, valor, e2e_id, remetente, created_at").eq("status", "creditado").order("created_at", { ascending: false }).limit(8),
+      ]);
+      const todos = [...(((pend as any[]) || [])), ...(((rec as any[]) || []))];
+      const uidsDep = Array.from(new Set(todos.map((d) => d.user_id)));
+      let nomes: Record<string, string> = {};
+      if (uidsDep.length) {
+        const { data: pf } = await supabase.from("public_profiles").select("user_id, nickname").in("user_id", uidsDep);
+        ((pf as any[]) || []).forEach((p) => (nomes[p.user_id] = p.nickname));
+      }
+      setDepsPendentes((((pend as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
+      setDepsRecentes((((rec as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
     }
     setLoading(false);
   };
@@ -433,6 +455,41 @@ export default function X1() {
     setAdmWallet({ busca: "", achados: [], sel: null, valor: "", tipo: "deposito" });
   };
   const admLiquidarAgora = () => rpc("x1_settle_due", {}, "Liquidação executada — confere os resultados 🏁");
+
+  // Sobe o comprovante do Pix de DEPÓSITO → IA valida → credita sozinho (com travas).
+  const enviarComprovanteDeposito = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    setEnviandoComprovante(true);
+    try {
+      const b64 = await new Promise<string>((res, rej) => {
+        const r = new FileReader();
+        r.onload = () => res(String(r.result).replace(/^data:[^;]+;base64,/, ""));
+        r.onerror = () => rej(new Error("read_error"));
+        r.readAsDataURL(file);
+      });
+      const { data, error } = await supabase.functions.invoke("verificar-deposito", {
+        body: { file: b64, mime: file.type || "image/jpeg" },
+      });
+      const r = data as { ok?: boolean; status?: string; valor?: number; dica?: string; error?: string } | null;
+      if (error || (!r?.ok && r?.error)) {
+        toast({ title: "Não rolou", description: r?.dica ?? "Tenta de novo com uma foto mais nítida.", variant: "destructive" });
+      } else if (r?.status === "creditado") {
+        toast({ title: `💰 +${fmt(r.valor ?? 0)} na carteira!`, description: "Depósito confirmado pela IA. Bora duelar! ⚔️" });
+        await loadAll();
+      } else {
+        toast({ title: "Comprovante recebido 📋", description: r?.dica ?? "Vai passar pela conferência do admin." });
+        await loadAll();
+      }
+    } catch {
+      toast({ title: "Não consegui enviar", description: "Tenta de novo.", variant: "destructive" });
+    } finally {
+      setEnviandoComprovante(false);
+    }
+  };
+  const admResolverDeposito = (id: string, aprovar: boolean) =>
+    rpc("x1_admin_resolve_deposit", { p_id: id, p_aprovar: aprovar, p_motivo: aprovar ? null : "não localizado no banco" }, aprovar ? "Depósito creditado ✅" : "Depósito rejeitado");
 
   // Painel de evidência (admin): total do extrato verificado pela IA de cada duelista + ✓ se bateu a meta.
   const evidence = (c: X1) => {
@@ -672,17 +729,23 @@ export default function X1() {
         {depositOpen && (
           <div className="rounded-xl bg-card border border-border/60 p-3 space-y-2">
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Faça um Pix de qualquer valor pra chave abaixo e avise o admin — o crédito cai na sua carteira e
-              aí é só duelar: <b className="text-foreground">a aposta sai do saldo na hora do aceite, sem comprovante e sem espera</b>.
-              O prêmio também cai aqui. Pra sacar, chama o admin.
+              <b className="text-foreground">1.</b> Faça o Pix pra chave abaixo · <b className="text-foreground">2.</b> Suba o comprovante aqui —
+              a IA confere e <b className="text-emerald-400">o saldo cai na hora</b> (depósitos até R$ 100; acima disso o admin confere primeiro).
+              O prêmio dos duelos também cai aqui. Pra sacar, chama o admin.
             </p>
             <button
               onClick={() => navigator.clipboard?.writeText(settings?.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {})}
               className="w-full rounded-xl bg-[#0e0e10] border border-border p-2.5 text-left active:scale-[0.98] transition-transform"
             >
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground"><Copy className="w-3 h-3" /> Copiar chave Pix do Orbis</span>
+              <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground"><Copy className="w-3 h-3" /> 1 · Copiar chave Pix do Orbis</span>
               <span className="block text-[12px] font-semibold text-emerald-400 truncate mt-0.5">{settings?.pix_account || "—"}</span>
             </button>
+            <label className={`w-full rounded-xl border border-dashed border-emerald-500/50 bg-emerald-500/5 p-2.5 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform ${enviandoComprovante ? "opacity-60 pointer-events-none" : ""}`}>
+              {enviandoComprovante ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" /> : <Upload className="w-4 h-4 text-emerald-400" />}
+              <span className="text-[11px] font-bold text-emerald-400">{enviandoComprovante ? "IA conferindo o comprovante…" : "2 · Já fiz o Pix — enviar comprovante"}</span>
+              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={enviarComprovanteDeposito} disabled={enviandoComprovante} />
+            </label>
+            <p className="text-[9px] text-muted-foreground/70 text-center">Cada comprovante vale UMA vez (o ID do Pix é registrado). Comprovante falso = banimento.</p>
           </div>
         )}
         {txs.length > 0 && (
@@ -737,6 +800,43 @@ export default function X1() {
           <button onClick={admLiquidarAgora} className="w-full h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
             🏁 Liquidar duelos vencidos agora (roda sozinho às 9h05)
           </button>
+
+          {/* Fila de depósitos aguardando conferência */}
+          {depsPendentes.length > 0 && (
+            <div className="space-y-1.5 pt-1 border-t border-border/40">
+              <p className="text-[10px] font-black uppercase tracking-wider text-amber-400 pt-1">📋 Depósitos aguardando conferência ({depsPendentes.length})</p>
+              {depsPendentes.map((d) => (
+                <div key={d.id} className="rounded-lg bg-card border border-border/60 p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-bold text-foreground truncate">{d.nome || "Vendedor"} · {fmt(d.valor)}</span>
+                    <span className="text-muted-foreground shrink-0">{new Date(d.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
+                  </div>
+                  {d.remetente && <p className="text-[10px] text-muted-foreground">Remetente no comprovante: {d.remetente}</p>}
+                  {d.motivo && <p className="text-[10px] text-amber-400">Motivo: {d.motivo}</p>}
+                  <div className="flex gap-2">
+                    <button onClick={() => admResolverDeposito(d.id, true)} className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">✓ Caiu no banco — creditar</button>
+                    <button onClick={() => admResolverDeposito(d.id, false)} className="flex-1 h-8 rounded-lg bg-card border border-destructive/40 text-destructive text-[11px] font-bold">✗ Rejeitar</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Últimos auto-creditados: bater com o extrato do banco 1x/dia */}
+          {depsRecentes.length > 0 && (
+            <div className="space-y-1 pt-1 border-t border-border/40">
+              <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground pt-1">✅ Auto-creditados recentes — bata com o banco 1×/dia</p>
+              {depsRecentes.map((d) => (
+                <div key={d.id} className="flex items-center justify-between text-[10px] gap-2">
+                  <span className="text-foreground truncate">{d.nome || "Vendedor"} · {d.remetente ? `de ${d.remetente}` : ""}</span>
+                  <span className="text-muted-foreground shrink-0 tabular-nums">
+                    {fmt(d.valor)} · {new Date(d.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+              ))}
+              <p className="text-[9px] text-muted-foreground/70">Não achou algum no extrato do banco? Estorna pelo SQL: x1_admin_estornar_deposit(id).</p>
+            </div>
+          )}
         </div>
       )}
 
