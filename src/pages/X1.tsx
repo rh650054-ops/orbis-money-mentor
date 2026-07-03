@@ -126,6 +126,8 @@ export default function X1() {
   // Admin: fila de depósitos pendentes de conferência + últimos auto-creditados.
   const [depsPendentes, setDepsPendentes] = useState<{ id: string; user_id: string; valor: number; motivo: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
   const [depsRecentes, setDepsRecentes] = useState<{ id: string; user_id: string; valor: number; e2e_id: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
+  // Celebração pós-aceite: card "DUELO INICIADO" + envio pro DEFCON se for hoje.
+  const [duelStarted, setDuelStarted] = useState<null | { nome: string; stakes: number; hoje: boolean; data: string | null }>(null);
   // Tesouraria (só Rick e Mohamed): resumo financeiro da carteira.
   const [tesouraria, setTesouraria] = useState<null | {
     total_devido: number; depositos: number; saques: number; em_jogo: number;
@@ -387,6 +389,26 @@ export default function X1() {
       },
       okMsg ?? (action === "accept" ? "Acordo fechado! ⚔️" : action === "decline" ? "Desafio recusado" : "Contra-proposta enviada"),
     );
+  // Aceite com celebração: desconta a aposta, mostra o card de "DUELO INICIADO"
+  // e manda pro DEFCON se o duelo for HOJE.
+  const aceitarDuelo = async (c: X1) => {
+    const { error } = await (supabase as any).rpc("x1_negotiate", {
+      p_id: c.id, p_action: "accept", p_pix: null, p_nome: null, p_modo: null, p_goal: null, p_stakes: null, p_date: null,
+    });
+    if (error) {
+      toast({ title: "Não rolou", description: error.message, variant: "destructive" });
+      return;
+    }
+    const other = c.challenger_id === user?.id ? c.opponent_id : c.challenger_id;
+    setDuelStarted({
+      nome: name(other),
+      stakes: c.stakes_amount,
+      hoje: c.scheduled_date === getBrazilDate(),
+      data: c.scheduled_date,
+    });
+    loadAll();
+  };
+
   const markPaid = (id: string) => rpc("x1_mark_paid", { p_id: id }, "Marcado como pago — admin vai confirmar");
   const cancelX1 = (id: string) => rpc("x1_cancel", { p_id: id }, "Desafio cancelado");
 
