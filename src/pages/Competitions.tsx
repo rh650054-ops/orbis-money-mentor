@@ -142,18 +142,18 @@ export default function Competitions() {
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-foreground flex-1">Competições</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground flex-1 min-w-0 truncate">Competições</h1>
         {isAdmin && (
           <button
             onClick={() => navigate("/admin/competitions")}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-sm font-bold active:scale-[0.97] transition-transform"
+            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-primary/15 border border-primary/40 text-primary text-sm font-bold whitespace-nowrap active:scale-[0.97] transition-transform"
           >
             <Plus className="w-4 h-4" /> Criar
           </button>
         )}
         <button
           onClick={() => navigate("/x1")}
-          className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-sm font-bold active:scale-[0.97] transition-transform"
+          className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-amber-500/15 border border-amber-500/40 text-amber-400 text-sm font-bold whitespace-nowrap active:scale-[0.97] transition-transform"
         >
           <Swords className="w-4 h-4" /> X1
         </button>
