@@ -20,8 +20,9 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const [forceShow, setForceShow] = useState<{ pix: boolean; cartao: boolean }>({ pix: false, cartao: false });
   const dia = getExtratoDia();
   const diaLabel = `${dia.slice(8, 10)}/${dia.slice(5, 7)}`;
-  const { pix, cartao, totalDia, upload, remove } = useMeuExtrato(userId, dia);
+  const { pix, cartao, totalDia, upload, uploadMes, remove } = useMeuExtrato(userId, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
+  const [busyMes, setBusyMes] = useState(false);
   const [deleting, setDeleting] = useState<null | "pix" | "cartao">(null);
   // Últimos valores que NÃO contaram (com o motivo exato) — mostrado no card.
   const [avisos, setAvisos] = useState<{ valor?: number; motivo?: string; descricao?: string }[]>([]);
@@ -96,6 +97,31 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
           : "Veja embaixo o motivo exato de cada um.",
       });
     }
+  };
+
+  // ESQUECEU UM DIA? Manda o extrato do MÊS aqui mesmo: a IA separa por dia e
+  // preenche só os dias trabalhados (DEFCON iniciado) que ainda estão vazios.
+  const onFileMes = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (e.target) e.target.value = "";
+    if (!file) return;
+    setBusyMes(true);
+    const r = await uploadMes("pix", file);
+    setBusyMes(false);
+    if (!r.ok) {
+      toast({ title: "Não consegui ler esse extrato", description: r.erro ?? "Tenta um PDF ou print mais nítido.", variant: "destructive" });
+      return;
+    }
+    const salvos = r.diasSalvos ?? [];
+    const pulados = r.diasPulados ?? [];
+    const fmtD = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+    toast({
+      title: salvos.length > 0 ? `📅 ${salvos.length} dia(s) preenchido(s)!` : "Nenhum dia novo pra preencher",
+      description: [
+        salvos.length > 0 ? `Salvos: ${salvos.map((d: any) => `${fmtD(d.dia)} (${formatCurrency(d.total)})`).join(", ")}.` : "",
+        pulados.length > 0 ? `Pulados: ${pulados.map((d: any) => `${fmtD(d.dia)} — ${d.motivo}`).join("; ")}.` : "",
+      ].filter(Boolean).join(" "),
+    });
   };
 
   const onDelete = async (tipo: "pix" | "cartao") => {
@@ -218,6 +244,17 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
           {avisos.length > 8 && <p className="text-[10px] text-muted-foreground/70">+{avisos.length - 8} outro(s)</p>}
         </div>
       )}
+      {/* Esqueceu de mandar o extrato de um dia? Resolve aqui mesmo, sem trocar de tela. */}
+      <label className={`block rounded-xl border border-dashed border-border bg-card/40 p-2.5 cursor-pointer active:scale-[0.99] transition-transform ${busyMes ? "opacity-60 pointer-events-none" : ""}`}>
+        <span className="flex items-center justify-center gap-2 text-[11px] font-bold text-foreground/80">
+          {busyMes ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : "📅"}
+          {busyMes ? "Lendo o mês e separando por dia…" : "Esqueceu de mandar o extrato de um dia? Manda ele aqui"}
+        </span>
+        <span className="block text-center text-[9px] text-muted-foreground mt-0.5">
+          Vale a qualquer hora: envia o extrato do mês que a IA separa e preenche cada dia que faltou
+        </span>
+        <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onFileMes} disabled={busyMes} />
+      </label>
       <input ref={pixRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onFile("pix", e)} />
       <input ref={cartaoRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onFile("cartao", e)} />
     </div>
