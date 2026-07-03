@@ -436,7 +436,7 @@ export function DefconRunning({
         {/* Timer — elemento dominante */}
         <div className="flex flex-col items-center gap-3 -my-1">
           <div
-            className={`text-[104px] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
+            className={`text-[clamp(64px,26vw,104px)] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
               isUrgent ? "text-destructive animate-pulse" : "text-foreground"
             }`}
             style={{
@@ -461,17 +461,18 @@ export function DefconRunning({
           </div>
         </div>
 
-        {/* Bloco info — métricas em colunas com label */}
-        <div className="flex items-center justify-center gap-6 px-2">
+        {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
+            fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
+        <div className="w-full flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2">
           {/* Faturado */}
-          <div className="flex flex-col items-center gap-0.5">
+          <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Bloco</span>
-            <span className="font-black text-success text-[20px] font-mono tabular-nums leading-none">
+            <span className="font-black text-success text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
               {formatCurrency(blockSold)}
             </span>
           </div>
 
-          <span className="w-px h-8 bg-border" />
+          <span className="w-px h-8 bg-border shrink-0" />
 
           {/* Vendas — tocável: abre o detalhe por venda do bloco */}
           <button
@@ -481,28 +482,28 @@ export function DefconRunning({
             className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
           >
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Vendas</span>
-            <span className="font-black text-foreground text-[20px] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
+            <span className="font-black text-foreground text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
               {blockSalesCount}
             </span>
           </button>
 
-          <span className="w-px h-8 bg-border" />
+          <span className="w-px h-8 bg-border shrink-0" />
 
           {/* Abordagens */}
           <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
             <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Abord.</span>
-            <span className="font-black text-foreground text-[20px] font-mono tabular-nums leading-none">
+            <span className="font-black text-foreground text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
               {blockApproaches}
             </span>
           </div>
 
           {blockApproaches > 0 && (
             <>
-              <span className="w-px h-8 bg-border" />
+              <span className="w-px h-8 bg-border shrink-0" />
               {/* Conversão */}
               <div className="flex flex-col items-center gap-0.5">
                 <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Conv.</span>
-                <span className="font-black text-primary text-[20px] font-mono tabular-nums leading-none">
+                <span className="font-black text-primary text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
                   {conversionRate}%
                 </span>
               </div>

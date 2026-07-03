@@ -51,6 +51,7 @@ const ResetPassword = lazyWithReload(() => import("@/pages/ResetPassword"));
 const ForcePasswordChange = lazyWithReload(() => import("@/pages/ForcePasswordChange"));
 const Payment = lazyWithReload(() => import("@/pages/Payment"));
 const Benefits = lazyWithReload(() => import("@/pages/Benefits"));
+const AdminCenter = lazyWithReload(() => import("@/pages/AdminCenter"));
 const AdminDemoUsers = lazyWithReload(() => import("@/pages/AdminDemoUsers"));
 const AdminSubscriptions = lazyWithReload(() => import("@/pages/AdminSubscriptions"));
 const AdminCompetitions = lazyWithReload(() => import("@/pages/AdminCompetitions"));
@@ -120,6 +121,7 @@ export function AppRouter() {
                     <Route path="/bank-connections" element={<BankConnections />} />
                     <Route path="/spot-finder" element={<SpotFinder />} />
                     <Route path="/meu-extrato" element={<MeuExtrato />} />
+                    <Route path="/admin" element={<AdminCenter />} />
                     <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                     <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                     <Route path="/admin/competitions" element={<AdminCompetitions />} />

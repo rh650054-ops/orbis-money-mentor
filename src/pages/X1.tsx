@@ -6,7 +6,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, Swords, Plus, Trophy, Check, X, Search, Copy, Upload, Loader2, Eye, Sparkles } from "lucide-react";
+import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2 } from "lucide-react";
 
 interface X1 {
   id: string;
@@ -62,8 +62,8 @@ interface NegForm {
 // (previa de teste). Vire true pra liberar pra todo mundo. A seguranca real esta
 // no banco (RLS/RPCs) — isto aqui e so o interruptor visual.
 const CARTEIRA_LIBERADA = true;
-// Tesouraria: SO Rick e Mohamed (o banco tambem barra — funcao x1_tesouraria).
-const TESOURARIA_UIDS = ["79312077-3496-44b0-b543-4c9f81425425", "e38b0499-abbc-439d-b592-c8cac4c83741"];
+// ADMIN: os painéis de administração (tesouraria, carteiras, depósitos, liquidação
+// e revisões) saíram desta tela → agora moram em Perfil → Administração (/admin).
 
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const dateBR = (iso: string | null) => {
@@ -100,13 +100,10 @@ export default function X1() {
   const [list, setList] = useState<X1[]>([]);
   const [profiles, setProfiles] = useState<Record<string, RankUser>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
-  // Extratos verificados pela IA (total do dia por duelista) — pro admin decidir o vencedor.
-  const [extratos, setExtratos] = useState<Record<string, { total: number; qtd: number }>>({});
   const [uploadingProof, setUploadingProof] = useState<string | null>(null); // id do X1 subindo comprovante
   const [openPlacar, setOpenPlacar] = useState<string | null>(null); // id do X1 com o placar aberto
   const [placar, setPlacar] = useState<Record<string, { ch: number; op: number }>>({}); // totais ao vivo por duelo
   const prevStatusRef = useRef<Record<string, string>>({}); // status anterior de cada duelo (pra avisar "liberado")
-  const [aiById, setAiById] = useState<Record<string, { loading?: boolean; suspeito?: boolean; score?: number; motivo?: string; erro?: string }>>({}); // parecer da IA por duelista
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"list" | "new">("list");
   const [profileUid, setProfileUid] = useState<string | null>(null);
@@ -115,26 +112,14 @@ export default function X1() {
   const [saldo, setSaldo] = useState(0);
   const [txs, setTxs] = useState<WalletTx[]>([]);
   const [depositOpen, setDepositOpen] = useState(false);
-  // Admin: creditar depósito / registrar saque na carteira de alguém.
-  const [admWallet, setAdmWallet] = useState({ busca: "", achados: [] as RankUser[], sel: null as RankUser | null, valor: "", tipo: "deposito" as "deposito" | "saque" });
   // Depósito por comprovante: sobe o recibo do Pix, a IA valida e credita sozinha.
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
   // Depósito AUTOMÁTICO (Mercado Pago): QR dinâmico + webhook = saldo cai sozinho.
   const [mpValor, setMpValor] = useState("20");
   const [mpGerando, setMpGerando] = useState(false);
   const [mpQr, setMpQr] = useState<null | { paymentId: string; valor: number; copiaCola: string; qrB64: string | null }>(null);
-  // Admin: fila de depósitos pendentes de conferência + últimos auto-creditados.
-  const [depsPendentes, setDepsPendentes] = useState<{ id: string; user_id: string; valor: number; motivo: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
-  const [depsRecentes, setDepsRecentes] = useState<{ id: string; user_id: string; valor: number; e2e_id: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
   // Celebração pós-aceite: card "DUELO INICIADO" + envio pro DEFCON se for hoje.
   const [duelStarted, setDuelStarted] = useState<null | { nome: string; stakes: number; hoje: boolean; data: string | null }>(null);
-  // Tesouraria (só Rick e Mohamed): resumo financeiro da carteira.
-  const [tesouraria, setTesouraria] = useState<null | {
-    total_devido: number; depositos: number; saques: number; em_jogo: number;
-    premios_pagos: number; taxas: number;
-    por_usuario: { user_id: string; nome: string; saldo: number }[];
-  }>(null);
-  const podeVerTesouraria = !!user && TESOURARIA_UIDS.includes(user.id);
 
   // novo desafio
   const [ranking, setRanking] = useState<RankUser[]>([]);
@@ -197,28 +182,6 @@ export default function X1() {
       setProfiles(map);
     }
 
-    // Extratos verificados (IA) dos duelistas nos duelos em andamento / aguardando resultado.
-    const relev = challenges.filter((c) => c.scheduled_date && (c.status === "active" || c.status === "awaiting_result"));
-    if (relev.length) {
-      const uids = Array.from(new Set(relev.flatMap((c) => [c.challenger_id, c.opponent_id])));
-      const dias = Array.from(new Set(relev.map((c) => c.scheduled_date))) as string[];
-      const { data: ex } = await supabase
-        .from("extrato_uploads")
-        .select("user_id, dia, total_verificado, qtd_vendas")
-        .in("user_id", uids)
-        .in("dia", dias);
-      const em: Record<string, { total: number; qtd: number }> = {};
-      ((ex as any[]) || []).forEach((r) => {
-        const k = `${r.user_id}|${r.dia}`;
-        if (!em[k]) em[k] = { total: 0, qtd: 0 };
-        em[k].total += Number(r.total_verificado) || 0;
-        em[k].qtd += Number(r.qtd_vendas) || 0;
-      });
-      setExtratos(em);
-    } else {
-      setExtratos({});
-    }
-
     const { data: st } = await supabase.from("x1_settings" as any).select("pix_account, fee_flat").eq("id", 1).maybeSingle();
     setSettings((st as any) || { pix_account: null, fee_flat: 0 });
 
@@ -229,29 +192,6 @@ export default function X1() {
     ]);
     setSaldo(Number((w as any)?.balance ?? 0));
     setTxs(((tx as any[]) || []) as WalletTx[]);
-
-    // Tesouraria: só tenta se for Rick/Mohamed (o banco barra qualquer outro de todo jeito).
-    if (TESOURARIA_UIDS.includes(user.id)) {
-      const { data: tes } = await (supabase as any).rpc("x1_tesouraria");
-      if (tes) setTesouraria(tes as any);
-    }
-
-    // Admin: fila de depósitos pendentes + últimos auto-creditados (pra bater com o banco).
-    if (whitelisted && role === "admin") {
-      const [{ data: pend }, { data: rec }] = await Promise.all([
-        supabase.from("x1_deposit_requests" as any).select("id, user_id, valor, motivo, remetente, created_at").eq("status", "pendente_revisao").order("created_at", { ascending: true }),
-        supabase.from("x1_deposit_requests" as any).select("id, user_id, valor, e2e_id, remetente, created_at").eq("status", "creditado").order("created_at", { ascending: false }).limit(8),
-      ]);
-      const todos = [...(((pend as any[]) || [])), ...(((rec as any[]) || []))];
-      const uidsDep = Array.from(new Set(todos.map((d) => d.user_id)));
-      let nomes: Record<string, string> = {};
-      if (uidsDep.length) {
-        const { data: pf } = await supabase.from("public_profiles").select("user_id, nickname").in("user_id", uidsDep);
-        ((pf as any[]) || []).forEach((p) => (nomes[p.user_id] = p.nickname));
-      }
-      setDepsPendentes((((pend as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
-      setDepsRecentes((((rec as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
-    }
     setLoading(false);
   };
 
@@ -433,61 +373,7 @@ export default function X1() {
     }
   };
 
-  // Admin: análise da IA de um duelista (anti-burla) — parecer antes de premiar.
-  const analisarIA = async (uid: string) => {
-    setAiById((a) => ({ ...a, [uid]: { loading: true } }));
-    try {
-      const { data, error } = await supabase.functions.invoke("analisar-anomalia", { body: { user_id: uid } });
-      if (error) throw error;
-      const r = data as any;
-      if (r?.error) throw new Error(r.error);
-      setAiById((a) => ({ ...a, [uid]: { suspeito: !!r.suspeito, score: Number(r.score ?? 0), motivo: r.motivo || "" } }));
-    } catch (e: any) {
-      setAiById((a) => ({ ...a, [uid]: { erro: e?.message || "Falhou — tenta de novo." } }));
-    }
-  };
-
-  // Admin abre o comprovante (URL assinada temporária do bucket privado).
-  const viewProof = async (path: string | null) => {
-    if (!path) return;
-    const { data } = await supabase.storage.from("x1-proofs").createSignedUrl(path, 120);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-    else toast({ title: "Não consegui abrir o comprovante", variant: "destructive" });
-  };
-  const adminConfirmPayment = (id: string) => rpc("x1_admin_confirm_payment", { p_id: id }, "Pagamentos confirmados — duelo liberado");
-  const setWinner = (c: X1, winner: string) =>
-    rpc(
-      "x1_admin_set_result",
-      { p_id: c.id, p_winner: winner, p_challenger_score: null, p_opponent_score: null, p_prize: c.prize_amount, p_fee: c.fee_amount, p_notes: "" },
-      "Resultado salvo! 🏆",
-    );
-
   const name = (uid: string) => profiles[uid]?.nome_usuario || "Vendedor";
-
-  // Admin: busca usuário por nome pra creditar/debitar carteira.
-  const admBuscar = async (q: string) => {
-    setAdmWallet((s) => ({ ...s, busca: q, sel: null }));
-    if (q.trim().length < 2) {
-      setAdmWallet((s) => ({ ...s, achados: [] }));
-      return;
-    }
-    const { data } = await supabase.from("public_profiles").select("user_id, nickname, avatar_url").ilike("nickname", `%${q.trim()}%`).limit(5);
-    setAdmWallet((s) => ({ ...s, achados: (((data as any[]) || []).map((p) => ({ user_id: p.user_id, nome_usuario: p.nickname, avatar_url: p.avatar_url })) as RankUser[]) }));
-  };
-  const admMoverCarteira = async () => {
-    const v = Number(admWallet.valor);
-    if (!admWallet.sel || !v || v <= 0) {
-      toast({ title: "Escolhe o vendedor e um valor válido", variant: "destructive" });
-      return;
-    }
-    await rpc(
-      "x1_admin_wallet_move",
-      { p_user: admWallet.sel.user_id, p_amount: v, p_tipo: admWallet.tipo, p_notes: `${admWallet.tipo} via painel X1` },
-      admWallet.tipo === "deposito" ? `Crédito de ${fmt(v)} pra ${admWallet.sel.nome_usuario} ✅` : `Saque de ${fmt(v)} registrado ✅`,
-    );
-    setAdmWallet({ busca: "", achados: [], sel: null, valor: "", tipo: "deposito" });
-  };
-  const admLiquidarAgora = () => rpc("x1_settle_due", {}, "Liquidação executada — confere os resultados 🏁");
 
   // Sobe o comprovante do Pix de DEPÓSITO → IA valida → credita sozinho (com travas).
   const enviarComprovanteDeposito = async (e: React.ChangeEvent<HTMLInputElement>) => {

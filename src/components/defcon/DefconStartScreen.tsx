@@ -16,7 +16,9 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <div className="h-[100dvh] bg-background pt-safe pb-safe flex flex-col px-6 select-none overflow-hidden">
+    // min-h + overflow-y-auto: em telas baixas (celular pequeno / paisagem) a tela
+    // rola em vez de CORTAR o botão de iniciar (era o layout quebrado).
+    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col px-6 select-none overflow-y-auto">
       {/* Top: brand */}
       <div className="pt-4 text-center">
         <div className="text-xs font-mono text-destructive tracking-[0.5em] uppercase">
