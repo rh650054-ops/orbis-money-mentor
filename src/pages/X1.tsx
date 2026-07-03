@@ -439,53 +439,6 @@ export default function X1() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mpQr?.paymentId]);
 
-  const admResolverDeposito = (id: string, aprovar: boolean) =>
-    rpc("x1_admin_resolve_deposit", { p_id: id, p_aprovar: aprovar, p_motivo: aprovar ? null : "não localizado no banco" }, aprovar ? "Depósito creditado ✅" : "Depósito rejeitado");
-
-  // Painel de evidência (admin): total do extrato verificado pela IA de cada duelista + ✓ se bateu a meta.
-  const evidence = (c: X1) => {
-    const row = (uid: string) => {
-      const e = extratos[`${uid}|${c.scheduled_date}`];
-      const hitGoal = c.goal_amount != null && e != null && e.total >= c.goal_amount;
-      const ai = aiById[uid];
-      return (
-        <div className="rounded-lg bg-card border border-border/60 px-2.5 py-1.5 space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold text-foreground truncate">{name(uid)}</span>
-            <span className="text-xs font-black tabular-nums shrink-0" style={{ color: e ? "#22c55e" : "#6b7280" }}>
-              {e ? fmt(e.total) : "sem extrato"}{hitGoal ? " · ✓ meta" : ""}
-            </span>
-          </div>
-          <button
-            onClick={() => analisarIA(uid)}
-            disabled={ai?.loading}
-            className="w-full h-7 rounded-md bg-primary/10 border border-primary/40 text-primary text-[11px] font-bold inline-flex items-center justify-center gap-1 disabled:opacity-60"
-          >
-            {ai?.loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} Analisar com IA
-          </button>
-          {ai && !ai.loading &&
-            (ai.erro ? (
-              <p className="text-[10px] text-red-400">Erro: {ai.erro}</p>
-            ) : (
-              <p className="text-[10px] leading-snug" style={{ color: (ai.score ?? 0) >= 60 ? "#f87171" : "#4ade80" }}>
-                IA: {ai.suspeito ? "🚩 Suspeito" : "✅ Normal"} · {ai.score} — <span className="text-muted-foreground">{ai.motivo}</span>
-              </p>
-            ))}
-        </div>
-      );
-    };
-    return (
-      <div className="space-y-1.5">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Análise: extrato verificado + IA — dia {dateBR(c.scheduled_date)}
-        </p>
-        {row(c.challenger_id)}
-        {row(c.opponent_id)}
-        <p className="text-[9px] text-muted-foreground/70">A IA dá o parecer; você decide o vencedor abaixo.</p>
-      </div>
-    );
-  };
-
   const togglePlacar = (id: string) => setOpenPlacar((cur) => (cur === id ? null : id));
 
   // ARENA: placar do duelo estilo jogo de luta — avatares frente a frente, barras
@@ -748,42 +701,6 @@ export default function X1() {
         </h1>
       </div>
 
-      {/* ===== Tesouraria (SÓ Rick e Mohamed — o banco barra o resto) ===== */}
-      {podeVerTesouraria && tesouraria && (
-        <div className="rounded-2xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3">
-          <p className="text-[10px] font-black uppercase tracking-wider text-violet-400">🏦 Tesouraria X1 · confidencial</p>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-xl bg-card border border-border/60 p-3">
-              <p className="text-[10px] uppercase text-muted-foreground font-bold">Devido aos usuários</p>
-              <p className="text-xl font-black text-foreground tabular-nums">{fmt(tesouraria.total_devido)}</p>
-              <p className="text-[9px] text-muted-foreground/70">tem que ter isso na conta Pix do Orbis</p>
-            </div>
-            <div className="rounded-xl bg-card border border-border/60 p-3">
-              <p className="text-[10px] uppercase text-muted-foreground font-bold">Taxas acumuladas</p>
-              <p className="text-xl font-black text-emerald-400 tabular-nums">{fmt(tesouraria.taxas)}</p>
-              <p className="text-[9px] text-muted-foreground/70">isso é do Orbis 💰</p>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-            <span className="text-muted-foreground">Depósitos totais</span><span className="text-right font-bold tabular-nums text-foreground">{fmt(tesouraria.depositos)}</span>
-            <span className="text-muted-foreground">Saques totais</span><span className="text-right font-bold tabular-nums text-foreground">{fmt(tesouraria.saques)}</span>
-            <span className="text-muted-foreground">Em jogo agora (duelos ativos)</span><span className="text-right font-bold tabular-nums text-amber-400">{fmt(tesouraria.em_jogo)}</span>
-            <span className="text-muted-foreground">Prêmios já pagos</span><span className="text-right font-bold tabular-nums text-foreground">{fmt(tesouraria.premios_pagos)}</span>
-          </div>
-          {tesouraria.por_usuario.length > 0 && (
-            <div className="space-y-1 pt-1 border-t border-border/40">
-              <p className="text-[10px] uppercase text-muted-foreground font-bold pt-1">Saldo por usuário</p>
-              {tesouraria.por_usuario.map((u) => (
-                <div key={u.user_id} className="flex items-center justify-between text-[11px]">
-                  <span className="text-foreground truncate">{u.nome}</span>
-                  <span className="font-bold tabular-nums text-emerald-400 shrink-0">{fmt(u.saldo)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* ===== Carteira X1: deposita uma vez, duela sem burocracia =====
            PRÉVIA: enquanto CARTEIRA_LIBERADA=false, usuário comum NÃO vê. */}
       {(CARTEIRA_LIBERADA || isAdmin) && (
@@ -878,79 +795,6 @@ export default function X1() {
       <button onClick={openNew} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98]">
         <Plus className="w-4 h-4" /> Chamar alguém pra X1
       </button>
-
-      {/* ===== Admin: carteira + liquidação — REMOVIDO da UI (Rick) ===== */}
-      {false && isAdmin && (
-        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2.5">
-          <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · Carteiras e liquidação</p>
-          <input
-            value={admWallet.busca}
-            onChange={(e) => admBuscar(e.target.value)}
-            placeholder="Buscar vendedor pra creditar/debitar…"
-            className="w-full h-10 px-3 rounded-xl bg-card border border-border text-sm text-foreground"
-          />
-          {admWallet.achados.length > 0 && !admWallet.sel && (
-            <div className="space-y-1">
-              {admWallet.achados.map((r) => (
-                <button key={r.user_id} onClick={() => setAdmWallet((s) => ({ ...s, sel: r, achados: [] }))} className="w-full text-left px-3 py-2 rounded-lg bg-card border border-border/60 text-xs text-foreground">
-                  {r.nome_usuario || "Vendedor"}
-                </button>
-              ))}
-            </div>
-          )}
-          {admWallet.sel && (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-bold text-foreground">{admWallet.sel.nome_usuario}</span>
-              <input type="number" inputMode="numeric" value={admWallet.valor} onChange={(e) => setAdmWallet((s) => ({ ...s, valor: e.target.value }))} placeholder="R$" className="w-24 h-9 px-2 rounded-lg bg-card border border-border text-sm text-foreground" />
-              <select value={admWallet.tipo} onChange={(e) => setAdmWallet((s) => ({ ...s, tipo: e.target.value as "deposito" | "saque" }))} className="h-9 px-2 rounded-lg bg-card border border-border text-xs text-foreground">
-                <option value="deposito">Depósito</option>
-                <option value="saque">Saque</option>
-              </select>
-              <button onClick={admMoverCarteira} className="h-9 px-3 rounded-lg bg-primary/15 border border-primary/40 text-primary text-xs font-bold">Aplicar</button>
-            </div>
-          )}
-          <button onClick={admLiquidarAgora} className="w-full h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
-            🏁 Liquidar duelos vencidos agora (roda sozinho às 9h05)
-          </button>
-
-          {/* Fila de depósitos aguardando conferência */}
-          {depsPendentes.length > 0 && (
-            <div className="space-y-1.5 pt-1 border-t border-border/40">
-              <p className="text-[10px] font-black uppercase tracking-wider text-amber-400 pt-1">📋 Depósitos aguardando conferência ({depsPendentes.length})</p>
-              {depsPendentes.map((d) => (
-                <div key={d.id} className="rounded-lg bg-card border border-border/60 p-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 text-[11px]">
-                    <span className="font-bold text-foreground truncate">{d.nome || "Vendedor"} · {fmt(d.valor)}</span>
-                    <span className="text-muted-foreground shrink-0">{new Date(d.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  {d.remetente && <p className="text-[10px] text-muted-foreground">Remetente no comprovante: {d.remetente}</p>}
-                  {d.motivo && <p className="text-[10px] text-amber-400">Motivo: {d.motivo}</p>}
-                  <div className="flex gap-2">
-                    <button onClick={() => admResolverDeposito(d.id, true)} className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">✓ Caiu no banco — creditar</button>
-                    <button onClick={() => admResolverDeposito(d.id, false)} className="flex-1 h-8 rounded-lg bg-card border border-destructive/40 text-destructive text-[11px] font-bold">✗ Rejeitar</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Últimos auto-creditados: bater com o extrato do banco 1x/dia */}
-          {depsRecentes.length > 0 && (
-            <div className="space-y-1 pt-1 border-t border-border/40">
-              <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground pt-1">✅ Auto-creditados recentes — bata com o banco 1×/dia</p>
-              {depsRecentes.map((d) => (
-                <div key={d.id} className="flex items-center justify-between text-[10px] gap-2">
-                  <span className="text-foreground truncate">{d.nome || "Vendedor"} · {d.remetente ? `de ${d.remetente}` : ""}</span>
-                  <span className="text-muted-foreground shrink-0 tabular-nums">
-                    {fmt(d.valor)} · {new Date(d.created_at).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-              ))}
-              <p className="text-[9px] text-muted-foreground/70">Não achou algum no extrato do banco? Estorna pelo SQL: x1_admin_estornar_deposit(id).</p>
-            </div>
-          )}
-        </div>
-      )}
 
       {loading ? (
         <div className="space-y-3">
@@ -1176,22 +1020,7 @@ export default function X1() {
                       </div>
                     )}
 
-                    {isAdmin && (
-                      <div className="space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-2.5">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · conferir pagamento</p>
-                        <div className="flex gap-2">
-                          <button onClick={() => viewProof(c.challenger_proof_url)} disabled={!c.challenger_proof_url} className="flex-1 min-w-0 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground disabled:opacity-40 inline-flex items-center justify-center gap-1">
-                            <Eye className="w-3.5 h-3.5" /> {name(c.challenger_id)}
-                          </button>
-                          <button onClick={() => viewProof(c.opponent_proof_url)} disabled={!c.opponent_proof_url} className="flex-1 min-w-0 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground disabled:opacity-40 inline-flex items-center justify-center gap-1">
-                            <Eye className="w-3.5 h-3.5" /> {name(c.opponent_id)}
-                          </button>
-                        </div>
-                        <button onClick={() => adminConfirmPayment(c.id)} className="w-full h-9 rounded-lg border border-primary/40 bg-primary/10 text-primary text-xs font-bold">
-                          Confirmar pagamento dos dois → liberar duelo
-                        </button>
-                      </div>
-                    )}
+                    {/* Conferência de pagamento pelo admin → Perfil → Administração */}
                   </div>
                 )}
 
@@ -1208,20 +1037,7 @@ export default function X1() {
                         💰 {fmt(c.stakes_amount * 2)} garantidos na carteira · resultado automático às 9h do dia seguinte pelo extrato verificado — não esquece de subir o seu!
                       </p>
                     )}
-                    {isAdmin && (
-                      <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · premiar vencedor</p>
-                        {evidence(c)}
-                        <div className="flex gap-2">
-                          <button onClick={() => setWinner(c, c.challenger_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
-                            <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.challenger_id)}
-                          </button>
-                          <button onClick={() => setWinner(c, c.opponent_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
-                            <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.opponent_id)}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    {/* Premiação pelo admin → Perfil → Administração */}
                   </div>
                 )}
 
@@ -1250,21 +1066,7 @@ export default function X1() {
                   </p>
                 )}
 
-                {/* ----- admin: aguardando resultado (legado) ----- */}
-                {isAdmin && c.status === "awaiting_result" && (
-                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-2.5 space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · definir vencedor</p>
-                    {evidence(c)}
-                    <div className="flex gap-2">
-                      <button onClick={() => setWinner(c, c.challenger_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
-                        <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.challenger_id)}
-                      </button>
-                      <button onClick={() => setWinner(c, c.opponent_id)} className="flex-1 h-9 rounded-lg bg-card border border-border text-xs font-bold text-foreground">
-                        <Trophy className="w-3.5 h-3.5 inline mr-1 text-amber-400" />{name(c.opponent_id)}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                {/* Definição de vencedor pelo admin → Perfil → Administração */}
               </div>
             );
           })}
