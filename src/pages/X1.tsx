@@ -6,7 +6,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2 } from "lucide-react";
+import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2, ChevronRight } from "lucide-react";
 
 interface X1 {
   id: string;
@@ -112,6 +112,7 @@ export default function X1() {
   const [saldo, setSaldo] = useState(0);
   const [txs, setTxs] = useState<WalletTx[]>([]);
   const [depositOpen, setDepositOpen] = useState(false);
+  const [walletOpen, setWalletOpen] = useState(false); // abre a "tela" da carteira (saque/depósito)
   // Depósito por comprovante: sobe o recibo do Pix, a IA valida e credita sozinha.
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
   // Depósito AUTOMÁTICO (Mercado Pago): QR dinâmico + webhook = saldo cai sozinho.
@@ -734,26 +735,49 @@ export default function X1() {
       {/* ===== Carteira X1: deposita uma vez, duela sem burocracia =====
            PRÉVIA: enquanto CARTEIRA_LIBERADA=false, usuário comum NÃO vê. */}
       {(CARTEIRA_LIBERADA || isAdmin) && (
-      <div className="rounded-2xl border border-emerald-500/40 p-4 space-y-2" style={{ background: "radial-gradient(ellipse at top left, rgba(16,185,129,.16) 0%, #0c0c0f 60%)" }}>
-        {!CARTEIRA_LIBERADA && (
-          <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">🔒 Prévia — usuários ainda não veem este card</p>
-        )}
+      <>
+      {/* Card COMPACTO na tela: só o valor. Toca -> abre a tela da carteira. */}
+      <button
+        onClick={() => setWalletOpen(true)}
+        className="w-full text-left rounded-2xl border border-amber-500/40 p-4 flex items-center justify-between gap-3 active:scale-[0.99] transition-transform"
+        style={{ background: "radial-gradient(ellipse at top left, rgba(245,158,11,.16) 0%, #0c0c0f 60%)" }}
+      >
+        <div>
+          {!CARTEIRA_LIBERADA && (
+            <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">🔒 Prévia — usuários ainda não veem</p>
+          )}
+          <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">💰 Sua carteira X1</p>
+          <p className="text-3xl sm:text-4xl font-black text-amber-300 tabular-nums leading-none mt-0.5" style={{ textShadow: "0 0 20px rgba(245,158,11,.35)" }}>{fmt(saldo)}</p>
+          <p className="text-[10px] text-muted-foreground mt-1">toque para sacar ou depositar</p>
+        </div>
+        <ChevronRight className="w-6 h-6 text-amber-400 shrink-0" />
+      </button>
+
+      {/* TELA da carteira (abre por cima): saque + depósito + histórico */}
+      {walletOpen && (
+      <div className="fixed inset-0 z-50 bg-background overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-24 space-y-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => { setWalletOpen(false); setWithdrawOpen(false); setDepositOpen(false); }} className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted/40">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-xl font-bold text-foreground">Sua carteira X1</h1>
+          </div>
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">💰 Sua carteira X1</p>
-            <p className="text-3xl sm:text-4xl font-black text-emerald-300 tabular-nums leading-none mt-0.5" style={{ textShadow: "0 0 20px rgba(16,185,129,.35)" }}>{fmt(saldo)}</p>
-            <p className="text-[10px] text-muted-foreground mt-1">saldo disponível pros seus X1</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">💰 Saldo</p>
+            <p className="text-3xl sm:text-4xl font-black text-amber-300 tabular-nums leading-none mt-0.5" style={{ textShadow: "0 0 20px rgba(245,158,11,.35)" }}>{fmt(saldo)}</p>
           </div>
           <div className="flex gap-1.5 shrink-0">
             <button
               onClick={() => { setWithdrawOpen((v) => !v); setDepositOpen(false); }}
-              className="h-10 px-3.5 rounded-xl bg-card border border-emerald-500/40 text-emerald-400 text-xs font-bold active:scale-[0.98]"
+              className="h-10 px-3.5 rounded-xl bg-card border border-amber-500/40 text-amber-400 text-xs font-bold active:scale-[0.98]"
             >
               {withdrawOpen ? "Fechar" : "Sacar"}
             </button>
             <button
               onClick={() => { setDepositOpen((v) => !v); setWithdrawOpen(false); }}
-              className="h-10 px-3.5 rounded-xl bg-emerald-500 text-black text-xs font-bold active:scale-[0.98]"
+              className="h-10 px-3.5 rounded-xl bg-amber-500 text-black text-xs font-bold active:scale-[0.98]"
             >
               {depositOpen ? "Fechar" : "Depositar"}
             </button>
@@ -889,7 +913,10 @@ export default function X1() {
             ))}
           </div>
         )}
+        </div>
       </div>
+      )}
+      </>
       )}
 
       <button onClick={openNew} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98]">
