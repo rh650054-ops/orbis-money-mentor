@@ -622,7 +622,8 @@ export default function X1() {
 
         {!opp ? (
           <>
-            <p className="text-sm text-muted-foreground">Escolha quem você quer desafiar no ranking:</p>
+            {/* FIGHTER SELECT: escolha seu oponente */}
+            <p className="text-center text-[11px] font-black uppercase tracking-[0.25em] text-amber-400">— Escolha seu oponente —</p>
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -632,38 +633,50 @@ export default function X1() {
                 className="w-full h-11 pl-9 pr-3 rounded-xl bg-card border border-border text-sm text-foreground"
               />
             </div>
-            <div className="space-y-1.5 max-h-[55vh] overflow-y-auto">
-              {filteredRanking.map((r) => (
+            <div className="grid grid-cols-3 gap-2 max-h-[55vh] overflow-y-auto pb-2">
+              {filteredRanking.map((r, i) => (
                 <button
                   key={r.user_id}
                   onClick={() => setOpp(r)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#0e0e10] active:scale-[0.99] transition-transform"
+                  className="rounded-xl p-2.5 flex flex-col items-center gap-1.5 active:scale-[0.95] transition-transform border border-border/60"
+                  style={{ background: "linear-gradient(160deg,#141417,#0b0b0e)" }}
                 >
                   {r.avatar_url ? (
-                    <img src={r.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover border-2 border-border" />
+                    <img src={r.avatar_url} alt="" className="w-14 h-14 rounded-full object-cover border-2" style={{ borderColor: i < 3 ? "#f59e0b" : "#3f3f46" }} />
                   ) : (
-                    <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground">
+                    <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-sm font-black text-foreground border-2" style={{ borderColor: i < 3 ? "#f59e0b" : "#3f3f46" }}>
                       {(r.nome_usuario ?? "?").slice(0, 2).toUpperCase()}
                     </div>
                   )}
-                  <span className="text-sm text-white truncate">{r.nome_usuario || "Vendedor"}</span>
+                  <span className="text-[10px] font-bold text-white truncate w-full text-center">{r.nome_usuario || "Vendedor"}</span>
+                  {i < 3 && <span className="text-[8px] font-black uppercase tracking-wider text-amber-400">TOP {i + 1} 👑</span>}
                 </button>
               ))}
-              {filteredRanking.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Ninguém encontrado.</p>}
+              {filteredRanking.length === 0 && <p className="col-span-3 text-sm text-muted-foreground text-center py-6">Ninguém encontrado.</p>}
             </div>
           </>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-xl bg-amber-500/10 border border-amber-500/30 p-3">
-              {opp.avatar_url ? (
-                <img src={opp.avatar_url} alt="" className="w-10 h-10 rounded-full object-cover" />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold">{(opp.nome_usuario ?? "?").slice(0, 2).toUpperCase()}</div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-foreground truncate">vs {opp.nome_usuario || "Vendedor"}</p>
-                <button onClick={() => setOpp(null)} className="text-xs text-amber-400 underline">trocar</button>
+            {/* FIGHT CARD: você VS ele */}
+            <div className="rounded-2xl border border-amber-500/40 p-4" style={{ background: "radial-gradient(ellipse at top,#1a1206 0%,#0c0c0f 65%)" }}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                  <div className="w-16 h-16 rounded-full bg-sky-500/15 border-[3px] border-sky-400 flex items-center justify-center text-lg font-black text-sky-300" style={{ boxShadow: "0 0 18px rgba(56,189,248,.4)" }}>
+                    VC
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-sky-400">Você</p>
+                </div>
+                <span className="text-3xl font-black italic text-amber-400 shrink-0" style={{ textShadow: "0 0 18px rgba(245,158,11,.8)" }}>VS</span>
+                <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                  {opp.avatar_url ? (
+                    <img src={opp.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover border-[3px] border-amber-400" style={{ boxShadow: "0 0 18px rgba(245,158,11,.4)" }} />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-muted border-[3px] border-amber-400 flex items-center justify-center text-lg font-black">{(opp.nome_usuario ?? "?").slice(0, 2).toUpperCase()}</div>
+                  )}
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-400 truncate max-w-full">{opp.nome_usuario || "Vendedor"}</p>
+                </div>
               </div>
+              <button onClick={() => setOpp(null)} className="block mx-auto mt-2 text-[10px] text-muted-foreground underline">trocar oponente</button>
             </div>
             <div>
               <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">O que é o desafio</label>
