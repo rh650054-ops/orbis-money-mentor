@@ -21,7 +21,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
   useEffect(() => {
     if (!userId) return;
     let vivo = true;
-    (async () => {
+    const carregar = async () => {
       const hoje = getBrazilDate();
       const { data } = await supabase
         .from("x1_challenges" as any)
@@ -60,9 +60,13 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
       } else {
         setEstado({ tipo: "cta" });
       }
-    })().catch(() => setEstado({ tipo: "cta" }));
+    };
+    carregar().catch(() => setEstado({ tipo: "cta" }));
+    // AO VIVO: placar do banner acompanha o DEFCON em tempo quase real (10s).
+    const t = setInterval(() => carregar().catch(() => {}), 10000);
     return () => {
       vivo = false;
+      clearInterval(t);
     };
   }, [userId]);
 
@@ -87,7 +91,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
     const naFrente = estado.my >= estado.opp;
     return (
       <button
-        onClick={() => navigate("/x1")}
+        onClick={() => navigate("/defcon")}
         className="w-full rounded-2xl p-3.5 text-left active:scale-[0.98] transition-transform border border-amber-500/50"
         style={{ background: "linear-gradient(100deg,#1a1206,#0c0c0f)" }}
       >
@@ -103,7 +107,7 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
           <span className="text-2xl shrink-0">{naFrente ? "🔥" : "⚠️"}</span>
         </div>
         <p className="text-[10px] font-bold mt-1" style={{ color: naFrente ? "#22c55e" : "#ff9b9b" }}>
-          {naFrente ? "Você está na frente — não para!" : `${estado.nome} está na frente — cada venda conta!`} Abrir arena →
+          {naFrente ? "Você está na frente — não para!" : `${estado.nome} está na frente — cada venda conta!`} Ir vender no DEFCON →
         </p>
       </button>
     );
