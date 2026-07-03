@@ -1139,30 +1139,41 @@ export default function X1() {
                             </div>
                           )}
 
-                          {/* Aceitar → desconta do saldo e o duelo começa NA HORA */}
+                          {/* CONTRATO DE DUELO: confirma o desconto e começa NA HORA */}
                           {f.open === "accept" && (
-                            <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 p-3 space-y-2">
+                            <div className="rounded-2xl border border-red-500/40 p-3.5 space-y-2.5" style={{ background: "radial-gradient(ellipse at top,#1a0808,#0c0c0f 70%)" }}>
+                              <p className="text-center text-[10px] font-black uppercase tracking-[0.25em] text-red-400">⚔️ Contrato de duelo</p>
                               {c.stakes_amount > 0 ? (
                                 <>
-                                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                                    Ao confirmar, <b className="text-amber-400">{fmt(c.stakes_amount)}</b> sai da carteira de cada um e o duelo
-                                    <b className="text-foreground"> começa na hora</b> — sem comprovante, sem espera. O prêmio cai direto na carteira do vencedor às 9h do dia seguinte, pelo extrato verificado.
+                                  <div className="grid grid-cols-2 gap-2 text-center">
+                                    <div className="rounded-xl bg-black/40 border border-red-500/30 p-2">
+                                      <p className="text-[9px] uppercase font-bold text-muted-foreground">Sai da sua carteira</p>
+                                      <p className="text-lg font-black text-red-400 tabular-nums">−{fmt(c.stakes_amount)}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-black/40 border border-amber-500/30 p-2">
+                                      <p className="text-[9px] uppercase font-bold text-muted-foreground">Se vencer, leva</p>
+                                      <p className="text-lg font-black text-amber-400 tabular-nums">🏆 {fmt(Math.max(0, c.stakes_amount * 2 * 0.9))}</p>
+                                    </div>
+                                  </div>
+                                  <p className={`text-center text-[11px] font-bold ${saldo >= c.stakes_amount ? "text-emerald-400" : "text-red-400"}`}>
+                                    {saldo >= c.stakes_amount ? `Saldo: ${fmt(saldo)} ✓ pronto pra guerra` : `⚠️ Saldo ${fmt(saldo)} — falta ${fmt(c.stakes_amount - saldo)}. Deposita primeiro!`}
                                   </p>
-                                  <p className={`text-[11px] font-bold ${saldo >= c.stakes_amount ? "text-emerald-400" : "text-red-400"}`}>
-                                    Seu saldo: {fmt(saldo)} {saldo < c.stakes_amount ? `— falta ${fmt(c.stakes_amount - saldo)}. Deposita primeiro!` : "✓"}
-                                  </p>
+                                  <p className="text-center text-[9px] text-muted-foreground">O oponente também tem {fmt(c.stakes_amount)} descontado. Resultado às 9h pelo extrato verificado — sem choro.</p>
                                 </>
                               ) : (
-                                <p className="text-[11px] text-muted-foreground">Duelo amistoso (sem aposta) — começa na hora. Valendo a glória! 🏆</p>
+                                <p className="text-center text-[11px] text-muted-foreground">Amistoso — sem aposta, valendo a honra. 🏆</p>
                               )}
-                              <div className="flex gap-2 pt-1">
-                                <button onClick={() => negotiate(c.id, "accept", {}, "⚔️ DUELO VALENDO! Bora vender!")} disabled={c.stakes_amount > 0 && saldo < c.stakes_amount} className="flex-1 h-9 rounded-lg bg-green-600 text-white text-xs font-bold disabled:opacity-50">
-                                  Confirmar — começar duelo ⚔️
-                                </button>
-                                <button onClick={() => patchNeg(c, { open: null })} className="h-9 px-3 rounded-lg bg-card border border-border text-muted-foreground text-xs font-bold">
-                                  Voltar
-                                </button>
-                              </div>
+                              <button
+                                onClick={() => aceitarDuelo(c)}
+                                disabled={c.stakes_amount > 0 && saldo < c.stakes_amount}
+                                className="w-full h-12 rounded-xl font-black text-sm active:scale-[0.97] transition-transform disabled:opacity-50"
+                                style={c.stakes_amount > 0
+                                  ? { background: "linear-gradient(160deg,#7f1d1d,#450a0a)", color: "#fecaca", border: "1px solid rgba(239,68,68,.6)", boxShadow: "0 0 20px rgba(239,68,68,.45)", textShadow: "0 0 10px rgba(239,68,68,.8)" }
+                                  : { background: "#16a34a", color: "#fff" }}
+                              >
+                                {c.stakes_amount > 0 ? `⚔️ ASSINAR — DESCONTAR ${fmt(c.stakes_amount)} E LUTAR` : "⚔️ COMEÇAR O DUELO"}
+                              </button>
+                              <button onClick={() => patchNeg(c, { open: null })} className="w-full text-[10px] text-muted-foreground underline">voltar</button>
                             </div>
                           )}
 
@@ -1350,6 +1361,39 @@ export default function X1() {
       )}
 
       <PublicProfileModal open={!!profileUid} onOpenChange={(v) => !v && setProfileUid(null)} userId={profileUid} />
+
+      {/* ===== DUELO INICIADO: celebração pós-aceite + rota pro DEFCON ===== */}
+      {duelStarted && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6" style={{ background: "rgba(0,0,0,.85)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-sm rounded-3xl border border-amber-500/50 p-6 text-center space-y-3 animate-in zoom-in-95" style={{ background: "radial-gradient(ellipse at top,#1a1206,#0c0c0f 70%)", boxShadow: "0 0 60px rgba(245,158,11,.25)" }}>
+            <p className="text-5xl">⚔️</p>
+            <p className="text-xl font-black text-white" style={{ textShadow: "0 0 20px rgba(245,158,11,.6)" }}>DUELO INICIADO!</p>
+            <p className="text-sm text-muted-foreground">
+              Você <span className="text-amber-400 font-black italic">VS</span> <span className="text-foreground font-bold">{duelStarted.nome}</span>
+              {duelStarted.stakes > 0 && <> · <span className="text-amber-400 font-black">{fmt(duelStarted.stakes * 2)} em jogo</span></>}
+            </p>
+            {duelStarted.stakes > 0 && (
+              <p className="text-[11px] text-emerald-400 font-semibold">💰 Apostas garantidas na carteira. O extrato das 9h decide — cada venda conta.</p>
+            )}
+            {duelStarted.hoje ? (
+              <button
+                onClick={() => {
+                  setDuelStarted(null);
+                  toast({ title: "🔥 É HOJE. É AGORA.", description: `${duelStarted.nome} já tá na rua. Cada venda te deixa na frente — VAI!` });
+                  navigate("/defcon");
+                }}
+                className="w-full h-13 py-3.5 rounded-2xl font-black text-sm active:scale-[0.97] transition-transform"
+                style={{ background: "linear-gradient(160deg,#7f1d1d,#450a0a)", color: "#fecaca", border: "1px solid rgba(239,68,68,.6)", boxShadow: "0 0 24px rgba(239,68,68,.5)", textShadow: "0 0 10px rgba(239,68,68,.8)" }}
+              >
+                🔥 IR PRO DEFCON E COMEÇAR A VENDER
+              </button>
+            ) : (
+              <p className="text-[11px] font-bold text-amber-400">📅 O duelo é {dateBR(duelStarted.data)} — descansa hoje, amanhã é guerra.</p>
+            )}
+            <button onClick={() => setDuelStarted(null)} className="text-[11px] text-muted-foreground underline">fechar</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
