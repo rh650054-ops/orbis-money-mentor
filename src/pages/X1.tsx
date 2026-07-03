@@ -361,6 +361,27 @@ export default function X1() {
   const markPaid = (id: string) => rpc("x1_mark_paid", { p_id: id }, "Marcado como pago — admin vai confirmar");
   const cancelX1 = (id: string) => rpc("x1_cancel", { p_id: id }, "Desafio cancelado");
 
+  // Admin: premiar o vencedor. Prêmio = pote (2x aposta) − taxa Orbis; placar do ao-vivo se houver.
+  const adminPremiar = (c: X1, winnerId: string) => {
+    if (!confirm(`Premiar ${name(winnerId)} como vencedor deste X1?`)) return;
+    const fee = Number(settings?.fee_flat ?? 0);
+    const prize = Math.max(0, Number(c.stakes_amount || 0) * 2 - fee);
+    const p = placar[c.id];
+    return rpc(
+      "x1_admin_set_result",
+      {
+        p_id: c.id,
+        p_winner: winnerId,
+        p_challenger_score: Number(p?.ch ?? 0),
+        p_opponent_score: Number(p?.op ?? 0),
+        p_prize: prize,
+        p_fee: fee,
+        p_notes: "definido pelo admin no X1",
+      },
+      "Vencedor premiado! 🏆",
+    );
+  };
+
   // Sobe o comprovante do Pix pro bucket privado, grava no desafio e marca como pago.
   const uploadProof = async (c: X1, file: File) => {
     if (!user) return;
@@ -1154,28 +1175,34 @@ export default function X1() {
                 {/* ----- active: em andamento ----- */}
                 {c.status === "active" && (
                   <div className="space-y-2">
-                    <p className="text-sm font-bold text-amber-400">⚔️ Desafio em andamento</p>
+                    <p className="text-sm font-bold text-amber-400">⚔️ Em andamento</p>
                     <p className="text-[11px] text-muted-foreground">
                       {dateBR(c.scheduled_date)}
-                      {c.goal_amount ? ` · meta ${fmt(c.goal_amount)}` : ""}
+                      {c.stakes_amount > 0 ? ` · ${fmt(c.stakes_amount * 2)} no pote · resultado às 9h pelo extrato` : ""}
                     </p>
-                    {c.stakes_amount > 0 && (
-                      <p className="text-[11px] text-emerald-400 font-semibold">
-                        💰 {fmt(c.stakes_amount * 2)} garantidos na carteira · resultado automático às 9h do dia seguinte pelo extrato verificado — não esquece de subir o seu!
-                      </p>
-                    )}
                     {isAdmin && (
-                      <div className="pt-2 mt-1 border-t border-amber-500/15 space-y-1.5">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">🛠️ Admin</p>
+                      <div className="pt-2 mt-1 border-t border-border/20 space-y-1.5">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Admin</p>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button
+                            onClick={() => adminPremiar(c, c.challenger_id)}
+                            className="h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold inline-flex items-center justify-center gap-1 active:scale-[0.98] transition-transform"
+                          >
+                            🏆 <span className="truncate">{name(c.challenger_id)}</span>
+                          </button>
+                          <button
+                            onClick={() => adminPremiar(c, c.opponent_id)}
+                            className="h-9 rounded-lg bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[11px] font-bold inline-flex items-center justify-center gap-1 active:scale-[0.98] transition-transform"
+                          >
+                            🏆 <span className="truncate">{name(c.opponent_id)}</span>
+                          </button>
+                        </div>
                         <button
                           onClick={() => cancelX1(c.id)}
                           className="w-full h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px] font-bold active:scale-[0.98] transition-transform"
                         >
-                          Cancelar / encerrar este desafio
+                          Cancelar desafio
                         </button>
-                        <p className="text-[9px] text-muted-foreground leading-snug">
-                          Definir vencedor com prêmio: Perfil → Administração.
-                        </p>
                       </div>
                     )}
                   </div>
