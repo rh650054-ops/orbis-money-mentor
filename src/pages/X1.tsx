@@ -993,8 +993,8 @@ export default function X1() {
         <Plus className="w-4 h-4" /> Chamar alguém pra X1
       </button>
 
-      {/* ===== Admin: carteira + liquidação ===== */}
-      {isAdmin && (
+      {/* ===== Admin: carteira + liquidação — REMOVIDO da UI (Rick) ===== */}
+      {false && isAdmin && (
         <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-2.5">
           <p className="text-[10px] font-black uppercase tracking-wider text-primary">Admin · Carteiras e liquidação</p>
           <input
