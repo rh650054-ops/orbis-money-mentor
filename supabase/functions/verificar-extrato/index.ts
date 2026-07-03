@@ -34,7 +34,16 @@ Seja honesto na classificacao: se nao for claramente um extrato do tipo certo, m
 DIA AUDITADO: ${dia}
 O extrato pode cobrir UM dia, VARIOS dias ou o MES INTEIRO (alguns bancos nao deixam
 pedir extrato de um dia so). Voce esta auditando SOMENTE o dia ${dia}:
+- ATENCAO: extratos de banco agrupam as transacoes POR DIA, com um cabecalho de data
+  por bloco (ex: "01 JUL 2026 Total de entradas", depois "02 JUL 2026 Total de
+  entradas"). LOCALIZE o bloco cujo cabecalho corresponde EXATAMENTE ao dia ${dia} e
+  use SOMENTE as transacoes DESSE bloco — pegar o bloco do dia errado e o PIOR erro
+  possivel aqui.
 - Liste APENAS transacoes cuja data de LANCAMENTO seja EXATAMENTE ${dia}.
+- Em CADA item de "vendas" e "suspeitas", inclua o campo "data" = "YYYY-MM-DD" da
+  transacao (obrigatorio).
+- CONFERENCIA FINAL (obrigatoria): antes de responder, verifique que TODOS os itens
+  tem "data" = "${dia}". Se algum tiver outra data, voce leu o bloco errado — refaça.
 - IGNORE COMPLETAMENTE as transacoes dos outros dias (nao entram em vendas, nem em
   suspeitas, nem em nenhum total). Faca de conta que nao existem.
 - "periodo_inicio" e "periodo_fim" = primeira e ultima data de transacao visiveis no
@@ -66,7 +75,7 @@ total_ignorado = soma de despesas + suspeitas do dia ${dia}.
 data_dia = "${dia}" se cobre_dia for true; senao "". Use a data de LANCAMENTO/transacao, NAO a data contabil.
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
-{"documento":"banco","cobre_dia":true,"periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"${dia}"}`;
+{"documento":"banco","cobre_dia":true,"periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","vendas":[{"descricao":"de quem/origem","valor":35.0,"data":"${dia}"}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia","data":"${dia}"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"${dia}"}`;
 }
 
 // Prompt do modo MES: a IA separa as vendas POR DIA, dentro da janela pedida.
@@ -257,7 +266,9 @@ Deno.serve(async (req) => {
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
-    const maxTokens = modo === "mes" ? 8000 : 1800;
+    // Dia cheio de vendedor de rua = 60+ Pix pequenos -> o JSON nao pode truncar
+    // (1800 cortava a lista no meio e sumia com metade das vendas do dia).
+    const maxTokens = modo === "mes" ? 8000 : 6000;
 
     let text = "";
     let motor = "";
@@ -414,8 +425,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const vendas = Array.isArray(parsed.vendas) ? parsed.vendas : [];
-    const suspeitas = Array.isArray(parsed.suspeitas) ? parsed.suspeitas : [];
+    // BACKSTOP DO DIA (caso Zeck): extrato de 2+ dias fazia a IA somar o bloco do
+    // dia ERRADO. Agora cada item vem com "data" e o servidor DERRUBA qualquer
+    // transacao que nao seja do dia auditado — o dia errado nao vaza pro total.
+    const doDia = (arr: any[]) => arr.filter((v: any) =>
+      typeof v?.data !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v.data) || v.data === dia);
+    const vendasBrutas = Array.isArray(parsed.vendas) ? parsed.vendas : [];
+    const suspeitasBrutas = Array.isArray(parsed.suspeitas) ? parsed.suspeitas : [];
+    const vendas = doDia(vendasBrutas);
+    const suspeitas = doDia(suspeitasBrutas);
+    const foraDoDia = vendasBrutas.length - vendas.length;
+    if (foraDoDia > 0) console.warn(`extrato: ${foraDoDia} transacao(oes) de outro dia descartada(s) (dia ${dia})`);
     const totalVendas = Number(parsed.total_vendas) || 0;
     const qtdVendas = Number(parsed.qtd_vendas) || vendas.length;
     const totalIgnorado = Number(parsed.total_ignorado) || 0;
