@@ -58,6 +58,13 @@ interface NegForm {
   date: string;
 }
 
+// LANCAMENTO DA CARTEIRA: enquanto false, o card da carteira so aparece pra ADMINS
+// (previa de teste). Vire true pra liberar pra todo mundo. A seguranca real esta
+// no banco (RLS/RPCs) — isto aqui e so o interruptor visual.
+const CARTEIRA_LIBERADA = false;
+// Tesouraria: SO Rick e Mohamed (o banco tambem barra — funcao x1_tesouraria).
+const TESOURARIA_UIDS = ["79312077-3496-44b0-b543-4c9f81425425", "e38b0499-abbc-439d-b592-c8cac4c83741"];
+
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const dateBR = (iso: string | null) => {
   if (!iso) return "a combinar";
@@ -110,6 +117,13 @@ export default function X1() {
   const [depositOpen, setDepositOpen] = useState(false);
   // Admin: creditar depósito / registrar saque na carteira de alguém.
   const [admWallet, setAdmWallet] = useState({ busca: "", achados: [] as RankUser[], sel: null as RankUser | null, valor: "", tipo: "deposito" as "deposito" | "saque" });
+  // Tesouraria (só Rick e Mohamed): resumo financeiro da carteira.
+  const [tesouraria, setTesouraria] = useState<null | {
+    total_devido: number; depositos: number; saques: number; em_jogo: number;
+    premios_pagos: number; taxas: number;
+    por_usuario: { user_id: string; nome: string; saldo: number }[];
+  }>(null);
+  const podeVerTesouraria = !!user && TESOURARIA_UIDS.includes(user.id);
 
   // novo desafio
   const [ranking, setRanking] = useState<RankUser[]>([]);
@@ -204,6 +218,12 @@ export default function X1() {
     ]);
     setSaldo(Number((w as any)?.balance ?? 0));
     setTxs(((tx as any[]) || []) as WalletTx[]);
+
+    // Tesouraria: só tenta se for Rick/Mohamed (o banco barra qualquer outro de todo jeito).
+    if (TESOURARIA_UIDS.includes(user.id)) {
+      const { data: tes } = await (supabase as any).rpc("x1_tesouraria");
+      if (tes) setTesouraria(tes as any);
+    }
     setLoading(false);
   };
 
@@ -597,8 +617,49 @@ export default function X1() {
         </h1>
       </div>
 
-      {/* ===== Carteira X1: deposita uma vez, duela sem burocracia ===== */}
+      {/* ===== Tesouraria (SÓ Rick e Mohamed — o banco barra o resto) ===== */}
+      {podeVerTesouraria && tesouraria && (
+        <div className="rounded-2xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-wider text-violet-400">🏦 Tesouraria X1 · confidencial</p>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl bg-card border border-border/60 p-3">
+              <p className="text-[10px] uppercase text-muted-foreground font-bold">Devido aos usuários</p>
+              <p className="text-xl font-black text-foreground tabular-nums">{fmt(tesouraria.total_devido)}</p>
+              <p className="text-[9px] text-muted-foreground/70">tem que ter isso na conta Pix do Orbis</p>
+            </div>
+            <div className="rounded-xl bg-card border border-border/60 p-3">
+              <p className="text-[10px] uppercase text-muted-foreground font-bold">Taxas acumuladas</p>
+              <p className="text-xl font-black text-emerald-400 tabular-nums">{fmt(tesouraria.taxas)}</p>
+              <p className="text-[9px] text-muted-foreground/70">isso é do Orbis 💰</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+            <span className="text-muted-foreground">Depósitos totais</span><span className="text-right font-bold tabular-nums text-foreground">{fmt(tesouraria.depositos)}</span>
+            <span className="text-muted-foreground">Saques totais</span><span className="text-right font-bold tabular-nums text-foreground">{fmt(tesouraria.saques)}</span>
+            <span className="text-muted-foreground">Em jogo agora (duelos ativos)</span><span className="text-right font-bold tabular-nums text-amber-400">{fmt(tesouraria.em_jogo)}</span>
+            <span className="text-muted-foreground">Prêmios já pagos</span><span className="text-right font-bold tabular-nums text-foreground">{fmt(tesouraria.premios_pagos)}</span>
+          </div>
+          {tesouraria.por_usuario.length > 0 && (
+            <div className="space-y-1 pt-1 border-t border-border/40">
+              <p className="text-[10px] uppercase text-muted-foreground font-bold pt-1">Saldo por usuário</p>
+              {tesouraria.por_usuario.map((u) => (
+                <div key={u.user_id} className="flex items-center justify-between text-[11px]">
+                  <span className="text-foreground truncate">{u.nome}</span>
+                  <span className="font-bold tabular-nums text-emerald-400 shrink-0">{fmt(u.saldo)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== Carteira X1: deposita uma vez, duela sem burocracia =====
+           PRÉVIA: enquanto CARTEIRA_LIBERADA=false, usuário comum NÃO vê. */}
+      {(CARTEIRA_LIBERADA || isAdmin) && (
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
+        {!CARTEIRA_LIBERADA && (
+          <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">🔒 Prévia — usuários ainda não veem este card</p>
+        )}
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">💰 Sua carteira X1</p>
@@ -637,6 +698,7 @@ export default function X1() {
           </div>
         )}
       </div>
+      )}
 
       <button onClick={openNew} className="w-full h-12 rounded-xl bg-amber-500 text-black font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98]">
         <Plus className="w-4 h-4" /> Chamar alguém pra X1
