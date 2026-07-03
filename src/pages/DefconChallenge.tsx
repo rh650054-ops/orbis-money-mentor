@@ -77,8 +77,9 @@ export default function DefconChallenge() {
   // Marca o usuário como "online" no ranking enquanto ele estiver no DEFCON.
   useDefconPresence(user?.id, defconAtivo);
 
-  // Alerta de X1: avisa (notificação marcada como X1) quando o oponente passa você.
-  useX1DefconAlert(user?.id, defconAtivo);
+  // Alerta de X1: notificação quando o oponente passa você + estado ao vivo pro
+  // widget DENTRO da tela (faixa de placar + banner de virada com vibração).
+  const x1Live = useX1DefconAlert(user?.id, defconAtivo);
 
   useDefconQuickNotification(defconAtivo, {
     totalSales: defcon.totalSalesCount ?? 0,
@@ -176,6 +177,7 @@ export default function DefconChallenge() {
           onDeleteSale={defcon.deleteSale}
           onboardingMode={treino}
           quickSaleValue={defcon.quickSaleValue}
+          x1Live={treino ? undefined : x1Live}
         />
       );
 

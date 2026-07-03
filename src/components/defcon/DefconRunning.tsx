@@ -7,6 +7,8 @@ import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
+import { DefconX1Live } from "./DefconX1Live";
+import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
@@ -37,6 +39,8 @@ interface DefconRunningProps {
   onDeleteSale?: (sale: any) => void;
   onboardingMode?: boolean;
   quickSaleValue?: number;
+  /** X1 do dia (se houver): faixa de placar ao vivo + banner de virada na tela */
+  x1Live?: X1LiveState;
 }
 
 export function DefconRunning({
@@ -64,6 +68,7 @@ export function DefconRunning({
   onDeleteSale,
   onboardingMode,
   quickSaleValue,
+  x1Live,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -398,6 +403,12 @@ export function DefconRunning({
         <div className="mt-1 text-xs font-mono text-muted-foreground">
           Meta: {formatCurrency(dailyGoal)} • Feito: <span className="text-success">{formatCurrency(totalSold)}</span>
         </div>
+        {/* X1 ao vivo — placar simultâneo ao DEFCON + banner quando a liderança vira */}
+        {x1Live && (
+          <div className="mt-2 flex justify-center">
+            <DefconX1Live x1={x1Live} />
+          </div>
+        )}
       </div>
 
       {/* Main content */}
