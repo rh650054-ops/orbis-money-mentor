@@ -19,6 +19,8 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const { pix, cartao, totalDia, upload, remove } = useMeuExtrato(userId, dia);
   const [busy, setBusy] = useState<null | "pix" | "cartao">(null);
   const [deleting, setDeleting] = useState<null | "pix" | "cartao">(null);
+  // Últimos valores que NÃO contaram (com o motivo exato) — mostrado no card.
+  const [avisos, setAvisos] = useState<{ valor?: number; motivo?: string; descricao?: string }[]>([]);
   const pixRef = useRef<HTMLInputElement>(null);
   const cartaoRef = useRef<HTMLInputElement>(null);
 
@@ -61,9 +63,11 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     e.target.value = "";
     if (!file) return;
     setBusy(tipo);
+    setAvisos([]);
     const r = await upload(tipo, file);
     setBusy(null);
     if (!r.ok) {
+      // Rejeição total: a IA já manda o motivo EXATO na dica (dia errado, doc errado, etc.).
       toast({
         title: r.erro ? "Extrato não aceito" : "Não consegui ler esse extrato",
         description: r.erro ?? "Tenta de novo ou manda uma foto mais nítida.",
@@ -71,11 +75,14 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
       });
       return;
     }
-    const susp = r.suspeitas?.length ?? 0;
-    if (susp > 0 || r.acimaDoDefcon) {
+    const susp = r.suspeitas ?? [];
+    setAvisos(susp);
+    if (susp.length > 0 || r.acimaDoDefcon) {
       toast({
-        title: "Extrato conferido — com avisos",
-        description: `${susp > 0 ? `${susp} venda(s) suspeita(s) ignorada(s). ` : ""}${r.acimaDoDefcon ? "Passou do total do DEFCON — marcado pra revisão." : ""}`.trim(),
+        title: susp.length > 0 ? `${susp.length} valor(es) não contaram` : "Extrato conferido — com aviso",
+        description: r.acimaDoDefcon
+          ? "Passou do total do DEFCON — marcado pra revisão. Veja o porquê no card."
+          : "Veja embaixo o motivo exato de cada um.",
       });
     }
   };
@@ -85,7 +92,8 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     setDeleting(tipo);
     const { ok } = await remove(tipo);
     setDeleting(null);
-    if (!ok) toast({ title: "Não consegui excluir agora", variant: "destructive" });
+    if (ok) setAvisos([]);
+    else toast({ title: "Não consegui excluir agora", variant: "destructive" });
   };
 
   // Agora o extrato vale pro ranking de TODO mundo, então o bloco aparece pra todos
@@ -155,6 +163,20 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
         <div className="flex items-center justify-between pt-1">
           <span className="text-xs text-muted-foreground">Verificado hoje</span>
           <span className="text-lg font-black text-emerald-400">{formatCurrency(totalDia)}</span>
+        </div>
+      )}
+      {avisos.length > 0 && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 space-y-1.5">
+          <p className="text-[11px] font-bold text-amber-400">Não contaram ({avisos.length}) — o porquê:</p>
+          {avisos.slice(0, 8).map((a, i) => (
+            <div key={i} className="flex items-start justify-between gap-2 text-[11px] leading-snug">
+              <span className="text-muted-foreground flex-1">
+                {a.motivo ?? "não contou"}{a.descricao ? ` · ${a.descricao}` : ""}
+              </span>
+              {a.valor ? <span className="text-amber-400 font-semibold shrink-0">{formatCurrency(Number(a.valor))}</span> : null}
+            </div>
+          ))}
+          {avisos.length > 8 && <p className="text-[10px] text-muted-foreground/70">+{avisos.length - 8} outro(s)</p>}
         </div>
       )}
       <input ref={pixRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onFile("pix", e)} />

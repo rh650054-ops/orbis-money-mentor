@@ -20,7 +20,7 @@ const corsHeaders = {
 function buildPrompt(nome: string, tipo: string, dia: string): string {
   const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
   const esperado = tipo === "cartao"
-    ? "EXTRATO/RELATORIO DE MAQUININHA DE CARTAO (adquirente: Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.) — mostra vendas no cartao, taxas e recebiveis."
+    ? "COMPROVANTE DAS VENDAS NO CARTAO — pode ser o relatorio/print da MAQUININHA (Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.) OU QUALQUER extrato/print onde aparecam os recebimentos do cartao (inclusive um extrato de banco). Liste as ENTRADAS de venda no cartao."
     : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos) — mostra Pix recebidos, saldo e transacoes da conta.";
   return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
 
@@ -73,7 +73,7 @@ Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
 function buildPromptMes(nome: string, tipo: string, iniJanela: string, fimJanela: string): string {
   const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
   const esperado = tipo === "cartao"
-    ? "EXTRATO/RELATORIO DE MAQUININHA DE CARTAO (adquirente: Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.)"
+    ? "COMPROVANTE DAS VENDAS NO CARTAO — relatorio/print da maquininha OU qualquer extrato/print onde aparecam os recebimentos do cartao (inclusive extrato de banco)"
     : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos)";
   return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
 
