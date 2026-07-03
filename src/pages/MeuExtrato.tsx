@@ -160,10 +160,11 @@ export default function MeuExtrato() {
       {/* Extrato do MES: preenche dias esquecidos (so dias com DEFCON iniciado e sem extrato) */}
       <Card className="border-dashed border-primary/30">
         <CardContent className="p-5 space-y-3">
-          <p className="font-bold">Esqueceu de enviar algum dia?</p>
+          <p className="font-bold">Esqueceu de enviar algum dia? Passou das 9h?</p>
           <p className="text-xs text-muted-foreground">
-            Manda o extrato do <b className="text-foreground">mês inteiro</b> que a IA separa por dia e preenche
-            os dias que você trabalhou (DEFCON iniciado) e ainda estão sem extrato. Não mexe nos dias já enviados.
+            Manda o extrato do <b className="text-foreground">mês inteiro</b> — pode ser a <b className="text-foreground">qualquer
+            hora do dia</b>. A IA separa por dia e preenche o que entrou em cada dia que você trabalhou
+            (DEFCON iniciado) e ainda está sem extrato. Não mexe nos dias já enviados.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {(["pix", "cartao"] as const).map((t) => (
@@ -187,8 +188,8 @@ export default function MeuExtrato() {
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground justify-center text-center">
         <Clock className="w-3.5 h-3.5 shrink-0" />
-        Esse extrato conta pro dia {diaLabel} · envie até as 9h da manhã (pra contar Pix atrasado). Pode reenviar.
-        Seu banco não deixa pedir extrato de um dia só? Manda o do mês inteiro — a IA separa e conta só o dia {diaLabel}.
+        Os cards de cima contam pro dia {diaLabel} · envie até as 9h da manhã (pra contar Pix atrasado). Pode reenviar.
+        Perdeu o horário ou esqueceu um dia? Usa o card do mês aí em cima — esse vale a qualquer hora.
       </div>
     </div>
   );

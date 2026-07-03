@@ -115,6 +115,53 @@ Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
 // Teto: Pix de R$100 ou mais NAO conta (venda de rua e de ticket baixo).
 const TETO_PIX = 100;
 
+// ---- Conserto de JSON truncado (resposta cortada no max_tokens) ----
+// Extrato do mes de vendedor de rua = centenas de Pix -> a resposta da IA pode
+// estourar o limite e vir cortada no meio. Em vez de falhar tudo ("nao consegui
+// ler"), corta no ultimo item completo e fecha as chaves/colchetes abertos —
+// perde no maximo o ultimo item parcial, salva o resto.
+function fechamentosAbertos(s: string): string | null {
+  const stack: string[] = [];
+  let inStr = false, esc = false;
+  for (const ch of s) {
+    if (esc) { esc = false; continue; }
+    if (inStr) {
+      if (ch === "\\") esc = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{") stack.push("}");
+    else if (ch === "[") stack.push("]");
+    else if (ch === "}" || ch === "]") {
+      if (stack.pop() !== ch) return null; // desbalanceado de verdade
+    }
+  }
+  if (inStr) return null;
+  return stack.reverse().join("");
+}
+function reparaJsonTruncado(t: string): any | null {
+  const start = t.indexOf("{");
+  if (start < 0) return null;
+  const s = t.slice(start);
+  let cut = s.length;
+  for (let i = 0; i < 40 && cut > 1; i++) {
+    const idx = Math.max(s.lastIndexOf("}", cut - 1), s.lastIndexOf("]", cut - 1));
+    if (idx <= 0) return null;
+    const prefix = s.slice(0, idx + 1);
+    const closers = fechamentosAbertos(prefix);
+    if (closers !== null) {
+      try {
+        const p = JSON.parse(prefix + closers);
+        console.warn("extrato: JSON truncado reparado (perdeu o rabo da resposta)");
+        return p;
+      } catch { /* corta mais e tenta de novo */ }
+    }
+    cut = idx;
+  }
+  return null;
+}
+
 // Backstop no servidor (alem da IA): mesmo remetente + mesmo valor repetido 3x ou mais
 // = alguem inflando. Conta SO O PRIMEIRO; os repetidos viram suspeita com motivo exato.
 function separaRepetidos(vendas: any[]): { limpas: any[]; repetidas: any[] } {
@@ -251,7 +298,7 @@ Deno.serve(async (req) => {
     // Trava de uso: teto de extratos por dia (protege o gasto da IA).
     if (supa && uid) {
       try {
-        const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "extrato", p_limit: 6 });
+        const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "extrato", p_limit: 10 });
         if ((usage as any)?.over) {
           return json({ error: "limite_diario", dica: "Você já enviou bastante extrato hoje. Volta amanhã." }, 200);
         }
@@ -305,6 +352,8 @@ Deno.serve(async (req) => {
       const m = text.match(/\{[\s\S]*\}/);
       if (m) { try { parsed = JSON.parse(m[0]); } catch { /* noop */ } }
     }
+    // Resposta cortada no max_tokens? Repara em vez de falhar tudo.
+    if (!parsed) parsed = reparaJsonTruncado(text);
     if (!parsed) return json({ error: "leitura_falhou", raw: text.slice(0, 400) }, 422);
 
     // ===== MODO MES: preenche os dias esquecidos do mes =====
