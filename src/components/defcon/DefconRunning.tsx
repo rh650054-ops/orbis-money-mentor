@@ -1009,4 +1009,24 @@ export function DefconRunning({
                         aria-label="Excluir venda"
                         className="w-9 h-9 rounded-lg flex items-center justify-center text-destructive active:scale-90 active:bg-destructive/10 transition-[colors,transform,opacity]"
                       >
-               
+                        <X className="w-5 h-5" strokeWidth={2.5} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <button
+              onClick={() => { setShowBlockSales(false); setShowAddSale(true); }}
+              className="w-full h-12 rounded-xl bg-card border border-dashed border-primary/50 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] active:bg-primary/10 transition-[colors,transform,opacity]"
+            >
+              <Plus className="w-4 h-4" strokeWidth={3} />
+              Registrar venda
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

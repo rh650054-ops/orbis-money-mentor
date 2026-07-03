@@ -246,4 +246,8 @@ export default function DefconChallenge() {
         <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />
       )}
       {/* Coach por tela no DEFCON real (rota fica fora do layout, então renderiza aqui).
-          Explica as funções: 
+          Explica as funções: iniciar, venda rápida, cobrança no WhatsApp e abordagem. */}
+      {!treino && user && <ScreenCoach userId={user.id} />}
+    </>
+  );
+}

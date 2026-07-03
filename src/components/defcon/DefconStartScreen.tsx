@@ -125,4 +125,11 @@ function Row({
       <span className="text-xs font-mono text-muted-foreground">{label}</span>
       <span
         className={`font-black ${
-          accent ? "te
+          accent ? "text-xl text-primary" : muted ? "text-base text-muted-foreground" : "text-base text-foreground"
+        }`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
