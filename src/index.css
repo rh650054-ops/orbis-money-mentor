@@ -151,11 +151,15 @@ All colors MUST be HSL.
     font-feature-settings: "cv11", "ss01";
     font-optical-sizing: auto;
     min-height: 100dvh;
+    /* Mata o efeito elástico de "puxar e esticar" a tela (overscroll/bounce) no mobile. */
+    overscroll-behavior-y: none;
   }
 
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
+    /* Evita o bounce/expansão ao puxar a tela — vale pra todas as telas do app. */
+    overscroll-behavior-y: none;
   }
 }
 
