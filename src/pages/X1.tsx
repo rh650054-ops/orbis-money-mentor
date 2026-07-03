@@ -6,7 +6,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2, ChevronRight } from "lucide-react";
+import { ArrowLeft, Swords, Plus, Check, X, Search, Copy, Upload, Loader2, ChevronRight, Trash2 } from "lucide-react";
 
 interface X1 {
   id: string;
@@ -360,6 +360,13 @@ export default function X1() {
 
   const markPaid = (id: string) => rpc("x1_mark_paid", { p_id: id }, "Marcado como pago — admin vai confirmar");
   const cancelX1 = (id: string) => rpc("x1_cancel", { p_id: id }, "Desafio cancelado");
+
+  // Admin: EXCLUIR o X1 de vez (limpa os públicos/teste). Diferente do cancelar
+  // (que é só pro desafiante e só em pendente/aceito).
+  const adminDeleteX1 = (id: string) => {
+    if (!confirm("Excluir este X1 de vez? Não dá pra desfazer.")) return;
+    return rpc("admin_delete_x1", { p_id: id }, "X1 excluído");
+  };
 
   // Admin: premiar o vencedor. Prêmio = pote (2x aposta) − taxa Orbis; placar do ao-vivo se houver.
   const adminPremiar = (c: X1, winnerId: string) => {
@@ -1197,12 +1204,6 @@ export default function X1() {
                             🏆 <span className="truncate">{name(c.opponent_id)}</span>
                           </button>
                         </div>
-                        <button
-                          onClick={() => cancelX1(c.id)}
-                          className="w-full h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px] font-bold active:scale-[0.98] transition-transform"
-                        >
-                          Cancelar desafio
-                        </button>
                       </div>
                     )}
                   </div>
@@ -1233,7 +1234,15 @@ export default function X1() {
                   </p>
                 )}
 
-                {/* Definição de vencedor pelo admin → Perfil → Administração */}
+                {/* Admin: excluir este X1 (limpa públicos/teste) — qualquer status. */}
+                {isAdmin && (
+                  <button
+                    onClick={() => adminDeleteX1(c.id)}
+                    className="mt-2 w-full h-8 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[11px] font-bold inline-flex items-center justify-center gap-1.5 active:scale-[0.98] transition-transform"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Excluir X1
+                  </button>
+                )}
               </div>
             );
           })}
