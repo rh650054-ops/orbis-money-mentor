@@ -67,6 +67,7 @@ ANTIFRAUDE — SO estas 3 coisas NAO contam. Coloque em "suspeitas" com um "moti
 - PIX DE R$100 OU MAIS: qualquer Pix de valor >= R$100 NAO conta (venda de rua e de ticket baixo). motivo: "Pix de R$X: valores de R$100 ou mais nao contam".
 - VARIOS PIX REPETIDOS DA MESMA PESSOA: se o MESMO remetente aparecer com 3 OU MAIS Pix repetidos (valores iguais/colados), conte SO O PRIMEIRO; os repetidos vao pra suspeitas. motivo: "Pix repetido de [nome]: so o 1o conta". OBS: 1 ou 2 Pix da mesma pessoa PODE ser cliente de verdade — so marque a partir do 3o.
 REGRA DE OURO: fora dessas 3 coisas, TUDO que ENTROU conta como venda. Vendedor de rua recebe MUITOS Pix pequenos de gente diferente — isso e NORMAL e TEM que contar. Nao invente outros motivos pra recusar.
+ECONOMIA DE ESPACO: em "descricao", use SO o primeiro e segundo nome de quem pagou (max 20 caracteres). Nao repita banco/agencia/conta.
 ${hint}
 
 total_vendas = soma SO das vendas legitimas do dia ${dia} (sem despesa e sem suspeita).
@@ -102,6 +103,7 @@ ANTIFRAUDE — SO estas 3 coisas vao em "suspeitas" do dia (com "motivo" curto e
 - PIX DE R$100 OU MAIS: Pix de valor >= R$100 NAO conta. motivo: "Pix de R$X: valores de R$100 ou mais nao contam".
 - VARIOS PIX REPETIDOS DA MESMA PESSOA: mesmo remetente com 3+ Pix repetidos -> conta SO O PRIMEIRO. motivo: "Pix repetido de [nome]: so o 1o conta". (1 ou 2 da mesma pessoa PODE ser cliente real — so a partir do 3o.)
 REGRA DE OURO: fora dessas 3, TUDO que entrou conta. Muitos Pix pequenos de gente diferente e NORMAL e TEM que contar.
+ECONOMIA DE ESPACO (importante — o mes tem MUITAS transacoes): em "descricao", use SO o primeiro e segundo nome de quem pagou (max 20 caracteres). Nao repita banco/agencia/conta. Sem espacos extras no JSON.
 ${hint}
 
 "periodo_inicio"/"periodo_fim" = primeira e ultima data de transacao visiveis no extrato (YYYY-MM-DD).
