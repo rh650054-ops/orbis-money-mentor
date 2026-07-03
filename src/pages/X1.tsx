@@ -500,8 +500,8 @@ export default function X1() {
         )}
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1 min-w-0 flex flex-col items-center gap-1">
-            {av(meId, lead === "me" ? "#22c55e" : "#38bdf8", lead === "me" ? "rgba(34,197,94,.6)" : "rgba(56,189,248,.35)")}
-            <p className="text-[10px] uppercase tracking-wider text-sky-400 font-bold">Você</p>
+            {av(meId, lead === "me" ? "#22c55e" : "#f59e0b", lead === "me" ? "rgba(34,197,94,.6)" : "rgba(245,158,11,.35)")}
+            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold">Você</p>
             <p className="text-xl font-black tabular-nums" style={{ color: lead === "me" ? "#22c55e" : "#fff" }}>{fmt(my)}</p>
           </div>
           <div className="shrink-0 flex flex-col items-center">
@@ -509,18 +509,18 @@ export default function X1() {
             {lead !== "load" && lead !== "tie" && <span className="text-lg">{lead === "me" ? "🔥" : "⚠️"}</span>}
           </div>
           <div className="flex-1 min-w-0 flex flex-col items-center gap-1">
-            {av(otherId, lead === "opp" ? "#22c55e" : "#f59e0b", lead === "opp" ? "rgba(34,197,94,.6)" : "rgba(245,158,11,.35)")}
-            <p className="text-[10px] uppercase tracking-wider text-amber-400 font-bold truncate max-w-full">{otherName}</p>
+            {av(otherId, lead === "opp" ? "#22c55e" : "#ef4444", lead === "opp" ? "rgba(34,197,94,.6)" : "rgba(239,68,68,.35)")}
+            <p className="text-[10px] uppercase tracking-wider text-red-400 font-bold truncate max-w-full">{otherName}</p>
             <p className="text-xl font-black tabular-nums" style={{ color: lead === "opp" ? "#22c55e" : "#fff" }}>{fmt(opp)}</p>
           </div>
         </div>
         {/* Barras de energia */}
         <div className="space-y-1.5">
           <div className="h-2.5 rounded-full bg-black/50 overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barMy}%`, background: "linear-gradient(90deg,#0284c7,#38bdf8)", boxShadow: "0 0 10px rgba(56,189,248,.6)" }} />
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barMy}%`, background: "linear-gradient(90deg,#b45309,#f59e0b)", boxShadow: "0 0 10px rgba(245,158,11,.6)" }} />
           </div>
           <div className="h-2.5 rounded-full bg-black/50 overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barOpp}%`, background: "linear-gradient(90deg,#b45309,#f59e0b)", boxShadow: "0 0 10px rgba(245,158,11,.6)" }} />
+            <div className="h-full rounded-full transition-all duration-700" style={{ width: `${barOpp}%`, background: "linear-gradient(90deg,#991b1b,#ef4444)", boxShadow: "0 0 10px rgba(239,68,68,.6)" }} />
           </div>
         </div>
         <p className="text-center text-xs font-black" style={{ color: lead === "me" ? "#22c55e" : lead === "opp" ? "#ff9b9b" : "#9ca3af" }}>
@@ -588,19 +588,19 @@ export default function X1() {
             <div className="rounded-2xl border border-amber-500/40 p-4" style={{ background: "radial-gradient(ellipse at top,#1a1206 0%,#0c0c0f 65%)" }}>
               <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                  <div className="w-16 h-16 rounded-full bg-sky-500/15 border-[3px] border-sky-400 flex items-center justify-center text-lg font-black text-sky-300" style={{ boxShadow: "0 0 18px rgba(56,189,248,.4)" }}>
+                  <div className="w-16 h-16 rounded-full bg-amber-500/15 border-[3px] border-amber-400 flex items-center justify-center text-lg font-black text-amber-300" style={{ boxShadow: "0 0 18px rgba(245,158,11,.4)" }}>
                     VC
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-sky-400">Você</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">Você</p>
                 </div>
                 <span className="text-3xl font-black italic text-amber-400 shrink-0" style={{ textShadow: "0 0 18px rgba(245,158,11,.8)" }}>VS</span>
                 <div className="flex-1 flex flex-col items-center gap-1 min-w-0">
                   {opp.avatar_url ? (
-                    <img src={opp.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover border-[3px] border-amber-400" style={{ boxShadow: "0 0 18px rgba(245,158,11,.4)" }} />
+                    <img src={opp.avatar_url} alt="" className="w-16 h-16 rounded-full object-cover border-[3px] border-red-400" style={{ boxShadow: "0 0 18px rgba(239,68,68,.4)" }} />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-muted border-[3px] border-amber-400 flex items-center justify-center text-lg font-black">{(opp.nome_usuario ?? "?").slice(0, 2).toUpperCase()}</div>
+                    <div className="w-16 h-16 rounded-full bg-muted border-[3px] border-red-400 flex items-center justify-center text-lg font-black">{(opp.nome_usuario ?? "?").slice(0, 2).toUpperCase()}</div>
                   )}
-                  <p className="text-[10px] font-black uppercase tracking-wider text-amber-400 truncate max-w-full">{opp.nome_usuario || "Vendedor"}</p>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-red-400 truncate max-w-full">{opp.nome_usuario || "Vendedor"}</p>
                 </div>
               </div>
               <button onClick={() => setOpp(null)} className="block mx-auto mt-2 text-[10px] text-muted-foreground underline">trocar oponente</button>
@@ -734,14 +734,15 @@ export default function X1() {
       {/* ===== Carteira X1: deposita uma vez, duela sem burocracia =====
            PRÉVIA: enquanto CARTEIRA_LIBERADA=false, usuário comum NÃO vê. */}
       {(CARTEIRA_LIBERADA || isAdmin) && (
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
+      <div className="rounded-2xl border border-emerald-500/40 p-4 space-y-2" style={{ background: "radial-gradient(ellipse at top left, rgba(16,185,129,.16) 0%, #0c0c0f 60%)" }}>
         {!CARTEIRA_LIBERADA && (
           <p className="text-[9px] font-black uppercase tracking-wider text-amber-400">🔒 Prévia — usuários ainda não veem este card</p>
         )}
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">💰 Sua carteira X1</p>
-            <p className="text-2xl font-black text-foreground tabular-nums">{fmt(saldo)}</p>
+            <p className="text-3xl sm:text-4xl font-black text-emerald-300 tabular-nums leading-none mt-0.5" style={{ textShadow: "0 0 20px rgba(16,185,129,.35)" }}>{fmt(saldo)}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">saldo disponível pros seus X1</p>
           </div>
           <div className="flex gap-1.5 shrink-0">
             <button

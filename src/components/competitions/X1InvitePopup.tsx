@@ -220,15 +220,15 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
             </div>
 
             <button type="button" onClick={() => setProfileUid(userId)} className="flex-1 min-w-0 text-center active:scale-95 transition-transform" style={{ animation: "x1iSlideR .5s ease both" }}>
-              <div className="mx-auto w-[80px] h-[80px] rounded-full p-[3px]" style={{ background: "linear-gradient(135deg,#3b82f6,#22c55e)", boxShadow: "0 0 26px -4px rgba(59,130,246,.6)" }}>
+              <div className="mx-auto w-[80px] h-[80px] rounded-full p-[3px]" style={{ background: "linear-gradient(135deg,#f59e0b,#22c55e)", boxShadow: "0 0 26px -4px rgba(245,158,11,.6)" }}>
                 {me?.avatar ? (
                   <img src={me.avatar} alt="" className="w-full h-full rounded-full object-cover" />
                 ) : (
-                  <div className="w-full h-full rounded-full bg-[#141418] flex items-center justify-center text-lg font-black text-sky-400">{(me?.nome || "VC").slice(0, 2).toUpperCase()}</div>
+                  <div className="w-full h-full rounded-full bg-[#141418] flex items-center justify-center text-lg font-black text-amber-400">{(me?.nome || "VC").slice(0, 2).toUpperCase()}</div>
                 )}
               </div>
               <p className="mt-2 text-sm font-black text-foreground truncate px-0.5">{me?.nome || "Você"}</p>
-              <p className="text-[9px] font-bold tracking-[0.2em] text-sky-400/80 uppercase">Você</p>
+              <p className="text-[9px] font-bold tracking-[0.2em] text-amber-400/80 uppercase">Você</p>
             </button>
           </div>
 

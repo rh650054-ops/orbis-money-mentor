@@ -111,10 +111,10 @@ export function PostCard({ post, isMine, onLike, onOpenComments, onShare, onRepo
 
             <button
               onClick={onOpenComments}
-              className="group inline-flex items-center gap-1.5 text-xs transition-colors hover:text-sky-500"
+              className="group inline-flex items-center gap-1.5 text-xs transition-colors hover:text-primary"
               aria-label="Comentários"
             >
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors group-hover:bg-sky-500/10">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full transition-colors group-hover:bg-primary/10">
                 <MessageCircle className="h-[18px] w-[18px]" />
               </span>
               {post.comments_count > 0 && <span>{post.comments_count}</span>}
