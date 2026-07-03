@@ -1084,33 +1084,58 @@ export default function X1() {
             const other = c.challenger_id === user?.id ? c.opponent_id : c.challenger_id;
             const iAmChallenger = c.challenger_id === user?.id;
             const iPaid = iAmChallenger ? c.challenger_paid : c.opponent_paid;
+            // Personalidade do card por status: desafio pendente PULSA em vermelho,
+            // duelo ativo brilha dourado, vitória em verde, resto apagado.
+            const meuTurno = c.status === "pending" && c.last_proposed_by !== user?.id;
+            const venci = c.winner_user_id === user?.id;
+            const perdi = !!c.winner_user_id && c.winner_user_id !== user?.id;
+            const cardStyle: React.CSSProperties =
+              meuTurno
+                ? { background: "linear-gradient(160deg,#1c0808,#0c0c0f)", border: "1px solid rgba(239,68,68,.5)", boxShadow: "0 0 16px rgba(239,68,68,.25)" }
+                : c.status === "active"
+                  ? { background: "radial-gradient(ellipse at top,#171006,#0c0c0f 70%)", border: "1px solid rgba(245,158,11,.45)", boxShadow: "0 0 16px rgba(245,158,11,.2)" }
+                  : venci
+                    ? { background: "linear-gradient(160deg,#0a1a0e,#0c0c0f)", border: "1px solid rgba(34,197,94,.4)" }
+                    : { background: "#101014", border: "1px solid #26262e", opacity: c.status === "declined" || c.status === "cancelled" ? 0.55 : 1 };
+            const statusPill = meuTurno
+              ? { txt: "⚔️ TE DESAFIOU!", bg: "#3b0a0a", fg: "#f87171" }
+              : c.status === "pending"
+                ? { txt: "⏳ AGUARDANDO", bg: "#1c1c22", fg: "#9ca3af" }
+                : c.status === "active"
+                  ? { txt: "🔴 AO VIVO", bg: "#2a1a05", fg: "#f59e0b" }
+                  : venci
+                    ? { txt: "VOCÊ VENCEU 🏆", bg: "#16331f", fg: "#22c55e" }
+                    : perdi
+                      ? { txt: "DERROTA", bg: "#2a2a2e", fg: "#9ca3af" }
+                      : c.status === "awaiting_result"
+                        ? { txt: "🔎 EM ANÁLISE", bg: "#1c1c22", fg: "#c9a6ff" }
+                        : { txt: statusLabel[c.status] || c.status, bg: "#1c1c22", fg: "#6b7280" };
             return (
-              <div key={c.id} className="rounded-2xl border border-border/60 bg-card/40 p-4 space-y-2">
+              <div key={c.id} className={`rounded-2xl p-4 space-y-2 ${meuTurno ? "animate-pulse-slow" : ""}`} style={cardStyle}>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setProfileUid(other)} className="shrink-0">
+                  <button onClick={() => setProfileUid(other)} className="shrink-0 relative">
                     {profiles[other]?.avatar_url ? (
-                      <img src={profiles[other]!.avatar_url!} alt="" className="w-10 h-10 rounded-full object-cover border-2 border-border" />
+                      <img src={profiles[other]!.avatar_url!} alt="" className="w-11 h-11 rounded-full object-cover border-2" style={{ borderColor: meuTurno ? "#ef4444" : c.status === "active" ? "#f59e0b" : "#3f3f46" }} />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-xs font-bold text-foreground">{name(other).slice(0, 2).toUpperCase()}</div>
+                      <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center text-xs font-black text-foreground border-2" style={{ borderColor: meuTurno ? "#ef4444" : "#3f3f46" }}>{name(other).slice(0, 2).toUpperCase()}</div>
                     )}
                   </button>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">
-                      vs {name(other)} {iAmChallenger ? "(você chamou)" : "(te chamou)"}
+                    <p className="text-sm font-black text-foreground truncate">
+                      <span className="text-muted-foreground font-bold">VS</span> {name(other)}
+                      <span className="ml-1 text-[9px] font-bold text-muted-foreground">{iAmChallenger ? "(você chamou)" : "(te chamou)"}</span>
                     </p>
-                    {c.modo && <p className="text-[11px] text-amber-400 font-semibold truncate">{c.modo}</p>}
-                    <p className="text-[11px] text-muted-foreground">
-                      {statusLabel[c.status] || c.status} · {dateBR(c.scheduled_date)}
-                      {c.goal_amount ? ` · meta ${fmt(c.goal_amount)}` : ""}
-                      {c.stakes_amount > 0 ? ` · aposta ${fmt(c.stakes_amount)}` : ""}
-                      {c.prize_amount > 0 ? ` · prêmio ${fmt(c.prize_amount)}` : ""}
-                    </p>
+                    {c.modo && <p className="text-[10px] text-amber-400/90 font-semibold truncate">⚡ {c.modo}</p>}
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/40 text-muted-foreground">📅 {dateBR(c.scheduled_date)}</span>
+                      {c.stakes_amount > 0 && <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: "#2a1a05", color: "#f59e0b" }}>💰 {fmt(c.stakes_amount * 2)} no pote</span>}
+                      {c.goal_amount ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-black/40 text-muted-foreground">🎯 {fmt(c.goal_amount)}</span> : null}
+                      {c.prize_amount > 0 && c.status === "finished" && <span className="text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: "#16331f", color: "#22c55e" }}>🏆 {fmt(c.prize_amount)}</span>}
+                    </div>
                   </div>
-                  {c.winner_user_id && (
-                    <span className="text-[10px] font-black px-2 py-1 rounded" style={{ background: c.winner_user_id === user?.id ? "#16331f" : "#2a2a2e", color: c.winner_user_id === user?.id ? "#22c55e" : "#9ca3af" }}>
-                      {c.winner_user_id === user?.id ? "VOCÊ VENCEU 🏆" : "Encerrado"}
-                    </span>
-                  )}
+                  <span className="text-[9px] font-black px-2 py-1 rounded-full shrink-0" style={{ background: statusPill.bg, color: statusPill.fg }}>
+                    {statusPill.txt}
+                  </span>
                 </div>
 
                 {/* ----- pending: negociação ----- */}
