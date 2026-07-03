@@ -119,6 +119,10 @@ export default function X1() {
   const [admWallet, setAdmWallet] = useState({ busca: "", achados: [] as RankUser[], sel: null as RankUser | null, valor: "", tipo: "deposito" as "deposito" | "saque" });
   // Depósito por comprovante: sobe o recibo do Pix, a IA valida e credita sozinha.
   const [enviandoComprovante, setEnviandoComprovante] = useState(false);
+  // Depósito AUTOMÁTICO (Mercado Pago): QR dinâmico + webhook = saldo cai sozinho.
+  const [mpValor, setMpValor] = useState("20");
+  const [mpGerando, setMpGerando] = useState(false);
+  const [mpQr, setMpQr] = useState<null | { paymentId: string; valor: number; copiaCola: string; qrB64: string | null }>(null);
   // Admin: fila de depósitos pendentes de conferência + últimos auto-creditados.
   const [depsPendentes, setDepsPendentes] = useState<{ id: string; user_id: string; valor: number; motivo: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
   const [depsRecentes, setDepsRecentes] = useState<{ id: string; user_id: string; valor: number; e2e_id: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
@@ -495,6 +499,38 @@ export default function X1() {
       setEnviandoComprovante(false);
     }
   };
+  // Gera o QR Pix dinâmico no Mercado Pago.
+  const mpGerarQr = async () => {
+    const v = Number(mpValor) || 0;
+    if (v < 1) { toast({ title: "Valor mínimo R$ 1", variant: "destructive" }); return; }
+    setMpGerando(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("mp-criar-deposito", { body: { valor: v } });
+      const r = data as any;
+      if (error || !r?.ok) {
+        toast({ title: "Não rolou", description: r?.dica ?? "Tenta de novo.", variant: "destructive" });
+      } else {
+        setMpQr({ paymentId: r.payment_id, valor: r.valor, copiaCola: r.copia_cola, qrB64: r.qr_base64 });
+      }
+    } catch { toast({ title: "Não rolou", variant: "destructive" }); }
+    setMpGerando(false);
+  };
+  // Enquanto o QR está na tela, vigia o pagamento — quando o MP confirmar, festeja.
+  useEffect(() => {
+    if (!mpQr) return;
+    const t = setInterval(async () => {
+      const { data } = await supabase.from("x1_mp_payments" as any).select("status").eq("payment_id", mpQr.paymentId).maybeSingle();
+      if ((data as any)?.status === "creditado") {
+        clearInterval(t);
+        toast({ title: `💰 +${fmt(mpQr.valor)} na carteira!`, description: "Pix confirmado pelo Mercado Pago. Bora duelar! ⚔️" });
+        setMpQr(null);
+        loadAll();
+      }
+    }, 4000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mpQr?.paymentId]);
+
   const admResolverDeposito = (id: string, aprovar: boolean) =>
     rpc("x1_admin_resolve_deposit", { p_id: id, p_aprovar: aprovar, p_motivo: aprovar ? null : "não localizado no banco" }, aprovar ? "Depósito creditado ✅" : "Depósito rejeitado");
 
@@ -858,6 +894,44 @@ export default function X1() {
         </div>
         {depositOpen && (
           <div className="rounded-xl bg-card border border-border/60 p-3 space-y-2">
+            {/* ===== PIX AUTOMÁTICO (Mercado Pago): paga o QR e o saldo cai SOZINHO ===== */}
+            {!mpQr ? (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-3 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">⚡ Pix automático — cai na hora, sem comprovante</p>
+                <div className="flex gap-1.5">
+                  {[10, 20, 50].map((v) => (
+                    <button key={v} onClick={() => setMpValor(String(v))}
+                      className="flex-1 h-9 rounded-lg text-xs font-black transition-all active:scale-95"
+                      style={Number(mpValor) === v
+                        ? { background: "#10b981", color: "#000", boxShadow: "0 0 10px rgba(16,185,129,.5)" }
+                        : { background: "#141417", color: "#9ca3af", border: "1px solid #26262e" }}>
+                      R${v}
+                    </button>
+                  ))}
+                  <input type="number" inputMode="numeric" value={mpValor} onChange={(e) => setMpValor(e.target.value)} className="w-20 h-9 px-2 rounded-lg bg-[#0e0e10] border border-border text-xs text-foreground" />
+                </div>
+                <button onClick={mpGerarQr} disabled={mpGerando} className="w-full h-10 rounded-xl bg-emerald-500 text-black text-xs font-black active:scale-[0.98] disabled:opacity-60 inline-flex items-center justify-center gap-1.5">
+                  {mpGerando ? <Loader2 className="w-4 h-4 animate-spin" /> : "⚡"} {mpGerando ? "Gerando…" : `Gerar Pix de ${fmt(Number(mpValor) || 0)}`}
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-3 space-y-2 text-center">
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">⚡ Pague {fmt(mpQr.valor)} — o saldo cai sozinho</p>
+                {mpQr.qrB64 && <img src={`data:image/png;base64,${mpQr.qrB64}`} alt="QR Pix" className="w-40 h-40 mx-auto rounded-lg bg-white p-1.5" />}
+                <button
+                  onClick={() => navigator.clipboard?.writeText(mpQr.copiaCola).then(() => toast({ title: "Código Pix copiado!" }), () => {})}
+                  className="w-full h-9 rounded-lg bg-[#0e0e10] border border-border text-[11px] font-bold text-emerald-400 inline-flex items-center justify-center gap-1.5"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copiar código Pix (copia e cola)
+                </button>
+                <p className="text-[10px] text-muted-foreground inline-flex items-center gap-1.5 justify-center">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Esperando o pagamento… confirma em segundos
+                </p>
+                <button onClick={() => setMpQr(null)} className="text-[10px] text-muted-foreground underline">cancelar</button>
+              </div>
+            )}
+
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground text-center pt-1">— ou manual, com comprovante —</p>
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               <b className="text-foreground">1.</b> Faça o Pix pra chave abaixo · <b className="text-foreground">2.</b> Suba o comprovante aqui —
               a IA confere e <b className="text-emerald-400">o saldo cai na hora</b> (depósitos até R$ 100; acima disso o admin confere primeiro).
