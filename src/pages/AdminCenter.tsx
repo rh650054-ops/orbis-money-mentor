@@ -95,6 +95,10 @@ export default function AdminCenter() {
   const [depsPendentes, setDepsPendentes] = useState<{ id: string; user_id: string; valor: number; motivo: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
   const [depsRecentes, setDepsRecentes] = useState<{ id: string; user_id: string; valor: number; e2e_id: string | null; remetente: string | null; created_at: string; nome?: string }[]>([]);
 
+  // Saques: o valor já foi RESERVADO (debitado) no pedido — aqui é só enviar o
+  // Pix pra chave do usuário e marcar "pago" (ou rejeitar, que devolve o valor).
+  const [saques, setSaques] = useState<{ id: string; user_id: string; valor: number; pix_key: string; pix_nome: string | null; created_at: string; nome?: string }[]>([]);
+
   // Carteiras.
   const [admWallet, setAdmWallet] = useState({ busca: "", achados: [] as RankUser[], sel: null as RankUser | null, valor: "", tipo: "deposito" as "deposito" | "saque" });
 
@@ -153,12 +157,13 @@ export default function AdminCenter() {
       if (tes) setTesouraria(tes as any);
     }
 
-    // Depósitos: fila pendente + auto-creditados recentes.
-    const [{ data: pend }, { data: rec }] = await Promise.all([
+    // Depósitos (fila pendente + auto-creditados recentes) e SAQUES pendentes.
+    const [{ data: pend }, { data: rec }, { data: wds }] = await Promise.all([
       supabase.from("x1_deposit_requests" as any).select("id, user_id, valor, motivo, remetente, created_at").eq("status", "pendente_revisao").order("created_at", { ascending: true }),
       supabase.from("x1_deposit_requests" as any).select("id, user_id, valor, e2e_id, remetente, created_at").eq("status", "creditado").order("created_at", { ascending: false }).limit(8),
+      supabase.from("x1_withdraw_requests" as any).select("id, user_id, valor, pix_key, pix_nome, created_at").eq("status", "pendente").order("created_at", { ascending: true }),
     ]);
-    const todos = [...(((pend as any[]) || [])), ...(((rec as any[]) || []))];
+    const todos = [...(((pend as any[]) || [])), ...(((rec as any[]) || [])), ...(((wds as any[]) || []))];
     const uidsDep = Array.from(new Set(todos.map((d) => d.user_id)));
     let nomes: Record<string, string> = {};
     if (uidsDep.length) {
@@ -167,6 +172,7 @@ export default function AdminCenter() {
     }
     setDepsPendentes((((pend as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
     setDepsRecentes((((rec as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
+    setSaques((((wds as any[]) || [])).map((d) => ({ ...d, nome: nomes[d.user_id] })));
 
     setLoading(false);
   };
@@ -196,6 +202,9 @@ export default function AdminCenter() {
   const admLiquidarAgora = () => rpc("x1_settle_due", {}, "Liquidação executada — confere os resultados 🏁");
   const admResolverDeposito = (id: string, aprovar: boolean) =>
     rpc("x1_admin_resolve_deposit", { p_id: id, p_aprovar: aprovar, p_motivo: aprovar ? null : "não localizado no banco" }, aprovar ? "Depósito creditado ✅" : "Depósito rejeitado");
+  // Saque: "pago" mantém o débito (você JÁ enviou o Pix); "rejeitado" devolve o valor.
+  const admResolverSaque = (id: string, acao: "pago" | "rejeitado") =>
+    rpc("x1_admin_resolve_withdraw", { p_id: id, p_acao: acao, p_motivo: acao === "rejeitado" ? "rejeitado pelo admin" : null }, acao === "pago" ? "Saque marcado como pago 💸" : "Saque rejeitado — valor devolvido ao saldo");
 
   const viewProof = async (path: string | null) => {
     if (!path) return;
@@ -434,6 +443,36 @@ export default function AdminCenter() {
                   </div>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* ===== 💸 Saques (valor já reservado — só enviar o Pix e marcar pago) ===== */}
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2.5">
+            <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">💸 Saques {saques.length > 0 ? `· ${saques.length} aguardando` : ""}</p>
+            {saques.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum saque aguardando envio.</p>
+            ) : (
+              saques.map((s) => (
+                <div key={s.id} className="rounded-lg bg-card border border-border/60 p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-bold text-foreground truncate">{s.nome || "Vendedor"} · <span className="text-amber-400 tabular-nums">{fmt(s.valor)}</span></span>
+                    <span className="text-muted-foreground shrink-0">{dtBR(s.created_at)}</span>
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(s.pix_key).then(() => toast({ title: "Chave Pix copiada" }), () => {})}
+                    className="w-full rounded-lg bg-background border border-border p-2 text-left active:scale-[0.98] transition-transform"
+                  >
+                    <span className="block text-[9px] font-bold uppercase text-muted-foreground">Pix pra enviar {fmt(s.valor)} — toca pra copiar</span>
+                    <span className="block text-[12px] font-semibold text-amber-400 truncate">{s.pix_key}</span>
+                    {s.pix_nome && <span className="block text-[10px] text-muted-foreground truncate">Titular: {s.pix_nome}</span>}
+                  </button>
+                  <p className="text-[9px] text-muted-foreground/70">O valor já saiu do saldo dele (reservado). Envie o Pix e confirme abaixo.</p>
+                  <div className="flex gap-2">
+                    <button onClick={() => admResolverSaque(s.id, "pago")} className="flex-1 h-8 rounded-lg bg-emerald-600 text-white text-[11px] font-bold">✓ Pix enviado — marcar pago</button>
+                    <button onClick={() => admResolverSaque(s.id, "rejeitado")} className="flex-1 h-8 rounded-lg bg-card border border-destructive/40 text-destructive text-[11px] font-bold">✗ Rejeitar (devolve o valor)</button>
+                  </div>
+                </div>
+              ))
             )}
           </div>
 

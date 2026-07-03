@@ -118,6 +118,12 @@ export default function X1() {
   const [mpValor, setMpValor] = useState("20");
   const [mpGerando, setMpGerando] = useState(false);
   const [mpQr, setMpQr] = useState<null | { paymentId: string; valor: number; copiaCola: string; qrB64: string | null }>(null);
+  // SAQUE: pede valor + chave Pix, o valor é reservado (sai do saldo na hora) e o
+  // admin envia o Pix manualmente pela Central de Admin. 1 pedido pendente por vez.
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [wd, setWd] = useState({ valor: "", pix: "", nome: "" });
+  const [wdSending, setWdSending] = useState(false);
+  const [wdPend, setWdPend] = useState<null | { id: string; valor: number; created_at: string }>(null);
   // Celebração pós-aceite: card "DUELO INICIADO" + envio pro DEFCON se for hoje.
   const [duelStarted, setDuelStarted] = useState<null | { nome: string; stakes: number; hoje: boolean; data: string | null }>(null);
 
@@ -185,13 +191,15 @@ export default function X1() {
     const { data: st } = await supabase.from("x1_settings" as any).select("pix_account, fee_flat").eq("id", 1).maybeSingle();
     setSettings((st as any) || { pix_account: null, fee_flat: 0 });
 
-    // Carteira: saldo + últimas movimentações.
-    const [{ data: w }, { data: tx }] = await Promise.all([
+    // Carteira: saldo + últimas movimentações + saque pendente (se houver).
+    const [{ data: w }, { data: tx }, { data: wds }] = await Promise.all([
       supabase.from("x1_wallets" as any).select("balance").eq("user_id", user.id).maybeSingle(),
       supabase.from("x1_wallet_transactions" as any).select("id, amount, tipo, notes, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("x1_withdraw_requests" as any).select("id, valor, created_at").eq("user_id", user.id).eq("status", "pendente").limit(1),
     ]);
     setSaldo(Number((w as any)?.balance ?? 0));
     setTxs(((tx as any[]) || []) as WalletTx[]);
+    setWdPend((((wds as any[]) || [])[0] as any) ?? null);
     setLoading(false);
   };
 
@@ -438,6 +446,28 @@ export default function X1() {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mpQr?.paymentId]);
+
+  // Solicita o saque: o banco debita o valor NA HORA (reserva) e cria o pedido
+  // que aparece na Central de Admin. Se o admin rejeitar, o valor volta sozinho.
+  const solicitarSaque = async () => {
+    const v = Number(wd.valor) || 0;
+    if (v < 1) { toast({ title: "Valor mínimo de saque: R$ 1", variant: "destructive" }); return; }
+    if (v > saldo) { toast({ title: `Seu saldo é ${fmt(saldo)}`, description: "Não dá pra sacar mais do que tem.", variant: "destructive" }); return; }
+    if (wd.pix.trim().length < 3) { toast({ title: "Digita a chave Pix que vai receber", variant: "destructive" }); return; }
+    setWdSending(true);
+    const { error } = await (supabase as any).rpc("x1_request_withdraw", {
+      p_valor: v, p_pix: wd.pix.trim(), p_nome: wd.nome.trim() || null,
+    });
+    setWdSending(false);
+    if (error) {
+      toast({ title: "Não rolou", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: `💸 Saque de ${fmt(v)} solicitado!`, description: "O valor foi reservado — o Pix cai na sua chave assim que o admin enviar." });
+    setWd({ valor: "", pix: "", nome: "" });
+    setWithdrawOpen(false);
+    loadAll();
+  };
 
   const togglePlacar = (id: string) => setOpenPlacar((cur) => (cur === id ? null : id));
 
@@ -713,10 +743,79 @@ export default function X1() {
             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">💰 Sua carteira X1</p>
             <p className="text-2xl font-black text-foreground tabular-nums">{fmt(saldo)}</p>
           </div>
-          <button onClick={() => setDepositOpen((v) => !v)} className="h-10 px-4 rounded-xl bg-emerald-500 text-black text-xs font-bold active:scale-[0.98]">
-            {depositOpen ? "Fechar" : "Depositar"}
-          </button>
+          <div className="flex gap-1.5 shrink-0">
+            <button
+              onClick={() => { setWithdrawOpen((v) => !v); setDepositOpen(false); }}
+              className="h-10 px-3.5 rounded-xl bg-card border border-emerald-500/40 text-emerald-400 text-xs font-bold active:scale-[0.98]"
+            >
+              {withdrawOpen ? "Fechar" : "Sacar"}
+            </button>
+            <button
+              onClick={() => { setDepositOpen((v) => !v); setWithdrawOpen(false); }}
+              className="h-10 px-3.5 rounded-xl bg-emerald-500 text-black text-xs font-bold active:scale-[0.98]"
+            >
+              {depositOpen ? "Fechar" : "Depositar"}
+            </button>
+          </div>
         </div>
+
+        {/* Saque pendente: mostra o status até o admin enviar o Pix */}
+        {wdPend && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-2.5 flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400 shrink-0" />
+            <p className="text-[11px] text-amber-400 font-semibold leading-snug">
+              Saque de {fmt(wdPend.valor)} solicitado — o valor já foi reservado e o Pix cai na sua chave assim que o admin enviar.
+            </p>
+          </div>
+        )}
+
+        {/* ===== SACAR: valor + chave Pix → pedido vai pra Central de Admin ===== */}
+        {withdrawOpen && (
+          <div className="rounded-xl bg-card border border-border/60 p-3 space-y-2">
+            {wdPend ? (
+              <p className="text-[11px] text-muted-foreground">
+                Você já tem um saque aguardando envio. Espera ele cair pra pedir outro.
+              </p>
+            ) : (
+              <>
+                <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">💸 Sacar da carteira</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  O valor sai do saldo agora (fica reservado) e o <b className="text-foreground">Pix cai na sua chave</b> assim que o admin enviar. Se algo der errado, o valor volta pro saldo.
+                </p>
+                <div className="flex gap-1.5">
+                  {[10, 20, 50].map((v) => (
+                    <button key={v} onClick={() => setWd((s) => ({ ...s, valor: String(v) }))}
+                      disabled={saldo < v}
+                      className="flex-1 h-9 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-30"
+                      style={Number(wd.valor) === v
+                        ? { background: "#10b981", color: "#000", boxShadow: "0 0 10px rgba(16,185,129,.5)" }
+                        : { background: "#141417", color: "#9ca3af", border: "1px solid #26262e" }}>
+                      R${v}
+                    </button>
+                  ))}
+                  <button onClick={() => setWd((s) => ({ ...s, valor: String(saldo) }))}
+                    disabled={saldo < 1}
+                    className="flex-1 h-9 rounded-lg text-xs font-black transition-all active:scale-95 disabled:opacity-30"
+                    style={Number(wd.valor) === saldo && saldo >= 1
+                      ? { background: "#10b981", color: "#000", boxShadow: "0 0 10px rgba(16,185,129,.5)" }
+                      : { background: "#141417", color: "#9ca3af", border: "1px solid #26262e" }}>
+                    TUDO
+                  </button>
+                </div>
+                <input type="number" inputMode="numeric" value={wd.valor} onChange={(e) => setWd((s) => ({ ...s, valor: e.target.value }))} placeholder="Outro valor (R$)" className="w-full h-10 px-3 rounded-xl bg-[#0e0e10] border border-border text-sm text-foreground" />
+                <input value={wd.pix} onChange={(e) => setWd((s) => ({ ...s, pix: e.target.value }))} placeholder="Chave Pix que vai receber" className="w-full h-10 px-3 rounded-xl bg-[#0e0e10] border border-border text-sm text-foreground" />
+                <input value={wd.nome} onChange={(e) => setWd((s) => ({ ...s, nome: e.target.value }))} placeholder="Nome do titular (opcional)" className="w-full h-10 px-3 rounded-xl bg-[#0e0e10] border border-border text-sm text-foreground" />
+                <button
+                  onClick={solicitarSaque}
+                  disabled={wdSending || (Number(wd.valor) || 0) < 1 || wd.pix.trim().length < 3}
+                  className="w-full h-10 rounded-xl bg-emerald-500 text-black text-xs font-black active:scale-[0.98] disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+                >
+                  {wdSending ? <Loader2 className="w-4 h-4 animate-spin" /> : "💸"} {wdSending ? "Enviando…" : `Sacar ${fmt(Number(wd.valor) || 0)}`}
+                </button>
+              </>
+            )}
+          </div>
+        )}
         {depositOpen && (
           <div className="rounded-xl bg-card border border-border/60 p-3 space-y-2">
             {/* ===== PIX AUTOMÁTICO (Mercado Pago): paga o QR e o saldo cai SOZINHO ===== */}
@@ -760,7 +859,7 @@ export default function X1() {
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               <b className="text-foreground">1.</b> Faça o Pix pra chave abaixo · <b className="text-foreground">2.</b> Suba o comprovante aqui —
               a IA confere e <b className="text-emerald-400">o saldo cai na hora</b> (depósitos até R$ 100; acima disso o admin confere primeiro).
-              O prêmio dos duelos também cai aqui. Pra sacar, chama o admin.
+              O prêmio dos duelos também cai aqui. Pra tirar dinheiro, usa o botão <b className="text-emerald-400">Sacar</b>.
             </p>
             <button
               onClick={() => navigator.clipboard?.writeText(settings?.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {})}

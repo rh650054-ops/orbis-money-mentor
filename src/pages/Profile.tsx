@@ -116,7 +116,7 @@ export default function Profile() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-foreground">Administração</p>
-              <p className="text-xs text-muted-foreground truncate">Tesouraria, carteiras, depósitos, liquidação e revisões</p>
+              <p className="text-xs text-muted-foreground truncate">Tesouraria, carteiras, depósitos, saques, liquidação e revisões</p>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
           </CardContent>
