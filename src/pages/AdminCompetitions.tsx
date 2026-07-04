@@ -9,7 +9,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { toast } from "@/shared/hooks/use-toast";
-import { Trophy, Plus, Trash2, CheckCircle2, ArrowLeft, Pin } from "lucide-react";
+import { Trophy, Plus, Trash2, CheckCircle2, ArrowLeft, Pin, Pencil } from "lucide-react";
 
 interface Comp {
   id: string;
@@ -23,6 +23,8 @@ interface Comp {
   metric: string;
   entry_rule: string;
   entry_fee: number | null;
+  entry_instructions?: string | null;
+  recurrence_note?: string | null;
   status: string;
   winner_user_id: string | null;
   pinned?: boolean;
@@ -58,6 +60,7 @@ export default function AdminCompetitions() {
     entry_rule: "free",
     entry_fee: "0",
     entry_instructions: "",
+    recurrence_note: "",
     audience_type: "open", // open | invite | city
     audience_cities: "", // comma-separated
     invited_cpfs: "", // comma or newline separated
@@ -68,6 +71,7 @@ export default function AdminCompetitions() {
     bilhete_comissoes: "",
     bilhete_comissao_nota: "",
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const isAdmin = whitelisted && role === "admin";
 
@@ -115,6 +119,35 @@ export default function AdminCompetitions() {
     if (!user) return;
     if (!form.name || !form.prize_label) {
       toast({ title: "Preencha nome e prêmio", variant: "destructive" });
+      return;
+    }
+
+    // EDIÇÃO: atualiza os campos principais e sai (não recria).
+    if (editingId) {
+      const { error: upErr } = await (supabase as any).rpc("admin_update_competition", {
+        p_id: editingId,
+        p_data: {
+          name: form.name,
+          description: form.description || null,
+          prize_label: form.prize_label,
+          prize_value: Number(form.prize_value) || 0,
+          period_type: form.period_type,
+          starts_at: new Date(form.starts_at).toISOString(),
+          ends_at: new Date(form.ends_at).toISOString(),
+          metric: form.metric,
+          entry_rule: form.entry_rule,
+          entry_fee: form.entry_rule === "paid" ? Number(form.entry_fee) || 0 : null,
+          entry_instructions: form.entry_instructions || null,
+          recurrence_note: form.recurrence_note || null,
+        },
+      });
+      if (upErr) {
+        toast({ title: "Erro ao salvar", description: upErr.message, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Competição atualizada!" });
+      setEditingId(null);
+      load();
       return;
     }
 
@@ -183,6 +216,7 @@ export default function AdminCompetitions() {
       entry_rule: form.entry_rule,
       entry_fee: form.entry_rule === "paid" ? Number(form.entry_fee) || 0 : null,
       entry_instructions: form.entry_instructions || null,
+      recurrence_note: form.recurrence_note || null,
       status: "active",
       created_by: user.id,
       audience_type: form.audience_type,
@@ -201,6 +235,7 @@ export default function AdminCompetitions() {
         prize_label: "",
         prize_value: "0",
         entry_instructions: "",
+        recurrence_note: "",
         audience_cities: "",
         invited_cpfs: "",
         bilhete_intro_sub: "",
@@ -229,6 +264,31 @@ export default function AdminCompetitions() {
     const { error } = await (supabase as any).rpc("admin_set_competition_pin", { p_id: c.id, p_pinned: !c.pinned });
     if (error) { toast({ title: "Erro ao fixar", description: error.message, variant: "destructive" }); return; }
     load();
+  };
+
+  // Carrega uma competição no formulário pra editar (campos principais).
+  const startEdit = (c: Comp) => {
+    setEditingId(c.id);
+    setForm((f) => ({
+      ...f,
+      name: c.name || "",
+      description: c.description || "",
+      prize_label: c.prize_label || "",
+      prize_value: String(c.prize_value ?? 0),
+      period_type: c.period_type || "weekly",
+      starts_at: (c.starts_at || "").slice(0, 10),
+      ends_at: (c.ends_at || "").slice(0, 10),
+      metric: c.metric || "pix_revenue",
+      entry_rule: c.entry_rule || "free",
+      entry_fee: String(c.entry_fee ?? 0),
+      entry_instructions: c.entry_instructions || "",
+      recurrence_note: c.recurrence_note || "",
+    }));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+  const cancelEdit = () => {
+    setEditingId(null);
+    setForm((f) => ({ ...f, name: "", description: "", prize_label: "", prize_value: "0", entry_instructions: "", recurrence_note: "" }));
   };
 
   const finish = async (c: Comp, winnerUserId: string) => {
@@ -261,7 +321,7 @@ export default function AdminCompetitions() {
         <CardContent className="p-4 space-y-3">
           <div className="flex items-center gap-2 mb-2">
             <Plus className="w-4 h-4 text-primary" />
-            <p className="text-sm font-bold uppercase tracking-wider text-primary">Nova competição</p>
+            <p className="text-sm font-bold uppercase tracking-wider text-primary">{editingId ? "Editar competição" : "Nova competição"}</p>
           </div>
           <div className="grid grid-cols-1 gap-3">
             <div>
@@ -372,6 +432,15 @@ export default function AdminCompetitions() {
               />
             </div>
 
+            <div>
+              <Label>Premiação — frequência (opcional)</Label>
+              <Input
+                value={form.recurrence_note}
+                onChange={(e) => setForm({ ...form, recurrence_note: e.target.value })}
+                placeholder="Ex: Toda semana o Top 1 leva R$500"
+              />
+            </div>
+
             {/* Bilhete dourado (personalização) */}
             <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
               <p className="text-xs font-black uppercase tracking-wider text-amber-500">🎟️ Bilhete dourado (opcional)</p>
@@ -441,7 +510,10 @@ export default function AdminCompetitions() {
               )}
             </div>
 
-            <Button onClick={create}>Criar competição</Button>
+            <div className="flex gap-2">
+              <Button onClick={create} className="flex-1">{editingId ? "Salvar alterações" : "Criar competição"}</Button>
+              {editingId && <Button variant="outline" onClick={cancelEdit}>Cancelar</Button>}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -460,6 +532,9 @@ export default function AdminCompetitions() {
                   <p className="text-xs text-muted-foreground">{c.prize_label}</p>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => startEdit(c)} title="Editar">
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => togglePin(c)} title={c.pinned ? "Desafixar" : "Fixar"}>
                     <Pin className={`w-4 h-4 ${c.pinned ? "text-primary fill-primary/30" : "text-muted-foreground"}`} />
                   </Button>

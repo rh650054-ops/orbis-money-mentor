@@ -27,6 +27,7 @@ interface Comp {
   status: string;
   winner_user_id: string | null;
   pinned?: boolean;
+  recurrence_note?: string | null;
   bilhete_config?: BilheteCfg | null;
 }
 
@@ -204,6 +205,9 @@ export default function Competitions() {
                           🏆 {c.prize_label}
                           {c.prize_value ? ` · ${fmt(c.prize_value)}` : ""}
                         </p>
+                      )}
+                      {c.recurrence_note && (
+                        <p className="text-[11px] text-primary/80 mt-0.5">🔁 {c.recurrence_note}</p>
                       )}
                     </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground shrink-0 mt-1" />
