@@ -411,21 +411,18 @@ export function useDefconChallenge(userId: string | undefined) {
       }
 
       if (session.status === "completed" || session.status === "abandoned") {
-        // Reconstrói o tempo trabalhado a partir de dados PERSISTIDOS — senão zera ao
-        // recarregar uma sessão já encerrada (o print do fim de dia mostrava "0h").
-        // Mesma conta do cálculo ao vivo: blocos cheios concluídos * 60min + o parcial
-        // do bloco atual (do início do bloco até o fim da sessão), travado em 60min.
-        const idx = session.current_block_index || 0;
-        const startedTs = blocksData?.[idx]?.timer_started_at;
-        let partial = 0;
-        if (startedTs && session.ended_at) {
-          const mins = Math.round(
-            (new Date(session.ended_at).getTime() - new Date(startedTs).getTime()) / 60000
+        // TEMPO REAL trabalhado = fim − início da sessão.
+        // (Antes era current_block_index × 60 + parcial, o que INFLAVA MUITO: um vendedor
+        // com 9 blocos planejados aparecia com "8h" mesmo tendo trabalhado ~2h30. Agora
+        // usa o tempo de verdade entre iniciar e encerrar o DEFCON.)
+        let mins = 0;
+        if (session.started_at && session.ended_at) {
+          mins = Math.round(
+            (new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 60000,
           );
-          partial = Math.min(60, Math.max(0, mins));
         }
-        setCurrentBlockIndex(idx); // pro "totalBlocks" (currentBlockIndex+1) também não zerar
-        setWorkedMinutes(idx * 60 + partial);
+        setCurrentBlockIndex(session.current_block_index || 0);
+        setWorkedMinutes(Math.max(0, mins));
         setPhase(session.status === "completed" ? "finished" : "abandoned");
         setLoading(false);
         return;

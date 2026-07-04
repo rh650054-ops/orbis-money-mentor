@@ -538,7 +538,7 @@ export function DefconEndScreen({
       statCard("VENDAS", String(totalSalesCount || 0), leftX, topY, gw, gh);
       statCard("ABORDAGENS", String(totalApproaches || 0), rightX, topY, gw, gh);
       statCard("CONVERSÃO", `${conversionRate.toFixed(0)}%`, leftX, botY, gw, gh);
-      statCard("HORAS", `${totalBlocks}h`, rightX, botY, gw, gh);
+      statCard("HORAS", horasLabel, rightX, botY, gw, gh);
       await drawLogo(H - 340, 340, 0.7);
     } else {
       // Conquista — fundo dourado quando bate a meta
@@ -563,7 +563,7 @@ export function DefconEndScreen({
       centerText(formatCurrency(totalSold), 680, 170, "900", WHITE);
       centerText(`${percentage.toFixed(0)}% DA META`, 850, 44, "800", reached ? GREEN : MUTED, 6);
       divider(990, GOLD);
-      const cols: [string, string][] = [["VENDAS", String(totalSalesCount || 0)], ["CONVERSÃO", `${conversionRate.toFixed(0)}%`], ["HORAS", `${totalBlocks}h`]];
+      const cols: [string, string][] = [["VENDAS", String(totalSalesCount || 0)], ["CONVERSÃO", `${conversionRate.toFixed(0)}%`], ["HORAS", horasLabel]];
       const colW = W / 3;
       cols.forEach((c, i) => {
         const cx = colW * i + colW / 2;
