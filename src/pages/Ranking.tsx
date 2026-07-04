@@ -14,7 +14,7 @@ import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { RankingShareCard } from "@/components/RankingShareCard";
 import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
-import { getTier, leagueRank } from "@/components/ranking/tier";
+import { leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
 import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
@@ -456,12 +456,6 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
   const top3 = ranking[2];
   const restRanking = ranking.slice(3, 10);
 
-  const currentPosition = currentUserStats?.posicao_faturamento || 0;
-  const currentValue = currentUserStats?.faturamento_total_mes || 0;
-  const nextPositionIndex = currentPosition > 1 ? currentPosition - 2 : -1;
-  const nextPositionValue = nextPositionIndex >= 0 && ranking[nextPositionIndex]
-    ? ranking[nextPositionIndex].faturamento_total_mes : 0;
-  const progressToNext = nextPositionValue > 0 ? Math.min((currentValue / nextPositionValue) * 100, 100) : 0;
 
   if (ranking.length === 0) {
     return (
@@ -483,40 +477,6 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
       {/* A cacada - quem esta logo na frente */}
       {hasParticipated && (
         <RankingChase ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} />
-      )}
-
-      {/* Your Position */}
-      {hasParticipated && currentUserStats && (
-        <Card className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card">
-          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
-          <CardContent className="relative p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="relative shrink-0">
-                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50", getTier(currentUserStats.posicao_faturamento || 999).icon)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-primary-foreground font-black tracking-widest">VOCÊ</span>
-                  <span className="text-muted-foreground text-sm font-semibold">#{currentUserStats.posicao_faturamento}</span>
-                </div>
-                <p className="text-lg font-black text-foreground mt-0.5">{formatCurrency(currentUserStats.faturamento_total_mes)}</p>
-              </div>
-              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-r from-primary/25 to-primary/10 border border-primary/40 shrink-0">
-                <Flame className="w-3.5 h-3.5 text-primary fill-primary/40" />
-                <span className="text-xs font-black text-primary">{currentUserStats.constancia_streak_atual}</span>
-              </div>
-            </div>
-            {currentPosition > 1 && nextPositionValue > currentValue && (
-              <div className="space-y-2 pt-2 border-t border-primary/15">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Para subir para #{currentPosition - 1}</span>
-                  <span className="text-primary font-bold">+{formatCurrency(nextPositionValue - currentValue)}</span>
-                </div>
-                <Progress value={progressToNext} className="h-1.5" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
       )}
 
       <RankingList ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
