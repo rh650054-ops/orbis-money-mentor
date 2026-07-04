@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
 import { avatarThumb } from "@/shared/lib/avatar";
+import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, ChevronUp, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -44,8 +45,8 @@ function Divider({ label, color }: { label: string; color: string }) {
   );
 }
 
-function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }: {
-  entry: LeaderboardEntry; position: number; isMe: boolean; subtitle: string;
+function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenProfile }: {
+  entry: LeaderboardEntry; position: number; isMe: boolean; subtitle: string; suspect?: string;
   formatCurrency: (v: number) => string; onOpenProfile: (uid: string) => void;
 }) {
   const navigate = useNavigate();
@@ -68,6 +69,18 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
           </p>
           <p className="text-[10px] truncate" style={{ color: tier.color }}>{sub}</p>
         </div>
+        {/* Bolinha de SUSPEITA — SÓ o admin recebe dados (a função só retorna pra admin). */}
+        {suspect && (
+          <span
+            role="button"
+            onClick={(e) => { e.stopPropagation(); navigate("/admin/anti-trapaca"); }}
+            title={`⚠️ Suspeito: ${suspect} — toque pra revisar/remover`}
+            className="shrink-0 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(239,68,68,.7)]"
+            aria-label="Suspeito de fraude — abrir anti-trapaça"
+          >
+            <span className="text-[9px] leading-none">!</span>
+          </span>
+        )}
         <span className="text-white font-black text-sm shrink-0">{formatCurrency(entry.faturamento_total_mes || 0)}</span>
         {/* DESAFIAR: botão de X1 direto do ranking — vermelho sangue, estilo "apontar o dedo" */}
         {!isMe && (
@@ -95,6 +108,20 @@ function Row({ entry, position, isMe, subtitle, formatCurrency, onOpenProfile }:
 
 export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Props) {
   const [expanded, setExpanded] = useState(false);
+  // Suspeitos de fraude — a função no banco SÓ devolve dados pra ADMIN, então
+  // o usuário comum recebe mapa vazio (nenhuma bolinha aparece pra ele).
+  const [suspects, setSuspects] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const { data } = await (supabase as any).rpc("ranking_suspeitos");
+      if (!alive) return;
+      const map: Record<string, string> = {};
+      for (const r of (data as any[]) || []) map[String(r.user_id)] = String(r.motivo);
+      setSuspects(map);
+    })().catch(() => {});
+    return () => { alive = false; };
+  }, []);
   if (ranking.length < 4) return null;
   const myIdx = me ? ranking.findIndex((e) => e.user_id === me.user_id) : -1;
 
@@ -130,6 +157,7 @@ export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Prop
           position={position}
           isMe={!!me && entry.user_id === me.user_id}
           subtitle={subtitleFor(entry, position)}
+          suspect={suspects[entry.user_id]}
           formatCurrency={formatCurrency}
           onOpenProfile={onOpenProfile}
         />
