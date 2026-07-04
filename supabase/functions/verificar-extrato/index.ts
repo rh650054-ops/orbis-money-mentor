@@ -305,9 +305,13 @@ Deno.serve(async (req) => {
       } catch { /* deixa passar se a trava falhar */ }
     }
 
-    // Janela do modo MES: do dia 1 do mes atual (fuso BR) ate hoje.
+    // Janela do modo MES: do dia 1 do mes atual (fuso BR) ate hoje — E sempre
+    // pelo menos os ultimos 9 dias, pra "extrato da semana" que cruza a virada
+    // do mes nao perder os dias do mes anterior.
     const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-    const iniJanela = `${hojeBR.slice(0, 7)}-01`;
+    const iniMes = `${hojeBR.slice(0, 7)}-01`;
+    const noveDias = new Date(Date.now() - 9 * 86400000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+    const iniJanela = noveDias < iniMes ? noveDias : iniMes;
 
     const prompt = modo === "mes"
       ? buildPromptMes(nome, tipo, iniJanela, hojeBR)

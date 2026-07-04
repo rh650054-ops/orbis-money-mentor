@@ -197,7 +197,12 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
         ) : (
           <>Só <b className="text-foreground">maquininha</b> hoje — um envio resolve. </>
         )}
-        A IA confere na hora; só Pix + cartão contam no ranking. <b className="text-foreground">Envie até as 9h de amanhã.</b>
+        A IA confere na hora; só Pix + cartão contam no ranking.{" "}
+        {inX1 ? (
+          <b className="text-red-400">Dia de X1: o extrato do DIA é obrigatório até as 9h de amanhã — o duelo paga às 9h05.</b>
+        ) : (
+          <><b className="text-foreground">Envie até as 9h de amanhã</b> — ou junte e mande <b className="text-foreground">1× por semana</b> no card 📅 abaixo.</>
+        )}
       </p>
       <div className="flex gap-2">
         {showPix && slotBtn("pix", "Extrato Pix", Smartphone, pix, pixRef)}
@@ -249,10 +254,10 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
       <label className={`block rounded-xl border border-dashed border-border bg-card/40 p-2.5 cursor-pointer active:scale-[0.99] transition-transform ${busyMes ? "opacity-60 pointer-events-none" : ""}`}>
         <span className="flex items-center justify-center gap-2 text-[11px] font-bold text-foreground/80">
           {busyMes ? <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" /> : "📅"}
-          {busyMes ? "Separando por dia…" : "Faltou algum dia? Envie o extrato do mês aqui"}
+          {busyMes ? "Separando por dia…" : "Extrato da semana — mande 1× que a IA separa por dia"}
         </span>
         <span className="block text-center text-[9px] text-muted-foreground mt-0.5">
-          A IA separa por dia e preenche os que faltaram
+          Vale a qualquer hora; preenche os dias que faltaram. Só dia de X1 exige o extrato no próprio dia.
         </span>
         <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onFileMes} disabled={busyMes} />
       </label>
