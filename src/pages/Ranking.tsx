@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Camera, Sparkles, Share2, Download, Loader2, Gift, Shield } from "lucide-react";
+import { Trophy, Crown, Medal, Flame, TrendingUp, ChevronRight, Star, Zap, AlertCircle, Edit2, Sparkles, Share2, Download, Loader2, Gift, Shield } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Progress } from "@/shared/ui/progress";
@@ -450,7 +450,7 @@ interface FaturamentoLeagueProps extends LeagueProps {
   variant?: "mensal" | "semanal";
 }
 
-function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile, onQuickPhoto, quickUploading, variant }: FaturamentoLeagueProps) {
+function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onOpenProfile, variant }: FaturamentoLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
   const top3 = ranking[2];
@@ -492,19 +492,7 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
           <CardContent className="relative p-4">
             <div className="flex items-center gap-3 mb-3">
               <div className="relative shrink-0">
-                <button onClick={onQuickPhoto} className="block active:scale-95 transition-transform" title="Trocar foto">
-                  {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50", getTier(currentUserStats.posicao_faturamento || 999).icon)}
-                  <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                    {quickUploading ? <Loader2 className="w-2.5 h-2.5 text-primary-foreground animate-spin" /> : <Camera className="w-2.5 h-2.5 text-primary-foreground" />}
-                  </span>
-                </button>
-                <button
-                  onClick={onEditProfile}
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-card border border-primary/50 flex items-center justify-center shadow hover:bg-primary/20 transition-colors"
-                  title="Editar perfil"
-                >
-                  <Edit2 className="w-2.5 h-2.5 text-primary" />
-                </button>
+                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50", getTier(currentUserStats.posicao_faturamento || 999).icon)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
