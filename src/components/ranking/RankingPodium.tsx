@@ -74,7 +74,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
     <div className="flex-1 text-center min-w-0">
       {champion ? (
         // Coroa SEMPRE dourada (assinatura do Orbis); só o glow acompanha o ambiente.
-        <Crown className="w-8 h-8 mx-auto mb-1" style={{ color: "#F5D77A", filter: `drop-shadow(0 0 14px ${avatarGlow})` }} />
+        <Crown className="w-8 h-8 mx-auto mb-1 orbis-float" style={{ color: "#F5D77A", filter: `drop-shadow(0 0 14px ${avatarGlow})` }} />
       ) : (
         <div className="text-[20px] leading-none mb-1" style={{ filter: `drop-shadow(0 0 8px ${tier.glow})` }}>{medal}</div>
       )}
@@ -88,7 +88,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
       </button>
       <DesafiarPodio uid={entry.user_id} champion={champion} />
       <div
-        className="mt-2 rounded-t-xl flex items-center justify-center font-black relative overflow-hidden"
+        className="mt-2 rounded-t-xl flex items-center justify-center font-black relative overflow-hidden orbis-rise"
         style={{
           height: barHeight,
           fontSize: champion ? 30 : 22,
@@ -97,9 +97,12 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
           border: `1px solid ${baseColor}66`,
           borderBottom: "none",
           boxShadow: `inset 0 1px 0 ${baseColor}66`,
+          animationDelay: champion ? "0.05s" : position === 2 ? "0.15s" : "0.25s",
         }}
       >
-        <span style={{ textShadow: `0 0 16px ${baseGlow}` }}>{position}</span>
+        {/* Brilho que passa — só no pódio do campeão, pra dar vida sem poluir. */}
+        {champion && <span className="absolute inset-0 pointer-events-none orbis-shimmer" />}
+        <span className="relative" style={{ textShadow: `0 0 16px ${baseGlow}` }}>{position}</span>
       </div>
     </div>
   );
@@ -137,17 +140,16 @@ export function RankingPodium({ top1, top2, top3, formatCurrency, onOpenProfile,
   const green = variant === "semanal";
   const premium = variant === "premium";
   const label = premium ? "PÓDIO DA COMPETIÇÃO" : green ? "PÓDIO DA SEMANA" : "PÓDIO DO MÊS";
-  const labelColor = premium ? "#F5D77A" : green ? "#6EE7B7" : "#C9A6FF";
-  const bg = premium
-    ? "radial-gradient(120% 70% at 50% 0%, rgba(245,181,68,0.20) 0%, #120d04 62%)"
-    : green
-      ? "radial-gradient(120% 70% at 50% 0%, rgba(16,185,129,0.18) 0%, #06120d 62%)"
-      : "radial-gradient(120% 70% at 50% 0%, rgba(176,124,240,0.16) 0%, #0a0a0d 62%)";
+  // Mensal (global) e competição usam o DOURADO oficial do app; só a liga semanal é verde.
+  const labelColor = green ? "#6EE7B7" : "#F5D77A";
+  const bg = green
+    ? "radial-gradient(120% 70% at 50% 0%, rgba(16,185,129,0.18) 0%, #06120d 62%)"
+    : "radial-gradient(120% 70% at 50% 0%, rgba(245,181,68,0.20) 0%, #120d04 62%)";
   return (
     <div
       className="rounded-2xl border p-4 pt-3"
       style={{
-        borderColor: premium ? "#3a2c0a" : green ? "#11352a" : "#26262e",
+        borderColor: green ? "#11352a" : "#3a2c0a",
         background: bg,
       }}
     >
