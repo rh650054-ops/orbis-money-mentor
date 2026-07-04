@@ -5,7 +5,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import { CompetitionArena } from "@/components/competitions/CompetitionArena";
+import { RankingPodium } from "@/components/ranking/RankingPodium";
+import { RankingList } from "@/components/ranking/RankingList";
+import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
 import { X1Andamento } from "@/components/competitions/X1Andamento";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
@@ -41,16 +43,6 @@ interface BilheteCfg {
   commissionNote?: string | null;
 }
 
-interface Part {
-  id: string;
-  competition_id: string;
-  user_id: string;
-  score: number | null;
-  approved_score: number | null;
-  score_approved: boolean | null;
-  paid: boolean | null;
-}
-
 const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v || 0);
 const dateBR = (iso: string) => {
   try {
@@ -61,7 +53,6 @@ const dateBR = (iso: string) => {
 };
 const metricLabel = (m: string) =>
   m === "pix_revenue" ? "Faturamento" : m === "pix_sales_count" ? "Nº de vendas" : m === "streak" ? "Ofensiva (dias)" : m;
-const partValue = (p: Part) => (p.score_approved ? p.approved_score ?? 0 : p.score ?? 0);
 
 export default function Competitions() {
   const { user } = useAuth();
@@ -257,33 +248,28 @@ export default function Competitions() {
 }
 
 function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBack: () => void }) {
-  const [rows, setRows] = useState<Array<Part & { nickname: string | null; avatar_url: string | null }>>([]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [profileUid, setProfileUid] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
-    const { data: parts } = await supabase
-      .from("competition_participants" as any)
-      .select("*")
-      .eq("competition_id", comp.id);
-    const list = ((parts as any[]) || []) as Part[];
-    const ids = Array.from(new Set(list.map((p) => p.user_id)));
-    let profMap = new Map<string, any>();
-    if (ids.length) {
-      const { data: profs } = await supabase
-        .from("public_profiles")
-        .select("user_id, nickname, avatar_url")
-        .in("user_id", ids);
-      profMap = new Map(((profs as any[]) || []).map((p) => [p.user_id, p]));
-    }
-    const merged = list.map((p) => ({
-      ...p,
-      nickname: profMap.get(p.user_id)?.nickname ?? null,
-      avatar_url: profMap.get(p.user_id)?.avatar_url ?? null,
+    // Ranking da competição = valor VERIFICADO POR EXTRATO no período (RPC).
+    const { data } = await (supabase as any).rpc("competition_ranking", { p_id: comp.id });
+    const mapped: LeaderboardEntry[] = ((data as any[]) || []).map((r, i) => ({
+      id: String(r.user_id),
+      user_id: String(r.user_id),
+      nome_usuario: r.nome_usuario || null,
+      avatar_url: r.avatar_url || null,
+      mes_referencia: "",
+      faturamento_total_mes: Number(r.faturamento) || 0,
+      dias_trabalhados_mes: Number(r.dias) || 0,
+      constancia_maior_streak: 0,
+      constancia_streak_atual: 0,
+      posicao_faturamento: i + 1,
+      posicao_constancia: null,
     }));
-    merged.sort((a, b) => partValue(b) - partValue(a));
-    setRows(merged);
+    setEntries(mapped);
     setLoading(false);
   }, [comp.id]);
 
@@ -317,7 +303,7 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
     await load();
   };
 
-  const joined = !!me && rows.some((r) => r.user_id === me);
+  const joined = !!me && entries.some((e) => e.user_id === me);
   const cfg = (comp.bilhete_config || {}) as BilheteCfg;
 
   // Convidado que ainda NÃO entrou: bilhete dourado em tela cheia (overlay sobre o app).
@@ -363,18 +349,41 @@ function CompetitionDetail({ comp, me, onBack }: { comp: Comp; me?: string; onBa
           ))}
         </div>
       ) : (
-        <CompetitionArena
-          title={comp.name}
-          sealText={comp.entry_rule === "paid" ? "Competição Paga" : "Competição Premium"}
-          prizeLabel={comp.prize_label || "Prêmio"}
-          prizeValue={comp.prize_value || 0}
-          datesStatus={`${dateBR(comp.starts_at)} a ${dateBR(comp.ends_at)} · ${comp.status === "active" ? "Em andamento" : "Encerrada"}`}
-          rows={rows.map((r) => ({ user_id: r.user_id, nickname: r.nickname, avatar_url: r.avatar_url, value: partValue(r) }))}
-          me={me}
-          isCount={comp.metric === "pix_sales_count"}
-          formatCurrency={fmt}
-          onOpenProfile={setProfileUid}
-        />
+        <div className="pt-16 px-4 pb-24 max-w-2xl mx-auto space-y-4">
+          <div className="text-center space-y-1">
+            <h1 className="text-2xl font-bold text-foreground">{comp.name}</h1>
+            <p className="text-xs text-amber-400 font-semibold">
+              🏆 {comp.prize_label || "Prêmio"}{comp.prize_value ? ` · ${fmt(comp.prize_value)}` : ""}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              {dateBR(comp.starts_at)} a {dateBR(comp.ends_at)} · {comp.status === "active" ? "Em andamento" : "Encerrada"}
+            </p>
+            {comp.recurrence_note && <p className="text-[11px] text-primary/80">🔁 {comp.recurrence_note}</p>}
+            <p className="text-[10px] text-muted-foreground/70">Conta o valor verificado pelo extrato no período</p>
+          </div>
+          {entries.length > 0 ? (
+            <>
+              <RankingPodium
+                top1={entries[0]}
+                top2={entries[1]}
+                top3={entries[2]}
+                formatCurrency={fmt}
+                onOpenProfile={setProfileUid}
+                variant="premium"
+              />
+              <RankingList
+                ranking={entries}
+                me={entries.find((e) => e.user_id === me) || null}
+                formatCurrency={fmt}
+                onOpenProfile={setProfileUid}
+              />
+            </>
+          ) : (
+            <p className="text-center text-sm text-muted-foreground py-8">
+              Ninguém pontuou ainda. Envie seu extrato pra aparecer aqui.
+            </p>
+          )}
+        </div>
       )}
 
       <PublicProfileModal open={!!profileUid} onOpenChange={(v) => !v && setProfileUid(null)} userId={profileUid} />
