@@ -11,6 +11,7 @@ import {
   FileText,
   FileSpreadsheet,
   FileDown,
+  Clock,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Calendar } from "@/shared/ui/calendar";
@@ -108,6 +109,7 @@ export default function Insights() {
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
   const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
   const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
+  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
@@ -171,7 +173,7 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes, sessionsRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales,units_carried")
@@ -222,6 +224,12 @@ export default function Insights() {
           .gte("created_at", range.start.toISOString())
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
           .order("created_at", { ascending: true }),
+        supabase
+          .from("challenge_sessions")
+          .select("started_at,ended_at")
+          .eq("user_id", user.id)
+          .gte("date", startISO)
+          .lte("date", endISO),
       ]);
 
       setSales(salesRes.data || []);
@@ -234,6 +242,7 @@ export default function Insights() {
       );
       setLatePix((lateRes.data as any) || []);
       setDefconSales((defconRes.data as any) || []);
+      setSessions((sessionsRes.data as any) || []);
     } finally {
       setLoading(false);
     }
@@ -320,7 +329,20 @@ export default function Insights() {
     });
     const ritmoMin = gapCount > 0 ? gapSum / gapCount / 60000 : 0;
 
+    // Horas totais trabalhadas no período = soma da duração (fim − início) de cada
+    // sessão do DEFCON. Só conta sessões com início e fim registrados (mesma lógica
+    // do fim do DEFCON, span real — não nº de blocos).
+    let workedMs = 0;
+    for (const s of sessions) {
+      if (!s.started_at || !s.ended_at) continue;
+      const ini = new Date(s.started_at).getTime();
+      const fim = new Date(s.ended_at).getTime();
+      if (Number.isFinite(ini) && Number.isFinite(fim) && fim > ini) workedMs += fim - ini;
+    }
+    const horasTrabalhadasMin = Math.round(workedMs / 60000);
+
     return {
+      horasTrabalhadasMin,
       faturamento,
       lucro,
       sobra,
@@ -354,7 +376,16 @@ export default function Insights() {
       unidLevadas,
       unidSobrou,
     };
-  }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales]);
+  }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales, sessions]);
+
+  // Horas trabalhadas no período, formatadas: "0h", "3h", "2h 30min".
+  const horasLabel = (() => {
+    const min = summary.horasTrabalhadasMin || 0;
+    if (min <= 0) return "0h";
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m > 0 ? `${h}h ${m}min` : `${h}h`;
+  })();
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, { total: number; icon: string; count: number }>();
@@ -653,6 +684,11 @@ export default function Insights() {
                   <span className="font-bold text-primary">
                     {formatCurrency(summary.lucro)}
                   </span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3 text-primary" />
+                  Horas trabalhadas:{" "}
+                  <span className="font-bold text-foreground">{horasLabel}</span>
                 </span>
               </div>
             </div>
