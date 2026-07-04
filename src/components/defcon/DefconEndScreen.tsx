@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2 } from "lucide-react";
+import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,6 +58,9 @@ export function DefconEndScreen({
   const [exportingTx, setExportingTx] = useState(false);
   const [daySales, setDaySales] = useState<{ amount: number; method: string; late: boolean; created_at: string }[]>([]);
   const [totalTips, setTotalTips] = useState(0);
+  const [editingTip, setEditingTip] = useState(false);
+  const [tipInput, setTipInput] = useState("");
+  const [savingTip, setSavingTip] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [previews, setPreviews] = useState<Record<number, string>>({});
   const [selectedTemplate, setSelectedTemplate] = useState<1 | 2 | 3>(2);
@@ -341,6 +344,51 @@ export function DefconEndScreen({
       setCaloteAcknowledged(true);
     } finally {
       setSavingUnits(false);
+    }
+  };
+
+  // Editar a gorjeta do dia no fim do DEFCON. A gorjeta entra como dinheiro, então
+  // ao corrigir o valor ajustamos tip_sales + cash_sales + total_profit pelo delta,
+  // mantendo o dia consistente no relatório.
+  const startEditTip = () => {
+    setTipInput(totalTips ? String(totalTips) : "");
+    setEditingTip(true);
+  };
+
+  const saveTip = async () => {
+    if (!userId) { setEditingTip(false); return; }
+    const newTip = Math.max(0, parseFloat(tipInput.replace(",", ".")) || 0);
+    const delta = newTip - totalTips;
+    setSavingTip(true);
+    try {
+      const today = getBrazilDate();
+      const { data: row } = await supabase
+        .from("daily_sales")
+        .select("id, cash_sales, total_profit")
+        .eq("user_id", userId)
+        .eq("date", today)
+        .order("created_at", { ascending: true })
+        .limit(1);
+      if (row && row.length > 0) {
+        const r = row[0] as any;
+        await supabase
+          .from("daily_sales")
+          .update({
+            tip_sales: newTip,
+            cash_sales: Math.max(0, (Number(r.cash_sales) || 0) + delta),
+            total_profit: Math.max(0, (Number(r.total_profit) || 0) + delta),
+          } as any)
+          .eq("id", r.id);
+      } else {
+        await supabase.from("daily_sales").insert({ user_id: userId, date: today, tip_sales: newTip } as any);
+      }
+      setTotalTips(newTip);
+      setEditingTip(false);
+      toast({ title: "Gorjeta atualizada", description: formatCurrency(newTip) });
+    } catch {
+      toast({ title: "Erro ao salvar gorjeta", variant: "destructive" });
+    } finally {
+      setSavingTip(false);
     }
   };
 
@@ -738,19 +786,53 @@ export function DefconEndScreen({
               Confira seus recebimentos
             </h2>
 
-            {/* Gorjetas — destaque dourado */}
-            {totalTips > 0 && (
-              <div className="rounded-xl bg-gradient-to-r from-primary/15 via-primary/8 to-transparent border border-primary/35 px-3.5 py-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                  <Coins className="w-4 h-4 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs uppercase tracking-wider text-primary font-bold">Gorjetas</p>
-                  <p className="text-xs text-muted-foreground">Já incluídas no dinheiro</p>
-                </div>
-                <p className="text-base font-bold text-primary tabular-nums">+{formatCurrency(totalTips)}</p>
+            {/* Gorjetas — destaque dourado, editável no fim do dia */}
+            <div className="rounded-xl bg-gradient-to-r from-primary/15 via-primary/8 to-transparent border border-primary/35 px-3.5 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+                <Coins className="w-4 h-4 text-primary" />
               </div>
-            )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs uppercase tracking-wider text-primary font-bold">Gorjetas</p>
+                <p className="text-xs text-muted-foreground">Já incluídas no dinheiro</p>
+              </div>
+              {editingTip ? (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    value={tipInput}
+                    onChange={(e) => setTipInput(e.target.value)}
+                    autoFocus
+                    placeholder="0"
+                    className="w-20 h-9 rounded-lg bg-background border border-primary/40 px-2 text-right text-base font-bold text-primary tabular-nums outline-none focus:border-primary"
+                  />
+                  <button
+                    onClick={saveTip}
+                    disabled={savingTip}
+                    aria-label="Salvar gorjeta"
+                    className="w-9 h-9 rounded-lg bg-primary/20 text-primary flex items-center justify-center active:scale-90 transition"
+                  >
+                    {savingTip ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  </button>
+                  <button
+                    onClick={() => setEditingTip(false)}
+                    aria-label="Cancelar"
+                    className="w-9 h-9 rounded-lg text-muted-foreground flex items-center justify-center active:scale-90 transition"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={startEditTip}
+                  aria-label="Editar gorjeta"
+                  className="flex items-center gap-2 active:scale-95 transition"
+                >
+                  <span className="text-base font-bold text-primary tabular-nums">+{formatCurrency(totalTips)}</span>
+                  <Pencil className="w-3.5 h-3.5 text-primary/70" />
+                </button>
+              )}
+            </div>
 
             <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={setPix} accent="text-muted-foreground" />
             <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={setCartao} accent="text-muted-foreground" />

@@ -759,6 +759,7 @@ export function useDefconChallenge(userId: string | undefined) {
     if (!userId || !sale?.id) return;
 
     const amount = Number(sale.amount) || 0;
+    const isTip = sale.method === "gorjeta";
     const method: "dinheiro" | "pix" | "cartao" =
       sale.method === "pix" || sale.method === "cartao" ? sale.method : "dinheiro";
     const blockIdx = Number(sale.block_index) || 0;
@@ -770,9 +771,11 @@ export function useDefconChallenge(userId: string | undefined) {
     // 2) Reverte os agregados no BLOCO da venda (não necessariamente o atual).
     const targetBlock = blocks[blockIdx];
     if (targetBlock) {
+      // Gorjeta entra como dinheiro E em valor_gorjeta, então ao cancelar estorna os dois.
       const newDinheiro = Math.max(0, targetBlock.valor_dinheiro - (method === "dinheiro" ? amount : 0));
       const newPix = Math.max(0, targetBlock.valor_pix - (method === "pix" ? amount : 0));
       const newCartao = Math.max(0, targetBlock.valor_cartao - (method === "cartao" ? amount : 0));
+      const newGorjeta = Math.max(0, (targetBlock.valor_gorjeta || 0) - (isTip ? amount : 0));
       const newAchieved = Math.max(0, newDinheiro + newCartao + newPix + targetBlock.valor_calote);
 
       await supabase
@@ -782,13 +785,14 @@ export function useDefconChallenge(userId: string | undefined) {
           valor_dinheiro: newDinheiro,
           valor_pix: newPix,
           valor_cartao: newCartao,
+          valor_gorjeta: newGorjeta,
         })
         .eq("id", targetBlock.id);
 
       setBlocks(prev =>
         prev.map((b, i) =>
           i === blockIdx
-            ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao }
+            ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao, valor_gorjeta: newGorjeta }
             : b
         )
       );
@@ -804,7 +808,7 @@ export function useDefconChallenge(userId: string | undefined) {
     // 4) venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
     //    então ao excluir a venda a gente tira a venda E a abordagem.
     //    (pix-depois nunca somou venda nem abordagem, então não mexe.)
-    if (!isLate && sessionId) {
+    if (!isLate && !isTip && sessionId) {
       const { data: cb } = await supabase
         .from("challenge_blocks")
         .select("approaches_count, sales_count")
@@ -926,9 +930,20 @@ export function useDefconChallenge(userId: string | undefined) {
 
       if (sessionId) {
         await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+        // Registra a gorjeta como LINHA em defcon_sales (method='gorjeta') pra aparecer
+        // no histórico de vendas e poder ser cancelada. NÃO conta venda/abordagem.
+        await supabase.from("defcon_sales").insert({
+          user_id: userId,
+          session_id: sessionId,
+          block_index: currentBlockIndex,
+          amount,
+          method: "gorjeta",
+          late: false,
+        });
       }
 
       await syncBlocksToDailySales(userId);
+      if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
       await queueBlockOffline(blockState, userId, planIdRef.current);

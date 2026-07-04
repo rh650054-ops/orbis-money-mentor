@@ -314,7 +314,7 @@ export function DefconRunning({
   };
 
   const methodLabel = (m: string) =>
-    m === "pix" ? "Pix" : m === "cartao" ? "Cartão" : "Dinheiro";
+    m === "pix" ? "Pix" : m === "cartao" ? "Cartão" : m === "gorjeta" ? "Gorjeta" : "Dinheiro";
 
   const handleDeleteSale = (sale: any) => {
     if (!onDeleteSale) return;
@@ -989,7 +989,7 @@ export function DefconRunning({
                         {saleTime(s.created_at)}
                       </span>
                       <div className="flex-1 min-w-0 flex flex-col">
-                        <span className="text-sm font-black text-success tabular-nums leading-tight">
+                        <span className={`text-sm font-black tabular-nums leading-tight ${s.method === "gorjeta" ? "text-primary" : "text-success"}`}>
                           {formatCurrency(Number(s.amount) || 0)}
                         </span>
                         <span className="text-[11px] font-mono text-muted-foreground leading-tight flex items-center gap-1.5">
