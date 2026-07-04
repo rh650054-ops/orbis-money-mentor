@@ -9,7 +9,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { toast } from "@/shared/hooks/use-toast";
-import { Trophy, Plus, Trash2, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Trophy, Plus, Trash2, CheckCircle2, ArrowLeft, Pin } from "lucide-react";
 
 interface Comp {
   id: string;
@@ -25,6 +25,7 @@ interface Comp {
   entry_fee: number | null;
   status: string;
   winner_user_id: string | null;
+  pinned?: boolean;
 }
 
 interface Participant {
@@ -74,6 +75,7 @@ export default function AdminCompetitions() {
     const { data: c } = await supabase
       .from("competitions" as any)
       .select("*")
+      .order("pinned", { ascending: false })
       .order("created_at", { ascending: false });
     setComps((c as any) || []);
     const { data: p } = await supabase.from("competition_participants" as any).select("*");
@@ -220,6 +222,12 @@ export default function AdminCompetitions() {
       return;
     }
     toast({ title: "Competição excluída" });
+    load();
+  };
+
+  const togglePin = async (c: Comp) => {
+    const { error } = await (supabase as any).rpc("admin_set_competition_pin", { p_id: c.id, p_pinned: !c.pinned });
+    if (error) { toast({ title: "Erro ao fixar", description: error.message, variant: "destructive" }); return; }
     load();
   };
 
@@ -446,14 +454,19 @@ export default function AdminCompetitions() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-primary font-bold">
-                    {c.status} · {c.period_type}
+                    {c.status} · {c.period_type}{c.pinned ? " · 📌 fixada" : ""}
                   </p>
                   <h3 className="font-bold text-foreground">{c.name}</h3>
                   <p className="text-xs text-muted-foreground">{c.prize_label}</p>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => remove(c.id)}>
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button variant="ghost" size="icon" onClick={() => togglePin(c)} title={c.pinned ? "Desafixar" : "Fixar"}>
+                    <Pin className={`w-4 h-4 ${c.pinned ? "text-primary fill-primary/30" : "text-muted-foreground"}`} />
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => remove(c.id)}>
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
 
               <div>

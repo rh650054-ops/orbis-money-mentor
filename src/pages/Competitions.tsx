@@ -26,6 +26,7 @@ interface Comp {
   entry_instructions: string | null;
   status: string;
   winner_user_id: string | null;
+  pinned?: boolean;
   bilhete_config?: BilheteCfg | null;
 }
 
@@ -78,10 +79,15 @@ export default function Competitions() {
       .from("competitions" as any)
       .select("*")
       .in("status", ["active", "finished"])
+      .order("pinned", { ascending: false })
       .order("created_at", { ascending: false });
     const all = ((c as any[]) || []) as Comp[];
-    // Ativas primeiro, encerradas depois.
-    all.sort((a, b) => (a.status === b.status ? 0 : a.status === "active" ? -1 : 1));
+    // Fixadas primeiro; depois ativas; depois encerradas.
+    all.sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      if (a.status !== b.status) return a.status === "active" ? -1 : 1;
+      return 0;
+    });
     setComps(all);
     if (user) {
       const { data: mine } = await supabase
@@ -190,7 +196,7 @@ export default function Competitions() {
                         className="text-[11px] uppercase tracking-widest font-bold"
                         style={{ color: c.status === "active" ? "#22c55e" : "#9ca3af" }}
                       >
-                        {c.status === "active" ? "Ativa" : "Encerrada"} · {metricLabel(c.metric)}
+                        {c.pinned ? "📌 " : ""}{c.status === "active" ? "Ativa" : "Encerrada"} · {metricLabel(c.metric)}
                       </p>
                       <h3 className="font-bold text-foreground truncate">{c.name}</h3>
                       {c.prize_label && (
