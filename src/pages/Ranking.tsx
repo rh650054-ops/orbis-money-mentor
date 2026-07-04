@@ -7,7 +7,6 @@ import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
-import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
 import PublicProfileModal from "@/components/PublicProfileModal";
@@ -19,7 +18,6 @@ import { getTier, leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
 import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
-import { ExtratoRankingNotice } from "@/components/ranking/ExtratoRankingNotice";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
@@ -77,9 +75,9 @@ export default function Ranking() {
 
   // Fase 2 (06/07): o ranking de vendas abre → o Ranking abre direto no Semanal.
   // Antes disso (semana de recrutamento), abre no Mensal.
-  const [activeTab, setActiveTab] = useState<"mensal" | "semanal">(
-    getBrazilDate() >= "2026-07-06" ? "semanal" : "mensal",
-  );
+  // Ranking ÚNICO (global) — a liga semanal foi removida. Tipo em união só pra
+  // as comparações antigas (dead code do semanal) continuarem compilando.
+  const activeTab: "mensal" | "semanal" = "mensal";
   const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
   const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(user?.id);
@@ -300,9 +298,6 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
-      {/* Aviso da nova regra: valor entra no ranking só depois do extrato enviado. */}
-      <ExtratoRankingNotice userId={user?.id} />
-
       {showRankNudge && user && (
         <TrialNudge
           userId={user.id}
@@ -312,107 +307,25 @@ export default function Ranking() {
         />
       )}
 
-      {/* Tabs: Liga do Mês + Liga da Semana */}
-      <div className="grid grid-cols-2 gap-2.5">
-        <button
-          onClick={() => setActiveTab("mensal")}
-          className={cn(
-            "relative overflow-hidden rounded-xl p-3.5 text-left transition-[colors,transform,opacity] duration-300 border",
-            isMensal
-              ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
-              : "bg-card/40 border-border/50 hover:border-primary/30",
-          )}
-        >
-          {isMensal && (
-            <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
-          )}
-          <div className="relative flex items-center gap-2.5">
-            <div
-              className={cn(
-                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                isMensal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
-              )}
-            >
-              <Trophy className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className={cn("text-xs font-bold uppercase tracking-widest", isMensal ? "text-primary" : "text-muted-foreground")}>
-                Liga
-              </p>
-              <p className={cn("text-sm font-black truncate", isMensal ? "text-foreground" : "text-foreground/70")}>
-                Mensal
-              </p>
-            </div>
-          </div>
-        </button>
-
-        <button
-          onClick={() => setActiveTab("semanal")}
-          className={cn(
-            "relative overflow-hidden rounded-xl p-3.5 text-left transition-[colors,transform,opacity] duration-300 border",
-            !isMensal
-              ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
-              : "bg-card/40 border-border/50 hover:border-primary/30",
-          )}
-        >
-          {!isMensal && (
-            <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
-          )}
-          <div className="relative flex items-center gap-2.5">
-            <div
-              className={cn(
-                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
-                !isMensal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
-              )}
-            >
-              <Flame className="w-4 h-4" />
-            </div>
-            <div className="min-w-0">
-              <p className={cn("text-xs font-bold uppercase tracking-widest", !isMensal ? "text-primary" : "text-muted-foreground")}>
-                Liga
-              </p>
-              <p className={cn("text-sm font-black truncate", !isMensal ? "text-foreground" : "text-foreground/70")}>
-                Semanal
-              </p>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      <p className="text-center text-xs text-muted-foreground -mt-2">
-        {isMensal
-          ? "Maiores vendedores do mês · ofensiva 🔥 incluída"
-          : "Maiores vendedores desta semana · encerra domingo 23:59"}
+      <p className="text-center text-xs text-muted-foreground">
+        Maiores vendedores do mês · ofensiva 🔥 incluída
       </p>
 
       {isMensal ? (
         <>
           {/* Compartilhar no Instagram */}
           {hasParticipated && currentUserStats && (
-            <button
-              data-tour="ranking-share"
-              onClick={handleShare}
-              disabled={isSharing}
-              className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60 hover:border-primary/50"
-              style={{ boxShadow: "0 8px 28px -14px hsl(var(--primary) / 0.45)" }}
-            >
-              <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
-              <div className="relative flex items-center justify-center gap-2.5">
-                {isSharing ? (
-                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                ) : (
-                  <Share2 className="w-5 h-5 text-primary" />
-                )}
-                <div className="text-left">
-                  <p className="text-sm font-black text-foreground tracking-wide">
-                    {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
-                  </p>
-                  <p className="text-xs text-primary/70 uppercase tracking-widest">
-                    Story 9:16 · pronto pra postar
-                  </p>
-                </div>
-              </div>
-            </button>
+            <div className="flex justify-center">
+              <button
+                data-tour="ranking-share"
+                onClick={handleShare}
+                disabled={isSharing}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary active:scale-95 transition disabled:opacity-60"
+              >
+                {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+                {isSharing ? "Gerando..." : "Compartilhar"}
+              </button>
+            </div>
           )}
 
           {!hasParticipated && (
