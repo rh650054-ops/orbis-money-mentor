@@ -136,6 +136,9 @@ export default function Finances() {
     | null
   >(null);
   const [depositValue, setDepositValue] = useState("");
+  // "Guardei outro valor": informar quanto realmente guardou hoje (a mais/a menos)
+  const [customSaveOpen, setCustomSaveOpen] = useState(false);
+  const [customSaveValue, setCustomSaveValue] = useState("");
   // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
   const [savedToday, setSavedToday] = useState(() => {
     try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
@@ -860,6 +863,59 @@ export default function Finances() {
     }
   };
 
+  // "Guardei outro valor": distribui o valor informado (a mais OU a menos que o
+  // sugerido) proporcionalmente entre metas e contas, e diz quanto ainda falta.
+  const handleGuardeiValor = async () => {
+    const value = parseFloat(customSaveValue.replace(",", "."));
+    if (!user || totalGuardarHoje <= 0 || isNaN(value) || value <= 0) {
+      toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
+      return;
+    }
+    const factor = value / totalGuardarHoje; // <1 guardou a menos, >1 a mais
+    try {
+      for (const bill of bills) {
+        const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+        if (quitada || isOverdue(bill) || !todayIsWorkDay) continue;
+        const add = perDay(bill) * factor;
+        if (add > 0) {
+          await supabase
+            .from("planned_bills")
+            .update({ saved_amount: Number(bill.saved_amount) + add })
+            .eq("id", bill.id);
+        }
+      }
+      for (const goal of goals) {
+        const share = ((Math.max(0, summary.netToday) * (Number(goal.percentual_distribuicao) || 0)) / 100) * factor;
+        if (share > 0) {
+          const newAmount = Number(goal.current_amount) + share;
+          await supabase
+            .from("financial_goals")
+            .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
+            .eq("id", goal.id);
+        }
+      }
+      const falta = totalGuardarHoje - value;
+      const metOrOver = falta <= 0.005;
+      // Só marca "guardou hoje" se cumpriu (ou passou) o sugerido — senão mantém o
+      // botão pra completar o restante depois.
+      if (metOrOver) {
+        try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
+        setSavedToday(true);
+      }
+      setCustomSaveOpen(false);
+      setCustomSaveValue("");
+      toast({
+        title: "✓ Guardado!",
+        description: metOrOver
+          ? `${formatCurrency(value)} guardado — meta de hoje cumprida${falta < -0.005 ? " e ainda sobrou!" : "!"}`
+          : `${formatCurrency(value)} guardado. Ainda falta ${formatCurrency(falta)} pra meta de hoje.`,
+      });
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao guardar", variant: "destructive" });
+    }
+  };
+
   // Contas vencidas (não recorrentes que passaram do prazo e não estão quitadas)
   const overdueBills = bills.filter((bill) => isOverdue(bill));
   const vencidasTotal = overdueBills.reduce((sum, bill) => sum + remaining(bill), 0);
@@ -997,13 +1053,63 @@ export default function Finances() {
 
       {/* Botão "Guardei tudo" — guarda a parte de hoje de tudo de uma vez */}
       {!isLoadingData && !savedToday && todayIsWorkDay && totalGuardarHoje > 0 && (
-        <button
-          onClick={handleGuardeiTudo}
-          className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-        >
-          ✓ Guardei tudo — {formatCurrency(totalGuardarHoje)}
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={handleGuardeiTudo}
+            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+          >
+            ✓ Guardei tudo — {formatCurrency(totalGuardarHoje)}
+          </button>
+          <button
+            onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }}
+            className="w-full h-11 rounded-2xl bg-card border border-primary/40 text-primary font-semibold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+          >
+            Guardei outro valor
+          </button>
+        </div>
       )}
+
+      {/* Diálogo "Guardei outro valor" — valor real guardado (a mais/a menos) */}
+      <Dialog open={customSaveOpen} onOpenChange={setCustomSaveOpen}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Quanto você guardou hoje?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sugerido hoje: <span className="font-bold text-primary">{formatCurrency(totalGuardarHoje)}</span>.
+              Informe o que realmente guardou — pode ser a mais ou a menos.
+            </p>
+            <MoneyInput
+              value={parseFloat(customSaveValue) || 0}
+              onChange={(n) => setCustomSaveValue(n ? String(n) : "")}
+              autoFocus
+              className="text-2xl font-bold h-14"
+            />
+            {(() => {
+              const v = parseFloat(customSaveValue.replace(",", ".")) || 0;
+              if (v <= 0) return null;
+              const falta = totalGuardarHoje - v;
+              return (
+                <p className={`text-sm font-semibold ${falta > 0.005 ? "text-muted-foreground" : "text-success"}`}>
+                  {falta > 0.005
+                    ? `Ainda faltará ${formatCurrency(falta)} pra meta de hoje.`
+                    : falta < -0.005
+                      ? `Você guardou ${formatCurrency(-falta)} a mais que o sugerido. 🎉`
+                      : "Bate certinho com a meta de hoje. ✓"}
+                </p>
+              );
+            })()}
+            <Button
+              onClick={handleGuardeiValor}
+              disabled={!customSaveValue || (parseFloat(customSaveValue.replace(",", ".")) || 0) <= 0}
+              className="w-full h-12 text-base font-bold"
+            >
+              Guardar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Distribuição automática do líquido diário */}
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
