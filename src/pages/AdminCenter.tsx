@@ -68,6 +68,13 @@ const OUTRAS_AREAS = [
   { icon: FileCog, label: "Config. de extrato", desc: "Regras da verificação", path: "/admin/extrato-config" },
 ];
 
+// Ferramentas de teste/simulação — antes ficavam soltas no Minha Conta.
+const TESTES = [
+  { icon: FileCog, label: "Teste · Extrato", desc: "Simular upload de extrato", path: "/admin/teste-extrato" },
+  { icon: Trophy, label: "Bilhete dourado", desc: "Testar o bilhete dourado", path: "/?bilhete-teste=1" },
+  { icon: Eye, label: "Ranking (simulador)", desc: "Simular o ranking", path: "/admin/teste-ranking" },
+];
+
 export default function AdminCenter() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -564,7 +571,27 @@ export default function AdminCenter() {
                 const Icon = a.icon;
                 return (
                   <button key={a.path} onClick={() => navigate(a.path)} className="w-full flex items-center gap-3 rounded-xl bg-card border border-border/60 px-3 py-2.5 text-left active:scale-[0.99] transition-transform">
-                    <Icon className="w-4 h-4 text-violet-400 shrink-0" />
+                    <Icon className="w-4 h-4 text-primary shrink-0" />
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-xs font-bold text-foreground">{a.label}</span>
+                      <span className="block text-[10px] text-muted-foreground truncate">{a.desc}</span>
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ===== 🧪 Ferramentas de teste ===== */}
+          <div className="rounded-2xl border border-border bg-card/50 p-4 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-wider text-foreground">🧪 Ferramentas de teste</p>
+            <div className="space-y-1.5">
+              {TESTES.map((a) => {
+                const Icon = a.icon;
+                return (
+                  <button key={a.path} onClick={() => navigate(a.path)} className="w-full flex items-center gap-3 rounded-xl bg-card border border-border/60 px-3 py-2.5 text-left active:scale-[0.99] transition-transform">
+                    <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 min-w-0">
                       <span className="block text-xs font-bold text-foreground">{a.label}</span>
                       <span className="block text-[10px] text-muted-foreground truncate">{a.desc}</span>

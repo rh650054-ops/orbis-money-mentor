@@ -107,11 +107,11 @@ export default function Profile() {
           tesouraria, carteiras, depósitos, liquidação, revisões e as outras áreas. */}
       {isAdmin && (
         <Card
-          className="cursor-pointer border-violet-500/40 bg-violet-500/5 hover:border-violet-400/60 transition-[colors,transform,opacity] hover:scale-[1.01]"
+          className="cursor-pointer border-primary/40 bg-primary/5 hover:border-primary/60 transition-[colors,transform,opacity] hover:scale-[1.01]"
           onClick={() => navigate("/admin")}
         >
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-violet-500/15 flex items-center justify-center text-violet-400">
+            <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center text-primary">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">

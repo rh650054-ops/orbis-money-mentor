@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getCheckoutUrl } from "@/shared/lib/checkout";
 import { useNavigate } from "react-router-dom";
-import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, Upload, Shield, UserPlus, ArrowLeft, Brain, Ticket } from "lucide-react";
+import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, ArrowLeft } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
@@ -749,70 +749,8 @@ export default function Profile() {
         onProfileUpdated={() => { loadProfile(); }}
       />
 
-      {/* Admin Panel Access Card - apenas para admins */}
-      {isAdmin && (
-        <Card className="border-primary/20">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Shield className="w-4 h-4 text-primary" />
-              <p className="text-sm font-semibold">Painel Administrativo</p>
-            </div>
-            <Button
-              onClick={() => navigate("/admin/demo-users")}
-              className="w-full h-9 text-xs"
-              variant="outline"
-              size="sm"
-            >
-              <UserPlus className="w-3.5 h-3.5 mr-2" />
-              Contas Demo
-            </Button>
-            <Button
-              onClick={() => navigate("/admin/subscriptions")}
-              className="w-full h-9 text-xs"
-              variant="outline"
-              size="sm"
-            >
-              <Shield className="w-3.5 h-3.5 mr-2" />
-              Assinaturas
-            </Button>
-            <Button
-              onClick={() => navigate("/admin/ai-brain")}
-              className="w-full h-9 text-xs"
-              variant="outline"
-              size="sm"
-            >
-              <Brain className="w-3.5 h-3.5 mr-2" />
-              Cérebro da IA
-            </Button>
-            <Button
-              onClick={() => navigate("/admin/teste-extrato")}
-              className="w-full h-9 text-xs"
-              variant="outline"
-              size="sm"
-            >
-              <Upload className="w-3.5 h-3.5 mr-2" />
-              Teste · Extrato
-            </Button>
-            <Button
-              onClick={() => navigate("/?bilhete-teste=1")}
-              className="w-full h-9 text-xs"
-              variant="outline"
-              size="sm"
-            >
-              <Ticket className="w-3.5 h-3.5 mr-2" />
-              Bilhete dourado
-            </Button>
-            <Button
-              onClick={() => navigate("/admin/teste-ranking")}
-              className="w-full h-9 text-xs"
-              variant="outline"
-              size="sm"
-            >
-              🏆 Ranking Teste (simulador)
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+      {/* Admin: tudo unificado no Perfil → Administração (/admin). Sem botões
+          soltos aqui — o painel central concentra assinaturas, IA, testes etc. */}
 
       {/* Subscription Card - Apenas para não assinantes */}
       {profile.plan_status !== 'active' && !profile.billing_exempt && (
