@@ -4,7 +4,7 @@ import { toast } from "@/shared/hooks/use-toast";
 import { getExtratoDia } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useMeuExtrato } from "@/hooks/useMeuExtrato";
-import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard, Trash2 } from "lucide-react";
+import { CheckCircle2, FileText, Loader2, Smartphone, CreditCard, Trash2, ChevronDown } from "lucide-react";
 
 // Aparece no fim do DEFCON SÓ pra quem participa de competição ativa.
 // A IA (verificar-extrato) lê o extrato do dia, audita (só card+pix que ENTROU)
@@ -26,6 +26,7 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
   const [deleting, setDeleting] = useState<null | "pix" | "cartao">(null);
   // Últimos valores que NÃO contaram (com o motivo exato) — mostrado no card.
   const [avisos, setAvisos] = useState<{ valor?: number; motivo?: string; descricao?: string }[]>([]);
+  const [aberto, setAberto] = useState(false); // recolhido por padrão (bem mais enxuto)
   const pixRef = useRef<HTMLInputElement>(null);
   const cartaoRef = useRef<HTMLInputElement>(null);
 
@@ -133,9 +134,11 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
     else toast({ title: "Não consegui excluir agora", variant: "destructive" });
   };
 
-  // Agora o extrato vale pro ranking de TODO mundo, então o bloco aparece pra todos
-  // no fim do DEFCON (não só quem está em competição/X1).
+  // O extrato agora vale SÓ pras COMPETIÇÕES (o ranking global não exige extrato).
+  // Então o bloco só aparece pra quem está numa competição (ou X1) — pra quem é só
+  // do global ele nem aparece, deixando a tela do DEFCON limpa.
   if (loading) return null;
+  if (!inComp && !inX1) return null;
 
   // Selinho discreto de contexto (X1 / competição) — substitui o texto comprido.
   const selo = inX1 && inComp ? "vale p/ competição + X1" : inX1 ? "vale pro X1" : inComp ? "vale p/ competição" : null;
@@ -177,18 +180,23 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
 
   return (
     <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3">
-      {/* Cabeçalho enxuto: título + data + selinho de contexto */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <FileText className="w-4 h-4 text-amber-400" />
-          <p className="text-sm font-bold text-amber-400">Extrato do dia {diaLabel}</p>
+      {/* Cabeçalho: toca pra abrir/fechar (recolhido por padrão) */}
+      <button onClick={() => setAberto((v) => !v)} className="w-full flex items-center justify-between gap-2 text-left">
+        <div className="flex items-center gap-2 min-w-0">
+          <FileText className="w-4 h-4 text-amber-400 shrink-0" />
+          <p className="text-sm font-bold text-amber-400 truncate">Extrato do dia {diaLabel}</p>
         </div>
-        {selo && (
-          <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">
-            {selo}
-          </span>
-        )}
-      </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {selo && (
+            <span className="text-[10px] font-bold text-amber-400 bg-amber-500/15 border border-amber-500/40 rounded-full px-2 py-0.5 whitespace-nowrap">
+              {selo}
+            </span>
+          )}
+          <ChevronDown className={`w-4 h-4 text-amber-400 transition-transform ${aberto ? "rotate-180" : ""}`} />
+        </div>
+      </button>
+      {aberto && (
+      <>
       <p className="text-xs text-muted-foreground">
         {showPix && showCartao ? (
           <>Suba o <b className="text-foreground">Pix</b> e a <b className="text-foreground">maquininha</b>. </>
@@ -263,6 +271,8 @@ export function CompetitionStatementUpload({ userId }: { userId: string }) {
       </label>
       <input ref={pixRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onFile("pix", e)} />
       <input ref={cartaoRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => onFile("cartao", e)} />
+      </>
+      )}
     </div>
   );
 }

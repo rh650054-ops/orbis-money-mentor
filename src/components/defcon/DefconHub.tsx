@@ -564,8 +564,8 @@ export default function DefconHub() {
           {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
         </button>
 
-        {/* Extrato do dia — logo abaixo do botão de continuar/iniciar o DEFCON. */}
-        <div className="mt-3">
+        {/* Extrato do dia (só pra quem está em competição/X1) — bem separado do botão. */}
+        <div className="mt-6">
           <CompetitionStatementUpload userId={user.id} />
         </div>
       </div>
