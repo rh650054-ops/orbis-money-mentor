@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -371,7 +371,7 @@ export function DefconRunning({
   }
 
   return (
-    <div className="relative min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col select-none">
+    <div className="relative h-[100dvh] bg-background pt-safe pb-safe flex flex-col overflow-hidden select-none">
       {/* Smart approach notifications */}
       <DefconSmartNotification
         userId={userId}
@@ -463,16 +463,16 @@ export function DefconRunning({
 
         {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
             fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
-        <div className="w-full flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-2">
+        <div className="w-full flex flex-nowrap items-center justify-center gap-x-2.5 px-1">
           {/* Faturado */}
           <div className="flex flex-col items-center gap-0.5 min-w-0">
-            <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Bloco</span>
-            <span className="font-black text-success text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
+            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Bloco</span>
+            <span className="font-black text-success text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
               {formatCurrency(blockSold)}
             </span>
           </div>
 
-          <span className="w-px h-8 bg-border shrink-0" />
+          <span className="w-px h-7 bg-border shrink-0" />
 
           {/* Vendas — tocável: abre o detalhe por venda do bloco */}
           <button
@@ -481,29 +481,29 @@ export function DefconRunning({
             aria-label="Ver vendas deste bloco"
             className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
           >
-            <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Vendas</span>
-            <span className="font-black text-foreground text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
+            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Vendas</span>
+            <span className="font-black text-foreground text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
               {blockSalesCount}
             </span>
           </button>
 
-          <span className="w-px h-8 bg-border shrink-0" />
+          <span className="w-px h-7 bg-border shrink-0" />
 
           {/* Abordagens */}
           <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
-            <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Abord.</span>
-            <span className="font-black text-foreground text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
+            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Abord.</span>
+            <span className="font-black text-foreground text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
               {blockApproaches}
             </span>
           </div>
 
           {blockApproaches > 0 && (
             <>
-              <span className="w-px h-8 bg-border shrink-0" />
+              <span className="w-px h-7 bg-border shrink-0" />
               {/* Conversão */}
               <div className="flex flex-col items-center gap-0.5">
-                <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Conv.</span>
-                <span className="font-black text-primary text-[clamp(15px,4.6vw,20px)] font-mono tabular-nums leading-none">
+                <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Conv.</span>
+                <span className="font-black text-primary text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
                   {conversionRate}%
                 </span>
               </div>
@@ -767,9 +767,9 @@ export function DefconRunning({
               <button
                 onClick={() => handleAddSale("pix")}
                 disabled={!saleValue || parseFloat(saleValue) <= 0}
-                style={{ backgroundColor: BRAND_COLORS.PIX }}
-                className="flex-1 h-16 text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                className="flex-1 h-16 bg-primary text-primary-foreground font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
               >
+                <Smartphone className="w-5 h-5" strokeWidth={2.5} />
                 <span className="text-lg font-black">PIX</span>
               </button>
             </div>
