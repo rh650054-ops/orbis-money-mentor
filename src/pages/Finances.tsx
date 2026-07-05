@@ -821,20 +821,39 @@ export default function Finances() {
   // return abaixo (regras de hooks). Lê o alvo via ref, pois totalGuardarHoje só é
   // calculado mais adiante no render.
   const guardarTargetRef = useRef(0);
+  const workingDaysRef = useRef<string[] | null>(null);
   useEffect(() => {
     if (isLoadingData) return;
     const hoje = getBrazilDate();
     const alvo = guardarTargetRef.current;
+    const wds = workingDaysRef.current;
+    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     try {
-      if (localStorage.getItem("orbis_guardar_date") !== hoje) {
+      const savedDate = localStorage.getItem("orbis_guardar_date");
+      let saved = Number(localStorage.getItem("orbis_guardar_saved") || 0);
+      if (savedDate !== hoje) {
+        // POUPANÇA ADIANTADA: o que você guardou vira "saldo adiantado". A cada dia
+        // ÚTIL que passou, consome o alvo daquele dia (o dia "usou" sua reserva).
+        // Assim, guardar a mais hoje abate os próximos dias — e fica consistente.
+        if (savedDate) {
+          const prevTarget = Number(localStorage.getItem("orbis_guardar_target") || alvo);
+          const cur = new Date(savedDate + "T12:00:00");
+          const end = new Date(hoje + "T12:00:00");
+          cur.setDate(cur.getDate() + 1);
+          while (cur.getTime() < end.getTime()) {
+            const util = wds && wds.length > 0 ? wds.includes(nomes[cur.getDay()]) : true;
+            if (util) saved = Math.max(0, saved - prevTarget);
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
         localStorage.setItem("orbis_guardar_date", hoje);
         localStorage.setItem("orbis_guardar_target", String(alvo));
-        localStorage.setItem("orbis_guardar_saved", "0");
+        localStorage.setItem("orbis_guardar_saved", String(saved));
         setTargetSnapshot(alvo);
-        setSavedTodayAmount(0);
+        setSavedTodayAmount(saved);
       } else {
         setTargetSnapshot(Number(localStorage.getItem("orbis_guardar_target") || alvo));
-        setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
+        setSavedTodayAmount(saved);
       }
     } catch {
       setTargetSnapshot(alvo);
@@ -865,9 +884,10 @@ export default function Finances() {
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
 
-  // Alimenta o ref com o alvo do dia. O snapshot (congelar o alvo) é feito por um
-  // efeito lá em cima — ANTES do early return — pra respeitar as regras de hooks.
+  // Alimenta os refs (alvo do dia + dias de trabalho). O snapshot/consumo é feito
+  // por um efeito lá em cima — ANTES do early return — pra respeitar as regras de hooks.
   guardarTargetRef.current = totalGuardarHoje;
+  workingDaysRef.current = workingDays;
 
   // Soma um depósito ao "guardado hoje" (persiste no fuso BR).
   const registrarGuardadoHoje = (valor: number) => {
@@ -882,50 +902,62 @@ export default function Finances() {
     } catch { /* ignore */ }
   };
 
-  // ALVO fixo do dia (snapshot) e QUANTO AINDA FALTA guardar hoje.
+  // ALVO do dia (snapshot). O "saldo adiantado" é savedTodayAmount (persiste e é
+  // consumido a cada dia que passa, no efeito lá em cima).
   const alvoHoje = targetSnapshot ?? totalGuardarHoje;
-  const restanteGuardarHoje = Math.max(0, alvoHoje - savedTodayAmount);
-  // Dia "fechado": já guardou tudo que era sugerido pra hoje (ou o alvo era 0).
-  const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
 
-  // PROJEÇÃO dos próximos dias: pra cada dia (a partir de amanhã), estima quanto
-  // guardar de CONTAS naquele dia = soma do perDay das contas ainda não vencidas
-  // naquela data. Metas ficam de fora (dependem do líquido do dia, que é imprevisível).
-  // É uma estimativa (assume que você guarda a parte sugerida a cada dia).
+  // PROJEÇÃO + crédito da poupança. Cada dia útil tem um alvo (contas amortizadas);
+  // o saldo adiantado abate do dia MAIS PRÓXIMO primeiro. O "add-back" devolve o saldo
+  // ao cronograma antes de abater concentrado, pra não contar duas vezes (o dinheiro
+  // guardado já reduziu as contas). Total ao longo dos dias fica igual; muda só ONDE
+  // o alívio aparece → guardar hoje faz o próximo dia cair de verdade, consistente.
   const proximosDias = (() => {
     const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const base = new Date();
     base.setHours(12, 0, 0, 0);
-    const out: { key: string; label: string; isWork: boolean; isToday: boolean; valor: number }[] = [];
+    const out: { key: string; label: string; isWork: boolean; isToday: boolean; raw: number; valor: number }[] = [];
     for (let i = 0; i <= 6; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const nome = nomes[d.getDay()];
       const isWork = workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true;
       const isToday = i === 0;
-      let valor = 0;
-      if (isWork) {
+      let raw = 0;
+      if (isToday) {
+        raw = alvoHoje;
+      } else if (isWork) {
         for (const bill of bills) {
           const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
           if (quitada || isOverdue(bill)) continue;
           const nd = nextDueDate(bill);
-          if (nd && d.getTime() <= nd.getTime()) valor += perDay(bill);
+          if (nd && d.getTime() <= nd.getTime()) raw += perDay(bill);
         }
       }
-      // Hoje mostra o que AINDA falta hoje (igual ao card), não o alvo cheio.
-      if (isToday && isWork) valor = restanteGuardarHoje;
       const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
-      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, valor });
+      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, raw, valor: 0 });
+    }
+    // Saldo adiantado abate do dia mais próximo primeiro (nearest-first).
+    let buffer = savedTodayAmount;
+    for (const x of out) {
+      if (!x.isWork) { x.valor = 0; continue; }
+      x.valor = Math.max(0, x.raw - buffer);
+      buffer = Math.max(0, buffer - x.raw);
     }
     return out;
   })();
+  // Hoje e "dia fechado" saem da própria projeção (já com o crédito aplicado).
+  const restanteGuardarHoje = proximosDias.find((d) => d.isToday)?.valor ?? Math.max(0, alvoHoje - savedTodayAmount);
+  const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
   const proximoDiaTrabalho = proximosDias.find((d) => !d.isToday && d.isWork);
-  // "Falta guardar no total" — soma do que falta em todas as contas ativas. Cai
-  // EXATAMENTE pelo que você guarda (guardou 50 → cai 50). É o número que dá a
-  // sensação de "a conta tá diminuindo", sempre consistente.
-  const totalFaltaGuardar = bills
+
+  // "Livre das contas": no ritmo atual, você quita tudo até o vencimento mais distante.
+  const dueMs = bills
     .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
-    .reduce((s, b) => s + remaining(b), 0);
+    .map((b) => nextDueDate(b)?.getTime())
+    .filter((t): t is number => typeof t === "number");
+  const maxDue = dueMs.length ? new Date(Math.max(...dueMs)) : null;
+  const diasParaLivre = maxDue ? workingDaysUntil(toYMD(maxDue)) : null;
+  const dataLivre = maxDue ? maxDue.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }) : null;
 
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
@@ -1037,7 +1069,7 @@ export default function Finances() {
     }
     try {
       await distribuirGuardado(value);
-      if (diaSave?.isToday) registrarGuardadoHoje(value);
+      registrarGuardadoHoje(value); // alimenta o saldo adiantado (abate os próximos dias)
       const label = diaSave?.label || "hoje";
       setDiaSave(null);
       setDiaSaveValue("");
@@ -1130,7 +1162,7 @@ export default function Finances() {
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 truncate">
                     {savedTodayAmount > 0
-                      ? `já guardou ${formatCurrency(savedTodayAmount)} hoje`
+                      ? `adiantado: ${formatCurrency(savedTodayAmount)}`
                       : `metas ${formatCurrency(goalShareToday)} · contas ${formatCurrency(billsShareToday)}`}
                   </p>
                 </>
@@ -1175,7 +1207,7 @@ export default function Finances() {
                 {!isLoadingData && !diaGuardadoFechado && (
                   <p className="text-xs text-muted-foreground mt-1">
                     {savedTodayAmount > 0
-                      ? `já guardou ${formatCurrency(savedTodayAmount)} hoje`
+                      ? `adiantado: ${formatCurrency(savedTodayAmount)}`
                       : `metas ${formatCurrency(goalShareToday)} · contas ${formatCurrency(billsShareToday)}`}
                   </p>
                 )}
@@ -1231,14 +1263,16 @@ export default function Finances() {
               <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecao ? "rotate-180" : ""}`} />
             </button>
 
-            {/* Falta guardar no total — cai 1:1 conforme você guarda */}
-            <div className="mt-3 flex items-end justify-between gap-2 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Falta guardar no total</p>
-                <p className="text-[11px] text-muted-foreground">Some tudo que ainda falta nas contas</p>
+            {/* Livre das contas — quando tudo estará quitado no ritmo atual */}
+            {diasParaLivre !== null && (
+              <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-success/5 border border-success/20 px-3 py-2">
+                <p className="text-xs text-muted-foreground">Livre das contas em</p>
+                <p className="text-sm font-bold text-success text-right">
+                  {diasParaLivre} {diasParaLivre === 1 ? "dia útil" : "dias úteis"}
+                  {dataLivre ? <span className="text-muted-foreground font-normal"> · {dataLivre}</span> : null}
+                </p>
               </div>
-              <p className="text-xl font-bold text-primary tabular-nums shrink-0">{formatCurrency(totalFaltaGuardar)}</p>
-            </div>
+            )}
 
             {showProjecao && (
               <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
