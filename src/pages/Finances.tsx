@@ -912,12 +912,20 @@ export default function Finances() {
           if (nd && d.getTime() <= nd.getTime()) valor += perDay(bill);
         }
       }
+      // Hoje mostra o que AINDA falta hoje (igual ao card), não o alvo cheio.
+      if (isToday && isWork) valor = restanteGuardarHoje;
       const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
       out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, valor });
     }
     return out;
   })();
   const proximoDiaTrabalho = proximosDias.find((d) => !d.isToday && d.isWork);
+  // "Falta guardar no total" — soma do que falta em todas as contas ativas. Cai
+  // EXATAMENTE pelo que você guarda (guardou 50 → cai 50). É o número que dá a
+  // sensação de "a conta tá diminuindo", sempre consistente.
+  const totalFaltaGuardar = bills
+    .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
+    .reduce((s, b) => s + remaining(b), 0);
 
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
@@ -963,19 +971,11 @@ export default function Finances() {
       toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
       return;
     }
-    const factor = value / totalGuardarHoje; // <1 guardou a menos, >1 a mais
+    const factor = value / totalGuardarHoje; // usado só na parte das metas
+    const billPortion = value * (billsShareToday / totalGuardarHoje);
     try {
-      for (const bill of bills) {
-        const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-        if (quitada || isOverdue(bill) || !todayIsWorkDay) continue;
-        const add = perDay(bill) * factor;
-        if (add > 0) {
-          await supabase
-            .from("planned_bills")
-            .update({ saved_amount: Number(bill.saved_amount) + add })
-            .eq("id", bill.id);
-        }
-      }
+      // Contas: paga em cascata (vencimento mais próximo primeiro).
+      await distribuirGuardado(billPortion);
       for (const goal of goals) {
         const share = ((Math.max(0, summary.netToday) * (Number(goal.percentual_distribuicao) || 0)) / 100) * factor;
         if (share > 0) {
@@ -1005,35 +1005,38 @@ export default function Finances() {
     }
   };
 
-  // Registrar "guardei X" no dia selecionado na lista de próximos dias. Distribui o
-  // valor entre as contas (abate do que falta). Se for hoje, conta no "guardado hoje".
+  // CASCATA: guardar paga o VENCIMENTO MAIS PRÓXIMO primeiro (não divide igual entre
+  // todas). Assim os dias mais perto caem mais quando você guarda, de forma consistente
+  // (vem do estado real das contas) e financeiramente esperta (quita o que vence antes).
+  const distribuirGuardado = async (value: number) => {
+    let restante = value;
+    const ativas = bills
+      .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
+      .map((b) => ({ b, due: nextDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER, falta: remaining(b) }))
+      .sort((a, z) => a.due - z.due);
+    for (const item of ativas) {
+      if (restante <= 0.005) break;
+      const add = Math.min(restante, item.falta);
+      if (add > 0) {
+        await supabase
+          .from("planned_bills")
+          .update({ saved_amount: Number(item.b.saved_amount) + add })
+          .eq("id", item.b.id);
+        restante -= add;
+      }
+    }
+  };
+
+  // Registrar "guardei X" no dia selecionado na lista de próximos dias. Paga em cascata
+  // (vencimento mais próximo primeiro). Se for hoje, conta no "guardado hoje".
   const handleGuardarNoDia = async () => {
     const value = parseFloat(diaSaveValue.replace(",", "."));
     if (!user || isNaN(value) || value <= 0) {
       toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
       return;
     }
-    // Base = soma REAL do perDay das contas ativas (NÃO usa billsShareToday, que é 0
-    // em dia de descanso — senão nada seria distribuído e a projeção não mudava).
-    let base = 0;
-    for (const bill of bills) {
-      const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-      if (quitada || isOverdue(bill)) continue;
-      base += perDay(bill);
-    }
-    const factor = base > 0 ? value / base : 0;
     try {
-      for (const bill of bills) {
-        const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-        if (quitada || isOverdue(bill)) continue;
-        const add = factor > 0 ? perDay(bill) * factor : 0;
-        if (add > 0) {
-          await supabase
-            .from("planned_bills")
-            .update({ saved_amount: Number(bill.saved_amount) + add })
-            .eq("id", bill.id);
-        }
-      }
+      await distribuirGuardado(value);
       if (diaSave?.isToday) registrarGuardadoHoje(value);
       const label = diaSave?.label || "hoje";
       setDiaSave(null);
@@ -1227,6 +1230,15 @@ export default function Finances() {
               </div>
               <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecao ? "rotate-180" : ""}`} />
             </button>
+
+            {/* Falta guardar no total — cai 1:1 conforme você guarda */}
+            <div className="mt-3 flex items-end justify-between gap-2 rounded-xl bg-primary/5 border border-primary/20 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">Falta guardar no total</p>
+                <p className="text-[11px] text-muted-foreground">Some tudo que ainda falta nas contas</p>
+              </div>
+              <p className="text-xl font-bold text-primary tabular-nums shrink-0">{formatCurrency(totalFaltaGuardar)}</p>
+            </div>
 
             {showProjecao && (
               <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
