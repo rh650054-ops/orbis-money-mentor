@@ -113,10 +113,30 @@ async function syncApproachRecord(record: OfflineRecord): Promise<boolean> {
 
 // Setup listeners
 export function setupOfflineSyncListeners(): void {
+  // Roda a sync se houver rede. Usado pelos gatilhos abaixo; não faz nada offline.
+  const syncIfOnline = () => {
+    if (typeof navigator === "undefined" || navigator.onLine === false) return;
+    syncAllPendingData();
+  };
+
+  // 1) Conexão VOLTOU (offline -> online) durante a sessão.
   window.addEventListener('online', () => {
     console.log('[OfflineSync] Connection restored, syncing...');
     syncAllPendingData();
   });
+
+  // 2) ABERTURA DO APP: o caso do vendedor de rua — registra venda sem sinal,
+  //    fecha o app, e quando reabre JÁ está online (nenhum evento 'online'
+  //    dispara). Sem isto, a venda ficava presa no aparelho até a próxima queda
+  //    de sinal. Faz a varredura logo no boot.
+  syncIfOnline();
+
+  // 3) APP VOLTOU AO PRIMEIRO PLANO (trocou de app e voltou / destravou a tela).
+  //    Pega o mesmo cenário sem depender de recarregar a página (é PWA).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncIfOnline();
+  });
+  window.addEventListener('focus', syncIfOnline);
 
   // Try Background Sync if available
   if ('serviceWorker' in navigator && 'SyncManager' in window) {
