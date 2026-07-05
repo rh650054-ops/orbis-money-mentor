@@ -21,6 +21,7 @@ import CompetitionCard from "@/components/CompetitionCard";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
 import { X1ResultBanner } from "@/components/competitions/X1ResultBanner";
+import { RankingOvertakeAlert } from "@/components/ranking/RankingOvertakeAlert";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
@@ -414,6 +415,8 @@ export default function Index() {
       <X1HomeBanner userId={user?.id} />
       {/* Resultado do X1 liquidado às 9h05 — vitória/derrota/empate, 1x por duelo */}
       <X1ResultBanner userId={user?.id} />
+      {/* Te ultrapassaram no ranking da semana? Banner de contra-ataque + notificação */}
+      <RankingOvertakeAlert userId={user?.id} />
       {/* Greeting */}
       <div className="flex items-center gap-3 py-2">
         <img
