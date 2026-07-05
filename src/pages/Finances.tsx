@@ -894,21 +894,18 @@ export default function Finances() {
             .eq("id", goal.id);
         }
       }
-      const falta = totalGuardarHoje - value;
-      const metOrOver = falta <= 0.005;
-      // Só marca "guardou hoje" se cumpriu (ou passou) o sugerido — senão mantém o
-      // botão pra completar o restante depois.
-      if (metOrOver) {
-        try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
-        setSavedToday(true);
-      }
+      // FECHA O DIA: registrou o que guardou hoje → não cobra mais no mesmo dia.
+      // O card mostra "✓ Já guardou hoje" e REINICIA à meia-noite, recalculando o
+      // valor do dia sobre o que ainda falta (o que você guardou hoje já foi abatido
+      // do que falta em cada conta/meta). Antes ele seguia cobrando o restante no
+      // mesmo dia — era isso que dava a impressão de estar "travado".
+      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
+      setSavedToday(true);
       setCustomSaveOpen(false);
       setCustomSaveValue("");
       toast({
         title: "✓ Guardado!",
-        description: metOrOver
-          ? `${formatCurrency(value)} guardado — meta de hoje cumprida${falta < -0.005 ? " e ainda sobrou!" : "!"}`
-          : `${formatCurrency(value)} guardado. Ainda falta ${formatCurrency(falta)} pra meta de hoje.`,
+        description: `${formatCurrency(value)} guardado hoje. Amanhã o app recalcula o valor do dia.`,
       });
       loadFinancialData();
     } catch {
@@ -1093,10 +1090,10 @@ export default function Finances() {
               return (
                 <p className={`text-sm font-semibold ${falta > 0.005 ? "text-muted-foreground" : "text-success"}`}>
                   {falta > 0.005
-                    ? `Ainda faltará ${formatCurrency(falta)} pra meta de hoje.`
+                    ? `Menos que o sugerido — tranquilo, o dia fecha e amanhã recalcula.`
                     : falta < -0.005
                       ? `Você guardou ${formatCurrency(-falta)} a mais que o sugerido. 🎉`
-                      : "Bate certinho com a meta de hoje. ✓"}
+                      : "Bate certinho com o sugerido. ✓"}
                 </p>
               );
             })()}
