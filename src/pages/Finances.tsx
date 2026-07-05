@@ -142,6 +142,9 @@ export default function Finances() {
   const [customSaveValue, setCustomSaveValue] = useState("");
   // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
   const [showProjecao, setShowProjecao] = useState(false);
+  // Registrar "guardei X" num dia específico (selecionado na lista de próximos dias)
+  const [diaSave, setDiaSave] = useState<{ label: string; isToday: boolean } | null>(null);
+  const [diaSaveValue, setDiaSaveValue] = useState("");
   // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
   const [savedToday, setSavedToday] = useState(() => {
     try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
@@ -893,12 +896,13 @@ export default function Finances() {
     const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const base = new Date();
     base.setHours(12, 0, 0, 0);
-    const out: { key: string; label: string; isWork: boolean; valor: number }[] = [];
-    for (let i = 1; i <= 7; i++) {
+    const out: { key: string; label: string; isWork: boolean; isToday: boolean; valor: number }[] = [];
+    for (let i = 0; i <= 6; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const nome = nomes[d.getDay()];
       const isWork = workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true;
+      const isToday = i === 0;
       let valor = 0;
       if (isWork) {
         for (const bill of bills) {
@@ -908,12 +912,12 @@ export default function Finances() {
           if (nd && d.getTime() <= nd.getTime()) valor += perDay(bill);
         }
       }
-      const label = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
-      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, valor });
+      const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, valor });
     }
     return out;
   })();
-  const proximoDiaTrabalho = proximosDias.find((d) => d.isWork);
+  const proximoDiaTrabalho = proximosDias.find((d) => !d.isToday && d.isWork);
 
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
@@ -995,6 +999,39 @@ export default function Finances() {
           ? `${formatCurrency(value)} guardado. Falta ${formatCurrency(restanteAgora)} pra hoje.`
           : `${formatCurrency(value)} guardado — dia fechado! Reinicia amanhã.`,
       });
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao guardar", variant: "destructive" });
+    }
+  };
+
+  // Registrar "guardei X" no dia selecionado na lista de próximos dias. Distribui o
+  // valor entre as contas (abate do que falta). Se for hoje, conta no "guardado hoje".
+  const handleGuardarNoDia = async () => {
+    const value = parseFloat(diaSaveValue.replace(",", "."));
+    if (!user || isNaN(value) || value <= 0) {
+      toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
+      return;
+    }
+    const base = billsShareToday;
+    const factor = base > 0 ? value / base : 0;
+    try {
+      for (const bill of bills) {
+        const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+        if (quitada || isOverdue(bill)) continue;
+        const add = factor > 0 ? perDay(bill) * factor : 0;
+        if (add > 0) {
+          await supabase
+            .from("planned_bills")
+            .update({ saved_amount: Number(bill.saved_amount) + add })
+            .eq("id", bill.id);
+        }
+      }
+      if (diaSave?.isToday) registrarGuardadoHoje(value);
+      const label = diaSave?.label || "hoje";
+      setDiaSave(null);
+      setDiaSaveValue("");
+      toast({ title: "✓ Guardado!", description: `${formatCurrency(value)} registrado (${label}).` });
       loadFinancialData();
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
@@ -1183,23 +1220,57 @@ export default function Finances() {
             {showProjecao && (
               <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
                 {proximosDias.map((d) => (
-                  <div key={d.key} className="flex items-center justify-between px-1 py-1.5">
+                  <button
+                    key={d.key}
+                    onClick={() => { setDiaSaveValue(""); setDiaSave({ label: d.label, isToday: d.isToday }); }}
+                    className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-primary/5 active:scale-[0.99] transition-[colors,transform]"
+                  >
                     <span className="text-sm capitalize text-foreground">{d.label}</span>
-                    {d.isWork ? (
-                      <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(d.valor)}</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">descanso</span>
-                    )}
-                  </div>
+                    <span className="flex items-center gap-2">
+                      {d.isWork ? (
+                        <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(d.valor)}</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">descanso</span>
+                      )}
+                      <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                    </span>
+                  </button>
                 ))}
                 <p className="text-[11px] text-muted-foreground pt-1 leading-relaxed">
-                  Estimativa só das contas (metas dependem do que você vender no dia). Reinicia e recalcula a cada dia.
+                  Toque num dia pra registrar quanto guardou. Estimativa só das contas (metas dependem do que você vender no dia).
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* Diálogo "Guardei em <dia>" — registra o valor guardado no dia selecionado */}
+      <Dialog open={diaSave !== null} onOpenChange={(o) => { if (!o) setDiaSave(null); }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Guardei em {diaSave?.label ?? ""}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Quanto você guardou{diaSave?.isToday ? " hoje" : ` em ${diaSave?.label ?? "esse dia"}`}? Vai abater do que falta nas suas contas.
+            </p>
+            <MoneyInput
+              value={parseFloat(diaSaveValue) || 0}
+              onChange={(n) => setDiaSaveValue(n ? String(n) : "")}
+              autoFocus
+              className="text-2xl font-bold h-14"
+            />
+            <Button
+              onClick={handleGuardarNoDia}
+              disabled={!diaSaveValue || (parseFloat(diaSaveValue.replace(",", ".")) || 0) <= 0}
+              className="w-full h-12 text-base font-bold"
+            >
+              Guardar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo "Guardei outro valor" — valor real guardado (a mais/a menos) */}
       <Dialog open={customSaveOpen} onOpenChange={setCustomSaveOpen}>
