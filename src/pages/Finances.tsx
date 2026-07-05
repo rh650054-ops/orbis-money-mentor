@@ -35,7 +35,8 @@ import {
   Download,
   PartyPopper,
   Loader2,
-  CreditCard
+  CreditCard,
+  ChevronDown
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -139,6 +140,8 @@ export default function Finances() {
   // "Guardei outro valor": informar quanto realmente guardou hoje (a mais/a menos)
   const [customSaveOpen, setCustomSaveOpen] = useState(false);
   const [customSaveValue, setCustomSaveValue] = useState("");
+  // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
+  const [showProjecao, setShowProjecao] = useState(false);
   // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
   const [savedToday, setSavedToday] = useState(() => {
     try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
@@ -882,6 +885,36 @@ export default function Finances() {
   // Dia "fechado": já guardou tudo que era sugerido pra hoje (ou o alvo era 0).
   const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
 
+  // PROJEÇÃO dos próximos dias: pra cada dia (a partir de amanhã), estima quanto
+  // guardar de CONTAS naquele dia = soma do perDay das contas ainda não vencidas
+  // naquela data. Metas ficam de fora (dependem do líquido do dia, que é imprevisível).
+  // É uma estimativa (assume que você guarda a parte sugerida a cada dia).
+  const proximosDias = (() => {
+    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const base = new Date();
+    base.setHours(12, 0, 0, 0);
+    const out: { key: string; label: string; isWork: boolean; valor: number }[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      const nome = nomes[d.getDay()];
+      const isWork = workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true;
+      let valor = 0;
+      if (isWork) {
+        for (const bill of bills) {
+          const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+          if (quitada || isOverdue(bill)) continue;
+          const nd = nextDueDate(bill);
+          if (nd && d.getTime() <= nd.getTime()) valor += perDay(bill);
+        }
+      }
+      const label = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, valor });
+    }
+    return out;
+  })();
+  const proximoDiaTrabalho = proximosDias.find((d) => d.isWork);
+
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
   const handleGuardeiTudo = async () => {
@@ -1123,6 +1156,49 @@ export default function Finances() {
             Guardei outro valor
           </button>
         </div>
+      )}
+
+      {/* Próximos dias — projeção de quanto guardar (contas) nos dias que vêm */}
+      {!isLoadingData && bills.length > 0 && (
+        <Card className="bg-card border border-border/60 rounded-2xl">
+          <CardContent className="p-4">
+            <button
+              onClick={() => setShowProjecao((v) => !v)}
+              className="w-full flex items-center gap-3 text-left"
+            >
+              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Calendar className="w-4 h-4 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">Próximos dias</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {proximoDiaTrabalho
+                    ? <>Próximo dia útil: <span className="font-semibold text-primary">{proximoDiaTrabalho.label}</span> · {formatCurrency(proximoDiaTrabalho.valor)}</>
+                    : "Sem dia de trabalho nos próximos 7 dias"}
+                </p>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecao ? "rotate-180" : ""}`} />
+            </button>
+
+            {showProjecao && (
+              <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
+                {proximosDias.map((d) => (
+                  <div key={d.key} className="flex items-center justify-between px-1 py-1.5">
+                    <span className="text-sm capitalize text-foreground">{d.label}</span>
+                    {d.isWork ? (
+                      <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(d.valor)}</span>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">descanso</span>
+                    )}
+                  </div>
+                ))}
+                <p className="text-[11px] text-muted-foreground pt-1 leading-relaxed">
+                  Estimativa só das contas (metas dependem do que você vender no dia). Reinicia e recalcula a cada dia.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {/* Diálogo "Guardei outro valor" — valor real guardado (a mais/a menos) */}
