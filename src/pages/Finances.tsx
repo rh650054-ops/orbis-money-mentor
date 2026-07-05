@@ -1013,7 +1013,14 @@ export default function Finances() {
       toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
       return;
     }
-    const base = billsShareToday;
+    // Base = soma REAL do perDay das contas ativas (NÃO usa billsShareToday, que é 0
+    // em dia de descanso — senão nada seria distribuído e a projeção não mudava).
+    let base = 0;
+    for (const bill of bills) {
+      const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
+      if (quitada || isOverdue(bill)) continue;
+      base += perDay(bill);
+    }
     const factor = base > 0 ? value / base : 0;
     try {
       for (const bill of bills) {
@@ -1108,7 +1115,9 @@ export default function Finances() {
               <p className="text-xs text-muted-foreground">A guardar hoje</p>
               {diaGuardadoFechado ? (
                 <>
-                  <p className="text-base font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
+                  <p className="text-base font-bold text-success mt-1 tracking-tight">
+                    {savedTodayAmount > 0 ? `✓ Guardou ${formatCurrency(savedTodayAmount)} hoje` : "✓ Já guardou hoje"}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1 truncate">Amanhã aparece o novo valor.</p>
                 </>
               ) : (
@@ -1149,7 +1158,9 @@ export default function Finances() {
                 {isLoadingData ? (
                   <Skeleton className="h-8 w-28 mt-1" />
                 ) : diaGuardadoFechado ? (
-                  <p className="text-xl font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
+                  <p className="text-xl font-bold text-success mt-1 tracking-tight">
+                    {savedTodayAmount > 0 ? `✓ Guardou ${formatCurrency(savedTodayAmount)} hoje` : "✓ Já guardou hoje"}
+                  </p>
                 ) : (
                   <p className="text-2xl font-bold text-primary mt-1 tracking-tight whitespace-nowrap">
                     {formatCurrency(restanteGuardarHoje)}
