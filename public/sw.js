@@ -10,8 +10,13 @@
 //     de Abordagem — cada uma com a contagem escrita. Como o iOS NÃO substitui
 //     pela tag (empilha/duplica), a gente FECHA a anterior antes de mostrar a nova.
 //
-// IMPORTANTE: sem listener de "fetch" e sem cache — nunca intercepta o
-// carregamento da página nem serve build velho (bug da tela preta do worker antigo).
+// OFFLINE (network-first): o app abre SEM internet servindo a última versão que
+// carregou online. A estratégia é NETWORK-FIRST — com sinal, SEMPRE busca o build
+// novo do servidor (o cache é só plano B quando a rede falha), então NUNCA volta o
+// bug da tela preta (que vinha de cache-FIRST servindo build velho). Só guarda GET
+// do MESMO domínio (o shell: html, js, css, ícones) — NUNCA chamadas ao Supabase.
+// Pra "matar" o offline em emergência: sobe o CACHE_VERSION que o activate limpa tudo.
+const CACHE_VERSION = "orbis-shell-v1";
 
 const ICON = "/orbis-icon-192.png";
 const TAG_MAIN = "orbis-defcon";         // Android: notificação única com botões
@@ -26,15 +31,50 @@ self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     try {
       await self.clients.claim();
+      // Apaga só caches de versões ANTIGAS (mantém a atual). Sobe CACHE_VERSION
+      // pra forçar a limpeza total num deploy problemático.
       const names = await caches.keys();
-      await Promise.all(names.map((n) => caches.delete(n)));
+      await Promise.all(names.filter((n) => n !== CACHE_VERSION).map((n) => caches.delete(n)));
     } catch (e) {
       // best-effort
     }
   })());
 });
 
-// (proposital) sem listener de "fetch".
+// NETWORK-FIRST: tenta a rede; se falhar (offline), serve do cache.
+// - Só GET do mesmo domínio (shell). API do Supabase e POST passam direto pra rede.
+// - Navegação sem rede cai no index.html cacheado (o React assume dali).
+self.addEventListener("fetch", (event) => {
+  const req = event.request;
+  if (req.method !== "GET") return; // nunca mexe em POST/PUT (pagamento, RPC, etc.)
+
+  let url;
+  try { url = new URL(req.url); } catch { return; }
+  if (url.origin !== self.location.origin) return; // Supabase e terceiros: rede direta
+
+  const isNavigation = req.mode === "navigate";
+
+  event.respondWith((async () => {
+    try {
+      const fresh = await fetch(req);
+      // Guarda a cópia boa pra usar offline depois (só respostas OK).
+      if (fresh && fresh.status === 200 && fresh.type === "basic") {
+        const copy = fresh.clone();
+        caches.open(CACHE_VERSION).then((c) => c.put(req, copy)).catch(() => {});
+      }
+      return fresh;
+    } catch (_e) {
+      // Sem rede: tenta o cache. Navegação cai no index.html (shell do app).
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      if (isNavigation) {
+        const shell = await caches.match("/index.html") || await caches.match("/");
+        if (shell) return shell;
+      }
+      throw _e;
+    }
+  })());
+});
 
 function brl(value) {
   const n = Number(value);

@@ -23,10 +23,10 @@ setupOfflineSyncListeners();
 loadExtratoDeadline();
 
 // Service worker do Orbis — registrado pra TODOS os usuários.
-// NÃO faz cache (não tem listener de "fetch"), então não há como voltar o bug
-// da tela preta (servir um build velho). Ele só habilita as ações rápidas
-// (Venda / Abordagem) na notificação da tela bloqueada durante o DEFCON e
-// limpa, no activate, qualquer cache legado do worker antigo.
+// Faz cache NETWORK-FIRST (com sinal sempre busca o build novo; o cache é só
+// plano B quando não há internet), então o app abre offline SEM voltar o bug da
+// tela preta (que vinha de cache-first servindo build velho). Também habilita as
+// ações rápidas (Venda / Abordagem) na notificação da tela bloqueada no DEFCON.
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register("/sw.js", { scope: "/" })
