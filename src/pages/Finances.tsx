@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -810,6 +810,32 @@ export default function Finances() {
     return remaining(bill) / Math.max(1, wd);
   };
 
+  // Snapshot do "a guardar hoje": congela o ALVO no 1º load do dia e carrega o
+  // guardado-hoje; reinicia à meia-noite (fuso BR). PRECISA ficar antes do early
+  // return abaixo (regras de hooks). Lê o alvo via ref, pois totalGuardarHoje só é
+  // calculado mais adiante no render.
+  const guardarTargetRef = useRef(0);
+  useEffect(() => {
+    if (isLoadingData) return;
+    const hoje = getBrazilDate();
+    const alvo = guardarTargetRef.current;
+    try {
+      if (localStorage.getItem("orbis_guardar_date") !== hoje) {
+        localStorage.setItem("orbis_guardar_date", hoje);
+        localStorage.setItem("orbis_guardar_target", String(alvo));
+        localStorage.setItem("orbis_guardar_saved", "0");
+        setTargetSnapshot(alvo);
+        setSavedTodayAmount(0);
+      } else {
+        setTargetSnapshot(Number(localStorage.getItem("orbis_guardar_target") || alvo));
+        setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
+      }
+    } catch {
+      setTargetSnapshot(alvo);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingData]);
+
   if (loading || !user) {
     return null;
   }
@@ -833,27 +859,9 @@ export default function Finances() {
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
 
-  // Congela o ALVO do dia no 1º load do dia e carrega o guardado-hoje. A cada novo
-  // dia (fuso BR) reinicia: alvo = sugestão de hoje, guardado = 0.
-  useEffect(() => {
-    if (isLoadingData) return;
-    const hoje = getBrazilDate();
-    try {
-      if (localStorage.getItem("orbis_guardar_date") !== hoje) {
-        localStorage.setItem("orbis_guardar_date", hoje);
-        localStorage.setItem("orbis_guardar_target", String(totalGuardarHoje));
-        localStorage.setItem("orbis_guardar_saved", "0");
-        setTargetSnapshot(totalGuardarHoje);
-        setSavedTodayAmount(0);
-      } else {
-        setTargetSnapshot(Number(localStorage.getItem("orbis_guardar_target") || totalGuardarHoje));
-        setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
-      }
-    } catch {
-      setTargetSnapshot(totalGuardarHoje);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingData]);
+  // Alimenta o ref com o alvo do dia. O snapshot (congelar o alvo) é feito por um
+  // efeito lá em cima — ANTES do early return — pra respeitar as regras de hooks.
+  guardarTargetRef.current = totalGuardarHoje;
 
   // Soma um depósito ao "guardado hoje" (persiste no fuso BR).
   const registrarGuardadoHoje = (valor: number) => {
