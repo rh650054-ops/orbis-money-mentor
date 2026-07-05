@@ -143,6 +143,11 @@ export default function Finances() {
   const [savedToday, setSavedToday] = useState(() => {
     try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
   });
+  // "A guardar hoje" = ALVO FIXO do dia − o que já foi guardado hoje. O alvo é
+  // congelado no 1º load do dia (senão encolheria a cada depósito por causa da
+  // amortização) e o guardado-hoje é somado a cada depósito. Reinicia à meia-noite.
+  const [savedTodayAmount, setSavedTodayAmount] = useState(0);
+  const [targetSnapshot, setTargetSnapshot] = useState<number | null>(null);
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
@@ -411,9 +416,9 @@ export default function Finances() {
           });
         }
       }
-      // Marca que o usuário já guardou HOJE (pra não pedir de novo se vender mais à tarde).
-      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
-      setSavedToday(true);
+      // Conta no "guardado hoje" (abate do alvo do dia). Não fecha o dia à força —
+      // deixa o card mostrar o quanto ainda falta.
+      registrarGuardadoHoje(value);
       setDepositTarget(null);
       setDepositValue("");
       loadFinancialData();
@@ -828,6 +833,47 @@ export default function Finances() {
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
 
+  // Congela o ALVO do dia no 1º load do dia e carrega o guardado-hoje. A cada novo
+  // dia (fuso BR) reinicia: alvo = sugestão de hoje, guardado = 0.
+  useEffect(() => {
+    if (isLoadingData) return;
+    const hoje = getBrazilDate();
+    try {
+      if (localStorage.getItem("orbis_guardar_date") !== hoje) {
+        localStorage.setItem("orbis_guardar_date", hoje);
+        localStorage.setItem("orbis_guardar_target", String(totalGuardarHoje));
+        localStorage.setItem("orbis_guardar_saved", "0");
+        setTargetSnapshot(totalGuardarHoje);
+        setSavedTodayAmount(0);
+      } else {
+        setTargetSnapshot(Number(localStorage.getItem("orbis_guardar_target") || totalGuardarHoje));
+        setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
+      }
+    } catch {
+      setTargetSnapshot(totalGuardarHoje);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingData]);
+
+  // Soma um depósito ao "guardado hoje" (persiste no fuso BR).
+  const registrarGuardadoHoje = (valor: number) => {
+    const novo = savedTodayAmount + Math.max(0, valor);
+    setSavedTodayAmount(novo);
+    try {
+      localStorage.setItem("orbis_guardar_date", getBrazilDate());
+      localStorage.setItem("orbis_guardar_saved", String(novo));
+      if (localStorage.getItem("orbis_guardar_target") == null) {
+        localStorage.setItem("orbis_guardar_target", String(totalGuardarHoje));
+      }
+    } catch { /* ignore */ }
+  };
+
+  // ALVO fixo do dia (snapshot) e QUANTO AINDA FALTA guardar hoje.
+  const alvoHoje = targetSnapshot ?? totalGuardarHoje;
+  const restanteGuardarHoje = Math.max(0, alvoHoje - savedTodayAmount);
+  // Dia "fechado": já guardou tudo que era sugerido pra hoje (ou o alvo era 0).
+  const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
+
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
   const handleGuardeiTudo = async () => {
@@ -854,6 +900,7 @@ export default function Finances() {
             .eq("id", goal.id);
         }
       }
+      registrarGuardadoHoje(restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje);
       try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
       setSavedToday(true);
       toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(totalGuardarHoje)} guardado.` });
@@ -894,18 +941,18 @@ export default function Finances() {
             .eq("id", goal.id);
         }
       }
-      // FECHA O DIA: registrou o que guardou hoje → não cobra mais no mesmo dia.
-      // O card mostra "✓ Já guardou hoje" e REINICIA à meia-noite, recalculando o
-      // valor do dia sobre o que ainda falta (o que você guardou hoje já foi abatido
-      // do que falta em cada conta/meta). Antes ele seguia cobrando o restante no
-      // mesmo dia — era isso que dava a impressão de estar "travado".
-      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
-      setSavedToday(true);
+      // Soma ao "guardado hoje": o card passa a mostrar o ALVO DO DIA − o que já foi
+      // guardado (ex.: 602 − 392 = 210). Não cobra o restante amortizado no mesmo dia;
+      // reinicia à meia-noite com o valor recalculado.
+      registrarGuardadoHoje(value);
       setCustomSaveOpen(false);
       setCustomSaveValue("");
+      const restanteAgora = Math.max(0, alvoHoje - (savedTodayAmount + value));
       toast({
         title: "✓ Guardado!",
-        description: `${formatCurrency(value)} guardado hoje. Amanhã o app recalcula o valor do dia.`,
+        description: restanteAgora > 0.005
+          ? `${formatCurrency(value)} guardado. Falta ${formatCurrency(restanteAgora)} pra hoje.`
+          : `${formatCurrency(value)} guardado — dia fechado! Reinicia amanhã.`,
       });
       loadFinancialData();
     } catch {
@@ -981,7 +1028,7 @@ export default function Finances() {
           <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">A guardar hoje</p>
-              {savedToday ? (
+              {diaGuardadoFechado ? (
                 <>
                   <p className="text-base font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
                   <p className="text-xs text-muted-foreground mt-1 truncate">Amanhã aparece o novo valor.</p>
@@ -989,10 +1036,12 @@ export default function Finances() {
               ) : (
                 <>
                   <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
-                    {formatCurrency(totalGuardarHoje)}
+                    {formatCurrency(restanteGuardarHoje)}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 truncate">
-                    metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
+                    {savedTodayAmount > 0
+                      ? `já guardou ${formatCurrency(savedTodayAmount)} hoje`
+                      : `metas ${formatCurrency(goalShareToday)} · contas ${formatCurrency(billsShareToday)}`}
                   </p>
                 </>
               )}
@@ -1021,19 +1070,21 @@ export default function Finances() {
                 <p className="text-xs text-muted-foreground">A guardar hoje</p>
                 {isLoadingData ? (
                   <Skeleton className="h-8 w-28 mt-1" />
-                ) : savedToday ? (
+                ) : diaGuardadoFechado ? (
                   <p className="text-xl font-bold text-success mt-1 tracking-tight">✓ Já guardou hoje</p>
                 ) : (
                   <p className="text-2xl font-bold text-primary mt-1 tracking-tight whitespace-nowrap">
-                    {formatCurrency(totalGuardarHoje)}
+                    {formatCurrency(restanteGuardarHoje)}
                   </p>
                 )}
-                {!isLoadingData && savedToday && (
+                {!isLoadingData && diaGuardadoFechado && (
                   <p className="text-xs text-muted-foreground mt-1">Amanhã aparece o novo valor.</p>
                 )}
-                {!isLoadingData && !savedToday && (
+                {!isLoadingData && !diaGuardadoFechado && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    metas {formatCurrency(goalShareToday)} · contas {formatCurrency(billsShareToday)}
+                    {savedTodayAmount > 0
+                      ? `já guardou ${formatCurrency(savedTodayAmount)} hoje`
+                      : `metas ${formatCurrency(goalShareToday)} · contas ${formatCurrency(billsShareToday)}`}
                   </p>
                 )}
                 {!isLoadingData && !todayIsWorkDay && (
@@ -1049,13 +1100,13 @@ export default function Finances() {
       )}
 
       {/* Botão "Guardei tudo" — guarda a parte de hoje de tudo de uma vez */}
-      {!isLoadingData && !savedToday && todayIsWorkDay && totalGuardarHoje > 0 && (
+      {!isLoadingData && !diaGuardadoFechado && todayIsWorkDay && restanteGuardarHoje > 0 && (
         <div className="space-y-2">
           <button
             onClick={handleGuardeiTudo}
             className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
           >
-            ✓ Guardei tudo — {formatCurrency(totalGuardarHoje)}
+            ✓ Guardei tudo — {formatCurrency(restanteGuardarHoje)}
           </button>
           <button
             onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }}
@@ -1074,7 +1125,7 @@ export default function Finances() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Sugerido hoje: <span className="font-bold text-primary">{formatCurrency(totalGuardarHoje)}</span>.
+              Falta guardar hoje: <span className="font-bold text-primary">{formatCurrency(restanteGuardarHoje)}</span>.
               Informe o que realmente guardou — pode ser a mais ou a menos.
             </p>
             <MoneyInput
@@ -1086,14 +1137,14 @@ export default function Finances() {
             {(() => {
               const v = parseFloat(customSaveValue.replace(",", ".")) || 0;
               if (v <= 0) return null;
-              const falta = totalGuardarHoje - v;
+              const falta = restanteGuardarHoje - v;
               return (
                 <p className={`text-sm font-semibold ${falta > 0.005 ? "text-muted-foreground" : "text-success"}`}>
                   {falta > 0.005
-                    ? `Menos que o sugerido — tranquilo, o dia fecha e amanhã recalcula.`
+                    ? `Vão faltar ${formatCurrency(falta)} pra hoje (aparece no card).`
                     : falta < -0.005
-                      ? `Você guardou ${formatCurrency(-falta)} a mais que o sugerido. 🎉`
-                      : "Bate certinho com o sugerido. ✓"}
+                      ? `Fecha o dia e ainda passa ${formatCurrency(-falta)}. 🎉`
+                      : "Fecha o dia certinho. ✓"}
                 </p>
               );
             })()}
