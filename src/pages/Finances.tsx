@@ -916,7 +916,7 @@ export default function Finances() {
     const base = new Date();
     base.setHours(12, 0, 0, 0);
     const out: { key: string; label: string; isWork: boolean; isToday: boolean; raw: number; valor: number }[] = [];
-    for (let i = 0; i <= 6; i++) {
+    for (let i = 0; i <= 29; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const nome = nomes[d.getDay()];
@@ -1275,26 +1275,29 @@ export default function Finances() {
             )}
 
             {showProjecao && (
-              <div className="mt-3 pt-3 border-t border-border/50 space-y-1.5">
-                {proximosDias.map((d) => (
-                  <button
-                    key={d.key}
-                    onClick={() => { setDiaSaveValue(""); setDiaSave({ label: d.label, isToday: d.isToday }); }}
-                    className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-primary/5 active:scale-[0.99] transition-[colors,transform]"
-                  >
-                    <span className="text-sm capitalize text-foreground">{d.label}</span>
-                    <span className="flex items-center gap-2">
-                      {d.isWork ? (
-                        <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(d.valor)}</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">descanso</span>
-                      )}
-                      <Plus className="w-3.5 h-3.5 text-muted-foreground" />
-                    </span>
-                  </button>
-                ))}
-                <p className="text-[11px] text-muted-foreground pt-1 leading-relaxed">
-                  Toque num dia pra registrar quanto guardou. Estimativa só das contas (metas dependem do que você vender no dia).
+              <div className="mt-3 pt-3 border-t border-border/50">
+                {/* Rolável: arraste pra baixo pra ver mais dias (próximos 30 dias). */}
+                <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 overscroll-contain">
+                  {proximosDias.map((d) => (
+                    <button
+                      key={d.key}
+                      onClick={() => { setDiaSaveValue(""); setDiaSave({ label: d.label, isToday: d.isToday }); }}
+                      className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-primary/5 active:scale-[0.99] transition-[colors,transform]"
+                    >
+                      <span className="text-sm capitalize text-foreground">{d.label}</span>
+                      <span className="flex items-center gap-2">
+                        {d.isWork ? (
+                          <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(d.valor)}</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">descanso</span>
+                        )}
+                        <Plus className="w-3.5 h-3.5 text-muted-foreground" />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
+                  Arraste pra baixo pra ver mais dias. Toque num dia pra registrar quanto guardou. Estimativa só das contas.
                 </p>
               </div>
             )}
