@@ -959,6 +959,26 @@ export default function Finances() {
   const diasParaLivre = maxDue ? workingDaysUntil(toYMD(maxDue)) : null;
   const dataLivre = maxDue ? maxDue.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }) : null;
 
+  // "No que pagar primeiro": ordena as contas por urgência — vencidas primeiro, depois
+  // as que vencem mais cedo, e cartão como desempate (risco de juros/negativar).
+  const prioridadePagar = bills
+    .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)))
+    .map((b) => {
+      const over = isOverdue(b);
+      const dueT = nextDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+      const cartao = !!(b as { is_credit_card?: boolean }).is_credit_card;
+      const diasAte = Math.ceil((dueT - Date.now()) / 86400000);
+      let motivo: string;
+      if (over) motivo = "Vencida — pague já";
+      else if (diasAte <= 0) motivo = "Vence hoje";
+      else if (diasAte <= 3) motivo = `Vence em ${diasAte} ${diasAte === 1 ? "dia" : "dias"}`;
+      else if (cartao) motivo = "Cartão — evita juros/negativar";
+      else motivo = `Vence ${new Date(dueT).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`;
+      return { id: b.id, nome: b.name, falta: remaining(b), over, dueT, cartao, motivo };
+    })
+    .sort((a, z) => (Number(z.over) - Number(a.over)) || (a.dueT - z.dueT) || (Number(z.cartao) - Number(a.cartao)))
+    .slice(0, 4);
+
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
   const handleGuardeiTudo = async () => {
@@ -1301,6 +1321,40 @@ export default function Finances() {
                 </p>
               </div>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* No que pagar primeiro — prioridade automática por urgência */}
+      {!isLoadingData && prioridadePagar.length > 0 && (
+        <Card className="bg-card border border-border/60 rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">No que pagar primeiro</p>
+                <p className="text-[11px] text-muted-foreground">Ordenado por urgência</p>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              {prioridadePagar.map((p, i) => (
+                <div key={p.id} className="flex items-center gap-3 px-2 py-2 rounded-lg bg-background border border-border/40">
+                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground truncate">{p.nome}</p>
+                    <p className={`text-[11px] ${p.over ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{p.motivo}</p>
+                  </div>
+                  <span className="text-sm font-bold text-foreground tabular-nums shrink-0">{formatCurrency(p.falta)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
+              Recomendação automática: priorize vencidas e cartões pra evitar juros e negativação.
+            </p>
           </CardContent>
         </Card>
       )}
