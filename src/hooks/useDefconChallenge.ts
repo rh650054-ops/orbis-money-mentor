@@ -481,13 +481,18 @@ export function useDefconChallenge(userId: string | undefined) {
   const startLunchPause = async (durationMinutes: number) => {
     if (!userId || phase !== "running" || lunchPauseUsed) return;
 
+    // Trava a duração: um dedo errado (ex.: 180 em vez de 18) prendia o vendedor
+    // 3 horas na tela de almoço. Máximo 120 min.
+    const mins = Math.max(1, Math.min(120, Math.floor(durationMinutes) || 0));
+    if (mins <= 0) return;
+
     const now = new Date();
     const currentRemaining = remainingSeconds;
 
     setPausedBlockRemaining(currentRemaining);
-    setLunchPauseDuration(durationMinutes * 60);
+    setLunchPauseDuration(mins * 60);
     setLunchPauseStartedAt(now);
-    setLunchPauseRemaining(durationMinutes * 60);
+    setLunchPauseRemaining(mins * 60);
     setLunchPauseUsed(true);
 
     const currentBlockData = blocks[currentBlockIndex];
@@ -571,6 +576,12 @@ export function useDefconChallenge(userId: string | undefined) {
           resumeFromLunch();
         }
       }, 1000);
+    } else if (phase === "lunch_pause") {
+      // Estado inconsistente: está em "almoço" mas sem início/duração (ex.: o app
+      // recarregou no meio da pausa). Antes ficava travado pra sempre nessa tela,
+      // sem contador. Agora volta pro desafio na hora.
+      clearTimer();
+      resumeFromLunch();
     }
 
     return clearTimer;

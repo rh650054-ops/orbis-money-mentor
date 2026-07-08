@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, ChevronLeft, ChevronRight } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -88,6 +88,8 @@ export function DefconRunning({
   const [saleMessage, setSaleMessage] = useState("");
   const [showChargePreview, setShowChargePreview] = useState(false);
   const [showBlockSales, setShowBlockSales] = useState(false);
+  // Bloco que está sendo VISTO no modal (dá pra voltar nos blocos anteriores).
+  const [viewBlockIndex, setViewBlockIndex] = useState(0);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
   const { theme, setTheme } = useTheme();
@@ -300,10 +302,11 @@ export function DefconRunning({
     }
   };
 
-  // Vendas-linha do BLOCO ATUAL (para o modal "Vendas deste bloco").
+  // Vendas-linha do bloco que está sendo VISTO (permite navegar nos blocos anteriores).
   const blockSales = (sessionSales || []).filter(
-    (s) => Number(s?.block_index) === currentBlockIndex
+    (s) => Number(s?.block_index) === viewBlockIndex
   );
+  const vendoBlocoAtual = viewBlockIndex === currentBlockIndex;
 
   // Horário curto (HH:mm) a partir do created_at da venda.
   const saleTime = (iso: string | null | undefined) => {
@@ -477,7 +480,7 @@ export function DefconRunning({
           {/* Vendas — tocável: abre o detalhe por venda do bloco */}
           <button
             type="button"
-            onClick={() => setShowBlockSales(true)}
+            onClick={() => { setViewBlockIndex(currentBlockIndex); setShowBlockSales(true); }}
             aria-label="Ver vendas deste bloco"
             className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
           >
@@ -866,22 +869,24 @@ export function DefconRunning({
               <input
                 type="number"
                 inputMode="numeric"
+                min={1}
+                max={120}
                 value={customLunchMinutes}
                 onChange={(e) => setCustomLunchMinutes(e.target.value)}
-                placeholder="Ou digite os minutos"
+                placeholder="Ou digite os minutos (máx. 120)"
                 className="w-full h-14 bg-background border-2 border-border rounded-xl text-center text-2xl font-black text-foreground pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-muted-foreground placeholder:text-sm"
               />
             </div>
             <button
               onClick={() => {
                 const mins = parseInt(customLunchMinutes) || 0;
-                if (mins > 0 && mins <= 180) {
+                if (mins > 0 && mins <= 120) {
                   setShowLunchPicker(false);
                   setCustomLunchMinutes("");
                   onLunchPause(mins);
                 }
               }}
-              disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 180}
+              disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 120}
               className="w-full h-14 bg-warning text-warning-foreground font-black text-lg rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
             >
               INICIAR PAUSA
@@ -963,12 +968,35 @@ export function DefconRunning({
             className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-4 animate-in slide-in-from-bottom duration-200 max-h-[80dvh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 id="defcon-blocksales-title" className="text-lg font-bold text-foreground">Vendas deste bloco</h3>
-                <p className="text-xs font-mono text-muted-foreground mt-0.5">Bloco #{currentBlockIndex + 1}</p>
+            <div className="flex justify-between items-center gap-2">
+              <div className="min-w-0">
+                <h3 id="defcon-blocksales-title" className="text-lg font-bold text-foreground">
+                  {vendoBlocoAtual ? "Vendas deste bloco" : "Vendas do bloco"}
+                </h3>
+                {/* Navegar pelos blocos já feitos (voltar e conferir/corrigir). */}
+                <div className="flex items-center gap-2 mt-1">
+                  <button
+                    onClick={() => setViewBlockIndex((i) => Math.max(0, i - 1))}
+                    disabled={viewBlockIndex <= 0}
+                    aria-label="Bloco anterior"
+                    className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30 active:scale-90 transition"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-mono text-muted-foreground tabular-nums">
+                    Bloco #{viewBlockIndex + 1}/{totalBlocks}
+                  </span>
+                  <button
+                    onClick={() => setViewBlockIndex((i) => Math.min(currentBlockIndex, i + 1))}
+                    disabled={viewBlockIndex >= currentBlockIndex}
+                    aria-label="Próximo bloco"
+                    className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30 active:scale-90 transition"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => setShowBlockSales(false)}>
+              <button onClick={() => setShowBlockSales(false)} className="shrink-0">
                 <X className="w-6 h-6 text-muted-foreground" />
               </button>
             </div>
@@ -1017,13 +1045,22 @@ export function DefconRunning({
               )}
             </div>
 
-            <button
-              onClick={() => { setShowBlockSales(false); setShowAddSale(true); }}
-              className="w-full h-12 rounded-xl bg-card border border-dashed border-primary/50 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] active:bg-primary/10 transition-[colors,transform,opacity]"
-            >
-              <Plus className="w-4 h-4" strokeWidth={3} />
-              Registrar venda
-            </button>
+            {vendoBlocoAtual ? (
+              <button
+                onClick={() => { setShowBlockSales(false); setShowAddSale(true); }}
+                className="w-full h-12 rounded-xl bg-card border border-dashed border-primary/50 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] active:bg-primary/10 transition-[colors,transform,opacity]"
+              >
+                <Plus className="w-4 h-4" strokeWidth={3} />
+                Registrar venda
+              </button>
+            ) : (
+              <button
+                onClick={() => setViewBlockIndex(currentBlockIndex)}
+                className="w-full h-12 rounded-xl bg-card border border-border text-muted-foreground font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-[colors,transform,opacity]"
+              >
+                Vendo um bloco anterior · voltar ao bloco atual
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -448,10 +448,16 @@ export default function DefconHub() {
     loadAll();
   };
 
+  // Arredonda pra 2 casas ao popular os campos — senão o float vaza (ex.: 74,99000000000001).
+  const em2Casas = (v: number) => {
+    const n = Math.round((Number(v) || 0) * 100) / 100;
+    return n ? String(n) : "";
+  };
+
   const openPayEditor = () => {
-    setPayCash(totals.cash ? String(totals.cash) : "");
-    setPayCard(totals.card ? String(totals.card) : "");
-    setPayPix(totals.pix ? String(totals.pix) : "");
+    setPayCash(em2Casas(totals.cash));
+    setPayCard(em2Casas(totals.card));
+    setPayPix(em2Casas(totals.pix));
     setEditingPay(true);
   };
 
@@ -462,9 +468,11 @@ export default function DefconHub() {
     if (!user || !planId) return;
     setSavingPay(true);
     try {
-      const d = parseFloat(payCash) || 0;
-      const c = parseFloat(payCard) || 0;
-      const p = parseFloat(payPix) || 0;
+      // Aceita vírgula e arredonda: o valor digitado é a VERDADE (ex.: 12 tem que virar 12).
+      const num = (s: string) => Math.round((parseFloat(String(s).replace(",", ".")) || 0) * 100) / 100;
+      const d = num(payCash);
+      const c = num(payCard);
+      const p = num(payPix);
 
       const { data: blocks } = await supabase
         .from("hourly_goal_blocks")
@@ -477,17 +485,27 @@ export default function DefconHub() {
       );
 
       if (totalFromBlocks > 0) {
-        for (const b of blocks || []) {
+        // Só os blocos com movimento recebem fatia.
+        const ativos = (blocks || []).filter(
+          (b) => (b.valor_dinheiro || 0) + (b.valor_cartao || 0) + (b.valor_pix || 0) + (b.valor_calote || 0) > 0
+        );
+        // Arredondar cada fatia perde centavos (12 virava 11,98). Então acumulamos o que
+        // já foi distribuído e o ÚLTIMO bloco leva exatamente o resto — a soma bate certo.
+        let accD = 0, accC = 0, accP = 0;
+        for (let i = 0; i < ativos.length; i++) {
+          const b = ativos[i];
           const blockTotal = (b.valor_dinheiro || 0) + (b.valor_cartao || 0) + (b.valor_pix || 0) + (b.valor_calote || 0);
-          if (blockTotal <= 0) continue;
           const ratio = blockTotal / totalFromBlocks;
-          const bd = Math.round(d * ratio * 100) / 100;
-          const bc = Math.round(c * ratio * 100) / 100;
-          const bp = Math.round(p * ratio * 100) / 100;
+          const ultimo = i === ativos.length - 1;
+          const bd = ultimo ? Math.round((d - accD) * 100) / 100 : Math.round(d * ratio * 100) / 100;
+          const bc = ultimo ? Math.round((c - accC) * 100) / 100 : Math.round(c * ratio * 100) / 100;
+          const bp = ultimo ? Math.round((p - accP) * 100) / 100 : Math.round(p * ratio * 100) / 100;
+          accD += bd; accC += bc; accP += bp;
           const bcal = Math.max(0, Math.round((blockTotal - (bd + bc + bp)) * 100) / 100);
+          const achieved = Math.round((bd + bc + bp + bcal) * 100) / 100;
           await supabase
             .from("hourly_goal_blocks")
-            .update({ valor_dinheiro: bd, valor_cartao: bc, valor_pix: bp, valor_calote: bcal, achieved_amount: bd + bc + bp + bcal })
+            .update({ valor_dinheiro: bd, valor_cartao: bc, valor_pix: bp, valor_calote: bcal, achieved_amount: achieved })
             .eq("id", b.id);
         }
       }
