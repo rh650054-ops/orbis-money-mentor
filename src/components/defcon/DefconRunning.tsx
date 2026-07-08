@@ -2,12 +2,13 @@ import { useEffect, useState } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
 import { DefconX1Live } from "./DefconX1Live";
+import { DefconBlockReport } from "./DefconBlockReport";
 import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -90,6 +91,11 @@ export function DefconRunning({
   const [showBlockSales, setShowBlockSales] = useState(false);
   // Bloco que está sendo VISTO no modal (dá pra voltar nos blocos anteriores).
   const [viewBlockIndex, setViewBlockIndex] = useState(0);
+  // Relatório/imagem de um bloco já feito (pra pegar o print depois).
+  const [reportBlock, setReportBlock] = useState<
+    { blockIndex: number; approaches: number; sales: number; soldAmount: number } | null
+  >(null);
+  const [loadingReport, setLoadingReport] = useState(false);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
   const { theme, setTheme } = useTheme();
@@ -307,6 +313,39 @@ export function DefconRunning({
     (s) => Number(s?.block_index) === viewBlockIndex
   );
   const vendoBlocoAtual = viewBlockIndex === currentBlockIndex;
+
+  // Abre o relatório (com a imagem de compartilhamento) do bloco escolhido.
+  // No bloco atual usa os contadores ao vivo; nos anteriores busca em challenge_blocks.
+  const abrirImagemBloco = async (idx: number) => {
+    setLoadingReport(true);
+    try {
+      const somaBloco = (sessionSales || [])
+        .filter((s) => Number(s?.block_index) === idx)
+        .reduce((t, s) => t + (Number(s?.amount) || 0), 0);
+
+      if (idx === currentBlockIndex) {
+        setReportBlock({ blockIndex: idx, approaches: blockApproaches, sales: blockSalesCount, soldAmount: somaBloco });
+        return;
+      }
+
+      const sid = (sessionSales || []).find((s) => s?.session_id)?.session_id;
+      let approaches = 0;
+      let salesCount = 0;
+      if (sid) {
+        const { data } = await supabase
+          .from("challenge_blocks")
+          .select("approaches_count, sales_count")
+          .eq("session_id", sid)
+          .eq("block_index", idx)
+          .maybeSingle();
+        approaches = Number((data as { approaches_count?: number } | null)?.approaches_count || 0);
+        salesCount = Number((data as { sales_count?: number } | null)?.sales_count || 0);
+      }
+      setReportBlock({ blockIndex: idx, approaches, sales: salesCount, soldAmount: somaBloco });
+    } finally {
+      setLoadingReport(false);
+    }
+  };
 
   // Horário curto (HH:mm) a partir do created_at da venda.
   const saleTime = (iso: string | null | undefined) => {
@@ -610,9 +649,19 @@ export function DefconRunning({
             <span className="text-xs font-mono text-destructive/70 tracking-wider uppercase font-bold">Encerrar</span>
           </button>
         </div>
-        <div className="mt-1.5 text-center text-xs font-mono text-muted-foreground/30 tracking-[0.3em] uppercase">
-          Bloco {currentBlockIndex + 1}/{totalBlocks}
-        </div>
+        {/* Tocar aqui abre o histórico de blocos: navega nos anteriores (◀ ▶) e
+            permite conferir/excluir as vendas de cada bloco. */}
+        <button
+          onClick={() => { setViewBlockIndex(currentBlockIndex); setShowBlockSales(true); }}
+          aria-label="Ver blocos anteriores e editar vendas"
+          className="mt-1.5 w-full flex items-center justify-center gap-1.5 h-7 rounded-lg active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
+        >
+          <span className="text-xs font-mono text-muted-foreground/50 tracking-[0.25em] uppercase">
+            Bloco {currentBlockIndex + 1}/{totalBlocks}
+          </span>
+          <span className="text-[10px] font-mono text-primary/70 uppercase tracking-wider">· ver blocos</span>
+          <ChevronRight className="w-3 h-3 text-primary/70" />
+        </button>
       </div>
 
       {/* Add sale modal */}
@@ -1045,6 +1094,16 @@ export function DefconRunning({
               )}
             </div>
 
+            {/* Pegar a IMAGEM (print) do fim deste bloco — vale pra qualquer bloco. */}
+            <button
+              onClick={() => { setShowBlockSales(false); abrirImagemBloco(viewBlockIndex); }}
+              disabled={loadingReport}
+              className="w-full h-11 rounded-xl bg-primary/10 border border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-[colors,transform,opacity] disabled:opacity-50"
+            >
+              <Camera className="w-4 h-4" strokeWidth={2.5} />
+              {loadingReport ? "Abrindo..." : `Imagem do bloco #${viewBlockIndex + 1}`}
+            </button>
+
             {vendoBlocoAtual ? (
               <button
                 onClick={() => { setShowBlockSales(false); setShowAddSale(true); }}
@@ -1062,6 +1121,19 @@ export function DefconRunning({
               </button>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Relatório/imagem de um bloco (atual ou anterior) — dá pra compartilhar/baixar */}
+      {reportBlock && (
+        <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
+          <DefconBlockReport
+            blockIndex={reportBlock.blockIndex}
+            approaches={reportBlock.approaches}
+            sales={reportBlock.sales}
+            soldAmount={reportBlock.soldAmount}
+            onContinue={() => setReportBlock(null)}
+          />
         </div>
       )}
     </div>

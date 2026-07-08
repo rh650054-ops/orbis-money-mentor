@@ -378,6 +378,15 @@ export default function Insights() {
     };
   }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales, sessions]);
 
+  // ESPERADO x RECEBIDO: "esperado" é o faturamento de TODA a mercadoria vendida
+  // (o que era pra cair). "Recebido" é o que efetivamente entrou (dinheiro+pix+cartão).
+  // A diferença é o calote — mostrado em R$ e em % do esperado.
+  const esperadoReceber = summary.faturamento;
+  const recebidoDeFato = summary.dinheiro + summary.pix + summary.cartao;
+  const naoRecebido = Math.max(0, esperadoReceber - recebidoDeFato);
+  const pctRecebido = esperadoReceber > 0 ? (recebidoDeFato / esperadoReceber) * 100 : 0;
+  const pctCalote = esperadoReceber > 0 ? (naoRecebido / esperadoReceber) * 100 : 0;
+
   // Horas trabalhadas no período, formatadas: "0h", "3h", "2h 30min".
   const horasLabel = (() => {
     const min = summary.horasTrabalhadasMin || 0;
@@ -690,6 +699,52 @@ export default function Insights() {
                   Horas trabalhadas:{" "}
                   <span className="font-bold text-foreground">{horasLabel}</span>
                 </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Era pra cair x Caiu — quanto da mercadoria vendida virou dinheiro no bolso */}
+          <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Era pra cair × Caiu</p>
+              <p className="text-[11px] text-muted-foreground">
+                O que a mercadoria vendida deveria render, e o que realmente entrou.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-background border border-border/50 p-3">
+                <p className="text-[11px] text-muted-foreground">Era pra cair</p>
+                <p className="text-lg font-bold text-foreground tabular-nums">{formatCurrency(esperadoReceber)}</p>
+                <p className="text-[10px] text-muted-foreground">tudo que foi vendido</p>
+              </div>
+              <div className="rounded-xl bg-success/5 border border-success/30 p-3">
+                <p className="text-[11px] text-muted-foreground">Caiu de verdade</p>
+                <p className="text-lg font-bold text-success tabular-nums">{formatCurrency(recebidoDeFato)}</p>
+                <p className="text-[10px] text-success/80 font-semibold">{pctRecebido.toFixed(0)}% do esperado</p>
+              </div>
+            </div>
+
+            {/* Barra: quanto do esperado entrou */}
+            <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-success transition-[width]"
+                style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%` }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-destructive/5 border border-destructive/25 px-3 py-2.5">
+              <div className="min-w-0">
+                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Calote (não recebido)</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {summary.caloteUnidades > 0
+                    ? `${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} não paga${summary.caloteUnidades === 1 ? "" : "s"}`
+                    : "Nenhuma unidade não paga"}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-base font-bold text-destructive tabular-nums">{formatCurrency(naoRecebido)}</p>
+                <p className="text-[11px] text-destructive/80 font-semibold">{pctCalote.toFixed(1)}% do esperado</p>
               </div>
             </div>
           </section>
