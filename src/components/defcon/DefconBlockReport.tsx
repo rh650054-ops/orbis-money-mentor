@@ -1,11 +1,9 @@
 import { useRef, useState } from "react";
-import { Instagram, Loader2, Sparkles } from "lucide-react";
+import { Instagram, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import orbisLogo from "@/assets/orbis-logo-share.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
-import { DefconShareCarousel } from "./DefconShareCarousel";
 
 interface DefconBlockReportProps {
   blockIndex: number;
@@ -23,36 +21,7 @@ export function DefconBlockReport({
   onContinue,
 }: DefconBlockReportProps) {
   const [sharing, setSharing] = useState(false);
-  const [aiTip, setAiTip] = useState<string | null>(null);
-  const [aiTipLoading, setAiTipLoading] = useState(false);
-  const [aiTipError, setAiTipError] = useState(false);
   const conversionRate = approaches > 0 ? (sales / approaches) * 100 : 0;
-
-  // Dica da hora com IA (Gemini) — roda só quando o vendedor toca no botão.
-  const generateBlockTip = async () => {
-    setAiTipLoading(true);
-    setAiTipError(false);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-insights", {
-        body: {
-          type: "defcon_block_report",
-          blockIndex,
-          approaches,
-          sales,
-          conversionRate: conversionRate.toFixed(1),
-          soldAmount,
-        },
-      });
-      if (error) throw error;
-      const tip = (data as { tip?: string } | null)?.tip;
-      if (!tip) throw new Error("sem dica");
-      setAiTip(tip);
-    } catch {
-      setAiTipError(true);
-    } finally {
-      setAiTipLoading(false);
-    }
-  };
 
   const getMessage = () => {
     if (approaches === 0) return "Nenhuma abordagem registrada neste bloco.";
@@ -120,41 +89,36 @@ export function DefconBlockReport({
       }
     };
 
-    // Rótulos COLORIDOS (visíveis em qualquer fundo) + valores claros — igual ao card do dia
+    // Stats stack — labels MUCH bigger, values huge (Strava-like)
+    let y = 520;
     const FOREGROUND = readThemeColor("--foreground");
-    const PRIMARY = readThemeColor("--primary");
     const SUCCESS = readThemeColor("--success");
     const WARNING = readThemeColor("--warning");
     const DESTRUCTIVE = readThemeColor("--destructive");
 
-    const TITLE_SIZE = 72;
-    const VALUE_SIZE = 160;
-    const SPACING = 12;
+    const drawStat = (label: string, value: string, valueColor = FOREGROUND) => {
+      centerText(label.toUpperCase(), y, 72, "700", "rgba(255,255,255,0.85)", 10);
+      y += 130;
+      centerText(value, y, 180, "900", valueColor);
+      y += 230;
+    };
 
-    // Faturamento
-    centerText("FATURAMENTO", 200, TITLE_SIZE, "800", PRIMARY, SPACING);
-    centerText(formatCurrency(soldAmount), 360, VALUE_SIZE, "900", FOREGROUND);
+    drawStat("Faturamento", formatCurrency(soldAmount), FOREGROUND);
+    drawStat("Vendas", String(sales), SUCCESS);
 
-    // Vendas
-    centerText("VENDAS", 700, TITLE_SIZE, "800", SUCCESS, SPACING);
-    centerText(String(sales), 860, VALUE_SIZE, "900", FOREGROUND);
-
-    // Conversão
     const convColor =
       conversionRate >= 30 ? SUCCESS : conversionRate >= 15 ? WARNING : DESTRUCTIVE;
-    centerText("CONVERSÃO", 1220, TITLE_SIZE, "800", convColor, SPACING);
-    centerText(`${conversionRate.toFixed(0)}%`, 1380, VALUE_SIZE, "900", FOREGROUND);
+    drawStat("Conversão", `${conversionRate.toFixed(0)}%`, convColor);
 
-    // Logo sutil no rodapé (não sobrepõe os valores)
+    // Bottom: Orbis logo image (wider since it includes the wordmark)
     try {
       const logo = await loadLogo();
-      const logoW = 380;
+      const logoW = 460;
       const ratio = logo.height / logo.width;
       const logoH = logoW * ratio;
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 80, logoW, logoH);
-      ctx.restore();
+      const logoX = W / 2 - logoW / 2;
+      const logoY = H - logoH - 120;
+      ctx.drawImage(logo, logoX, logoY, logoW, logoH);
     } catch {
       // Fallback: text logo
       centerText("ORBIS", H - 180, 80, "900", FOREGROUND, 16);
@@ -217,92 +181,69 @@ export function DefconBlockReport({
   };
 
   return (
-    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
       <div className="text-center mb-8">
         <div className="text-6xl mb-4">{getEmoji()}</div>
-        <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-2">
+        <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase mb-2">
           Relatório do Bloco #{blockIndex + 1}
         </div>
       </div>
 
       <div className="w-full max-w-sm space-y-3 mb-8">
-        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">👤 Abordagens</span>
-          <span className="text-2xl font-black text-foreground">{approaches}</span>
+        <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-neutral-500">👤 Abordagens</span>
+          <span className="text-2xl font-black text-white">{approaches}</span>
         </div>
 
-        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">🛒 Vendas</span>
+        <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-neutral-500">🛒 Vendas</span>
           <span className="text-2xl font-black text-success">{sales}</span>
         </div>
 
-        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">💰 Valor vendido</span>
-          <span className="text-xl font-black text-foreground">{formatCurrency(soldAmount)}</span>
+        <div className="bg-neutral-900 rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-neutral-500">💰 Valor vendido</span>
+          <span className="text-xl font-black text-white">{formatCurrency(soldAmount)}</span>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">📊 Conversão</span>
+        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-neutral-500">📊 Conversão</span>
           <span className={`text-2xl font-black ${
             conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"
           }`}>
             {conversionRate.toFixed(0)}%
           </span>
         </div>
-
-        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">⏱️ Tempo trabalhado</span>
-          <span className="text-2xl font-black text-foreground">{blockIndex + 1}h</span>
-        </div>
       </div>
 
-      <p className="text-sm text-muted-foreground font-mono text-center mb-6 max-w-sm italic">
+      <p className="text-sm text-neutral-500 font-mono text-center mb-6 max-w-sm italic">
         "{getMessage()}"
       </p>
 
-      {/* 3 artes transparentes (arraste pra escolher) + compartilhar no Instagram */}
-      <div className="w-full max-w-sm mb-3">
-        <DefconShareCarousel
-          stats={{
-            faturamento: soldAmount,
-            vendas: sales,
-            conversao: conversionRate,
-            horas: `${blockIndex + 1}h`,
-          }}
-        />
-      </div>
-
-      {/* Dica da hora com IA — gera só quando o vendedor toca */}
-      <div className="w-full max-w-sm mb-3">
-        {aiTip ? (
-          <div className="rounded-xl bg-card border border-primary/40 px-4 py-3">
-            <div className="flex items-center gap-2 mb-1.5">
-              <Sparkles className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Dica da hora · IA</span>
-            </div>
-            <p className="text-sm text-foreground leading-relaxed whitespace-pre-line text-left">{aiTip}</p>
-          </div>
+      {/* Instagram share button */}
+      <button
+        onClick={handleShare}
+        disabled={sharing}
+        className="w-full max-w-sm h-12 mb-3 text-white font-bold text-sm rounded-xl active:scale-95 transition-transform flex items-center justify-center gap-2 disabled:opacity-60"
+        style={{
+          backgroundImage: `linear-gradient(to right, ${BRAND_COLORS.INSTAGRAM_GRADIENT.from}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.via}, ${BRAND_COLORS.INSTAGRAM_GRADIENT.to})`,
+        }}
+      >
+        {sharing ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            GERANDO IMAGEM...
+          </>
         ) : (
-          <button
-            onClick={generateBlockTip}
-            disabled={aiTipLoading || approaches === 0}
-            className="w-full h-12 rounded-xl bg-card border border-primary/40 text-primary font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-transform disabled:opacity-50"
-          >
-            {aiTipLoading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Gerando dica da hora...</>
-            ) : (
-              <><Sparkles className="w-4 h-4" /> Gerar dica da hora com IA</>
-            )}
-          </button>
+          <>
+            <Instagram className="w-4 h-4" />
+            COMPARTILHAR NO INSTAGRAM
+          </>
         )}
-        {aiTipError && (
-          <p className="text-[11px] text-destructive text-center mt-2">Não consegui gerar agora. Tenta de novo.</p>
-        )}
-      </div>
+      </button>
 
       <button
         onClick={onContinue}
-        className="w-full max-w-sm h-14 bg-card border border-border text-foreground font-bold text-lg rounded-xl active:scale-95 transition-transform"
+        className="w-full max-w-sm h-14 bg-neutral-900 border border-neutral-700 text-white font-bold text-lg rounded-xl active:scale-95 transition-transform"
       >
         PRÓXIMO BLOCO →
       </button>

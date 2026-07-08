@@ -2,23 +2,21 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { MoneyInput } from "@/shared/ui/money-input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
-import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon, Bus, Utensils } from "lucide-react";
+import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
 import { MotivationalMessage } from "./MotivationalMessage";
-import { getBrazilDate, formatBrazilDate, getBrazilTime } from "@/shared/lib/date-utils";
+import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { format } from "date-fns";
 import { cn } from "@/shared/lib/utils";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
-import { emitMissionEvent } from "@/shared/lib/missionEvents";
 
 const salesSchema = z.object({
   totalProfit: z.string().min(1, { message: "Valor vendido é obrigatório" }).refine((val) => {
@@ -35,11 +33,6 @@ const salesSchema = z.object({
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Calotes devem ser entre 0 e 999.999" }),
-  unpaidUnits: z.string().refine((val) => {
-    if (!val) return true;
-    const num = parseInt(val, 10);
-    return !isNaN(num) && num >= 0 && num <= 99999;
-  }, { message: "Unidades não pagas devem ser entre 0 e 99.999" }),
   cashSales: z.string().refine((val) => {
     if (!val) return true;
     const num = parseFloat(val);
@@ -55,16 +48,6 @@ const salesSchema = z.object({
     const num = parseFloat(val);
     return !isNaN(num) && num >= 0 && num <= 999999;
   }, { message: "Vendas em cartão devem ser entre 0 e 999.999" }),
-  transportCost: z.string().refine((val) => {
-    if (!val) return true;
-    const num = parseFloat(val);
-    return !isNaN(num) && num >= 0 && num <= 999999;
-  }, { message: "Transporte deve ser entre 0 e 999.999" }),
-  foodCost: z.string().refine((val) => {
-    if (!val) return true;
-    const num = parseFloat(val);
-    return !isNaN(num) && num >= 0 && num <= 999999;
-  }, { message: "Alimentação deve ser entre 0 e 999.999" }),
   notes: z.string().max(1000, { message: "Observações devem ter no máximo 1000 caracteres" }).optional()
 });
 
@@ -85,12 +68,9 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
     totalProfit: "",
     cost: "",
     totalDebt: "",
-    unpaidUnits: "",
     cashSales: "",
     pixSales: "",
     cardSales: "",
-    transportCost: "",
-    foodCost: "",
     notes: ""
   });
   const [dateOption, setDateOption] = useState<"today" | "yesterday" | "custom">("today");
@@ -105,7 +85,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       .from("profiles")
       .select("base_daily_goal")
       .eq("user_id", userId)
-      .maybeSingle();
+      .single();
 
     if (data?.base_daily_goal) {
       setBaseDailyGoal(data.base_daily_goal);
@@ -114,7 +94,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
   const handlePlannedOff = async () => {
     const today = getBrazilDate();
-
+    
     const { error } = await supabase
       .from("daily_work_log")
       .upsert({
@@ -179,47 +159,26 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         return;
       }
 
-      // Data da venda escolhida no seletor (Hoje / Ontem / Outra data).
-      // Antes o app ignorava a escolha e sempre salvava em getBrazilDate().
-      if (dateOption === "custom" && !customDate) {
-        toast({
-          title: "Escolha a data",
-          description: "Selecione a data da venda ou volte pra 'Hoje'.",
-          variant: "destructive",
-        });
-        setIsLoading(false);
-        return;
-      }
-      const saleDate =
-        dateOption === "yesterday"
-          ? formatBrazilDate(new Date(Date.now() - 24 * 60 * 60 * 1000))
-          : dateOption === "custom" && customDate
-          ? format(customDate, "yyyy-MM-dd")
-          : getBrazilDate();
-
       const salesData = {
         user_id: userId,
-        date: saleDate,
+        date: getBrazilDate(),
         total_profit: formData.totalProfit ? parseFloat(formData.totalProfit) : 0,
         cost: formData.cost ? parseFloat(formData.cost) : 0,
         total_debt: formData.totalDebt ? parseFloat(formData.totalDebt) : 0,
-        unpaid_units: formData.unpaidUnits ? parseInt(formData.unpaidUnits, 10) : 0,
         cash_sales: formData.cashSales ? parseFloat(formData.cashSales) : 0,
         pix_sales: formData.pixSales ? parseFloat(formData.pixSales) : 0,
         card_sales: formData.cardSales ? parseFloat(formData.cardSales) : 0,
-        transport_cost: formData.transportCost ? parseFloat(formData.transportCost) : 0,
-        food_cost: formData.foodCost ? parseFloat(formData.foodCost) : 0,
         notes: formData.notes.trim()
       };
 
       const profit = parseFloat(formData.totalProfit);
 
-      // CORRIGIDO: Verificar se já existe registro para a DATA ESCOLHIDA e somar valores
+      // CORRIGIDO: Verificar se já existe registro para hoje e somar valores
       const { data: existingSale } = await supabase
         .from("daily_sales")
         .select("*")
         .eq("user_id", userId)
-        .eq("date", saleDate)
+        .eq("date", today)
         .maybeSingle();
 
       let totalDayProfit = profit;
@@ -233,46 +192,43 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             total_profit: totalDayProfit,
             cost: (existingSale.cost || 0) + salesData.cost,
             total_debt: (existingSale.total_debt || 0) + salesData.total_debt,
-            unpaid_units: ((existingSale as any).unpaid_units || 0) + salesData.unpaid_units,
             cash_sales: (existingSale.cash_sales || 0) + salesData.cash_sales,
             pix_sales: (existingSale.pix_sales || 0) + salesData.pix_sales,
             card_sales: (existingSale.card_sales || 0) + salesData.card_sales,
-            transport_cost: (existingSale.transport_cost || 0) + salesData.transport_cost,
-            food_cost: (existingSale.food_cost || 0) + salesData.food_cost,
             notes: formData.notes ? `${existingSale.notes || ''}\n${formData.notes}` : existingSale.notes,
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingSale.id);
-
+        
         if (error) throw error;
       } else {
         // Inserir novo registro
         const { error } = await supabase
           .from("daily_sales")
           .insert(salesData);
-
+        
         if (error) throw error;
       }
 
-      // Atualizar blocos de hora se existir plano hoje (usa fuso de Brasília)
-      const currentHour = parseInt(getBrazilTime().split(":")[0], 10);
+      // Atualizar blocos de hora se existir plano hoje
+      const currentHour = new Date().getHours();
       const { data: planData } = await supabase
         .from("daily_goal_plans")
         .select("id, work_hours")
         .eq("user_id", userId)
         .eq("date", today)
-        .maybeSingle();
+        .single();
 
       if (planData) {
         // Calcular qual bloco estamos (baseado na hora atual)
         const hourIndex = Math.min(currentHour % planData.work_hours, planData.work_hours - 1);
-
+        
         const { data: currentBlock } = await supabase
           .from("hourly_goal_blocks")
           .select("*")
           .eq("plan_id", planData.id)
           .eq("hour_index", hourIndex)
-          .maybeSingle();
+          .single();
 
         if (currentBlock) {
           const newAchievedAmount = currentBlock.achieved_amount + profit;
@@ -310,20 +266,25 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         .from("profiles")
         .select("streak_days, last_check_in_date")
         .eq("user_id", userId)
-        .maybeSingle();
+        .single();
 
       let newStreak = profile?.streak_days || 0;
-
+      
       // Se bateu a meta, avançar constância
       if (totalDayProfit >= baseDailyGoal) {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayDate = new Date(yesterday);
+        yesterdayDate.setHours(0, 0, 0, 0);
+        
         if (profile?.last_check_in_date) {
-          // Comparar datas como strings YYYY-MM-DD (já em fuso BR); parsear ao
-          // meio-dia UTC evita qualquer ambiguidade de DST.
-          const msPerDay = 1000 * 60 * 60 * 24;
-          const todayMs = new Date(today + "T12:00:00Z").getTime();
-          const lastMs = new Date(profile.last_check_in_date + "T12:00:00Z").getTime();
-          const daysDiff = Math.round((todayMs - lastMs) / msPerDay);
-
+          const lastCheckDate = new Date(profile.last_check_in_date);
+          lastCheckDate.setHours(0, 0, 0, 0);
+          const todayDate = new Date(today);
+          todayDate.setHours(0, 0, 0, 0);
+          
+          const daysDiff = Math.floor((todayDate.getTime() - lastCheckDate.getTime()) / (1000 * 60 * 60 * 24));
+          
           if (daysDiff === 1) {
             newStreak = newStreak + 1;
           } else if (daysDiff > 1) {
@@ -347,7 +308,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       // Log work day with details
       const goalAchieved = totalDayProfit >= baseDailyGoal;
       const percentageAchieved = percentage;
-
+      
       await supabase
         .from("daily_work_log")
         .upsert({
@@ -365,7 +326,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       // Mensagem motivacional automática
       const missing = Math.max(0, baseDailyGoal - totalDayProfit);
       const missingPercent = ((missing / baseDailyGoal) * 100).toFixed(0);
-
+      
       if (totalDayProfit >= baseDailyGoal) {
         toast({
           title: "🔥 Visionário! Meta batida!",
@@ -385,16 +346,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         totalProfit: "",
         cost: "",
         totalDebt: "",
-        unpaidUnits: "",
         cashSales: "",
         pixSales: "",
         cardSales: "",
-        transportCost: "",
-        foodCost: "",
         notes: ""
       });
 
-      emitMissionEvent("sale-registered");
       if (onSaved) onSaved();
     } catch (error) {
       toast({
@@ -409,16 +366,16 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
 
   return (
     <>
-      <MotivationalCard
+      <MotivationalCard 
         percentage={motivationPercentage}
         visible={showMotivation}
         onHide={() => setShowMotivation(false)}
       />
-
+      
       {showMessage && (
         <MotivationalMessage totalDayProfit={dayProfit} dailyGoal={baseDailyGoal} />
       )}
-
+      
       <Card className="card-gradient-border shadow-xl">
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -457,7 +414,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <SelectItem value="custom">Outra data</SelectItem>
                 </SelectContent>
               </Select>
-
+              
               {dateOption === "custom" && (
                 <Popover>
                   <PopoverTrigger asChild>
@@ -491,9 +448,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <DollarSign className="h-4 w-4 text-success" />
                 Total Vendido (R$)
               </Label>
-              <MoneyInput
-                value={parseFloat(formData.totalProfit) || 0}
-                onChange={(n) => setFormData({ ...formData, totalProfit: n ? String(n) : "" })}
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.totalProfit}
+                onChange={(e) => setFormData({ ...formData, totalProfit: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -501,9 +461,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <DollarSign className="h-4 w-4 text-warning" />
                 Gasto em Mercadoria (R$)
               </Label>
-              <MoneyInput
-                value={parseFloat(formData.cost) || 0}
-                onChange={(n) => setFormData({ ...formData, cost: n ? String(n) : "" })}
+              <Input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={formData.cost}
+                onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -511,49 +474,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                 <AlertTriangle className="h-4 w-4 text-destructive" />
                 Calotes (R$)
               </Label>
-              <MoneyInput
-                value={parseFloat(formData.totalDebt) || 0}
-                onChange={(n) => setFormData({ ...formData, totalDebt: n ? String(n) : "" })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-destructive" />
-                Kits não pagos (unidades)
-              </Label>
               <Input
                 type="number"
-                inputMode="numeric"
-                step="1"
-                min="0"
-                placeholder="0"
-                value={formData.unpaidUnits}
-                onChange={(e) => setFormData({ ...formData, unpaidUnits: e.target.value })}
-              />
-              <p className="text-[11px] text-muted-foreground">Quantas unidades ficaram sem pagar — aparece no relatório.</p>
-            </div>
-          </div>
-
-          {/* Custos do dia que entram no líquido: transporte e alimentação */}
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Bus className="h-4 w-4 text-warning" />
-                Transporte (R$)
-              </Label>
-              <MoneyInput
-                value={parseFloat(formData.transportCost) || 0}
-                onChange={(n) => setFormData({ ...formData, transportCost: n ? String(n) : "" })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="flex items-center gap-2">
-                <Utensils className="h-4 w-4 text-warning" />
-                Alimentação (R$)
-              </Label>
-              <MoneyInput
-                value={parseFloat(formData.foodCost) || 0}
-                onChange={(n) => setFormData({ ...formData, foodCost: n ? String(n) : "" })}
+                step="0.01"
+                placeholder="0,00"
+                value={formData.totalDebt}
+                onChange={(e) => setFormData({ ...formData, totalDebt: e.target.value })}
               />
             </div>
           </div>
@@ -566,9 +492,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <Banknote className="h-4 w-4 text-success" />
                   Dinheiro (R$)
                 </Label>
-                <MoneyInput
-                  value={parseFloat(formData.cashSales) || 0}
-                  onChange={(n) => setFormData({ ...formData, cashSales: n ? String(n) : "" })}
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.cashSales}
+                  onChange={(e) => setFormData({ ...formData, cashSales: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -576,9 +505,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <Smartphone className="h-4 w-4 text-primary" />
                   Pix (R$)
                 </Label>
-                <MoneyInput
-                  value={parseFloat(formData.pixSales) || 0}
-                  onChange={(n) => setFormData({ ...formData, pixSales: n ? String(n) : "" })}
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.pixSales}
+                  onChange={(e) => setFormData({ ...formData, pixSales: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -586,9 +518,12 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
                   <CreditCard className="h-4 w-4 text-secondary" />
                   Cartão (R$)
                 </Label>
-                <MoneyInput
-                  value={parseFloat(formData.cardSales) || 0}
-                  onChange={(n) => setFormData({ ...formData, cardSales: n ? String(n) : "" })}
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0,00"
+                  value={formData.cardSales}
+                  onChange={(e) => setFormData({ ...formData, cardSales: e.target.value })}
                 />
               </div>
             </div>
@@ -605,8 +540,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
             />
           </div>
 
-          <Button
-            data-tour="registrar-venda"
+          <Button 
             type="submit"
             className="w-full"
             disabled={isLoading}

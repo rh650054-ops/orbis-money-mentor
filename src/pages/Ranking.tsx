@@ -6,23 +6,18 @@ import { Progress } from "@/shared/ui/progress";
 import { cn } from "@/shared/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useLeaderboard, LeaderboardEntry } from "@/hooks/useLeaderboard";
-import { useWeeklyLeaderboard } from "@/hooks/useWeeklyLeaderboard";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { RankingProfileModal } from "@/components/RankingProfileModal";
 import PublicProfileModal from "@/components/PublicProfileModal";
-import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { RankingShareCard } from "@/components/RankingShareCard";
-import { RankingChase } from "@/components/ranking/RankingChase";
-import { RankingPodium } from "@/components/ranking/RankingPodium";
-import { leagueRank } from "@/components/ranking/tier";
-import { LeagueTransition } from "@/components/ranking/LeagueTransition";
-import { TrialNudge } from "@/components/TrialNudge";
-import { RankingList } from "@/components/ranking/RankingList";
+import CompetitionsTab from "@/components/ranking/CompetitionsTab";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { toPng } from "html-to-image";
 import { toast } from "@/shared/hooks/use-toast";
+import confetti from "canvas-confetti";
 import { RANKING_FIRE_GRADIENT, RANKING_TIER_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
-import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -40,7 +35,7 @@ function isEmojiAvatar(avatar: string | null): boolean {
   return EXCLUSIVE_EMOJIS.includes(avatar);
 }
 
-function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "md" | "lg" = "md", className?: string, badgeIcon?: string) {
+function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "md" | "lg" = "md", className?: string) {
   const sizeClasses = {
     sm: "w-10 h-10 text-lg",
     md: "w-14 h-14 text-xl",
@@ -56,9 +51,6 @@ function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "
   if (avatar) {
     return <img src={avatar} alt={name || ''} className={cn("rounded-full object-cover", sizeClasses[size], className)} />;
   }
-  if (badgeIcon) {
-    return <img src={badgeIcon} alt={name || ''} className={cn("object-contain", sizeClasses[size])} />;
-  }
   return (
     <div className={cn("rounded-full bg-gradient-to-br from-primary/40 to-primary/10 border border-primary/30 flex items-center justify-center font-bold text-primary", sizeClasses[size], className)}>
       {(name || 'U').charAt(0).toUpperCase()}
@@ -73,23 +65,15 @@ export default function Ranking() {
     isLoading, hasParticipated, loadLeaderboard
   } = useLeaderboard(user?.id);
 
-  // Fase 2 (06/07): o ranking de vendas abre → o Ranking abre direto no Semanal.
-  // Antes disso (semana de recrutamento), abre no Mensal.
-  // Ranking ÚNICO (global) — a liga semanal foi removida. Tipo em união só pra
-  // as comparações antigas (dead code do semanal) continuarem compilando.
-  const activeTab: "mensal" | "semanal" = "mensal";
-  const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
+  const [activeTab, setActiveTab] = useState<"global" | "competicoes">("global");
   const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
   const [userPhone, setUserPhone] = useState<string>("");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [publicProfileUserId, setPublicProfileUserId] = useState<string | null>(null);
   const [isSharing, setIsSharing] = useState(false);
   const shareCardRef = useRef<HTMLDivElement>(null);
-  const quickPhotoRef = useRef<HTMLInputElement>(null);
-  const [quickUploading, setQuickUploading] = useState(false);
-  const [leagueTransition, setLeagueTransition] = useState<{ type: "up" | "down"; position: number } | null>(null);
-  const [showRankNudge, setShowRankNudge] = useState(false);
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -120,8 +104,7 @@ export default function Ranking() {
     prevConstanciaPosition.current = cc;
   }, [currentUserStats?.posicao_faturamento, currentUserStats?.posicao_constancia]);
 
-  const triggerConfetti = async () => {
-    const confetti = (await import("canvas-confetti")).default;
+  const triggerConfetti = () => {
     const duration = 3000;
     const animationEnd = Date.now() + duration;
     const r = (min: number, max: number) => Math.random() * (max - min) + min;
@@ -137,67 +120,14 @@ export default function Ranking() {
 
   useEffect(() => { loadUserProfile(); }, [user?.id]);
 
-  // Anima quando o vendedor SOBE ou CAI de liga (compara com a ultima liga vista)
-  useEffect(() => {
-    const pos = currentUserStats?.posicao_faturamento;
-    if (!user?.id || !pos) return;
-    const rank = leagueRank(pos);
-    const key = `orbis_last_league_${user.id}`;
-    let stored = 0;
-    try { stored = Number(localStorage.getItem(key)) || 0; } catch { /* noop */ }
-    if (stored && stored !== rank) {
-      setLeagueTransition({ type: rank > stored ? "up" : "down", position: pos });
-    }
-    try { localStorage.setItem(key, String(rank)); } catch { /* noop */ }
-  }, [currentUserStats?.posicao_faturamento, user?.id]);
-
-  // Recarrega ranking e perfil ao voltar o foco (ex.: retorno do DEFCON 4)
-  useRefetchOnFocus(() => {
-    if (user) {
-      loadLeaderboard();
-      loadUserProfile();
-    }
-  });
-
   const formatCurrency = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-
-  const handleQuickPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Selecione uma imagem válida", variant: "destructive" });
-      return;
-    }
-    setQuickUploading(true);
-    try {
-      const ext = file.name.split(".").pop() || "jpg";
-      const filePath = `${user.id}/avatar.${ext}`;
-      await supabase.storage.from("avatars").remove([filePath]);
-      const { error } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true, contentType: file.type });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
-      const url = `${urlData.publicUrl}?t=${Date.now()}`;
-      await supabase.from("profiles").update({ avatar_url: url }).eq("user_id", user.id);
-      const mref = new Date().toISOString().slice(0, 7);
-      await supabase.from("leaderboard_stats").update({ avatar_url: url }).eq("user_id", user.id).eq("mes_referencia", mref);
-      toast({ title: "Foto atualizada! 📸" });
-      loadUserProfile();
-      loadLeaderboard();
-    } catch (err) {
-      console.error(err);
-      toast({ title: "Erro ao enviar a foto", description: "Tente novamente.", variant: "destructive" });
-    } finally {
-      setQuickUploading(false);
-      if (quickPhotoRef.current) quickPhotoRef.current.value = "";
-    }
-  };
 
   const openPublicProfile = (uid: string) => {
     if (!uid) return;
     setPublicProfileUserId(uid);
   };
 
-  const isMensal = activeTab === "mensal";
+  const isGlobal = activeTab === "global";
 
   const handleShare = async () => {
     if (!shareCardRef.current || isSharing) return;
@@ -205,7 +135,6 @@ export default function Ranking() {
     try {
       // Pequeno delay para garantir que o card off-screen foi renderizado
       await new Promise((r) => setTimeout(r, 50));
-      const { toPng } = await import("html-to-image");
       const dataUrl = await toPng(shareCardRef.current, {
         cacheBust: true,
         pixelRatio: 1,
@@ -248,30 +177,27 @@ export default function Ranking() {
     }
   };
 
-  // Dados do share card: reflete a aba ativa (mensal = mês; semanal = semana).
+  // Dados para o share card (sempre Liga Global = faturamento)
   const shareData = (() => {
-    const stats = isMensal ? currentUserStats : weekly.currentUserStats;
-    const totalParticipants = isMensal ? faturamentoRanking.length : weekly.ranking.length;
-    const position = stats?.posicao_faturamento ?? null;
-    const primaryValue = formatCurrency(stats?.faturamento_total_mes ?? 0);
-    const secondaryValue = isMensal
-      ? `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`
-      : `${weekly.currentUserStats?.dias_trabalhados_mes ?? 0} dias esta semana`;
+    const totalParticipants = faturamentoRanking.length;
+    const position = currentUserStats?.posicao_faturamento ?? null;
+    const primaryValue = formatCurrency(currentUserStats?.faturamento_total_mes ?? 0);
+    const secondaryValue = `${currentUserStats?.constancia_streak_atual ?? 0} dias seguidos 🔥`;
     return {
       league: "faturamento" as const,
       position,
       totalParticipants,
-      nickname: userProfile.nickname || stats?.nome_usuario || "Vendedor",
-      avatarUrl: userProfile.avatar || stats?.avatar_url || null,
+      nickname: userProfile.nickname || currentUserStats?.nome_usuario || "Vendedor",
+      avatarUrl: userProfile.avatar || currentUserStats?.avatar_url || null,
       primaryValue,
       secondaryValue,
-      monthLabel: isMensal ? currentMonth : "Esta semana",
+      monthLabel: currentMonth,
     };
   })();
 
   if (isLoading) {
     return (
-      <div className="pb-8 space-y-6">
+      <div className="min-h-screen pb-8 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-foreground">
             Ranking <span className="text-primary">Orbis</span>
@@ -288,8 +214,7 @@ export default function Ranking() {
   }
 
   return (
-    <div className="pb-8 space-y-5">
-      {user && <X1InvitePopup userId={user.id} />}
+    <div className="min-h-screen pb-8 space-y-5">
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">
@@ -298,34 +223,116 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
-      {showRankNudge && user && (
-        <TrialNudge
-          userId={user.id}
-          momentKey="ranking_promo"
-          title="Você subiu de patente! 🏆"
-          benefit="Cada venda te faz subir no ranking. Quando o teste acabar, você sai da disputa e perde seu lugar."
-        />
-      )}
+      {/* Tabs: Liga Global + Competições */}
+      <div className="grid grid-cols-2 gap-2.5">
+        <button
+          onClick={() => setActiveTab("global")}
+          className={cn(
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-[colors,transform,opacity] duration-300 border",
+            isGlobal
+              ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
+              : "bg-card/40 border-border/50 hover:border-primary/30",
+          )}
+        >
+          {isGlobal && (
+            <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+          )}
+          <div className="relative flex items-center gap-2.5">
+            <div
+              className={cn(
+                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+              )}
+            >
+              <Trophy className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className={cn("text-xs font-bold uppercase tracking-widest", isGlobal ? "text-primary" : "text-muted-foreground")}>
+                Liga
+              </p>
+              <p className={cn("text-sm font-black truncate", isGlobal ? "text-foreground" : "text-foreground/70")}>
+                Global
+              </p>
+            </div>
+          </div>
+        </button>
 
-      <p className="text-center text-xs text-muted-foreground">
-        Maiores vendedores do mês · ofensiva 🔥 incluída
+        <button
+          onClick={() => setActiveTab("competicoes")}
+          className={cn(
+            "relative overflow-hidden rounded-xl p-3.5 text-left transition-[colors,transform,opacity] duration-300 border",
+            !isGlobal
+              ? "bg-gradient-to-br from-primary/20 via-primary/10 to-transparent border-primary/50 shadow-lg shadow-primary/20"
+              : "bg-card/40 border-border/50 hover:border-primary/30",
+          )}
+        >
+          {!isGlobal && (
+            <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/20 rounded-full blur-2xl pointer-events-none" />
+          )}
+          <div className="relative flex items-center gap-2.5">
+            <div
+              className={cn(
+                "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+                !isGlobal ? "bg-primary text-primary-foreground" : "bg-card border border-border/50 text-muted-foreground",
+              )}
+            >
+              <Gift className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <p className={cn("text-xs font-bold uppercase tracking-widest", !isGlobal ? "text-primary" : "text-muted-foreground")}>
+                Competições
+              </p>
+              <p className={cn("text-sm font-black truncate", !isGlobal ? "text-foreground" : "text-foreground/70")}>
+                Com prêmios
+              </p>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground -mt-2">
+        {isGlobal
+          ? "Maiores vendedores do mês · ofensiva 🔥 incluída"
+          : "Torneios semanais e mensais com prêmios reais"}
       </p>
 
-      {isMensal ? (
+      {isAdmin && (
+        <button
+          onClick={() => navigate("/admin/competitions")}
+          className="w-full rounded-xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-3 py-3 flex items-center justify-center gap-2 text-sm font-black text-primary hover:from-primary/25 hover:to-primary/25 transition"
+          style={{ boxShadow: "0 6px 20px -8px hsl(var(--primary) / 0.5)" }}
+        >
+          <Shield className="w-4 h-4" />
+          Admin · Criar / gerenciar competições
+        </button>
+      )}
+
+      {isGlobal && (
         <>
           {/* Compartilhar no Instagram */}
           {hasParticipated && currentUserStats && (
-            <div className="flex justify-center">
-              <button
-                data-tour="ranking-share"
-                onClick={handleShare}
-                disabled={isSharing}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary active:scale-95 transition disabled:opacity-60"
-              >
-                {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-                {isSharing ? "Gerando..." : "Compartilhar"}
-              </button>
-            </div>
+            <button
+              onClick={handleShare}
+              disabled={isSharing}
+              className="group relative w-full overflow-hidden rounded-2xl border-2 border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-primary/20 px-4 py-3.5 transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60"
+              style={{ boxShadow: "0 8px 28px -10px hsl(var(--primary) / 0.5)" }}
+            >
+              <div className="relative flex items-center justify-center gap-2.5">
+                {isSharing ? (
+                  <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                ) : (
+                  <Share2 className="w-5 h-5 text-primary" />
+                )}
+                <div className="text-left">
+                  <p className="text-sm font-black text-foreground tracking-wide">
+                    {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
+                  </p>
+                  <p className="text-xs text-muted-foreground uppercase tracking-widest">
+                    Story 9:16 · pronto pra postar
+                  </p>
+                </div>
+              </div>
+            </button>
           )}
 
           {!hasParticipated && (
@@ -345,61 +352,25 @@ export default function Ranking() {
             currentUserStats={currentUserStats}
             hasParticipated={hasParticipated}
             formatCurrency={formatCurrency}
-            onEditProfile={() => navigate("/my-account")}
+            onEditProfile={() => { loadUserProfile(); setProfileModalOpen(true); }}
             onOpenProfile={openPublicProfile}
-            onQuickPhoto={() => quickPhotoRef.current?.click()}
-            quickUploading={quickUploading}
           />
         </>
-      ) : (
-        <>
-          {weekly.isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-48 w-full" />
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ) : (
-            <>
-              {weekly.hasParticipated && weekly.currentUserStats && (
-                <button
-                  onClick={handleShare}
-                  disabled={isSharing}
-                  className="group relative w-full overflow-hidden rounded-2xl px-4 py-3.5 border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card transition-[colors,transform,opacity] active:scale-[0.98] disabled:opacity-60 hover:border-primary/50"
-                  style={{ boxShadow: "0 8px 28px -14px hsl(var(--primary) / 0.45)" }}
-                >
-                  <div className="absolute -top-10 -right-10 w-24 h-24 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
-                  <div className="relative flex items-center justify-center gap-2.5">
-                    {isSharing ? (
-                      <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                    ) : (
-                      <Share2 className="w-5 h-5 text-primary" />
-                    )}
-                    <div className="text-left">
-                      <p className="text-sm font-black text-foreground tracking-wide">
-                        {isSharing ? "Gerando imagem..." : "Compartilhar no Instagram"}
-                      </p>
-                      <p className="text-xs text-primary/70 uppercase tracking-widest">
-                        Story 9:16 · pronto pra postar
-                      </p>
-                    </div>
-                  </div>
-                </button>
-              )}
+      )}
 
-              <FaturamentoLeague
-                ranking={weekly.ranking}
-                variant="semanal"
-                currentUserStats={weekly.currentUserStats}
-                hasParticipated={weekly.hasParticipated}
-                formatCurrency={formatCurrency}
-                onEditProfile={() => navigate("/my-account")}
-                onOpenProfile={openPublicProfile}
-                onQuickPhoto={() => quickPhotoRef.current?.click()}
-                quickUploading={quickUploading}
-              />
-            </>
-          )}
-        </>
+      {!isGlobal && (
+        <CompetitionsTab userId={user?.id} hasPhone={!!userPhone} />
+      )}
+
+      {user && (
+        <RankingProfileModal
+          open={profileModalOpen}
+          onOpenChange={setProfileModalOpen}
+          userId={user.id}
+          currentNickname={userProfile.nickname}
+          currentAvatar={userProfile.avatar}
+          onProfileUpdated={() => { loadUserProfile(); loadLeaderboard(); }}
+        />
       )}
 
       <PublicProfileModal
@@ -407,16 +378,6 @@ export default function Ranking() {
         onOpenChange={(o) => { if (!o) setPublicProfileUserId(null); }}
         userId={publicProfileUserId}
       />
-
-      <input ref={quickPhotoRef} type="file" accept="image/*" className="hidden" onChange={handleQuickPhoto} />
-
-      {leagueTransition && (
-        <LeagueTransition
-          type={leagueTransition.type}
-          position={leagueTransition.position}
-          onClose={() => { const up = leagueTransition?.type === "up"; setLeagueTransition(null); if (up) setShowRankNudge(true); }}
-        />
-      )}
 
       {/* Off-screen Instagram Story Card (1080x1920) */}
       <div
@@ -445,17 +406,20 @@ interface LeagueProps {
 
 interface FaturamentoLeagueProps extends LeagueProps {
   formatCurrency: (value: number) => string;
-  onQuickPhoto: () => void;
-  quickUploading: boolean;
-  variant?: "mensal" | "semanal";
 }
 
-function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onOpenProfile, variant }: FaturamentoLeagueProps) {
+function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatCurrency, onEditProfile, onOpenProfile }: FaturamentoLeagueProps) {
   const top1 = ranking[0];
   const top2 = ranking[1];
   const top3 = ranking[2];
   const restRanking = ranking.slice(3, 10);
 
+  const currentPosition = currentUserStats?.posicao_faturamento || 0;
+  const currentValue = currentUserStats?.faturamento_total_mes || 0;
+  const nextPositionIndex = currentPosition > 1 ? currentPosition - 2 : -1;
+  const nextPositionValue = nextPositionIndex >= 0 && ranking[nextPositionIndex]
+    ? ranking[nextPositionIndex].faturamento_total_mes : 0;
+  const progressToNext = nextPositionValue > 0 ? Math.min((currentValue / nextPositionValue) * 100, 100) : 0;
 
   if (ranking.length === 0) {
     return (
@@ -472,14 +436,198 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
 
   return (
     <div className="space-y-4">
-      <RankingPodium top1={top1} top2={top2} top3={top3} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} variant={variant} />
+      {/* Top 1 */}
+      {top1 && (
+        <Card className="relative overflow-hidden border border-primary/40 bg-card">
+          <CardContent className="relative p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Crown className="w-9 h-9 text-primary drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]" />
+                  <Sparkles className="w-4 h-4 text-primary absolute -top-1 -right-1" />
+                </div>
+                <div>
+                  <span className="text-base font-black text-primary tracking-wider">TOP 1</span>
+                  <p className="text-xs text-primary/70 uppercase tracking-widest">Campeão do Mês</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-0.5">
+                {[...Array(5)].map((_, i) => <Star key={i} className="w-4 h-4 text-primary fill-primary" />)}
+              </div>
+            </div>
 
-      {/* A cacada - quem esta logo na frente */}
-      {hasParticipated && (
-        <RankingChase ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} />
+            <div className="flex items-center gap-5">
+              <button onClick={() => onOpenProfile(top1.user_id)} className="relative shrink-0 transition-transform active:scale-95">
+                <div className="absolute -inset-1.5 bg-primary rounded-full blur-md opacity-50" />
+                {renderAvatar(top1.avatar_url, top1.nome_usuario, "lg", "shadow-2xl shadow-primary/40 border-2 border-primary relative z-10 w-20 h-20 text-3xl")}
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-primary flex items-center justify-center shadow-lg z-20 border-2 border-background">
+                  <Crown className="w-4 h-4 text-primary-foreground" />
+                </div>
+              </button>
+              <button onClick={() => onOpenProfile(top1.user_id)} className="flex-1 min-w-0 space-y-1 text-left">
+                <h3 className="text-xl font-bold text-foreground truncate hover:text-primary transition-colors">{top1.nome_usuario || 'Usuário'}</h3>
+                <p className="text-2xl font-black text-primary">{formatCurrency(top1.faturamento_total_mes)}</p>
+                <div className="flex items-center gap-2 pt-1">
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gradient-to-r from-primary/25 to-primary/10 border border-primary/40">
+                    <Flame className="w-3 h-3 text-primary fill-primary/40" />
+                    <span className="text-xs font-bold text-primary">{top1.constancia_streak_atual} dias</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground italic truncate">"{motivationalPhrases[0]}"</p>
+                </div>
+              </button>
+            </div>
+
+            <div className="flex items-center justify-center gap-2 mt-5 pt-4 border-t border-primary/15">
+              <div className="px-2.5 py-1 rounded-full bg-primary border border-primary flex items-center gap-1.5">
+                <Trophy className="w-3 h-3 text-primary-foreground" />
+                <span className="text-xs font-bold text-primary-foreground tracking-wide">LÍDER</span>
+              </div>
+              <div className="px-2.5 py-1 rounded-full bg-foreground/10 border border-foreground/30 flex items-center gap-1.5">
+                <Zap className="w-3 h-3 text-foreground" />
+                <span className="text-xs font-bold text-foreground tracking-wide">ELITE</span>
+              </div>
+              <div className="px-2.5 py-1 rounded-full bg-background border border-foreground/20 flex items-center gap-1.5">
+                <Star className="w-3 h-3 text-foreground fill-foreground" />
+                <span className="text-xs font-bold text-foreground tracking-wide">DESTAQUE</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
-      <RankingList ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+      {/* Top 2 & 3 */}
+      {(top2 || top3) && (
+        <div className="grid grid-cols-2 gap-3">
+          {top2 && (
+            <button onClick={() => onOpenProfile(top2.user_id)} className="text-left">
+              <Card className="relative overflow-hidden border border-foreground/20 bg-card hover:border-foreground/40 transition-colors">
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-foreground/10 rounded-full blur-2xl" />
+                <CardContent className="relative p-4 text-center">
+                  <div className="flex justify-center mb-2">
+                    <div className="relative">
+                      <Medal className="w-7 h-7 text-foreground/70" />
+                      <span className="absolute -top-1 -right-1 text-xs font-black text-foreground/70">2</span>
+                    </div>
+                  </div>
+                  <div className="relative mx-auto mb-2 w-fit">
+                    {renderAvatar(top2.avatar_url, top2.nome_usuario, "md", "border border-foreground/30 mx-auto shadow-md")}
+                  </div>
+                  <h4 className="font-bold text-xs truncate text-foreground">{top2.nome_usuario || 'Usuário'}</h4>
+                  <p className="text-base font-black text-foreground mt-0.5">{formatCurrency(top2.faturamento_total_mes)}</p>
+                  <div className="mt-2 px-2 py-0.5 rounded-full bg-foreground/10 border border-foreground/20 inline-flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 text-foreground/70 fill-foreground/70" />
+                    <span className="text-xs font-semibold text-foreground/70 tracking-wider">PRATA</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+          )}
+
+          {top3 && (
+            <button onClick={() => onOpenProfile(top3.user_id)} className="text-left">
+              <Card className="relative overflow-hidden border border-bronze/50 bg-card hover:border-bronze/70 transition-colors">
+                <div className="absolute -top-12 -right-12 w-24 h-24 bg-bronze/15 rounded-full blur-2xl" />
+                <CardContent className="relative p-4 text-center">
+                  <div className="flex justify-center mb-2">
+                    <div className="relative">
+                      <Medal className="w-7 h-7 text-bronze" />
+                      <span className="absolute -top-1 -right-1 text-xs font-black text-bronze">3</span>
+                    </div>
+                  </div>
+                  <div className="relative mx-auto mb-2 w-fit">
+                    {renderAvatar(top3.avatar_url, top3.nome_usuario, "md", "border border-bronze/60 mx-auto shadow-md")}
+                  </div>
+                  <h4 className="font-bold text-xs truncate text-foreground">{top3.nome_usuario || 'Usuário'}</h4>
+                  <p className="text-base font-black text-foreground mt-0.5">{formatCurrency(top3.faturamento_total_mes)}</p>
+                  <div className="mt-2 px-2 py-0.5 rounded-full bg-bronze/15 border border-bronze/40 inline-flex items-center gap-1">
+                    <Star className="w-2.5 h-2.5 text-bronze fill-bronze" />
+                    <span className="text-xs font-semibold text-bronze tracking-wider">BRONZE</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Your Position */}
+      {hasParticipated && currentUserStats && (
+        <Card className="relative overflow-hidden border border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card">
+          <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/15 rounded-full blur-3xl pointer-events-none" />
+          <CardContent className="relative p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="relative">
+                {renderAvatar(currentUserStats.avatar_url, currentUserStats.nome_usuario, "sm", "border border-primary/50")}
+                <button
+                  onClick={onEditProfile}
+                  className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
+                >
+                  <Edit2 className="w-2.5 h-2.5 text-primary-foreground" />
+                </button>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary text-primary-foreground font-black tracking-widest">VOCÊ</span>
+                  <span className="text-muted-foreground text-sm font-semibold">#{currentUserStats.posicao_faturamento}</span>
+                </div>
+                <p className="text-lg font-black text-foreground mt-0.5">{formatCurrency(currentUserStats.faturamento_total_mes)}</p>
+              </div>
+              <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-gradient-to-r from-primary/25 to-primary/10 border border-primary/40 shrink-0">
+                <Flame className="w-3.5 h-3.5 text-primary fill-primary/40" />
+                <span className="text-xs font-black text-primary">{currentUserStats.constancia_streak_atual}</span>
+              </div>
+            </div>
+            {currentPosition > 1 && nextPositionValue > currentValue && (
+              <div className="space-y-2 pt-2 border-t border-primary/15">
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">Para subir para #{currentPosition - 1}</span>
+                  <span className="text-primary font-bold">+{formatCurrency(nextPositionValue - currentValue)}</span>
+                </div>
+                <Progress value={progressToNext} className="h-1.5" />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Rest of Top 10 */}
+      {restRanking.length > 0 && (
+        <div className="space-y-2">
+          {restRanking.map((u, index) => (
+            <button key={u.id} onClick={() => onOpenProfile(u.user_id)} className="w-full text-left">
+              <Card className="group relative overflow-hidden border border-border/50 bg-card hover:border-primary/40 transition-[colors,transform,opacity] duration-300">
+                <CardContent className="relative p-3.5 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-foreground/5 border border-foreground/15 flex items-center justify-center shrink-0">
+                    <span className="text-sm font-black text-foreground/80">{index + 4}</span>
+                  </div>
+                  {renderAvatar(u.avatar_url, u.nome_usuario, "sm", "border border-border/50")}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground truncate">{u.nome_usuario || 'Usuário'}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <TrendingUp className="w-3 h-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Top 10</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-foreground text-sm">{formatCurrency(u.faturamento_total_mes)}</p>
+                    <div className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full bg-primary/10 border border-primary/25">
+                      <Flame className="w-2.5 h-2.5 text-primary fill-primary/40" />
+                      <span className="text-xs font-black text-primary">{u.constancia_streak_atual}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {ranking.length > 10 && (
+        <Button variant="outline" className="w-full gap-2 h-11 border-border/50 text-muted-foreground">
+          Ver ranking completo
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      )}
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
-import { extratoValendo } from "@/shared/lib/ranking-config";
 
 export interface LeaderboardEntry {
   id: string;
@@ -15,7 +14,6 @@ export interface LeaderboardEntry {
   constancia_streak_atual: number;
   posicao_faturamento: number | null;
   posicao_constancia: number | null;
-  last_active_at?: string | null;
 }
 
 export function useLeaderboard(userId: string | undefined) {
@@ -34,124 +32,69 @@ export function useLeaderboard(userId: string | undefined) {
     setIsLoading(true);
     const currentMonth = getCurrentMonth();
 
-    // Ordena e publica o ranking na tela (faturamento + constancia + posicao do usuario).
-    const applyAndSet = (entries: any[]) => {
-      // Faturamento = só quem tem valor VERIFICADO > 0 (anti-fraude, igual ao semanal).
-      const faturamentoSorted = [...entries]
-        .filter((e) => (e.faturamento_total_mes || 0) > 0)
-        .sort((a, b) => b.faturamento_total_mes - a.faturamento_total_mes);
-      const constanciaSorted = [...entries].sort((a, b) => {
-        if (b.dias_trabalhados_mes !== a.dias_trabalhados_mes) {
-          return b.dias_trabalhados_mes - a.dias_trabalhados_mes;
-        }
-        return b.constancia_streak_atual - a.constancia_streak_atual;
-      });
-      setFaturamentoRanking(faturamentoSorted);
-      setConstanciaRanking(constanciaSorted);
-      if (userId) {
-        const userStats = entries.find((e) => e.user_id === userId);
-        if (userStats) {
-          const fIdx = faturamentoSorted.findIndex((e) => e.user_id === userId);
-          const cIdx = constanciaSorted.findIndex((e) => e.user_id === userId);
-          setCurrentUserStats({
-            ...userStats,
-            posicao_faturamento: fIdx >= 0 ? fIdx + 1 : null,
-            posicao_constancia: cIdx >= 0 ? cIdx + 1 : null,
-          });
-          setHasParticipated(true);
-        }
-      }
-    };
-
     try {
+      // Load all entries for current month with dias_trabalhados > 0
       const { data: allEntries, error } = await supabase
         .from("leaderboard_stats")
-        .select("id, user_id, nome_usuario, avatar_url, mes_referencia, faturamento_total_mes, dias_trabalhados_mes, constancia_maior_streak, constancia_streak_atual, posicao_faturamento, posicao_constancia")
+        .select("*")
         .eq("mes_referencia", currentMonth)
         .gt("dias_trabalhados_mes", 0)
-        .order("faturamento_total_mes", { ascending: false })
-        .limit(300);
+        .order("faturamento_total_mes", { ascending: false });
 
       if (error) {
         console.error("Error loading leaderboard:", error);
         return;
       }
 
-      const entries = (allEntries || []) as any[];
+      // Sort by faturamento for that ranking
+      const faturamentoSorted = [...(allEntries || [])].sort(
+        (a, b) => b.faturamento_total_mes - a.faturamento_total_mes
+      );
 
-      // FATURAMENTO ANTI-FRAUDE: troca o valor do cache pelo VERIFICADO do extrato (mês),
-      // reaproveitando a mesma RPC do semanal com o intervalo do mês. A constância continua
-      // vindo do cache. Fase 1 (antes de 06/07) = ao vivo; Fase 2 = só extrato.
-      try {
-        const monthStart = `${currentMonth}-01`;
-        const today = getBrazilDate();
-        const usarExtrato = extratoValendo(today);
-        const { data: ver } = await supabase.rpc("get_weekly_ranking_verified", {
-          p_week_start: monthStart,
-          p_week_end: today,
-          p_usar_extrato: usarExtrato,
-        });
-        const vmap = new Map(((ver as any[]) || []).map((r: any) => [r.user_id, Number(r.faturamento_semana) || 0]));
-        entries.forEach((e: any) => {
-          e.faturamento_total_mes = vmap.get(e.user_id) ?? 0;
-        });
-      } catch {
-        /* se a RPC falhar, mantém o valor do cache */
-      }
+      // Sort by dias_trabalhados for constancia ranking
+      const constanciaSorted = [...(allEntries || [])].sort(
+        (a, b) => {
+          if (b.dias_trabalhados_mes !== a.dias_trabalhados_mes) {
+            return b.dias_trabalhados_mes - a.dias_trabalhados_mes;
+          }
+          return b.constancia_streak_atual - a.constancia_streak_atual;
+        }
+      );
 
-      // 1) Abre JA com nome/foto do proprio leaderboard_stats — nao espera mais nada.
-      applyAndSet(entries);
+      setFaturamentoRanking(faturamentoSorted);
+      setConstanciaRanking(constanciaSorted);
 
-      // Usuario sem entrada na lista (0 dias): busca a linha dele a parte.
-      if (userId && !entries.find((e) => e.user_id === userId)) {
-        const { data: userEntry } = await supabase
-          .from("leaderboard_stats")
-          .select("id, user_id, nome_usuario, avatar_url, mes_referencia, faturamento_total_mes, dias_trabalhados_mes, constancia_maior_streak, constancia_streak_atual, posicao_faturamento, posicao_constancia")
-          .eq("user_id", userId)
-          .eq("mes_referencia", currentMonth)
-          .maybeSingle();
-        if (userEntry) {
-          setCurrentUserStats(userEntry);
-          setHasParticipated(userEntry.dias_trabalhados_mes > 0);
+      // Find current user stats
+      if (userId) {
+        const userStats = allEntries?.find(e => e.user_id === userId);
+        if (userStats) {
+          // Calculate positions
+          const faturamentoPos = faturamentoSorted.findIndex(e => e.user_id === userId) + 1;
+          const constanciaPos = constanciaSorted.findIndex(e => e.user_id === userId) + 1;
+          
+          setCurrentUserStats({
+            ...userStats,
+            posicao_faturamento: faturamentoPos,
+            posicao_constancia: constanciaPos
+          });
+          setHasParticipated(true);
         } else {
-          setCurrentUserStats(null);
-          setHasParticipated(false);
-        }
-      }
+          // Check if user has any entry (even with 0 days)
+          const { data: userEntry } = await supabase
+            .from("leaderboard_stats")
+            .select("*")
+            .eq("user_id", userId)
+            .eq("mes_referencia", currentMonth)
+            .maybeSingle();
 
-      setIsLoading(false); // a tela ja pode aparecer aqui
-
-      // 2) Enriquece com a foto/nome MAIS RECENTE (public_profiles) em SEGUNDO PLANO,
-      // sem segurar a abertura. Quando voltar, re-publica com os dados frescos.
-      const ids = entries.map((e) => e.user_id);
-      if (ids.length > 0) {
-        // Em paralelo: foto/nome mais recentes + presença online (última atividade no DEFCON).
-        const [profsRes, presenceRes] = await Promise.all([
-          supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", ids),
-          supabase.from("user_presence").select("user_id, last_active_at").in("user_id", ids),
-        ]);
-        let changed = false;
-        const profs = profsRes.data;
-        if (profs && profs.length > 0) {
-          const profMap = new Map((profs as any[]).map((p) => [p.user_id, p]));
-          entries.forEach((e: any) => {
-            const p = profMap.get(e.user_id);
-            if (p) {
-              if (p.avatar_url) e.avatar_url = p.avatar_url;
-              if (p.nickname) e.nome_usuario = p.nickname;
-            }
-          });
-          changed = true;
+          if (userEntry) {
+            setCurrentUserStats(userEntry);
+            setHasParticipated(userEntry.dias_trabalhados_mes > 0);
+          } else {
+            setCurrentUserStats(null);
+            setHasParticipated(false);
+          }
         }
-        const presence = presenceRes.data;
-        if (presence && presence.length > 0) {
-          const presMap = new Map((presence as any[]).map((p) => [p.user_id, p.last_active_at]));
-          entries.forEach((e: any) => {
-            e.last_active_at = presMap.get(e.user_id) ?? null;
-          });
-          changed = true;
-        }
-        if (changed) applyAndSet(entries);
       }
     } catch (err) {
       console.error("Error in loadLeaderboard:", err);
@@ -299,10 +242,8 @@ export function useLeaderboard(userId: string | undefined) {
     loadLeaderboard();
   }, [loadLeaderboard]);
 
-  // Subscribe to realtime updates (com throttle: vendas ao vivo no DEFCON geram muitos
-  // eventos; recarrega no maximo a cada 8s pra nao virar tempestade de recarregamento).
+  // Subscribe to realtime updates
   useEffect(() => {
-    let pending: ReturnType<typeof setTimeout> | null = null;
     const channel = supabase
       .channel('leaderboard-changes')
       .on(
@@ -313,14 +254,12 @@ export function useLeaderboard(userId: string | undefined) {
           table: 'leaderboard_stats'
         },
         () => {
-          if (pending) return;
-          pending = setTimeout(() => { pending = null; loadLeaderboard(); }, 8000);
+          loadLeaderboard();
         }
       )
       .subscribe();
 
     return () => {
-      if (pending) clearTimeout(pending);
       supabase.removeChannel(channel);
     };
   }, [loadLeaderboard]);

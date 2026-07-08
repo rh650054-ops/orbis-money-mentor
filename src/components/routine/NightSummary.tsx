@@ -5,8 +5,6 @@ import { Button } from "@/shared/ui/button";
 import { Badge } from "@/shared/ui/badge";
 import confetti from "canvas-confetti";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
-import { useAuth } from "@/hooks/useAuth";
-import { TrialNudge } from "@/components/TrialNudge";
 
 interface NightSummaryProps {
   completedCount: number;
@@ -25,7 +23,6 @@ export default function NightSummary({
   currentTime,
   onSaveDay,
 }: NightSummaryProps) {
-  const { user } = useAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [xpGained, setXpGained] = useState(0);
 
@@ -152,15 +149,6 @@ export default function NightSummary({
             </Badge>
           )}
         </div>
-
-        {user && (
-          <TrialNudge
-            userId={user.id}
-            momentKey="day_close"
-            title="Fechou mais um dia com o Orbis 👊"
-            benefit="Aqui você vê seu dia em números e não se perde. Quando o teste acabar, esse acompanhamento para."
-          />
-        )}
 
         {/* Save button */}
         <Button 

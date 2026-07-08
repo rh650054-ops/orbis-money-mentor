@@ -69,7 +69,7 @@ export const useVisionPoints = (userId: string | undefined) => {
       .from("profiles")
       .select("vision_points")
       .eq("user_id", userId)
-      .maybeSingle();
+      .single();
 
     const currentPoints = data?.vision_points || 0;
     const newTotal = currentPoints + amount;

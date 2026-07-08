@@ -9,21 +9,11 @@ import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
 import AntiProcrastination from "@/components/AntiProcrastination";
 import { formatCurrency } from "@/shared/lib/utils";
-import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
-import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import CardRegistrationModal from "@/components/CardRegistrationModal";
-import { TrialNudge } from "@/components/TrialNudge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
-import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
-import CompetitionCard from "@/components/CompetitionCard";
-import X1InvitePopup from "@/components/competitions/X1InvitePopup";
-import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
-import { X1ResultBanner } from "@/components/competitions/X1ResultBanner";
-import { RankingOvertakeAlert } from "@/components/ranking/RankingOvertakeAlert";
-import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
-import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 
 const REWARD_TIERS = [
@@ -38,33 +28,21 @@ export default function Index() {
   const { user, loading } = useAuth();
   const { hasPlanToday, loading: planLoading } = useDailyGoalPlan(user?.id);
   const { toast } = useToast();
-
-  // Avisa o splash de abertura que a tela inicial já montou, pra ele sair só
-  // quando o app estiver pronto (evita a barra de baixo "piscar" antes).
-  useEffect(() => {
-    const id = requestAnimationFrame(() => window.dispatchEvent(new Event("orbis:ready")));
-    return () => cancelAnimationFrame(id);
-  }, []);
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({
     totalIncome: 0,
     totalExpenses: 0,
     totalCost: 0,
-    totalTransport: 0,
-    totalFood: 0,
     balance: 0,
     variation: 0
   });
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
-  const [dailyGoalPlan, setDailyGoalPlan] = useState(0); // meta do dia definida pelo usuário (mesma do DEFCON / daily_goal_plans)
   const [nickname, setNickname] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isFiltering, setIsFiltering] = useState(false);
   const [filterType, setFilterType] = useState<"day" | "week" | "month" | "all" | "custom">("month");
-  const [salesCountToday, setSalesCountToday] = useState(0);
-  const [monthExpensesTotal, setMonthExpensesTotal] = useState(0);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dailyAverage, setDailyAverage] = useState(0);
@@ -72,19 +50,6 @@ export default function Index() {
   const [showCardModal, setShowCardModal] = useState(false);
   const [showEditPlanning, setShowEditPlanning] = useState(false);
   const [isRestDay, setIsRestDay] = useState(false);
-  // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
-  const [ticketPending, setTicketPending] = useState(() => isWeeklyTicketPending());
-
-  // Fim do bilhete → libera e abre a tela de meta do mês (o "final do bilhete leva à meta").
-  useEffect(() => {
-    const onTicketDone = () => {
-      // Libera o modal de meta (se ainda for necessário). Se o usuário JÁ configurou
-      // a meta uma vez, nada abre — a meta é só uma vez.
-      setTicketPending(false);
-    };
-    window.addEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
-    return () => window.removeEventListener(WEEKLY_TICKET_DONE_EVENT, onTicketDone);
-  }, []);
   
   // Hook for required monthly goal check
   const { isRequired: isMonthlyGoalRequired, reason: monthlyGoalReason, onCompleted: onMonthlyGoalCompleted, isLoading: isCheckingGoal } = useMonthlyGoalRequired(user?.id);
@@ -98,7 +63,7 @@ export default function Index() {
         .from("profiles")
         .select("working_days")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .single();
 
       if (profile?.working_days) {
         const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]!;
@@ -136,30 +101,26 @@ export default function Index() {
     }
   }, [user, loading, navigate]);
 
-  // Recarrega ao voltar o foco (ex.: retorno do DEFCON 4) para nunca mostrar dado antigo
-  useRefetchOnFocus(() => {
-    if (user) loadDashboardData();
-  });
-
-  // Mostra a escolha (assinar agora / testar 3 dias) logo no 1º acesso, por usuário.
+  // Check if should show card registration modal (only on first access for non-subscribers)
   useEffect(() => {
     if (!user) return;
-
+    if (!localStorage.getItem('orbis_onboarding_completo')) return;
+    
     const checkCardModal = async () => {
-      const seenKey = `orbis_card_modal_seen_${user.id}`;
-      if (localStorage.getItem(seenKey)) return;
+      const hasSeenCardModal = localStorage.getItem('hasSeenCardModal');
+      if (hasSeenCardModal) return;
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .single();
 
-      // Só mostra se ainda não é assinante
+      // Only show if not subscribed
       const isSubscribed = (profile?.is_demo && profile?.billing_exempt) || profile?.plan_status === "active";
       if (!isSubscribed) {
         setShowCardModal(true);
-        localStorage.setItem(seenKey, 'true');
+        localStorage.setItem('hasSeenCardModal', 'true');
       }
     };
 
@@ -171,7 +132,8 @@ export default function Index() {
     setIsLoadingData(true);
 
     const today = getBrazilDate();
-    const sevenDaysAgo = getBrazilDateDaysAgo(7);
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
     let dateStart: string;
     let dateEnd: string;
@@ -179,8 +141,10 @@ export default function Index() {
       dateStart = customStartDate;
       dateEnd = customEndDate;
     } else {
-      dateStart = getBrazilMonthStart();
-      dateEnd = today;
+      const firstDayOfMonth = new Date();
+      firstDayOfMonth.setDate(1);
+      dateStart = firstDayOfMonth.toISOString().split('T')[0]!;
+      dateEnd = new Date().toISOString().split('T')[0]!;
     }
 
     // Fan-out: profile + today + week + month in parallel (was 4 serial awaits).
@@ -189,17 +153,11 @@ export default function Index() {
       { data: todayData },
       { data: weekData },
       { data: monthData },
-      { data: todayChallenge },
-      { data: monthExpenses },
-      { data: todayGoalPlan },
     ] = await Promise.all([
-      supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
+      supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).single(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
-      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo).order("date", { ascending: true }),
+      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo.toISOString().split('T')[0]!).order("date", { ascending: true }),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
-      supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
-      supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
-      supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", today).maybeSingle(),
     ]);
 
     if (profile?.monthly_goal) {
@@ -218,9 +176,6 @@ export default function Index() {
       entry_count: todayData.length
     } : null;
     setTodaySales(aggregatedToday);
-    setSalesCountToday(((todayChallenge as any[]) || []).reduce((s, b) => s + (b.sales_count || 0), 0));
-    setMonthExpensesTotal(((monthExpenses as any[]) || []).reduce((s, e) => s + Number(e.amount || 0), 0));
-    setDailyGoalPlan(Number((todayGoalPlan as any)?.daily_goal) || 0);
 
     if (weekData) {
       const formattedWeekData = weekData.map(day => ({
@@ -234,14 +189,9 @@ export default function Index() {
 
     if (monthData) {
       const totalIncome = monthData.reduce((sum, day) => sum + (day.total_profit || 0), 0);
-      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0); // fiado: mostrado à parte, NÃO entra no líquido
+      const totalExpenses = monthData.reduce((sum, day) => sum + (day.total_debt || 0), 0);
       const totalCost = monthData.reduce((sum, day) => sum + (day.cost || 0), 0);
-      const totalTransport = monthData.reduce((sum, day) => sum + (Number((day as any).transport_cost) || 0), 0);
-      const totalFood = monthData.reduce((sum, day) => sum + (Number((day as any).food_cost) || 0), 0);
-      // Custos lançados no botão "Custos do dia" (personal_expenses) também abatem do líquido.
-      const custosLancados = ((monthExpenses as any[]) || []).reduce((s, e) => s + Number(e.amount || 0), 0);
-      // Líquido = vendido − mercadoria − transporte − alimentação − custos lançados (fiado NÃO entra)
-      const balance = totalIncome - totalCost - totalTransport - totalFood - custosLancados;
+      const balance = totalIncome - totalExpenses - totalCost;
       
       // Calculate real daily average from NET PROFIT (lucro líquido)
       const activeDays = monthData.filter(day => (day.total_profit ?? 0) > 0).length;
@@ -254,8 +204,6 @@ export default function Index() {
         totalIncome,
         totalExpenses,
         totalCost,
-        totalTransport,
-        totalFood,
         balance,
         variation: totalIncome > 0 ? balance / totalIncome * 100 : 0
       };
@@ -302,7 +250,8 @@ export default function Index() {
   };
 
   const handleQuickFilter = (type: "day" | "week" | "month" | "all") => {
-    const end: string = getBrazilDate();
+    const today = new Date();
+    const end: string = today.toISOString().split('T')[0]!;
     let start: string;
 
     switch (type) {
@@ -310,11 +259,14 @@ export default function Index() {
         start = end;
         break;
       case "week": {
-        start = getBrazilDateDaysAgo(7);
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        start = weekAgo.toISOString().split('T')[0]!;
         break;
       }
       case "month": {
-        start = getBrazilMonthStart();
+        const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        start = firstDayOfMonth.toISOString().split('T')[0]!;
         break;
       }
       case "all":
@@ -358,38 +310,18 @@ export default function Index() {
   };
 
   if (loading || !user) {
-    // Esqueleto com o formato do dashboard — evita a tela "pular" do vazio pro design
-    return (
-      <div className="space-y-4 pb-8 animate-pulse">
-        <div className="flex items-center gap-3 pt-2">
-          <div className="w-10 h-10 rounded-full bg-muted" />
-          <div className="space-y-2">
-            <div className="h-4 w-40 rounded bg-muted" />
-            <div className="h-3 w-28 rounded bg-muted" />
-          </div>
-        </div>
-        <div className="h-56 rounded-2xl bg-muted" />
-        <div className="grid grid-cols-2 gap-3">
-          <div className="h-24 rounded-2xl bg-muted" />
-          <div className="h-24 rounded-2xl bg-muted" />
-        </div>
-        <div className="h-20 rounded-2xl bg-muted" />
-        <div className="h-20 rounded-2xl bg-muted" />
-      </div>
-    );
+    return null;
   }
   const dailyProfit = todaySales?.total_profit || 0;
   const faturamentoMes = monthlyStats.totalIncome;
-  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood - monthExpensesTotal;
+  const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalExpenses - monthlyStats.totalCost;
   const progressoMeta = calculateGoalProgress();
 
   // Daily goal calc
-  // Meta do dia = a MESMA que o usuário define no DEFCON (daily_goal_plans). Só
-  // cai pra meta mensal ÷ 26 quando ainda não há meta do dia definida.
-  const dailyGoal = dailyGoalPlan > 0 ? dailyGoalPlan : (monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200);
+  const dailyGoal = monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200;
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
-  const totalSalesToday = salesCountToday;
-  const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood + monthExpensesTotal;
+  const totalSalesToday = todaySales?.entry_count || 0;
+  const custosTotal = monthlyStats.totalExpenses + monthlyStats.totalCost;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;
@@ -410,13 +342,7 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
-      {user && <X1InvitePopup userId={user.id} />}
-      <X1HomeBanner userId={user?.id} />
-      {/* Resultado do X1 liquidado às 9h05 — vitória/derrota/empate, 1x por duelo */}
-      <X1ResultBanner userId={user?.id} />
-      {/* Te ultrapassaram no ranking da semana? Banner de contra-ataque + notificação */}
-      <RankingOvertakeAlert userId={user?.id} />
+  return <div className="min-h-screen bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
       {/* Greeting */}
       <div className="flex items-center gap-3 py-2">
         <img
@@ -458,7 +384,6 @@ export default function Index() {
               </p>
             </div>
             <button
-              data-tour="meta-input"
               onClick={() => setShowEditPlanning(true)}
               className="h-11 w-11 inline-flex items-center justify-center hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
               aria-label="Editar planejamento"
@@ -499,28 +424,23 @@ export default function Index() {
         </CardContent>
       </Card>
 
-      {/* Lucro líquido + Custos (split) */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-card border border-border rounded-2xl">
-          <CardContent className="p-4">
+      {/* Lucro líquido (big) + custos (inline subtraction) */}
+      <Card className="bg-card border border-border rounded-2xl">
+        <CardContent className="p-5 flex items-end justify-between gap-4">
+          <div className="min-w-0">
             <p className="text-xs text-muted-foreground">Lucro líquido</p>
-            <p className="text-2xl font-bold mt-1 text-success tracking-tight truncate">
+            <p className="text-3xl font-bold mt-1 text-success tracking-tight truncate">
               {formatCurrency(lucroLiquido)}
             </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card border border-border rounded-2xl">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Custos</p>
-            <p className="text-2xl font-bold mt-1 text-destructive tracking-tight truncate">
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-xs text-muted-foreground">- Custos</p>
+            <p className="text-sm font-semibold text-destructive">
               {formatCurrency(custosTotal)}
             </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
-      <WeeklyChallengeDashboardCard />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Próxima patente — compact, no shine, no float */}
       <button
@@ -563,54 +483,29 @@ export default function Index() {
         </div>
       </button>
 
-      {user && faltaDia <= 0 && dailyProfit > 0 && (
-        <TrialNudge
-          userId={user.id}
-          momentKey="meta_dia"
-          title="Meta do dia batida! 🎯"
-          benefit="Quem usa o Orbis todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
-        />
-      )}
-
       {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
-
-      {user && <CompetitionCard userId={user.id} onClick={() => navigate('/competitions')} />}
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 
       <CardRegistrationModal isOpen={showCardModal} onClose={() => setShowCardModal(false)} />
 
-      {user && (() => {
-        // O modal abre SEMPRE que o usuário pede (showEditPlanning) — inclusive no
-        // passo de metas do onboarding. O "obrigatório" (forçado, sem fechar) só
-        // vale DEPOIS que a missão terminou; durante o onboarding ele nunca força,
-        // senão o usuário não consegue definir a meta e fica preso (tinha que pular).
-        const missionDone = localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true';
-        // Não força a meta enquanto o bilhete do dia 1 ainda não terminou (evita 2 telas juntas).
-        const forced = isMonthlyGoalRequired && missionDone && !ticketPending;
-        const open = showEditPlanning || forced;
-        if (!open) return null;
-        return (
-          <EditPlanningModal
-            userId={user.id}
-            isOpen={open}
-            onClose={() => {
-              if (forced) onMonthlyGoalCompleted();
-              setShowEditPlanning(false);
-              loadDashboardData();
-              // Fluxo do desafio: depois de definir a meta de julho, vai pro DEFCON 4.
-              if (sessionStorage.getItem("orbis_desafio_passo") === "meta") {
-                sessionStorage.removeItem("orbis_desafio_passo");
-                navigate("/defcon");
-              }
-            }}
-            isRequired={forced}
-            requiredReason={monthlyGoalReason}
-          />
-        );
-      })()}
+      {user && (isMonthlyGoalRequired || showEditPlanning) && (
+        <EditPlanningModal
+          userId={user.id}
+          isOpen={isMonthlyGoalRequired || showEditPlanning}
+          onClose={() => {
+            if (isMonthlyGoalRequired) {
+              onMonthlyGoalCompleted();
+            }
+            setShowEditPlanning(false);
+            loadDashboardData();
+          }}
+          isRequired={isMonthlyGoalRequired}
+          requiredReason={monthlyGoalReason}
+        />
+      )}
 
-      {user && !isRestDay && !isMonthlyGoalRequired && localStorage.getItem(`orbis_mission_completed_${user.id}`) === 'true' && (
+      {user && !isRestDay && !isMonthlyGoalRequired && (
         <DayStartPopup
           userId={user.id}
           onStart={() => navigate('/daily-goals')}

@@ -6,23 +6,10 @@ verify_jwt = false
 [functions.register-user]
 verify_jwt = false
 
-# Webhook da Hotmart: chamado pela Hotmart (servidor externo), que NAO manda JWT.
-# TEM que ser false, senao o gateway rejeita com 401 e para de ativar quem paga.
-[functions.hotmart-webhook]
-verify_jwt = false
-
-# Auditoria de extrato: so usuario logado pode chamar (le o uid do JWT). Explicito.
-[functions.verificar-extrato]
-verify_jwt = true
-
 [functions.generate-insights]
 verify_jwt = true
 
 [functions.chat-with-ai]
-verify_jwt = true
-
-# Chat REAL do app (mentor de rua, Gemini + cerebro do Ricardo). Substitui chat-with-ai.
-[functions.bright-action]
 verify_jwt = true
 
 [functions.create-demo-user]

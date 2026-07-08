@@ -1,14 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, ShieldCheck } from "lucide-react";
-import { useTheme } from "next-themes";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useToast } from "@/shared/hooks/use-toast";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
-import { supabase } from "@/integrations/supabase/client";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -75,12 +72,7 @@ export default function Profile() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const { theme, setTheme } = useTheme();
   const [planningOpen, setPlanningOpen] = useState(false);
-  const isLight = theme === "light";
-  // Central de Administração: só aparece pra admin (a segurança real é no banco).
-  const { whitelisted, role } = useAdminAccess(user?.id);
-  const isAdmin = whitelisted && role === "admin";
 
   const handleSignOut = async () => {
     await signOut();
@@ -103,33 +95,12 @@ export default function Profile() {
         <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
       </div>
 
-      {/* Aba de Administração — só admins veem. Tudo de admin do Orbis mora aqui:
-          tesouraria, carteiras, depósitos, liquidação, revisões e as outras áreas. */}
-      {isAdmin && (
-        <Card
-          className="cursor-pointer border-primary/40 bg-primary/5 hover:border-primary/60 transition-[colors,transform,opacity] hover:scale-[1.01]"
-          onClick={() => navigate("/admin")}
-        >
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">Administração</p>
-              <p className="text-xs text-muted-foreground truncate">Tesouraria, carteiras, depósitos, saques, liquidação e revisões</p>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-          </CardContent>
-        </Card>
-      )}
-
       <div className="space-y-3">
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
             <Card
               key={item.label}
-              data-tour={item.label === "Comunidade" ? "profile-comunidade" : undefined}
               className="cursor-pointer hover:border-primary/30 transition-[colors,transform,opacity] hover:scale-[1.01]"
               onClick={() => handleItemClick(item)}
             >
@@ -147,66 +118,6 @@ export default function Profile() {
           );
         })}
       </div>
-
-      {/* Aparência — tema claro/escuro */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-4">
-            <div className="w-11 h-11 rounded-full bg-muted/40 flex items-center justify-center text-primary">
-              {isLight ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-foreground">Aparência</p>
-              <p className="text-xs text-muted-foreground truncate">Escolha como você quer usar o app</p>
-            </div>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button
-              variant={isLight ? "outline" : "default"}
-              onClick={() => setTheme("dark")}
-              className="justify-center gap-2"
-            >
-              <Moon className="w-4 h-4" /> Escuro
-            </Button>
-            <Button
-              variant={isLight ? "default" : "outline"}
-              onClick={() => setTheme("light")}
-              className="justify-center gap-2"
-            >
-              <Sun className="w-4 h-4" /> Claro
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Button
-        variant="ghost"
-        onClick={async () => {
-          if (user) {
-            await supabase
-              .from("profiles")
-              .update({ onboarding_completed: false, onboarding_step: 0 })
-              .eq("user_id", user.id);
-          }
-          localStorage.removeItem(`orbis_mission_completed_${user?.id}`);
-          localStorage.setItem(`orbis_onboarding_step_${user?.id}`, "0");
-          // Reativa e zera os tutoriais por tela (pra ver todos de novo)
-          try {
-            Object.keys(localStorage)
-              .filter((k) => k.startsWith("orbis_screen_seen_"))
-              .forEach((k) => localStorage.removeItem(k));
-            localStorage.removeItem("orbis_screen_tours_off");
-            localStorage.setItem(`orbis_screen_tours_enabled_${user?.id}`, "1");
-          } catch {
-            /* ignore */
-          }
-          window.location.assign("/");
-        }}
-        className="w-full text-muted-foreground hover:text-foreground"
-      >
-        <Target className="w-4 h-4 mr-2" />
-        Refazer tour de boas-vindas
-      </Button>
 
       <Button
         variant="outline"

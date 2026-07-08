@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Radar, Navigation, Clock, Users, Sparkles, Loader2, TrafficCone, Zap, Calendar, Download } from "lucide-react";
+import { ArrowLeft, MapPin, Radar, Navigation, Clock, Users, Sparkles, Loader2, TrafficCone, Zap, Calendar } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -8,7 +8,6 @@ import { Label } from "@/shared/ui/label";
 import { Slider } from "@/shared/ui/slider";
 import { Badge } from "@/shared/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import SpotMap from "@/components/spotfinder/SpotMap";
@@ -68,8 +67,6 @@ const audienceLabel: Record<string, string> = {
 export default function SpotFinder() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { whitelisted, role } = useAdminAccess(user?.id);
-  const isAdmin = whitelisted && role === "admin";
   const { toast } = useToast();
 
   const [city, setCity] = useState("");
@@ -81,49 +78,6 @@ export default function SpotFinder() {
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [cached, setCached] = useState(false);
   const [highlighted, setHighlighted] = useState<string | null>(null);
-  const [signals, setSignals] = useState<{ id: string; lat: number; lng: number }[]>([]);
-  const [importing, setImporting] = useState(false);
-
-  // Carrega os semáforos REAIS (OSM) já salvos perto de um ponto.
-  const loadSignals = async (lat: number, lng: number, raioKm: number) => {
-    const { data } = await (supabase as any).rpc("caca_sinais_proximos", {
-      p_lat: lat,
-      p_lng: lng,
-      p_raio_km: raioKm,
-    });
-    setSignals(
-      ((data as any[]) ?? []).map((s) => ({ id: String(s.id), lat: Number(s.lat), lng: Number(s.lng) })),
-    );
-  };
-
-  // Admin: importa os semáforos reais da cidade digitada (OSM → tabela caca_sinais).
-  const importSignals = async () => {
-    if (!city || !state) {
-      toast({ title: "Preencha cidade e estado", variant: "destructive" });
-      return;
-    }
-    setImporting(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("importar-semaforos", {
-        body: { city, state, radius_km: radius[0] },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const c = data?.center;
-      if (c) {
-        setCenter({ lat: c.lat, lng: c.lng });
-        await loadSignals(c.lat, c.lng, radius[0]);
-      }
-      toast({
-        title: `${data?.total_salvos ?? 0} semáforos importados`,
-        description: `${city}/${state} — agora aparecem no mapa.`,
-      });
-    } catch (e: any) {
-      toast({ title: "Erro no import", description: e.message ?? "Falha", variant: "destructive" });
-    } finally {
-      setImporting(false);
-    }
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -152,15 +106,10 @@ export default function SpotFinder() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setSpots(data?.spots ?? []);
-      const c = data?.center ? { lat: data.center.lat, lng: data.center.lng } : null;
-      setCenter(c);
-      if (c) loadSignals(c.lat, c.lng, radius[0]);
+      setCenter(data?.center ? { lat: data.center.lat, lng: data.center.lng } : null);
       setCached(!!data?.cached);
       if ((data?.spots ?? []).length === 0) {
-        toast({
-          title: "Nenhum sinal encontrado",
-          description: data?.note ?? "Tente aumentar o raio ou uma cidade maior por perto.",
-        });
+        toast({ title: "Nenhum ponto encontrado", description: "Tente aumentar o raio." });
       }
     } catch (e: any) {
       toast({ title: "Erro", description: e.message ?? "Falha ao buscar", variant: "destructive" });
@@ -227,23 +176,6 @@ export default function SpotFinder() {
               </Button>
             </div>
           )}
-
-          {isAdmin && (
-            <div className="border-t border-border/50 pt-3 space-y-1.5">
-              <Button
-                variant="outline"
-                onClick={importSignals}
-                disabled={importing}
-                className="w-full"
-              >
-                {importing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                {importing ? "Importando semáforos reais…" : "Importar semáforos reais (admin)"}
-              </Button>
-              <p className="text-[11px] text-muted-foreground text-center">
-                Puxa os semáforos de verdade (OpenStreetMap) da cidade digitada e mostra no mapa.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
 
@@ -256,24 +188,15 @@ export default function SpotFinder() {
         </div>
       )}
 
-      {!loading && center && (spots.length > 0 || signals.length > 0) && (
-        <div className="space-y-1.5">
-          <SpotMap
-            center={center}
-            spots={spots.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, score: s.score }))}
-            signals={signals}
-            onSelect={(id) => {
-              setHighlighted(id);
-              document.getElementById(`spot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }}
-          />
-          {signals.length > 0 && (
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 px-1">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-warning" />
-              {signals.length} semáforos reais (OpenStreetMap) nesta área
-            </p>
-          )}
-        </div>
+      {!loading && center && spots.length > 0 && (
+        <SpotMap
+          center={center}
+          spots={spots.map((s) => ({ id: s.id, name: s.name, lat: s.lat, lng: s.lng, score: s.score }))}
+          onSelect={(id) => {
+            setHighlighted(id);
+            document.getElementById(`spot-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+          }}
+        />
       )}
 
       <div className="space-y-3">

@@ -9,7 +9,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/shared/lib/utils";
-import { avatarThumb } from "@/shared/lib/avatar";
 
 interface Comment {
   id: string;
@@ -112,7 +111,7 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
             comments.map((c) => (
               <div key={c.id} className="flex gap-2.5">
                 <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarImage src={avatarThumb(c.avatar_url, 64)} />
+                  <AvatarImage src={c.avatar_url ?? undefined} />
                   <AvatarFallback className="bg-muted text-xs">
                     {(c.nickname ?? "?").slice(0, 2).toUpperCase()}
                   </AvatarFallback>

@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/ui/use-toast";
-import { buildOrbisUserContext } from "@/shared/lib/orbis-user-context";
 
 export interface AIConversation {
   id: string;
@@ -26,8 +25,6 @@ export const useAIConversations = () => {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const skipNextLoadRef = useRef(false);
-  const userCtxRef = useRef<{ ctx: string; ts: number } | null>(null); // cache do contexto do vendedor
 
   // Load conversation list
   const loadConversations = useCallback(async () => {
@@ -53,10 +50,6 @@ export const useAIConversations = () => {
   useEffect(() => {
     if (!activeId) {
       setMessages([]);
-      return;
-    }
-    if (skipNextLoadRef.current) {
-      skipNextLoadRef.current = false;
       return;
     }
     setIsLoading(true);
@@ -116,7 +109,6 @@ export const useAIConversations = () => {
 
     // Auto-create conversation if none active
     if (!convId) {
-      skipNextLoadRef.current = true;
       convId = await createConversation();
       if (!convId) return;
     }
@@ -153,34 +145,17 @@ export const useAIConversations = () => {
       // Build conversation history for AI
       const history = [...messages, tempUser].map((m) => ({ role: m.role, content: m.content }));
 
-      // Contexto com os números reais do vendedor (cache de 3 min pra não pesar a cada msg)
-      let userContext = "";
-      try {
-        const now = Date.now();
-        if (userCtxRef.current && now - userCtxRef.current.ts < 180000) {
-          userContext = userCtxRef.current.ctx;
-        } else {
-          userContext = await buildOrbisUserContext(user.id);
-          userCtxRef.current = { ctx: userContext, ts: now };
-        }
-      } catch { userContext = ""; }
+      const { data, error } = await supabase.functions.invoke("chat-with-ai", {
+        body: { messages: history },
+      });
 
-      // Tenta o chat; se falhar (timeout/limite), tenta +1 vez antes de desistir.
-      // Reduz bastante o "Desculpe, tive um problema..." aparecer/ser falado na voz.
-      let chatMessage = "";
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const { data, error } = await supabase.functions.invoke("bright-action", {
-          body: { messages: history, context: userContext },
-        });
-        if (!error && data?.success && data?.message) {
-          chatMessage = data.message as string;
-          break;
-        }
-        if (attempt === 0) await new Promise((r) => setTimeout(r, 900));
+      let aiText = "";
+      if (error || !data?.success || !data?.message) {
+        aiText =
+          "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
+      } else {
+        aiText = data.message;
       }
-      const aiText =
-        chatMessage ||
-        "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
 
       const { data: insertedAi } = await supabase
         .from("ai_messages")

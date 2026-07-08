@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Clock, Play, Pause, CheckCircle2, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
-import { getBrazilDate } from "@/shared/lib/date-utils";
 
 interface GoalTimerProps {
   userId: string;
@@ -30,7 +29,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
       .from("profiles")
       .select("goal_hours, goal_timer_started_at, goal_timer_active, daily_sales_goal")
       .eq("user_id", userId)
-      .maybeSingle();
+      .single();
 
     if (error || !data) return;
 
@@ -60,7 +59,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
   // Load current sales
   useEffect(() => {
     const loadSales = async () => {
-      const today = getBrazilDate();
+      const today = new Date().toISOString().split('T')[0]!;
       const { data: sales } = await supabase
         .from("daily_sales")
         .select("total_profit")
@@ -73,8 +72,8 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
 
     loadSales();
 
-    // Atualiza as vendas a cada 60s (antes era 10s — gastava banda à toa).
-    const interval = setInterval(loadSales, 60000);
+    // Atualizar vendas a cada 10 segundos
+    const interval = setInterval(loadSales, 10000);
     return () => clearInterval(interval);
   }, [userId]);
 
@@ -86,7 +85,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
           .from("daily_checklist")
           .select("status")
           .eq("user_id", userId)
-          .eq("date", getBrazilDate())
+          .eq("date", new Date().toISOString().split('T')[0]!)
           .eq("status", "active")
           .limit(1);
 
@@ -206,7 +205,7 @@ export const GoalTimer = ({ userId }: GoalTimerProps) => {
 
     // Trigger AI motivational message
     try {
-      await supabase.functions.invoke("bright-action", {
+      await supabase.functions.invoke("chat-with-ai", {
         body: {
           messages: [
             {

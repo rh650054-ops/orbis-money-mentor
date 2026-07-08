@@ -1,5 +1,5 @@
 import { Check, ArrowLeft, Sparkles } from "lucide-react";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -98,7 +98,7 @@ export default function Benefits() {
 
           <div className="inline-flex flex-col items-center gap-2 bg-gradient-to-r from-primary/10 to-primary/5 p-6 rounded-2xl border-2 border-primary/20">
             <div className="text-6xl font-bold text-primary">
-              R$ 29,99
+              R$ 19,90
             </div>
             <div className="text-sm text-muted-foreground">por mês • cancele quando quiser</div>
           </div>
@@ -138,9 +138,9 @@ export default function Benefits() {
             <Button
               size="lg"
               className="w-full sm:w-auto px-12 h-16 text-xl font-bold shadow-lg hover:shadow-xl"
-              onClick={() => window.open(getCheckoutUrl(), "_blank")}
+              onClick={() => window.open(HOTMART_CHECKOUT_URL, "_blank")}
             >
-              🚀 Assinar por R$ 29,99/mês
+              🚀 Assinar por R$ 19,90/mês
             </Button>
             
             <div className="text-sm text-muted-foreground">

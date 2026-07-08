@@ -10,13 +10,11 @@ import { Button } from "@/shared/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
-import { ExtratoReminder } from "@/components/competitions/ExtratoReminder";
-import { WeeklyChallengeTicket, DesafioFluxoBar } from "@/components/competitions/WeeklyChallenge";
+import QuickExpenseButton from "@/components/QuickExpenseButton";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAInstallButton from "@/components/PWAInstallButton";
-import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
-import ScreenCoach from "@/components/onboarding/ScreenCoach";
+import OnboardingOrchestrator, { useOnboarding } from "@/components/onboarding/OnboardingOrchestrator";
 import MorningCommitModal from "@/components/MorningCommitModal";
 import BackButton from "@/shared/components/back-button";
 import {
@@ -34,7 +32,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home, tourId: "" },
-  { name: "Foco", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
+  { name: "DEFCON 4", href: "/daily-goals", icon: Zap, tourId: "nav-ritmo" },
   { name: "Vender", href: "/bank-connections", icon: DollarSign, tourId: "nav-banco", isCenter: true },
   { name: "Relatório", href: "/insights", icon: BarChart3, tourId: "nav-dados" },
   { name: "Perfil", href: "/profile", icon: UserCircle, tourId: "nav-perfil" },
@@ -49,49 +47,15 @@ export default function Layout({ children }: LayoutProps) {
   const { whitelisted: isAdmin, role: adminRole } = useAdminAccess(user?.id);
   const { toast } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  // Conclusão do onboarding é POR USUÁRIO (chave com user.id) + banco como fonte
-  // de verdade. Antes era uma flag GLOBAL no localStorage — por isso uma conta
-  // nova no mesmo navegador "herdava" o onboarding concluído de outra conta.
-  const [onboardingCompleto, setOnboardingCompleto] = useState(false);
-  const [onboardingChecked, setOnboardingChecked] = useState(false);
-  const [mustChangePassword, setMustChangePassword] = useState(false);
-  // Progresso da Missão de Boas-Vindas (retomada cross-device)
-  const [missionStep, setMissionStep] = useState(0);
-  const [missionNickname, setMissionNickname] = useState<string | null>(null);
-
-  // Usuário já cadastrado: se a conta já tem dados de onboarding no banco, pula o onboarding
-  // (vale em qualquer aparelho/navegador, pois o dado fica na conta e não no localStorage)
+  const { phase, setPhase, markDone } = useOnboarding();
+  const [onboardingCompleto, setOnboardingCompleto] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem('orbis_onboarding_completo') === 'true'
+  );
   useEffect(() => {
-    if (!user) return;
-    const doneKey = `orbis_mission_completed_${user.id}`;
-    let cancelled = false;
-    (async () => {
-      // Lê SEMPRE no banco — precisa pegar must_change_password mesmo de quem já
-      // concluiu o onboarding (a senha temporária do admin é gerada depois). Sem
-      // o atalho de localStorage aqui, senão a flag não era lida pra esses usuários.
-      const { data } = await supabase.from("profiles")
-        .select("nickname, onboarding_completed, onboarding_step, must_change_password")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      // Senha temporária do admin: força a troca (redirecionamento no efeito abaixo).
-      setMustChangePassword(data?.must_change_password === true);
-      // Fonte de verdade: a flag do banco DESTE usuário.
-      if (data?.onboarding_completed === true) {
-        localStorage.setItem(doneKey, 'true');
-        setOnboardingCompleto(true);
-      } else {
-        // Conta nova / onboarding não concluído: mostra a missão do começo.
-        setMissionStep(data?.onboarding_step ?? 0);
-        setMissionNickname(data?.nickname ?? null);
-        setOnboardingCompleto(false);
-      }
-      setOnboardingChecked(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+    const sync = () => setOnboardingCompleto(localStorage.getItem('orbis_onboarding_completo') === 'true');
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
   const trialDismissedRef = useRef(
     typeof window !== "undefined" && sessionStorage.getItem('trialModalDismissed') === 'true'
   );
@@ -107,48 +71,60 @@ export default function Layout({ children }: LayoutProps) {
   useEffect(() => {
     if (!user || trialLoading || subscriptionLoading) return;
     if (!onboardingCompleto) return;
-    // Pula só pra quem REALMENTE paga (ou demo). No teste, subscribed=true mas
-    // status="trial" — então checamos o status, não só o subscribed.
-    if (subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") return;
+    if (subscriptionStatus.subscribed) return; // Don't show for subscribers
     
     const daysRemaining = trialStatus.daysRemaining ?? 0;
-    const shownDays = Math.min(daysRemaining, 3); // teste é de 3 dias (no 1o dia da pra 4)
-
-    // Mostra o lembrete durante todo o teste (não assinante e não expirado).
-    // SEM teto de "<= 3 dias" — conta nova calcula 4 dias e o banner sumia no 1o dia.
-    if (trialStatus.planStatus !== 'active' && !trialStatus.isExpired && daysRemaining > 0) {
+    
+    // Show reminder if trial is active and has 3 or fewer days remaining
+    if (trialStatus.isTrialActive && daysRemaining <= 3 && daysRemaining > 0) {
       const lastReminderDate = localStorage.getItem('lastTrialReminder');
       const today = new Date().toISOString().split('T')[0]!;
       
       // Show once per day
       if (lastReminderDate !== today) {
         toast({
-          title: `🔥 Faltam ${shownDays} ${shownDays === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
-          description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,99 por dia (R$29,99/mês) e não perde o ritmo.",
+          title: `⚠️ Seu teste acaba em ${daysRemaining} ${daysRemaining === 1 ? 'dia' : 'dias'}!`,
+          description: "Assine agora por R$19,90/mês e mantenha acesso a todos os recursos.",
           duration: 8000,
         });
         localStorage.setItem('lastTrialReminder', today);
       }
     }
-  }, [user, trialStatus.planStatus, trialStatus.isExpired, trialStatus.daysRemaining, subscriptionStatus.subscribed, subscriptionStatus.status, trialLoading, subscriptionLoading, toast]);
-
-  // Redireciona para troca de senha se o admin gerou uma senha temporária
-  useEffect(() => {
-    if (!mustChangePassword || !user) return;
-    if (location.pathname !== '/force-password-change') {
-      navigate('/force-password-change', { replace: true });
-    }
-  }, [mustChangePassword, user, location.pathname, navigate]);
+  }, [user, trialStatus.isTrialActive, trialStatus.daysRemaining, subscriptionStatus.subscribed, trialLoading, subscriptionLoading, toast]);
 
   useEffect(() => {
-    // Redireciona quem não está logado para o login.
+    // Fast redirect for non-authenticated users
     if (!loading && !user) {
       navigate("/auth", { replace: true });
+      return;
     }
-    // OBS: o bloqueio de teste expirado agora é feito pelo PaywallGate (em router.tsx),
-    // que mostra o popup bonito em TODAS as telas (Foco, DEFCON, Dashboard, etc.).
-    // Por isso NÃO redirecionamos mais os expirados para /payment aqui.
-  }, [user, loading, navigate]);
+
+    // Block all redirects during onboarding
+    if (!onboardingCompleto) return;
+
+    // Skip checks while loading
+    if (loading || trialLoading || subscriptionLoading || !user) return;
+
+    const currentPath = location.pathname;
+    const allowedPaths = ['/payment', '/benefits', '/auth'];
+    
+    // Fast redirect for expired trial WITHOUT active subscription (admins are exempt)
+    // Use ref (synchronous) to avoid race condition with dismiss click
+    const needsSubscription = trialStatus.isExpired && !subscriptionStatus.subscribed && !isAdmin;
+    if (needsSubscription && !trialDismissedRef.current && !allowedPaths.includes(currentPath)) {
+      navigate("/payment", { replace: true });
+      return;
+    }
+
+  }, [user, loading, trialLoading, subscriptionLoading, trialStatus.isExpired, subscriptionStatus.subscribed, location.pathname, navigate, onboardingCompleto]);
+
+  const shouldShowTrialExpiredModal =
+    onboardingCompleto &&
+    !trialLoading &&
+    trialStatus.isExpired &&
+    trialStatus.planStatus === 'expired' &&
+    !isAdmin &&
+    location.pathname !== '/payment';
 
   const handleSignOut = async () => {
     await signOut();
@@ -159,13 +135,10 @@ export default function Layout({ children }: LayoutProps) {
     navigate("/auth");
   };
 
-  // Espera a checagem no banco antes de decidir mostrar a missão,
-  // pra não piscar o overlay pra quem já é cadastrado.
-  if (!onboardingCompleto && user && !onboardingChecked) {
-    return <div className="min-h-[100dvh] bg-background" />;
+  // If onboarding not complete, render ONLY the onboarding
+  if (!onboardingCompleto && phase !== "done") {
+    return <OnboardingOrchestrator phase={phase} setPhase={setPhase} markDone={markDone} />;
   }
-  // Nota: a Missão de Boas-Vindas NÃO substitui mais o app. Ela é renderizada
-  // como overlay (MissionOrchestrator) por cima do app real, lá embaixo no JSX.
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
@@ -228,48 +201,43 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main
-        className="container mx-auto px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-8 md:pb-8"
+        className="container mx-auto px-4 pt-2 pb-24 md:pt-8 md:pb-8"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
       >
         {/* Back button - hidden on Dashboard and pages that already have their own back button */}
-        {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits", "/competitions", "/x1"].includes(location.pathname) && (
+        {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits"].includes(location.pathname) && (
           <div className="mb-2 md:hidden">
             <BackButton to={location.pathname === "/profile" ? "/" : undefined} />
           </div>
         )}
         {/* Trial Warning Banner */}
-        {!subscriptionLoading && !(subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") && !trialStatus.isExpired && trialStatus.daysRemaining >= 1 && (
+        {!subscriptionLoading && !subscriptionStatus.subscribed && trialStatus.isTrialActive && trialStatus.daysRemaining !== null && trialStatus.daysRemaining <= 3 && (
           <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
             <div className="flex items-start gap-3">
-              <div className="text-2xl">🔥</div>
+              <div className="text-2xl">⚠️</div>
               <div className="flex-1">
                 <h3 className="font-semibold text-warning mb-1">
-                  {`Faltam ${Math.min(trialStatus.daysRemaining, 3)} ${Math.min(trialStatus.daysRemaining, 3) === 1 ? 'dia' : 'dias'} do seu acesso grátis`}
+                  Seu teste gratuito acaba em {trialStatus.daysRemaining} {trialStatus.daysRemaining === 1 ? 'dia' : 'dias'}!
                 </h3>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Seu histórico, sua constância e seu lugar no ranking estão sendo construídos. Quando o teste acabar, isso trava. Mantenha tudo por menos de R$1 por dia.
+                  Após o término, você perderá acesso a todos os dados e funcionalidades. Assine agora para manter tudo salvo!
                 </p>
                 <Button 
                   size="sm" 
                   onClick={() => navigate('/payment')}
                   className="bg-warning hover:bg-warning/90 text-warning-foreground"
                 >
-                  Quero continuar — R$29,99/mês
+                  Assinar por R$19,90/mês
                 </Button>
               </div>
             </div>
           </div>
         )}
-        {user && !["/meu-extrato", "/defcon"].includes(location.pathname) && (
-          <ExtratoReminder userId={user.id} />
-        )}
-        {user && <WeeklyChallengeTicket />}
-        {user && <DesafioFluxoBar />}
         {children}
       </main>
 
       {/* Mobile bottom navigation - Fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         {/* Notch SVG para o botão central */}
         <div className="relative">
           <svg
@@ -286,10 +254,7 @@ export default function Layout({ children }: LayoutProps) {
           </svg>
         </div>
 
-        <div
-          className="border-t border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/90"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-        >
+        <div className="border-t border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/90">
           <div className="grid grid-cols-5 items-end h-16 px-1 relative">
             {navigation.map((item, idx) => {
               const isActive = location.pathname === item.href;
@@ -350,34 +315,21 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Floating Chat Button */}
       <FloatingChatButton />
+      <QuickExpenseButton />
 
-      {/* Missao de Boas-Vindas (onboarding gamificado): overlay sobre o app real */}
-      {user && onboardingChecked && !onboardingCompleto && (
-        <MissionOrchestrator
-          userId={user.id}
-          nickname={missionNickname}
-          initialIndex={missionStep}
-          onCompleted={() => {
-            // Liga os tours por tela SÓ pra contas novas (que acabaram de
-            // concluir a intro). Quem já usava o app nunca passa por aqui.
-            if (typeof window !== "undefined") {
-              localStorage.setItem(`orbis_screen_tours_enabled_${user.id}`, "1");
-            }
-            setOnboardingCompleto(true);
-          }}
-        />
-      )}
-
-      {/* Coach por tela: explica cada tela na 1ª visita (onboarding natural) */}
-      {user && onboardingCompleto && <ScreenCoach userId={user.id} isAdmin={isAdmin} />}
 
       {/* Morning Commit Modal */}
-      {user && onboardingCompleto && (
+      {user && phase === "done" && (
         <MorningCommitModal userId={user.id} onDismiss={() => {}} />
       )}
 
-      {/* OBS: o popup de teste expirado agora é renderizado pelo PaywallGate (router.tsx),
-          pra aparecer igual em TODAS as telas, inclusive o DEFCON. */}
+      {/* Trial Expired Modal - Only show if trial expired AND no active subscription */}
+      {!trialLoading && !subscriptionLoading && trialStatus.isExpired && !subscriptionStatus.subscribed && !trialModalDismissed && !['/payment', '/benefits', '/auth', '/check-in'].includes(location.pathname) && (
+        <TrialExpiredModal
+          isOpen={true}
+          onClose={handleDismissTrialModal}
+        />
+      )}
     </div>
   );
 }

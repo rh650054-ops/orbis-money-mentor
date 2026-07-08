@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get("ALLOWED_ORIGIN") ?? '*',
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -44,10 +44,10 @@ serve(async (req) => {
     }
 
     // Verificar se o usuário é admin
-    const { data: isAdmin, error: roleError } = await supabaseAdmin
+    const { data: isAdmin } = await supabaseAdmin
       .rpc('has_role', { _user_id: requestingUser.id, _role: 'admin' });
 
-    if (roleError || !isAdmin) {
+    if (!isAdmin) {
       throw new Error('Acesso negado. Apenas administradores podem criar contas demo.');
     }
 

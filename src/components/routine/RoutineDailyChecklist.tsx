@@ -162,7 +162,7 @@ export default function RoutineDailyChecklist({ userId, onOpenConfig }: Props) {
           .from("profiles")
           .select("vision_points")
           .eq("user_id", userId)
-          .maybeSingle()
+          .single()
           .then(({ data: profile }) => {
             if (profile) {
               supabase

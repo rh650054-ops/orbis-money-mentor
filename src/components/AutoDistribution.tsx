@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
-import { Sparkles, Wallet, CheckCircle2, Info, Settings2, AlertTriangle, Target } from "lucide-react";
+import { Sparkles, Wallet, CheckCircle2, Info, Settings2, AlertTriangle } from "lucide-react";
 
 interface GoalRow {
   id: string;
@@ -40,8 +40,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
   const [goals, setGoals] = useState<GoalRow[]>([]);
   const [liquidoHoje, setLiquidoHoje] = useState(0);
   const [grossHoje, setGrossHoje] = useState(0);
-  const [transportHoje, setTransportHoje] = useState(0);
-  const [foodHoje, setFoodHoje] = useState(0);
+  const [despesasHoje, setDespesasHoje] = useState(0);
   const [costHoje, setCostHoje] = useState(0);
   const [caloteHoje, setCaloteHoje] = useState(0);
   const [todayDistribution, setTodayDistribution] = useState<DistributionRow[]>([]);
@@ -69,35 +68,37 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
       // Vendas do dia
       const { data: salesData } = await supabase
         .from("daily_sales")
-        .select("total_profit, cost, total_debt, cash_sales, pix_sales, card_sales, transport_cost, food_cost")
+        .select("total_profit, cost, total_debt, cash_sales, pix_sales, card_sales")
         .eq("user_id", userId)
         .eq("date", today)
         .maybeSingle();
 
-      // BRUTO robusto: usa "Total Vendido" (total_profit); se vier zerado, cai
-      // pra soma dos métodos de pagamento. Sem isso, lançar só o Total Vendido
-      // deixava o bruto em R$0 e o "guardar hoje" travado.
-      const payments =
+      const gross =
         Number(salesData?.cash_sales || 0) +
         Number(salesData?.pix_sales || 0) +
         Number(salesData?.card_sales || 0);
-      const gross =
-        Number(salesData?.total_profit) > 0 ? Number(salesData?.total_profit) : payments;
       const cost = Number(salesData?.cost || 0);
-      const transport = Number(salesData?.transport_cost || 0);
-      const food = Number(salesData?.food_cost || 0);
       const calote = Number(salesData?.total_debt || 0);
+      const lucroBruto = Math.max(0, gross - cost - calote);
 
       setGrossHoje(gross);
       setCostHoje(cost);
-      setTransportHoje(transport);
-      setFoodHoje(food);
       setCaloteHoje(calote);
 
-      // LÍQUIDO = BRUTO − MERCADORIA − TRANSPORTE − ALIMENTAÇÃO (calote NÃO entra),
-      // igual à planilha. Mantemos o piso em 0 só pra distribuição (não dá pra
-      // guardar valor negativo nas caixinhas); dia de prejuízo mostra mensagem.
-      const liquido = Math.max(0, gross - cost - transport - food);
+      // Despesas pessoais do dia
+      const { data: expensesData } = await supabase
+        .from("personal_expenses")
+        .select("amount")
+        .eq("user_id", userId)
+        .eq("date", today);
+
+      const despesas = (expensesData || []).reduce(
+        (sum, e: any) => sum + (Number(e.amount) || 0),
+        0
+      );
+      setDespesasHoje(despesas);
+
+      const liquido = Math.max(0, lucroBruto - despesas);
       setLiquidoHoje(liquido);
 
       // Distribuição já registrada hoje
@@ -124,12 +125,6 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
     if (userId) loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
-
-  // Recarrega ao abrir "Configurar %" — assim metas recém-criadas aparecem na hora
-  useEffect(() => {
-    if (editOpen && userId) loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editOpen]);
 
   const totalPercent = useMemo(
     () => goals.reduce((s, g) => s + (Number(g.percentual_distribuicao) || 0), 0),
@@ -189,7 +184,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
     if (liquidoHoje <= 0) {
       toast({
         title: "Sem líquido pra distribuir",
-        description: "Lance a venda de hoje primeiro pra ver quanto guardar.",
+        description: "Registre vendas e despesas do dia primeiro.",
         variant: "destructive",
       });
       return;
@@ -254,18 +249,6 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
 
   if (loading) return null;
 
-  const renderGoalIcon = (icon: string | null, size: "sm" | "lg" = "lg") => {
-    const box = size === "sm" ? "w-8 h-8" : "w-10 h-10";
-    if (icon && icon.startsWith("http")) {
-      return <img src={icon} alt="" className={`${box} rounded-xl object-cover border border-border shrink-0`} />;
-    }
-    return (
-      <div className={`${box} rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0`}>
-        <Target className={size === "sm" ? "w-4 h-4 text-primary" : "w-5 h-5 text-primary"} />
-      </div>
-    );
-  };
-
   return (
     <Card className="card-gradient-border bg-gradient-to-br from-primary/5 to-secondary/5">
       <CardHeader>
@@ -303,7 +286,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   <div key={g.id} className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="flex items-center gap-2">
-                        {renderGoalIcon(g.icon, "sm")}
+                        <span className="text-lg">{g.icon || "🎯"}</span>
                         <span className="font-semibold">{g.name}</span>
                       </Label>
                       <div className="flex items-center gap-2">
@@ -379,45 +362,38 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Como funciona — resumido */}
-        <div className="flex items-start gap-2 p-3 bg-muted/40 border border-border/40 rounded-xl">
-          <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+      <CardContent className="space-y-4">
+        {/* Como funciona */}
+        <div className="flex items-start gap-2 p-3 bg-muted/40 border border-border/40 rounded-lg">
+          <Info className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Separe parte do seu <b className="text-primary">líquido</b> do dia nas caixinhas das suas metas. Em <b className="text-foreground">Configurar %</b> você escolhe quanto vai pra cada uma; depois é só <b className="text-foreground">Separar</b>.
+            <b>Como funciona:</b> Pegamos suas vendas do dia, tiramos custo de mercadoria, calotes e despesas pessoais — esse é o seu <b>líquido</b>. Aí dividimos esse líquido nas caixinhas que você definiu. Cada valor mostrado é o quanto você deve guardar em cada banco/caixinha hoje.
           </p>
         </div>
 
         {/* Resumo do líquido de hoje */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Vendido hoje</p>
+            <p className="text-xs text-muted-foreground">Bruto hoje</p>
             <p className="text-base font-bold">{formatCurrency(grossHoje)}</p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Mercadoria</p>
+            <p className="text-xs text-muted-foreground">Custo + calotes</p>
             <p className="text-base font-bold text-destructive">
-              -{formatCurrency(costHoje)}
+              -{formatCurrency(costHoje + caloteHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-card border border-border/50">
-            <p className="text-xs text-muted-foreground">Transporte + Alim.</p>
+            <p className="text-xs text-muted-foreground">Despesas pessoais</p>
             <p className="text-base font-bold text-destructive">
-              -{formatCurrency(transportHoje + foodHoje)}
+              -{formatCurrency(despesasHoje)}
             </p>
           </div>
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/30">
-            <p className="text-xs text-muted-foreground">Líquido</p>
+            <p className="text-xs text-muted-foreground">💎 Líquido</p>
             <p className="text-base font-bold text-primary">{formatCurrency(liquidoHoje)}</p>
           </div>
         </div>
-
-        {/* Fiado/calote do dia — informativo, não entra no líquido */}
-        {caloteHoje > 0 && (
-          <p className="text-xs text-muted-foreground -mt-1">
-            Fiado/não pago hoje: <span className="font-semibold text-warning">{formatCurrency(caloteHoje)}</span> (não entra no líquido)
-          </p>
-        )}
 
         {/* Estado: sem metas */}
         {goals.length === 0 && (
@@ -427,7 +403,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         )}
 
         {/* Estado: nenhum % configurado ainda */}
-        {goals.length > 0 && liquidoHoje > 0 && totalPercent <= 0 && !alreadyDistributed && (
+        {goals.length > 0 && totalPercent <= 0 && !alreadyDistributed && (
           <div className="flex items-start gap-2 p-3 bg-warning/10 border border-warning/30 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
             <div className="text-xs">
@@ -442,7 +418,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         )}
 
         {/* Estado: passou de 100% */}
-        {goals.length > 0 && liquidoHoje > 0 && totalPercent > 100 && !alreadyDistributed && (
+        {goals.length > 0 && totalPercent > 100 && !alreadyDistributed && (
           <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/30 rounded-lg">
             <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
             <div className="text-xs">
@@ -458,18 +434,15 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
         {goals.length > 0 && totalPercent > 0 && totalPercent <= 100 && !alreadyDistributed && (
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-              Caixinhas de hoje
+              📦 Caixinhas de hoje
             </p>
-            {liquidoHoje <= 0 && (
-              <p className="text-xs text-muted-foreground">Lance a venda do dia pra calcular — por enquanto fica R$ 0,00.</p>
-            )}
             {preview.map(({ goal, amount }) => (
               <div
                 key={goal.id}
                 className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50"
               >
                 <div className="flex items-center gap-3">
-                  {renderGoalIcon(goal.icon, "lg")}
+                  <span className="text-2xl">{goal.icon || "🎯"}</span>
                   <div>
                     <p className="font-semibold text-sm">{goal.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -488,9 +461,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
             {totalPercent < 100 && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-dashed border-border/60">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                    <Wallet className="w-5 h-5 text-muted-foreground" />
-                  </div>
+                  <span className="text-2xl">💸</span>
                   <div>
                     <p className="font-semibold text-sm">Livre pra você</p>
                     <p className="text-xs text-muted-foreground">
@@ -532,7 +503,7 @@ export default function AutoDistribution({ userId, onChanged }: Props) {
                   className="flex items-center justify-between p-3 rounded-lg bg-card border border-border/50"
                 >
                   <div className="flex items-center gap-3">
-                    {renderGoalIcon(goal?.icon ?? null, "lg")}
+                    <span className="text-2xl">{goal?.icon || "🎯"}</span>
                     <div>
                       <p className="font-semibold text-sm">{goal?.name || "Meta"}</p>
                       <Badge variant="secondary" className="text-xs mt-1">

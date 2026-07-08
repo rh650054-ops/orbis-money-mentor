@@ -26,16 +26,6 @@ export function useAuth() {
   }, []);
 
   const signOut = async () => {
-    // Limpa o estado local do usuário antes de sair — senão a PRÓXIMA conta no
-    // mesmo navegador "herda" flags (onboarding, tours, lembretes, cache) da
-    // conta anterior. (As chaves já são por usuário, mas isso garante a limpeza.)
-    try {
-      Object.keys(localStorage).forEach((k) => {
-        if (k.startsWith("orbis_") || k.startsWith("last")) localStorage.removeItem(k);
-      });
-    } catch {
-      /* ignore */
-    }
     await supabase.auth.signOut();
   };
 

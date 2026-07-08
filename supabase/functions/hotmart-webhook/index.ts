@@ -15,12 +15,8 @@ Deno.serve(async (req) => {
     const hottok = req.headers.get("x-hotmart-hottok");
     const expectedHottok = Deno.env.get("HOTMART_HOTTOK");
 
-    // FAIL-CLOSED: sem o segredo configurado OU com hottok inválido, rejeita.
-    // (Antes "falhava aberto" sem o segredo — qualquer um podia forjar um
-    // pagamento e ativar assinatura de graça.) Configure HOTMART_HOTTOK nos
-    // secrets do Supabase com o valor do hottok do Hotmart.
-    if (!expectedHottok || hottok !== expectedHottok) {
-      console.error("hotmart-webhook: hottok inválido ou HOTMART_HOTTOK ausente — rejeitado");
+    if (expectedHottok && hottok !== expectedHottok) {
+      console.error("Invalid hottok");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: corsHeaders,
@@ -43,26 +39,6 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
-
-    // IDEMPOTENCIA: a Hotmart reenvia o mesmo evento em timeout/erro. Registra o evento;
-    // se ja foi processado, ignora (evita estender assinatura 2x ou ressuscitar cancelada).
-    const eventId = String(
-      payload.id ??
-        payload.data?.id ??
-        `${purchaseId}:${event}:${payload.creation_date ?? payload.data?.purchase?.approved_date ?? ""}`
-    );
-    const { error: dupErr } = await supabase
-      .from("processed_hotmart_events")
-      .insert({ event_id: eventId, event_type: event, purchase_id: purchaseId });
-    if (dupErr) {
-      // 23505 = unique_violation -> evento repetido, ja processado. Ignora.
-      if ((dupErr as { code?: string }).code === "23505") {
-        console.log("hotmart-webhook: evento duplicado ignorado", eventId);
-        return new Response(JSON.stringify({ status: "duplicate" }), { headers: corsHeaders });
-      }
-      // Outro erro (ex: tabela ainda nao migrada) -> loga e segue, pra nao travar pagamento legitimo.
-      console.error("hotmart-webhook: dedup falhou (seguindo)", (dupErr as { message?: string }).message);
-    }
 
     // Find user by CPF first, then email fallback
     let userId: string | null = null;

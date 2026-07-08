@@ -1,13 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Gift, Receipt, Ticket, ShieldAlert, Clock } from "lucide-react";
+import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Switch } from "@/shared/ui/switch";
 import { useToast } from "@/shared/hooks/use-toast";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
-import { useAuth } from "@/hooks/useAuth";
-import { useAdminAccess } from "@/hooks/useAdminAccess";
 
 const STORAGE_KEYS = {
   sounds: "orbis_sounds_enabled",
@@ -17,9 +15,6 @@ const STORAGE_KEYS = {
 export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { user } = useAuth();
-  const { whitelisted, role } = useAdminAccess(user?.id);
-  const isAdmin = whitelisted && role === "admin";
 
   const [soundsEnabled, setSoundsEnabled] = useState(() => {
     const stored = localStorage.getItem(STORAGE_KEYS.sounds);
@@ -64,7 +59,7 @@ export default function Settings() {
   };
 
   const handleSupport = () => {
-    window.open("https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20Orbis", "_blank");
+    window.open("https://wa.me/5511999999999?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20Orbis", "_blank");
   };
 
   return (
@@ -160,78 +155,6 @@ export default function Settings() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Admin — só aparece pra administradores */}
-      {isAdmin && (
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Admin</p>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/competitions")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <Gift className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Competições</p>
-                <p className="text-xs text-muted-foreground">Criar e gerenciar os desafios mensais e semanais</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/anti-trapaca")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <ShieldAlert className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Anti-trapaça</p>
-                <p className="text-xs text-muted-foreground">Ver quem fez um dia muito acima da média e ocultar do ranking</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/extrato-config")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Horário do extrato</p>
-                <p className="text-xs text-muted-foreground">Definir até que horas o extrato do dia pode ser enviado</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/admin/teste-extrato")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <Receipt className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Teste · Leitura de extrato</p>
-                <p className="text-xs text-muted-foreground">Conferir a IA lendo um extrato (não salva, não conta no ranking)</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-
-          <Card className="cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => navigate("/bilhete")}>
-            <CardContent className="p-4 flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center text-primary">
-                <Ticket className="w-5 h-5" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold">Bilhete dourado (preview)</p>
-                <p className="text-xs text-muted-foreground">Ver o convite premium — arrasta pra abrir, com som</p>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground" />
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </div>
   );
 }

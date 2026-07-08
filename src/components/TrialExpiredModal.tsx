@@ -1,25 +1,25 @@
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
-import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check } from "lucide-react";
+import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useState } from "react";
 
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { HOTMART_CHECKOUT_URL } from "@/shared/lib/constants";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
-  onClose?: () => void;
+  onClose: () => void;
 }
 
-export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
+export default function TrialExpiredModal({ isOpen, onClose }: TrialExpiredModalProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
 
   const handleActivatePlan = () => {
-    window.open(getCheckoutUrl(), "_blank");
+    window.open(HOTMART_CHECKOUT_URL, "_blank");
   };
 
   const handleCheckAccess = async () => {
@@ -43,7 +43,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
         .from("profiles")
         .select("plan_status, is_demo, billing_exempt")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .single();
 
       const isActive = hasActiveSub || profile?.plan_status === "active" || (profile?.is_demo && profile?.billing_exempt);
 
@@ -59,6 +59,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
           description: "Aguarde alguns minutos. Se já pagou, em breve será liberado.",
           variant: "destructive",
         });
+        onClose();
       }
     } catch {
       toast({
@@ -77,11 +78,10 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="p-0 gap-0 max-w-[420px] w-[calc(100vw-1.5rem)] max-h-[92dvh] overflow-hidden border border-primary/30 bg-background rounded-2xl [&>button]:hidden"
+        className="p-0 gap-0 max-w-[420px] w-[calc(100vw-1.5rem)] max-h-[92dvh] overflow-hidden border border-primary/30 bg-background rounded-2xl"
         onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         {/* Glow decorations */}
         <div className="absolute -top-24 -right-24 w-56 h-56 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
@@ -97,10 +97,10 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               </div>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground leading-tight">
-              Você chegou longe. Não pare agora.
+              Seu acesso foi pausado
             </h2>
-            <p className="text-sm text-muted-foreground mt-1.5 max-w-[320px]">
-              Seus 3 dias acabaram — mas seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados. Reative pra não perder nada.
+            <p className="text-sm text-muted-foreground mt-1.5 max-w-[300px]">
+              Os 3 dias gratuitos acabaram. Continue dominando seus números.
             </p>
           </div>
 
@@ -113,15 +113,15 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
             <ul className="space-y-1.5 text-[13px] text-foreground/80">
               <li className="flex items-start gap-2">
                 <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Seu histórico de vendas e relatórios travam</span>
+                <span>Histórico de vendas, blocos e relatórios</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-destructive/70 mt-0.5">•</span>
-                <span>O mentor de rua (IA) para de te ajudar a vender</span>
+                <span>IA personalizada e insights diários</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Você sai do ranking e perde sua ofensiva 🔥</span>
+                <span>Modo DEFCON 4 e ranking entre vendedores</span>
               </li>
             </ul>
           </div>
@@ -139,7 +139,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               </li>
               <li className="flex items-start gap-2.5">
                 <Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Tem o mentor de rua (IA)</strong> no bolso, todo dia</span>
+                <span><strong className="text-foreground">Recebe IA personalizada</strong> pra vender mais</span>
               </li>
               <li className="flex items-start gap-2.5">
                 <TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" />
@@ -147,7 +147,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               </li>
               <li className="flex items-start gap-2.5">
                 <Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Sobe no ranking</strong> e constrói sua ofensiva 🔥</span>
+                <span><strong className="text-foreground">Constrói constância</strong> e domina seu futuro</span>
               </li>
             </ul>
           </div>
@@ -155,11 +155,10 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
           {/* Price */}
           <div className="text-center mb-4">
             <div className="inline-flex items-baseline gap-1">
-              <span className="text-3xl font-black text-primary leading-none">R$ 29,99</span>
+              <span className="text-3xl font-black text-primary leading-none">R$ 19,90</span>
               <span className="text-sm text-muted-foreground">/mês</span>
             </div>
-            <p className="text-sm font-semibold text-foreground/90 mt-1">Só R$ 0,99 por dia — o preço de uma bala que você vende.</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser • Sem multa</p>
+            <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
           </div>
 
           {/* Actions */}
@@ -169,7 +168,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
               className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
             >
               <CreditCard className="w-4 h-4 mr-2" />
-              Reativar agora — R$ 29,99/mês
+              Assinar agora — R$ 19,90/mês
             </Button>
 
             <Button
@@ -180,6 +179,15 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
             >
               <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isChecking ? "animate-spin" : ""}`} />
               {isChecking ? "Verificando..." : "Já paguei, verificar acesso"}
+            </Button>
+
+            <Button
+              onClick={onClose}
+              variant="ghost"
+              className="w-full h-9 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-3.5 h-3.5 mr-2" />
+              Voltar ao app
             </Button>
 
             <Button

@@ -3,7 +3,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
-import { addOfflineRecord } from "@/shared/lib/offline-db";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -31,46 +30,6 @@ export interface BlockReportData {
   soldAmount: number;
 }
 
-/**
- * Offline: enfileira o ESTADO ABSOLUTO de um bloco no celular pra subir quando a
- * conexao voltar. Idempotente — a fila usa o id do bloco como chave e syncSaleRecord
- * faz upsert com valores absolutos, entao re-aplicar (ou aplicar 2x) NUNCA duplica dinheiro.
- */
-async function queueBlockOffline(
-  block: {
-    id: string; hour_index: number; hour_label: string; target_amount: number;
-    achieved_amount: number; valor_dinheiro: number; valor_cartao: number;
-    valor_pix: number; valor_calote: number; valor_gorjeta: number;
-  },
-  userId: string,
-  planId: string | null,
-) {
-  try {
-    await addOfflineRecord("pending_sales", {
-      id: block.id,
-      store: "pending_sales",
-      data: {
-        block_id: block.id,
-        user_id: userId,
-        plan_id: planId ?? "",
-        hour_index: block.hour_index,
-        hour_label: block.hour_label,
-        target_amount: block.target_amount,
-        achieved_amount: block.achieved_amount,
-        valor_dinheiro: block.valor_dinheiro,
-        valor_cartao: block.valor_cartao,
-        valor_pix: block.valor_pix,
-        valor_calote: block.valor_calote,
-        valor_gorjeta: block.valor_gorjeta,
-      },
-      created_at: new Date().toISOString(),
-      synced: false,
-    });
-  } catch {
-    // IndexedDB indisponivel (aba anonima / storage cheio): resta so o estado otimista da tela.
-  }
-}
-
 export function useDefconChallenge(userId: string | undefined) {
   const [phase, setPhase] = useState<DefconPhase>("idle");
   const [blocks, setBlocks] = useState<DefconBlock[]>([]);
@@ -89,9 +48,6 @@ export function useDefconChallenge(userId: string | undefined) {
   const [lunchPauseStartedAt, setLunchPauseStartedAt] = useState<Date | null>(null);
   const [lunchPauseDuration, setLunchPauseDuration] = useState(0);
   const [pausedBlockRemaining, setPausedBlockRemaining] = useState(0);
-  // Tempo trabalhado RECONSTRUÍDO de uma sessão já encerrada (sobrevive ao reload).
-  // null = sessão não encerrada -> usa o cálculo ao vivo (currentBlockIndex/remainingSeconds).
-  const [workedMinutes, setWorkedMinutes] = useState<number | null>(null);
   
   // Approach & sales tracking per block
   const [blockApproaches, setBlockApproaches] = useState(0);
@@ -99,9 +55,6 @@ export function useDefconChallenge(userId: string | undefined) {
   const [totalApproaches, setTotalApproaches] = useState(0);
   const [totalSalesCount, setTotalSalesCount] = useState(0);
   const [blockReportData, setBlockReportData] = useState<BlockReportData | null>(null);
-
-  // Per-sale rows for the current session (additive — aggregates remain source of truth).
-  const [sessionSales, setSessionSales] = useState<any[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -118,9 +71,6 @@ export function useDefconChallenge(userId: string | undefined) {
   blockApproachesRef.current = blockApproaches;
   const blockSalesCountRef = useRef(0);
   blockSalesCountRef.current = blockSalesCount;
-  const planIdRef = useRef<string | null>(null);
-  const dailyGoalRef = useRef(0);
-  dailyGoalRef.current = dailyGoal;
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -155,39 +105,31 @@ export function useDefconChallenge(userId: string | undefined) {
     setPhase("finished");
   }, [clearTimer]);
 
-  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number, sales?: number) => {
-    if (!userId) return;
-    // Upsert ATÔMICO — depende da constraint única (session_id, block_index).
-    // O método antigo usava .maybeSingle(), que retorna erro/null quando há 2+ linhas:
-    // bastava uma corrida inicial criar 2 linhas pro mesmo bloco e, a partir daí,
-    // cada novo save reinseria uma linha (cascata) — foi o que inflou as abordagens (286).
-    const payload: any = {
-      session_id: sid,
-      user_id: userId,
-      block_index: blockIdx,
-      approaches_count: approaches,
-    };
-    if (sales !== undefined) payload.sales_count = sales;
-    await supabase
+  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number) => {
+    // Upsert to challenge_blocks
+    const { data: existing } = await supabase
       .from("challenge_blocks")
-      .upsert(payload, { onConflict: "session_id,block_index" });
-  };
+      .select("id")
+      .eq("session_id", sid)
+      .eq("block_index", blockIdx)
+      .maybeSingle();
 
-  // Carrega as vendas-linha (defcon_sales) da sessão atual em ordem cronológica.
-  // Aditivo: alimenta a UI de detalhe por venda; os agregados continuam sendo a verdade.
-  const loadSessionSales = useCallback(async (sid?: string | null) => {
-    const id = sid ?? sessionIdRef.current;
-    if (!id) {
-      setSessionSales([]);
-      return;
+    if (existing) {
+      await supabase
+        .from("challenge_blocks")
+        .update({ approaches_count: approaches })
+        .eq("id", existing.id);
+    } else if (userId) {
+      await supabase
+        .from("challenge_blocks")
+        .insert({
+          session_id: sid,
+          user_id: userId,
+          block_index: blockIdx,
+          approaches_count: approaches,
+        });
     }
-    const { data } = await supabase
-      .from("defcon_sales")
-      .select("*")
-      .eq("session_id", id)
-      .order("created_at", { ascending: true });
-    setSessionSales(data || []);
-  }, []);
+  };
 
   const advanceToNextBlock = useCallback(async () => {
     const nextIdx = currentBlockIndexRef.current + 1;
@@ -290,49 +232,15 @@ export function useDefconChallenge(userId: string | undefined) {
   const loadData = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
-    setWorkedMinutes(null); // recalculado abaixo só p/ sessões já encerradas
 
     const today = getBrazilDate();
 
-    let { data: planData } = await supabase
+    const { data: planData } = await supabase
       .from("daily_goal_plans")
-      .select("id, daily_goal, date")
+      .select("id, daily_goal")
       .eq("user_id", userId)
       .eq("date", today)
       .maybeSingle();
-
-    // Segurança de meia-noite: se NÃO há plano para "hoje", mas existe uma
-    // challenge_session ainda ATIVA de uma data anterior (vendedor virou a
-    // meia-noite com o Defcon rodando), mantemos essa sessão carregada usando
-    // o plano/blocos da data DELA — em vez de resetar para "sem plano".
-    let effectiveDate = today;
-    let carriedSession: any = null;
-    if (!planData) {
-      const { data: activeSession } = await supabase
-        .from("challenge_sessions")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .is("ended_at", null)
-        .order("date", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (activeSession) {
-        const { data: prevPlan } = await supabase
-          .from("daily_goal_plans")
-          .select("id, daily_goal, date")
-          .eq("user_id", userId)
-          .eq("date", activeSession.date)
-          .maybeSingle();
-
-        if (prevPlan) {
-          planData = prevPlan;
-          effectiveDate = activeSession.date;
-          carriedSession = activeSession;
-        }
-      }
-    }
 
     if (!planData) {
       setHasPlan(false);
@@ -342,7 +250,6 @@ export function useDefconChallenge(userId: string | undefined) {
 
     setHasPlan(true);
     setDailyGoal(planData.daily_goal);
-    planIdRef.current = planData.id;
 
     const { data: blocksData } = await supabase
       .from("hourly_goal_blocks")
@@ -368,62 +275,45 @@ export function useDefconChallenge(userId: string | undefined) {
     const total = recalcTotal(loadedBlocks);
     setTotalSold(total);
 
-    // Check for active DEFCON session (reaproveita a sessão carregada na
-    // segurança de meia-noite, se houver; senão busca a sessão da data efetiva)
-    let session = carriedSession;
-    if (!session) {
-      const { data: todaySession } = await supabase
-        .from("challenge_sessions")
-        .select("*")
-        .eq("user_id", userId)
-        .eq("date", effectiveDate)
-        .maybeSingle();
-      session = todaySession;
-    }
+    // Check for active DEFCON session
+    const { data: session } = await supabase
+      .from("challenge_sessions")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("date", today)
+      .maybeSingle();
 
     if (session) {
       setSessionId(session.id);
 
-      // Carrega as vendas-linha da sessão (aditivo — não afeta agregados).
-      await loadSessionSales(session.id);
-
       // Load total approaches and current block approaches from challenge_blocks
       const { data: challengeBlocks } = await supabase
         .from("challenge_blocks")
-        .select("approaches_count, block_index, sales_count")
+        .select("approaches_count, block_index, sold_amount")
         .eq("session_id", session.id);
 
       if (challengeBlocks) {
         const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
-
-        // Restaura o número real de vendas SOMANDO sales_count de cada bloco.
-        // (Antes lia sold_amount, coluna que nunca é gravada -> sempre 0, zerando as vendas.)
-        const totalSls = challengeBlocks.reduce((sum, b) => sum + Number((b as any).sales_count || 0), 0);
+        
+        // Count total sales from blocks that have sold_amount > 0
+        const totalSls = challengeBlocks.reduce((sum, b) => sum + ((b.sold_amount || 0) > 0 ? 1 : 0), 0);
         setTotalSalesCount(totalSls);
 
-        // Restaura abordagens + vendas do bloco atual
+        // Restore current block's approaches
         const currentChallengeBlock = challengeBlocks.find(b => b.block_index === session.current_block_index);
         if (currentChallengeBlock) {
           setBlockApproaches(currentChallengeBlock.approaches_count || 0);
-          setBlockSalesCount(Number((currentChallengeBlock as any).sales_count || 0));
         }
       }
 
-      if (session.status === "completed" || session.status === "abandoned") {
-        // TEMPO REAL trabalhado = fim − início da sessão.
-        // (Antes era current_block_index × 60 + parcial, o que INFLAVA MUITO: um vendedor
-        // com 9 blocos planejados aparecia com "8h" mesmo tendo trabalhado ~2h30. Agora
-        // usa o tempo de verdade entre iniciar e encerrar o DEFCON.)
-        let mins = 0;
-        if (session.started_at && session.ended_at) {
-          mins = Math.round(
-            (new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 60000,
-          );
-        }
-        setCurrentBlockIndex(session.current_block_index || 0);
-        setWorkedMinutes(Math.max(0, mins));
-        setPhase(session.status === "completed" ? "finished" : "abandoned");
+      if (session.status === "completed") {
+        setPhase("finished");
+        setLoading(false);
+        return;
+      }
+      if (session.status === "abandoned") {
+        setPhase("abandoned");
         setLoading(false);
         return;
       }
@@ -446,17 +336,34 @@ export function useDefconChallenge(userId: string | undefined) {
           setBreakStartedAt(new Date(startedAt.getTime() + BLOCK_DURATION * 1000));
           setBreakRemaining(BREAK_DURATION - (elapsed - BLOCK_DURATION));
         } else {
-          // RESTORE NÃO-DESTRUTIVO: o tempo real passou da janela do bloco
-          // enquanto o app estava em segundo plano (PWA morto + reload).
-          // NÃO auto-completamos o bloco, NÃO avançamos o current_block_index
-          // e NÃO finalizamos a sessão — isso apagava o bloco atual + contadores
-          // + conversão do usuário no reload. Em vez disso, mantemos o MESMO
-          // bloco com seus contadores persistidos e representamos o timer como
-          // "encerrado" (remainingSeconds = 0), deixando a UI mostrar "tempo
-          // esgotado". O usuário avança o bloco pelo controle normal do app.
-          setPhase("running");
-          setBlockStartedAt(startedAt);
-          setRemainingSeconds(0);
+          await supabase
+            .from("hourly_goal_blocks")
+            .update({ is_completed: true, timer_status: "finalizado" })
+            .eq("id", currentBlockData.id);
+
+          const nextIdx = blockIdx + 1;
+          if (nextIdx >= loadedBlocks.length) {
+            await supabase
+              .from("challenge_sessions")
+              .update({ status: "completed", ended_at: new Date().toISOString(), total_sold: total })
+              .eq("id", session.id);
+            setPhase("finished");
+          } else {
+            const now = new Date();
+            await supabase
+              .from("hourly_goal_blocks")
+              .update({ timer_status: "running", timer_started_at: now.toISOString() })
+              .eq("id", loadedBlocks[nextIdx]!.id);
+            await supabase
+              .from("challenge_sessions")
+              .update({ current_block_index: nextIdx })
+              .eq("id", session.id);
+
+            setCurrentBlockIndex(nextIdx);
+            setBlockStartedAt(now);
+            setRemainingSeconds(BLOCK_DURATION);
+            setPhase("running");
+          }
         }
       } else {
         const now = new Date();
@@ -476,23 +383,18 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     setLoading(false);
-  }, [userId, loadSessionSales]);
+  }, [userId]);
 
   const startLunchPause = async (durationMinutes: number) => {
     if (!userId || phase !== "running" || lunchPauseUsed) return;
-
-    // Trava a duração: um dedo errado (ex.: 180 em vez de 18) prendia o vendedor
-    // 3 horas na tela de almoço. Máximo 120 min.
-    const mins = Math.max(1, Math.min(120, Math.floor(durationMinutes) || 0));
-    if (mins <= 0) return;
 
     const now = new Date();
     const currentRemaining = remainingSeconds;
 
     setPausedBlockRemaining(currentRemaining);
-    setLunchPauseDuration(mins * 60);
+    setLunchPauseDuration(durationMinutes * 60);
     setLunchPauseStartedAt(now);
-    setLunchPauseRemaining(mins * 60);
+    setLunchPauseRemaining(durationMinutes * 60);
     setLunchPauseUsed(true);
 
     const currentBlockData = blocks[currentBlockIndex];
@@ -576,12 +478,6 @@ export function useDefconChallenge(userId: string | undefined) {
           resumeFromLunch();
         }
       }, 1000);
-    } else if (phase === "lunch_pause") {
-      // Estado inconsistente: está em "almoço" mas sem início/duração (ex.: o app
-      // recarregou no meio da pausa). Antes ficava travado pra sempre nessa tela,
-      // sem contador. Agora volta pro desafio na hora.
-      clearTimer();
-      resumeFromLunch();
     }
 
     return clearTimer;
@@ -676,7 +572,6 @@ export function useDefconChallenge(userId: string | undefined) {
     setCurrentBlockIndex(0);
     setBlockStartedAt(startTime);
     setRemainingSeconds(BLOCK_DURATION);
-    setWorkedMinutes(null);
     setPhase("running");
 
     celebrationSounds.playDefconActivation();
@@ -693,11 +588,24 @@ export function useDefconChallenge(userId: string | undefined) {
     const newCartao = currentBlock.valor_cartao + (method === "cartao" ? amount : 0);
     const newAchieved = newDinheiro + newCartao + newPix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
-    const newBlockSales = blockSalesCount + 1;
-    const newApproaches = blockApproaches + 1; // quem comprou foi abordado
 
-    // OTIMISTA: atualiza a TELA na hora (sem esperar a rede). É isso que deixa o
-    // toque instantâneo — a gravação no banco acontece logo em seguida, em background.
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({
+        achieved_amount: newAchieved,
+        valor_dinheiro: newDinheiro,
+        valor_pix: newPix,
+        valor_cartao: newCartao,
+      })
+      .eq("id", currentBlock.id);
+
+    if (sessionId) {
+      await supabase
+        .from("challenge_sessions")
+        .update({ total_sold: newTotal })
+        .eq("id", sessionId);
+    }
+
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
@@ -706,201 +614,20 @@ export function useDefconChallenge(userId: string | undefined) {
       )
     );
     setTotalSold(newTotal);
-    setBlockSalesCount(newBlockSales);
+    setBlockSalesCount(prev => prev + 1);
     setTotalSalesCount(prev => prev + 1);
+
+    // Auto-increment approach: whoever bought was approached
+    const newApproaches = blockApproaches + 1;
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persiste no banco. IMPORTANTE: o supabase-js NAO lanca excecao quando esta
-    // offline — ele RETORNA { error }. Por isso a gente (1) checa navigator.onLine pra
-    // enfileirar direto sem nem tentar a rede e (2) checa o error retornado como
-    // fallback. Enfileira o estado ABSOLUTO do bloco (idempotente no upsert por id).
-    const blockState = {
-      ...currentBlock,
-      achieved_amount: newAchieved,
-      valor_dinheiro: newDinheiro,
-      valor_pix: newPix,
-      valor_cartao: newCartao,
-    };
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      return;
-    }
-    try {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_dinheiro: newDinheiro,
-          valor_pix: newPix,
-          valor_cartao: newCartao,
-        })
-        .eq("id", currentBlock.id);
-      if (blkErr) throw blkErr;
-
-      if (sessionId) {
-        await supabase
-          .from("challenge_sessions")
-          .update({ total_sold: newTotal })
-          .eq("id", sessionId);
-        await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
-        // Registra a venda como LINHA em defcon_sales (pra listar/editar/excluir).
-        await supabase.from("defcon_sales").insert({
-          user_id: userId,
-          session_id: sessionId,
-          block_index: currentBlockIndex,
-          amount,
-          method,
-          late: false,
-        });
-      }
-
-      await syncBlocksToDailySales(userId);
-      if (sessionId) await loadSessionSales(sessionId);
-    } catch (e) {
-      // Rede caiu no meio (ou { error } retornado): enfileira pra subir ao reconectar.
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-    }
-  };
-
-  // Exclui UMA venda-linha (defcon_sales) e REVERTE seu efeito nos agregados do
-  // bloco dela — espelhando addSale ao contrário. Dinheiro sempre é estornado;
-  // sales_count só decrementa se NÃO for pix-depois (que nunca somou conversão).
-  const deleteSale = async (sale: any) => {
-    if (!userId || !sale?.id) return;
-
-    const amount = Number(sale.amount) || 0;
-    const isTip = sale.method === "gorjeta";
-    const method: "dinheiro" | "pix" | "cartao" =
-      sale.method === "pix" || sale.method === "cartao" ? sale.method : "dinheiro";
-    const blockIdx = Number(sale.block_index) || 0;
-    const isLate = !!sale.late;
-
-    // 1) Apaga a linha.
-    await supabase.from("defcon_sales").delete().eq("id", sale.id);
-
-    // 2) Reverte os agregados no BLOCO da venda (não necessariamente o atual).
-    const targetBlock = blocks[blockIdx];
-    if (targetBlock) {
-      // Gorjeta entra como dinheiro E em valor_gorjeta, então ao cancelar estorna os dois.
-      const newDinheiro = Math.max(0, targetBlock.valor_dinheiro - (method === "dinheiro" ? amount : 0));
-      const newPix = Math.max(0, targetBlock.valor_pix - (method === "pix" ? amount : 0));
-      const newCartao = Math.max(0, targetBlock.valor_cartao - (method === "cartao" ? amount : 0));
-      const newGorjeta = Math.max(0, (targetBlock.valor_gorjeta || 0) - (isTip ? amount : 0));
-      const newAchieved = Math.max(0, newDinheiro + newCartao + newPix + targetBlock.valor_calote);
-
-      await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_dinheiro: newDinheiro,
-          valor_pix: newPix,
-          valor_cartao: newCartao,
-          valor_gorjeta: newGorjeta,
-        })
-        .eq("id", targetBlock.id);
-
-      setBlocks(prev =>
-        prev.map((b, i) =>
-          i === blockIdx
-            ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao, valor_gorjeta: newGorjeta }
-            : b
-        )
-      );
-    }
-
-    // 3) Estorna total_sold da sessão (piso 0).
-    const newTotal = Math.max(0, totalSold - amount);
+    // Persist approaches to DB
     if (sessionId) {
-      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-    }
-    setTotalSold(newTotal);
-
-    // 4) venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
-    //    então ao excluir a venda a gente tira a venda E a abordagem.
-    //    (pix-depois nunca somou venda nem abordagem, então não mexe.)
-    if (!isLate && !isTip && sessionId) {
-      const { data: cb } = await supabase
-        .from("challenge_blocks")
-        .select("approaches_count, sales_count")
-        .eq("session_id", sessionId)
-        .eq("block_index", blockIdx)
-        .maybeSingle();
-      const curApproaches = Number((cb as any)?.approaches_count || 0);
-      const curSales = Number((cb as any)?.sales_count || 0);
-      const newSales = Math.max(0, curSales - 1);
-      const newApproaches = Math.max(0, curApproaches - 1);
-      await saveBlockApproaches(sessionId, blockIdx, newApproaches, newSales);
-
-      // Atualiza contadores locais (do bloco atual e total).
-      setTotalSalesCount(prev => Math.max(0, prev - 1));
-      setTotalApproaches(prev => Math.max(0, prev - 1));
-      if (blockIdx === currentBlockIndex) {
-        setBlockSalesCount(prev => Math.max(0, prev - 1));
-        setBlockApproaches(prev => Math.max(0, prev - 1));
-      }
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
     }
 
-    // 5) Mesma cauda do addSale: ressincroniza daily_sales e recarrega a lista.
     await syncBlocksToDailySales(userId);
-    await loadSessionSales(sessionId);
-  };
-
-  // "Pix que caiu depois": pagamento atrasado de uma venda já registrada.
-  // Soma SÓ dinheiro (valor_pix + achieved_amount + total_sold) — NÃO mexe em
-  // sales_count nem abordagens, porque não é uma nova conversão.
-  const addLatePix = async (amount: number) => {
-    if (!userId || amount <= 0) return;
-
-    const blockIdx = currentBlockIndex;
-    const currentBlock = blocks[blockIdx];
-    if (!currentBlock) return;
-
-    const newPix = currentBlock.valor_pix + amount;
-    const newAchieved = currentBlock.valor_dinheiro + currentBlock.valor_cartao + newPix + currentBlock.valor_calote;
-    const newTotal = totalSold + amount;
-
-    // OTIMISTA: tela na hora; banco em seguida.
-    setBlocks(prev =>
-      prev.map((b, i) =>
-        i === blockIdx ? { ...b, achieved_amount: newAchieved, valor_pix: newPix } : b
-      )
-    );
-    setTotalSold(newTotal);
-
-    const blockState = { ...currentBlock, achieved_amount: newAchieved, valor_pix: newPix };
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      return;
-    }
-    try {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_pix: newPix,
-        })
-        .eq("id", currentBlock.id);
-      if (blkErr) throw blkErr;
-
-      if (sessionId) {
-        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-        await supabase.from("defcon_sales").insert({
-          user_id: userId,
-          session_id: sessionId,
-          block_index: blockIdx,
-          amount,
-          method: "pix",
-          late: true,
-        });
-      }
-
-      await syncBlocksToDailySales(userId);
-      if (sessionId) await loadSessionSales(sessionId);
-    } catch (e) {
-      // Offline / rede caiu: enfileira o estado do bloco pra sincronizar depois.
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-    }
   };
 
   const addTip = async (amount: number) => {
@@ -913,7 +640,19 @@ export function useDefconChallenge(userId: string | undefined) {
     const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
     const newTotal = totalSold + amount;
 
-    // OTIMISTA: tela na hora; banco em seguida.
+    await supabase
+      .from("hourly_goal_blocks")
+      .update({
+        achieved_amount: newAchieved,
+        valor_dinheiro: newDinheiro,
+        valor_gorjeta: newGorjeta,
+      } as any)
+      .eq("id", currentBlock.id);
+
+    if (sessionId) {
+      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+    }
+
     setBlocks(prev =>
       prev.map((b, i) =>
         i === currentBlockIndex
@@ -923,55 +662,18 @@ export function useDefconChallenge(userId: string | undefined) {
     );
     setTotalSold(newTotal);
 
-    const blockState = { ...currentBlock, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_gorjeta: newGorjeta };
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-      return;
-    }
-    try {
-      const { error: blkErr } = await supabase
-        .from("hourly_goal_blocks")
-        .update({
-          achieved_amount: newAchieved,
-          valor_dinheiro: newDinheiro,
-          valor_gorjeta: newGorjeta,
-        })
-        .eq("id", currentBlock.id);
-      if (blkErr) throw blkErr;
-
-      if (sessionId) {
-        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-        // Registra a gorjeta como LINHA em defcon_sales (method='gorjeta') pra aparecer
-        // no histórico de vendas e poder ser cancelada. NÃO conta venda/abordagem.
-        await supabase.from("defcon_sales").insert({
-          user_id: userId,
-          session_id: sessionId,
-          block_index: currentBlockIndex,
-          amount,
-          method: "gorjeta",
-          late: false,
-        });
-      }
-
-      await syncBlocksToDailySales(userId);
-      if (sessionId) await loadSessionSales(sessionId);
-    } catch (e) {
-      // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
-      await queueBlockOffline(blockState, userId, planIdRef.current);
-    }
+    await syncBlocksToDailySales(userId);
   };
 
-  const addApproach = async () => {
+  const addApproach = () => {
     if (phase !== "running") return;
     const newApproaches = blockApproaches + 1;
     setBlockApproaches(newApproaches);
     setTotalApproaches(prev => prev + 1);
 
-    // Persist to DB immediately (passa também as vendas do bloco pra manter o upsert consistente).
-    // AWAIT obrigatório: garante que a abordagem fique gravada antes de retornar,
-    // pra não perder a última contagem se o app for morto logo após o toque.
+    // Persist to DB immediately
     if (sessionId) {
-      await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, blockSalesCount);
+      saveBlockApproaches(sessionId, currentBlockIndex, newApproaches);
     }
   };
 
@@ -1055,122 +757,6 @@ export function useDefconChallenge(userId: string | undefined) {
     await syncBlocksToDailySales(userId);
   };
 
-  // Estende o Defcon por +1 bloco de 1h, mantendo todos os dados.
-  const extendChallenge = async () => {
-    const sid = sessionIdRef.current;
-    const pid = planIdRef.current;
-    if (!sid || !pid || !userId) return;
-
-    const blks = blocksRef.current;
-    const lastBlock = blks[blks.length - 1];
-    const newHourIndex = (lastBlock?.hour_index ?? blks.length - 1) + 1;
-    const targetAmount = lastBlock?.target_amount ?? (dailyGoalRef.current / Math.max(blks.length, 1));
-    const startTime = new Date();
-
-    const { data: newBlock } = await supabase
-      .from("hourly_goal_blocks")
-      .insert({
-        plan_id: pid,
-        user_id: userId,
-        hour_index: newHourIndex,
-        hour_label: "⏱ +1h",
-        target_amount: targetAmount,
-        achieved_amount: 0,
-        is_completed: false,
-        timer_status: "running",
-        timer_started_at: startTime.toISOString(),
-        valor_dinheiro: 0,
-        valor_cartao: 0,
-        valor_pix: 0,
-        valor_calote: 0,
-        valor_gorjeta: 0,
-      })
-      .select("id")
-      .single();
-
-    if (!newBlock) return;
-
-    const newBlockData: DefconBlock = {
-      id: newBlock.id,
-      hour_index: newHourIndex,
-      hour_label: "⏱ +1h",
-      target_amount: targetAmount,
-      achieved_amount: 0,
-      is_completed: false,
-      valor_dinheiro: 0,
-      valor_cartao: 0,
-      valor_pix: 0,
-      valor_calote: 0,
-      valor_gorjeta: 0,
-    };
-
-    const newBlocks = [...blks, newBlockData];
-    const newIdx = newBlocks.length - 1;
-
-    await supabase
-      .from("challenge_sessions")
-      .update({ status: "active", ended_at: null, total_blocks: newBlocks.length, current_block_index: newIdx })
-      .eq("id", sid);
-
-    setBlocks(newBlocks);
-    setCurrentBlockIndex(newIdx);
-    setBlockStartedAt(startTime);
-    setRemainingSeconds(BLOCK_DURATION);
-    setBlockApproaches(0);
-    setBlockSalesCount(0);
-    setWorkedMinutes(null);
-    setPhase("running");
-  };
-
-  // Apaga todos os dados do dia e volta para idle (começo do zero).
-  const restartChallenge = async () => {
-    if (!userId || !planIdRef.current) return;
-    clearTimer();
-
-    const today = getBrazilDate();
-    const sid = sessionIdRef.current;
-    const pid = planIdRef.current;
-
-    // Apaga challenge_blocks e challenge_session do dia
-    if (sid) {
-      await supabase.from("challenge_blocks").delete().eq("session_id", sid);
-      await supabase.from("challenge_sessions").delete().eq("id", sid);
-    }
-
-    // Remove blocos de extensão (⏱ +1h) criados durante o dia
-    await supabase
-      .from("hourly_goal_blocks")
-      .delete()
-      .eq("plan_id", pid)
-      .like("hour_label", "⏱%");
-
-    // Zera os valores dos blocos originais
-    await supabase
-      .from("hourly_goal_blocks")
-      .update({
-        achieved_amount: 0,
-        is_completed: false,
-        timer_status: "idle",
-        timer_started_at: null,
-        valor_dinheiro: 0,
-        valor_cartao: 0,
-        valor_pix: 0,
-        valor_calote: 0,
-        valor_gorjeta: 0,
-      })
-      .eq("plan_id", pid);
-
-    // Zera daily_sales do dia
-    await supabase
-      .from("daily_sales")
-      .update({ cash_sales: 0, card_sales: 0, pix_sales: 0, tip_sales: 0, total_profit: 0, total_debt: 0 })
-      .eq("user_id", userId)
-      .eq("date", today);
-
-    // Recarrega tudo do zero
-    await loadData();
-  };
-
   const blockEndTime = blockStartedAt
     ? new Date(blockStartedAt.getTime() + BLOCK_DURATION * 1000)
     : null;
@@ -1185,7 +771,6 @@ export function useDefconChallenge(userId: string | undefined) {
     dailyGoal,
     totalSold,
     remainingSeconds,
-    workedMinutes,
     breakRemaining,
     blockStartedAt,
     blockEndTime,
@@ -1198,23 +783,16 @@ export function useDefconChallenge(userId: string | undefined) {
     totalApproaches,
     totalSalesCount,
     blockReportData,
-    sessionSales,
     startChallenge,
     addSale,
-    deleteSale,
-    addLatePix,
     addTip,
     addApproach,
     addOccurrence,
     endChallenge,
-    extendChallenge,
-    restartChallenge,
     savePaymentBreakdown,
     startLunchPause,
     skipLunchPause,
     skipBreak,
     dismissBlockReport,
-    quickSaleValue: blocks[currentBlockIndex]?.target_amount ?? 0,
   };
 }
-

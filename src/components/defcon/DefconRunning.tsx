@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
-import { emitMissionEvent } from "@/shared/lib/missionEvents";
-import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
-import { DefconX1Live } from "./DefconX1Live";
-import { DefconBlockReport } from "./DefconBlockReport";
-import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
@@ -36,12 +31,6 @@ interface DefconRunningProps {
   onEnd: () => void;
   onLunchPause: (minutes: number) => void;
   onAddTip?: (amount: number) => void;
-  sessionSales?: any[];
-  onDeleteSale?: (sale: any) => void;
-  onboardingMode?: boolean;
-  quickSaleValue?: number;
-  /** X1 do dia (se houver): faixa de placar ao vivo + banner de virada na tela */
-  x1Live?: X1LiveState;
 }
 
 export function DefconRunning({
@@ -65,11 +54,6 @@ export function DefconRunning({
   onEnd,
   onLunchPause,
   onAddTip,
-  sessionSales = [],
-  onDeleteSale,
-  onboardingMode,
-  quickSaleValue,
-  x1Live,
 }: DefconRunningProps) {
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
@@ -85,36 +69,8 @@ export function DefconRunning({
   const [saleName, setSaleName] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
-  const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
-  const [saleMessage, setSaleMessage] = useState("");
-  const [showChargePreview, setShowChargePreview] = useState(false);
-  const [showBlockSales, setShowBlockSales] = useState(false);
-  // Bloco que está sendo VISTO no modal (dá pra voltar nos blocos anteriores).
-  const [viewBlockIndex, setViewBlockIndex] = useState(0);
-  // Relatório/imagem de um bloco já feito (pra pegar o print depois).
-  const [reportBlock, setReportBlock] = useState<
-    { blockIndex: number; approaches: number; sales: number; soldAmount: number } | null
-  >(null);
-  const [loadingReport, setLoadingReport] = useState(false);
 
   const { loadout, incrementSold } = useDefconLoadout(userId);
-  const { theme, setTheme } = useTheme();
-
-  // Chave Pix padrao do usuario (das configuracoes) -> entra na cobranca do WhatsApp
-  useEffect(() => {
-    if (!userId) return;
-    supabase
-      .from("pix_accounts")
-      .select("pix_key, merchant_name, is_default")
-      .eq("user_id", userId)
-      .then(({ data }) => {
-        if (data && data.length) {
-          const def = (data as any[]).find((a) => a.is_default) || data[0];
-          if (def?.pix_key) setPixCharge({ key: def.pix_key, name: def.merchant_name || "" });
-        }
-      });
-  }, [userId]);
-  const isLight = theme === "light";
 
   // Auto-seleciona se houver só 1 produto no loadout
   useEffect(() => {
@@ -124,17 +80,16 @@ export function DefconRunning({
 
   // Escape closes any open inline modal
   useEffect(() => {
-    if (!showAddSale && !showLunchPicker && !showAddTip && !showBlockSales) return;
+    if (!showAddSale && !showLunchPicker && !showAddTip) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (showAddSale) { setShowAddSale(false); resetSaleForm(); }
       else if (showLunchPicker) { setShowLunchPicker(false); setCustomLunchMinutes(""); }
       else if (showAddTip) { setShowAddTip(false); setTipValue(""); }
-      else if (showBlockSales) { setShowBlockSales(false); }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [showAddSale, showLunchPicker, showAddTip, showBlockSales]);
+  }, [showAddSale, showLunchPicker, showAddTip]);
 
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
@@ -154,7 +109,6 @@ export function DefconRunning({
   const sanitizePhone = (raw: string) => raw.replace(/\D/g, "");
 
   const persistClient = async (amount: number, method: "dinheiro" | "pix" | "cartao") => {
-    if (onboardingMode) return;
     const name = saleName.trim();
     const phone = sanitizePhone(salePhone);
     if (!name && !phone) return;
@@ -177,21 +131,17 @@ export function DefconRunning({
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
     // Debita do loadout/estoque se houver produto selecionado
-    if (!onboardingMode && selectedProductId) {
+    if (selectedProductId) {
       incrementSold(selectedProductId, 1).catch((e) =>
         console.warn("[defcon] failed to debit loadout", e)
       );
     }
-    // Onboarding: qualquer venda no DEFCON (rápida ou manual) avança a missão.
-    emitMissionEvent("sale-registered");
   };
 
   const resetSaleForm = () => {
     setSaleValue("");
     setSalePhone("");
     setSaleName("");
-    setSaleMessage("");
-    setShowChargePreview(false);
     setShowClientFields(false);
     // Mantém o produto selecionado se houver só 1; reseta se múltiplos
     if (loadout.length > 1) setSelectedProductId(null);
@@ -207,74 +157,27 @@ export function DefconRunning({
     }
   };
 
-  // Mensagem padrao de cobranca: salva no aparelho e reusa. O valor fica como token
-  // {valor} pra ser trocado pelo valor real de cada venda (nao "congela" um valor antigo).
-  const chargeTplKey = `orbis_charge_body_v3_${userId}`;
-  const VALOR_TOKEN = "{valor}";
-
-  // Primeiro nome do cliente, ou "" se nao informado.
-  const firstName = (name: string) => (name || "").trim().split(/\s+/)[0] || "";
-
-  // Saudacao SEMPRE gerada na hora com o nome do cliente — nunca e salva no
-  // padrao, por isso o nome nunca "congela" e sempre aparece quando preenchido.
-  const greetingLine = (name: string) => {
-    const fn = firstName(name);
-    return fn ? `Olá ${fn}! 🙏` : `Olá! 🙏`;
+  const openWhatsAppCharge = (rawPhone: string, amount: number, name: string) => {
+    const digits = sanitizePhone(rawPhone);
+    if (!digits || amount <= 0) return;
+    const phone = digits.length <= 11 ? `55${digits}` : digits;
+    const greeting = name ? `Olá, ${name}!` : "Olá!";
+    const msg = encodeURIComponent(
+      `${greeting} Passando para confirmar sua compra no valor de ${formatCurrency(amount)}. Pode me enviar o comprovante por aqui? Obrigado! 🙏`
+    );
+    window.open(`https://wa.me/${phone}?text=${msg}`, "_blank");
   };
 
-  // Corpo editavel/salvo (sem a saudacao). {valor} -> valor real da venda.
-  const defaultChargeBody = () => {
-    const pixLine = pixCharge?.key
-      ? `Chave Pix: ${pixCharge.key}${pixCharge.name ? ` (${pixCharge.name})` : ""}`
-      : `Chave Pix: (toque e digite sua chave Pix)`;
-    return `Confirmando sua compra de ${VALOR_TOKEN}.\n\nPra finalizar, é só pagar no meu Pix 👇\n${pixLine}\n\nDepois me envia o comprovante por aqui, por favor!`;
-  };
-
-  const loadChargeBody = () => {
-    try {
-      const saved = localStorage.getItem(chargeTplKey);
-      if (saved && saved.trim()) return saved;
-    } catch (_e) { /* ignore */ }
-    return defaultChargeBody();
-  };
-
-  // Mensagem pronta = saudacao (com o nome) + corpo (com o valor da venda).
-  const buildChargeMessage = (amount: number, name: string) =>
-    `${greetingLine(name)}\n\n${loadChargeBody().split(VALOR_TOKEN).join(formatCurrency(amount))}`;
-
-  // Salva SO o corpo (tudo depois da 1a linha em branco), re-tokenizando o valor.
-  // A saudacao com o nome nunca e salva — fica sempre dinamica.
-  const saveChargeTemplate = (msg: string, amount: number, _name: string) => {
-    try {
-      const idx = msg.indexOf("\n\n");
-      const body = idx >= 0 ? msg.slice(idx + 2) : msg;
-      localStorage.setItem(chargeTplKey, body.split(formatCurrency(amount)).join(VALOR_TOKEN));
-    } catch (_e) { /* ignore */ }
-  };
-
-  const openChargePreview = () => {
+  const handleSaleAndCharge = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
-    if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
-    setSaleMessage(buildChargeMessage(amount, saleName));
-    setShowChargePreview(true);
-  };
-
-  const confirmCharge = () => {
-    const amount = parseFloat(saleValue) || 0;
-    const digits = sanitizePhone(salePhone);
-    if (amount <= 0 || digits.length < 10) return;
-    const phone = digits.startsWith("55") ? digits : `55${digits}`;
-    const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount, saleName);
-    saveChargeTemplate(text, amount, saleName);
-    // Cobrança por WhatsApp é sempre PIX (a mensagem manda a chave Pix) — antes
-    // registrava como "dinheiro" e o valor caía errado no split do fim do dia.
-    registerSale(amount, "pix");
-    persistClient(amount, "pix");
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
-    setShowChargePreview(false);
+    if (amount <= 0) return;
+    registerSale(amount, method);
+    persistClient(amount, method);
+    openWhatsAppCharge(salePhone, amount, saleName.trim());
     resetSaleForm();
     setShowAddSale(false);
   };
+
 
   const blockSold = currentBlock
     ? (currentBlock.valor_dinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote)
@@ -290,7 +193,6 @@ export function DefconRunning({
 
   const handleApproachClick = () => {
     onAddApproach();
-    emitMissionEvent("approach-added");
     setApproachPulse(true);
     setTimeout(() => setApproachPulse(false), 280);
     pushFloater("+1", "approach");
@@ -306,64 +208,6 @@ export function DefconRunning({
       setTipValue("");
       setShowAddTip(false);
     }
-  };
-
-  // Vendas-linha do bloco que está sendo VISTO (permite navegar nos blocos anteriores).
-  const blockSales = (sessionSales || []).filter(
-    (s) => Number(s?.block_index) === viewBlockIndex
-  );
-  const vendoBlocoAtual = viewBlockIndex === currentBlockIndex;
-
-  // Abre o relatório (com a imagem de compartilhamento) do bloco escolhido.
-  // No bloco atual usa os contadores ao vivo; nos anteriores busca em challenge_blocks.
-  const abrirImagemBloco = async (idx: number) => {
-    setLoadingReport(true);
-    try {
-      const somaBloco = (sessionSales || [])
-        .filter((s) => Number(s?.block_index) === idx)
-        .reduce((t, s) => t + (Number(s?.amount) || 0), 0);
-
-      if (idx === currentBlockIndex) {
-        setReportBlock({ blockIndex: idx, approaches: blockApproaches, sales: blockSalesCount, soldAmount: somaBloco });
-        return;
-      }
-
-      const sid = (sessionSales || []).find((s) => s?.session_id)?.session_id;
-      let approaches = 0;
-      let salesCount = 0;
-      if (sid) {
-        const { data } = await supabase
-          .from("challenge_blocks")
-          .select("approaches_count, sales_count")
-          .eq("session_id", sid)
-          .eq("block_index", idx)
-          .maybeSingle();
-        approaches = Number((data as { approaches_count?: number } | null)?.approaches_count || 0);
-        salesCount = Number((data as { sales_count?: number } | null)?.sales_count || 0);
-      }
-      setReportBlock({ blockIndex: idx, approaches, sales: salesCount, soldAmount: somaBloco });
-    } finally {
-      setLoadingReport(false);
-    }
-  };
-
-  // Horário curto (HH:mm) a partir do created_at da venda.
-  const saleTime = (iso: string | null | undefined) => {
-    if (!iso) return "--:--";
-    const d = new Date(iso);
-    if (isNaN(d.getTime())) return "--:--";
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  };
-
-  const methodLabel = (m: string) =>
-    m === "pix" ? "Pix" : m === "cartao" ? "Cartão" : m === "gorjeta" ? "Gorjeta" : "Dinheiro";
-
-  const handleDeleteSale = (sale: any) => {
-    if (!onDeleteSale) return;
-    const ok = window.confirm(
-      `Excluir esta venda de ${formatCurrency(Number(sale?.amount) || 0)}? Isso ajusta o faturado do bloco.`
-    );
-    if (ok) onDeleteSale(sale);
   };
 
   // Frase de impacto inteligente — empurra ação concreta
@@ -386,11 +230,11 @@ export function DefconRunning({
   // Confirm end screen
   if (showConfirmEnd) {
     return (
-      <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
+      <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-6 select-none">
         <div className="text-center space-y-3 mb-8">
           <div className="text-6xl">⚠️</div>
-          <div className="text-xl font-bold text-foreground">Encerrar o desafio?</div>
-          <p className="text-sm text-muted-foreground font-mono">
+          <div className="text-xl font-bold text-white">Encerrar o desafio?</div>
+          <p className="text-sm text-neutral-500 font-mono">
             Você perde a streak. Tem certeza?
           </p>
         </div>
@@ -403,7 +247,7 @@ export function DefconRunning({
           </button>
           <button
             onClick={() => setShowConfirmEnd(false)}
-            className="w-full h-14 bg-card border border-border text-muted-foreground font-bold text-lg rounded-xl active:scale-95 transition-transform"
+            className="w-full h-14 bg-neutral-900 border border-neutral-700 text-neutral-400 font-bold text-lg rounded-xl active:scale-95 transition-transform"
           >
             VOLTAR
           </button>
@@ -413,7 +257,7 @@ export function DefconRunning({
   }
 
   return (
-    <div className="relative h-[100dvh] bg-background pt-safe pb-safe flex flex-col overflow-hidden select-none">
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col select-none">
       {/* Smart approach notifications */}
       <DefconSmartNotification
         userId={userId}
@@ -424,33 +268,17 @@ export function DefconRunning({
         phase="running"
         currentBlockIndex={currentBlockIndex}
       />
-      {/* Toggle de tema (claro/escuro) — pro vendedor trocar ali no modo foco */}
-      <button
-        onClick={() => setTheme(isLight ? "dark" : "light")}
-        className="absolute right-3 z-50 w-9 h-9 rounded-full bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-90 transition"
-        style={{ top: 'calc(env(safe-area-inset-top) + 10px)' }}
-        aria-label={isLight ? "Tema escuro" : "Tema claro"}
-      >
-        {isLight ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-      </button>
-
       {/* Mission header — compacto para dar espaço ao timer */}
       <div className="pt-7 pb-2 px-6 text-center">
         <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-1">
           🔥 MISSÃO
         </div>
-        <div className="text-2xl md:text-3xl font-black text-foreground tracking-tight leading-tight">
+        <div className="text-2xl md:text-3xl font-black text-white tracking-tight leading-tight">
           Faltam <span className="text-primary">{formatCurrency(Math.max(0, remaining))}</span> para a meta
         </div>
         <div className="mt-1 text-xs font-mono text-muted-foreground">
           Meta: {formatCurrency(dailyGoal)} • Feito: <span className="text-success">{formatCurrency(totalSold)}</span>
         </div>
-        {/* X1 ao vivo — placar simultâneo ao DEFCON + banner quando a liderança vira */}
-        {x1Live && (
-          <div className="mt-2 flex justify-center">
-            <DefconX1Live x1={x1Live} />
-          </div>
-        )}
       </div>
 
       {/* Main content */}
@@ -461,7 +289,7 @@ export function DefconRunning({
             <div
               key={f.id}
               className={`absolute left-1/2 -translate-x-1/2 top-[42%] font-black text-2xl animate-fade-in ${
-                f.tone === "sale" ? "text-success" : f.tone === "tip" ? "text-primary" : "text-foreground/80"
+                f.tone === "sale" ? "text-success" : f.tone === "tip" ? "text-primary" : "text-white/80"
               }`}
               style={{ animation: "fire-rise 1s ease-out forwards" }}
             >
@@ -478,8 +306,8 @@ export function DefconRunning({
         {/* Timer — elemento dominante */}
         <div className="flex flex-col items-center gap-3 -my-1">
           <div
-            className={`text-[clamp(64px,26vw,104px)] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
-              isUrgent ? "text-destructive animate-pulse" : "text-foreground"
+            className={`text-[104px] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
+              isUrgent ? "text-destructive animate-pulse" : "text-white"
             }`}
             style={{
               textShadow: isUrgent
@@ -493,7 +321,7 @@ export function DefconRunning({
           </div>
 
           {/* Progress bar — mais visível, reforça ritmo */}
-          <div className="w-64 h-1.5 bg-foreground/8 rounded-full overflow-hidden border border-border">
+          <div className="w-64 h-1.5 bg-white/8 rounded-full overflow-hidden border border-white/5">
             <div
               className={`h-full transition-[colors,transform,opacity] duration-1000 ease-linear rounded-full ${
                 isUrgent ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive)/0.7)]" : "bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
@@ -503,49 +331,43 @@ export function DefconRunning({
           </div>
         </div>
 
-        {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
-            fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
-        <div className="w-full flex flex-nowrap items-center justify-center gap-x-2.5 px-1">
+        {/* Bloco info — métricas em colunas com label */}
+        <div className="flex items-center justify-center gap-6 px-2">
           {/* Faturado */}
-          <div className="flex flex-col items-center gap-0.5 min-w-0">
-            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Bloco</span>
-            <span className="font-black text-success text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Bloco</span>
+            <span className="font-black text-success text-[20px] font-mono tabular-nums leading-none">
               {formatCurrency(blockSold)}
             </span>
           </div>
 
-          <span className="w-px h-7 bg-border shrink-0" />
+          <span className="w-px h-8 bg-white/10" />
 
-          {/* Vendas — tocável: abre o detalhe por venda do bloco */}
-          <button
-            type="button"
-            onClick={() => { setViewBlockIndex(currentBlockIndex); setShowBlockSales(true); }}
-            aria-label="Ver vendas deste bloco"
-            className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
-          >
-            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Vendas</span>
-            <span className="font-black text-foreground text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
+          {/* Vendas */}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Vendas</span>
+            <span className="font-black text-white text-[20px] font-mono tabular-nums leading-none">
               {blockSalesCount}
             </span>
-          </button>
+          </div>
 
-          <span className="w-px h-7 bg-border shrink-0" />
+          <span className="w-px h-8 bg-white/10" />
 
           {/* Abordagens */}
           <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
-            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Abord.</span>
-            <span className="font-black text-foreground text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
+            <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Abord.</span>
+            <span className="font-black text-white text-[20px] font-mono tabular-nums leading-none">
               {blockApproaches}
             </span>
           </div>
 
           {blockApproaches > 0 && (
             <>
-              <span className="w-px h-7 bg-border shrink-0" />
+              <span className="w-px h-8 bg-white/10" />
               {/* Conversão */}
               <div className="flex flex-col items-center gap-0.5">
-                <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Conv.</span>
-                <span className="font-black text-primary text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
+                <span className="text-xs font-mono text-muted-foreground/70 tracking-[0.2em] uppercase">Conv.</span>
+                <span className="font-black text-primary text-[20px] font-mono tabular-nums leading-none">
                   {conversionRate}%
                 </span>
               </div>
@@ -554,22 +376,19 @@ export function DefconRunning({
         </div>
 
         {/* Quick sale buttons */}
-        <div data-tour="defcon-quick-sale" className="w-full flex justify-center">
-          <DefconQuickSaleButtons
-            saleHistory={saleHistory}
-            forcedValues={onboardingMode && quickSaleValue ? [quickSaleValue] : undefined}
-            onQuickSale={(amount) => registerSale(amount, "pix")}
-          />
-        </div>
+        <DefconQuickSaleButtons
+          saleHistory={saleHistory}
+          onQuickSale={registerSale}
+        />
 
         {/* Botão de custo rápido — discreto, alinhado ao tom DEFCON */}
         <div className="w-full flex justify-center px-1">
           <button
             onClick={() => setShowExpense(true)}
-            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border active:scale-95 active:bg-secondary transition-[colors,transform,opacity]"
+            className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-card border border-white/10 active:scale-95 active:bg-secondary transition-[colors,transform,opacity]"
           >
             <Minus className="w-3.5 h-3.5 text-destructive" strokeWidth={2.5} />
-            <span className="text-xs font-bold text-foreground/70 tracking-wide uppercase">Custo</span>
+            <span className="text-xs font-bold text-white/70 tracking-wide uppercase">Custo</span>
           </button>
         </div>
 
@@ -583,24 +402,22 @@ export function DefconRunning({
         <div className="w-full flex items-end justify-center gap-2.5 px-1">
           {/* Abordagem — esquerda, mais baixo */}
           <button
-            data-tour="defcon-abordagem"
             onClick={handleApproachClick}
-            className={`flex-1 h-[56px] rounded-2xl bg-card border border-border flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
-              approachPulse ? "ring-2 ring-foreground/30 bg-secondary" : ""
+            className={`flex-1 h-[56px] rounded-2xl bg-card border border-white/10 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
+              approachPulse ? "ring-2 ring-white/30 bg-secondary" : ""
             }`}
           >
-            <UserRound className="w-4 h-4 text-foreground/80" strokeWidth={2.5} />
-            <span className="text-xs font-bold text-foreground/80 leading-none">Abordagem</span>
+            <UserRound className="w-4 h-4 text-white/80" strokeWidth={2.5} />
+            <span className="text-xs font-bold text-white/80 leading-none">Abordagem</span>
           </button>
 
           {/* Venda — centro, elevado e destacado */}
           <button
-            data-tour="defcon-venda"
             onClick={() => setShowAddSale(true)}
             className="flex-[1.25] h-[72px] rounded-2xl bg-primary flex items-center justify-center gap-2 active:scale-95 transition-[colors,transform,opacity] shadow-[0_12px_40px_-6px_hsl(var(--primary)/0.85)]"
           >
-            <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={3.5} />
-            <span className="text-[18px] font-black text-primary-foreground tracking-tight">Venda</span>
+            <Plus className="w-7 h-7 text-black" strokeWidth={3.5} />
+            <span className="text-[18px] font-black text-black tracking-tight">Venda</span>
           </button>
 
           {/* Gorjeta — direita, mais baixo */}
@@ -614,7 +431,7 @@ export function DefconRunning({
         </div>
 
         {/* Frase de impacto — acionável */}
-        <p className="text-[13px] text-foreground/70 font-mono text-center font-semibold">
+        <p className="text-[13px] text-white/70 font-mono text-center font-semibold">
           {impactPhrase}
         </p>
       </div>
@@ -624,24 +441,24 @@ export function DefconRunning({
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => setShowOccurrence(true)}
-            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
+            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-white/5 transition-[colors,transform,opacity]"
           >
             <FileText className="w-3 h-3 text-muted-foreground/60" />
             <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Ocorrência</span>
           </button>
           {!lunchPauseUsed && (
             <>
-              <span className="text-foreground/10">|</span>
+              <span className="text-white/10">|</span>
               <button
                 onClick={() => setShowLunchPicker(true)}
-                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
+                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-white/5 transition-[colors,transform,opacity]"
               >
                 <UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" />
                 <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Almoço</span>
               </button>
             </>
           )}
-          <span className="text-foreground/10">|</span>
+          <span className="text-white/10">|</span>
           <button
             onClick={() => setShowConfirmEnd(true)}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-destructive/10 transition-[colors,transform,opacity]"
@@ -649,19 +466,9 @@ export function DefconRunning({
             <span className="text-xs font-mono text-destructive/70 tracking-wider uppercase font-bold">Encerrar</span>
           </button>
         </div>
-        {/* Tocar aqui abre o histórico de blocos: navega nos anteriores (◀ ▶) e
-            permite conferir/excluir as vendas de cada bloco. */}
-        <button
-          onClick={() => { setViewBlockIndex(currentBlockIndex); setShowBlockSales(true); }}
-          aria-label="Ver blocos anteriores e editar vendas"
-          className="mt-1.5 w-full flex items-center justify-center gap-1.5 h-7 rounded-lg active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
-        >
-          <span className="text-xs font-mono text-muted-foreground/50 tracking-[0.25em] uppercase">
-            Bloco {currentBlockIndex + 1}/{totalBlocks}
-          </span>
-          <span className="text-[10px] font-mono text-primary/70 uppercase tracking-wider">· ver blocos</span>
-          <ChevronRight className="w-3 h-3 text-primary/70" />
-        </button>
+        <div className="mt-1.5 text-center text-xs font-mono text-muted-foreground/30 tracking-[0.3em] uppercase">
+          Bloco {currentBlockIndex + 1}/{totalBlocks}
+        </div>
       </div>
 
       {/* Add sale modal */}
@@ -678,16 +485,16 @@ export function DefconRunning({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
-              <h3 id="defcon-sale-title" className="text-lg font-bold text-foreground">Registrar venda</h3>
+              <h3 id="defcon-sale-title" className="text-lg font-bold text-white">Registrar venda</h3>
               <button onClick={() => { setShowAddSale(false); resetSaleForm(); }}>
-                <X className="w-6 h-6 text-muted-foreground" />
+                <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
 
             {/* Seletor de produto — só aparece se loadout tem 2+ produtos */}
             {loadout.length >= 2 && (
               <div className="space-y-2">
-                <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
+                <p className="text-xs font-mono text-neutral-500 tracking-wider uppercase">
                   Qual produto?
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -700,15 +507,15 @@ export function DefconRunning({
                         onClick={() => setSelectedProductId(item.product_id)}
                         className={`p-3 rounded-xl border text-left active:scale-95 transition-[colors,transform,opacity] ${
                           selected
-                            ? "bg-primary/15 border-primary text-foreground"
-                            : "bg-background/40 border-border text-foreground"
+                            ? "bg-primary/15 border-primary text-white"
+                            : "bg-black/40 border-white/10 text-neutral-300"
                         }`}
                       >
                         <div className="flex items-center gap-1.5">
-                          <Package className={`w-3.5 h-3.5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
+                          <Package className={`w-3.5 h-3.5 ${selected ? "text-primary" : "text-neutral-500"}`} />
                           <span className="text-xs font-bold truncate">{item.product_name}</span>
                         </div>
-                        <p className={`text-xs mt-1 font-mono ${selected ? "text-primary" : "text-muted-foreground"}`}>
+                        <p className={`text-xs mt-1 font-mono ${selected ? "text-primary" : "text-neutral-500"}`}>
                           {restante} restantes
                         </p>
                       </button>
@@ -723,7 +530,7 @@ export function DefconRunning({
               <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2 flex items-center gap-2">
                 <Package className="w-4 h-4 text-primary" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-foreground truncate">{loadout[0]!.product_name}</p>
+                  <p className="text-xs font-bold text-white truncate">{loadout[0]!.product_name}</p>
                   <p className="text-xs text-primary font-mono">
                     {Math.max(0, Number(loadout[0]!.qty_initial) - Number(loadout[0]!.qty_sold))} restantes
                   </p>
@@ -732,7 +539,7 @@ export function DefconRunning({
             )}
 
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-bold">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
                 R$
               </span>
               <input
@@ -743,7 +550,7 @@ export function DefconRunning({
                 onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
                 placeholder="0"
                 autoFocus
-                className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-muted-foreground"
+                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-neutral-700"
               />
             </div>
 
@@ -751,35 +558,35 @@ export function DefconRunning({
             {!showClientFields ? (
               <button
                 onClick={() => setShowClientFields(true)}
-                className="w-full h-11 rounded-xl bg-muted/60 border border-dashed border-border text-muted-foreground text-xs font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                className="w-full h-11 rounded-xl bg-neutral-800/60 border border-dashed border-neutral-700 text-neutral-400 text-xs font-medium flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
               >
                 <User className="w-3.5 h-3.5" />
-                Adicionar cliente <span className="text-muted-foreground">(opcional)</span>
+                Adicionar cliente <span className="text-neutral-600">(opcional)</span>
               </button>
             ) : (
               <div className="space-y-2 animate-in fade-in duration-200">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-mono text-muted-foreground tracking-wider uppercase">Cliente</span>
+                  <span className="text-xs font-mono text-neutral-500 tracking-wider uppercase">Cliente (opcional)</span>
                   <button
                     onClick={() => { setSaleName(""); setSalePhone(""); setShowClientFields(false); }}
-                    className="text-xs text-muted-foreground hover:text-foreground underline"
+                    className="text-xs text-neutral-500 hover:text-neutral-300 underline"
                   >
                     remover
                   </button>
                 </div>
                 <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
                   <input
                     type="text"
                     value={saleName}
                     onChange={(e) => setSaleName(e.target.value)}
                     placeholder="Nome do cliente"
                     maxLength={80}
-                    className="w-full h-11 bg-background border border-border rounded-xl pl-10 pr-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
+                    className="w-full h-11 bg-black border border-neutral-700 rounded-xl pl-10 pr-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-700"
                   />
                 </div>
                 <div className="relative">
-                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
                   <input
                     type="tel"
                     inputMode="tel"
@@ -787,21 +594,18 @@ export function DefconRunning({
                     onChange={(e) => setSalePhone(e.target.value)}
                     placeholder="WhatsApp (DDD + número)"
                     maxLength={20}
-                    className="w-full h-11 bg-background border border-border rounded-xl pl-10 pr-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
+                    className="w-full h-11 bg-black border border-neutral-700 rounded-xl pl-10 pr-3 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-neutral-700"
                   />
                 </div>
 
                 {sanitizePhone(salePhone).length >= 10 && parseFloat(saleValue) > 0 && (
                   <button
-                    onClick={openChargePreview}
-                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
-                    className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform"
+                    onClick={() => handleSaleAndCharge("dinheiro")}
+                    style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 8px 24px -8px rgba(37,211,102,0.6)" }}
+                    className="w-full h-11 rounded-xl text-white text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
                   >
-                    <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
-                    <span className="flex flex-col items-start leading-tight">
-                      <span className="text-sm font-extrabold">Registrar e cobrar no WhatsApp</span>
-                      <span className="text-[11px] font-medium opacity-90">Você revisa a mensagem antes de enviar</span>
-                    </span>
+                    <MessageCircle className="w-4 h-4" strokeWidth={2.5} />
+                    Registrar e enviar cobrança no WhatsApp
                   </button>
                 )}
               </div>
@@ -819,57 +623,12 @@ export function DefconRunning({
               <button
                 onClick={() => handleAddSale("pix")}
                 disabled={!saleValue || parseFloat(saleValue) <= 0}
-                className="flex-1 h-16 bg-primary text-primary-foreground font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                style={{ backgroundColor: BRAND_COLORS.PIX }}
+                className="flex-1 h-16 text-white font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
               >
-                <Smartphone className="w-5 h-5" strokeWidth={2.5} />
                 <span className="text-lg font-black">PIX</span>
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Previa editavel da cobranca -> abre antes de enviar; edicao vira padrao */}
-      {showChargePreview && (
-        <div
-          className="fixed inset-0 bg-background/90 flex items-end justify-center z-50"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setShowChargePreview(false)}
-        >
-          <div
-            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-4 animate-in slide-in-from-bottom duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center">
-              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                <MessageCircle className="w-5 h-5" style={{ color: BRAND_COLORS.WHATSAPP }} />
-                Revise a mensagem
-              </h3>
-              <button onClick={() => setShowChargePreview(false)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <span className="text-xs font-bold block" style={{ color: "#EAB308" }}>
-              ✏️ Personalize sua mensagem — ela vira a sua padrão
-            </span>
-            <textarea
-              value={saleMessage}
-              onChange={(e) => setSaleMessage(e.target.value)}
-              rows={7}
-              className="w-full bg-background border rounded-xl p-3 text-sm text-foreground leading-relaxed resize-none focus-visible:outline-none focus-visible:ring-2"
-              style={{ borderColor: "rgba(234,179,8,0.45)" }}
-            />
-
-            <button
-              onClick={confirmCharge}
-              style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
-              className="w-full h-14 rounded-2xl text-white flex items-center justify-center gap-2 font-extrabold active:scale-[0.98] transition-transform"
-            >
-              <MessageCircle className="w-5 h-5" strokeWidth={2.5} />
-              Abrir WhatsApp e cobrar
-            </button>
           </div>
         </div>
       )}
@@ -888,12 +647,12 @@ export function DefconRunning({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
-              <h3 id="defcon-lunch-title" className="text-lg font-bold text-foreground">🍽️ Pausa para almoço</h3>
+              <h3 id="defcon-lunch-title" className="text-lg font-bold text-white">🍽️ Pausa para almoço</h3>
               <button onClick={() => { setShowLunchPicker(false); setCustomLunchMinutes(""); }}>
-                <X className="w-6 h-6 text-muted-foreground" />
+                <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
-            <p className="text-sm text-muted-foreground font-mono">
+            <p className="text-sm text-neutral-500 font-mono">
               Escolha o tempo de pausa. Você só pode usar 1 vez por dia.
             </p>
             <div className="grid grid-cols-4 gap-2">
@@ -912,30 +671,28 @@ export function DefconRunning({
               ))}
             </div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-neutral-600 font-mono">
                 min
               </span>
               <input
                 type="number"
                 inputMode="numeric"
-                min={1}
-                max={120}
                 value={customLunchMinutes}
                 onChange={(e) => setCustomLunchMinutes(e.target.value)}
-                placeholder="Ou digite os minutos (máx. 120)"
-                className="w-full h-14 bg-background border-2 border-border rounded-xl text-center text-2xl font-black text-foreground pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-muted-foreground placeholder:text-sm"
+                placeholder="Ou digite os minutos"
+                className="w-full h-14 bg-black border-2 border-neutral-700 rounded-xl text-center text-2xl font-black text-white pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-neutral-700 placeholder:text-sm"
               />
             </div>
             <button
               onClick={() => {
                 const mins = parseInt(customLunchMinutes) || 0;
-                if (mins > 0 && mins <= 120) {
+                if (mins > 0 && mins <= 180) {
                   setShowLunchPicker(false);
                   setCustomLunchMinutes("");
                   onLunchPause(mins);
                 }
               }}
-              disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 120}
+              disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 180}
               className="w-full h-14 bg-warning text-warning-foreground font-black text-lg rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
             >
               INICIAR PAUSA
@@ -970,15 +727,15 @@ export function DefconRunning({
           >
             <div className="flex justify-between items-center">
               <div>
-                <h3 id="defcon-tip-title" className="text-lg font-bold text-foreground">🎯 Registrar gorjeta</h3>
+                <h3 id="defcon-tip-title" className="text-lg font-bold text-white">🎯 Registrar gorjeta</h3>
                 <p className="text-xs font-mono text-muted-foreground mt-0.5">Conta como venda no faturamento</p>
               </div>
               <button onClick={() => { setShowAddTip(false); setTipValue(""); }}>
-                <X className="w-6 h-6 text-muted-foreground" />
+                <X className="w-6 h-6 text-neutral-500" />
               </button>
             </div>
             <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-bold">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-neutral-600 font-bold">
                 R$
               </span>
               <input
@@ -989,151 +746,18 @@ export function DefconRunning({
                 onKeyDown={(e) => e.key === "Enter" && handleAddTip()}
                 placeholder="0"
                 autoFocus
-                className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors placeholder:text-muted-foreground"
+                className="w-full h-20 bg-black border-2 border-neutral-700 rounded-xl text-center text-4xl font-black text-white pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors placeholder:text-neutral-700"
               />
             </div>
             <button
               onClick={handleAddTip}
               disabled={!tipValue || parseFloat(tipValue) <= 0}
-              className="w-full h-14 bg-primary text-primary-foreground font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+              className="w-full h-14 bg-primary text-black font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
             >
               <Plus className="w-5 h-5" strokeWidth={3} />
               REGISTRAR
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Vendas deste bloco — lista por venda com excluir + adicionar esquecida */}
-      {showBlockSales && (
-        <div
-          className="fixed inset-0 bg-background/90 flex items-end justify-center z-50"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="defcon-blocksales-title"
-          onClick={() => setShowBlockSales(false)}
-        >
-          <div
-            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-4 animate-in slide-in-from-bottom duration-200 max-h-[80dvh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center gap-2">
-              <div className="min-w-0">
-                <h3 id="defcon-blocksales-title" className="text-lg font-bold text-foreground">
-                  {vendoBlocoAtual ? "Vendas deste bloco" : "Vendas do bloco"}
-                </h3>
-                {/* Navegar pelos blocos já feitos (voltar e conferir/corrigir). */}
-                <div className="flex items-center gap-2 mt-1">
-                  <button
-                    onClick={() => setViewBlockIndex((i) => Math.max(0, i - 1))}
-                    disabled={viewBlockIndex <= 0}
-                    aria-label="Bloco anterior"
-                    className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30 active:scale-90 transition"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="text-xs font-mono text-muted-foreground tabular-nums">
-                    Bloco #{viewBlockIndex + 1}/{totalBlocks}
-                  </span>
-                  <button
-                    onClick={() => setViewBlockIndex((i) => Math.min(currentBlockIndex, i + 1))}
-                    disabled={viewBlockIndex >= currentBlockIndex}
-                    aria-label="Próximo bloco"
-                    className="w-7 h-7 rounded-lg bg-background border border-border flex items-center justify-center text-muted-foreground disabled:opacity-30 active:scale-90 transition"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <button onClick={() => setShowBlockSales(false)} className="shrink-0">
-                <X className="w-6 h-6 text-muted-foreground" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto -mx-1 px-1">
-              {blockSales.length === 0 ? (
-                <p className="text-sm text-muted-foreground font-mono text-center py-8">
-                  Nenhuma venda registrada ainda neste bloco.
-                </p>
-              ) : (
-                <ul className="space-y-2">
-                  {blockSales.map((s) => (
-                    <li
-                      key={s.id}
-                      className="flex items-center gap-3 rounded-xl bg-background/60 border border-border px-3 py-2.5"
-                    >
-                      <span className="text-xs font-mono text-muted-foreground tabular-nums w-12">
-                        {saleTime(s.created_at)}
-                      </span>
-                      <div className="flex-1 min-w-0 flex flex-col">
-                        <span className={`text-sm font-black tabular-nums leading-tight ${s.method === "gorjeta" ? "text-primary" : "text-success"}`}>
-                          {formatCurrency(Number(s.amount) || 0)}
-                        </span>
-                        <span className="text-[11px] font-mono text-muted-foreground leading-tight flex items-center gap-1.5">
-                          {methodLabel(s.method)}
-                          {s.late && (
-                            <span
-                              className="px-1.5 py-px rounded-full text-[10px] font-bold text-white"
-                              style={{ backgroundColor: BRAND_COLORS.PIX }}
-                            >
-                              Pix depois
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleDeleteSale(s)}
-                        aria-label="Excluir venda"
-                        className="w-9 h-9 rounded-lg flex items-center justify-center text-destructive active:scale-90 active:bg-destructive/10 transition-[colors,transform,opacity]"
-                      >
-                        <X className="w-5 h-5" strokeWidth={2.5} />
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Pegar a IMAGEM (print) do fim deste bloco — vale pra qualquer bloco. */}
-            <button
-              onClick={() => { setShowBlockSales(false); abrirImagemBloco(viewBlockIndex); }}
-              disabled={loadingReport}
-              className="w-full h-11 rounded-xl bg-primary/10 border border-primary/40 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-[colors,transform,opacity] disabled:opacity-50"
-            >
-              <Camera className="w-4 h-4" strokeWidth={2.5} />
-              {loadingReport ? "Abrindo..." : `Imagem do bloco #${viewBlockIndex + 1}`}
-            </button>
-
-            {vendoBlocoAtual ? (
-              <button
-                onClick={() => { setShowBlockSales(false); setShowAddSale(true); }}
-                className="w-full h-12 rounded-xl bg-card border border-dashed border-primary/50 text-primary font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] active:bg-primary/10 transition-[colors,transform,opacity]"
-              >
-                <Plus className="w-4 h-4" strokeWidth={3} />
-                Registrar venda
-              </button>
-            ) : (
-              <button
-                onClick={() => setViewBlockIndex(currentBlockIndex)}
-                className="w-full h-12 rounded-xl bg-card border border-border text-muted-foreground font-bold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition-[colors,transform,opacity]"
-              >
-                Vendo um bloco anterior · voltar ao bloco atual
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Relatório/imagem de um bloco (atual ou anterior) — dá pra compartilhar/baixar */}
-      {reportBlock && (
-        <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
-          <DefconBlockReport
-            blockIndex={reportBlock.blockIndex}
-            approaches={reportBlock.approaches}
-            sales={reportBlock.sales}
-            soldAmount={reportBlock.soldAmount}
-            onContinue={() => setReportBlock(null)}
-          />
         </div>
       )}
     </div>

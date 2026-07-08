@@ -28,7 +28,7 @@ export function useTrialDays(userId: string | undefined) {
         .from("profiles")
         .select("trial_days_remaining, trial_started_at, is_demo, billing_exempt")
         .eq("user_id", userId)
-        .maybeSingle();
+        .single();
 
       // Contas demo têm acesso ilimitado
       if (profile?.is_demo && profile?.billing_exempt) {

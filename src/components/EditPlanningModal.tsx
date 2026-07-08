@@ -2,14 +2,12 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
-import { MoneyInput } from "@/shared/ui/money-input";
-import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { Label } from "@/shared/ui/label";
-import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
+import { Target, Clock, Calendar, CalendarCheck, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
-import { getBrazilDate } from "@/shared/lib/date-utils";
+import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 
 interface EditPlanningModalProps {
   userId: string;
@@ -25,6 +23,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
   const [workHours, setWorkHours] = useState(8);
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(5);
   const [loading, setLoading] = useState(false);
+  const { isConnected, googleEmail, loading: calendarLoading, connect, disconnect } = useGoogleCalendar(userId);
 
   useEffect(() => {
     if (isOpen) {
@@ -37,7 +36,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       .from("profiles")
       .select("monthly_goal, goal_hours, weekly_work_days")
       .eq("user_id", userId)
-      .maybeSingle();
+      .single();
 
     if (profile) {
       setMonthlyGoal(profile.monthly_goal || 4200);
@@ -80,7 +79,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
         weekly_work_days: workDaysPerWeek,
         base_daily_goal: dailyGoal,
         weekly_goal: weeklyGoal,
-        week_start_date: getBrazilDate(),
+        week_start_date: new Date().toISOString().split('T')[0]!,
       })
       .eq("user_id", userId);
 
@@ -95,13 +94,13 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
     }
 
     // Update today's plan if exists
-    const today = getBrazilDate();
+    const today = new Date().toISOString().split('T')[0]!;
     const { data: todayPlan } = await supabase
       .from("daily_goal_plans")
       .select("id")
       .eq("user_id", userId)
       .eq("date", today)
-      .maybeSingle();
+      .single();
 
     if (todayPlan) {
       await supabase
@@ -159,7 +158,6 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       title: "✅ Planejamento atualizado!",
       description: "Suas metas foram atualizadas com sucesso.",
     });
-    emitMissionEvent("goal-set");
     onClose();
   };
 
@@ -236,12 +234,15 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                 <Target className="w-3.5 h-3.5 text-primary" />
                 Meta Mensal (R$)
               </Label>
-              <MoneyInput
+              <Input
                 id="monthlyGoal"
-                value={monthlyGoal}
-                onChange={setMonthlyGoal}
-                decimals={0}
-                placeholder="Ex: 4.200"
+                type="number"
+                inputMode="numeric"
+                value={monthlyGoal || ''}
+                onChange={(e) => setMonthlyGoal(e.target.value === '' ? 0 : Number(e.target.value))}
+                onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
+                min={1}
+                placeholder="Ex: 4200"
                 className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
               />
             </div>
@@ -304,6 +305,41 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               </div>
             </div>
           </div>
+
+          {/* Google Calendar — link discreto */}
+          {!isRequired && (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-muted/30 border border-border">
+              <div className="flex items-center gap-2 min-w-0">
+                <CalendarCheck className="w-4 h-4 text-muted-foreground shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-medium text-foreground">Google Calendar</p>
+                  {isConnected && (
+                    <p className="text-xs text-muted-foreground truncate">{googleEmail}</p>
+                  )}
+                </div>
+              </div>
+              {isConnected ? (
+                <Button
+                  onClick={disconnect}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10"
+                >
+                  Desconectar
+                </Button>
+              ) : (
+                <Button
+                  onClick={connect}
+                  disabled={calendarLoading}
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-primary hover:bg-primary/10"
+                >
+                  {calendarLoading ? "..." : "Conectar"}
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Botões */}
           <div className="flex gap-2 pt-1">

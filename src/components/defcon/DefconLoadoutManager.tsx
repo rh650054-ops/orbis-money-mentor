@@ -77,7 +77,6 @@ export function DefconLoadoutManager({ userId }: Props) {
 
       {availableProducts.length > 0 && (
         <button
-          data-tour="loadout-add"
           onClick={() => setShowPicker(true)}
           className="w-full h-11 rounded-xl border border-dashed border-primary/40 text-primary text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >

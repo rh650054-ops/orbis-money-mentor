@@ -8,73 +8,24 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* === TEMA CLARO === */
-    --background: 40 16% 96%;
-    --foreground: 0 0% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
-    --primary: 45 100% 42%;
-    --primary-foreground: 0 0% 10%;
-    --secondary: 0 0% 94%;
-    --secondary-foreground: 0 0% 12%;
-    --muted: 0 0% 95%;
-    --muted-foreground: 0 0% 38%;
-    --accent: 45 100% 42%;
-    --accent-foreground: 0 0% 10%;
-    --destructive: 0 78% 51%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 90%;
-    --ring: 45 100% 42%;
-    --radius: 1rem;
-    --success: 142 64% 34%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 42%;
-    --warning-foreground: 0 0% 100%;
-    --bronze: 28 49% 45%;
-    --bronze-foreground: 0 0% 100%;
-    --tier-bronze: 28 49% 45%;
-    --tier-silver: 0 0% 55%;
-    --tier-gold: 45 90% 44%;
-    --tier-platinum: 187 60% 42%;
-    --tier-legendary: 280 60% 48%;
-    --streak-warm: 25 95% 48%;
-    --streak-strong: 142 64% 34%;
-    --streak-legendary: 280 60% 48%;
-    --violet: 270 71% 45%;
-    --violet-soft: 252 70% 55%;
-    --gradient-primary: linear-gradient(135deg, hsl(44 100% 50%) 0%, hsl(44 100% 42%) 100%);
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(0 0% 97%) 100%);
-    --gradient-gold-soft: linear-gradient(135deg, hsl(44 100% 48% / 0.14) 0%, hsl(44 100% 48% / 0.04) 100%);
-    --glow-primary: 0 8px 32px -8px hsl(44 100% 48% / 0.25);
-    --glow-secondary: 0 4px 20px -6px hsl(0 0% 0% / 0.12);
-    --glow-success: 0 8px 24px -10px hsl(142 71% 45% / 0.25);
-    --glow-destructive: 0 8px 24px -10px hsl(0 84% 60% / 0.3);
-    --glow-warning: 0 8px 24px -10px hsl(38 92% 50% / 0.3);
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .dark {
     /* Orbis warm-dark theme - tinted toward brand hue to avoid pure-black AI reflex */
-    --background: 0 0% 4%;           /* warm-dark, not pure black */
+    --background: 45 5% 5%;           /* warm-dark, not pure black */
     --foreground: 0 0% 100%;
 
-    --card: 0 0% 8%;
+    --card: 45 5% 7%;
     --card-foreground: 0 0% 100%;
 
-    --popover: 0 0% 8%;
+    --popover: 45 5% 7%;
     --popover-foreground: 0 0% 100%;
 
     /* Gold primary - reserved for CTAs, progress, key accents */
     --primary: 45 100% 48%;
     --primary-foreground: 0 0% 4%;
 
-    --secondary: 0 0% 14%;
+    --secondary: 45 5% 13%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 0 0% 12%;
+    --muted: 45 5% 11%;
     --muted-foreground: 0 0% 63%;
 
     --accent: 45 100% 48%;
@@ -83,8 +34,8 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 16%;
-    --input: 0 0% 12%;
+    --border: 45 5% 14%;
+    --input: 45 5% 11%;
     --ring: 45 100% 48%;
 
     --radius: 1rem;
@@ -139,27 +90,16 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  /* Tema claro: inverte a logo branca do Orbis pra ficar escura e legível */
-  html:not(.dark) img[src*="orbis-logo"],
-  html:not(.dark) img[src*="orbis-wordmark"],
-  html:not(.dark) img[src*="orbis-full-logo"] {
-    filter: invert(1);
-  }
-
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "cv11", "ss01";
     font-optical-sizing: auto;
     min-height: 100dvh;
-    /* Mata o efeito elástico de "puxar e esticar" a tela (overscroll/bounce) no mobile. */
-    overscroll-behavior-y: none;
   }
 
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
-    /* Evita o bounce/expansão ao puxar a tela — vale pra todas as telas do app. */
-    overscroll-behavior-y: none;
   }
 }
 
@@ -171,9 +111,6 @@ All colors MUST be HSL.
   .pr-safe { padding-right: env(safe-area-inset-right); }
   .top-safe { top: env(safe-area-inset-top); }
   .bottom-safe { bottom: env(safe-area-inset-bottom); }
-  /* Aliases used by full-screen overlays (chat da IA etc.) */
-  .safe-top { padding-top: env(safe-area-inset-top); }
-  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
   .min-h-screen-safe {
     min-height: 100dvh;
     padding-top: env(safe-area-inset-top);
@@ -356,52 +293,4 @@ body.battery-saver .backdrop-blur-md,
 body.battery-saver .backdrop-blur-lg,
 body.battery-saver .backdrop-blur-xl {
   backdrop-filter: none !important;
-}
-
-
-/* ===== Animações de transição de liga (Orbis) ===== */
-@keyframes orbisFadeIn { from { opacity: 0; } to { opacity: 1; } }
-.orbis-fade-in { animation: orbisFadeIn 0.3s ease both; }
-
-@keyframes orbisLeaguePop {
-  0%   { transform: scale(0.4) rotate(-12deg); opacity: 0; }
-  60%  { transform: scale(1.12) rotate(4deg); opacity: 1; }
-  100% { transform: scale(1) rotate(0deg); opacity: 1; }
-}
-@keyframes orbisLeagueFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-8px); }
-}
-.orbis-league-pop {
-  animation: orbisLeaguePop 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.4) both,
-             orbisLeagueFloat 2.6s ease-in-out 0.7s infinite;
-}
-
-/* ===== Ranking: dinamismo do pódio (brilho, flutuar, subir) ===== */
-/* Faixa de luz que passa no pódio do campeão. */
-@keyframes orbisShimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -80% 0; }
-}
-.orbis-shimmer {
-  background: linear-gradient(115deg, transparent 30%, rgba(255,241,184,0.55) 50%, transparent 70%);
-  background-size: 220% 100%;
-  animation: orbisShimmer 3s linear infinite;
-}
-/* Coroa/medalha flutuando de leve. */
-@keyframes orbisFloat {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4px); }
-}
-.orbis-float { animation: orbisFloat 2.6s ease-in-out infinite; }
-/* Barra do pódio "subindo" ao abrir. */
-@keyframes orbisRise {
-  from { transform: scaleY(0.15); opacity: 0; }
-  to   { transform: scaleY(1); opacity: 1; }
-}
-.orbis-rise { transform-origin: bottom; animation: orbisRise 0.6s cubic-bezier(.2,.8,.2,1) both; }
-
-/* Respeita quem pediu menos movimento. */
-@media (prefers-reduced-motion: reduce) {
-  .orbis-shimmer, .orbis-float, .orbis-rise { animation: none !important; }
 }

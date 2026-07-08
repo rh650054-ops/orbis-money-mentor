@@ -206,7 +206,7 @@ export function ActivityTimer({
 
       // Call AI for motivational message
       try {
-        await supabase.functions.invoke('bright-action', {
+        await supabase.functions.invoke('chat-with-ai', {
           body: {
             messages: [{
               role: "user",

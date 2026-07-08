@@ -70,9 +70,9 @@ export function PostComposer({ channel, profile, onPosted }: Props) {
   };
 
   return (
-    <div className="border-b border-border/60 px-4 py-3">
+    <div className="bg-card border border-border/60 rounded-xl p-3">
       <div className="flex gap-3">
-        <Avatar className="h-11 w-11 shrink-0">
+        <Avatar className="h-10 w-10 shrink-0">
           <AvatarImage src={profile?.avatar_url ?? undefined} />
           <AvatarFallback className="bg-muted text-xs">
             {(profile?.nickname ?? "?").slice(0, 2).toUpperCase()}

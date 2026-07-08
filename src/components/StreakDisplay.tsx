@@ -44,7 +44,7 @@ export const StreakDisplay = ({ userId }: StreakDisplayProps) => {
       .from("profiles")
       .select("vision_points")
       .eq("user_id", userId)
-      .maybeSingle();
+      .single();
 
     if (data) {
       setVisionPoints(data.vision_points || 0);

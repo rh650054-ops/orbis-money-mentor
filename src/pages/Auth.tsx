@@ -59,17 +59,7 @@ export default function Auth() {
       if (!trimmed || !trimmed.includes("@")) {
         throw new Error("Informe um e-mail válido.");
       }
-      // A conta é identificada por CPF (e-mail de login = CPF@orbis.internal).
-      // Resolve o e-mail pessoal -> e-mail interno no servidor, conferindo a senha
-      // junto (não vaza CPF nem permite enumerar e-mails).
-      const { data: internalEmail, error } = await (supabase as any).rpc("resolve_login_email", {
-        p_email: trimmed,
-        p_password: password,
-      });
-      if (error || !internalEmail) {
-        throw new Error("E-mail ou senha incorretos.");
-      }
-      return internalEmail as string;
+      return trimmed;
     }
   };
 
@@ -109,20 +99,6 @@ export default function Auth() {
         if (city.trim().length < 2) throw new Error("Informe a sua cidade.");
         if (email && !email.includes("@")) throw new Error("E-mail inválido.");
 
-        // 1 conta por pessoa: telefone e e-mail também são únicos (CPF já é único
-        // pelo login interno). check_signup_available roda no servidor (ignora RLS)
-        // e só diz QUAL campo já está em uso — sem expor dados de ninguém.
-        const { data: takenField } = await supabase.rpc("check_signup_available", {
-          p_phone: cleanedPhone,
-          p_email: email.trim() || null,
-        });
-        if (takenField === "phone") {
-          throw new Error("Já existe uma conta com esse telefone.");
-        }
-        if (takenField === "email") {
-          throw new Error("Já existe uma conta com esse e-mail.");
-        }
-
         const internalEmail = cpfToInternalEmail(cleanedCpf);
         const trialStart = new Date().toISOString().split('T')[0]!;
         const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!;
@@ -144,7 +120,7 @@ export default function Auth() {
         }
 
         if (signUpData?.user) {
-          const { error: profileError } = await supabase.from("profiles").upsert({
+          await supabase.from("profiles").upsert({
             user_id: signUpData.user.id,
             nickname: name,
             cpf: cleanedCpf,
@@ -158,14 +134,6 @@ export default function Auth() {
             plan_status: "trial",
             plan_type: "trial",
           }, { onConflict: "user_id" });
-          // Garantia final: índices únicos no banco (cpf/phone/email). Se uma
-          // corrida passar pela pré-checagem, o banco recusa o cadastro aqui.
-          if (profileError) {
-            if (profileError.code === "23505" || /duplicate|unique/i.test(profileError.message)) {
-              throw new Error("Já existe uma conta com esse CPF, telefone ou e-mail.");
-            }
-            throw profileError;
-          }
         }
 
         toast({

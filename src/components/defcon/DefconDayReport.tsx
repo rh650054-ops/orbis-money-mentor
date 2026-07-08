@@ -85,27 +85,27 @@ export function DefconDayReport({
 
   return (
     <div className="w-full max-w-sm space-y-4 mt-6">
-      <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase text-center mb-2">
+      <div className="text-xs font-mono text-neutral-600 tracking-[0.3em] uppercase text-center mb-2">
         📊 Relatório de Abordagens
       </div>
 
-      <div className="bg-card rounded-xl p-5 space-y-4">
+      <div className="bg-neutral-900 rounded-xl p-5 space-y-4">
         <div className="flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">👤 Abordagens totais</span>
-          <span className="text-xl font-black text-foreground">{totalApproaches}</span>
+          <span className="text-sm font-mono text-neutral-500">👤 Abordagens totais</span>
+          <span className="text-xl font-black text-white">{totalApproaches}</span>
         </div>
 
-        <div className="h-px bg-border" />
+        <div className="h-px bg-neutral-800" />
 
         <div className="flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">🛒 Vendas realizadas</span>
+          <span className="text-sm font-mono text-neutral-500">🛒 Vendas realizadas</span>
           <span className="text-xl font-black text-success">{totalSales}</span>
         </div>
 
-        <div className="h-px bg-border" />
+        <div className="h-px bg-neutral-800" />
 
         <div className="flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">📊 Taxa de conversão</span>
+          <span className="text-sm font-mono text-neutral-500">📊 Taxa de conversão</span>
           <span className={`text-xl font-black ${
             conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"
           }`}>
@@ -115,17 +115,17 @@ export function DefconDayReport({
 
         {approachDiff !== null && yesterdayApproaches !== null && (
           <>
-        <div className="h-px bg-border" />
+        <div className="h-px bg-neutral-800" />
 
         <div className="flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">👥 Abordagens por venda</span>
-          <span className="text-xl font-black text-foreground">
+          <span className="text-sm font-mono text-neutral-500">👥 Abordagens por venda</span>
+          <span className="text-xl font-black text-white">
             {approachesPerSale > 0 ? `${approachesPerSale.toFixed(1)} pessoas` : "—"}
           </span>
         </div>
 
-        <div className="h-px bg-border" />
-            <div className="text-xs font-mono text-muted-foreground text-center">
+        <div className="h-px bg-neutral-800" />
+            <div className="text-xs font-mono text-neutral-500 text-center">
               Hoje você abordou {totalApproaches} pessoas. Ontem foram {yesterdayApproaches}.{" "}
               <span className={approachDiff >= 0 ? "text-success" : "text-destructive"}>
                 {approachDiff >= 0 ? "▲" : "▼"} {Math.abs(approachDiffPct || 0).toFixed(0)}%
@@ -137,14 +137,14 @@ export function DefconDayReport({
 
       {/* AI tip */}
       {aiLoading && (
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <span className="text-xs font-mono text-muted-foreground animate-pulse">🤖 Analisando seus dados...</span>
+        <div className="bg-neutral-900 border border-neutral-700 rounded-xl p-4 text-center">
+          <span className="text-xs font-mono text-neutral-500 animate-pulse">🤖 Analisando seus dados...</span>
         </div>
       )}
       {aiTip && (
-        <div className="bg-card border border-primary/30 rounded-xl p-4">
+        <div className="bg-neutral-900 border border-primary/30 rounded-xl p-4">
           <div className="text-xs font-mono text-primary tracking-widest uppercase mb-2">🤖 Dica da IA</div>
-          <p className="text-sm text-foreground font-mono leading-relaxed">{aiTip}</p>
+          <p className="text-sm text-neutral-300 font-mono leading-relaxed">{aiTip}</p>
         </div>
       )}
     </div>

@@ -8,17 +8,14 @@ interface DefconStartScreenProps {
   totalBlocks: number;
   onStart: () => void;
   onExit: () => void;
-  onboardingMode?: boolean;
 }
 
-export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode }: DefconStartScreenProps) {
+export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit }: DefconStartScreenProps) {
   const { enabled: battery, toggle: toggleBattery } = useBatterySaver();
   const [confirming, setConfirming] = useState(false);
 
   return (
-    // min-h + overflow-y-auto: em telas baixas (celular pequeno / paisagem) a tela
-    // rola em vez de CORTAR o botão de iniciar (era o layout quebrado).
-    <div className="min-h-[100dvh] bg-background pt-safe pb-safe flex flex-col px-6 select-none overflow-y-auto">
+    <div className="h-[100dvh] bg-background pt-safe pb-safe flex flex-col px-6 select-none overflow-hidden">
       {/* Top: brand */}
       <div className="pt-4 text-center">
         <div className="text-xs font-mono text-destructive tracking-[0.5em] uppercase">
@@ -29,19 +26,19 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
       {/* Middle: hero + plan card */}
       <div className="flex-1 flex flex-col justify-center min-h-0 gap-6">
         <div className="text-center">
-          <h1 className="text-4xl font-black text-foreground tracking-tight leading-none">
+          <h1 className="text-4xl font-black text-white tracking-tight leading-none">
             MODO
             <br />
             DESAFIO
           </h1>
-          <p className="text-xs text-muted-foreground font-mono mt-3 max-w-[240px] mx-auto">
+          <p className="text-xs text-neutral-500 font-mono mt-3 max-w-[240px] mx-auto">
             Blocos de 60min. Sem distrações. Apenas vendas.
           </p>
         </div>
 
-        <div className="bg-card/70 border border-border rounded-2xl p-5 space-y-3.5">
+        <div className="bg-neutral-900/70 border border-white/5 rounded-2xl p-5 space-y-3.5">
           <Row label="Meta do dia" value={formatCurrency(dailyGoal)} accent />
-          <div className="h-px bg-border" />
+          <div className="h-px bg-white/5" />
           <Row label="Blocos" value={`${totalBlocks} × 60min`} />
           <Row label="Pausa" value="5 min" muted />
         </div>
@@ -52,34 +49,33 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
           className={`flex items-center justify-between gap-3 px-4 h-12 rounded-xl border transition-colors ${
             battery
               ? "bg-success/10 border-success/30"
-              : "bg-card/50 border-border"
+              : "bg-neutral-900/50 border-white/5"
           }`}
         >
           <div className="flex items-center gap-2.5">
             {battery ? (
               <BatteryLow className="w-4 h-4 text-success" />
             ) : (
-              <BatteryFull className="w-4 h-4 text-muted-foreground" />
+              <BatteryFull className="w-4 h-4 text-neutral-500" />
             )}
             <div className="text-left">
-              <p className="text-xs font-semibold text-foreground leading-tight">
+              <p className="text-xs font-semibold text-white leading-tight">
                 Economia de bateria
               </p>
-              <p className="text-xs text-muted-foreground leading-tight">
+              <p className="text-xs text-neutral-500 leading-tight">
                 {battery ? "Animações reduzidas" : "Para celulares fracos"}
               </p>
             </div>
           </div>
           <div
             className={`w-9 h-5 rounded-full transition-colors relative ${
-              battery ? "bg-success" : "bg-muted"
+              battery ? "bg-success" : "bg-neutral-700"
             }`}
           >
             <div
               className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
                 battery ? "translate-x-4" : "translate-x-0"
               }`}
-
             />
           </div>
         </button>
@@ -88,19 +84,18 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
       {/* Bottom: actions */}
       <div className="pb-4 space-y-2">
         <button
-          data-tour="defcon-iniciar"
-          onClick={() => (onboardingMode ? onStart() : confirming ? onStart() : setConfirming(true))}
+          onClick={() => (confirming ? onStart() : setConfirming(true))}
           className={`w-full h-14 rounded-2xl font-black text-base active:scale-[0.98] transition-[colors,transform,opacity] ${
             confirming
               ? "bg-destructive text-destructive-foreground shadow-[0_0_30px_-5px_hsl(var(--destructive)/0.6)]"
               : "bg-destructive text-destructive-foreground"
           }`}
         >
-          {!onboardingMode && confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
+          {confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
         </button>
         <button
           onClick={onExit}
-          className="w-full h-10 text-muted-foreground font-mono text-xs active:scale-95"
+          className="w-full h-10 text-neutral-600 font-mono text-xs active:scale-95"
         >
           Sair
         </button>
@@ -122,10 +117,10 @@ function Row({
 }) {
   return (
     <div className="flex justify-between items-center">
-      <span className="text-xs font-mono text-muted-foreground">{label}</span>
+      <span className="text-xs font-mono text-neutral-500">{label}</span>
       <span
         className={`font-black ${
-          accent ? "text-xl text-primary" : muted ? "text-base text-muted-foreground" : "text-base text-foreground"
+          accent ? "text-xl text-primary" : muted ? "text-base text-neutral-400" : "text-base text-white"
         }`}
       >
         {value}

@@ -3,12 +3,10 @@ import { formatCurrency } from "@/shared/lib/utils";
 interface DefconQuickSaleButtonsProps {
   saleHistory: number[];
   onQuickSale: (amount: number) => void;
-  forcedValues?: number[];
 }
 
-export function DefconQuickSaleButtons({ saleHistory, onQuickSale, forcedValues }: DefconQuickSaleButtonsProps) {
-  const useForced = !!(forcedValues && forcedValues.length > 0);
-  if (!useForced && saleHistory.length < 2) return null;
+export function DefconQuickSaleButtons({ saleHistory, onQuickSale }: DefconQuickSaleButtonsProps) {
+  if (saleHistory.length < 2) return null;
 
   // Count frequency of each value
   const freq = new Map<number, number>();
@@ -17,12 +15,10 @@ export function DefconQuickSaleButtons({ saleHistory, onQuickSale, forcedValues 
   }
 
   // Get unique values sorted by frequency (most common first), then by recency
-  const unique = useForced
-    ? forcedValues!
-    : Array.from(freq.entries())
-        .sort((a, b) => b[1] - a[1])
-        .map(([val]) => val)
-        .slice(0, 6); // max 6 buttons
+  const unique = Array.from(freq.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([val]) => val)
+    .slice(0, 6); // max 6 buttons
 
   if (unique.length === 0) return null;
 

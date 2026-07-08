@@ -7,33 +7,12 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   CalendarIcon,
-  Download,
-  FileText,
-  FileSpreadsheet,
-  FileDown,
-  Clock,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Calendar } from "@/shared/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/shared/ui/dialog";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
-import { useToast } from "@/shared/hooks/use-toast";
-import { formatBrazilDate } from "@/shared/lib/date-utils";
-import {
-  generateAndDownloadReport,
-  type ReportFormat,
-} from "@/utils/reportExport";
 
 import { formatCurrency, cn } from "@/shared/lib/utils";
 import {
@@ -53,7 +32,6 @@ interface DailySale {
   total_profit: number | null;
   total_debt: number | null;
   cost: number | null;
-  unpaid_units?: number | null;
 }
 
 interface HourBlock {
@@ -88,9 +66,7 @@ function fmtBR(d: Date): string {
 export default function Insights() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
-
-  const [exportOpen, setExportOpen] = useState(false);
+  
 
   const [period, setPeriod] = useState<Period>("7d");
   const [customStart, setCustomStart] = useState<Date | undefined>(() => {
@@ -102,20 +78,10 @@ export default function Insights() {
 
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
-  const [challengeBlocks, setChallengeBlocks] = useState<{ approaches_count: number; sales_count: number }[]>([]);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
   const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
-  const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
-  const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
-  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null }[]>([]);
-
-  // Análise da IA (Gemini) — gerada sob demanda no botão
-  const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
-  const [aiReportLoading, setAiReportLoading] = useState(false);
-  const [aiReportError, setAiReportError] = useState<string | null>(null);
-  const [aiExpanded, setAiExpanded] = useState(false);
 
   // Computed range
   const range = useMemo(() => {
@@ -151,11 +117,6 @@ export default function Insights() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, range.start.getTime(), range.end.getTime()]);
 
-  // Recarrega ao voltar o foco (ex.: retorno do DEFCON 4)
-  useRefetchOnFocus(() => {
-    if (user) loadData();
-  });
-
   async function loadData() {
     if (!user) return;
     setLoading(true);
@@ -173,10 +134,10 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes, sessionsRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes] = await Promise.all([
         supabase
           .from("daily_sales")
-          .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales,units_carried")
+          .select("date,total_profit,total_debt,cost")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO)
@@ -205,44 +166,15 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO),
-        supabase
-          .from("challenge_blocks")
-          .select("approaches_count,sales_count,created_at")
-          .eq("user_id", user.id)
-          .gte("created_at", range.start.toISOString())
-          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
-        supabase
-          .from("late_pix_entries")
-          .select("amount")
-          .eq("user_id", user.id)
-          .gte("created_at", range.start.toISOString())
-          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
-        supabase
-          .from("defcon_sales")
-          .select("created_at,amount")
-          .eq("user_id", user.id)
-          .gte("created_at", range.start.toISOString())
-          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("challenge_sessions")
-          .select("started_at,ended_at")
-          .eq("user_id", user.id)
-          .gte("date", startISO)
-          .lte("date", endISO),
       ]);
 
       setSales(salesRes.data || []);
       setBlocks(blocksRes.data || []);
       setExpenses((expensesRes.data as { category: string; amount: number; icon: string | null; name: string }[]) || []);
-      setChallengeBlocks((chBlocksRes.data as any) || []);
       setYesterdayProfit(ydRes.data?.total_profit || 0);
       setPrevRangeProfit(
         (prevRes.data || []).reduce((s, d) => s + (d.total_profit || 0), 0),
       );
-      setLatePix((lateRes.data as any) || []);
-      setDefconSales((defconRes.data as any) || []);
-      setSessions((sessionsRes.data as any) || []);
     } finally {
       setLoading(false);
     }
@@ -250,102 +182,23 @@ export default function Insights() {
 
   const summary = useMemo(() => {
     const faturamento = sales.reduce((s, d) => s + (d.total_profit || 0), 0);
-    const caloteUnidades = sales.reduce((s, d) => s + (Number((d as any).unpaid_units) || 0), 0);
-    // Custos lançados no botão "Custos do dia" (personal_expenses) ENTRAM no líquido,
-    // separados por categoria: mercadoria -> custo de mercadoria; transporte/almoço ->
-    // transporte e alimentação; o resto -> outros custos. Inclui os lançamentos antigos,
-    // então o histórico já aparece (não precisa migrar nada).
-    let expMercadoria = 0, expTransporte = 0, expAlimentacao = 0, expOutros = 0;
-    for (const e of expenses) {
-      const cat = String((e as any).category || "").toLowerCase();
-      const val = Number(e.amount || 0);
-      if (cat.includes("mercadoria")) expMercadoria += val;
-      else if (cat.includes("transporte") || cat.includes("combust")) expTransporte += val;
-      else if (cat.includes("aliment") || cat.includes("almoc") || cat.includes("almoç") || cat.includes("lanche")) expAlimentacao += val;
-      else expOutros += val;
-    }
+    const calotes = sales.reduce((s, d) => s + (d.total_debt || 0), 0);
+    const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0);
+    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+    const custos = custoMercadoria + custosOperacionais;
+    const lucro = faturamento - calotes - custos;
 
-    const custoMercadoria = sales.reduce((s, d) => s + (d.cost || 0), 0) + expMercadoria;
-    const custoTransporte = sales.reduce((s, d) => s + (Number((d as any).transport_cost) || 0), 0) + expTransporte;
-    const custoAlimentacao = sales.reduce((s, d) => s + (Number((d as any).food_cost) || 0), 0) + expAlimentacao;
-    const custoOperacao = custoTransporte + custoAlimentacao; // transporte + alimentação (do dia + lançamentos)
-    const custoOutros = expOutros;
-    const custosOperacionais = expenses.reduce((s, e) => s + Number(e.amount || 0), 0); // total dos lançamentos (detalhe por categoria)
-    const custos = custoMercadoria + custoOperacao + custoOutros;
-    // Lucro líquido = vendido − mercadoria − transporte − alimentação − outros (todo custo do dia abate)
-    const lucro = faturamento - custoMercadoria - custoOperacao - custoOutros;
-    const sobra = lucro;
-
-    // Recebido por forma de pagamento + gorjeta (somados no período)
-    const dinheiro = sales.reduce((s, d) => s + (Number((d as any).cash_sales) || 0), 0);
-    const pix = sales.reduce((s, d) => s + (Number((d as any).pix_sales) || 0), 0);
-    const cartao = sales.reduce((s, d) => s + (Number((d as any).card_sales) || 0), 0);
-    const gorjetas = sales.reduce((s, d) => s + (Number((d as any).tip_sales) || 0), 0);
-
-    const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
-    const totalVendas = challengeBlocks.reduce((s, b) => s + ((b as any).sales_count || 0), 0);
+    const totalAbordagens = blocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
+    const totalVendas = blocks.filter((b) => (b.achieved_amount || 0) > 0).length;
     const conversao = totalAbordagens > 0 ? (totalVendas / totalAbordagens) * 100 : 0;
     const ticketMedio = totalVendas > 0 ? faturamento / totalVendas : 0;
-    // "Não recebido" (calote) = SÓ as unidades marcadas como não pagas × ticket médio.
-    // Antes vinha de total_debt, que era o RESÍDUO da conferência (vendido − o que foi
-    // digitado em dinheiro/pix/cartão) — qualquer diferencinha virava "calote" sem ter calote.
-    const calotes = Math.round(caloteUnidades * ticketMedio * 100) / 100;
     const abordagensPorVenda = totalVendas > 0 ? totalAbordagens / totalVendas : 0;
     const mediaDiaria = rangeDays > 0 ? faturamento / rangeDays : 0;
-
-    // Calote e recuperação
-    const pixRecuperado = latePix.reduce((s, p) => s + (Number((p as any).amount) || 0), 0);
-    const calotePct = totalVendas > 0 ? Math.min(100, (caloteUnidades / totalVendas) * 100) : 0;
-    const caloteACada = caloteUnidades > 0 ? totalVendas / caloteUnidades : 0;
-    const recuperadoPct = calotes > 0 ? Math.min(100, (pixRecuperado / calotes) * 100) : 0;
-    const recuperadoUnid = ticketMedio > 0 ? pixRecuperado / ticketMedio : 0;
-    const diasComRegistro = sales.length;
-    const mediaCaloteDiaUnid = diasComRegistro > 0 ? caloteUnidades / diasComRegistro : 0;
-    const sugestaoUnid = mediaCaloteDiaUnid > 0 ? Math.ceil(mediaCaloteDiaUnid) : 0;
-
-    // Unidades levadas (estoque que saiu pra rua) e sobra estimada
-    const unidLevadas = sales.reduce((s, d) => s + (Number((d as any).units_carried) || 0), 0);
-    const unidSobrou = Math.max(0, unidLevadas - totalVendas);
-
-    // Ritmo: minutos médios entre vendas (por dia, fuso de Brasília) — igual ao fim do DEFCON
-    const brDay = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600000).toISOString().slice(0, 10);
-    const salesByDay = new Map<string, number[]>();
-    for (const s of defconSales) {
-      const t = new Date((s as any).created_at).getTime();
-      if (!Number.isFinite(t)) continue;
-      const day = brDay((s as any).created_at);
-      const arr = salesByDay.get(day) || [];
-      arr.push(t);
-      salesByDay.set(day, arr);
-    }
-    let gapSum = 0;
-    let gapCount = 0;
-    salesByDay.forEach((arr) => {
-      arr.sort((a, b) => a - b);
-      for (let i = 1; i < arr.length; i++) {
-        gapSum += arr[i]! - arr[i - 1]!;
-        gapCount++;
-      }
-    });
-    const ritmoMin = gapCount > 0 ? gapSum / gapCount / 60000 : 0;
-
-    // Horas totais trabalhadas no período = soma da duração (fim − início) de cada
-    // sessão do DEFCON. Só conta sessões com início e fim registrados (mesma lógica
-    // do fim do DEFCON, span real — não nº de blocos).
-    let workedMs = 0;
-    for (const s of sessions) {
-      if (!s.started_at || !s.ended_at) continue;
-      const ini = new Date(s.started_at).getTime();
-      const fim = new Date(s.ended_at).getTime();
-      if (Number.isFinite(ini) && Number.isFinite(fim) && fim > ini) workedMs += fim - ini;
-    }
-    const horasTrabalhadasMin = Math.round(workedMs / 60000);
+    const gorjetas = 0;
 
     return {
-      horasTrabalhadasMin,
       faturamento,
       lucro,
-      sobra,
       ticketMedio,
       conversao,
       totalAbordagens,
@@ -354,47 +207,11 @@ export default function Insights() {
       mediaDiaria,
       custos,
       custoMercadoria,
-      custoOperacao,
-      custoTransporte,
-      custoAlimentacao,
-      custoOutros,
       custosOperacionais,
       calotes,
-      caloteUnidades,
-      dinheiro,
-      pix,
-      cartao,
       gorjetas,
-      pixRecuperado,
-      calotePct,
-      caloteACada,
-      recuperadoPct,
-      recuperadoUnid,
-      mediaCaloteDiaUnid,
-      sugestaoUnid,
-      ritmoMin,
-      unidLevadas,
-      unidSobrou,
     };
-  }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales, sessions]);
-
-  // ESPERADO x RECEBIDO: "esperado" é o faturamento de TODA a mercadoria vendida
-  // (o que era pra cair). "Recebido" é o que efetivamente entrou (dinheiro+pix+cartão).
-  // A diferença é o calote — mostrado em R$ e em % do esperado.
-  const esperadoReceber = summary.faturamento;
-  const recebidoDeFato = summary.dinheiro + summary.pix + summary.cartao;
-  const naoRecebido = Math.max(0, esperadoReceber - recebidoDeFato);
-  const pctRecebido = esperadoReceber > 0 ? (recebidoDeFato / esperadoReceber) * 100 : 0;
-  const pctCalote = esperadoReceber > 0 ? (naoRecebido / esperadoReceber) * 100 : 0;
-
-  // Horas trabalhadas no período, formatadas: "0h", "3h", "2h 30min".
-  const horasLabel = (() => {
-    const min = summary.horasTrabalhadasMin || 0;
-    if (min <= 0) return "0h";
-    const h = Math.floor(min / 60);
-    const m = min % 60;
-    return m > 0 ? `${h}h ${m}min` : `${h}h`;
-  })();
+  }, [sales, blocks, expenses, rangeDays]);
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, { total: number; icon: string; count: number }>();
@@ -446,30 +263,22 @@ export default function Insights() {
     return { pct, valid: true };
   }, [summary.faturamento, prevRangeProfit]);
 
-  // Melhores horários = pela HORA REAL de cada venda (defcon_sales, fuso de Brasília).
-  // Antes agrupava por hour_index (posição do bloco), que misturava horas diferentes.
   const bestHours = useMemo(() => {
-    const byHour: Record<number, { total: number; count: number }> = {};
-    for (const s of defconSales) {
-      const t = new Date(s.created_at).getTime();
-      if (!Number.isFinite(t)) continue;
-      const h = new Date(t - 3 * 3600000).getUTCHours(); // hora de Brasília
-      const amt = Number(s.amount) || 0;
-      const slot = byHour[h] ?? (byHour[h] = { total: 0, count: 0 });
-      slot.total += amt;
+    const byHour: Record<number, { total: number; count: number; label: string }> = {};
+    for (const b of blocks) {
+      const slot = byHour[b.hour_index] ?? (byHour[b.hour_index] = { total: 0, count: 0, label: b.hour_label });
+      slot.total += b.achieved_amount || 0;
       slot.count += 1;
     }
     return Object.entries(byHour)
       .map(([h, v]) => ({
         hour: parseInt(h),
-        label: `${String(parseInt(h)).padStart(2, "0")}h`,
-        total: v.total,
-        count: v.count,
+        label: v.label,
         avg: v.count > 0 ? v.total / v.count : 0,
       }))
-      .filter((h) => h.total > 0)
-      .sort((a, b) => b.total - a.total);
-  }, [defconSales]);
+      .filter((h) => h.avg > 0)
+      .sort((a, b) => b.avg - a.avg);
+  }, [blocks]);
 
   const aiInsights = useMemo(() => {
     const tips: string[] = [];
@@ -518,107 +327,18 @@ export default function Insights() {
     return tips;
   }, [summary, isSingleDay, compareYesterday, comparePrev, bestWorstDay, bestHours]);
 
-  const periodoLabel =
-    period === "today" ? "dia de hoje"
-    : period === "7d" ? "semana (últimos 7 dias)"
-    : period === "30d" ? "mês (últimos 30 dias)"
-    : "período selecionado";
-  const periodoShort =
-    period === "today" ? "o dia" : period === "7d" ? "a semana" : period === "30d" ? "o mês" : "o período";
-
-  // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
-  useEffect(() => {
-    setAiReport(null);
-    setAiReportError(null);
-  }, [range.start.getTime(), range.end.getTime()]);
-
-  async function generateReportAnalysis() {
-    setAiReportLoading(true);
-    setAiReportError(null);
-    try {
-      const { data, error } = await supabase.functions.invoke("generate-insights", {
-        body: {
-          type: "report_analysis",
-          periodo: periodoLabel,
-          rangeLabel: `${fmtBR(range.start)} a ${fmtBR(range.end)}`,
-          faturamento: summary.faturamento,
-          lucro: summary.lucro,
-          ticketMedio: summary.ticketMedio,
-          conversao: Number(summary.conversao.toFixed(1)),
-          totalAbordagens: summary.totalAbordagens,
-          totalVendas: summary.totalVendas,
-          abordagensPorVenda: Number(summary.abordagensPorVenda.toFixed(1)),
-          mediaDiaria: summary.mediaDiaria,
-          custoMercadoria: summary.custoMercadoria,
-          custoOperacao: summary.custoOperacao,
-          custosOperacionais: summary.custosOperacionais,
-          calotes: summary.calotes,
-          caloteUnidades: summary.caloteUnidades,
-          comparePct: comparePrev.valid ? Number(comparePrev.pct.toFixed(0)) : 0,
-          gastos: expensesByCategory.map((c) => ({ category: c.category, total: c.total, count: c.count })),
-          melhoresHorarios: bestHours.slice(0, 3).map((h) => ({ label: h.label, avg: h.avg })),
-        },
-      });
-      if (error) {
-        // tenta ler a mensagem REAL que o backend devolveu (fica no corpo da resposta)
-        let msg = error.message || "Erro ao chamar a função.";
-        try {
-          const ctx = (error as { context?: Response }).context;
-          if (ctx && typeof ctx.json === "function") {
-            const j = await ctx.json();
-            if (j?.error) msg = String(j.error);
-          }
-        } catch { /* mantém msg */ }
-        throw new Error(msg);
-      }
-      const d = data as { analise?: string; error?: string } | null;
-      if (d?.error) throw new Error(d.error);
-      if (d && !d.analise) {
-        throw new Error("A função respondeu, mas sem a análise. Confirma que o código novo (com report_analysis) foi colado na função 'generate-insights' e que deu Deploy.");
-      }
-      setAiReport(d as typeof aiReport);
-    } catch (e) {
-      setAiReportError(e instanceof Error ? e.message : "Não consegui analisar agora.");
-    } finally {
-      setAiReportLoading(false);
-    }
-  }
-
   if (authLoading || !user) return null;
 
-  const maxHourTotal = bestHours[0]?.total || 1;
+  const maxHourAvg = bestHours[0]?.avg || 1;
 
   return (
     <div className="space-y-5 pb-4 md:pb-8 text-foreground">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Relatório</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Decisões claras a partir do seu desempenho
-          </p>
-        </div>
-        <ExportReportDialog
-          open={exportOpen}
-          onOpenChange={setExportOpen}
-          userId={user.id}
-          onDone={(count) =>
-            toast({
-              title: "Relatório baixado",
-              description:
-                count > 0
-                  ? `${count} ${count === 1 ? "dia" : "dias"} incluídos no arquivo.`
-                  : "Nenhum registro no período — arquivo gerado vazio.",
-            })
-          }
-          onError={() =>
-            toast({
-              title: "Erro ao gerar relatório",
-              description: "Tente novamente em instantes.",
-              variant: "destructive",
-            })
-          }
-        />
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Relatório</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Decisões claras a partir do seu desempenho
+        </p>
       </div>
 
       {/* Period filter */}
@@ -694,134 +414,9 @@ export default function Insights() {
                     {formatCurrency(summary.lucro)}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3 text-primary" />
-                  Horas trabalhadas:{" "}
-                  <span className="font-bold text-foreground">{horasLabel}</span>
-                </span>
               </div>
             </div>
           </section>
-
-          {/* Era pra cair x Caiu — quanto da mercadoria vendida virou dinheiro no bolso */}
-          <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Era pra cair × Caiu</p>
-              <p className="text-[11px] text-muted-foreground">
-                O que a mercadoria vendida deveria render, e o que realmente entrou.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-background border border-border/50 p-3">
-                <p className="text-[11px] text-muted-foreground">Era pra cair</p>
-                <p className="text-lg font-bold text-foreground tabular-nums">{formatCurrency(esperadoReceber)}</p>
-                <p className="text-[10px] text-muted-foreground">tudo que foi vendido</p>
-              </div>
-              <div className="rounded-xl bg-success/5 border border-success/30 p-3">
-                <p className="text-[11px] text-muted-foreground">Caiu de verdade</p>
-                <p className="text-lg font-bold text-success tabular-nums">{formatCurrency(recebidoDeFato)}</p>
-                <p className="text-[10px] text-success/80 font-semibold">{pctRecebido.toFixed(0)}% do esperado</p>
-              </div>
-            </div>
-
-            {/* Barra: quanto do esperado entrou */}
-            <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-success transition-[width]"
-                style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-destructive/5 border border-destructive/25 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Calote (não recebido)</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {summary.caloteUnidades > 0
-                    ? `${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} não paga${summary.caloteUnidades === 1 ? "" : "s"}`
-                    : "Nenhuma unidade não paga"}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-base font-bold text-destructive tabular-nums">{formatCurrency(naoRecebido)}</p>
-                <p className="text-[11px] text-destructive/80 font-semibold">{pctCalote.toFixed(1)}% do esperado</p>
-              </div>
-            </div>
-          </section>
-
-          {/* Análise da IA (Gemini) — destaque no topo */}
-          <div className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-4 space-y-2.5 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <p className="text-sm font-bold text-primary tracking-tight">
-                Análise da IA · Mentor Orbis
-              </p>
-            </div>
-
-            {aiReport ? (
-              <div className="space-y-2">
-                <p
-                  className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${
-                    aiExpanded ? "" : "line-clamp-4"
-                  }`}
-                >
-                  {aiReport.analise}
-                </p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setAiExpanded((v) => !v)}
-                    className="text-xs font-semibold text-primary hover:underline"
-                  >
-                    {aiExpanded ? "ver menos" : "ver mais"}
-                  </button>
-                  <button
-                    onClick={generateReportAnalysis}
-                    disabled={aiReportLoading}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
-                  >
-                    {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-xs text-foreground/70 leading-relaxed">
-                  Deixa a IA analisar {periodoShort}: o que tá indo bem e onde tá furando.
-                </p>
-                {aiInsights.length > 0 && (
-                  <div className="space-y-1">
-                    {aiInsights.slice(0, 2).map((tip, i) => (
-                      <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
-                    ))}
-                  </div>
-                )}
-                <Button
-                  onClick={generateReportAnalysis}
-                  disabled={aiReportLoading}
-                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-10 text-sm"
-                >
-                  {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
-                </Button>
-              </>
-            )}
-
-            {aiReportError && (
-              <p className="text-xs text-destructive whitespace-pre-line">{aiReportError}</p>
-            )}
-
-            <Button
-              data-tour="conversar-ia"
-              variant="ghost"
-              size="sm"
-              className="text-primary hover:text-primary px-0"
-              onClick={() => navigate("/chat")}
-            >
-              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
 
           {/* KPIs principais - paleta dourada/branca */}
           <section className="grid grid-cols-2 gap-3">
@@ -845,149 +440,16 @@ export default function Insights() {
             />
           </section>
 
-          {/* Melhores horários (pela hora real das vendas) */}
-          <SectionTitle>Melhores horários</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card p-5">
-            {bestHours.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sem vendas registradas no período pra calcular os horários.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {bestHours.slice(0, 5).map((h, i) => (
-                  <div key={h.hour} className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "text-xs w-16 shrink-0 font-medium",
-                        i === 0 ? "text-primary" : "text-muted-foreground",
-                      )}
-                    >
-                      {h.label}
-                    </span>
-                    <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-[colors,transform,opacity]",
-                          i === 0
-                            ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
-                            : "bg-primary/40",
-                        )}
-                        style={{ width: `${(h.total / maxHourTotal) * 100}%` }}
-                      />
-                    </div>
-                    <span
-                      className={cn(
-                        "text-xs font-semibold w-20 text-right",
-                        i === 0 ? "text-primary" : "text-foreground/80",
-                      )}
-                    >
-                      {formatCurrency(h.total)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
           {/* Detalhamento financeiro */}
           <SectionTitle>Detalhamento financeiro</SectionTitle>
           <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
             <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
             <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
-            <FinanceRow label="Transporte" value={`- ${formatCurrency(summary.custoTransporte)}`} tone="muted" />
-            <FinanceRow label="Alimentação" value={`- ${formatCurrency(summary.custoAlimentacao)}`} tone="muted" />
-            {summary.custoOutros > 0 && (
-              <FinanceRow label="Outros custos" value={`- ${formatCurrency(summary.custoOutros)}`} tone="muted" />
-            )}
-            {summary.unidLevadas > 0 && (
-              <FinanceRow
-                label="Unidades levadas"
-                value={`${summary.unidLevadas} ${summary.unidLevadas === 1 ? "unidade" : "unidades"}`}
-                tone="muted"
-              />
-            )}
-            <FinanceRow
-              label="Unidades vendidas"
-              value={`${summary.totalVendas} ${summary.totalVendas === 1 ? "unidade" : "unidades"}`}
-              tone="muted"
-            />
-            {summary.unidLevadas > 0 && (
-              <FinanceRow
-                label="Sobrou (estoque)"
-                value={`${summary.unidSobrou} ${summary.unidSobrou === 1 ? "unidade" : "unidades"}`}
-                tone="muted"
-              />
-            )}
-            <FinanceRow
-              label="Unidades não pagas"
-              value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
-              sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} não recebido · já no custo` : "já no custo"}
-              tone="muted"
-            />
-            <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
+            <FinanceRow label="Custos operacionais" value={`- ${formatCurrency(summary.custosOperacionais)}`} tone="muted" />
+            <FinanceRow label="Kits não pagos" value={`- ${formatCurrency(summary.calotes)}`} tone="muted" />
             <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
+            <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
           </div>
-
-          {/* Recebido por forma de pagamento (somado no período) */}
-          <SectionTitle>Recebido por forma de pagamento</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
-            <FinanceRow label="💵 Dinheiro" value={formatCurrency(summary.dinheiro)} tone="white" />
-            <FinanceRow label="📱 Pix" value={formatCurrency(summary.pix)} tone="white" />
-            <FinanceRow label="💳 Cartão" value={formatCurrency(summary.cartao)} tone="white" />
-            {summary.gorjetas > 0 && (
-              <FinanceRow label="🎁 Gorjetas" value={formatCurrency(summary.gorjetas)} tone="muted" />
-            )}
-          </div>
-
-          {/* Calote e recuperação (período) */}
-          <SectionTitle>Calote e recuperação</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
-            <FinanceRow
-              label="Taxa de calote"
-              value={`${summary.calotePct.toFixed(1)}%`}
-              sub={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} · ${formatCurrency(summary.calotes)} não recebido`}
-              tone="white"
-            />
-            <FinanceRow
-              label="1 calote a cada"
-              value={summary.caloteACada > 0 ? `${summary.caloteACada.toFixed(0)} vendas` : "—"}
-              tone="muted"
-            />
-            <FinanceRow
-              label="Recuperado via Pix depois"
-              value={formatCurrency(summary.pixRecuperado)}
-              sub={
-                summary.pixRecuperado > 0
-                  ? summary.calotes > 0
-                    ? `${summary.recuperadoPct.toFixed(0)}% do calote volta · ~${Math.round(summary.recuperadoUnid)} un`
-                    : `~${Math.round(summary.recuperadoUnid)} un recuperadas`
-                  : "ainda sem recuperação"
-              }
-              tone="white"
-            />
-            <FinanceRow
-              label="Calote médio por dia"
-              value={`${summary.mediaCaloteDiaUnid.toFixed(1)} un`}
-              tone="muted"
-            />
-            <FinanceRow
-              label="Ritmo de vendas"
-              value={summary.ritmoMin > 0 ? `1 a cada ${summary.ritmoMin.toFixed(0)} min` : "—"}
-              tone="muted"
-            />
-          </div>
-          {summary.sugestaoUnid > 0 && (
-            <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3.5 flex items-start gap-2.5">
-              <span className="text-lg leading-none mt-0.5">💡</span>
-              <p className="text-sm text-foreground/90">
-                Leve{" "}
-                <span className="font-bold text-primary">
-                  +{summary.sugestaoUnid} {summary.sugestaoUnid === 1 ? "unidade" : "unidades"} por dia
-                </span>{" "}
-                pra cobrir seu calote médio.
-              </p>
-            </div>
-          )}
 
           {/* Breakdown de custos operacionais por categoria */}
           {expensesByCategory.length > 0 && (
@@ -1160,194 +622,72 @@ export default function Insights() {
             )}
           </div>
 
-        </>
-      )}
-    </div>
-  );
-}
-
-type ExportPreset = "7" | "15" | "30" | "custom";
-
-function presetRangeISO(preset: ExportPreset): { start: string; end: string } {
-  const end = startOfDay(new Date());
-  const start = new Date(end);
-  const days = preset === "7" ? 7 : preset === "15" ? 15 : 30;
-  start.setDate(start.getDate() - (days - 1));
-  return { start: formatBrazilDate(start), end: formatBrazilDate(end) };
-}
-
-function ExportReportDialog({
-  open,
-  onOpenChange,
-  userId,
-  onDone,
-  onError,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  userId: string;
-  onDone: (count: number) => void;
-  onError: () => void;
-}) {
-  const [preset, setPreset] = useState<ExportPreset>("7");
-  const [format, setFormat] = useState<ReportFormat>("pdf");
-  const [customStart, setCustomStart] = useState(() => presetRangeISO("7").start);
-  const [customEnd, setCustomEnd] = useState(() => presetRangeISO("7").end);
-  const [busy, setBusy] = useState(false);
-
-  const presets: { value: ExportPreset; label: string }[] = [
-    { value: "7", label: "Últimos 7 dias" },
-    { value: "15", label: "Últimos 15 dias" },
-    { value: "30", label: "Últimos 30 dias" },
-    { value: "custom", label: "Personalizado" },
-  ];
-
-  const formats: { value: ReportFormat; label: string; Icon: typeof FileText }[] = [
-    { value: "pdf", label: "PDF", Icon: FileText },
-    { value: "csv", label: "CSV", Icon: FileDown },
-    { value: "xls", label: "Excel", Icon: FileSpreadsheet },
-  ];
-
-  async function handleDownload() {
-    if (busy) return;
-    let start: string;
-    let end: string;
-    if (preset === "custom") {
-      if (!customStart || !customEnd) return;
-      // Garante start <= end
-      [start, end] =
-        customStart <= customEnd ? [customStart, customEnd] : [customEnd, customStart];
-    } else {
-      const r = presetRangeISO(preset);
-      start = r.start;
-      end = r.end;
-    }
-
-    setBusy(true);
-    try {
-      const count = await generateAndDownloadReport({
-        userId,
-        startISO: start,
-        endISO: end,
-        format,
-      });
-      onOpenChange(false);
-      onDone(count);
-    } catch {
-      onError();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 shrink-0 gap-1.5 border-primary/40 text-primary hover:text-primary hover:bg-primary/10"
-        >
-          <Download className="w-4 h-4" />
-          Exportar
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle>Baixar relatório</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-5 pt-1">
-          {/* Período */}
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-              Período
-            </Label>
-            <div className="grid grid-cols-2 gap-2">
-              {presets.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setPreset(p.value)}
-                  className={cn(
-                    "px-3 py-2 text-xs font-medium rounded-xl border transition-colors text-left",
-                    preset === p.value
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {preset === "custom" && (
-              <div className="flex items-center gap-2 pt-1">
-                <div className="flex-1 space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">De</Label>
-                  <Input
-                    type="date"
-                    value={customStart}
-                    max={customEnd || formatBrazilDate(new Date())}
-                    onChange={(e) => setCustomStart(e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
-                <div className="flex-1 space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Até</Label>
-                  <Input
-                    type="date"
-                    value={customEnd}
-                    min={customStart}
-                    max={formatBrazilDate(new Date())}
-                    onChange={(e) => setCustomEnd(e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
+          {/* Melhores horários */}
+          <SectionTitle>Melhores horários</SectionTitle>
+          <div className="rounded-2xl border border-border/60 bg-card p-5">
+            {bestHours.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Sem dados de horários no período.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {bestHours.slice(0, 5).map((h, i) => (
+                  <div key={h.hour} className="flex items-center gap-3">
+                    <span className={cn(
+                      "text-xs w-16 shrink-0 font-medium",
+                      i === 0 ? "text-primary" : "text-muted-foreground"
+                    )}>
+                      {h.label}
+                    </span>
+                    <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-[colors,transform,opacity]",
+                          i === 0
+                            ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                            : "bg-primary/40",
+                        )}
+                        style={{ width: `${(h.avg / maxHourAvg) * 100}%` }}
+                      />
+                    </div>
+                    <span className={cn(
+                      "text-xs font-semibold w-20 text-right",
+                      i === 0 ? "text-primary" : "text-foreground/80"
+                    )}>
+                      {formatCurrency(h.avg)}
+                    </span>
+                  </div>
+                ))}
               </div>
             )}
           </div>
 
-          {/* Formato */}
-          <div className="space-y-2">
-            <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
-              Formato
-            </Label>
-            <div className="grid grid-cols-3 gap-2">
-              {formats.map(({ value, label, Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setFormat(value)}
-                  className={cn(
-                    "flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border transition-colors",
-                    format === value
-                      ? "bg-primary/15 border-primary text-primary"
-                      : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
-                  )}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-xs font-medium">{label}</span>
-                </button>
-              ))}
+          {/* 7. Insights da IA */}
+          <SectionTitle>Insights da IA</SectionTitle>
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2.5">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-4 h-4 text-primary" />
+              <p className="text-xs font-semibold text-primary uppercase tracking-wider">
+                Análise inteligente
+              </p>
             </div>
+            {aiInsights.map((tip, i) => (
+              <p key={i} className="text-sm text-foreground/90 leading-relaxed">
+                • {tip}
+              </p>
+            ))}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-primary hover:text-primary"
+              onClick={() => navigate("/chat")}
+            >
+              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
           </div>
-
-          <Button
-            onClick={handleDownload}
-            disabled={busy}
-            className="w-full gap-2"
-          >
-            {busy ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            {busy ? "Gerando..." : "Baixar"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -1428,13 +768,11 @@ function MetricCell({
 function FinanceRow({
   label,
   value,
-  sub,
   tone = "muted",
   bold = false,
 }: {
   label: string;
   value: string;
-  sub?: string;
   tone?: "white" | "gold" | "muted";
   bold?: boolean;
 }) {
@@ -1451,15 +789,12 @@ function FinanceRow({
       )}>
         {label}
       </span>
-      <div className="flex flex-col items-end leading-tight">
-        <span className={cn(
-          bold ? "text-base font-bold" : "text-sm font-semibold",
-          valueColor
-        )}>
-          {value}
-        </span>
-        {sub && <span className="text-[11px] text-muted-foreground/70 mt-0.5">{sub}</span>}
-      </div>
+      <span className={cn(
+        bold ? "text-base font-bold" : "text-sm font-semibold",
+        valueColor
+      )}>
+        {value}
+      </span>
     </div>
   );
 }

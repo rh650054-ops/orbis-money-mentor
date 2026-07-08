@@ -83,9 +83,7 @@ export const THEME_COLORS = {
 
 export const BRAND_COLORS = {
   WHATSAPP: "#25D366",
-  // Pix = dinheiro que entrou. Antes era o teal oficial do Pix (#32BCAD), que puxava
-  // pro AZUL — fora da identidade do app. Trocado por verde (money in), sem azul.
-  PIX: "#16A34A",
+  PIX: "#32BCAD",
   INSTAGRAM_GRADIENT: {
     from: "#F58529",
     via: "#DD2A7B",

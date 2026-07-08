@@ -401,11 +401,11 @@ export default function OnboardingSlides({ onComplete, onSkip }: OnboardingSlide
               <div>
                 <label className="text-sm text-foreground font-medium mb-1.5 block">Meta mensal (R$)</label>
                 <input
-                  type="text"
+                  type="number"
                   inputMode="numeric"
-                  placeholder="Ex: 3.000"
-                  value={meta ? parseInt(meta, 10).toLocaleString("pt-BR") : ""}
-                  onChange={(e) => setMeta(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Ex: 3000"
+                  value={meta}
+                  onChange={(e) => setMeta(e.target.value)}
                   className="w-full text-foreground text-base placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
                   style={{
                     background: cardBg,

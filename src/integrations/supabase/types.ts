@@ -736,7 +736,6 @@ export type Database = {
           total_debt: number | null
           total_profit: number | null
           unpaid_sales: number | null
-          unpaid_units: number | null
           updated_at: string
           user_id: string
         }
@@ -754,7 +753,6 @@ export type Database = {
           total_debt?: number | null
           total_profit?: number | null
           unpaid_sales?: number | null
-          unpaid_units?: number | null
           updated_at?: string
           user_id: string
         }
@@ -772,7 +770,6 @@ export type Database = {
           total_debt?: number | null
           total_profit?: number | null
           unpaid_sales?: number | null
-          unpaid_units?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -1539,10 +1536,7 @@ export type Database = {
           last_payment_date: string | null
           missed_days_this_week: number | null
           monthly_goal: number | null
-          must_change_password: boolean | null
           next_payment_date: string | null
-          onboarding_completed: boolean
-          onboarding_step: number
           nickname: string | null
           payment_status: string | null
           phone: string | null
@@ -1604,10 +1598,7 @@ export type Database = {
           last_payment_date?: string | null
           missed_days_this_week?: number | null
           monthly_goal?: number | null
-          must_change_password?: boolean | null
           next_payment_date?: string | null
-          onboarding_completed?: boolean
-          onboarding_step?: number
           nickname?: string | null
           payment_status?: string | null
           phone?: string | null
@@ -1669,10 +1660,7 @@ export type Database = {
           last_payment_date?: string | null
           missed_days_this_week?: number | null
           monthly_goal?: number | null
-          must_change_password?: boolean | null
           next_payment_date?: string | null
-          onboarding_completed?: boolean
-          onboarding_step?: number
           nickname?: string | null
           payment_status?: string | null
           phone?: string | null
