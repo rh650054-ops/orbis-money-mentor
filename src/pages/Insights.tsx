@@ -281,6 +281,9 @@ export default function Insights() {
     const dinheiro = sales.reduce((s, d) => s + (Number((d as any).cash_sales) || 0), 0);
     const pix = sales.reduce((s, d) => s + (Number((d as any).pix_sales) || 0), 0);
     const cartao = sales.reduce((s, d) => s + (Number((d as any).card_sales) || 0), 0);
+    // O que FALTOU cair = residuo do dia (vendido − recebido conferido). É o total_debt
+    // que o DEFCON já grava. "Era pra cair" = recebido + esse residuo.
+    const naoCaiu = sales.reduce((s, d) => s + (Number((d as any).total_debt) || 0), 0);
     const gorjetas = sales.reduce((s, d) => s + (Number((d as any).tip_sales) || 0), 0);
 
     const totalAbordagens = challengeBlocks.reduce((s, b) => s + (b.approaches_count || 0), 0);
@@ -362,6 +365,7 @@ export default function Insights() {
       custosOperacionais,
       calotes,
       caloteUnidades,
+      naoCaiu,
       dinheiro,
       pix,
       cartao,
@@ -382,11 +386,11 @@ export default function Insights() {
   // ESPERADO x RECEBIDO: "esperado" é o faturamento de TODA a mercadoria vendida
   // (o que era pra cair). "Recebido" é o que efetivamente entrou (dinheiro+pix+cartão).
   // A diferença é o calote — mostrado em R$ e em % do esperado.
-  // SÓ vendido vs recebido (sem custo). CAIU = o que entrou (dinheiro+pix+cartão).
-  // CALOTE = o que ficou sem pagar (unidades não pagas × ticket). ERA PRA CAIR = os
-  // dois somados. Assim: vendeu 2000, caiu 1700, calote 300 — sempre consistente.
+  // CAIU = o que já entrou (dinheiro+pix+cartão, = total_profit). FALTOU CAIR = o que
+  // ainda não caiu (total_debt do DEFCON). ERA PRA CAIR = os dois somados = o vendido.
+  // Sem custo nenhum. Ex.: caiu 1277 + faltou 153 = era pra cair 1430.
   const recebidoDeFato = summary.dinheiro + summary.pix + summary.cartao;
-  const naoRecebido = Math.max(0, summary.calotes);
+  const naoRecebido = Math.max(0, summary.naoCaiu);
   const esperadoReceber = recebidoDeFato + naoRecebido;
   const pctRecebido = esperadoReceber > 0 ? (recebidoDeFato / esperadoReceber) * 100 : 0;
   const pctCalote = esperadoReceber > 0 ? (naoRecebido / esperadoReceber) * 100 : 0;
@@ -475,60 +479,11 @@ export default function Insights() {
       .sort((a, b) => b.total - a.total);
   }, [defconSales]);
 
-  const aiInsights = useMemo(() => {
-    const tips: string[] = [];
-    if (summary.abordagensPorVenda > 0) {
-      tips.push(
-        `Você precisa de ${summary.abordagensPorVenda.toFixed(1)} abordagens para gerar 1 venda.`,
-      );
-    }
-    if (isSingleDay) {
-      if (compareYesterday.valid) {
-        if (compareYesterday.pct > 10)
-          tips.push(`Hoje está ${compareYesterday.pct.toFixed(0)}% melhor que ontem.`);
-        else if (compareYesterday.pct < -10)
-          tips.push(
-            `Hoje está ${Math.abs(compareYesterday.pct).toFixed(0)}% abaixo de ontem.`,
-          );
-      }
-    } else {
-      tips.push(
-        `Sua média diária no período foi ${formatCurrency(summary.mediaDiaria)}.`,
-      );
-      if (bestWorstDay?.best && bestWorstDay?.worst) {
-        tips.push(
-          `Melhor dia: ${bestWorstDay.best.label} (${formatCurrency(bestWorstDay.best.valor)}) · Pior: ${bestWorstDay.worst.label} (${formatCurrency(bestWorstDay.worst.valor)}).`,
-        );
-      }
-      if (comparePrev.valid) {
-        tips.push(
-          comparePrev.pct >= 0
-            ? `Tendência positiva: ${comparePrev.pct.toFixed(0)}% acima do período anterior.`
-            : `Tendência de queda: ${Math.abs(comparePrev.pct).toFixed(0)}% abaixo do período anterior.`,
-        );
-      }
-    }
-    if (bestHours.length >= 1) {
-      tips.push(`Melhor desempenho no horário ${bestHours[0]!.label}.`);
-    }
-    if (summary.conversao > 0 && summary.conversao < 15) {
-      tips.push(
-        `Sua conversão está em ${summary.conversao.toFixed(0)}%. Reveja a abordagem.`,
-      );
-    }
-    if (tips.length === 0) {
-      tips.push("Registre mais vendas para destravar insights personalizados.");
-    }
-    return tips;
-  }, [summary, isSingleDay, compareYesterday, comparePrev, bestWorstDay, bestHours]);
-
   const periodoLabel =
     period === "today" ? "dia de hoje"
     : period === "7d" ? "semana (últimos 7 dias)"
     : period === "30d" ? "mês (últimos 30 dias)"
     : "período selecionado";
-  const periodoShort =
-    period === "today" ? "o dia" : period === "7d" ? "a semana" : period === "30d" ? "o mês" : "o período";
 
   // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
   useEffect(() => {
@@ -743,11 +698,9 @@ export default function Insights() {
             {/* Calote — o que faltou cair */}
             <div className="flex items-center justify-between gap-2 rounded-xl bg-destructive/5 border border-destructive/25 px-3.5 py-3">
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Faltou cair · calote</p>
+                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Faltou cair</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {summary.caloteUnidades > 0
-                    ? `${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade não paga" : "unidades não pagas"}`
-                    : "Ninguém deixou de pagar 🎉"}
+                  {naoRecebido > 0 ? "vendido que ainda não entrou" : "tudo que vendeu já caiu 🎉"}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -757,78 +710,41 @@ export default function Insights() {
             </div>
           </section>
 
-          {/* Análise da IA — discreta, secundária (não compete com os números) */}
-          <div className="rounded-2xl border border-border/60 bg-card/60 p-4 space-y-2.5">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-              <p className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
-                Análise da IA · Mentor Orbis
-              </p>
-            </div>
-
-            {aiReport ? (
-              <div className="space-y-2">
-                <p
-                  className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${
-                    aiExpanded ? "" : "line-clamp-4"
-                  }`}
-                >
-                  {aiReport.analise}
-                </p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setAiExpanded((v) => !v)}
-                    className="text-xs font-semibold text-primary hover:underline"
-                  >
-                    {aiExpanded ? "ver menos" : "ver mais"}
-                  </button>
-                  <button
-                    onClick={generateReportAnalysis}
-                    disabled={aiReportLoading}
-                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60"
-                  >
-                    {aiReportLoading ? "Atualizando..." : "Atualizar análise"}
-                  </button>
-                </div>
+          {/* Análise da IA — comprimida: só um botão quando não há análise ainda */}
+          {aiReport ? (
+            <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                <p className="text-xs font-bold text-primary tracking-wide uppercase">Análise da IA · Mentor Orbis</p>
               </div>
-            ) : (
-              <>
-                <p className="text-xs text-foreground/70 leading-relaxed">
-                  Deixa a IA analisar {periodoShort}: o que tá indo bem e onde tá furando.
-                </p>
-                {aiInsights.length > 0 && (
-                  <div className="space-y-1">
-                    {aiInsights.slice(0, 2).map((tip, i) => (
-                      <p key={i} className="text-xs text-muted-foreground leading-relaxed">• {tip}</p>
-                    ))}
-                  </div>
-                )}
-                <Button
-                  onClick={generateReportAnalysis}
-                  disabled={aiReportLoading}
-                  variant="outline"
-                  className="w-full gap-2 h-9 text-sm border-border/60 text-muted-foreground hover:text-foreground"
-                >
-                  {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
-                </Button>
-              </>
-            )}
-
-            {aiReportError && (
-              <p className="text-xs text-destructive whitespace-pre-line">{aiReportError}</p>
-            )}
-
+              <p className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${aiExpanded ? "" : "line-clamp-4"}`}>
+                {aiReport.analise}
+              </p>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={() => setAiExpanded((v) => !v)} className="text-xs font-semibold text-primary hover:underline">
+                  {aiExpanded ? "ver menos" : "ver mais"}
+                </button>
+                <button onClick={generateReportAnalysis} disabled={aiReportLoading} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60">
+                  {aiReportLoading ? "Atualizando..." : "Atualizar"}
+                </button>
+                <button onClick={() => navigate("/chat")} className="text-xs text-primary hover:underline inline-flex items-center gap-0.5 ml-auto">
+                  Conversar <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+              {aiReportError && <p className="text-xs text-destructive whitespace-pre-line">{aiReportError}</p>}
+            </div>
+          ) : (
             <Button
               data-tour="conversar-ia"
+              onClick={generateReportAnalysis}
+              disabled={aiReportLoading}
               variant="ghost"
-              size="sm"
-              className="text-primary hover:text-primary px-0"
-              onClick={() => navigate("/chat")}
+              className="w-full gap-2 h-11 text-sm font-bold bg-primary/10 hover:bg-primary/15 text-primary border border-primary/30"
             >
-              Conversar com a IA <ChevronRight className="w-4 h-4 ml-1" />
+              {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {aiReportLoading ? "Analisando seu corre..." : "Analisar meu desempenho com IA"}
             </Button>
-          </div>
+          )}
 
           {/* KPIs principais - paleta dourada/branca */}
           <section className="grid grid-cols-2 gap-3">
