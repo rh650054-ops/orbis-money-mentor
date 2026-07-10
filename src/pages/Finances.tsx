@@ -821,42 +821,25 @@ export default function Finances() {
   // return abaixo (regras de hooks). Lê o alvo via ref, pois totalGuardarHoje só é
   // calculado mais adiante no render.
   const guardarTargetRef = useRef(0);
-  const workingDaysRef = useRef<string[] | null>(null);
   useEffect(() => {
     if (isLoadingData) return;
     const hoje = getBrazilDate();
     const alvo = guardarTargetRef.current;
-    const wds = workingDaysRef.current;
-    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     try {
-      const savedDate = localStorage.getItem("orbis_guardar_date");
-      let saved = Number(localStorage.getItem("orbis_guardar_saved") || 0);
-      if (savedDate !== hoje) {
-        // POUPANÇA ADIANTADA: o que você guardou vira "saldo adiantado". Cada dia ÚTIL
-        // que JÁ TERMINOU consome o alvo daquele dia (o dia "usou" sua reserva). Isso
-        // inclui o próprio savedDate — o dia em que você guardou por último, que agora
-        // ficou pra trás. Antes ele começava em savedDate+1 e, quando passava só 1 dia
-        // (guardou ontem), NÃO consumia nada — aí o saldo de ontem sobrava e cobria hoje,
-        // mostrando "já guardou tudo" indevidamente. Agora reinicia certo: hoje mostra o
-        // que falta guardar hoje.
-        if (savedDate) {
-          const prevTarget = Number(localStorage.getItem("orbis_guardar_target") || alvo);
-          const cur = new Date(savedDate + "T12:00:00");
-          const end = new Date(hoje + "T12:00:00");
-          while (cur.getTime() < end.getTime()) {
-            const util = wds && wds.length > 0 ? wds.includes(nomes[cur.getDay()]) : true;
-            if (util) saved = Math.max(0, saved - prevTarget);
-            cur.setDate(cur.getDate() + 1);
-          }
-        }
+      if (localStorage.getItem("orbis_guardar_date") !== hoje) {
+        // NOVO DIA → REINICIA limpo: alvo = sugestão de hoje, guardado-hoje = 0.
+        // Nada de "saldo adiantado" carregado do dia anterior (isso travava o card em
+        // "já guardou tudo"). Cada dia mostra do zero quanto falta guardar HOJE. O que
+        // você guardou antes já abateu as contas (bills.saved_amount), então o alvo de
+        // hoje já vem naturalmente menor conforme você quita.
         localStorage.setItem("orbis_guardar_date", hoje);
         localStorage.setItem("orbis_guardar_target", String(alvo));
-        localStorage.setItem("orbis_guardar_saved", String(saved));
+        localStorage.setItem("orbis_guardar_saved", "0");
         setTargetSnapshot(alvo);
-        setSavedTodayAmount(saved);
+        setSavedTodayAmount(0);
       } else {
         setTargetSnapshot(Number(localStorage.getItem("orbis_guardar_target") || alvo));
-        setSavedTodayAmount(saved);
+        setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
       }
     } catch {
       setTargetSnapshot(alvo);
@@ -887,10 +870,9 @@ export default function Finances() {
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
 
-  // Alimenta os refs (alvo do dia + dias de trabalho). O snapshot/consumo é feito
-  // por um efeito lá em cima — ANTES do early return — pra respeitar as regras de hooks.
+  // Alimenta o ref com o alvo do dia. O snapshot é feito por um efeito lá em cima —
+  // ANTES do early return — pra respeitar as regras de hooks.
   guardarTargetRef.current = totalGuardarHoje;
-  workingDaysRef.current = workingDays;
 
   // Soma um depósito ao "guardado hoje" (persiste no fuso BR).
   const registrarGuardadoHoje = (valor: number) => {
