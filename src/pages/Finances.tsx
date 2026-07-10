@@ -65,6 +65,7 @@ interface Goal {
   status: string;
   icon: string;
   percentual_distribuicao?: number;
+  prazo?: string; // 'curto' | 'medio' | 'longo'
 }
 
 interface FinancialSummary {
@@ -127,10 +128,13 @@ export default function Finances() {
     name: "",
     target_amount: "",
     deadline: "",
-    icon: "🎯"
+    icon: "🎯",
+    prazo: "medio" as "curto" | "medio" | "longo",
   });
   const [goalImage, setGoalImage] = useState<File | null>(null);
   const [goalImagePreview, setGoalImagePreview] = useState<string>("");
+  // Qual recomendação de meta está aberta (id da meta) — pra expandir o texto detalhado.
+  const [recAberta, setRecAberta] = useState<string | null>(null);
 
   // Reusable "guardar" deposit dialog — shared por Contas a pagar (Guardei) e Metas (Guardar hoje)
   const [depositTarget, setDepositTarget] = useState<
@@ -689,8 +693,9 @@ export default function Finances() {
           current_amount: 0,
           deadline: newGoal.deadline || null,
           icon: iconValue,
-          status: "active"
-        });
+          status: "active",
+          prazo: newGoal.prazo,
+        } as any);
 
       if (error) throw error;
 
@@ -699,7 +704,7 @@ export default function Finances() {
         description: `${newGoal.name} adicionada com sucesso`,
       });
 
-      setNewGoal({ name: "", target_amount: "", deadline: "", icon: "🎯" });
+      setNewGoal({ name: "", target_amount: "", deadline: "", icon: "🎯", prazo: "medio" });
       setGoalImage(null);
       setGoalImagePreview("");
       setIsAddGoalOpen(false);
@@ -986,44 +991,81 @@ export default function Finances() {
       return s + (nd ? remaining(b) / Math.max(1, workingDaysUntil(toYMD(nd))) : 0);
     }, 0);
 
-  // RECOMENDAÇÃO DE META (cálculo direto): sobra por dia = média diária líquida − o que
-  // as contas comem por dia. Com isso estima em quantos dias dá pra juntar a meta e, se
-  // você tem um prazo, compara. É só RECOMENDAÇÃO — você decide.
-  const recomendarMeta = (targetAmount: number, currentAmount: number, deadline?: string | null) => {
+  // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
+  const faixaPrazo = (p?: string) =>
+    p === "curto" ? { max: 20, nome: "curto prazo" }
+    : p === "longo" ? { max: 100000, nome: "longo prazo" }
+    : { max: 66, nome: "médio prazo" }; // médio (default) ~ até 3 meses úteis
+
+  // RECOMENDAÇÃO DE META (cálculo direto, sempre comparada aos resultados mensais).
+  // Retorna: tom (cor), resumo (linha visível) e detalhe (texto que abre ao tocar),
+  // com cenários pior/realista/melhor e a foto do mês. É só recomendação — você decide.
+  const recomendarMeta = (targetAmount: number, currentAmount: number, prazo?: string | null) => {
     const falta = Math.max(0, (Number(targetAmount) || 0) - (Number(currentAmount) || 0));
-    if (falta <= 0) return { texto: "Meta atingida! 🎉", tom: "ok" as const };
+    const dUteisMes = Math.max(1, Math.round((workingDays && workingDays.length > 0 ? workingDays.length : 6) * 30 / 7));
+    if (falta <= 0) return { tom: "ok" as const, resumo: "Meta atingida! 🎉", detalhe: [] as string[] };
+
     const ganhoDia = summary.mediaDiariaLiquida;
-    if (ganhoDia <= 0) return { texto: "Registre alguns dias de venda que eu estimo o prazo dessa meta.", tom: "neutro" as const };
+    const fatMes = ganhoDia * dUteisMes;
+    const contasMes = ritmoSustentavel * dUteisMes;
+    if (ganhoDia <= 0) {
+      return { tom: "neutro" as const, resumo: "Registre alguns dias de venda que eu calculo o prazo.", detalhe: [] as string[] };
+    }
     const sobraDia = ganhoDia - ritmoSustentavel;
+    const sobraMes = sobraDia * dUteisMes;
+    const base: string[] = [
+      `Você fatura, líquido, ~${formatCurrency(fatMes)}/mês (média de ~${formatCurrency(ganhoDia)}/dia trabalhado).`,
+      `Suas contas comem ~${formatCurrency(contasMes)}/mês.`,
+    ];
+
     if (sobraDia <= 0) {
       return {
-        texto: `No ritmo atual suas contas (~${formatCurrency(ritmoSustentavel)}/dia) comem quase toda a renda (~${formatCurrency(ganhoDia)}/dia). Difícil separar pra essa meta agora — pra começar, aumente o faturamento ou reveja as contas.`,
         tom: "alerta" as const,
+        resumo: `Suas contas consomem quase toda a renda — difícil separar pra essa meta agora.`,
+        detalhe: [
+          ...base,
+          `Praticamente não sobra pra guardar (${formatCurrency(sobraMes)}/mês). Pra começar essa meta, aumente o faturamento ou reveja/renegocie contas.`,
+        ],
       };
     }
-    const dias = Math.ceil(falta / sobraDia);
-    // Data prevista contando só dias de trabalho.
-    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const cur = new Date(); cur.setHours(12, 0, 0, 0);
-    let count = 0, guard = 0;
-    while (count < dias && guard < 800) {
-      cur.setDate(cur.getDate() + 1); guard++;
-      const util = workingDays && workingDays.length > 0 ? workingDays.includes(nomes[cur.getDay()]) : true;
-      if (util) count++;
-    }
-    const dataPrev = cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-    if (deadline) {
-      const diasPrazo = workingDaysUntil(deadline.slice(0, 10));
-      if (diasPrazo > 0 && diasPrazo < dias) {
-        return {
-          texto: `Depois das contas sobram ~${formatCurrency(sobraDia)}/dia. No seu ritmo o ideal seria ~${dias} dias (perto de ${dataPrev}) — seu prazo de ${diasPrazo} dias vai apertar. Dá, mas exige guardar mais/dia ou vender mais.`,
-          tom: "alerta" as const,
-        };
+
+    const diasEm = (sobra: number) => {
+      const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+      const n = Math.ceil(falta / sobra);
+      const cur = new Date(); cur.setHours(12, 0, 0, 0);
+      let count = 0, guard = 0;
+      while (count < n && guard < 2000) {
+        cur.setDate(cur.getDate() + 1); guard++;
+        const util = workingDays && workingDays.length > 0 ? workingDays.includes(nomes[cur.getDay()]) : true;
+        if (util) count++;
       }
-    }
+      return { n, data: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) };
+    };
+    const real = diasEm(sobraDia);
+    const otim = diasEm(sobraDia * 1.3); // se vender ~30% mais
+    const pess = diasEm(sobraDia * 0.7); // se vender ~30% menos
+
+    const fx = faixaPrazo(prazo || undefined);
+    const apertou = real.n > fx.max;
+
+    const detalhe = [
+      ...base,
+      `Sobra ~${formatCurrency(sobraMes)}/mês (~${formatCurrency(sobraDia)}/dia) pra guardar em metas.`,
+      `Cenário realista: ~${real.n} dias úteis (por volta de ${real.data}).`,
+      `Se render mais: ~${otim.n} dias. Se render menos: ~${pess.n} dias.`,
+      prazo
+        ? (apertou
+            ? `Você marcou ${fx.nome} — nesse ritmo aperta: leva ~${real.n} dias. Considere um prazo maior, guardar mais por dia ou vender mais.`
+            : `Você marcou ${fx.nome} — combina com o seu ritmo. 👍`)
+        : `Dica: defina se é curto, médio ou longo prazo pra eu avaliar melhor.`,
+    ];
+
     return {
-      texto: `Depois das contas sobram ~${formatCurrency(sobraDia)}/dia. Nesse ritmo dá pra juntar em ~${dias} ${dias === 1 ? "dia" : "dias"} (por volta de ${dataPrev}).`,
-      tom: "ok" as const,
+      tom: (apertou ? "alerta" : "ok") as "ok" | "alerta",
+      resumo: apertou
+        ? `Pra ${fx.nome} aperta: no seu ritmo levaria ~${real.n} dias (${real.data}).`
+        : `Dá pra juntar em ~${real.n} dias (por volta de ${real.data}).`,
+      detalhe,
     };
   };
 
@@ -2010,7 +2052,39 @@ export default function Finances() {
                     />
                   </div>
                   <div>
-                    <Label>Prazo (opcional)</Label>
+                    <Label>Prazo</Label>
+                    <div className="grid grid-cols-3 gap-2 mt-1.5">
+                      {([["curto", "Curto"], ["medio", "Médio"], ["longo", "Longo"]] as const).map(([val, lbl]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setNewGoal({ ...newGoal, prazo: val })}
+                          className={`h-9 rounded-lg border text-xs font-semibold transition-colors ${
+                            newGoal.prazo === val ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Prévia da recomendação — já avisa (em vermelho) se o prazo apertar */}
+                  {parseFloat(newGoal.target_amount) > 0 && (() => {
+                    const rec = recomendarMeta(parseFloat(newGoal.target_amount), 0, newGoal.prazo);
+                    return (
+                      <div className={`rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${
+                        rec.tom === "ok" ? "bg-success/5 border-success/25 text-foreground/90"
+                        : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35 text-destructive"
+                        : "bg-muted/40 border-border/50 text-muted-foreground"
+                      }`}>
+                        {rec.resumo}
+                      </div>
+                    );
+                  })()}
+
+                  <div>
+                    <Label>Data limite (opcional)</Label>
                     <Input
                       type="date"
                       value={newGoal.deadline}
@@ -2062,7 +2136,8 @@ export default function Finances() {
               {goals.map(goal => {
                 const progress = (goal.current_amount / goal.target_amount) * 100;
                 const remaining = goal.target_amount - goal.current_amount;
-                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.deadline);
+                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo);
+                const recExpandida = recAberta === goal.id;
 
                 return (
                   <Card key={goal.id} className="card-gradient-border">
@@ -2116,21 +2191,38 @@ export default function Finances() {
                         )}
                       </div>
 
-                      {/* Recomendação (cálculo direto): quanto tempo pra juntar a meta */}
+                      {/* Recomendação (cálculo direto) — toca pra abrir o detalhe com cenários */}
                       {remaining > 0 && (
-                        <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border ${
-                          rec.tom === "ok" ? "bg-success/5 border-success/25"
-                          : rec.tom === "alerta" ? "bg-warning/5 border-warning/30"
-                          : "bg-muted/40 border-border/50"
-                        }`}>
+                        <button
+                          type="button"
+                          onClick={() => setRecAberta(recExpandida ? null : goal.id)}
+                          className={`w-full text-left flex items-start gap-2 rounded-xl px-3 py-2.5 border transition-colors ${
+                            rec.tom === "ok" ? "bg-success/5 border-success/25"
+                            : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35"
+                            : "bg-muted/40 border-border/50"
+                          }`}
+                        >
                           <Sparkles className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                            rec.tom === "ok" ? "text-success" : rec.tom === "alerta" ? "text-warning" : "text-muted-foreground"
+                            rec.tom === "ok" ? "text-success" : rec.tom === "alerta" ? "text-destructive" : "text-muted-foreground"
                           }`} />
-                          <div className="min-w-0">
-                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Recomendação</p>
-                            <p className="text-xs text-foreground/90 leading-relaxed">{rec.texto}</p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-[10px] uppercase tracking-wider font-semibold ${rec.tom === "alerta" ? "text-destructive" : "text-muted-foreground"}`}>Recomendação</p>
+                              {rec.detalhe.length > 0 && (
+                                <span className="text-[10px] text-muted-foreground">{recExpandida ? "fechar ▲" : "ver mais ▼"}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-foreground/90 leading-relaxed">{rec.resumo}</p>
+                            {recExpandida && rec.detalhe.length > 0 && (
+                              <div className="mt-2 pt-2 border-t border-border/40 space-y-1">
+                                {rec.detalhe.map((linha, i) => (
+                                  <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">{linha}</p>
+                                ))}
+                                <p className="text-[10px] text-muted-foreground/70 italic pt-1">É uma recomendação baseada nos seus resultados — a decisão é sua.</p>
+                              </div>
+                            )}
                           </div>
-                        </div>
+                        </button>
                       )}
 
                       {/* Depósito do dia — abre o diálogo "Guardar hoje" compartilhado */}
