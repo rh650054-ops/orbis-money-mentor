@@ -135,6 +135,8 @@ export default function Finances() {
   const [goalImagePreview, setGoalImagePreview] = useState<string>("");
   // Qual recomendação de meta está aberta (id da meta) — pra expandir o texto detalhado.
   const [recAberta, setRecAberta] = useState<string | null>(null);
+  // Qual meta está expandida (bloco compacto → abre detalhes ao tocar).
+  const [metaAberta, setMetaAberta] = useState<string | null>(null);
   // Editar meta (sem apagar/recriar).
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "" });
@@ -2222,49 +2224,48 @@ export default function Finances() {
                 const remaining = goal.target_amount - goal.current_amount;
                 const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo, planoMetas.get(goal.id));
                 const recExpandida = recAberta === goal.id;
+                const aberta = metaAberta === goal.id;
 
                 return (
                   <Card key={goal.id} className="card-gradient-border">
-                    <CardContent className="pt-6 space-y-4">
-                      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          {goal.icon && goal.icon.startsWith("http") ? (
-                            <img src={goal.icon} alt="" className="w-12 h-12 rounded-2xl object-cover border border-primary/30 shrink-0" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                              <Target className="w-6 h-6 text-primary" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-semibold text-lg">{goal.name}</p>
-                            {goal.deadline && (
-                              <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                                <Calendar className="w-3 h-3" />
-                                Prazo: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
-                              </p>
-                            )}
+                    <CardContent className="p-3 space-y-2">
+                      {/* Bloco COMPACTO — toca pra abrir os detalhes */}
+                      <button
+                        type="button"
+                        onClick={() => setMetaAberta(aberta ? null : goal.id)}
+                        className="w-full flex items-center gap-3 text-left"
+                      >
+                        {goal.icon && goal.icon.startsWith("http") ? (
+                          <img src={goal.icon} alt="" className="w-10 h-10 rounded-xl object-cover border border-primary/30 shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <Target className="w-5 h-5 text-primary" />
                           </div>
-                        </div>
-                        <div className="text-left sm:text-right w-full sm:w-auto">
-                          <p className="text-sm text-muted-foreground">Meta</p>
-                          <p className="text-lg font-bold text-primary whitespace-nowrap">
-                            {formatCurrency(goal.target_amount)}
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{goal.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatCurrency(goal.current_amount)} de {formatCurrency(goal.target_amount)} · {progress.toFixed(0)}%
                           </p>
                         </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground whitespace-nowrap">
-                            {formatCurrency(goal.current_amount)} depositado
-                          </span>
-                          <span className="font-semibold text-primary">
-                            {progress.toFixed(0)}%
-                          </span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
+                        {goal.status === "completed" ? (
+                          <Check className="w-5 h-5 text-success shrink-0" />
+                        ) : (
+                          <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`} />
+                        )}
+                      </button>
+                      <Progress value={progress} className="h-1.5" />
+
+                      {aberta && (
+                        <div className="pt-2 space-y-3">
                         {remaining > 0 && (
                           <p className="text-sm text-muted-foreground">
                             Faltam {formatCurrency(remaining)} para atingir sua meta
+                          </p>
+                        )}
+                        {goal.deadline && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            <Calendar className="w-3 h-3" /> Data limite: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
                           </p>
                         )}
                         {Number(goal.percentual_distribuicao) > 0 && (
@@ -2273,7 +2274,6 @@ export default function Finances() {
                             Guardar {Number(goal.percentual_distribuicao).toFixed(0)}% do líquido do dia
                           </p>
                         )}
-                      </div>
 
                       {/* Recomendação (cálculo direto) — toca pra abrir o detalhe com cenários */}
                       {remaining > 0 && (
@@ -2343,6 +2343,8 @@ export default function Finances() {
                         <div className="bg-success/10 border border-success/20 rounded-lg p-3 flex items-center justify-center gap-2">
                           <Check className="w-4 h-4 text-success" />
                           <p className="text-success font-semibold">Meta concluída</p>
+                        </div>
+                      )}
                         </div>
                       )}
                     </CardContent>
