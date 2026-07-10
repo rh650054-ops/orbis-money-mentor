@@ -1094,35 +1094,37 @@ export default function Finances() {
   const metasGuardado = goals.filter((g) => g.status === "active").reduce((s, g) => s + (Number(g.current_amount) || 0), 0);
   const metasTotal = goals.filter((g) => g.status === "active").reduce((s, g) => s + (Number(g.target_amount) || 0), 0);
 
-  // Calendário das METAS: quanto guardar por dia útil pras metas (a sobra diária), de hoje
-  // até o fim do mês, dizendo pra QUAL meta cada dia vai (segue o plano de prioridade).
+  // Calendário das METAS — CONTAS PRIMEIRO, meta só com a sobra.
+  // Pra cada dia útil: sobra = líquido médio do dia − o que precisa guardar de CONTA naquele
+  // dia (o mesmo valor do calendário de contas). Só o que sobra vai pra meta. Dia em que a
+  // conta come tudo → R$0 pra meta (as metas "começam" quando alivia das contas). A sobra vai
+  // acumulando na meta prioritária; quando ela fecha, passa pra próxima. Sem reserva por ora.
   const proximosDiasMetas = (() => {
-    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const base = new Date(); base.setHours(12, 0, 0, 0);
-    const ultimoDiaMes = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
-    const diasAteFimMes = Math.max(0, ultimoDiaMes - base.getDate());
-    const metaNoDiaUtil = (w: number) => goalsOrdenadas.find((g) => {
-      const p = planoMetas.get(g.id);
-      return !!p && p.diasInicio <= w && (p.diasFim === null || w < p.diasFim);
-    });
-    const out: { key: string; label: string; isWork: boolean; isToday: boolean; valor: number; meta: string | null }[] = [];
-    let workIdx = 0;
-    for (let i = 0; i <= diasAteFimMes; i++) {
-      const d = new Date(base); d.setDate(base.getDate() + i);
-      const nome = nomes[d.getDay()];
-      const isWork = workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true;
-      const isToday = i === 0;
-      const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
-      let meta: string | null = null;
-      if (isWork) {
-        const g = metaNoDiaUtil(workIdx);
-        meta = g ? g.name : null;
-        workIdx++;
+    const fila = goalsOrdenadas
+      .filter((g) => planoMetas.has(g.id))
+      .map((g) => ({ nome: g.name, falta: Math.max(0, Number(g.target_amount) - Number(g.current_amount)) }));
+    const ganhoDia = summary.mediaDiariaLiquida;
+    let filaIdx = 0;
+    let acum = 0;
+    return proximosDias.map((dia) => {
+      if (!dia.isWork) {
+        return { key: dia.key, label: dia.label, isWork: false, isToday: dia.isToday, valor: 0, meta: null as string | null };
       }
-      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, valor: isWork ? sobraDiaMetas : 0, meta });
-    }
-    return out;
+      // dia.valor = quanto guardar de CONTA nesse dia (contas primeiro).
+      const valor = Math.max(0, ganhoDia - dia.valor);
+      const meta = filaIdx < fila.length ? fila[filaIdx].nome : null;
+      if (valor > 0.005 && filaIdx < fila.length) {
+        acum += valor;
+        while (filaIdx < fila.length && acum >= fila[filaIdx].falta - 0.005) {
+          acum -= fila[filaIdx].falta;
+          filaIdx++;
+        }
+      }
+      return { key: dia.key, label: dia.label, isWork: true, isToday: dia.isToday, valor, meta };
+    });
   })();
+  const metaHoje = proximosDiasMetas.find((d) => d.isToday)?.valor ?? 0;
+  const temSobraMetas = proximosDiasMetas.some((d) => d.valor > 0.005);
 
   // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
   const faixaPrazo = (p?: string) =>
@@ -2267,38 +2269,44 @@ export default function Finances() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">Calendário das metas</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {sobraDiaMetas > 0
-                        ? <>Guarde <span className="font-semibold text-primary">{formatCurrency(sobraDiaMetas)}</span> por dia de trabalho pras metas</>
-                        : "Suas contas consomem quase toda a renda — sem sobra pras metas agora"}
+                      {temSobraMetas
+                        ? <>Hoje, depois das contas, sobra <span className="font-semibold text-primary">{formatCurrency(metaHoje)}</span> pra meta</>
+                        : "Suas contas consomem toda a renda do dia — as metas começam quando aliviar das contas"}
                     </p>
                   </div>
                   <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecaoMetas ? "rotate-180" : ""}`} />
                 </button>
 
-                {showProjecaoMetas && sobraDiaMetas > 0 && (
+                {showProjecaoMetas && (
                   <div className="mt-3 pt-3 border-t border-border/50">
                     <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 overscroll-contain">
-                      {proximosDiasMetas.map((d) => (
-                        <div
-                          key={d.key}
-                          className="w-full flex items-center justify-between px-2 py-2 rounded-lg"
-                        >
-                          <div className="min-w-0">
-                            <span className="text-sm capitalize text-foreground">{d.label}</span>
-                            {d.isWork && d.meta && (
-                              <span className="block text-[11px] text-muted-foreground truncate">→ {d.meta}</span>
+                      {proximosDiasMetas.map((d) => {
+                        const sobrou = d.isWork && d.valor > 0.005;
+                        return (
+                          <div
+                            key={d.key}
+                            className="w-full flex items-center justify-between px-2 py-2 rounded-lg"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-sm capitalize text-foreground">{d.label}</span>
+                              {sobrou && d.meta && (
+                                <span className="block text-[11px] text-muted-foreground truncate">→ {d.meta}</span>
+                              )}
+                              {d.isWork && !sobrou && (
+                                <span className="block text-[11px] text-muted-foreground truncate">tudo foi pras contas</span>
+                              )}
+                            </div>
+                            {d.isWork ? (
+                              <span className={`text-sm font-bold tabular-nums shrink-0 ${sobrou ? "text-primary" : "text-muted-foreground"}`}>{formatCurrency(d.valor)}</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground shrink-0">descanso</span>
                             )}
                           </div>
-                          {d.isWork ? (
-                            <span className="text-sm font-bold text-primary tabular-nums shrink-0">{formatCurrency(d.valor)}</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground shrink-0">descanso</span>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                     <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
-                      Cada dia útil vai pra meta prioritária do momento (curto → médio → longo). Ao terminar uma, o valor passa pra próxima.
+                      Contas primeiro: cada dia guarda a conta do dia e só a sobra do líquido vai pra meta prioritária (curto → médio → longo). Dia sem sobra fica em R$0 pra meta.
                     </p>
                   </div>
                 )}
