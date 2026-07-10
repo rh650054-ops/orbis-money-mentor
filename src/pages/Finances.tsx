@@ -135,6 +135,10 @@ export default function Finances() {
   const [goalImagePreview, setGoalImagePreview] = useState<string>("");
   // Qual recomendação de meta está aberta (id da meta) — pra expandir o texto detalhado.
   const [recAberta, setRecAberta] = useState<string | null>(null);
+  // Editar meta (sem apagar/recriar).
+  const [editGoal, setEditGoal] = useState<Goal | null>(null);
+  const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "" });
+  const [savingEditGoal, setSavingEditGoal] = useState(false);
 
   // Reusable "guardar" deposit dialog — shared por Contas a pagar (Guardei) e Metas (Guardar hoje)
   const [depositTarget, setDepositTarget] = useState<
@@ -715,6 +719,46 @@ export default function Finances() {
         title: "Erro ao criar meta",
         variant: "destructive"
       });
+    }
+  };
+
+  // Abrir/salvar edição de meta (sem apagar e recriar).
+  const openEditGoal = (goal: Goal) => {
+    setEditGoal(goal);
+    setEditGoalForm({
+      name: goal.name,
+      target_amount: String(goal.target_amount),
+      prazo: (goal.prazo as "curto" | "medio" | "longo") || "medio",
+      deadline: goal.deadline ? goal.deadline.slice(0, 10) : "",
+    });
+  };
+
+  const handleSaveEditGoal = async () => {
+    if (!user || !editGoal) return;
+    const alvo = parseFloat(editGoalForm.target_amount.replace(",", "."));
+    if (!editGoalForm.name.trim() || !alvo || alvo <= 0) {
+      toast({ title: "Preencha nome e valor", variant: "destructive" });
+      return;
+    }
+    setSavingEditGoal(true);
+    try {
+      const { error } = await supabase
+        .from("financial_goals")
+        .update({
+          name: editGoalForm.name.trim(),
+          target_amount: alvo,
+          prazo: editGoalForm.prazo,
+          deadline: editGoalForm.deadline || null,
+        } as any)
+        .eq("id", editGoal.id);
+      if (error) throw error;
+      toast({ title: "Meta atualizada", description: editGoalForm.name.trim() });
+      setEditGoal(null);
+      loadFinancialData();
+    } catch (e) {
+      toast({ title: "Erro ao salvar", variant: "destructive" });
+    } finally {
+      setSavingEditGoal(false);
     }
   };
 
@@ -2236,6 +2280,15 @@ export default function Finances() {
                             Guardar hoje
                           </Button>
                           <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openEditGoal(goal)}
+                            className="flex-shrink-0"
+                            aria-label="Editar meta"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
                             variant="destructive"
                             size="icon"
                             onClick={() => handleDeleteGoal(goal.id)}
@@ -2260,6 +2313,72 @@ export default function Finances() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Editar meta — muda nome, valor e prazo sem precisar apagar e recriar */}
+      <Dialog open={editGoal !== null} onOpenChange={(o) => { if (!o) setEditGoal(null); }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Editar meta</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div>
+              <Label>Nome</Label>
+              <Input
+                value={editGoalForm.name}
+                onChange={(e) => setEditGoalForm({ ...editGoalForm, name: e.target.value })}
+                placeholder="Ex.: Óculos novo"
+              />
+            </div>
+            <div>
+              <Label>Valor da meta (R$)</Label>
+              <MoneyInput
+                value={parseFloat(editGoalForm.target_amount) || 0}
+                onChange={(n) => setEditGoalForm({ ...editGoalForm, target_amount: n ? String(n) : "" })}
+              />
+            </div>
+            <div>
+              <Label>Prazo</Label>
+              <div className="grid grid-cols-3 gap-2 mt-1.5">
+                {([["curto", "Curto"], ["medio", "Médio"], ["longo", "Longo"]] as const).map(([val, lbl]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setEditGoalForm({ ...editGoalForm, prazo: val })}
+                    className={`h-9 rounded-lg border text-xs font-semibold transition-colors ${
+                      editGoalForm.prazo === val ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {parseFloat(editGoalForm.target_amount) > 0 && editGoal && (() => {
+              const rec = recomendarMeta(parseFloat(editGoalForm.target_amount), editGoal.current_amount, editGoalForm.prazo);
+              return (
+                <div className={`rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${
+                  rec.tom === "ok" ? "bg-success/5 border-success/25 text-foreground/90"
+                  : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35 text-destructive"
+                  : "bg-muted/40 border-border/50 text-muted-foreground"
+                }`}>
+                  {rec.resumo}
+                </div>
+              );
+            })()}
+            <div>
+              <Label>Data limite (opcional)</Label>
+              <Input
+                type="date"
+                value={editGoalForm.deadline}
+                onChange={(e) => setEditGoalForm({ ...editGoalForm, deadline: e.target.value })}
+              />
+            </div>
+            <Button onClick={handleSaveEditGoal} disabled={savingEditGoal} className="w-full">
+              {savingEditGoal ? "Salvando..." : "Salvar alterações"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo de depósito compartilhado: "Guardei" (conta) e "Guardar hoje" (meta) */}
       <Dialog open={depositTarget !== null} onOpenChange={(open) => { if (!open) { setDepositTarget(null); setDepositValue(""); } }}>
