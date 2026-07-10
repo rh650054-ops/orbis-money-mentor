@@ -80,6 +80,7 @@ interface FinancialSummary {
   netToday: number;
   // Mês
   monthlyNetProfit: number;
+  mediaDiariaLiquida: number; // lucro líquido médio por dia trabalhado (pra recomendação de metas)
 }
 
 export default function Finances() {
@@ -99,6 +100,7 @@ export default function Finances() {
     expensesToday: 0,
     netToday: 0,
     monthlyNetProfit: 0,
+    mediaDiariaLiquida: 0,
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
@@ -285,6 +287,11 @@ export default function Finances() {
       // Calote NÃO entra; permite negativo.
       const monthlyNetProfit = totalProfit - totalCostMonth - totalTransportMonth - totalFoodMonth - expensesMonth;
 
+      // Média diária líquida = lucro do mês ÷ dias que teve venda (pra estimar
+      // quanto sobra por dia e recomendar prazo de metas).
+      const diasComVenda = (salesData || []).filter((s) => Number(s.total_profit) > 0).length;
+      const mediaDiariaLiquida = diasComVenda > 0 ? monthlyNetProfit / diasComVenda : 0;
+
       setSummary({
         totalProfit,
         totalReinvestment,
@@ -296,6 +303,7 @@ export default function Finances() {
         expensesToday,
         netToday,
         monthlyNetProfit,
+        mediaDiariaLiquida,
       });
 
     } catch (error) {
@@ -977,6 +985,47 @@ export default function Finances() {
       const nd = nextDueDate(b);
       return s + (nd ? remaining(b) / Math.max(1, workingDaysUntil(toYMD(nd))) : 0);
     }, 0);
+
+  // RECOMENDAÇÃO DE META (cálculo direto): sobra por dia = média diária líquida − o que
+  // as contas comem por dia. Com isso estima em quantos dias dá pra juntar a meta e, se
+  // você tem um prazo, compara. É só RECOMENDAÇÃO — você decide.
+  const recomendarMeta = (targetAmount: number, currentAmount: number, deadline?: string | null) => {
+    const falta = Math.max(0, (Number(targetAmount) || 0) - (Number(currentAmount) || 0));
+    if (falta <= 0) return { texto: "Meta atingida! 🎉", tom: "ok" as const };
+    const ganhoDia = summary.mediaDiariaLiquida;
+    if (ganhoDia <= 0) return { texto: "Registre alguns dias de venda que eu estimo o prazo dessa meta.", tom: "neutro" as const };
+    const sobraDia = ganhoDia - ritmoSustentavel;
+    if (sobraDia <= 0) {
+      return {
+        texto: `No ritmo atual suas contas (~${formatCurrency(ritmoSustentavel)}/dia) comem quase toda a renda (~${formatCurrency(ganhoDia)}/dia). Difícil separar pra essa meta agora — pra começar, aumente o faturamento ou reveja as contas.`,
+        tom: "alerta" as const,
+      };
+    }
+    const dias = Math.ceil(falta / sobraDia);
+    // Data prevista contando só dias de trabalho.
+    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const cur = new Date(); cur.setHours(12, 0, 0, 0);
+    let count = 0, guard = 0;
+    while (count < dias && guard < 800) {
+      cur.setDate(cur.getDate() + 1); guard++;
+      const util = workingDays && workingDays.length > 0 ? workingDays.includes(nomes[cur.getDay()]) : true;
+      if (util) count++;
+    }
+    const dataPrev = cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    if (deadline) {
+      const diasPrazo = workingDaysUntil(deadline.slice(0, 10));
+      if (diasPrazo > 0 && diasPrazo < dias) {
+        return {
+          texto: `Depois das contas sobram ~${formatCurrency(sobraDia)}/dia. No seu ritmo o ideal seria ~${dias} dias (perto de ${dataPrev}) — seu prazo de ${diasPrazo} dias vai apertar. Dá, mas exige guardar mais/dia ou vender mais.`,
+          tom: "alerta" as const,
+        };
+      }
+    }
+    return {
+      texto: `Depois das contas sobram ~${formatCurrency(sobraDia)}/dia. Nesse ritmo dá pra juntar em ~${dias} ${dias === 1 ? "dia" : "dias"} (por volta de ${dataPrev}).`,
+      tom: "ok" as const,
+    };
+  };
 
   // "No que pagar primeiro": ordena as contas por urgência — vencidas primeiro, depois
   // as que vencem mais cedo, e cartão como desempate (risco de juros/negativar).
@@ -2013,6 +2062,7 @@ export default function Finances() {
               {goals.map(goal => {
                 const progress = (goal.current_amount / goal.target_amount) * 100;
                 const remaining = goal.target_amount - goal.current_amount;
+                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.deadline);
 
                 return (
                   <Card key={goal.id} className="card-gradient-border">
@@ -2065,6 +2115,23 @@ export default function Finances() {
                           </p>
                         )}
                       </div>
+
+                      {/* Recomendação (cálculo direto): quanto tempo pra juntar a meta */}
+                      {remaining > 0 && (
+                        <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border ${
+                          rec.tom === "ok" ? "bg-success/5 border-success/25"
+                          : rec.tom === "alerta" ? "bg-warning/5 border-warning/30"
+                          : "bg-muted/40 border-border/50"
+                        }`}>
+                          <Sparkles className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
+                            rec.tom === "ok" ? "text-success" : rec.tom === "alerta" ? "text-warning" : "text-muted-foreground"
+                          }`} />
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Recomendação</p>
+                            <p className="text-xs text-foreground/90 leading-relaxed">{rec.texto}</p>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Depósito do dia — abre o diálogo "Guardar hoje" compartilhado */}
                       {goal.status === "active" && (
