@@ -826,6 +826,20 @@ export default function Finances() {
     const hoje = getBrazilDate();
     const alvo = guardarTargetRef.current;
     try {
+      // LIMPEZA 1x: o modelo antigo de "saldo adiantado" deixou saldos travados
+      // (ex.: "guardou 990 hoje") gravados com a data de hoje — aí o reinício-no-dia
+      // não pegava. Esta migração zera o resíduo uma única vez por aparelho.
+      if (localStorage.getItem("orbis_guardar_ver") !== "2") {
+        localStorage.setItem("orbis_guardar_ver", "2");
+        localStorage.setItem("orbis_guardar_date", hoje);
+        localStorage.setItem("orbis_guardar_target", String(alvo));
+        localStorage.setItem("orbis_guardar_saved", "0");
+        localStorage.removeItem("orbis_last_save_date");
+        setSavedToday(false);
+        setTargetSnapshot(alvo);
+        setSavedTodayAmount(0);
+        return;
+      }
       if (localStorage.getItem("orbis_guardar_date") !== hoje) {
         // NOVO DIA → REINICIA limpo: alvo = sugestão de hoje, guardado-hoje = 0.
         // Nada de "saldo adiantado" carregado do dia anterior (isso travava o card em
