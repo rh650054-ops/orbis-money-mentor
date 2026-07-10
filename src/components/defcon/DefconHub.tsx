@@ -77,7 +77,7 @@ function LatePixSection() {
       // rows"). Pega a mais antiga e soma nela (sem criar linha nova/duplicada).
       const { data: rows, error: selErr } = await supabase
         .from("daily_sales")
-        .select("id, total_profit, pix_sales")
+        .select("id, total_profit, pix_sales, total_debt")
         .eq("user_id", user.id)
         .eq("date", date)
         .order("created_at", { ascending: true })
@@ -91,6 +91,9 @@ function LatePixSection() {
           .update({
             total_profit: (Number(existing.total_profit) || 0) + value,
             pix_sales: (Number(existing.pix_sales) || 0) + value,
+            // Pix tardio = o dinheiro que FALTAVA cair e caiu: abate do "faltou cair"
+            // (total_debt). Assim "caiu" sobe, "faltou" desce e "era pra cair" fica igual.
+            total_debt: Math.max(0, (Number((existing as any).total_debt) || 0) - value),
           })
           .eq("id", existing.id);
         if (updErr) throw updErr;
@@ -134,7 +137,7 @@ function LatePixSection() {
     try {
       const { data: dsRows } = await supabase
         .from("daily_sales")
-        .select("id, total_profit, pix_sales")
+        .select("id, total_profit, pix_sales, total_debt")
         .eq("user_id", user.id)
         .eq("date", entry.sale_date)
         .order("created_at", { ascending: true })
@@ -146,6 +149,8 @@ function LatePixSection() {
           .update({
             total_profit: Math.max(0, (Number(ds.total_profit) || 0) - Number(entry.amount)),
             pix_sales: Math.max(0, (Number(ds.pix_sales) || 0) - Number(entry.amount)),
+            // Desfazer: o valor volta a "faltar cair".
+            total_debt: (Number((ds as any).total_debt) || 0) + Number(entry.amount),
           })
           .eq("id", ds.id);
       }
