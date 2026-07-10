@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
   FileDown,
   Clock,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Calendar } from "@/shared/ui/calendar";
@@ -381,9 +382,12 @@ export default function Insights() {
   // ESPERADO x RECEBIDO: "esperado" é o faturamento de TODA a mercadoria vendida
   // (o que era pra cair). "Recebido" é o que efetivamente entrou (dinheiro+pix+cartão).
   // A diferença é o calote — mostrado em R$ e em % do esperado.
-  const esperadoReceber = summary.faturamento;
+  // SÓ vendido vs recebido (sem custo). CAIU = o que entrou (dinheiro+pix+cartão).
+  // CALOTE = o que ficou sem pagar (unidades não pagas × ticket). ERA PRA CAIR = os
+  // dois somados. Assim: vendeu 2000, caiu 1700, calote 300 — sempre consistente.
   const recebidoDeFato = summary.dinheiro + summary.pix + summary.cartao;
-  const naoRecebido = Math.max(0, esperadoReceber - recebidoDeFato);
+  const naoRecebido = Math.max(0, summary.calotes);
+  const esperadoReceber = recebidoDeFato + naoRecebido;
   const pctRecebido = esperadoReceber > 0 ? (recebidoDeFato / esperadoReceber) * 100 : 0;
   const pctCalote = esperadoReceber > 0 ? (naoRecebido / esperadoReceber) * 100 : 0;
 
@@ -703,59 +707,61 @@ export default function Insights() {
             </div>
           </section>
 
-          {/* Era pra cair x Caiu — quanto da mercadoria vendida virou dinheiro no bolso */}
-          <section className="rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+          {/* Era pra cair × Caiu — só vendido vs recebido (o calote é a diferença) */}
+          <section className="rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-background p-5 space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-success/10 border border-success/25 flex items-center justify-center shrink-0">
+                  <Wallet className="w-4 h-4 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground leading-tight">Era pra cair × Caiu</p>
+                  <p className="text-[11px] text-muted-foreground leading-tight">Do que você vendeu, quanto entrou</p>
+                </div>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Era pra cair</p>
+                <p className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(esperadoReceber)}</p>
+              </div>
+            </div>
+
+            {/* CAIU — destaque */}
             <div>
-              <p className="text-sm font-semibold text-foreground">Era pra cair × Caiu</p>
-              <p className="text-[11px] text-muted-foreground">
-                O que a mercadoria vendida deveria render, e o que realmente entrou.
+              <p className="text-[11px] text-muted-foreground">Caiu de verdade</p>
+              <p className="text-4xl font-black text-success tabular-nums tracking-tight">{formatCurrency(recebidoDeFato)}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {pctRecebido.toFixed(0)}% do que você vendeu entrou no bolso
               </p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-background border border-border/50 p-3">
-                <p className="text-[11px] text-muted-foreground">Era pra cair</p>
-                <p className="text-lg font-bold text-foreground tabular-nums">{formatCurrency(esperadoReceber)}</p>
-                <p className="text-[10px] text-muted-foreground">tudo que foi vendido</p>
-              </div>
-              <div className="rounded-xl bg-success/5 border border-success/30 p-3">
-                <p className="text-[11px] text-muted-foreground">Caiu de verdade</p>
-                <p className="text-lg font-bold text-success tabular-nums">{formatCurrency(recebidoDeFato)}</p>
-                <p className="text-[10px] text-success/80 font-semibold">{pctRecebido.toFixed(0)}% do esperado</p>
-              </div>
+            {/* Barra dividida: verde = caiu, vermelho = calote */}
+            <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted">
+              <div className="h-full bg-success transition-[width]" style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%` }} />
+              <div className="h-full bg-destructive transition-[width]" style={{ width: `${Math.min(100, Math.max(0, pctCalote))}%` }} />
             </div>
 
-            {/* Barra: quanto do esperado entrou */}
-            <div className="h-2.5 w-full rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full bg-success transition-[width]"
-                style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%` }}
-              />
-            </div>
-
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-destructive/5 border border-destructive/25 px-3 py-2.5">
+            {/* Calote — o que faltou cair */}
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-destructive/5 border border-destructive/25 px-3.5 py-3">
               <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Calote (não recebido)</p>
+                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Faltou cair · calote</p>
                 <p className="text-[11px] text-muted-foreground">
                   {summary.caloteUnidades > 0
-                    ? `${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} não paga${summary.caloteUnidades === 1 ? "" : "s"}`
-                    : "Nenhuma unidade não paga"}
+                    ? `${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade não paga" : "unidades não pagas"}`
+                    : "Ninguém deixou de pagar 🎉"}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-base font-bold text-destructive tabular-nums">{formatCurrency(naoRecebido)}</p>
-                <p className="text-[11px] text-destructive/80 font-semibold">{pctCalote.toFixed(1)}% do esperado</p>
+                <p className="text-xl font-black text-destructive tabular-nums">{formatCurrency(naoRecebido)}</p>
+                <p className="text-[11px] text-destructive/80 font-semibold">{pctCalote.toFixed(1)}% do total</p>
               </div>
             </div>
           </section>
 
-          {/* Análise da IA (Gemini) — destaque no topo */}
-          <div className="rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-4 space-y-2.5 shadow-[0_10px_40px_-12px_hsl(var(--primary)/0.45)]">
+          {/* Análise da IA — discreta, secundária (não compete com os números) */}
+          <div className="rounded-2xl border border-border/60 bg-card/60 p-4 space-y-2.5">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <p className="text-sm font-bold text-primary tracking-tight">
+              <Sparkles className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <p className="text-xs font-semibold text-muted-foreground tracking-wide uppercase">
                 Análise da IA · Mentor Orbis
               </p>
             </div>
@@ -800,7 +806,8 @@ export default function Insights() {
                 <Button
                   onClick={generateReportAnalysis}
                   disabled={aiReportLoading}
-                  className="w-full gap-2 bg-gradient-primary hover:opacity-90 h-10 text-sm"
+                  variant="outline"
+                  className="w-full gap-2 h-9 text-sm border-border/60 text-muted-foreground hover:text-foreground"
                 >
                   {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
                   {aiReportLoading ? "Analisando seu corre..." : "Analisar com IA"}
