@@ -156,6 +156,7 @@ export default function Finances() {
   const [customSaveValue, setCustomSaveValue] = useState("");
   // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
   const [showProjecao, setShowProjecao] = useState(false);
+  const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
   // Registrar "guardei X" num dia específico (selecionado na lista de próximos dias)
   const [diaSave, setDiaSave] = useState<{ label: string; isToday: boolean } | null>(null);
   const [diaSaveValue, setDiaSaveValue] = useState("");
@@ -1085,6 +1086,42 @@ export default function Finances() {
     return oa - oz;
   });
 
+  // Totais GUARDADOS — pra conferir se o que o app diz bate com o que foi separado de fato.
+  const contasGuardado = bills.reduce((s, b) => s + (Number(b.saved_amount) || 0), 0);
+  const contasTotal = bills.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const metasGuardado = goals.reduce((s, g) => s + (Number(g.current_amount) || 0), 0);
+  const metasTotal = goals.reduce((s, g) => s + (Number(g.target_amount) || 0), 0);
+
+  // Calendário das METAS: quanto guardar por dia útil pras metas (a sobra diária), de hoje
+  // até o fim do mês, dizendo pra QUAL meta cada dia vai (segue o plano de prioridade).
+  const proximosDiasMetas = (() => {
+    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const base = new Date(); base.setHours(12, 0, 0, 0);
+    const ultimoDiaMes = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    const diasAteFimMes = Math.max(0, ultimoDiaMes - base.getDate());
+    const metaNoDiaUtil = (w: number) => goalsOrdenadas.find((g) => {
+      const p = planoMetas.get(g.id);
+      return !!p && p.diasInicio <= w && (p.diasFim === null || w < p.diasFim);
+    });
+    const out: { key: string; label: string; isWork: boolean; isToday: boolean; valor: number; meta: string | null }[] = [];
+    let workIdx = 0;
+    for (let i = 0; i <= diasAteFimMes; i++) {
+      const d = new Date(base); d.setDate(base.getDate() + i);
+      const nome = nomes[d.getDay()];
+      const isWork = workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true;
+      const isToday = i === 0;
+      const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
+      let meta: string | null = null;
+      if (isWork) {
+        const g = metaNoDiaUtil(workIdx);
+        meta = g ? g.name : null;
+        workIdx++;
+      }
+      out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, valor: isWork ? sobraDiaMetas : 0, meta });
+    }
+    return out;
+  })();
+
   // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
   const faixaPrazo = (p?: string) =>
     p === "curto" ? { max: 20, nome: "curto prazo" }
@@ -1557,40 +1594,6 @@ export default function Finances() {
         </Card>
       )}
 
-      {/* No que pagar primeiro — prioridade automática por urgência */}
-      {!isLoadingData && prioridadePagar.length > 0 && (
-        <Card className="bg-card border border-border/60 rounded-2xl">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">No que pagar primeiro</p>
-                <p className="text-[11px] text-muted-foreground">Ordenado por urgência</p>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              {prioridadePagar.map((p, i) => (
-                <div key={p.id} className="flex items-center gap-3 px-2 py-2 rounded-lg bg-background border border-border/40">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
-                    {i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground truncate">{p.nome}</p>
-                    <p className={`text-[11px] ${p.over ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{p.motivo}</p>
-                  </div>
-                  <span className="text-sm font-bold text-foreground tabular-nums shrink-0">{formatCurrency(p.falta)}</span>
-                </div>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
-              Recomendação automática: priorize vencidas e cartões pra evitar juros e negativação.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Diálogo "Guardei em <dia>" — registra o valor guardado no dia selecionado */}
       <Dialog open={diaSave !== null} onOpenChange={(o) => { if (!o) setDiaSave(null); }}>
         <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
@@ -1818,6 +1821,53 @@ export default function Finances() {
               </DialogContent>
             </Dialog>
           </div>
+
+          {/* Total guardado — confira se bate com o que você separou de fato */}
+          {!isLoadingData && bills.length > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Total guardado nas contas</p>
+                  <p className="text-[11px] text-muted-foreground">de {formatCurrency(contasTotal)} no total das contas</p>
+                </div>
+                <p className="text-lg font-bold text-primary text-right shrink-0 tabular-nums">{formatCurrency(contasGuardado)}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* No que pagar primeiro — prioridade automática por urgência */}
+          {!isLoadingData && prioridadePagar.length > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">No que pagar primeiro</p>
+                    <p className="text-[11px] text-muted-foreground">Ordenado por urgência</p>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {prioridadePagar.map((p, i) => (
+                    <div key={p.id} className="flex items-center gap-3 px-2 py-2 rounded-lg bg-background border border-border/40">
+                      <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${i === 0 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                        {i + 1}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-foreground truncate">{p.nome}</p>
+                        <p className={`text-[11px] ${p.over ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{p.motivo}</p>
+                      </div>
+                      <span className="text-sm font-bold text-foreground tabular-nums shrink-0">{formatCurrency(p.falta)}</span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
+                  Recomendação automática: priorize vencidas e cartões pra evitar juros e negativação.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {isLoadingData ? (
             <div className="space-y-2">
@@ -2240,6 +2290,72 @@ export default function Finances() {
               </DialogContent>
             </Dialog>
           </div>
+
+          {/* Total guardado — confira se bate com o que você separou de fato */}
+          {!isLoadingData && goals.length > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Total guardado nas metas</p>
+                  <p className="text-[11px] text-muted-foreground">de {formatCurrency(metasTotal)} somando todas as metas</p>
+                </div>
+                <p className="text-lg font-bold text-primary text-right shrink-0 tabular-nums">{formatCurrency(metasGuardado)}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Calendário das metas — quanto guardar por dia útil, e pra qual meta cada dia vai */}
+          {!isLoadingData && goals.length > 0 && planoMetas.size > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4">
+                <button
+                  onClick={() => setShowProjecaoMetas((v) => !v)}
+                  className="w-full flex items-center gap-3 text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Calendário das metas</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {sobraDiaMetas > 0
+                        ? <>Guarde <span className="font-semibold text-primary">{formatCurrency(sobraDiaMetas)}</span> por dia de trabalho pras metas</>
+                        : "Suas contas consomem quase toda a renda — sem sobra pras metas agora"}
+                    </p>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecaoMetas ? "rotate-180" : ""}`} />
+                </button>
+
+                {showProjecaoMetas && sobraDiaMetas > 0 && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 overscroll-contain">
+                      {proximosDiasMetas.map((d) => (
+                        <div
+                          key={d.key}
+                          className="w-full flex items-center justify-between px-2 py-2 rounded-lg"
+                        >
+                          <div className="min-w-0">
+                            <span className="text-sm capitalize text-foreground">{d.label}</span>
+                            {d.isWork && d.meta && (
+                              <span className="block text-[11px] text-muted-foreground truncate">→ {d.meta}</span>
+                            )}
+                          </div>
+                          {d.isWork ? (
+                            <span className="text-sm font-bold text-primary tabular-nums shrink-0">{formatCurrency(d.valor)}</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground shrink-0">descanso</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
+                      Cada dia útil vai pra meta prioritária do momento (curto → médio → longo). Ao terminar uma, o valor passa pra próxima.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {isLoadingData ? (
             <Skeleton className="h-40 w-full" />
