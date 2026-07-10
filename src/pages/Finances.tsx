@@ -137,6 +137,8 @@ export default function Finances() {
   const [recAberta, setRecAberta] = useState<string | null>(null);
   // Qual meta está expandida (bloco compacto → abre detalhes ao tocar).
   const [metaAberta, setMetaAberta] = useState<string | null>(null);
+  // Qual conta a pagar está expandida.
+  const [contaAberta, setContaAberta] = useState<string | null>(null);
   // Editar meta (sem apagar/recriar).
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "" });
@@ -1841,82 +1843,57 @@ export default function Finances() {
                         : "card-gradient-border"
                     }
                   >
-                    <CardContent className="pt-6 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-semibold">{bill.name}</p>
-                            {bill.is_credit_card ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/30 px-2 py-0.5 text-[11px] font-medium text-violet-400">
-                                <CreditCard className="w-3 h-3" />
-                                Cartão{bill.installments ? ` · ${bill.installments}x` : ""}
-                              </span>
-                            ) : isRecurring && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[11px] font-medium text-primary">
-                                <RotateCw className="w-3 h-3" />
-                                Recorrente
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-muted-foreground">
-                            <span>Valor: <span className="font-medium text-foreground">{formatCurrency(amount)}</span></span>
-                            {isRecurring ? (
-                              nextDueLabel && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  Próxima: {nextDueLabel}
+                    <CardContent className="p-3 space-y-2">
+                      {/* Bloco COMPACTO — recorrente, valor e próximo vencimento; toca pra abrir */}
+                      <button
+                        type="button"
+                        onClick={() => setContaAberta(contaAberta === bill.id ? null : bill.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-semibold truncate">{bill.name}</p>
+                              {bill.is_credit_card ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/30 px-2 py-0.5 text-[10px] font-medium text-violet-400">
+                                  <CreditCard className="w-3 h-3" />
+                                  Cartão{bill.installments ? ` · ${bill.installments}x` : ""}
                                 </span>
-                              )
-                            ) : (
-                              bill.due_date && (
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  Vence {new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                              ) : isRecurring && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                  <RotateCw className="w-3 h-3" />
+                                  Recorrente
                                 </span>
-                              )
-                            )}
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                              <span>Valor: <span className="font-medium text-foreground">{formatCurrency(amount)}</span></span>
+                              {isRecurring ? (
+                                nextDueLabel && (
+                                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Próxima: {nextDueLabel}</span>
+                                )
+                              ) : (
+                                bill.due_date && (
+                                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Vence {new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}</span>
+                                )
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          {bill.payment_code && bill.payment_code.trim() !== "" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCopyPaymentCode(bill)}
-                              aria-label="Copiar código de pagamento"
-                            >
-                              <Copy className="w-4 h-4 text-primary" />
-                              <span className="ml-1.5 text-xs text-primary">Copiar código</span>
-                            </Button>
+                          {quitada ? (
+                            <Check className="w-5 h-5 text-success shrink-0" />
+                          ) : (
+                            <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${contaAberta === bill.id ? "rotate-180" : ""}`} />
                           )}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditBill(bill)}
-                            aria-label="Editar conta"
-                          >
-                            <Pencil className="w-4 h-4 text-muted-foreground" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteBill(bill)}
-                            aria-label="Excluir conta"
-                          >
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
                         </div>
-                      </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Progress value={progress} className="h-1.5 flex-1" />
+                          <span className="text-[11px] font-semibold text-primary shrink-0">{progress.toFixed(0)}%</span>
+                        </div>
+                      </button>
 
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground whitespace-nowrap">
-                            {formatCurrency(saved)} guardado
-                          </span>
-                          <span className="font-semibold text-primary">{progress.toFixed(0)}%</span>
-                        </div>
-                        <Progress value={progress} className="h-2" />
-                      </div>
+                      {contaAberta === bill.id && (
+                        <div className="pt-1 space-y-3">
+                        <p className="text-xs text-muted-foreground">{formatCurrency(saved)} guardado</p>
 
                       {bill.paid ? (
                         <div className="bg-success/10 border border-success/20 rounded-lg p-2.5 flex items-center justify-center gap-2">
@@ -2097,6 +2074,23 @@ export default function Finances() {
                           {bill.paid ? "Reabrir" : "Marcar paga"}
                         </Button>
                       </div>
+
+                      {/* Editar / excluir a conta */}
+                      <div className="flex gap-2">
+                        {bill.payment_code && bill.payment_code.trim() !== "" && (
+                          <Button variant="outline" size="sm" onClick={() => handleCopyPaymentCode(bill)} className="flex-1">
+                            <Copy className="w-4 h-4 mr-1.5 text-primary" /> Copiar código
+                          </Button>
+                        )}
+                        <Button variant="outline" size="sm" onClick={() => openEditBill(bill)} className="flex-1" aria-label="Editar conta">
+                          <Pencil className="w-4 h-4 mr-1.5" /> Editar
+                        </Button>
+                        <Button variant="outline" size="icon" onClick={() => handleDeleteBill(bill)} className="shrink-0" aria-label="Excluir conta">
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
