@@ -1077,6 +1077,14 @@ export default function Finances() {
     return mapa;
   })();
 
+  // Metas ORDENADAS na tela pela mesma prioridade do plano (1ª, 2ª, 3ª...). As que já
+  // não estão na fila (concluídas / atingidas) vão pro fim.
+  const goalsOrdenadas = [...goals].sort((a, z) => {
+    const oa = planoMetas.get(a.id)?.ordem ?? 9999;
+    const oz = planoMetas.get(z.id)?.ordem ?? 9999;
+    return oa - oz;
+  });
+
   // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
   const faixaPrazo = (p?: string) =>
     p === "curto" ? { max: 20, nome: "curto prazo" }
@@ -2213,10 +2221,11 @@ export default function Finances() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {goals.map(goal => {
+              {goalsOrdenadas.map(goal => {
                 const progress = (goal.current_amount / goal.target_amount) * 100;
                 const remaining = goal.target_amount - goal.current_amount;
-                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo, planoMetas.get(goal.id));
+                const plano = planoMetas.get(goal.id);
+                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo, plano);
                 const recExpandida = recAberta === goal.id;
                 const aberta = metaAberta === goal.id;
 
@@ -2229,6 +2238,11 @@ export default function Finances() {
                         onClick={() => setMetaAberta(aberta ? null : goal.id)}
                         className="w-full flex items-center gap-3 text-left"
                       >
+                        {plano?.ordem && (
+                          <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center shrink-0">
+                            {plano.ordem}º
+                          </span>
+                        )}
                         {goal.icon && goal.icon.startsWith("http") ? (
                           <img src={goal.icon} alt="" className="w-10 h-10 rounded-xl object-cover border border-primary/30 shrink-0" />
                         ) : (
