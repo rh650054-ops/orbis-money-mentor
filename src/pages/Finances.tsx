@@ -852,7 +852,13 @@ export default function Finances() {
         setTargetSnapshot(alvo);
         setSavedTodayAmount(0);
       } else {
-        setTargetSnapshot(Number(localStorage.getItem("orbis_guardar_target") || alvo));
+        // Mesmo dia: o alvo congela pra não encolher enquanto você guarda. MAS se você
+        // ADICIONA uma conta (o alvo ao vivo sobe acima do congelado), atualiza na hora —
+        // o congelado só SOBE, nunca desce (descer é o guardar, que já é mostrado à parte).
+        const stored = Number(localStorage.getItem("orbis_guardar_target") || alvo);
+        const novo = Math.max(stored, alvo);
+        if (novo !== stored) localStorage.setItem("orbis_guardar_target", String(novo));
+        setTargetSnapshot(novo);
         setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
       }
     } catch {
@@ -916,8 +922,11 @@ export default function Finances() {
     base.setHours(12, 0, 0, 0);
     // Dias úteis por mês (pra taxa sustentável das contas recorrentes no próximo ciclo).
     const diasUteisPorMes = Math.max(1, Math.round((workingDays && workingDays.length > 0 ? workingDays.length : 6) * 30 / 7));
+    // Mostra só de HOJE até o ÚLTIMO DIA do mês atual (não uma lista rolando de 30 dias).
+    const ultimoDiaMes = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+    const diasAteFimMes = Math.max(0, ultimoDiaMes - base.getDate());
     const out: { key: string; label: string; isWork: boolean; isToday: boolean; raw: number; valor: number }[] = [];
-    for (let i = 0; i <= 29; i++) {
+    for (let i = 0; i <= diasAteFimMes; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const nome = nomes[d.getDay()];
