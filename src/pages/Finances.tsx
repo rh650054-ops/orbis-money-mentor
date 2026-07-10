@@ -1035,82 +1035,122 @@ export default function Finances() {
       return s + (nd ? remaining(b) / Math.max(1, workingDaysUntil(toYMD(nd))) : 0);
     }, 0);
 
+  // Converte N dias ÚTEIS a partir de hoje numa data curta + nome do mês.
+  const dataEmDiasUteis = (nDiasUteis: number) => {
+    const nm = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const cur = new Date(); cur.setHours(12, 0, 0, 0);
+    let count = 0, guard = 0;
+    while (count < nDiasUteis && guard < 4000) {
+      cur.setDate(cur.getDate() + 1); guard++;
+      const util = workingDays && workingDays.length > 0 ? workingDays.includes(nm[cur.getDay()]) : true;
+      if (util) count++;
+    }
+    return { data: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), mes: cur.toLocaleDateString("pt-BR", { month: "long" }) };
+  };
+
+  // Sobra por dia disponível pras METAS (renda líquida média − o que as contas comem).
+  const sobraDiaMetas = Math.max(0, summary.mediaDiariaLiquida - ritmoSustentavel);
+
+  // PLANO das metas: com várias metas dividindo a MESMA sobra, o mais eficiente é fazer
+  // UMA DE CADA VEZ, por prioridade (curto → médio → longo; dentro do mesmo, a menor primeiro).
+  // Cada meta "começa" quando as anteriores terminam → dá pra recomendar deixar as longas
+  // pra um mês mais à frente.
+  const planoMetas = (() => {
+    const ordemPrazo: Record<string, number> = { curto: 0, medio: 1, longo: 2 };
+    const ativas = goals
+      .filter((g) => g.status === "active" && (Number(g.target_amount) - Number(g.current_amount)) > 0.005)
+      .map((g) => ({ g, falta: Number(g.target_amount) - Number(g.current_amount) }))
+      .sort((a, z) => (ordemPrazo[a.g.prazo || "medio"] - ordemPrazo[z.g.prazo || "medio"]) || (a.falta - z.falta));
+    const mapa = new Map<string, { ordem: number; total: number; diasInicio: number; diasFim: number | null; dias: number | null }>();
+    let acum = 0;
+    ativas.forEach((item, i) => {
+      const dias = sobraDiaMetas > 0 ? Math.ceil(item.falta / sobraDiaMetas) : null;
+      const diasInicio = acum;
+      const diasFim = dias !== null ? acum + dias : null;
+      mapa.set(item.g.id, { ordem: i + 1, total: ativas.length, diasInicio, diasFim, dias });
+      if (dias !== null) acum = diasFim!;
+    });
+    return mapa;
+  })();
+
   // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
   const faixaPrazo = (p?: string) =>
     p === "curto" ? { max: 20, nome: "curto prazo" }
     : p === "longo" ? { max: 100000, nome: "longo prazo" }
     : { max: 66, nome: "médio prazo" }; // médio (default) ~ até 3 meses úteis
 
-  // RECOMENDAÇÃO DE META (cálculo direto, sempre comparada aos resultados mensais).
-  // Retorna: tom (cor), resumo (linha visível) e detalhe (texto que abre ao tocar),
-  // com cenários pior/realista/melhor e a foto do mês. É só recomendação — você decide.
-  const recomendarMeta = (targetAmount: number, currentAmount: number, prazo?: string | null) => {
+  // RECOMENDAÇÃO DE META (cálculo direto). Considera TODAS as metas: com várias, sugere
+  // fazer uma de cada vez por prioridade e deixar as longas pra um mês à frente, dizendo
+  // quanto guardar por dia. Retorna tom (cor), resumo (linha) e detalhe (abre ao tocar).
+  const recomendarMeta = (
+    targetAmount: number,
+    currentAmount: number,
+    prazo?: string | null,
+    plano?: { ordem: number; total: number; diasInicio: number; diasFim: number | null; dias: number | null },
+  ) => {
     const falta = Math.max(0, (Number(targetAmount) || 0) - (Number(currentAmount) || 0));
-    const dUteisMes = Math.max(1, Math.round((workingDays && workingDays.length > 0 ? workingDays.length : 6) * 30 / 7));
     if (falta <= 0) return { tom: "ok" as const, resumo: "Meta atingida! 🎉", detalhe: [] as string[] };
 
     const ganhoDia = summary.mediaDiariaLiquida;
-    const fatMes = ganhoDia * dUteisMes;
-    const contasMes = ritmoSustentavel * dUteisMes;
     if (ganhoDia <= 0) {
       return { tom: "neutro" as const, resumo: "Registre alguns dias de venda que eu calculo o prazo.", detalhe: [] as string[] };
     }
-    const sobraDia = ganhoDia - ritmoSustentavel;
-    const sobraMes = sobraDia * dUteisMes;
+    const fatMes = ganhoDia * diasUteisMes;
+    const contasMes = ritmoSustentavel * diasUteisMes;
+    const sobraDia = sobraDiaMetas; // renda média − contas (≥ 0)
+    const sobraMes = sobraDia * diasUteisMes;
     const base: string[] = [
-      `Você fatura, líquido, ~${formatCurrency(fatMes)}/mês (média de ~${formatCurrency(ganhoDia)}/dia trabalhado).`,
-      `Suas contas comem ~${formatCurrency(contasMes)}/mês.`,
+      `Você fatura, líquido, ~${formatCurrency(fatMes)}/mês (média ~${formatCurrency(ganhoDia)}/dia).`,
+      `Suas contas comem ~${formatCurrency(contasMes)}/mês, sobrando ~${formatCurrency(sobraMes)}/mês (~${formatCurrency(sobraDia)}/dia) pra metas.`,
     ];
 
     if (sobraDia <= 0) {
       return {
         tom: "alerta" as const,
-        resumo: `Suas contas consomem quase toda a renda — difícil separar pra essa meta agora.`,
-        detalhe: [
-          ...base,
-          `Praticamente não sobra pra guardar (${formatCurrency(sobraMes)}/mês). Pra começar essa meta, aumente o faturamento ou reveja/renegocie contas.`,
-        ],
+        resumo: "Suas contas consomem quase toda a renda — difícil separar pra essa meta agora.",
+        detalhe: [...base, "Pra começar essa meta, aumente o faturamento ou reveja/renegocie contas."],
       };
     }
 
-    const diasEm = (sobra: number) => {
-      const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-      const n = Math.ceil(falta / sobra);
-      const cur = new Date(); cur.setHours(12, 0, 0, 0);
-      let count = 0, guard = 0;
-      while (count < n && guard < 2000) {
-        cur.setDate(cur.getDate() + 1); guard++;
-        const util = workingDays && workingDays.length > 0 ? workingDays.includes(nomes[cur.getDay()]) : true;
-        if (util) count++;
-      }
-      return { n, data: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) };
-    };
-    const real = diasEm(sobraDia);
-    const otim = diasEm(sobraDia * 1.3); // se vender ~30% mais
-    const pess = diasEm(sobraDia * 0.7); // se vender ~30% menos
+    // Sozinha (com a sobra cheia) e cenários.
+    const soloN = Math.ceil(falta / sobraDia);
+    const otimN = Math.ceil(falta / (sobraDia * 1.3));
+    const pessN = Math.ceil(falta / (sobraDia * 0.7));
+
+    // Na fila (se houver várias metas), cada uma começa quando as anteriores terminam.
+    const multi = !!plano && plano.total > 1;
+    const fimN = multi && plano!.diasFim != null ? plano!.diasFim : soloN;
+    const inicioN = multi ? plano!.diasInicio : 0;
+    const fim = dataEmDiasUteis(fimN);
+    const inicio = dataEmDiasUteis(inicioN);
 
     const fx = faixaPrazo(prazo || undefined);
-    const apertou = real.n > fx.max;
+    const apertou = fimN > fx.max;
+
+    let resumo: string;
+    if (multi && plano!.ordem > 1) {
+      resumo = `${plano!.ordem}ª de ${plano!.total} metas. Ideal começar ~${inicio.data} e terminar ~${fim.data}.`;
+    } else if (apertou) {
+      resumo = `Pra ${fx.nome} aperta: leva ~${fimN} dias (${fim.data}).`;
+    } else {
+      resumo = `Dá pra juntar em ~${fimN} dias (por volta de ${fim.data}).`;
+    }
 
     const detalhe = [
       ...base,
-      `Sobra ~${formatCurrency(sobraMes)}/mês (~${formatCurrency(sobraDia)}/dia) pra guardar em metas.`,
-      `Cenário realista: ~${real.n} dias úteis (por volta de ${real.data}).`,
-      `Se render mais: ~${otim.n} dias. Se render menos: ~${pess.n} dias.`,
+      multi
+        ? `Você tem ${plano!.total} metas ativas dividindo essa sobra. Fazendo uma de cada vez (mais rápido), essa é a ${plano!.ordem}ª — comece por volta de ${inicio.mes} (${inicio.data}) e termine ~${fim.data}.`
+        : `Guardando ~${formatCurrency(sobraDia)}/dia, junta em ~${soloN} dias.`,
+      `Guarde ~${formatCurrency(sobraDia)}/dia quando for a vez dela.`,
+      `Cenários (fazendo sozinha): realista ~${soloN} dias · se render mais ~${otimN} · se render menos ~${pessN}.`,
       prazo
         ? (apertou
-            ? `Você marcou ${fx.nome} — nesse ritmo aperta: leva ~${real.n} dias. Considere um prazo maior, guardar mais por dia ou vender mais.`
+            ? `Você marcou ${fx.nome}, mas nesse plano fecha em ~${fimN} dias — considere longo prazo ou deixar pra outro mês.`
             : `Você marcou ${fx.nome} — combina com o seu ritmo. 👍`)
-        : `Dica: defina se é curto, médio ou longo prazo pra eu avaliar melhor.`,
+        : "Dica: defina curto/médio/longo pra eu avaliar melhor.",
     ];
 
-    return {
-      tom: (apertou ? "alerta" : "ok") as "ok" | "alerta",
-      resumo: apertou
-        ? `Pra ${fx.nome} aperta: no seu ritmo levaria ~${real.n} dias (${real.data}).`
-        : `Dá pra juntar em ~${real.n} dias (por volta de ${real.data}).`,
-      detalhe,
-    };
+    return { tom: (apertou ? "alerta" : "ok") as "ok" | "alerta", resumo, detalhe };
   };
 
   // "No que pagar primeiro": ordena as contas por urgência — vencidas primeiro, depois
@@ -2180,7 +2220,7 @@ export default function Finances() {
               {goals.map(goal => {
                 const progress = (goal.current_amount / goal.target_amount) * 100;
                 const remaining = goal.target_amount - goal.current_amount;
-                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo);
+                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo, planoMetas.get(goal.id));
                 const recExpandida = recAberta === goal.id;
 
                 return (
