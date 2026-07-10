@@ -914,6 +914,8 @@ export default function Finances() {
     const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const base = new Date();
     base.setHours(12, 0, 0, 0);
+    // Dias úteis por mês (pra taxa sustentável das contas recorrentes no próximo ciclo).
+    const diasUteisPorMes = Math.max(1, Math.round((workingDays && workingDays.length > 0 ? workingDays.length : 6) * 30 / 7));
     const out: { key: string; label: string; isWork: boolean; isToday: boolean; raw: number; valor: number }[] = [];
     for (let i = 0; i <= 29; i++) {
       const d = new Date(base);
@@ -929,7 +931,13 @@ export default function Finances() {
           const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
           if (quitada || isOverdue(bill)) continue;
           const nd = nextDueDate(bill);
-          if (nd && d.getTime() <= nd.getTime()) raw += perDay(bill);
+          if (nd && d.getTime() <= nd.getTime()) {
+            raw += perDay(bill); // ciclo atual: o que falta ÷ dias úteis até vencer
+          } else if (bill.recurring) {
+            // Recorrente: passou o vencimento deste mês → rola pro próximo ciclo e mostra
+            // a taxa mensal sustentável (valor cheio ÷ dias úteis do mês). Sem dia zerado.
+            raw += (Number(bill.amount) || 0) / diasUteisPorMes;
+          }
         }
       }
       const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
@@ -949,14 +957,17 @@ export default function Finances() {
   const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
   const proximoDiaTrabalho = proximosDias.find((d) => !d.isToday && d.isWork);
 
-  // "Livre das contas": no ritmo atual, você quita tudo até o vencimento mais distante.
-  const dueMs = bills
+  // Como a maioria das contas é RECORRENTE (nunca "acaba"), em vez de "livre das contas"
+  // mostramos o RITMO SUSTENTÁVEL: quanto guardar por dia útil pra manter tudo em dia.
+  // Recorrente = valor cheio ÷ dias úteis do mês; pontual = o que falta ÷ dias até vencer.
+  const diasUteisMes = Math.max(1, Math.round((workingDays && workingDays.length > 0 ? workingDays.length : 6) * 30 / 7));
+  const ritmoSustentavel = bills
     .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
-    .map((b) => nextDueDate(b)?.getTime())
-    .filter((t): t is number => typeof t === "number");
-  const maxDue = dueMs.length ? new Date(Math.max(...dueMs)) : null;
-  const diasParaLivre = maxDue ? workingDaysUntil(toYMD(maxDue)) : null;
-  const dataLivre = maxDue ? maxDue.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }) : null;
+    .reduce((s, b) => {
+      if (b.recurring) return s + (Number(b.amount) || 0) / diasUteisMes;
+      const nd = nextDueDate(b);
+      return s + (nd ? remaining(b) / Math.max(1, workingDaysUntil(toYMD(nd))) : 0);
+    }, 0);
 
   // "No que pagar primeiro": ordena as contas por urgência — vencidas primeiro, depois
   // as que vencem mais cedo, e cartão como desempate (risco de juros/negativar).
@@ -1282,13 +1293,15 @@ export default function Finances() {
               <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecao ? "rotate-180" : ""}`} />
             </button>
 
-            {/* Livre das contas — quando tudo estará quitado no ritmo atual */}
-            {diasParaLivre !== null && (
+            {/* Ritmo sustentável — quanto guardar por dia útil pra manter as contas em dia */}
+            {ritmoSustentavel > 0 && (
               <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-success/5 border border-success/20 px-3 py-2">
-                <p className="text-xs text-muted-foreground">Livre das contas em</p>
-                <p className="text-sm font-bold text-success text-right">
-                  {diasParaLivre} {diasParaLivre === 1 ? "dia útil" : "dias úteis"}
-                  {dataLivre ? <span className="text-muted-foreground font-normal"> · {dataLivre}</span> : null}
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Ritmo pra manter em dia</p>
+                  <p className="text-[11px] text-muted-foreground">média por dia de trabalho</p>
+                </div>
+                <p className="text-sm font-bold text-success text-right shrink-0">
+                  {formatCurrency(ritmoSustentavel)}<span className="text-muted-foreground font-normal text-xs">/dia</span>
                 </p>
               </div>
             )}
