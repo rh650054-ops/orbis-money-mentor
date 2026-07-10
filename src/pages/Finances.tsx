@@ -1185,6 +1185,30 @@ export default function Finances() {
     .sort((a, z) => (Number(z.over) - Number(a.over)) || (a.dueT - z.dueT) || (Number(z.cartao) - Number(a.cartao)))
     .slice(0, 4);
 
+  // Ordem de prioridade das contas (1ª, 2ª, 3ª...) — mesmo critério do "no que pagar
+  // primeiro": vencidas antes, depois a que vence mais cedo, cartão como desempate.
+  const contasOrdem = (() => {
+    const ativas = bills
+      .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)))
+      .map((b) => ({
+        b,
+        over: isOverdue(b),
+        dueT: nextDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER,
+        cartao: !!(b as { is_credit_card?: boolean }).is_credit_card,
+      }))
+      .sort((a, z) => (Number(z.over) - Number(a.over)) || (a.dueT - z.dueT) || (Number(z.cartao) - Number(a.cartao)));
+    const mapa = new Map<string, { ordem: number; total: number }>();
+    ativas.forEach((item, i) => mapa.set(item.b.id, { ordem: i + 1, total: ativas.length }));
+    return mapa;
+  })();
+
+  // Contas ORDENADAS na tela pela prioridade acima. As quitadas vão pro fim.
+  const billsOrdenadas = [...bills].sort((a, z) => {
+    const oa = contasOrdem.get(a.id)?.ordem ?? 9999;
+    const oz = contasOrdem.get(z.id)?.ordem ?? 9999;
+    return oa - oz;
+  });
+
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
   const handleGuardeiTudo = async () => {
@@ -1808,7 +1832,8 @@ export default function Finances() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {bills.map((bill) => {
+              {billsOrdenadas.map((bill) => {
+                const ordemConta = contasOrdem.get(bill.id);
                 const amount = Number(bill.amount) || 0;
                 const saved = Number(bill.saved_amount) || 0;
                 const remainingValue = remaining(bill);
@@ -1859,6 +1884,11 @@ export default function Finances() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2">
+                          {ordemConta?.ordem && (
+                            <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center shrink-0">
+                              {ordemConta.ordem}º
+                            </span>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-semibold truncate">{bill.name}</p>
