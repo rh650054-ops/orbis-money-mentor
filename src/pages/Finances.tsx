@@ -832,14 +832,17 @@ export default function Finances() {
       const savedDate = localStorage.getItem("orbis_guardar_date");
       let saved = Number(localStorage.getItem("orbis_guardar_saved") || 0);
       if (savedDate !== hoje) {
-        // POUPANÇA ADIANTADA: o que você guardou vira "saldo adiantado". A cada dia
-        // ÚTIL que passou, consome o alvo daquele dia (o dia "usou" sua reserva).
-        // Assim, guardar a mais hoje abate os próximos dias — e fica consistente.
+        // POUPANÇA ADIANTADA: o que você guardou vira "saldo adiantado". Cada dia ÚTIL
+        // que JÁ TERMINOU consome o alvo daquele dia (o dia "usou" sua reserva). Isso
+        // inclui o próprio savedDate — o dia em que você guardou por último, que agora
+        // ficou pra trás. Antes ele começava em savedDate+1 e, quando passava só 1 dia
+        // (guardou ontem), NÃO consumia nada — aí o saldo de ontem sobrava e cobria hoje,
+        // mostrando "já guardou tudo" indevidamente. Agora reinicia certo: hoje mostra o
+        // que falta guardar hoje.
         if (savedDate) {
           const prevTarget = Number(localStorage.getItem("orbis_guardar_target") || alvo);
           const cur = new Date(savedDate + "T12:00:00");
           const end = new Date(hoje + "T12:00:00");
-          cur.setDate(cur.getDate() + 1);
           while (cur.getTime() < end.getTime()) {
             const util = wds && wds.length > 0 ? wds.includes(nomes[cur.getDay()]) : true;
             if (util) saved = Math.max(0, saved - prevTarget);
