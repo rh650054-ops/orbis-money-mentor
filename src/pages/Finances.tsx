@@ -389,10 +389,11 @@ export default function Finances() {
     }
   };
 
-  // Abre o diálogo de depósito ("Guardei" / "Guardar hoje") para uma conta ou meta
-  const openDeposit = (target: NonNullable<typeof depositTarget>) => {
+  // Abre o diálogo de depósito ("Guardei" / "Guardar hoje") para uma conta ou meta.
+  // prefill (opcional) já preenche o valor sugerido (ex: a sobra de hoje pras metas).
+  const openDeposit = (target: NonNullable<typeof depositTarget>, prefill?: number) => {
     setDepositTarget(target);
-    setDepositValue("");
+    setDepositValue(prefill && prefill > 0.005 ? String(Math.round(prefill * 100) / 100) : "");
   };
 
   // Confirma o depósito do diálogo compartilhado: soma ao saved_amount (conta)
@@ -1125,6 +1126,8 @@ export default function Finances() {
   })();
   const metaHoje = proximosDiasMetas.find((d) => d.isToday)?.valor ?? 0;
   const temSobraMetas = proximosDiasMetas.some((d) => d.valor > 0.005);
+  // Meta que recebe a sobra de hoje (a 1ª da fila de prioridade).
+  const metaPrioritaria = goalsOrdenadas.find((g) => planoMetas.get(g.id)?.ordem === 1) ?? null;
 
   // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
   const faixaPrazo = (p?: string) =>
@@ -2276,6 +2279,17 @@ export default function Finances() {
                   </div>
                   <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecaoMetas ? "rotate-180" : ""}`} />
                 </button>
+
+                {/* Guardar hoje pras metas — joga a sobra do dia na meta prioritária */}
+                {temSobraMetas && metaPrioritaria && (
+                  <Button
+                    onClick={() => openDeposit({ kind: "goal", goal: metaPrioritaria }, metaHoje)}
+                    className="w-full mt-3"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Guardar hoje — {formatCurrency(metaHoje)} em {metaPrioritaria.name}
+                  </Button>
+                )}
 
                 {showProjecaoMetas && (
                   <div className="mt-3 pt-3 border-t border-border/50">
