@@ -1462,6 +1462,13 @@ export default function Finances() {
   const overdueBillsOrdenadas = [...overdueBills].sort(
     (a, z) => (ordemRisco[a.risco || "medio"] - ordemRisco[z.risco || "medio"]) || (a.due_date || "").localeCompare(z.due_date || ""),
   );
+  // Contas "apertadas": vencem em poucos dias úteis e ainda falta bastante — são elas que
+  // inflam o "a guardar hoje". Listamos pra avisar o porquê do valor alto.
+  const contasApertadas = bills
+    .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
+    .map((b) => ({ b, wd: workingDaysUntil(nextDueDate(b) ? toYMD(nextDueDate(b)!) : null), falta: remaining(b) }))
+    .filter((x) => x.wd <= 2 && x.falta > 20)
+    .sort((a, z) => a.wd - z.wd || z.falta - a.falta);
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -1596,6 +1603,31 @@ export default function Finances() {
               </div>
               <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
                 <PiggyBank className="w-5 h-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Aviso: contas apertadas (vencem logo) puxam o "a guardar hoje" pra cima */}
+      {!isLoadingData && contasApertadas.length > 0 && (
+        <Card className="bg-warning/5 border border-warning/30 rounded-2xl">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Contas apertadas puxam o valor a guardar</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  Vencem em poucos dias úteis e ainda falta juntar — por isso o "a guardar" do próximo dia útil sobe. Se der, pague ou adiante uma delas pra aliviar:
+                </p>
+                <div className="mt-2 space-y-1">
+                  {contasApertadas.map(({ b, wd, falta }) => (
+                    <div key={b.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate text-foreground">{b.name} <span className="text-warning">· vence em {wd} {wd === 1 ? "dia útil" : "dias úteis"}</span></span>
+                      <span className="font-bold text-foreground tabular-nums shrink-0">{formatCurrency(falta)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -2121,6 +2153,9 @@ export default function Finances() {
                 // Guardar por DIA DE TRABALHO (vencida = 0; recorrente usa o próximo vencimento)
                 const workDaysLeft = workingDaysUntil(nextDue ? toYMD(nextDue) : null);
                 const perDayValue = perDay(bill);
+                // "Apertada": vence em poucos dias úteis e ainda falta bastante — é o que
+                // faz o "a guardar hoje" subir. Avisa em vez de só empilhar o valor num dia.
+                const apertada = !overdue && !quitada && remainingValue > 20 && workDaysLeft <= 2;
 
                 return (
                   <Card
@@ -2169,6 +2204,12 @@ export default function Finances() {
                                 <span className="inline-flex items-center gap-1 rounded-full bg-success/10 border border-success/30 px-2 py-0.5 text-[10px] font-medium text-success">
                                   <Check className="w-3 h-3" />
                                   Pago este mês
+                                </span>
+                              )}
+                              {apertada && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 border border-warning/30 px-2 py-0.5 text-[10px] font-bold uppercase text-warning">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Aperta · vence em {workDaysLeft} {workDaysLeft === 1 ? "dia útil" : "dias úteis"}
                                 </span>
                               )}
                             </div>
