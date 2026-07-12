@@ -154,6 +154,9 @@ export default function Finances() {
   // "Guardei outro valor": informar quanto realmente guardou hoje (a mais/a menos)
   const [customSaveOpen, setCustomSaveOpen] = useState(false);
   const [customSaveValue, setCustomSaveValue] = useState("");
+  // "Guardar pra quitar vencidas": valor que vai 100% pras contas atrasadas (mais antiga 1º)
+  const [vencidasSaveOpen, setVencidasSaveOpen] = useState(false);
+  const [vencidasSaveValue, setVencidasSaveValue] = useState("");
   // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
   const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
@@ -1317,8 +1320,11 @@ export default function Finances() {
   // (vem do estado real das contas) e financeiramente esperta (quita o que vence antes).
   const distribuirGuardado = async (value: number) => {
     let restante = value;
+    // Inclui VENCIDAS e paga elas primeiro: como a vencida tem vencimento no passado, ela
+    // já entra no topo do sort por data (menor timestamp). Assim o dinheiro guardado quita
+    // primeiro o que está atrasado (ex: o mercado), depois o vencimento mais próximo.
     const ativas = bills
-      .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
+      .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)))
       .map((b) => ({ b, due: nextDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER, falta: remaining(b) }))
       .sort((a, z) => a.due - z.due);
     for (const item of ativas) {
@@ -1331,6 +1337,43 @@ export default function Finances() {
           .eq("id", item.b.id);
         restante -= add;
       }
+    }
+  };
+
+  // Distribui um valor SÓ nas contas vencidas (mais antiga primeiro), até acabar o valor.
+  const distribuirVencidas = async (value: number) => {
+    let restante = value;
+    const vencidas = overdueBills
+      .map((b) => ({ b, due: nextDueDate(b)?.getTime() ?? 0, falta: remaining(b) }))
+      .sort((a, z) => a.due - z.due);
+    for (const item of vencidas) {
+      if (restante <= 0.005) break;
+      const add = Math.min(restante, item.falta);
+      if (add > 0) {
+        await supabase
+          .from("planned_bills")
+          .update({ saved_amount: Number(item.b.saved_amount) + add })
+          .eq("id", item.b.id);
+        restante -= add;
+      }
+    }
+  };
+
+  // "Guardar pra quitar vencidas": o valor informado vai 100% pras atrasadas.
+  const handleGuardarVencidas = async () => {
+    const value = parseFloat(vencidasSaveValue.replace(",", "."));
+    if (!user || isNaN(value) || value <= 0) {
+      toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
+      return;
+    }
+    try {
+      await distribuirVencidas(value);
+      setVencidasSaveOpen(false);
+      setVencidasSaveValue("");
+      toast({ title: "✓ Guardado nas vencidas!", description: "O valor foi pra quitar o que está atrasado." });
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao guardar", variant: "destructive" });
     }
   };
 
@@ -1498,6 +1541,51 @@ export default function Finances() {
         </Card>
       )}
 
+      {/* Vencidas — lista detalhada: o que venceu, quanto já tem guardado e quanto FALTA */}
+      {!isLoadingData && overdueBills.length > 0 && (
+        <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+              <p className="text-sm font-semibold text-destructive">Vencidas — quite o quanto antes</p>
+            </div>
+            {overdueBills.map((bill) => {
+              const saved = Number(bill.saved_amount) || 0;
+              const amount = Number(bill.amount) || 0;
+              const falta = remaining(bill);
+              const venceu = bill.due_date
+                ? new Date(bill.due_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+                : "—";
+              return (
+                <div key={bill.id} className="flex items-center justify-between gap-3 rounded-lg bg-background border border-destructive/20 px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold truncate">{bill.name}</p>
+                    <p className="text-[11px] text-destructive">
+                      venceu {venceu} · guardado {formatCurrency(saved)} de {formatCurrency(amount)}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] text-muted-foreground">faltam</p>
+                    <p className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(falta)}</p>
+                  </div>
+                </div>
+              );
+            })}
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Já passaram do vencimento, então não entram no "a guardar hoje" (que é o ritmo pros próximos dias). São prioridade: o que você guardar aqui vai 100% pra quitar elas (mais antiga primeiro).
+            </p>
+            <Button
+              onClick={() => { setVencidasSaveValue(String(Math.round(vencidasTotal * 100) / 100)); setVencidasSaveOpen(true); }}
+              variant="destructive"
+              className="w-full"
+            >
+              <PiggyBank className="w-4 h-4 mr-2" />
+              Guardar pra quitar — {formatCurrency(vencidasTotal)}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Botão "Guardei tudo" — guarda a parte de hoje de tudo de uma vez */}
       {!isLoadingData && !diaGuardadoFechado && todayIsWorkDay && restanteGuardarHoje > 0 && (
         <div className="space-y-2">
@@ -1646,6 +1734,47 @@ export default function Finances() {
               className="w-full h-12 text-base font-bold"
             >
               Guardar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo "Guardar pra quitar vencidas" — valor vai 100% pras contas atrasadas */}
+      <Dialog open={vencidasSaveOpen} onOpenChange={(o) => { if (!o) { setVencidasSaveOpen(false); setVencidasSaveValue(""); } }}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+          <DialogHeader>
+            <DialogTitle>Guardar pra quitar vencidas</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Total vencido em aberto: <span className="font-bold text-destructive">{formatCurrency(vencidasTotal)}</span>.
+              O valor vai 100% pras contas atrasadas, quitando a mais antiga primeiro.
+            </p>
+            <MoneyInput
+              value={parseFloat(vencidasSaveValue) || 0}
+              onChange={(n) => setVencidasSaveValue(n ? String(n) : "")}
+              autoFocus
+              className="text-2xl font-bold h-14"
+            />
+            {(() => {
+              const v = parseFloat(vencidasSaveValue.replace(",", ".")) || 0;
+              if (v <= 0) return null;
+              const falta = vencidasTotal - v;
+              return (
+                <p className={`text-sm font-semibold ${falta > 0.005 ? "text-muted-foreground" : "text-success"}`}>
+                  {falta > 0.005
+                    ? `Ainda vão faltar ${formatCurrency(falta)} pra quitar tudo que está vencido.`
+                    : "Quita todas as contas vencidas. ✓"}
+                </p>
+              );
+            })()}
+            <Button
+              onClick={handleGuardarVencidas}
+              disabled={!vencidasSaveValue || (parseFloat(vencidasSaveValue.replace(",", ".")) || 0) <= 0}
+              variant="destructive"
+              className="w-full h-12 text-base font-bold"
+            >
+              Guardar nas vencidas
             </Button>
           </div>
         </DialogContent>
@@ -1910,7 +2039,14 @@ export default function Finances() {
                             </div>
                             <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                               <span>Valor: <span className="font-medium text-foreground">{formatCurrency(amount)}</span></span>
-                              {isRecurring ? (
+                              {overdue ? (
+                                bill.due_date && (
+                                  <span className="flex items-center gap-1 text-destructive font-semibold">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    Venceu {new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} · faltam {formatCurrency(remainingValue)}
+                                  </span>
+                                )
+                              ) : isRecurring ? (
                                 nextDueLabel && (
                                   <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />Próxima: {nextDueLabel}</span>
                                 )
