@@ -54,6 +54,7 @@ interface PlannedBill {
   file_path: string | null;
   is_credit_card?: boolean;
   installments?: number | null;
+  risco?: string; // 'baixo' | 'medio' | 'alto' — o quão perigoso é atrasar
 }
 
 interface Goal {
@@ -121,6 +122,7 @@ export default function Finances() {
     isCreditCard: false,
     cardMode: "total" as "total" | "parcela",
     installments: "",
+    risco: "medio" as "baixo" | "medio" | "alto",
   });
 
   // Form states for new goal
@@ -157,6 +159,8 @@ export default function Finances() {
   // "Guardar pra quitar vencidas": valor que vai 100% pras contas atrasadas (mais antiga 1º)
   const [vencidasSaveOpen, setVencidasSaveOpen] = useState(false);
   const [vencidasSaveValue, setVencidasSaveValue] = useState("");
+  // Planejador "pagar em X dias úteis" por conta vencida (id -> nº de dias úteis).
+  const [prazoVencida, setPrazoVencida] = useState<Record<string, number>>({});
   // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
   const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
@@ -175,7 +179,7 @@ export default function Finances() {
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
-  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "" });
+  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto" });
 
   // Anexo de boleto: id da conta cujo arquivo está subindo (spinner/disabled)
   const [uploadingBillId, setUploadingBillId] = useState<string | null>(null);
@@ -205,7 +209,7 @@ export default function Finances() {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
       const { data: billsData, error: billsError } = await supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments")
+        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco")
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
@@ -370,7 +374,8 @@ export default function Finances() {
           file_path: null,
           is_credit_card: newBill.isCreditCard,
           installments: newBill.isCreditCard && parcelas > 0 ? parcelas : null,
-        });
+          risco: newBill.risco,
+        } as never);
 
       if (error) throw error;
 
@@ -379,7 +384,7 @@ export default function Finances() {
         description: `${newBill.name} entrou no seu planejamento`,
       });
 
-      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "" });
+      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "", risco: "medio" });
       setIsAddBillOpen(false);
       loadFinancialData();
     } catch (error) {
@@ -468,6 +473,7 @@ export default function Finances() {
       due_date: bill.due_date ?? "",
       recurring: Boolean(bill.recurring),
       payment_code: bill.payment_code ?? "",
+      risco: (bill.risco as "baixo" | "medio" | "alto") || "medio",
     });
   };
 
@@ -491,7 +497,8 @@ export default function Finances() {
           due_date: editBillForm.due_date || null,
           recurring: editBillForm.recurring,
           payment_code: editBillForm.payment_code.trim() || null,
-        })
+          risco: editBillForm.risco,
+        } as never)
         .eq("id", editBill.id);
       if (error) throw error;
       toast({
@@ -1407,6 +1414,16 @@ export default function Finances() {
   // Contas vencidas (não recorrentes que passaram do prazo e não estão quitadas)
   const overdueBills = bills.filter((bill) => isOverdue(bill));
   const vencidasTotal = overdueBills.reduce((sum, bill) => sum + remaining(bill), 0);
+  // Rótulo/cor do risco de atrasar (Alto = juros/negativação rápido → prioridade).
+  const riscoInfo = (r?: string) =>
+    r === "alto" ? { label: "Risco alto", cls: "bg-destructive/15 text-destructive border-destructive/40" }
+    : r === "baixo" ? { label: "Risco baixo", cls: "bg-muted text-muted-foreground border-border" }
+    : { label: "Risco médio", cls: "bg-amber-500/15 text-amber-600 border-amber-500/40" };
+  // Vencidas ordenadas por RISCO (alto primeiro), depois pela mais antiga.
+  const ordemRisco: Record<string, number> = { alto: 0, medio: 1, baixo: 2 };
+  const overdueBillsOrdenadas = [...overdueBills].sort(
+    (a, z) => (ordemRisco[a.risco || "medio"] - ordemRisco[z.risco || "medio"]) || (a.due_date || "").localeCompare(z.due_date || ""),
+  );
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -1555,24 +1572,59 @@ export default function Finances() {
               <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
               <p className="text-sm font-semibold text-destructive">Vencidas — quite o quanto antes</p>
             </div>
-            {overdueBills.map((bill) => {
+            {overdueBillsOrdenadas.map((bill) => {
               const saved = Number(bill.saved_amount) || 0;
               const amount = Number(bill.amount) || 0;
               const falta = remaining(bill);
               const venceu = bill.due_date
                 ? new Date(bill.due_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
                 : "—";
+              const risco = riscoInfo(bill.risco);
+              const dias = Math.max(1, prazoVencida[bill.id] ?? 3);
+              const porDia = falta / dias;
+              const quita = dataEmDiasUteis(dias);
               return (
-                <div key={bill.id} className="flex items-center justify-between gap-3 rounded-lg bg-background border border-destructive/20 px-3 py-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{bill.name}</p>
-                    <p className="text-[11px] text-destructive">
-                      venceu {venceu} · guardado {formatCurrency(saved)} de {formatCurrency(amount)}
-                    </p>
+                <div key={bill.id} className="rounded-lg bg-background border border-destructive/20 px-3 py-2 space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-semibold truncate">{bill.name}</p>
+                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${risco.cls}`}>
+                          {risco.label}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-destructive">
+                        venceu {venceu} · guardado {formatCurrency(saved)} de {formatCurrency(amount)}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] text-muted-foreground">faltam</p>
+                      <p className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(falta)}</p>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[10px] text-muted-foreground">faltam</p>
-                    <p className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(falta)}</p>
+                  {/* Planejador: em quantos dias úteis quer quitar essa vencida */}
+                  <div className="rounded-lg bg-muted/40 border border-border/50 px-2.5 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-muted-foreground">Pagar em</span>
+                      <div className="flex items-center gap-1">
+                        {[3, 5, 10, 15].map((n) => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => setPrazoVencida((p) => ({ ...p, [bill.id]: n }))}
+                            className={`w-7 h-7 rounded-md text-xs font-bold transition-colors ${
+                              dias === n ? "bg-primary text-primary-foreground" : "bg-background border border-border text-muted-foreground"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                        <span className="text-[11px] text-muted-foreground ml-0.5">dias úteis</span>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-foreground mt-1.5">
+                      Guarde <span className="font-bold text-primary">{formatCurrency(porDia)}</span>/dia útil · quita ~{quita.data}
+                    </p>
                   </div>
                 </div>
               );
@@ -1829,7 +1881,7 @@ export default function Finances() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setNewBill({ ...newBill, isCreditCard: true })}
+                      onClick={() => setNewBill({ ...newBill, isCreditCard: true, risco: "alto" })}
                       className={`py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${newBill.isCreditCard ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
                     >
                       <CreditCard className="w-4 h-4" /> Cartão
@@ -1922,6 +1974,32 @@ export default function Finances() {
                       />
                     </div>
                   )}
+
+                  {/* Risco se atrasar — orienta a urgência quando vence (cartão sugere Alto). */}
+                  <div className="space-y-2">
+                    <Label>Risco se atrasar</Label>
+                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
+                      {(["baixo", "medio", "alto"] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setNewBill({ ...newBill, risco: r })}
+                          className={`py-2 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                            newBill.risco === r
+                              ? r === "alto" ? "bg-background shadow-sm text-destructive"
+                                : r === "medio" ? "bg-background shadow-sm text-amber-500"
+                                : "bg-background shadow-sm text-foreground"
+                              : "text-muted-foreground"
+                          }`}
+                        >
+                          {r === "medio" ? "Médio" : r}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Alto = juros/negativação rápido (cartões). Usado pra priorizar e avisar quando vence.
+                    </p>
+                  </div>
 
                   <div className="space-y-2">
                     <Label>Código pra pagar (boleto ou Pix) — opcional</Label>
@@ -2040,6 +2118,11 @@ export default function Finances() {
                                 <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-medium text-primary">
                                   <RotateCw className="w-3 h-3" />
                                   Recorrente
+                                </span>
+                              )}
+                              {bill.risco === "alto" && (
+                                <span className="inline-flex items-center rounded-full bg-destructive/15 border border-destructive/40 px-2 py-0.5 text-[10px] font-bold uppercase text-destructive">
+                                  Risco alto
                                 </span>
                               )}
                             </div>
@@ -2768,6 +2851,27 @@ export default function Finances() {
                 checked={editBillForm.recurring}
                 onCheckedChange={(checked) => setEditBillForm({ ...editBillForm, recurring: checked })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Risco se atrasar</Label>
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
+                {(["baixo", "medio", "alto"] as const).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setEditBillForm({ ...editBillForm, risco: r })}
+                    className={`py-2 rounded-lg text-xs font-semibold capitalize transition-colors ${
+                      editBillForm.risco === r
+                        ? r === "alto" ? "bg-background shadow-sm text-destructive"
+                          : r === "medio" ? "bg-background shadow-sm text-amber-500"
+                          : "bg-background shadow-sm text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {r === "medio" ? "Médio" : r}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Código pra pagar (boleto ou Pix) — opcional</Label>
