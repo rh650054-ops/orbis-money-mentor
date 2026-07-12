@@ -218,23 +218,24 @@ export default function Finances() {
 
       if (billsError) throw billsError;
 
-      // RESET AUTOMÁTICO DE RECORRENTES: uma conta recorrente paga num ciclo (mês) anterior
-      // reabre no novo ciclo — zera o guardado e volta a "não paga" pra ser paga de novo.
-      // (Ex: Mercado pago em julho reaparece em agosto pra guardar do zero.)
+      // MODELO CONTÍNUO das recorrentes: uma conta recorrente NUNCA fica "paga parada".
+      // Assim que é paga, ela reabre e volta a guardar um pouco por dia até o próximo
+      // vencimento (ex: Aluguel pago dia 8 → já começa a juntar pro dia 8 do mês seguinte).
+      // O ciclo pago fica gravado em paid_cycle (pra saber que aquele mês está quitado e
+      // não cobrar de novo). Aqui convertemos qualquer recorrente legada marcada como paga
+      // pro novo modelo: tira o "paid", zera o guardado e registra o ciclo atual como pago.
       const cicloAtual = getBrazilDate().slice(0, 7); // YYYY-MM
       const bruto = (billsData || []) as PlannedBill[];
-      const paraResetar = bruto.filter(
-        (b) => b.recurring && b.paid && b.paid_cycle != null && b.paid_cycle < cicloAtual,
-      );
-      if (paraResetar.length > 0) {
+      const legadas = bruto.filter((b) => b.recurring && b.paid);
+      if (legadas.length > 0) {
         await supabase
           .from("planned_bills")
-          .update({ paid: false, saved_amount: 0, paid_cycle: null } as never)
-          .in("id", paraResetar.map((b) => b.id));
+          .update({ paid: false, saved_amount: 0, paid_cycle: cicloAtual } as never)
+          .in("id", legadas.map((b) => b.id));
       }
-      const resetIds = new Set(paraResetar.map((b) => b.id));
+      const legadaIds = new Set(legadas.map((b) => b.id));
       const billsAjustadas = bruto.map((b) =>
-        resetIds.has(b.id) ? { ...b, paid: false, saved_amount: 0, paid_cycle: null } : b,
+        legadaIds.has(b.id) ? { ...b, paid: false, saved_amount: 0, paid_cycle: cicloAtual } : b,
       );
       setBills(billsAjustadas);
 
@@ -535,21 +536,32 @@ export default function Finances() {
 
   const handleToggleBillPaid = async (bill: PlannedBill) => {
     try {
-      const marcandoPago = !bill.paid;
-      const { error } = await supabase
-        .from("planned_bills")
-        // Ao pagar, grava o ciclo (mês) atual → recorrente reseta sozinha no próximo ciclo.
-        .update({ paid: marcandoPago, paid_cycle: marcandoPago ? getBrazilDate().slice(0, 7) : null } as never)
-        .eq("id", bill.id);
-
+      const cicloAtual = getBrazilDate().slice(0, 7);
+      let update: Record<string, unknown>;
+      let titulo: string;
+      let descricao: string;
+      if (bill.recurring) {
+        // Recorrente: "pagar" fecha o ciclo atual e RECOMEÇA na hora — zera o guardado e
+        // volta a juntar um pouco por dia até o próximo vencimento. Tocar de novo desfaz.
+        const jaPagaCiclo = bill.paid_cycle === cicloAtual;
+        if (jaPagaCiclo) {
+          update = { paid_cycle: null };
+          titulo = "Pagamento desfeito";
+          descricao = `${bill.name} voltou pro ciclo atual`;
+        } else {
+          update = { paid_cycle: cicloAtual, saved_amount: 0, paid: false };
+          titulo = "Conta paga ✓";
+          descricao = `${bill.name} paga. Já comecei a guardar pro próximo vencimento.`;
+        }
+      } else {
+        // Não recorrente: pagamento único — pago fica pago.
+        update = { paid: !bill.paid };
+        titulo = bill.paid ? "Conta reaberta" : "Conta quitada ✓";
+        descricao = bill.paid ? `${bill.name} voltou para as contas a pagar` : `${bill.name} marcada como paga`;
+      }
+      const { error } = await supabase.from("planned_bills").update(update as never).eq("id", bill.id);
       if (error) throw error;
-
-      toast({
-        title: bill.paid ? "Conta reaberta" : "Conta quitada ✓",
-        description: bill.paid
-          ? `${bill.name} voltou para as contas a pagar`
-          : `${bill.name} marcada como paga`,
-      });
+      toast({ title: titulo, description: descricao });
       loadFinancialData();
     } catch (error) {
       console.error("Error toggling bill paid:", error);
@@ -869,11 +881,12 @@ export default function Finances() {
       }
       const dueDay = Number(bill.due_date.slice(8, 10)); // dia-do-mês do due_date (1–31)
       const now = new Date();
-      const todayDay = now.getDate();
-      // Este mês se ainda dá tempo (hoje <= dia), senão mês que vem
+      const cicloAtual = getBrazilDate().slice(0, 7);
       let year = now.getFullYear();
       let month = now.getMonth(); // 0-based
-      if (todayDay > dueDay) {
+      // Se o ciclo (mês) atual JÁ foi pago, mira o vencimento do mês que vem (começa a juntar
+      // pro próximo). Senão, mira o vencimento DESTE mês (mesmo se já passou → vira vencida).
+      if (bill.paid_cycle === cicloAtual) {
         month += 1;
         if (month > 11) { month = 0; year += 1; }
       }
@@ -893,6 +906,9 @@ export default function Finances() {
     const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
     if (quitada) return false;
     if (bill.recurring) {
+      // Já paga este ciclo → não está vencida (já está juntando pro próximo mês).
+      const cicloAtual = getBrazilDate().slice(0, 7);
+      if (bill.paid_cycle === cicloAtual) return false;
       const dueDay = Number(bill.due_date.slice(8, 10));
       return new Date().getDate() > dueDay;
     }
@@ -2084,6 +2100,8 @@ export default function Finances() {
                 const isUploading = uploadingBillId === bill.id;
                 const overdue = isOverdue(bill);
                 const isRecurring = Boolean(bill.recurring);
+                // Recorrente já paga NESTE ciclo (mês) — já está juntando pro próximo vencimento.
+                const pagoEsteCiclo = isRecurring && bill.paid_cycle === getBrazilDate().slice(0, 7);
 
                 // Próximo vencimento efetivo (recorrente rola pro próximo mês)
                 const nextDue = nextDueDate(bill);
@@ -2142,9 +2160,15 @@ export default function Finances() {
                                   Recorrente
                                 </span>
                               )}
-                              {bill.risco === "alto" && (
+                              {bill.risco === "alto" && !pagoEsteCiclo && (
                                 <span className="inline-flex items-center rounded-full bg-destructive/15 border border-destructive/40 px-2 py-0.5 text-[10px] font-bold uppercase text-destructive">
                                   Risco alto
+                                </span>
+                              )}
+                              {pagoEsteCiclo && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-success/10 border border-success/30 px-2 py-0.5 text-[10px] font-medium text-success">
+                                  <Check className="w-3 h-3" />
+                                  Pago este mês
                                 </span>
                               )}
                             </div>
