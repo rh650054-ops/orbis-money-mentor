@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
-import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2 } from "lucide-react";
+import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2, Trash2, ChevronDown } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
@@ -279,6 +279,152 @@ function LatePixSection() {
                 </button>
               </div>
             ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Histórico editável dos custos rápidos (mercadoria/transporte/almoço). Esses custos são
+// somados nas colunas do daily_sales; aqui o usuário vê por dia, edita o valor ou zera.
+interface CustoRow {
+  id: string;
+  date: string;
+  cost: number | null;
+  transport_cost: number | null;
+  food_cost: number | null;
+}
+const CUSTO_CATS = [
+  { col: "cost", label: "Mercadoria", emoji: "📦" },
+  { col: "transport_cost", label: "Transporte", emoji: "🚌" },
+  { col: "food_cost", label: "Almoço", emoji: "🍽️" },
+] as const;
+
+function CustoRapidoHistory({ onChanged }: { onChanged?: () => void }) {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [show, setShow] = useState(false);
+  const [rows, setRows] = useState<CustoRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [editing, setEditing] = useState<{ id: string; col: string } | null>(null);
+  const [editVal, setEditVal] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const prettyDate = (iso: string) => {
+    const [, m, d] = (iso || "").split("-");
+    return d && m ? `${d}/${m}` : iso;
+  };
+
+  const fetchHistory = async () => {
+    if (!user) return;
+    setLoading(true);
+    const yearStart = `${getBrazilDate().slice(0, 4)}-01-01`;
+    const { data } = await supabase
+      .from("daily_sales")
+      .select("id, date, cost, transport_cost, food_cost")
+      .eq("user_id", user.id)
+      .gte("date", yearStart)
+      .or("cost.gt.0,transport_cost.gt.0,food_cost.gt.0")
+      .order("date", { ascending: false })
+      .limit(120);
+    setRows((data as CustoRow[]) || []);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (show) fetchHistory(); /* eslint-disable-next-line */ }, [show, user]);
+
+  const startEdit = (id: string, col: string, val: number) => {
+    setEditing({ id, col });
+    setEditVal(String(Math.round((val || 0) * 100) / 100));
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const v = Math.round((parseFloat(editVal.replace(",", ".")) || 0) * 100) / 100;
+    if (v < 0) { toast({ title: "Valor inválido", variant: "destructive" }); return; }
+    setBusy(true);
+    const { error } = await supabase.from("daily_sales").update({ [editing.col]: v } as never).eq("id", editing.id);
+    setBusy(false);
+    if (error) { toast({ title: "Erro ao salvar", variant: "destructive" }); return; }
+    setEditing(null);
+    toast({ title: "Custo atualizado", description: formatCurrency(v) });
+    fetchHistory();
+    onChanged?.();
+  };
+
+  const zerar = async (id: string, col: string, label: string) => {
+    if (typeof window !== "undefined" && !window.confirm(`Zerar ${label} desse dia?`)) return;
+    setBusy(true);
+    const { error } = await supabase.from("daily_sales").update({ [col]: 0 } as never).eq("id", id);
+    setBusy(false);
+    if (error) { toast({ title: "Erro ao zerar", variant: "destructive" }); return; }
+    toast({ title: `${label} zerado` });
+    fetchHistory();
+    onChanged?.();
+  };
+
+  return (
+    <div className="pt-1">
+      <button
+        onClick={() => setShow((v) => !v)}
+        className="w-full flex items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className="flex items-center gap-1.5"><History className="w-3.5 h-3.5" /> Histórico de custos</span>
+        <ChevronDown className={`w-4 h-4 transition-transform ${show ? "rotate-180" : ""}`} />
+      </button>
+      {show && (
+        <div className="mt-2">
+          {loading ? (
+            <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+          ) : rows.length === 0 ? (
+            <p className="text-xs text-muted-foreground text-center py-4">Nenhum custo lançado ainda.</p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+              {rows.map((r) => (
+                <div key={r.id} className="rounded-lg bg-background border border-border/50 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground mb-1">{prettyDate(r.date)}</p>
+                  <div className="space-y-1">
+                    {CUSTO_CATS.map((c) => {
+                      const val = Number((r as unknown as Record<string, number>)[c.col]) || 0;
+                      if (val <= 0 && !(editing && editing.id === r.id && editing.col === c.col)) return null;
+                      const isEditing = editing && editing.id === r.id && editing.col === c.col;
+                      return (
+                        <div key={c.col} className="flex items-center gap-2">
+                          <span className="text-sm">{c.emoji}</span>
+                          <span className="text-xs text-muted-foreground flex-1 min-w-0 truncate">{c.label}</span>
+                          {isEditing ? (
+                            <>
+                              <MoneyInput
+                                value={parseFloat(editVal) || 0}
+                                onChange={(n) => setEditVal(n ? String(n) : "")}
+                                className="h-8 w-24 text-sm"
+                              />
+                              <button onClick={saveEdit} disabled={busy} className="p-1 text-success" aria-label="Salvar">
+                                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                              </button>
+                              <button onClick={() => setEditing(null)} className="p-1 text-muted-foreground" aria-label="Cancelar">
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(val)}</span>
+                              <button onClick={() => startEdit(r.id, c.col, val)} className="p-1 text-muted-foreground hover:text-foreground" aria-label="Editar">
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => zerar(r.id, c.col, c.label)} className="p-1 text-muted-foreground hover:text-destructive" aria-label="Zerar">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}
@@ -741,6 +887,7 @@ export default function DefconHub() {
             </button>
           </div>
         </div>
+        <CustoRapidoHistory onChanged={loadAll} />
       </div>
 
       {/* Pix que caiu depois — lançar num dia anterior */}
