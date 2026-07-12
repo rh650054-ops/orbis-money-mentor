@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 
 interface DefconDayReportProps {
   totalApproaches: number;
@@ -31,9 +32,9 @@ export function DefconDayReport({
   }, []);
 
   const loadYesterdayData = async () => {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split("T")[0]!;
+    // Fuso BR: new Date()+toISOString() usa UTC e, no fim da tarde/noite (UTC-3, quando
+    // o vendedor encerra), "ontem" apontava pro dia errado e não batia com a sessão.
+    const yesterdayStr = getBrazilDateDaysAgo(1);
 
     const { data } = await supabase
       .from("challenge_sessions")
@@ -113,8 +114,8 @@ export function DefconDayReport({
           </span>
         </div>
 
-        {approachDiff !== null && yesterdayApproaches !== null && (
-          <>
+        {/* Abordagens por venda é métrica de HOJE — sempre visível (antes ficava
+            escondida dentro da comparação com ontem e sumia sem sessão de ontem). */}
         <div className="h-px bg-border" />
 
         <div className="flex justify-between items-center">
@@ -124,6 +125,9 @@ export function DefconDayReport({
           </span>
         </div>
 
+        {/* Comparação com ontem: só quando existe sessão de ontem. */}
+        {approachDiff !== null && yesterdayApproaches !== null && (
+          <>
         <div className="h-px bg-border" />
             <div className="text-xs font-mono text-muted-foreground text-center">
               Hoje você abordou {totalApproaches} pessoas. Ontem foram {yesterdayApproaches}.{" "}

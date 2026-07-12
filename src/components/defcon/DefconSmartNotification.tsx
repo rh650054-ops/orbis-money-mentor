@@ -61,6 +61,17 @@ export function DefconSmartNotification({
   const coachShownRef = useRef(0);       // teto POR SESSAO de DEFCON (em memoria, nao trava no dia)
   const sessionFreshRef = useRef(false);
 
+  // Limpa TODOS os timeouts pendentes ao desmontar (troca de fase: running -> break/
+  // finished desmonta o DefconRunning). Sem isto, os setTimeout de 12s continuavam
+  // chamando setState num componente já desmontado (warning + timer órfão entre blocos).
+  useEffect(() => {
+    const timers = timersRef.current;
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+      timers.clear();
+    };
+  }, []);
+
   useEffect(() => {
     if (!userId) return;
     loadHistory();
