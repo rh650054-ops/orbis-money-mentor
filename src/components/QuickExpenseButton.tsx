@@ -31,6 +31,9 @@ interface DayExpense {
 interface HistoryExpense extends DayExpense {
   date: string;
   notes: string | null;
+  // CMV (custo de mercadoria vendida) — vem do daily_sales.cost, não do personal_expenses.
+  // Editar atualiza daily_sales.cost; "excluir" zera o custo do dia (não apaga vendas).
+  isCmv?: boolean;
 }
 
 // YYYY-MM-DD -> DD/MM
@@ -66,6 +69,8 @@ export default function QuickExpenseButton({
   const [customName, setCustomName] = useState("");
   const [saving, setSaving] = useState(false);
   const [todayExpenses, setTodayExpenses] = useState<DayExpense[]>([]);
+  // CMV do dia (daily_sales.cost) — mostrado junto dos custos, editável/zerável.
+  const [todayCmv, setTodayCmv] = useState<{ id: string; cost: number } | null>(null);
   const [loading, setLoading] = useState(false);
   // Histórico do ano — editar/remover custos antigos mal lançados
   const [showHistory, setShowHistory] = useState(false);
@@ -84,13 +89,24 @@ export default function QuickExpenseButton({
   const fetchTodayExpenses = async () => {
     if (!user) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("personal_expenses")
-      .select("id, name, amount, icon, category")
-      .eq("user_id", user.id)
-      .eq("date", today)
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: ds }] = await Promise.all([
+      supabase
+        .from("personal_expenses")
+        .select("id, name, amount, icon, category")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("daily_sales")
+        .select("id, cost")
+        .eq("user_id", user.id)
+        .eq("date", today)
+        .order("created_at", { ascending: true })
+        .limit(1),
+    ]);
     setTodayExpenses((data as DayExpense[]) || []);
+    const dsRow = ds && ds[0];
+    setTodayCmv(dsRow && Number(dsRow.cost) > 0 ? { id: dsRow.id, cost: Number(dsRow.cost) } : null);
     setLoading(false);
   };
 
@@ -104,7 +120,12 @@ export default function QuickExpenseButton({
     }
   }, [isOpen, user, initialCategoryKey]);
 
-  const totalToday = todayExpenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const totalToday = todayExpenses.reduce((s, e) => s + Number(e.amount || 0), 0) + (todayCmv?.cost || 0);
+  // Lista de hoje com o CMV (se houver) no topo — mesma UI de linha, com editar/excluir.
+  const todayList: (DayExpense & { isCmv?: boolean })[] = [
+    ...(todayCmv ? [{ id: todayCmv.id, name: "Mercadoria vendida (CMV)", amount: todayCmv.cost, icon: "📦", category: "Mercadoria", isCmv: true }] : []),
+    ...todayExpenses,
+  ];
 
   const reset = () => {
     setSelected(null);
@@ -144,28 +165,43 @@ export default function QuickExpenseButton({
     fetchTodayExpenses();
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("personal_expenses").delete().eq("id", id);
-    if (!error) {
-      setTodayExpenses((prev) => prev.filter((e) => e.id !== id));
-      setHistory((prev) => prev.filter((e) => e.id !== id));
-    }
-  };
-
-  // Últimos custos do ano (todos os dias) — pra corrigir lançamentos antigos.
+  // Últimos custos do ano (todos os dias) — custos manuais (personal_expenses) + o CMV
+  // (daily_sales.cost) de cada dia, mesclados e ordenados por data. Pra corrigir lançamentos.
   const fetchHistory = async () => {
     if (!user) return;
     setLoadingHistory(true);
     const yearStart = `${today.slice(0, 4)}-01-01`;
-    const { data } = await supabase
-      .from("personal_expenses")
-      .select("id, name, amount, icon, category, date, notes")
-      .eq("user_id", user.id)
-      .gte("date", yearStart)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(200);
-    setHistory((data as HistoryExpense[]) || []);
+    const [{ data }, { data: ds }] = await Promise.all([
+      supabase
+        .from("personal_expenses")
+        .select("id, name, amount, icon, category, date, notes")
+        .eq("user_id", user.id)
+        .gte("date", yearStart)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("daily_sales")
+        .select("id, cost, date")
+        .eq("user_id", user.id)
+        .gte("date", yearStart)
+        .gt("cost", 0)
+        .order("date", { ascending: false })
+        .limit(200),
+    ]);
+    const manuais = (data as HistoryExpense[]) || [];
+    const cmvs: HistoryExpense[] = (ds || []).map((r: { id: string; cost: number; date: string }) => ({
+      id: r.id,
+      name: "Mercadoria vendida (CMV)",
+      amount: Number(r.cost),
+      icon: "📦",
+      category: "Mercadoria",
+      date: r.date,
+      notes: null,
+      isCmv: true,
+    }));
+    const merged = [...manuais, ...cmvs].sort((a, z) => (a.date < z.date ? 1 : a.date > z.date ? -1 : 0));
+    setHistory(merged);
     setLoadingHistory(false);
   };
 
@@ -175,51 +211,67 @@ export default function QuickExpenseButton({
     if (next) fetchHistory();
   };
 
-  const startEdit = (e: HistoryExpense) => {
+  const startEdit = (e: HistoryExpense | (DayExpense & { isCmv?: boolean; notes?: string | null })) => {
     setEditingId(e.id);
     setEditName(e.name);
     setEditAmount(String(e.amount));
-    setEditNotes(e.notes || "");
+    setEditNotes(("notes" in e ? e.notes : null) || "");
   };
 
-  const saveEdit = async (e: HistoryExpense) => {
+  const saveEdit = async (e: { id: string; name: string; isCmv?: boolean }) => {
     const value = parseFloat(editAmount.replace(",", "."));
     if (!value || value <= 0) {
       toast({ title: "Valor inválido", variant: "destructive" });
       return;
     }
     setSavingEdit(true);
-    const { error } = await supabase
-      .from("personal_expenses")
-      .update({
-        name: (editName.trim() || e.name).slice(0, 80),
-        amount: value,
-        notes: editNotes.trim() || null,
-      })
-      .eq("id", e.id);
+    const { error } = e.isCmv
+      ? await supabase.from("daily_sales").update({ cost: value }).eq("id", e.id)
+      : await supabase
+          .from("personal_expenses")
+          .update({
+            name: (editName.trim() || e.name).slice(0, 80),
+            amount: value,
+            notes: editNotes.trim() || null,
+          })
+          .eq("id", e.id);
     setSavingEdit(false);
     if (error) {
       toast({ title: "Erro ao salvar", description: error.message, variant: "destructive" });
       return;
     }
     setEditingId(null);
-    toast({ title: "Custo atualizado", description: formatCurrency(value) });
+    toast({ title: e.isCmv ? "Custo de mercadoria atualizado" : "Custo atualizado", description: formatCurrency(value) });
     fetchHistory();
     fetchTodayExpenses();
   };
 
-  const deleteFromHistory = async (id: string) => {
-    if (!window.confirm("Remover este custo? O relatório será recalculado.")) return;
-    setDeletingId(id);
-    const { error } = await supabase.from("personal_expenses").delete().eq("id", id);
-    setDeletingId(null);
-    if (error) {
-      toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
-      return;
+  // Excluir: custo manual apaga a linha; CMV apenas ZERA o custo do dia (não apaga vendas).
+  const deleteEntry = async (e: { id: string; isCmv?: boolean }) => {
+    if (e.isCmv) {
+      if (!window.confirm("Zerar o custo de mercadoria (CMV) deste dia? As vendas continuam; só o custo é zerado.")) return;
+      setDeletingId(e.id);
+      const { error } = await supabase.from("daily_sales").update({ cost: 0 }).eq("id", e.id);
+      setDeletingId(null);
+      if (error) {
+        toast({ title: "Erro ao zerar", description: error.message, variant: "destructive" });
+        return;
+      }
+    } else {
+      if (!window.confirm("Remover este custo? O relatório será recalculado.")) return;
+      setDeletingId(e.id);
+      const { error } = await supabase.from("personal_expenses").delete().eq("id", e.id);
+      setDeletingId(null);
+      if (error) {
+        toast({ title: "Erro ao remover", description: error.message, variant: "destructive" });
+        return;
+      }
+      setHistory((prev) => prev.filter((x) => x.id !== e.id));
+      setTodayExpenses((prev) => prev.filter((x) => x.id !== e.id));
     }
-    setHistory((prev) => prev.filter((e) => e.id !== id));
-    setTodayExpenses((prev) => prev.filter((e) => e.id !== id));
-    toast({ title: "Custo removido" });
+    toast({ title: e.isCmv ? "Custo zerado" : "Custo removido" });
+    fetchTodayExpenses();
+    if (showHistory) fetchHistory();
   };
 
   return (
@@ -283,33 +335,63 @@ export default function QuickExpenseButton({
                     <div className="flex justify-center py-6">
                       <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
                     </div>
-                  ) : todayExpenses.length === 0 ? (
+                  ) : todayList.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-6">
                       Nenhum custo registrado hoje.
                     </p>
                   ) : (
                     <ScrollArea className="max-h-48">
                       <div className="space-y-1.5">
-                        {todayExpenses.map((e) => (
+                        {todayList.map((e) => (
                           <div
                             key={e.id}
-                            className="flex items-center gap-3 px-3 py-2 rounded-lg bg-background border border-border/40"
+                            className="px-3 py-2 rounded-lg bg-background border border-border/40"
                           >
-                            <span className="text-lg">{e.icon || "💰"}</span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{e.name}</p>
-                              <p className="text-xs text-muted-foreground">{e.category}</p>
-                            </div>
-                            <span className="text-sm font-bold text-primary">
-                              {formatCurrency(Number(e.amount))}
-                            </span>
-                            <button
-                              onClick={() => handleDelete(e.id)}
-                              className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
-                              aria-label="Remover"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            {editingId === e.id ? (
+                              <div className="space-y-2">
+                                <MoneyInput
+                                  value={parseFloat(editAmount) || 0}
+                                  onChange={(n) => setEditAmount(n ? String(n) : "")}
+                                  className="h-10 text-base font-bold"
+                                />
+                                <div className="flex gap-2">
+                                  <Button onClick={() => saveEdit(e)} disabled={savingEdit} className="flex-1 h-9 text-sm">
+                                    {savingEdit ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+                                  </Button>
+                                  <Button variant="ghost" onClick={() => setEditingId(null)} className="h-9 text-sm">
+                                    Cancelar
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-3">
+                                <span className="text-lg">{e.icon || "💰"}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium truncate">{e.name}</p>
+                                  <p className="text-xs text-muted-foreground">{e.category}</p>
+                                </div>
+                                <span className="text-sm font-bold text-primary">
+                                  {formatCurrency(Number(e.amount))}
+                                </span>
+                                {e.isCmv && (
+                                  <button
+                                    onClick={() => startEdit(e)}
+                                    className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                                    aria-label="Editar"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  onClick={() => deleteEntry(e)}
+                                  disabled={deletingId === e.id}
+                                  className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
+                                  aria-label="Remover"
+                                >
+                                  {deletingId === e.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -345,23 +427,31 @@ export default function QuickExpenseButton({
                             >
                               {editingId === e.id ? (
                                 <div className="space-y-2">
-                                  <Input
-                                    value={editName}
-                                    onChange={(ev) => setEditName(ev.target.value.slice(0, 80))}
-                                    placeholder="Descrição"
-                                    className="h-9 text-sm"
-                                  />
+                                  {e.isCmv ? (
+                                    <p className="text-xs text-muted-foreground">
+                                      Custo de mercadoria de {prettyDate(e.date)} — ajuste o valor total do dia.
+                                    </p>
+                                  ) : (
+                                    <Input
+                                      value={editName}
+                                      onChange={(ev) => setEditName(ev.target.value.slice(0, 80))}
+                                      placeholder="Descrição"
+                                      className="h-9 text-sm"
+                                    />
+                                  )}
                                   <MoneyInput
                                     value={parseFloat(editAmount) || 0}
                                     onChange={(n) => setEditAmount(n ? String(n) : "")}
                                     className="h-10 text-base font-bold"
                                   />
-                                  <Input
-                                    value={editNotes}
-                                    onChange={(ev) => setEditNotes(ev.target.value.slice(0, 200))}
-                                    placeholder="Anotação (opcional)"
-                                    className="h-9 text-sm"
-                                  />
+                                  {!e.isCmv && (
+                                    <Input
+                                      value={editNotes}
+                                      onChange={(ev) => setEditNotes(ev.target.value.slice(0, 200))}
+                                      placeholder="Anotação (opcional)"
+                                      className="h-9 text-sm"
+                                    />
+                                  )}
                                   <div className="flex gap-2">
                                     <Button
                                       onClick={() => saveEdit(e)}
@@ -400,7 +490,7 @@ export default function QuickExpenseButton({
                                     <Pencil className="h-3.5 w-3.5" />
                                   </button>
                                   <button
-                                    onClick={() => deleteFromHistory(e.id)}
+                                    onClick={() => deleteEntry(e)}
                                     disabled={deletingId === e.id}
                                     className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
                                     aria-label="Remover"

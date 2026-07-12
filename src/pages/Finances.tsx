@@ -856,13 +856,17 @@ export default function Finances() {
     return new Date(bill.due_date + "T12:00:00");
   };
 
-  // Vencida: NÃO recorrente, COM due_date, vencimento antes da meia-noite de hoje,
-  // e ainda não quitada (saved < amount E não paga).
+  // Vencida: COM due_date, ainda não quitada (saved < amount E não paga), e o vencimento
+  // já passou. Para RECORRENTE, considera o DIA do vencimento deste mês: se hoje já passou
+  // desse dia e o ciclo não foi quitado, está vencida (ex: Mercado dia 10, hoje dia 11).
   const isOverdue = (bill: PlannedBill): boolean => {
-    if (bill.recurring) return false;
     if (!bill.due_date) return false;
     const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
     if (quitada) return false;
+    if (bill.recurring) {
+      const dueDay = Number(bill.due_date.slice(8, 10));
+      return new Date().getDate() > dueDay;
+    }
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
     const due = new Date(bill.due_date + "T12:00:00");
@@ -1325,8 +1329,8 @@ export default function Finances() {
     // primeiro o que está atrasado (ex: o mercado), depois o vencimento mais próximo.
     const ativas = bills
       .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)))
-      .map((b) => ({ b, due: nextDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER, falta: remaining(b) }))
-      .sort((a, z) => a.due - z.due);
+      .map((b) => ({ b, over: isOverdue(b), due: nextDueDate(b)?.getTime() ?? Number.MAX_SAFE_INTEGER, falta: remaining(b) }))
+      .sort((a, z) => (Number(z.over) - Number(a.over)) || (a.due - z.due));
     for (const item of ativas) {
       if (restante <= 0.005) break;
       const add = Math.min(restante, item.falta);
@@ -1344,8 +1348,8 @@ export default function Finances() {
   const distribuirVencidas = async (value: number) => {
     let restante = value;
     const vencidas = overdueBills
-      .map((b) => ({ b, due: nextDueDate(b)?.getTime() ?? 0, falta: remaining(b) }))
-      .sort((a, z) => a.due - z.due);
+      .map((b) => ({ b, falta: remaining(b) }))
+      .sort((a, z) => (a.b.due_date || "").localeCompare(z.b.due_date || ""));
     for (const item of vencidas) {
       if (restante <= 0.005) break;
       const add = Math.min(restante, item.falta);
