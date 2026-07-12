@@ -1022,12 +1022,14 @@ export default function Finances() {
       const label = isToday ? "Hoje" : d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" });
       out.push({ key: `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`, label, isWork, isToday, raw, valor: 0 });
     }
-    // Saldo adiantado abate do dia mais próximo primeiro (nearest-first).
-    let buffer = savedTodayAmount;
+    // O que você guarda HOJE já abate as contas (bills.saved_amount cai e o perDay dos
+    // PRÓXIMOS dias recalcula menor sozinho). Por isso o "guardado hoje" só desconta do
+    // PRÓPRIO dia de hoje — descontar também dos dias seguintes seria contar duas vezes
+    // (foi esse o bug de "300 antes da meia-noite, 500 depois"). Dias futuros mostram o
+    // perDay real do saldo atual das contas.
     for (const x of out) {
       if (!x.isWork) { x.valor = 0; continue; }
-      x.valor = Math.max(0, x.raw - buffer);
-      buffer = Math.max(0, buffer - x.raw);
+      x.valor = x.isToday ? Math.max(0, x.raw - savedTodayAmount) : x.raw;
     }
     return out;
   })();
