@@ -3,7 +3,7 @@ import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft,
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/shared/lib/date-utils";
+import { getBrazilDate, getBrazilDateLabel } from "@/shared/lib/date-utils";
 import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
@@ -154,7 +154,7 @@ export function DefconEndScreen({
       doc.setTextColor(220, 220, 220);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      const dateLabel = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+      const dateLabel = getBrazilDateLabel(true);
       doc.text(`Data: ${dateLabel}  •  ${data.length} registro(s)`, margin, 64);
 
       y = 120;
@@ -241,7 +241,7 @@ export function DefconEndScreen({
       doc.setTextColor(220, 220, 220);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
-      const dateLabel = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+      const dateLabel = getBrazilDateLabel(true);
       doc.text(`Data: ${dateLabel}  •  ${daySales.length} transação(ões)`, margin, 64);
 
       y = 120;
@@ -545,7 +545,7 @@ export function DefconEndScreen({
       }
     };
 
-    const dateLabel = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long" });
+    const dateLabel = getBrazilDateLabel(false);
 
     if (template === 1) {
       // Limpo / transparente — adesivo pro story (acompanha o tema)

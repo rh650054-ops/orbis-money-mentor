@@ -57,6 +57,20 @@ export function getBrazilDateDaysAgo(days: number): string {
 }
 
 /**
+ * Data de HOJE por extenso no fuso do Brasil (ex.: "11 de julho de 2026").
+ * Use em cabeçalhos de PDF/arte — new Date().toLocaleDateString() usa o fuso do
+ * APARELHO e, perto da meia-noite, imprime o dia errado (não bate com getBrazilDate).
+ */
+export function getBrazilDateLabel(withYear = true): string {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: BRAZIL_TZ,
+    day: "2-digit",
+    month: "long",
+    ...(withYear ? { year: "numeric" } : {}),
+  }).format(new Date());
+}
+
+/**
  * Retorna a hora atual no timezone do Brasil no formato HH:MM.
  */
 export function getBrazilTime(): string {

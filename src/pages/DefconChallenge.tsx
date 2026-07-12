@@ -15,7 +15,6 @@ import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
 import ExtratoDailyModal from "@/components/competitions/ExtratoDailyModal";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
-import { DefconDayReport } from "@/components/defcon/DefconDayReport";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();

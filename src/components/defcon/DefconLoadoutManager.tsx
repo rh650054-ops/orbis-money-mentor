@@ -8,6 +8,41 @@ interface Props {
   userId: string;
 }
 
+// Campo de quantidade com estado LOCAL: o vendedor pode limpar e redigitar sem
+// que o produto seja apagado (bug antigo: input controlado disparava updateQty(0)
+// a cada tecla e o `0` deletava a mercadoria). Só persiste ao sair do campo (blur)
+// ou apertar Enter — e nunca deleta por campo vazio (deletar é só no botão X).
+function QtyField({ value, onCommit }: { value: number; onCommit: (q: number) => void }) {
+  const [text, setText] = useState(String(value));
+  // Ressincroniza se o valor externo mudar (ex.: reload) e o campo não estiver focado.
+  const [focused, setFocused] = useState(false);
+  if (!focused && text !== String(value)) setText(String(value));
+
+  const commit = () => {
+    const n = parseInt(text, 10);
+    if (!Number.isFinite(n) || n < 1) {
+      setText(String(value)); // vazio/inválido: volta ao valor atual, NÃO deleta
+      return;
+    }
+    if (n !== value) onCommit(n);
+  };
+
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={1}
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => { setFocused(false); commit(); }}
+      onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+      className="shrink-0 w-14 h-11 bg-background border border-border rounded-lg text-center text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      aria-label="Quantidade inicial"
+    />
+  );
+}
+
 export function DefconLoadoutManager({ userId }: Props) {
   const { loadout, products, loading, addProduct, updateQty } = useDefconLoadout(userId);
   const [showPicker, setShowPicker] = useState(false);
@@ -54,14 +89,7 @@ export function DefconLoadoutManager({ userId }: Props) {
                     {item.qty_sold}/{item.qty_initial} vendidos · {restante} restantes
                   </p>
                 </div>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  value={item.qty_initial}
-                  onChange={(e) => updateQty(item.id, parseInt(e.target.value) || 0)}
-                  className="shrink-0 w-14 h-11 bg-background border border-border rounded-lg text-center text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  aria-label="Quantidade inicial"
-                />
+                <QtyField value={item.qty_initial} onCommit={(q) => updateQty(item.id, q)} />
                 <button
                   onClick={() => updateQty(item.id, 0)}
                   className="shrink-0 w-11 h-11 rounded-lg bg-background border border-border flex items-center justify-center text-destructive active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
