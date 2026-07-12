@@ -831,6 +831,9 @@ export default function Finances() {
   // Conta os DIAS DE TRABALHO de hoje até o vencimento (inclusive), considerando
   // só os dias da semana em working_days. Sem prazo → fallback grande (30).
   // Sem working_days: usa weekly_work_days pra estimar; senão, dias corridos.
+  // "Trabalhou hoje" = registrou venda hoje. Se sim, HOJE conta como dia de trabalho mesmo
+  // sendo seu descanso — aí você guarda a parte de hoje e os valores por dia se ajustam sozinhos.
+  const trabalhouHoje = (Number(summary.grossToday) || 0) > 0;
   const workingDaysUntil = (dueDateStr: string | null): number => {
     if (!dueDateStr) return 30;
     const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -855,9 +858,12 @@ export default function Finances() {
 
     let count = 0;
     const cursor = new Date(today);
+    let primeiro = true; // 1ª iteração = hoje
     while (cursor.getTime() <= dueDay.getTime()) {
       const name = weekdayNames[cursor.getDay()];
-      if (workingDays.includes(name)) count++;
+      // Conta o dia se é dia de trabalho — OU se é HOJE e você trabalhou hoje (mesmo no descanso).
+      if (workingDays.includes(name) || (primeiro && trabalhouHoje)) count++;
+      primeiro = false;
       cursor.setDate(cursor.getDate() + 1);
     }
     return Math.max(1, count);
@@ -988,7 +994,9 @@ export default function Finances() {
 
   // "A guardar hoje" — quanto reservar do líquido de hoje pras metas + contas
   const todayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()];
-  const todayIsWorkDay = workingDays && workingDays.length > 0 ? workingDays.includes(todayName) : true;
+  const escaladoHoje = workingDays && workingDays.length > 0 ? workingDays.includes(todayName) : true;
+  // Trabalhou no descanso? Conta como dia de trabalho → guarda a parte de hoje também.
+  const todayIsWorkDay = escaladoHoje || trabalhouHoje;
   const goalPctTotal = Math.min(
     100,
     goals.reduce((sum, g) => sum + (Number(g.percentual_distribuicao) || 0), 0)
@@ -1045,8 +1053,9 @@ export default function Finances() {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
       const nome = nomes[d.getDay()];
-      const isWork = workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true;
       const isToday = i === 0;
+      // Hoje conta como trabalho se está na escala OU se você trabalhou hoje (descanso trabalhado).
+      const isWork = (workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true) || (isToday && trabalhouHoje);
       let raw = 0;
       if (isToday) {
         raw = alvoHoje;
