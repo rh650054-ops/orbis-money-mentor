@@ -55,6 +55,7 @@ interface PlannedBill {
   is_credit_card?: boolean;
   installments?: number | null;
   risco?: string; // 'baixo' | 'medio' | 'alto' — o quão perigoso é atrasar
+  paid_cycle?: string | null; // 'YYYY-MM' do ciclo em que foi paga (recorrente reseta no próximo)
 }
 
 interface Goal {
@@ -209,14 +210,33 @@ export default function Finances() {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
       const { data: billsData, error: billsError } = await supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco")
+        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco, paid_cycle")
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true });
 
       if (billsError) throw billsError;
-      setBills((billsData || []) as PlannedBill[]);
+
+      // RESET AUTOMÁTICO DE RECORRENTES: uma conta recorrente paga num ciclo (mês) anterior
+      // reabre no novo ciclo — zera o guardado e volta a "não paga" pra ser paga de novo.
+      // (Ex: Mercado pago em julho reaparece em agosto pra guardar do zero.)
+      const cicloAtual = getBrazilDate().slice(0, 7); // YYYY-MM
+      const bruto = (billsData || []) as PlannedBill[];
+      const paraResetar = bruto.filter(
+        (b) => b.recurring && b.paid && b.paid_cycle != null && b.paid_cycle < cicloAtual,
+      );
+      if (paraResetar.length > 0) {
+        await supabase
+          .from("planned_bills")
+          .update({ paid: false, saved_amount: 0, paid_cycle: null } as never)
+          .in("id", paraResetar.map((b) => b.id));
+      }
+      const resetIds = new Set(paraResetar.map((b) => b.id));
+      const billsAjustadas = bruto.map((b) =>
+        resetIds.has(b.id) ? { ...b, paid: false, saved_amount: 0, paid_cycle: null } : b,
+      );
+      setBills(billsAjustadas);
 
       // Load goals
       const { data: goalsData, error: goalsError } = await supabase
@@ -515,9 +535,11 @@ export default function Finances() {
 
   const handleToggleBillPaid = async (bill: PlannedBill) => {
     try {
+      const marcandoPago = !bill.paid;
       const { error } = await supabase
         .from("planned_bills")
-        .update({ paid: !bill.paid })
+        // Ao pagar, grava o ciclo (mês) atual → recorrente reseta sozinha no próximo ciclo.
+        .update({ paid: marcandoPago, paid_cycle: marcandoPago ? getBrazilDate().slice(0, 7) : null } as never)
         .eq("id", bill.id);
 
       if (error) throw error;

@@ -310,6 +310,11 @@ function CustoRapidoHistory({ onChanged }: { onChanged?: () => void }) {
   const [editing, setEditing] = useState<{ id: string; col: string } | null>(null);
   const [editVal, setEditVal] = useState("");
   const [busy, setBusy] = useState(false);
+  // Lançar custo num dia escolhido (não só hoje)
+  const [addCol, setAddCol] = useState<string>("cost");
+  const [addVal, setAddVal] = useState("");
+  const [addDate, setAddDate] = useState(getBrazilDate());
+  const [adding, setAdding] = useState(false);
 
   const prettyDate = (iso: string) => {
     const [, m, d] = (iso || "").split("-");
@@ -364,6 +369,35 @@ function CustoRapidoHistory({ onChanged }: { onChanged?: () => void }) {
     onChanged?.();
   };
 
+  // Lança um custo numa DATA escolhida — soma na coluna certa do daily_sales daquele dia.
+  const addOnDate = async () => {
+    if (!user) return;
+    const v = Math.round((parseFloat(addVal.replace(",", ".")) || 0) * 100) / 100;
+    if (v <= 0 || !addDate) { toast({ title: "Valor inválido", variant: "destructive" }); return; }
+    setAdding(true);
+    const { data: rows } = await supabase
+      .from("daily_sales")
+      .select("id, cost, transport_cost, food_cost")
+      .eq("user_id", user.id)
+      .eq("date", addDate)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    let error;
+    if (rows && rows.length > 0) {
+      const prev = Number((rows[0] as unknown as Record<string, number>)[addCol]) || 0;
+      ({ error } = await supabase.from("daily_sales").update({ [addCol]: prev + v } as never).eq("id", (rows[0] as { id: string }).id));
+    } else {
+      ({ error } = await supabase.from("daily_sales").insert({ user_id: user.id, date: addDate, [addCol]: v } as never));
+    }
+    setAdding(false);
+    if (error) { toast({ title: "Erro ao lançar", variant: "destructive" }); return; }
+    const label = CUSTO_CATS.find((c) => c.col === addCol)?.label ?? "Custo";
+    toast({ title: `${label} lançado`, description: `${formatCurrency(v)} em ${prettyDate(addDate)}` });
+    setAddVal("");
+    fetchHistory();
+    onChanged?.();
+  };
+
   return (
     <div className="pt-1">
       <button
@@ -375,6 +409,46 @@ function CustoRapidoHistory({ onChanged }: { onChanged?: () => void }) {
       </button>
       {show && (
         <div className="mt-2">
+          {/* Lançar custo numa data escolhida */}
+          <div className="mb-3 rounded-lg bg-background border border-border/50 p-2.5 space-y-2">
+            <p className="text-[11px] font-semibold text-muted-foreground">Lançar em outro dia</p>
+            <div className="grid grid-cols-3 gap-1">
+              {CUSTO_CATS.map((c) => (
+                <button
+                  key={c.col}
+                  type="button"
+                  onClick={() => setAddCol(c.col)}
+                  className={`flex items-center justify-center gap-1 h-8 rounded-lg border text-[11px] font-medium transition ${
+                    addCol === c.col ? "border-primary bg-primary/10 text-foreground" : "border-border/60 bg-card text-muted-foreground"
+                  }`}
+                >
+                  <span>{c.emoji}</span>{c.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={addDate}
+                max={getBrazilDate()}
+                onChange={(e) => setAddDate(e.target.value)}
+                className="h-9 flex-1 min-w-0 bg-card border border-border rounded-lg px-2 text-xs text-foreground"
+              />
+              <MoneyInput
+                value={parseFloat(addVal) || 0}
+                onChange={(n) => setAddVal(n ? String(n) : "")}
+                placeholder="R$ 0,00"
+                className="h-9 w-24 text-sm"
+              />
+              <button
+                onClick={addOnDate}
+                disabled={adding || !addVal || parseFloat(addVal) <= 0}
+                className="shrink-0 h-9 px-3 rounded-lg bg-primary text-primary-foreground font-bold text-xs flex items-center gap-1 disabled:opacity-40 active:scale-95"
+              >
+                {adding ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
           {loading ? (
             <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
           ) : rows.length === 0 ? (
