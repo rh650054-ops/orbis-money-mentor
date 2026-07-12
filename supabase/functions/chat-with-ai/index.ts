@@ -100,7 +100,10 @@ const PLAN_LIMITS: Record<string, { key: string; limit: number; model: string }>
   premium:   { key: "premium",   limit: 25, model: SONNET }, // R$79,90
 };
 function resolvePlan(prof: any) {
-  if (prof?.is_demo || prof?.billing_exempt) return { key: "demo", limit: 100, model: SONNET };
+  // CORTE DE CUSTO (07/07): demo/isentos (contas internas de teste) rodavam SONNET
+  // (~4x o preco do Haiku) com teto de 100 msgs/dia — era o maior ralo da conta da
+  // API. Agora usam HAIKU. So o plano premium PAGO (R$79,90) mantem Sonnet.
+  if (prof?.is_demo || prof?.billing_exempt) return { key: "demo", limit: 100, model: HAIKU };
   const t = String(prof?.plan_type || prof?.plan_status || "trial").toLowerCase();
   return PLAN_LIMITS[t] || PLAN_LIMITS["trial"];
 }

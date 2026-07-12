@@ -16,13 +16,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Monta o prompt com o nome do vendedor (pra IA pegar auto-transferencia) e o DIA auditado.
-function buildPrompt(nome: string, tipo: string, dia: string): string {
-  const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
+// PROMPT EM 2 BLOCOS (economia de custo): o bloco ESTATICO (instrucoes, identico
+// pra todo usuario do mesmo tipo pix/cartao) leva cache_control e e reaproveitado
+// pela API (~90% mais barato no cache hit — no domingo, quando os envios chegam em
+// rajada, quase toda chamada acerta o cache). O bloco DINAMICO (dia + nome) e
+// minusculo e vem depois. As REGRAS sao as mesmas de antes, so referenciadas ao
+// "DIA AUDITADO informado no proximo bloco" em vez de interpolar a data no texto.
+function buildPromptEstatico(tipo: string): string {
   const esperado = tipo === "cartao"
     ? "COMPROVANTE DAS VENDAS NO CARTAO — pode ser o relatorio/print da MAQUININHA (Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.) OU QUALQUER extrato/print onde aparecam os recebimentos do cartao (inclusive um extrato de banco). Liste as ENTRADAS de venda no cartao."
     : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos) — mostra Pix recebidos, saldo e transacoes da conta.";
   return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
+O DIA AUDITADO e a dica de nome do titular vem no PROXIMO bloco desta mensagem — leia-os antes de auditar.
 
 CLASSIFICACAO (faca isto ANTES de tudo): o usuario esta enviando isto como o ${esperado}
 Classifique o documento no campo "documento":
@@ -31,27 +36,27 @@ Classifique o documento no campo "documento":
 - "outro" = qualquer outra coisa (foto aleatoria, UM comprovante unico, print sem lista de transacoes, algo que NAO e um extrato).
 Seja honesto na classificacao: se nao for claramente um extrato do tipo certo, marque o que realmente e.
 
-DIA AUDITADO: ${dia}
+SOBRE O DIA AUDITADO (a data exata vem no proximo bloco):
 O extrato pode cobrir UM dia, VARIOS dias ou o MES INTEIRO (alguns bancos nao deixam
-pedir extrato de um dia so). Voce esta auditando SOMENTE o dia ${dia}:
+pedir extrato de um dia so). Voce audita SOMENTE o DIA AUDITADO:
 - ATENCAO: extratos de banco agrupam as transacoes POR DIA, com um cabecalho de data
   por bloco (ex: "01 JUL 2026 Total de entradas", depois "02 JUL 2026 Total de
-  entradas"). LOCALIZE o bloco cujo cabecalho corresponde EXATAMENTE ao dia ${dia} e
+  entradas"). LOCALIZE o bloco cujo cabecalho corresponde EXATAMENTE ao DIA AUDITADO e
   use SOMENTE as transacoes DESSE bloco — pegar o bloco do dia errado e o PIOR erro
   possivel aqui.
-- Liste APENAS transacoes cuja data de LANCAMENTO seja EXATAMENTE ${dia}.
+- Liste APENAS transacoes cuja data de LANCAMENTO seja EXATAMENTE o DIA AUDITADO.
 - Em CADA item de "vendas" e "suspeitas", inclua o campo "data" = "YYYY-MM-DD" da
   transacao (obrigatorio).
 - CONFERENCIA FINAL (obrigatoria): antes de responder, verifique que TODOS os itens
-  tem "data" = "${dia}". Se algum tiver outra data, voce leu o bloco errado — refaça.
+  tem "data" igual ao DIA AUDITADO. Se algum tiver outra data, voce leu o bloco errado — refaça.
 - IGNORE COMPLETAMENTE as transacoes dos outros dias (nao entram em vendas, nem em
   suspeitas, nem em nenhum total). Faca de conta que nao existem.
 - "periodo_inicio" e "periodo_fim" = primeira e ultima data de transacao visiveis no
   extrato (YYYY-MM-DD), pra sabermos qual intervalo o arquivo cobre.
-- "cobre_dia" = true se o dia ${dia} estiver DENTRO do periodo do extrato (mesmo que
+- "cobre_dia" = true se o DIA AUDITADO estiver DENTRO do periodo do extrato (mesmo que
   nao tenha nenhuma venda nesse dia); false se o extrato nao alcancar esse dia.
 
-Tarefa: listar APENAS as VENDAS do dia ${dia} = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE despesas/saidas E itens suspeitos de fraude.
+Tarefa: listar APENAS as VENDAS do DIA AUDITADO = dinheiro que ENTROU (foi RECEBIDO pelo vendedor). IGNORE despesas/saidas E itens suspeitos de fraude.
 
 CONTA como venda (dinheiro que ENTROU):
 - "Pix recebido", "Entrada PIX", "Credito", "Recebimento"
@@ -63,35 +68,40 @@ NAO CONTA (despesa/saida do vendedor):
 - Qualquer valor NEGATIVO ou de saida
 
 ANTIFRAUDE — SO estas 3 coisas NAO contam. Coloque em "suspeitas" com um "motivo" CURTO e EXATO (dizendo o valor e por que nao passou):
-- AUTO-TRANSFERENCIA: Pix recebido cujo REMETENTE e o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}) — o vendedor mandou pra si mesmo. motivo: "voce mandou pra voce mesmo".
+- AUTO-TRANSFERENCIA: Pix recebido cujo REMETENTE e o PROPRIO titular (mesmo nome ou muito parecido do nome informado no proximo bloco) — o vendedor mandou pra si mesmo. motivo: "voce mandou pra voce mesmo".
 - PIX DE R$100 OU MAIS: qualquer Pix de valor >= R$100 NAO conta (venda de rua e de ticket baixo). motivo: "Pix de R$X: valores de R$100 ou mais nao contam".
 - VARIOS PIX REPETIDOS DA MESMA PESSOA: se o MESMO remetente aparecer com 3 OU MAIS Pix repetidos (valores iguais/colados), conte SO O PRIMEIRO; os repetidos vao pra suspeitas. motivo: "Pix repetido de [nome]: so o 1o conta". OBS: 1 ou 2 Pix da mesma pessoa PODE ser cliente de verdade — so marque a partir do 3o.
 REGRA DE OURO: fora dessas 3 coisas, TUDO que ENTROU conta como venda. Vendedor de rua recebe MUITOS Pix pequenos de gente diferente — isso e NORMAL e TEM que contar. Nao invente outros motivos pra recusar.
 ECONOMIA DE ESPACO: em "descricao", use SO o primeiro e segundo nome de quem pagou (max 20 caracteres). Nao repita banco/agencia/conta.
-${hint}
 
-total_vendas = soma SO das vendas legitimas do dia ${dia} (sem despesa e sem suspeita).
-total_ignorado = soma de despesas + suspeitas do dia ${dia}.
+total_vendas = soma SO das vendas legitimas do DIA AUDITADO (sem despesa e sem suspeita).
+total_ignorado = soma de despesas + suspeitas do DIA AUDITADO.
 
-data_dia = "${dia}" se cobre_dia for true; senao "". Use a data de LANCAMENTO/transacao, NAO a data contabil.
+data_dia = o DIA AUDITADO se cobre_dia for true; senao "". Use a data de LANCAMENTO/transacao, NAO a data contabil.
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
-{"documento":"banco","cobre_dia":true,"periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","vendas":[{"descricao":"de quem/origem","valor":35.0,"data":"${dia}"}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia","data":"${dia}"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"${dia}"}`;
+{"documento":"banco","cobre_dia":true,"periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","vendas":[{"descricao":"de quem/origem","valor":35.0,"data":"YYYY-MM-DD"}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia","data":"YYYY-MM-DD"}],"total_vendas":387.0,"total_ignorado":244.45,"qtd_vendas":18,"data_dia":"YYYY-MM-DD"}`;
 }
 
-// Prompt do modo MES: a IA separa as vendas POR DIA, dentro da janela pedida.
-function buildPromptMes(nome: string, tipo: string, iniJanela: string, fimJanela: string): string {
+// Bloco dinamico minusculo: a data auditada + a dica do titular. Fica FORA do cache.
+function buildPromptDinamico(nome: string, dia: string): string {
   const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
+  return `DIA AUDITADO: ${dia}${hint}`;
+}
+
+// Modo MES em 2 blocos: estatico cacheavel + janela/nome no bloco dinamico.
+function buildPromptMesEstatico(tipo: string): string {
   const esperado = tipo === "cartao"
     ? "COMPROVANTE DAS VENDAS NO CARTAO — relatorio/print da maquininha OU qualquer extrato/print onde aparecam os recebimentos do cartao (inclusive extrato de banco)"
     : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos)";
   return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
+A JANELA DE DIAS auditada e a dica de nome do titular vem no PROXIMO bloco desta mensagem.
 
 CLASSIFICACAO (faca isto ANTES de tudo): o usuario esta enviando isto como o ${esperado}.
 Classifique no campo "documento": "banco", "cartao" ou "outro" (mesmos criterios de um extrato real; foto aleatoria/comprovante unico = "outro"). Seja honesto.
 
 MODO MES: este extrato cobre VARIOS dias. Separe as VENDAS POR DIA.
-- Considere SOMENTE dias entre ${iniJanela} e ${fimJanela} (inclusive). Ignore transacoes fora dessa janela.
+- Considere SOMENTE dias dentro da JANELA informada no proximo bloco (inclusive). Ignore transacoes fora dela.
 - Para CADA dia dessa janela que aparecer no extrato COM entrada de dinheiro, crie um item em "dias".
 - Use a data de LANCAMENTO/transacao, NAO a data contabil.
 
@@ -99,17 +109,21 @@ VENDA (conta) = dinheiro que ENTROU: "Pix recebido", "Entrada PIX", "Credito", "
 NAO CONTA = saida/despesa: "Debito de Cartao", "Saida PIX", "Pix enviado", "Pagamento", "Transferencia enviada", valores negativos.
 
 ANTIFRAUDE — SO estas 3 coisas vao em "suspeitas" do dia (com "motivo" curto e EXATO) e NAO somam:
-- AUTO-TRANSFERENCIA: Pix recebido cujo remetente e o PROPRIO titular (mesmo nome ou muito parecido${nome ? `, inclusive parecido com "${nome}"` : ""}). motivo: "voce mandou pra voce mesmo".
+- AUTO-TRANSFERENCIA: Pix recebido cujo remetente e o PROPRIO titular (mesmo nome ou muito parecido do nome informado no proximo bloco). motivo: "voce mandou pra voce mesmo".
 - PIX DE R$100 OU MAIS: Pix de valor >= R$100 NAO conta. motivo: "Pix de R$X: valores de R$100 ou mais nao contam".
 - VARIOS PIX REPETIDOS DA MESMA PESSOA: mesmo remetente com 3+ Pix repetidos -> conta SO O PRIMEIRO. motivo: "Pix repetido de [nome]: so o 1o conta". (1 ou 2 da mesma pessoa PODE ser cliente real — so a partir do 3o.)
 REGRA DE OURO: fora dessas 3, TUDO que entrou conta. Muitos Pix pequenos de gente diferente e NORMAL e TEM que contar.
 ECONOMIA DE ESPACO (importante — o mes tem MUITAS transacoes): em "descricao", use SO o primeiro e segundo nome de quem pagou (max 20 caracteres). Nao repita banco/agencia/conta. Sem espacos extras no JSON.
-${hint}
 
 "periodo_inicio"/"periodo_fim" = primeira e ultima data de transacao visiveis no extrato (YYYY-MM-DD).
 
 Responda SOMENTE um JSON valido (sem texto fora, sem markdown):
 {"documento":"banco","periodo_inicio":"2026-07-01","periodo_fim":"2026-07-31","dias":[{"data":"2026-07-03","vendas":[{"descricao":"de quem/origem","valor":35.0}],"suspeitas":[{"descricao":"origem","valor":50.0,"motivo":"auto-transferencia"}]}]}`;
+}
+
+function buildPromptMesDinamico(nome: string, iniJanela: string, fimJanela: string): string {
+  const hint = nome ? `\nDica: o vendedor (titular) provavelmente se chama "${nome}".` : "";
+  return `JANELA AUDITADA: de ${iniJanela} ate ${fimJanela} (inclusive).${hint}`;
 }
 
 // Teto: Pix de R$100 ou mais NAO conta (venda de rua e de ticket baixo).
@@ -188,7 +202,10 @@ function separaRepetidos(vendas: any[]): { limpas: any[]; repetidas: any[] } {
 }
 
 // ---- Claude (primario): le imagem ou PDF e devolve o texto (JSON) ----
-async function callClaude(key: string, model: string, prompt: string, fileB64: string, mime: string, maxTokens = 1800): Promise<string> {
+// PROMPT CACHING: o bloco estatico (instrucoes) vai com cache_control ephemeral.
+// Chamadas repetidas em ate 5min (rajada de domingo, reenvios) pagam ~10% do preco
+// nesse trecho. O bloco dinamico (dia/nome) e o documento ficam fora do cache.
+async function callClaude(key: string, model: string, promptEstatico: string, promptDinamico: string, fileB64: string, mime: string, maxTokens = 1800): Promise<string> {
   const isPdf = mime.includes("pdf");
   const mediaType = isPdf
     ? "application/pdf"
@@ -209,7 +226,14 @@ async function callClaude(key: string, model: string, prompt: string, fileB64: s
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: "user", content: [{ type: "text", text: prompt }, filePart] }],
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: promptEstatico, cache_control: { type: "ephemeral" } },
+          { type: "text", text: promptDinamico },
+          filePart,
+        ],
+      }],
     }),
   });
   if (!res.ok) {
@@ -313,9 +337,11 @@ Deno.serve(async (req) => {
     const noveDias = new Date(Date.now() - 9 * 86400000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
     const iniJanela = noveDias < iniMes ? noveDias : iniMes;
 
-    const prompt = modo === "mes"
-      ? buildPromptMes(nome, tipo, iniJanela, hojeBR)
-      : buildPrompt(nome, tipo, dia);
+    // Dois blocos: estatico (cacheavel entre usuarios) + dinamico (dia/janela + nome).
+    const promptEstatico = modo === "mes" ? buildPromptMesEstatico(tipo) : buildPromptEstatico(tipo);
+    const promptDinamico = modo === "mes"
+      ? buildPromptMesDinamico(nome, iniJanela, hojeBR)
+      : buildPromptDinamico(nome, dia);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -329,7 +355,7 @@ Deno.serve(async (req) => {
 
     if (anthropicKey) {
       try {
-        text = await callClaude(anthropicKey, model, prompt, fileB64, mime, maxTokens);
+        text = await callClaude(anthropicKey, model, promptEstatico, promptDinamico, fileB64, mime, maxTokens);
         motor = "claude";
       } catch (e) {
         lastErr = String((e as Error)?.message || e);
@@ -337,7 +363,8 @@ Deno.serve(async (req) => {
     }
     if (!text && geminiKey) {
       try {
-        text = await callGemini(geminiKey, prompt, fileB64, mime);
+        // Gemini nao tem cache_control: manda os dois blocos concatenados.
+        text = await callGemini(geminiKey, `${promptEstatico}\n\n${promptDinamico}`, fileB64, mime);
         motor = "gemini";
       } catch (e) {
         lastErr = String((e as Error)?.message || e);
