@@ -56,6 +56,8 @@ interface PlannedBill {
   installments?: number | null;
   risco?: string; // 'baixo' | 'medio' | 'alto' — o quão perigoso é atrasar
   paid_cycle?: string | null; // 'YYYY-MM' do ciclo em que foi paga (recorrente reseta no próximo)
+  duration_months?: number | null; // null = fixa (todo mês); N = dura N meses e acaba
+  cycles_paid?: number; // quantos ciclos já foram pagos (pra saber quando a duração acaba)
 }
 
 interface Goal {
@@ -124,6 +126,8 @@ export default function Finances() {
     cardMode: "total" as "total" | "parcela",
     installments: "",
     risco: "medio" as "baixo" | "medio" | "alto",
+    tipoTempo: "fixa" as "fixa" | "duracao", // conta fixa (todo mês) ou com duração (N meses)
+    durationMonths: "",
   });
 
   // Form states for new goal
@@ -180,7 +184,7 @@ export default function Finances() {
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
-  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto" });
+  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto", tipoTempo: "fixa" as "fixa" | "duracao", durationMonths: "" });
 
   // Anexo de boleto: id da conta cujo arquivo está subindo (spinner/disabled)
   const [uploadingBillId, setUploadingBillId] = useState<string | null>(null);
@@ -210,7 +214,7 @@ export default function Finances() {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
       const { data: billsData, error: billsError } = await supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco, paid_cycle")
+        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco, paid_cycle, duration_months, cycles_paid")
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
@@ -226,7 +230,9 @@ export default function Finances() {
       // pro novo modelo: tira o "paid", zera o guardado e registra o ciclo atual como pago.
       const cicloAtual = getBrazilDate().slice(0, 7); // YYYY-MM
       const bruto = (billsData || []) as PlannedBill[];
-      const legadas = bruto.filter((b) => b.recurring && b.paid);
+      // Conta com DURAÇÃO já encerrada (pagou todas as parcelas) fica paga de vez — não reabre.
+      const duracaoEncerrada = (b: PlannedBill) => b.duration_months != null && (b.cycles_paid || 0) >= b.duration_months;
+      const legadas = bruto.filter((b) => b.recurring && b.paid && !duracaoEncerrada(b));
       if (legadas.length > 0) {
         await supabase
           .from("planned_bills")
@@ -380,6 +386,11 @@ export default function Finances() {
       ? parseFloat(newBill.amount) / parcelas
       : parseFloat(newBill.amount);
 
+    // Duração: só quando o usuário escolhe "com duração" (conta normal). Fixa/cartão → null
+    // (cartão fica fixo por padrão; dá pra marcar duração depois na edição, se for parcelado).
+    const durMeses = parseInt(newBill.durationMonths) || 0;
+    const duration_months = !newBill.isCreditCard && newBill.tipoTempo === "duracao" && durMeses > 0 ? durMeses : null;
+
     try {
       const { error } = await supabase
         .from("planned_bills")
@@ -390,12 +401,15 @@ export default function Finances() {
           due_date: newBill.due_date || null,
           saved_amount: 0,
           paid: false,
-          recurring: newBill.isCreditCard ? true : newBill.recurring,
+          // Fixa e com duração repetem todo mês (cartão idem). Duração acaba via cycles_paid.
+          recurring: true,
           payment_code: newBill.payment_code.trim() || null,
           file_path: null,
           is_credit_card: newBill.isCreditCard,
           installments: newBill.isCreditCard && parcelas > 0 ? parcelas : null,
           risco: newBill.risco,
+          duration_months,
+          cycles_paid: 0,
         } as never);
 
       if (error) throw error;
@@ -405,7 +419,7 @@ export default function Finances() {
         description: `${newBill.name} entrou no seu planejamento`,
       });
 
-      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "", risco: "medio" });
+      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "", risco: "medio", tipoTempo: "fixa", durationMonths: "" });
       setIsAddBillOpen(false);
       loadFinancialData();
     } catch (error) {
@@ -495,6 +509,8 @@ export default function Finances() {
       recurring: Boolean(bill.recurring),
       payment_code: bill.payment_code ?? "",
       risco: (bill.risco as "baixo" | "medio" | "alto") || "medio",
+      tipoTempo: bill.duration_months != null ? "duracao" : "fixa",
+      durationMonths: bill.duration_months != null ? String(bill.duration_months) : "",
     });
   };
 
@@ -519,6 +535,9 @@ export default function Finances() {
           recurring: editBillForm.recurring,
           payment_code: editBillForm.payment_code.trim() || null,
           risco: editBillForm.risco,
+          duration_months: editBillForm.tipoTempo === "duracao" && (parseInt(editBillForm.durationMonths) || 0) > 0
+            ? parseInt(editBillForm.durationMonths)
+            : null,
         } as never)
         .eq("id", editBill.id);
       if (error) throw error;
@@ -543,15 +562,27 @@ export default function Finances() {
       if (bill.recurring) {
         // Recorrente: "pagar" fecha o ciclo atual e RECOMEÇA na hora — zera o guardado e
         // volta a juntar um pouco por dia até o próximo vencimento. Tocar de novo desfaz.
+        // Se a conta tem DURAÇÃO (N meses), conta os ciclos: ao pagar o último, quita de vez.
         const jaPagaCiclo = bill.paid_cycle === cicloAtual;
+        const dur = bill.duration_months;
         if (jaPagaCiclo) {
-          update = { paid_cycle: null };
+          update = { paid_cycle: null, paid: false, cycles_paid: Math.max(0, (bill.cycles_paid || 0) - 1) };
           titulo = "Pagamento desfeito";
           descricao = `${bill.name} voltou pro ciclo atual`;
         } else {
-          update = { paid_cycle: cicloAtual, saved_amount: 0, paid: false };
-          titulo = "Conta paga ✓";
-          descricao = `${bill.name} paga. Já comecei a guardar pro próximo vencimento.`;
+          const novoCiclos = (bill.cycles_paid || 0) + 1;
+          const acabou = dur != null && novoCiclos >= dur;
+          if (acabou) {
+            update = { paid_cycle: cicloAtual, cycles_paid: novoCiclos, paid: true };
+            titulo = "Conta quitada de vez ✓";
+            descricao = `${bill.name}: última parcela paga (${novoCiclos}/${dur}). Não volta mais.`;
+          } else {
+            update = { paid_cycle: cicloAtual, saved_amount: 0, paid: false, cycles_paid: novoCiclos };
+            titulo = "Conta paga ✓";
+            descricao = dur != null
+              ? `${bill.name} paga (${novoCiclos}/${dur}). Guardando pro próximo.`
+              : `${bill.name} paga. Já comecei a guardar pro próximo vencimento.`;
+          }
         }
       } else {
         // Não recorrente: pagamento único — pago fica pago.
@@ -1767,8 +1798,8 @@ export default function Finances() {
             {ritmoSustentavel > 0 && (
               <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-success/5 border border-success/20 px-3 py-2">
                 <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Ritmo pra manter em dia</p>
-                  <p className="text-[11px] text-muted-foreground">média por dia de trabalho</p>
+                  <p className="text-xs text-muted-foreground">Valor fixo por dia pra pagar as contas</p>
+                  <p className="text-[11px] text-muted-foreground">guardando isso todo dia de trabalho, as contas fecham mês a mês</p>
                 </div>
                 <p className="text-sm font-bold text-success text-right shrink-0">
                   {formatCurrency(ritmoSustentavel)}<span className="text-muted-foreground font-normal text-xs">/dia</span>
@@ -2039,18 +2070,43 @@ export default function Finances() {
                     />
                   </div>
 
-                  {/* Recorrente: só conta normal (cartão já é sempre recorrente) */}
+                  {/* Fixa vs Com duração: só conta normal (cartão usa as parcelas como duração) */}
                   {!newBill.isCreditCard && (
-                    <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-                      <div className="min-w-0 pr-3">
-                        <Label htmlFor="new-bill-recurring" className="cursor-pointer">Conta recorrente (todo mês)</Label>
-                        <p className="text-xs text-muted-foreground mt-0.5">Repete todo mês no mesmo dia de vencimento.</p>
+                    <div className="space-y-2">
+                      <Label>A conta é fixa ou tem duração?</Label>
+                      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                        <button
+                          type="button"
+                          onClick={() => setNewBill({ ...newBill, tipoTempo: "fixa" })}
+                          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${newBill.tipoTempo === "fixa" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                        >
+                          Fixa (todo mês)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewBill({ ...newBill, tipoTempo: "duracao" })}
+                          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${newBill.tipoTempo === "duracao" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                        >
+                          Com duração
+                        </button>
                       </div>
-                      <Switch
-                        id="new-bill-recurring"
-                        checked={newBill.recurring}
-                        onCheckedChange={(checked) => setNewBill({ ...newBill, recurring: checked })}
-                      />
+                      {newBill.tipoTempo === "duracao" && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-muted-foreground">Dura</span>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={newBill.durationMonths}
+                            onChange={(e) => setNewBill({ ...newBill, durationMonths: e.target.value })}
+                            placeholder="12"
+                            className="w-20"
+                          />
+                          <span className="text-sm text-muted-foreground">meses e acaba</span>
+                        </div>
+                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        Fixa = todo mês pra sempre (aluguel, assinatura). Com duração = acaba depois de X meses (financiamento, curso).
+                      </p>
                     </div>
                   )}
 
@@ -2143,6 +2199,9 @@ export default function Finances() {
                 const isRecurring = Boolean(bill.recurring);
                 // Recorrente já paga NESTE ciclo (mês) — já está juntando pro próximo vencimento.
                 const pagoEsteCiclo = isRecurring && bill.paid_cycle === getBrazilDate().slice(0, 7);
+                // Conta com duração: mostra progresso das parcelas (X/N).
+                const temDuracao = bill.duration_months != null && bill.duration_months > 0;
+                const ciclosPagos = bill.cycles_paid || 0;
 
                 // Próximo vencimento efetivo (recorrente rola pro próximo mês)
                 const nextDue = nextDueDate(bill);
@@ -2213,6 +2272,11 @@ export default function Finances() {
                                 <span className="inline-flex items-center gap-1 rounded-full bg-success/10 border border-success/30 px-2 py-0.5 text-[10px] font-medium text-success">
                                   <Check className="w-3 h-3" />
                                   Pago este mês
+                                </span>
+                              )}
+                              {temDuracao && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {ciclosPagos}/{bill.duration_months} pagas
                                 </span>
                               )}
                               {apertada && (
@@ -2947,6 +3011,35 @@ export default function Finances() {
                 checked={editBillForm.recurring}
                 onCheckedChange={(checked) => setEditBillForm({ ...editBillForm, recurring: checked })}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>A conta é fixa ou tem duração?</Label>
+              <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                {(["fixa", "duracao"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setEditBillForm({ ...editBillForm, tipoTempo: t })}
+                    className={`py-2 rounded-lg text-sm font-semibold transition-colors ${editBillForm.tipoTempo === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                  >
+                    {t === "fixa" ? "Fixa (todo mês)" : "Com duração"}
+                  </button>
+                ))}
+              </div>
+              {editBillForm.tipoTempo === "duracao" && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Dura</span>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={editBillForm.durationMonths}
+                    onChange={(e) => setEditBillForm({ ...editBillForm, durationMonths: e.target.value })}
+                    placeholder="12"
+                    className="w-20"
+                  />
+                  <span className="text-sm text-muted-foreground">meses e acaba</span>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Risco se atrasar</Label>
