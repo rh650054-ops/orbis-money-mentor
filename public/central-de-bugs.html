@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbis — Central de Bugs</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ouro:#C9A84C; --ouro-claro:#F5D78E; --roxo-esc:#1A0533;
+  --surface:#0A0A0A; --surface2:#111111; --card:#0A0010;
+  --branco:#FFFFFF; --cinza:#888888; --cinza-claro:#AAAAAA;
+  --border:rgba(201,168,76,0.15); --border-forte:rgba(201,168,76,0.35);
+  --verde:#10B981; --roxo:#A855F7; --alerta:#E84A4A; --ambar:#F59E0B; --grafite:#6B7280;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--surface); color:var(--branco); font-family:'DM Sans',sans-serif; line-height:1.6; min-height:100vh; position:relative; overflow-x:hidden;}
+#bg-particles{position:fixed; inset:0; z-index:0; pointer-events:none;}
+.glow-top{position:fixed; top:0; left:0; right:0; height:420px; z-index:0; pointer-events:none; background:radial-gradient(ellipse at 50% -10%, #1A0533 0%, rgba(26,5,51,0.35) 40%, transparent 72%);}
+.wrap{position:relative; z-index:1; max-width:860px; margin:0 auto; padding:0 20px 100px;}
+
+header{text-align:center; padding:56px 0 30px;}
+.logo{font-family:'Bebas Neue',sans-serif; font-size:64px; letter-spacing:14px; background:linear-gradient(135deg,var(--ouro),var(--ouro-claro)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-left:14px;}
+.subtitulo{font-size:12px; color:var(--cinza); letter-spacing:4px; text-transform:uppercase; margin-top:6px;}
+.frase{font-size:13px; color:#555; margin-top:10px;}
+
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:8px 0 26px;}
+.stat{background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px 14px; text-align:center;}
+.stat-num{font-family:'Bebas Neue',sans-serif; font-size:36px; line-height:1; letter-spacing:1px;}
+.stat-label{font-size:10px; color:var(--cinza); letter-spacing:2px; text-transform:uppercase; margin-top:6px;}
+.stat.abertos .stat-num{color:var(--ouro-claro)} .stat.andamento .stat-num{color:var(--roxo)}
+.stat.resolvidos .stat-num{color:var(--verde)} .stat.criticos .stat-num{color:var(--alerta)}
+
+.toolbar{display:flex; flex-wrap:wrap; gap:12px; align-items:center; margin-bottom:20px;}
+.btn-novo{display:inline-flex; align-items:center; gap:9px; font-weight:700; font-size:14px; letter-spacing:.5px; color:#1A0500; background:linear-gradient(135deg,var(--ouro),var(--ouro-claro)); border:none; border-radius:12px; padding:13px 22px; cursor:pointer; animation:pulse-glow 3.2s ease-in-out infinite; transition:transform .15s ease;}
+.btn-novo:hover{transform:translateY(-1px)}
+@keyframes pulse-glow{0%,100%{filter:drop-shadow(0 0 14px rgba(201,168,76,0.30))} 50%{filter:drop-shadow(0 0 34px rgba(201,168,76,0.60))}}
+.search{flex:1; min-width:180px; display:flex; align-items:center; gap:10px; background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:0 14px;}
+.search input{flex:1; background:transparent; border:none; outline:none; color:var(--branco); font-family:'DM Sans',sans-serif; font-size:14px; padding:12px 0;}
+.search input::placeholder{color:#555} .search svg{flex-shrink:0; opacity:.5}
+
+.filtros{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:22px; align-items:center;}
+.chip{font-size:12px; letter-spacing:.5px; color:var(--cinza-claro); background:transparent; border:1px solid var(--border); border-radius:999px; padding:8px 15px; cursor:pointer; transition:all .18s ease; font-family:'DM Sans',sans-serif;}
+.chip:hover{border-color:var(--border-forte); color:var(--branco)}
+.chip.ativo{background:rgba(201,168,76,0.12); border-color:var(--ouro); color:var(--ouro-claro); font-weight:600}
+.sync{margin-left:auto; font-size:11px; color:#555; display:inline-flex; align-items:center; gap:6px;}
+.sync .dot{width:7px; height:7px; border-radius:50%; background:var(--verde); box-shadow:0 0 8px var(--verde); animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.lista{display:flex; flex-direction:column; gap:14px;}
+.bug{background:var(--surface2); border:1px solid rgba(255,255,255,0.06); border-left:3px solid var(--grafite); border-radius:14px; padding:20px 22px; transition:border-color .2s ease; opacity:0; transform:translateY(10px); animation:reveal .45s ease forwards;}
+@keyframes reveal{to{opacity:1; transform:translateY(0)}}
+.bug:hover{border-color:var(--border-forte)}
+.bug.sev-critico{border-left-color:var(--alerta)} .bug.sev-alto{border-left-color:var(--ambar)}
+.bug.sev-medio{border-left-color:var(--ouro)} .bug.sev-baixo{border-left-color:var(--grafite)}
+.bug.resolvido{opacity:.6} .bug.resolvido .bug-titulo{text-decoration:line-through; text-decoration-color:rgba(255,255,255,0.3)}
+
+.bug-top{display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:8px;}
+.bug-titulo{font-size:16px; font-weight:700; color:var(--branco); line-height:1.35;}
+.badges{display:flex; gap:6px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;}
+.badge{font-size:10px; letter-spacing:1px; text-transform:uppercase; font-weight:700; padding:4px 9px; border-radius:999px; white-space:nowrap;}
+.badge.st-aberto{color:var(--ouro-claro); background:rgba(201,168,76,0.12); border:1px solid var(--border-forte)}
+.badge.st-andamento{color:var(--roxo); background:rgba(168,85,247,0.12); border:1px solid rgba(168,85,247,0.4)}
+.badge.st-resolvido{color:var(--verde); background:rgba(16,185,129,0.12); border:1px solid rgba(16,185,129,0.4)}
+.badge.sv-critico{color:var(--alerta); background:rgba(232,74,74,0.12); border:1px solid rgba(232,74,74,0.4)}
+.badge.sv-alto{color:var(--ambar); background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.4)}
+.badge.sv-medio{color:var(--ouro); background:rgba(201,168,76,0.12); border:1px solid var(--border-forte)}
+.badge.sv-baixo{color:var(--cinza-claro); background:rgba(107,114,128,0.15); border:1px solid rgba(107,114,128,0.4)}
+
+.bug-desc{font-size:14px; color:var(--cinza-claro); line-height:1.65; white-space:pre-wrap; word-break:break-word;}
+.bug-meta{display:flex; flex-wrap:wrap; gap:14px; margin-top:14px; font-size:12px; color:var(--cinza);}
+.bug-meta .m{display:inline-flex; align-items:center; gap:6px;} .bug-meta .m strong{color:var(--cinza-claro); font-weight:600} .bug-meta svg{opacity:.55}
+
+/* ANÁLISE DA IA */
+.ia{margin-top:16px; border:1px solid rgba(168,85,247,0.25); border-radius:12px; background:linear-gradient(135deg, rgba(168,85,247,0.06), rgba(201,168,76,0.03)); padding:16px 18px;}
+.ia-head{display:flex; align-items:center; gap:9px; margin-bottom:12px;}
+.ia-orb{width:16px; height:16px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--ouro-claro), var(--ouro) 45%, #4a3410 100%); box-shadow:0 0 12px rgba(201,168,76,0.6); flex-shrink:0;}
+.ia-orb.girando{animation:spin 1.1s linear infinite, glowpulse 1.6s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes glowpulse{0%,100%{box-shadow:0 0 8px rgba(201,168,76,0.5)}50%{box-shadow:0 0 18px rgba(201,168,76,0.9)}}
+.ia-label{font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--ouro); font-weight:700;}
+.ia-bloco{margin-bottom:11px;} .ia-bloco:last-child{margin-bottom:0}
+.ia-titulo{font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--roxo); font-weight:700; margin-bottom:3px;}
+.ia-texto{font-size:13.5px; color:var(--cinza-claro); line-height:1.6; white-space:pre-wrap;}
+.ia-texto strong{color:var(--branco)}
+.ia-pendente{font-size:13px; color:var(--cinza); font-style:italic;}
+.ia-reaval{margin-top:10px; font-size:12px; color:var(--ambar);}
+
+.bug-acoes{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; padding-top:14px; border-top:0.5px solid rgba(255,255,255,0.05);}
+.acao{font-size:12px; font-weight:600; letter-spacing:.3px; font-family:'DM Sans',sans-serif; background:transparent; border:1px solid var(--border); color:var(--cinza-claro); border-radius:9px; padding:8px 13px; cursor:pointer; transition:all .16s ease; display:inline-flex; align-items:center; gap:7px;}
+.acao:hover{border-color:var(--border-forte); color:var(--branco)}
+.acao.iniciar:hover{border-color:var(--roxo); color:var(--roxo)}
+.acao.resolver:hover{border-color:var(--verde); color:var(--verde)}
+.acao.reabrir:hover{border-color:var(--ouro); color:var(--ouro-claro)}
+.acao.ia:hover{border-color:var(--ouro); color:var(--ouro-claro)}
+.acao.excluir{margin-left:auto} .acao.excluir:hover{border-color:var(--alerta); color:var(--alerta)}
+
+.vazio{text-align:center; padding:70px 20px; color:var(--cinza);}
+.vazio .orb{width:74px; height:74px; margin:0 auto 22px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--ouro-claro), var(--ouro) 45%, #4a3410 100%); box-shadow:0 0 40px rgba(201,168,76,0.35); animation:float 4s ease-in-out infinite;}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.vazio-titulo{font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:2px; color:var(--branco); margin-bottom:6px;}
+.vazio-texto{font-size:14px; color:var(--cinza); max-width:340px; margin:0 auto;}
+
+.overlay{position:fixed; inset:0; z-index:50; background:rgba(0,0,0,0.72); backdrop-filter:blur(6px); display:none; align-items:flex-end; justify-content:center;}
+.overlay.aberto{display:flex}
+.modal{width:100%; max-width:560px; background:var(--card); border:1px solid var(--border); border-bottom:none; border-radius:20px 20px 0 0; padding:28px 26px calc(26px + env(safe-area-inset-bottom)); max-height:92vh; overflow-y:auto; animation:slideUp .28s cubic-bezier(.2,.8,.2,1);}
+@keyframes slideUp{from{transform:translateY(40px); opacity:0}to{transform:translateY(0); opacity:1}}
+.modal-head{display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;}
+.modal-titulo{font-family:'Bebas Neue',sans-serif; font-size:30px; letter-spacing:2px; background:linear-gradient(135deg,var(--ouro),var(--ouro-claro)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;}
+.fechar{background:transparent; border:none; color:var(--cinza); cursor:pointer; padding:6px; line-height:0;} .fechar:hover{color:var(--branco)}
+.modal-sub{font-size:13px; color:var(--cinza); margin-bottom:22px;}
+.campo{margin-bottom:18px;}
+.campo label{display:block; font-size:12px; letter-spacing:1px; text-transform:uppercase; color:var(--ouro); margin-bottom:9px; font-weight:600;}
+.campo input[type=text], .campo textarea{width:100%; background:#000; border:1px solid var(--border); border-radius:11px; padding:13px 15px; color:var(--branco); font-family:'DM Sans',sans-serif; font-size:14px; outline:none; transition:border-color .16s ease;}
+.campo input:focus, .campo textarea:focus{border-color:var(--ouro)}
+.campo input::placeholder, .campo textarea::placeholder{color:#555}
+.campo textarea{resize:vertical; min-height:96px; line-height:1.6;}
+.sev-opcoes{display:grid; grid-template-columns:repeat(4,1fr); gap:8px;}
+.sev-op{text-align:center; font-size:12px; font-weight:600; letter-spacing:.3px; border:1px solid var(--border); border-radius:11px; padding:11px 6px; cursor:pointer; color:var(--cinza-claro); background:transparent; transition:all .16s ease; font-family:'DM Sans',sans-serif;}
+.sev-op[data-sev=critico].on{border-color:var(--alerta); color:var(--alerta); background:rgba(232,74,74,0.1)}
+.sev-op[data-sev=alto].on{border-color:var(--ambar); color:var(--ambar); background:rgba(245,158,11,0.1)}
+.sev-op[data-sev=medio].on{border-color:var(--ouro); color:var(--ouro-claro); background:rgba(201,168,76,0.1)}
+.sev-op[data-sev=baixo].on{border-color:var(--grafite); color:var(--cinza-claro); background:rgba(107,114,128,0.15)}
+.erro{color:var(--alerta); font-size:12px; margin-top:-8px; margin-bottom:14px; display:none;} .erro.show{display:block}
+.btn-enviar{width:100%; font-weight:700; font-size:15px; letter-spacing:.5px; color:#1A0500; background:linear-gradient(135deg,var(--ouro),var(--ouro-claro)); border:none; border-radius:12px; padding:15px; cursor:pointer; margin-top:6px; font-family:'DM Sans',sans-serif; transition:transform .12s ease;}
+.btn-enviar:hover{transform:translateY(-1px)} .btn-enviar:disabled{opacity:.6; cursor:default}
+
+.nota{font-size:11px; color:#555; text-align:center; margin-top:34px; padding:0 20px; line-height:1.6;} .nota b{color:var(--cinza-claro)}
+.loading{text-align:center; padding:60px 0; color:var(--cinza); font-size:14px;}
+
+@media (max-width:640px){
+  .logo{font-size:48px; letter-spacing:9px} .stats{grid-template-columns:repeat(2,1fr)}
+  header{padding:40px 0 24px} .btn-novo{flex:1; justify-content:center} .sev-opcoes{grid-template-columns:repeat(2,1fr)}
+  .sync{width:100%; margin-left:0; justify-content:flex-start; margin-top:4px}
+}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01ms !important; animation-iteration-count:1 !important}}
+</style>
+</head>
+<body>
+<canvas id="bg-particles"></canvas>
+<div class="glow-top"></div>
+
+<div class="wrap">
+  <header>
+    <div class="logo">ORBIS</div>
+    <div class="subtitulo">Central de Bugs</div>
+    <div class="frase">Achou algo quebrado? Anota aqui. A IA analisa. A gente conserta.</div>
+  </header>
+
+  <div class="stats">
+    <div class="stat abertos"><div class="stat-num" id="s-abertos">0</div><div class="stat-label">Abertos</div></div>
+    <div class="stat andamento"><div class="stat-num" id="s-andamento">0</div><div class="stat-label">Em andamento</div></div>
+    <div class="stat resolvidos"><div class="stat-num" id="s-resolvidos">0</div><div class="stat-label">Resolvidos</div></div>
+    <div class="stat criticos"><div class="stat-num" id="s-criticos">0</div><div class="stat-label">Críticos abertos</div></div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn-novo" onclick="abrirModal()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Reportar bug
+    </button>
+    <div class="search">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="busca" placeholder="Buscar bug..." oninput="render()">
+    </div>
+  </div>
+
+  <div class="filtros" id="filtros">
+    <button class="chip ativo" data-f="todos" onclick="setFiltro(this,'todos')">Todos</button>
+    <button class="chip" data-f="aberto" onclick="setFiltro(this,'aberto')">Abertos</button>
+    <button class="chip" data-f="andamento" onclick="setFiltro(this,'andamento')">Em andamento</button>
+    <button class="chip" data-f="resolvido" onclick="setFiltro(this,'resolvido')">Resolvidos</button>
+    <button class="chip" data-f="critico" onclick="setFiltro(this,'critico')">Só críticos</button>
+    <span class="sync"><span class="dot"></span> ao vivo</span>
+  </div>
+
+  <div id="conteudo"><div class="loading">Carregando bugs...</div></div>
+
+  <div class="nota">
+    Painel ligado ao banco do <b>Orbis</b>. Todo mundo com este link vê a mesma lista viva. Cada bug novo é analisado pela IA <b>Fable 5</b>.
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-titulo">NOVO BUG</div>
+      <button class="fechar" onclick="fecharModal()" aria-label="Fechar"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal-sub">Descreve o que aconteceu. Quanto mais detalhe, melhor a IA resolve.</div>
+    <div class="campo"><label for="f-titulo">O bug em uma frase</label><input type="text" id="f-titulo" placeholder="Ex: botão de registrar venda não abre no iPhone"></div>
+    <div class="erro" id="e-titulo">Escreve pelo menos o título do bug.</div>
+    <div class="campo"><label for="f-desc">O que aconteceu (passo a passo)</label><textarea id="f-desc" placeholder="O que você fez, o que esperava e o que aconteceu de errado."></textarea></div>
+    <div class="campo"><label for="f-tela">Onde acontece</label><input type="text" id="f-tela" placeholder="Ex: DEFCON 4, Ranking, tela de login..."></div>
+    <div class="campo"><label>Gravidade</label>
+      <div class="sev-opcoes" id="sev-opcoes">
+        <button class="sev-op" data-sev="critico" onclick="selSev('critico')">Crítico</button>
+        <button class="sev-op on" data-sev="alto" onclick="selSev('alto')">Alto</button>
+        <button class="sev-op" data-sev="medio" onclick="selSev('medio')">Médio</button>
+        <button class="sev-op" data-sev="baixo" onclick="selSev('baixo')">Baixo</button>
+      </div>
+    </div>
+    <div class="campo"><label for="f-nome">Seu nome</label><input type="text" id="f-nome" placeholder="Quem tá reportando?"></div>
+    <button class="btn-enviar" id="btn-enviar" onclick="salvarBug()">Enviar bug</button>
+  </div>
+</div>
+
+<script>
+/* ===== CONFIG (chaves públicas — seguras de expor) ===== */
+const SB_URL = "https://qbcsjsdwjjpybvzbxszi.supabase.co";
+const SB_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFiY3Nqc2R3ampweWJ2emJ4c3ppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1NzMyNDAsImV4cCI6MjA5NzE0OTI0MH0.vKeJ-H6FivdTbgKppX0HoSD4vm3moIUbBwm5Aq8Etik";
+const REST = SB_URL + "/rest/v1/orbis_bugs";
+const FN = SB_URL + "/functions/v1/analisar-bug";
+const H = { "apikey": SB_ANON, "Authorization": "Bearer " + SB_ANON, "Content-Type": "application/json" };
+
+let bugs = [], filtro = 'todos', sevSel = 'alto', enviando = false;
+const SEV_ORDEM = {critico:0, alto:1, medio:2, baixo:3};
+const SEV_LABEL = {critico:'Crítico', alto:'Alto', medio:'Médio', baixo:'Baixo'};
+const ST_LABEL = {aberto:'Aberto', andamento:'Em andamento', resolvido:'Resolvido'};
+
+/* ===== DADOS ===== */
+async function carregar(){
+  try{
+    const r = await fetch(REST + "?select=*&order=criado_em.desc", { headers: H });
+    if(!r.ok) throw new Error(await r.text());
+    bugs = await r.json();
+    render();
+  }catch(e){
+    document.getElementById('conteudo').innerHTML =
+      '<div class="vazio"><div class="vazio-titulo" style="font-size:20px">NÃO CONSEGUI CARREGAR</div><div class="vazio-texto">Falha ao falar com o banco. Recarrega a página. Se persistir, avisa o Rick.</div></div>';
+  }
+}
+
+async function salvarBug(){
+  if(enviando) return;
+  const titulo = document.getElementById('f-titulo').value.trim();
+  if(!titulo){ document.getElementById('e-titulo').classList.add('show'); return; }
+  enviando = true;
+  const btn = document.getElementById('btn-enviar'); btn.disabled = true; btn.textContent = 'Enviando...';
+
+  const novo = {
+    titulo,
+    descricao: document.getElementById('f-desc').value.trim(),
+    tela: document.getElementById('f-tela').value.trim(),
+    severidade: sevSel,
+    reporter: document.getElementById('f-nome').value.trim() || 'Anônimo',
+    status: 'aberto', ai_status: 'analisando'
+  };
+  try{
+    const r = await fetch(REST, { method:'POST', headers:{...H, "Prefer":"return=representation"}, body: JSON.stringify(novo) });
+    if(!r.ok) throw new Error(await r.text());
+    const criado = (await r.json())[0];
+    try{ localStorage.setItem('orbis_reporter', novo.reporter); }catch(e){}
+    // limpa e fecha
+    document.getElementById('f-titulo').value=''; document.getElementById('f-desc').value=''; document.getElementById('f-tela').value=''; selSev('alto');
+    fecharModal();
+    bugs.unshift(criado); render();
+    analisar(criado.id); // dispara a IA
+  }catch(e){
+    alert('Não consegui salvar o bug. Tenta de novo.');
+  }finally{
+    enviando = false; btn.disabled = false; btn.textContent = 'Enviar bug';
+  }
+}
+
+async function analisar(id){
+  const b = bugs.find(x=>x.id===id); if(b){ b.ai_status='analisando'; b.ai_erro=null; render(); }
+  try{
+    const r = await fetch(FN, { method:'POST', headers:H, body: JSON.stringify({ id }) });
+    const data = await r.json().catch(()=>({}));
+    await recarregarUm(id);
+    if(data && data.erro){ const bb = bugs.find(x=>x.id===id); if(bb){ bb.ai_status='erro'; bb.ai_erro=data.erro; render(); } }
+  }catch(e){
+    const bb = bugs.find(x=>x.id===id); if(bb){ bb.ai_status='erro'; bb.ai_erro='Falha ao chamar a IA.'; render(); }
+  }
+}
+
+async function recarregarUm(id){
+  try{
+    const r = await fetch(REST + "?id=eq." + id + "&select=*", { headers: H });
+    const arr = await r.json(); if(arr && arr[0]){ const i = bugs.findIndex(x=>x.id===id); if(i>=0) bugs[i]=arr[0]; render(); }
+  }catch(e){}
+}
+
+async function mudarStatus(id, novo){
+  const b = bugs.find(x=>x.id===id); if(!b) return;
+  const antes = b.status; b.status = novo; render();
+  try{
+    const r = await fetch(REST + "?id=eq." + id, { method:'PATCH', headers:H, body: JSON.stringify({ status: novo }) });
+    if(!r.ok) throw new Error();
+  }catch(e){ b.status = antes; render(); alert('Não consegui atualizar o status.'); }
+}
+
+async function excluir(id){
+  if(!confirm('Excluir este bug da lista? Isso não dá pra desfazer.')) return;
+  const bkp = bugs.slice(); bugs = bugs.filter(x=>x.id!==id); render();
+  try{
+    const r = await fetch(REST + "?id=eq." + id, { method:'DELETE', headers:H });
+    if(!r.ok) throw new Error();
+  }catch(e){ bugs = bkp; render(); alert('Não consegui excluir.'); }
+}
+
+/* ===== UI ===== */
+function abrirModal(){ document.getElementById('overlay').classList.add('aberto'); document.getElementById('f-titulo').focus(); }
+function fecharModal(){ document.getElementById('overlay').classList.remove('aberto'); document.getElementById('e-titulo').classList.remove('show'); }
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') fecharModal(); });
+function selSev(s){ sevSel=s; document.querySelectorAll('.sev-op').forEach(b=>b.classList.toggle('on', b.dataset.sev===s)); }
+function setFiltro(el,f){ filtro=f; document.querySelectorAll('.chip').forEach(c=>c.classList.remove('ativo')); el.classList.add('ativo'); render(); }
+
+function tempoAtras(iso){
+  const ts = new Date(iso).getTime(); const s = Math.floor((Date.now()-ts)/1000);
+  if(s<60) return 'agora'; const m=Math.floor(s/60); if(m<60) return m+' min atrás';
+  const h=Math.floor(m/60); if(h<24) return h+'h atrás'; const d=Math.floor(h/24);
+  if(d===1) return 'ontem'; if(d<30) return d+' dias atrás';
+  return new Date(ts).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+function esc(t){ const d=document.createElement('div'); d.textContent=(t==null?'':t); return d.innerHTML; }
+
+function blocoIA(b){
+  if(b.ai_status==='analisando')
+    return `<div class="ia"><div class="ia-head"><div class="ia-orb girando"></div><div class="ia-label">Fable 5 analisando...</div></div><div class="ia-pendente">A IA tá lendo o bug e montando o diagnóstico. Já já aparece aqui.</div></div>`;
+  if(b.ai_status==='pronto'){
+    const reaval = (b.ai_severidade && b.ai_severidade!==b.severidade)
+      ? `<div class="ia-reaval">A IA reavaliou a gravidade para: <strong>${SEV_LABEL[b.ai_severidade]||esc(b.ai_severidade)}</strong></div>` : '';
+    return `<div class="ia">
+      <div class="ia-head"><div class="ia-orb"></div><div class="ia-label">Análise da IA · Fable 5</div></div>
+      ${b.ai_diagnostico?`<div class="ia-bloco"><div class="ia-titulo">Diagnóstico</div><div class="ia-texto">${esc(b.ai_diagnostico)}</div></div>`:''}
+      ${b.ai_causa?`<div class="ia-bloco"><div class="ia-titulo">Causa provável</div><div class="ia-texto">${esc(b.ai_causa)}</div></div>`:''}
+      ${b.ai_correcao?`<div class="ia-bloco"><div class="ia-titulo">Como corrigir</div><div class="ia-texto">${esc(b.ai_correcao)}</div></div>`:''}
+      ${reaval}
+    </div>`;
+  }
+  if(b.ai_status==='erro')
+    return `<div class="ia"><div class="ia-head"><div class="ia-orb"></div><div class="ia-label" style="color:var(--alerta)">IA não conseguiu analisar</div></div><div class="ia-pendente">${esc(b.ai_erro||'Erro desconhecido.')}</div></div>`;
+  return `<div class="ia"><div class="ia-head"><div class="ia-orb"></div><div class="ia-label">Análise da IA</div></div><div class="ia-pendente">Ainda não analisado. Toca em "Analisar com a IA" abaixo.</div></div>`;
+}
+
+function render(){
+  const abertos=bugs.filter(b=>b.status==='aberto').length, andamento=bugs.filter(b=>b.status==='andamento').length,
+        resolvidos=bugs.filter(b=>b.status==='resolvido').length,
+        criticos=bugs.filter(b=>b.status!=='resolvido' && b.severidade==='critico').length;
+  document.getElementById('s-abertos').textContent=abertos; document.getElementById('s-andamento').textContent=andamento;
+  document.getElementById('s-resolvidos').textContent=resolvidos; document.getElementById('s-criticos').textContent=criticos;
+
+  const busca=(document.getElementById('busca').value||'').toLowerCase();
+  let lista = bugs.filter(b=>{
+    if(filtro==='critico'){ if(b.severidade!=='critico'||b.status==='resolvido') return false; }
+    else if(filtro!=='todos'){ if(b.status!==filtro) return false; }
+    if(busca){ const alvo=((b.titulo||'')+' '+(b.descricao||'')+' '+(b.tela||'')+' '+(b.reporter||'')).toLowerCase(); if(!alvo.includes(busca)) return false; }
+    return true;
+  });
+  lista.sort((a,b)=>{
+    const ra=a.status==='resolvido'?1:0, rb=b.status==='resolvido'?1:0; if(ra!==rb) return ra-rb;
+    if(SEV_ORDEM[a.severidade]!==SEV_ORDEM[b.severidade]) return SEV_ORDEM[a.severidade]-SEV_ORDEM[b.severidade];
+    return new Date(b.criado_em)-new Date(a.criado_em);
+  });
+
+  const cont=document.getElementById('conteudo');
+  if(bugs.length===0){ cont.innerHTML=`<div class="vazio"><div class="orb"></div><div class="vazio-titulo">TUDO LIMPO POR AQUI</div><div class="vazio-texto">Nenhum bug reportado ainda. Encontrou algo estranho no app? Toca em "Reportar bug" e anota.</div></div>`; return; }
+  if(lista.length===0){ cont.innerHTML=`<div class="vazio"><div class="vazio-titulo" style="font-size:22px">NADA AQUI</div><div class="vazio-texto">Nenhum bug bate com esse filtro ou busca.</div></div>`; return; }
+
+  const pin=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-5.2-7-11a7 7 0 0 1 14 0c0 5.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>`;
+  const user=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>`;
+  const clock=`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>`;
+
+  cont.innerHTML='<div class="lista">'+lista.map((b,i)=>{
+    let acoes='';
+    if(b.status==='aberto') acoes+=`<button class="acao iniciar" onclick="mudarStatus('${b.id}','andamento')">Começar a resolver</button>`;
+    if(b.status!=='resolvido') acoes+=`<button class="acao resolver" onclick="mudarStatus('${b.id}','resolvido')">Marcar resolvido</button>`;
+    if(b.status==='resolvido') acoes+=`<button class="acao reabrir" onclick="mudarStatus('${b.id}','aberto')">Reabrir</button>`;
+    if(b.status==='andamento') acoes+=`<button class="acao reabrir" onclick="mudarStatus('${b.id}','aberto')">Voltar p/ aberto</button>`;
+    if(b.ai_status!=='analisando') acoes+=`<button class="acao ia" onclick="analisar('${b.id}')">${b.ai_status==='pronto'?'Analisar de novo':'Analisar com a IA'}</button>`;
+    acoes+=`<button class="acao excluir" onclick="excluir('${b.id}')" title="Excluir"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>`;
+
+    return `<div class="bug sev-${esc(b.severidade)} ${b.status==='resolvido'?'resolvido':''}" style="animation-delay:${Math.min(i*40,300)}ms">
+      <div class="bug-top"><div class="bug-titulo">${esc(b.titulo)}</div>
+        <div class="badges"><span class="badge sv-${esc(b.severidade)}">${SEV_LABEL[b.severidade]||esc(b.severidade)}</span><span class="badge st-${esc(b.status)}">${ST_LABEL[b.status]||esc(b.status)}</span></div>
+      </div>
+      ${b.descricao?`<div class="bug-desc">${esc(b.descricao)}</div>`:''}
+      <div class="bug-meta">${b.tela?`<span class="m">${pin}<strong>${esc(b.tela)}</strong></span>`:''}<span class="m">${user}${esc(b.reporter)}</span><span class="m">${clock}${tempoAtras(b.criado_em)}</span></div>
+      ${blocoIA(b)}
+      <div class="bug-acoes">${acoes}</div>
+    </div>`;
+  }).join('')+'</div>';
+}
+
+/* ===== PARTÍCULAS ===== */
+(function(){
+  const canvas=document.getElementById('bg-particles'), ctx=canvas.getContext('2d'); let w,h,pts;
+  const reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function resize(){ w=canvas.width=innerWidth; h=canvas.height=innerHeight; const q=Math.min(64,Math.floor(w*h/24000));
+    pts=Array.from({length:q},()=>({x:Math.random()*w,y:Math.random()*h,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,r:Math.random()*1.6+.6,z:Math.random()})); }
+  function draw(){ ctx.clearRect(0,0,w,h);
+    for(let i=0;i<pts.length;i++){ const p=pts[i]; p.x+=p.vx; p.y+=p.vy; if(p.x<0||p.x>w)p.vx*=-1; if(p.y<0||p.y>h)p.vy*=-1;
+      for(let j=i+1;j<pts.length;j++){ const qq=pts[j],dx=p.x-qq.x,dy=p.y-qq.y,d=Math.hypot(dx,dy);
+        if(d<120){ ctx.strokeStyle=`rgba(201,168,76,${0.12*(1-d/120)})`; ctx.lineWidth=.5; ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(qq.x,qq.y); ctx.stroke(); } }
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fillStyle=`rgba(245,215,142,${0.35+p.z*0.4})`; ctx.shadowColor='rgba(201,168,76,0.7)'; ctx.shadowBlur=8; ctx.fill(); ctx.shadowBlur=0; }
+    if(!reduce) requestAnimationFrame(draw); }
+  addEventListener('resize',resize); resize(); draw();
+})();
+
+/* ===== INIT ===== */
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') fecharModal(); });
+try{ const n=localStorage.getItem('orbis_reporter'); if(n) document.getElementById('f-nome').value=n; }catch(e){}
+carregar();
+setInterval(()=>{ if(!document.getElementById('overlay').classList.contains('aberto')) carregar(); }, 15000); // atualiza ao vivo
+</script>
+</body>
+</html>
