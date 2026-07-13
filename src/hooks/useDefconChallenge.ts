@@ -143,14 +143,25 @@ export function useDefconChallenge(userId: string | undefined) {
     // Save current block approaches to challenge_blocks before finishing
     await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
 
-    await supabase
+    const endedAt = new Date();
+    const { data: doneSession } = await supabase
       .from("challenge_sessions")
       .update({
         status: "completed",
-        ended_at: new Date().toISOString(),
+        ended_at: endedAt.toISOString(),
         total_sold: totalSoldRef.current,
       })
-      .eq("id", sid);
+      .eq("id", sid)
+      .select("started_at")
+      .maybeSingle();
+
+    // Tempo trabalhado AO VIVO — mesma regra do reload (fim − início, com teto de
+    // blocos × 60min). Antes ficava null e a tela final caía no fallback
+    // "índice do bloco × 60 + parcial", que mostrava horas a mais no fim do dia.
+    if (doneSession?.started_at) {
+      const wall = Math.round((endedAt.getTime() - new Date(doneSession.started_at).getTime()) / 60000);
+      setWorkedMinutes(Math.max(0, Math.min(wall, (currentBlockIndexRef.current + 1) * 60)));
+    }
 
     setPhase("finished");
   }, [clearTimer]);
@@ -421,8 +432,12 @@ export function useDefconChallenge(userId: string | undefined) {
             (new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 60000,
           );
         }
+        // TETO: o wall-clock (fim − início) inclui almoço (até 2h) e intervalos de 5min,
+        // então no FIM DO DIA aparecia com horas A MAIS (ex.: 10h30 tendo trabalhado 8 blocos).
+        // Tempo de trabalho real nunca passa de (blocos percorridos × 60min).
+        const capMins = ((session.current_block_index || 0) + 1) * 60;
         setCurrentBlockIndex(session.current_block_index || 0);
-        setWorkedMinutes(Math.max(0, mins));
+        setWorkedMinutes(Math.max(0, Math.min(mins, capMins)));
         setPhase(session.status === "completed" ? "finished" : "abandoned");
         setLoading(false);
         return;
@@ -994,10 +1009,20 @@ export function useDefconChallenge(userId: string | undefined) {
     await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
     // Totals already accumulated in real-time — no need to add again
 
-    await supabase
+    const endedAt = new Date();
+    const { data: doneSession } = await supabase
       .from("challenge_sessions")
-      .update({ status: "abandoned", ended_at: new Date().toISOString(), total_sold: totalSoldRef.current })
-      .eq("id", sid);
+      .update({ status: "abandoned", ended_at: endedAt.toISOString(), total_sold: totalSoldRef.current })
+      .eq("id", sid)
+      .select("started_at")
+      .maybeSingle();
+
+    // Tempo trabalhado AO VIVO no encerramento manual — mesma regra do reload
+    // (fim − início, com teto de blocos × 60min), evitando o fallback inflado.
+    if (doneSession?.started_at) {
+      const wall = Math.round((endedAt.getTime() - new Date(doneSession.started_at).getTime()) / 60000);
+      setWorkedMinutes(Math.max(0, Math.min(wall, (currentBlockIndexRef.current + 1) * 60)));
+    }
 
     setPhase("abandoned");
   };
