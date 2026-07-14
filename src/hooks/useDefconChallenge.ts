@@ -176,8 +176,11 @@ export function useDefconChallenge(userId: string | undefined) {
       .maybeSingle();
 
     // Tempo trabalhado AO VIVO — blocos completos + parcial do bloco atual (sem cravar hora cheia).
+    // Persiste na sessão pra o RELATÓRIO somar o tempo real (sem almoço/intervalos).
     if (doneSession?.started_at) {
-      setWorkedMinutes(calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current));
+      const worked = calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current);
+      setWorkedMinutes(worked);
+      await supabase.from("challenge_sessions").update({ worked_minutes: worked } as never).eq("id", sid);
     }
 
     setPhase("finished");
@@ -1032,7 +1035,9 @@ export function useDefconChallenge(userId: string | undefined) {
 
     // Encerramento manual — blocos completos + parcial do bloco atual (sem cravar hora cheia).
     if (doneSession?.started_at) {
-      setWorkedMinutes(calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current));
+      const worked = calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current);
+      setWorkedMinutes(worked);
+      await supabase.from("challenge_sessions").update({ worked_minutes: worked } as never).eq("id", sid);
     }
 
     setPhase("abandoned");

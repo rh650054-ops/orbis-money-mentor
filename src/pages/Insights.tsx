@@ -110,7 +110,7 @@ export default function Insights() {
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
   const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
   const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
-  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null }[]>([]);
+  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null; worked_minutes?: number | null; current_block_index?: number | null }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
@@ -227,7 +227,7 @@ export default function Insights() {
           .order("created_at", { ascending: true }),
         supabase
           .from("challenge_sessions")
-          .select("started_at,ended_at")
+          .select("started_at,ended_at,worked_minutes,current_block_index")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO),
@@ -333,17 +333,25 @@ export default function Insights() {
     });
     const ritmoMin = gapCount > 0 ? gapSum / gapCount / 60000 : 0;
 
-    // Horas totais trabalhadas no período = soma da duração (fim − início) de cada
-    // sessão do DEFCON. Só conta sessões com início e fim registrados (mesma lógica
-    // do fim do DEFCON, span real — não nº de blocos).
-    let workedMs = 0;
+    // Horas trabalhadas no período = soma do TEMPO REAL de trabalho de cada sessão
+    // (worked_minutes, já sem almoço/intervalos). Fallback pra sessões antigas sem o
+    // campo: wall-clock (fim − início) limitado a (blocos percorridos × 60min).
+    let workedMin = 0;
     for (const s of sessions) {
+      if (typeof s.worked_minutes === "number") {
+        workedMin += Math.max(0, s.worked_minutes);
+        continue;
+      }
       if (!s.started_at || !s.ended_at) continue;
       const ini = new Date(s.started_at).getTime();
       const fim = new Date(s.ended_at).getTime();
-      if (Number.isFinite(ini) && Number.isFinite(fim) && fim > ini) workedMs += fim - ini;
+      if (Number.isFinite(ini) && Number.isFinite(fim) && fim > ini) {
+        const wall = (fim - ini) / 60000;
+        const cap = ((s.current_block_index || 0) + 1) * 60;
+        workedMin += Math.min(wall, cap);
+      }
     }
-    const horasTrabalhadasMin = Math.round(workedMs / 60000);
+    const horasTrabalhadasMin = Math.round(workedMin);
 
     return {
       horasTrabalhadasMin,

@@ -194,6 +194,7 @@ export type Database = {
           total_sold: number
           updated_at: string
           user_id: string
+          worked_minutes: number | null
         }
         Insert: {
           created_at?: string
@@ -208,6 +209,7 @@ export type Database = {
           total_sold?: number
           updated_at?: string
           user_id: string
+          worked_minutes?: number | null
         }
         Update: {
           created_at?: string
@@ -222,6 +224,7 @@ export type Database = {
           total_sold?: number
           updated_at?: string
           user_id?: string
+          worked_minutes?: number | null
         }
         Relationships: []
       }
