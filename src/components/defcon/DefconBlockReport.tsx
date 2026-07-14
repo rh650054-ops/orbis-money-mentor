@@ -27,6 +27,14 @@ export function DefconBlockReport({
   const [aiTipLoading, setAiTipLoading] = useState(false);
   const [aiTipError, setAiTipError] = useState(false);
   const conversionRate = approaches > 0 ? (sales / approaches) * 100 : 0;
+  // Estatísticas da HORA (o bloco dura 60 min). Pace = minutos por venda; velocidade =
+  // vendas por hora (= o próprio nº de vendas num bloco de 1h). Abordagens por venda.
+  const paceMMSS = (min: number) => {
+    const s = Math.round(min * 60);
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  };
+  const paceHora = sales > 0 ? 60 / sales : null; // min por venda nesta hora
+  const abordagensPorVenda = sales > 0 ? approaches / sales : null;
 
   // Dica da hora com IA (Gemini) — roda só quando o vendedor toca no botão.
   const generateBlockTip = async () => {
@@ -249,6 +257,25 @@ export function DefconBlockReport({
             {conversionRate.toFixed(0)}%
           </span>
         </div>
+
+        {paceHora != null && (
+          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+            <span className="text-sm font-mono text-muted-foreground">🏃 Pace da hora</span>
+            <span className="text-2xl font-black text-primary">{paceMMSS(paceHora)} <span className="text-sm font-normal text-muted-foreground">/venda</span></span>
+          </div>
+        )}
+
+        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+          <span className="text-sm font-mono text-muted-foreground">💨 Velocidade</span>
+          <span className="text-2xl font-black text-foreground">{sales} <span className="text-sm font-normal text-muted-foreground">vendas/h</span></span>
+        </div>
+
+        {abordagensPorVenda != null && (
+          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+            <span className="text-sm font-mono text-muted-foreground">👥 Abordagens por venda</span>
+            <span className="text-2xl font-black text-foreground">{abordagensPorVenda.toFixed(1)}</span>
+          </div>
+        )}
 
         <div className="bg-card rounded-xl p-4 flex justify-between items-center">
           <span className="text-sm font-mono text-muted-foreground">⏱️ Tempo trabalhado</span>
