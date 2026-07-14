@@ -169,13 +169,25 @@ export function DefconEndScreen({
     return sum / (t.length - 1) / 60000;
   }, [vendasReais]);
 
-  // PACE DO DIA (estilo corredor): tempo TOTAL trabalhado ÷ nº de vendas = 1 venda a cada
-  // X min considerando o dia inteiro (inclui os tempos parados entre vendas).
+  // PACE DO DIA (estilo Strava, cada venda = 1 "km"): tempo TOTAL trabalhado ÷ nº de vendas.
   const paceDoDia = useMemo(() => {
     const unidades = vendasReais.length || totalSalesCount || 0;
     if (!workedMinutes || workedMinutes <= 0 || unidades <= 0) return null;
     return workedMinutes / unidades;
   }, [workedMinutes, vendasReais.length, totalSalesCount]);
+
+  // VELOCIDADE: vendas por hora (tipo km/h do corredor).
+  const vendasPorHora = useMemo(() => {
+    const unidades = vendasReais.length || totalSalesCount || 0;
+    if (!workedMinutes || workedMinutes <= 0 || unidades <= 0) return null;
+    return unidades / (workedMinutes / 60);
+  }, [workedMinutes, vendasReais.length, totalSalesCount]);
+
+  // Formata minutos decimais como PACE min:seg (ex.: 3.9 → "3:54").
+  const paceMMSS = (min: number) => {
+    const totalSec = Math.round(min * 60);
+    return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, "0")}`;
+  };
 
   const exportClientsPdf = async () => {
     if (!userId) return;
@@ -343,10 +355,14 @@ export function DefconEndScreen({
       doc.setTextColor(40, 40, 40);
       doc.text(`Dinheiro: ${formatCurrency(totalDin)}    Pix: ${formatCurrency(totalPix)}    Cartão: ${formatCurrency(totalCard)}`, margin, y);
       y += 20;
-      if (salesRhythmMin != null) {
+      if (paceDoDia != null || salesRhythmMin != null) {
         doc.setFont("helvetica", "normal");
         doc.setTextColor(80, 80, 80);
-        doc.text(`Ritmo: 1 venda a cada ${salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min`, margin, y);
+        const partes: string[] = [];
+        if (paceDoDia != null) partes.push(`Pace: ${paceMMSS(paceDoDia)} /venda`);
+        if (vendasPorHora != null) partes.push(`${vendasPorHora.toFixed(1).replace(".", ",")} vendas/h`);
+        if (salesRhythmMin != null) partes.push(`Ritmo na venda: ${paceMMSS(salesRhythmMin)} /venda`);
+        doc.text(partes.join("    "), margin, y);
         y += 20;
       }
       doc.setFont("helvetica", "bold");
@@ -982,37 +998,41 @@ export function DefconEndScreen({
                 value={`${conversionRate.toFixed(0)}%`}
                 valueClass={conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"}
               />
-              {salesRhythmMin != null && (
-                <ReportRow
-                  label="⚡ Ritmo (durante a venda)"
-                  value={`1 a cada ${salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min`}
-                />
-              )}
               {paceDoDia != null && (
                 <ReportRow
                   label="🏃 Pace do dia"
-                  value={`1 venda a cada ${paceDoDia < 10 ? paceDoDia.toFixed(1) : Math.round(paceDoDia)} min`}
+                  value={`${paceMMSS(paceDoDia)} /venda`}
                   valueClass="text-primary"
+                />
+              )}
+              {vendasPorHora != null && (
+                <ReportRow
+                  label="💨 Velocidade"
+                  value={`${vendasPorHora.toFixed(1).replace(".", ",")} vendas/h`}
+                />
+              )}
+              {salesRhythmMin != null && (
+                <ReportRow
+                  label="⚡ Ritmo (durante a venda)"
+                  value={`${paceMMSS(salesRhythmMin)} /venda`}
                 />
               )}
             </div>
             {(salesRhythmMin != null || paceDoDia != null) && (
               <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
-                {paceDoDia != null && <><b className="text-foreground">Pace do dia</b> = tempo trabalhado ÷ vendas (como o pace do corredor): 1 venda a cada ~{paceDoDia < 10 ? paceDoDia.toFixed(1) : Math.round(paceDoDia)} min no dia todo. </>}
-                {salesRhythmMin != null && <>O <b className="text-foreground">ritmo durante a venda</b> (só entre uma venda e outra) foi 1 a cada ~{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min.</>}
+                Pensa como uma corrida: <b className="text-foreground">cada venda é 1 km</b>.
+                {paceDoDia != null && <> Seu <b className="text-foreground">pace</b> hoje foi <b className="text-primary">{paceMMSS(paceDoDia)} por venda</b>{vendasPorHora != null && <> (velocidade de {vendasPorHora.toFixed(1).replace(".", ",")} vendas por hora)</>}.</>}
+                {salesRhythmMin != null && <> Só no tempo em que estava vendendo, o ritmo foi {paceMMSS(salesRhythmMin)} por venda.</>}
               </p>
             )}
             {bestPace && (
               <div className="rounded-xl bg-primary/5 border border-primary/25 px-3 py-2.5">
                 <p className="text-[11px] text-foreground leading-relaxed">
-                  🏆 Seus <b>melhores dias</b> (mais faturamento) rolam num ritmo de{" "}
-                  <b className="text-primary">
-                    {(bestPace.min < 10 ? bestPace.min.toFixed(1) : Math.round(bestPace.min))}–{(bestPace.max < 10 ? bestPace.max.toFixed(1) : Math.round(bestPace.max))} min
-                  </b>{" "}
-                  entre vendas.
+                  🏆 Seus <b>melhores dias</b> (mais faturamento) rolam num pace de{" "}
+                  <b className="text-primary">{paceMMSS(bestPace.min)}–{paceMMSS(bestPace.max)} /venda</b>.
                   {salesRhythmMin != null && (
-                    <> Hoje você fez <b>{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min</b> —{" "}
-                      {salesRhythmMin <= bestPace.max ? "está na sua zona de melhor dia! 🔥" : "mais devagar que os seus melhores dias."}
+                    <> Hoje: <b>{paceMMSS(salesRhythmMin)} /venda</b> —{" "}
+                      {salesRhythmMin <= bestPace.max ? "na sua zona de melhor dia! 🔥" : "mais devagar que os seus melhores dias."}
                     </>
                   )}
                 </p>
