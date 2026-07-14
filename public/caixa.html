@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbis — Caixa & Auditoria</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ouro:#C9A84C; --ouro-claro:#F5D78E; --roxo-esc:#1A0533;
+  --surface:#0A0A0A; --surface2:#111111; --card:#0A0010;
+  --branco:#FFFFFF; --cinza:#888888; --cinza-claro:#AAAAAA;
+  --border:rgba(201,168,76,0.15); --border-forte:rgba(201,168,76,0.35);
+  --verde:#10B981; --roxo:#A855F7; --alerta:#E84A4A; --ambar:#F59E0B; --grafite:#6B7280;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--surface); color:var(--branco); font-family:'DM Sans',sans-serif; line-height:1.6; min-height:100vh; position:relative; overflow-x:hidden;}
+.glow-top{position:fixed; top:0; left:0; right:0; height:420px; z-index:0; pointer-events:none; background:radial-gradient(ellipse at 50% -10%, #1A0533 0%, rgba(26,5,51,0.35) 40%, transparent 72%);}
+.wrap{position:relative; z-index:1; max-width:900px; margin:0 auto; padding:0 18px 100px;}
+
+header{text-align:center; padding:48px 0 22px;}
+.logo{font-family:'Bebas Neue',sans-serif; font-size:58px; letter-spacing:13px; background:linear-gradient(135deg,var(--ouro),var(--ouro-claro)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-left:13px;}
+.subtitulo{font-size:12px; color:var(--cinza); letter-spacing:4px; text-transform:uppercase; margin-top:6px;}
+.frase{font-size:13px; color:#555; margin-top:10px;}
+
+/* ===== controles de período ===== */
+.periodo{display:flex; align-items:center; justify-content:center; gap:10px; margin:6px 0 22px;}
+.periodo select{background:var(--surface2); border:1px solid var(--border); color:var(--branco); border-radius:10px; padding:9px 14px; font-family:'DM Sans'; font-size:14px; cursor:pointer;}
+.periodo select:focus{outline:none; border-color:var(--border-forte);}
+
+/* ===== stats ===== */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
+.stat{background:var(--surface2); border:1px solid var(--border); border-radius:14px; padding:16px 14px; text-align:center; transition:.2s;}
+.stat.destaque{border-color:var(--border-forte); background:linear-gradient(160deg,rgba(201,168,76,0.08),var(--surface2));}
+.stat-num{font-family:'Bebas Neue',sans-serif; font-size:32px; line-height:1; letter-spacing:1px;}
+.stat-num.g{color:var(--ouro-claro);} .stat-num.v{color:var(--verde);} .stat-num.a{color:var(--alerta);} .stat-num.r{color:var(--roxo);}
+.stat-lbl{font-size:10px; color:var(--cinza); letter-spacing:2px; text-transform:uppercase; margin-top:7px;}
+.stat-sub{font-size:11px; color:#666; margin-top:3px;}
+
+/* ===== dica ===== */
+.dica{background:linear-gradient(160deg,rgba(168,85,247,0.10),var(--card)); border:1px solid rgba(168,85,247,0.28); border-radius:14px; padding:15px 17px; margin-bottom:22px; display:flex; gap:12px; align-items:flex-start;}
+.dica-icon{font-size:20px; line-height:1.2;}
+.dica-txt{font-size:13.5px; color:var(--cinza-claro);}
+.dica-txt b{color:var(--branco);}
+
+/* ===== form ===== */
+.card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px; margin-bottom:22px;}
+.card-titulo{font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:2px; color:var(--ouro-claro); margin-bottom:4px;}
+.card-sub{font-size:12.5px; color:var(--cinza); margin-bottom:16px;}
+
+.seg{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px;}
+.seg button{background:var(--surface2); border:1px solid var(--border); color:var(--cinza-claro); border-radius:11px; padding:12px 6px; font-family:'DM Sans'; font-weight:600; font-size:14px; cursor:pointer; transition:.15s;}
+.seg button .em{display:block; font-size:18px; margin-bottom:2px;}
+.seg button.on-e{border-color:var(--verde); background:rgba(16,185,129,0.14); color:var(--verde);}
+.seg button.on-g{border-color:var(--alerta); background:rgba(232,74,74,0.14); color:#ff9a9a;}
+.seg button.on-s{border-color:var(--roxo); background:rgba(168,85,247,0.14); color:#d9b3ff;}
+
+.linha{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+label.lbl{display:block; font-size:11px; color:var(--cinza); letter-spacing:1px; text-transform:uppercase; margin-bottom:5px;}
+input,select,textarea{width:100%; background:var(--surface2); border:1px solid var(--border); color:var(--branco); border-radius:10px; padding:11px 12px; font-family:'DM Sans'; font-size:15px;}
+input:focus,select:focus,textarea:focus{outline:none; border-color:var(--border-forte);}
+input::placeholder,textarea::placeholder{color:#555;}
+.erro{font-size:12px; color:var(--alerta); margin-top:5px; display:none;}
+.erro.show{display:block;}
+
+.btn{width:100%; background:linear-gradient(135deg,var(--ouro),var(--ouro-claro)); color:#1a1200; border:none; border-radius:12px; padding:14px; font-family:'DM Sans'; font-weight:700; font-size:15px; cursor:pointer; margin-top:6px; transition:.15s;}
+.btn:hover{filter:brightness(1.08);} .btn:disabled{opacity:.5; cursor:not-allowed;}
+.btn-sec{background:var(--surface2); border:1px solid var(--border); color:var(--cinza-claro); border-radius:10px; padding:10px 14px; font-family:'DM Sans'; font-weight:600; font-size:13px; cursor:pointer;}
+.btn-sec:hover{border-color:var(--border-forte); color:var(--branco);}
+
+/* ===== filtros ===== */
+.filtros{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+.chip{background:var(--surface2); border:1px solid var(--border); color:var(--cinza); border-radius:20px; padding:7px 15px; font-size:13px; cursor:pointer; transition:.15s;}
+.chip.on{border-color:var(--border-forte); color:var(--branco); background:rgba(201,168,76,0.10);}
+
+/* ===== lista ===== */
+.item{background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:13px 15px; margin-bottom:9px; display:flex; align-items:center; gap:12px;}
+.item .badge{font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 9px; border-radius:7px; white-space:nowrap;}
+.badge.e{background:rgba(16,185,129,0.16); color:var(--verde);}
+.badge.g{background:rgba(232,74,74,0.16); color:#ff9a9a;}
+.badge.s{background:rgba(168,85,247,0.16); color:#d9b3ff;}
+.item .info{flex:1; min-width:0;}
+.item .desc{font-size:14.5px; font-weight:500; color:var(--branco); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.item .meta{font-size:11.5px; color:var(--cinza); margin-top:2px;}
+.item .val{font-family:'Bebas Neue'; font-size:22px; letter-spacing:1px; white-space:nowrap;}
+.val.pos{color:var(--verde);} .val.neg{color:#ff9a9a;} .val.saq{color:#d9b3ff;}
+.item .acoes{display:flex; gap:5px;}
+.iconbtn{width:32px; height:32px; border-radius:8px; background:transparent; border:1px solid var(--border); color:var(--cinza); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center;}
+.iconbtn:hover{border-color:var(--border-forte); color:var(--branco);}
+.iconbtn.del:hover{border-color:var(--alerta); color:var(--alerta);}
+
+.vazio{text-align:center; padding:50px 20px; color:var(--cinza);}
+.vazio-t{font-family:'Bebas Neue'; font-size:22px; letter-spacing:1px; color:var(--cinza-claro);}
+.vazio-x{font-size:13px; margin-top:6px;}
+
+/* ===== breakdown ===== */
+.bd-row{display:flex; align-items:center; gap:10px; margin-bottom:9px;}
+.bd-cat{font-size:13px; color:var(--cinza-claro); width:120px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.bd-bar{flex:1; height:10px; background:var(--surface2); border-radius:6px; overflow:hidden;}
+.bd-fill{height:100%; background:linear-gradient(90deg,var(--alerta),#ff7b7b); border-radius:6px;}
+.bd-val{font-size:12.5px; color:var(--branco); width:80px; text-align:right; flex-shrink:0;}
+
+.rodape{text-align:center; margin-top:30px; font-size:12px; color:#555; line-height:1.8;}
+.rodape a{color:var(--ouro); cursor:pointer; text-decoration:none;}
+
+@media(max-width:620px){
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .linha{grid-template-columns:1fr;}
+  .logo{font-size:46px; letter-spacing:9px;}
+}
+</style>
+</head>
+<body>
+<div class="glow-top"></div>
+<div class="wrap">
+
+  <header>
+    <div class="logo">ORBIS</div>
+    <div class="subtitulo">Caixa &amp; Auditoria</div>
+    <div class="frase">Cada real que entra, sai ou você saca — anotado e conferido ao vivo.</div>
+  </header>
+
+  <div class="periodo">
+    <span style="font-size:13px;color:var(--cinza)">Período:</span>
+    <select id="sel-mes" onchange="render()"></select>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="dica" id="dica" style="display:none">
+    <div class="dica-icon">💡</div>
+    <div class="dica-txt" id="dica-txt"></div>
+  </div>
+
+  <!-- FORM -->
+  <div class="card">
+    <div class="card-titulo">LANÇAR MOVIMENTO</div>
+    <div class="card-sub">Entrada = dinheiro que entrou. Gasto = despesa do negócio. Saque = quanto você tirou pra você.</div>
+
+    <div class="seg" id="seg">
+      <button data-t="entrada" onclick="setTipo('entrada')"><span class="em">📈</span>Entrada</button>
+      <button data-t="gasto" onclick="setTipo('gasto')"><span class="em">📉</span>Gasto</button>
+      <button data-t="saque" onclick="setTipo('saque')"><span class="em">💸</span>Saque</button>
+    </div>
+
+    <div class="linha">
+      <div>
+        <label class="lbl">Valor (R$)</label>
+        <input id="f-valor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00">
+        <div class="erro" id="e-valor">Coloca um valor maior que zero.</div>
+      </div>
+      <div>
+        <label class="lbl">Data</label>
+        <input id="f-data" type="date">
+      </div>
+    </div>
+
+    <div class="linha" id="linha-cat">
+      <div id="wrap-cat">
+        <label class="lbl">Categoria</label>
+        <select id="f-cat"></select>
+      </div>
+      <div>
+        <label class="lbl" id="lbl-desc">Descrição</label>
+        <input id="f-desc" type="text" maxlength="80" placeholder="ex: garrafa PET, transporte…">
+      </div>
+    </div>
+
+    <button class="btn" id="btn-add" onclick="salvar()">Lançar</button>
+  </div>
+
+  <!-- LISTA -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+      <div class="card-titulo" style="margin:0">MOVIMENTOS</div>
+      <div style="display:flex;gap:6px">
+        <button class="btn-sec" onclick="exportJSON()">⬇ Backup</button>
+        <button class="btn-sec" onclick="document.getElementById('imp').click()">⬆ Restaurar</button>
+        <button class="btn-sec" onclick="exportCSV()">CSV</button>
+        <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
+      </div>
+    </div>
+
+    <div class="filtros" id="filtros">
+      <div class="chip on" data-f="todos" onclick="setFiltro('todos')">Todos</div>
+      <div class="chip" data-f="entrada" onclick="setFiltro('entrada')">Entradas</div>
+      <div class="chip" data-f="gasto" onclick="setFiltro('gasto')">Gastos</div>
+      <div class="chip" data-f="saque" onclick="setFiltro('saque')">Saques</div>
+    </div>
+
+    <div id="lista"></div>
+  </div>
+
+  <!-- BREAKDOWN -->
+  <div class="card" id="card-bd" style="display:none">
+    <div class="card-titulo">GASTOS POR CATEGORIA</div>
+    <div class="card-sub">Onde seu dinheiro está indo neste período.</div>
+    <div id="breakdown"></div>
+  </div>
+
+  <div class="rodape">
+    Os dados ficam salvos <b style="color:var(--cinza-claro)">só neste aparelho/navegador</b> (privado, sem nuvem).<br>
+    Faz <a onclick="exportJSON()">backup</a> de vez em quando pra não perder. Painel independente do app Orbis.
+  </div>
+
+</div>
+
+<script>
+/* ================= ESTADO ================= */
+const KEY = "orbis_caixa_v1";
+const CATS = {
+  entrada: ["Venda", "Recebimento", "Prêmio/Bônus", "Outra entrada"],
+  gasto:   ["Mercadoria", "Ingredientes", "Transporte", "Embalagem", "Ponto/Aluguel", "Marketing", "Taxas", "Alimentação", "Outro gasto"],
+  saque:   ["Retirada pessoal", "Pró-labore", "Reserva", "Investimento", "Outro saque"],
+};
+let dados = carregar();
+let tipo = "entrada";
+let filtro = "todos";
+
+function carregar(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } }
+function persistir(){ localStorage.setItem(KEY, JSON.stringify(dados)); }
+function hojeISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function fmt(v){ return "R$ " + (Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function mesDe(iso){ return (iso||"").slice(0,7); }
+function nomeMes(ym){ const [y,m]=ym.split("-"); const M=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"]; return M[+m-1]+"/"+y; }
+
+/* ================= FORM ================= */
+function setTipo(t){
+  tipo = t;
+  document.querySelectorAll("#seg button").forEach(b=>{
+    b.className = ""; if(b.dataset.t===t) b.classList.add(t==="entrada"?"on-e":t==="gasto"?"on-g":"on-s");
+  });
+  // categoria sempre presente; descrição vira "cliente/origem" na entrada
+  const cat = document.getElementById("f-cat");
+  cat.innerHTML = CATS[t].map(c=>`<option>${c}</option>`).join("");
+  document.getElementById("lbl-desc").textContent = t==="entrada" ? "De quem / o quê" : t==="saque" ? "Observação" : "Descrição";
+  document.getElementById("f-desc").placeholder = t==="entrada" ? "ex: venda no farol, cliente…" : t==="saque" ? "ex: tirei pra mim / reserva…" : "ex: garrafa PET, ônibus…";
+  document.getElementById("btn-add").textContent = t==="entrada"?"Lançar entrada":t==="gasto"?"Lançar gasto":"Lançar saque";
+}
+
+function salvar(){
+  const valor = parseFloat(String(document.getElementById("f-valor").value).replace(",","."));
+  const eV = document.getElementById("e-valor");
+  if(!valor || valor<=0){ eV.classList.add("show"); return; }
+  eV.classList.remove("show");
+  const data = document.getElementById("f-data").value || hojeISO();
+  const cat = document.getElementById("f-cat").value;
+  const desc = document.getElementById("f-desc").value.trim();
+  dados.push({ id: (crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())), tipo, valor, data, cat, desc, ts: Date.now() });
+  persistir();
+  document.getElementById("f-valor").value = "";
+  document.getElementById("f-desc").value = "";
+  // garante que o mês do lançamento esteja selecionado
+  render(mesDe(data));
+}
+
+function editar(id){
+  const it = dados.find(d=>d.id===id); if(!it) return;
+  const nv = prompt("Novo valor (R$):", it.valor);
+  if(nv===null) return;
+  const v = parseFloat(String(nv).replace(",","."));
+  if(v && v>0) it.valor = v;
+  const nd = prompt("Descrição:", it.desc||"");
+  if(nd!==null) it.desc = nd.trim().slice(0,80);
+  persistir(); render();
+}
+function remover(id){
+  const it = dados.find(d=>d.id===id);
+  if(!confirm("Apagar este lançamento de "+fmt(it?.valor)+"? Não dá pra desfazer.")) return;
+  dados = dados.filter(d=>d.id!==id); persistir(); render();
+}
+
+function setFiltro(f){ filtro=f; document.querySelectorAll("#filtros .chip").forEach(c=>c.classList.toggle("on",c.dataset.f===f)); render(); }
+
+/* ================= RENDER ================= */
+function mesesDisponiveis(){
+  const set = new Set(dados.map(d=>mesDe(d.data)));
+  set.add(hojeISO().slice(0,7));
+  return [...set].sort().reverse();
+}
+
+function render(forcarMes){
+  // popular selector de mês
+  const sel = document.getElementById("sel-mes");
+  const meses = mesesDisponiveis();
+  const atual = forcarMes || sel.value || meses[0];
+  sel.innerHTML = meses.map(m=>`<option value="${m}" ${m===atual?"selected":""}>${nomeMes(m)}</option>`).join("");
+  const mes = sel.value || atual;
+
+  const doMes = dados.filter(d=>mesDe(d.data)===mes);
+  const entradas = doMes.filter(d=>d.tipo==="entrada").reduce((s,d)=>s+d.valor,0);
+  const gastos = doMes.filter(d=>d.tipo==="gasto").reduce((s,d)=>s+d.valor,0);
+  const saques = doMes.filter(d=>d.tipo==="saque").reduce((s,d)=>s+d.valor,0);
+  const lucro = entradas - gastos;
+  const caixa = entradas - gastos - saques;
+  const margem = entradas>0 ? (lucro/entradas*100) : 0;
+
+  // stats
+  document.getElementById("stats").innerHTML = `
+    <div class="stat destaque"><div class="stat-num ${caixa>=0?'g':'a'}">${fmt(caixa)}</div><div class="stat-lbl">Caixa do mês</div><div class="stat-sub">entradas − gastos − saques</div></div>
+    <div class="stat"><div class="stat-num v">${fmt(entradas)}</div><div class="stat-lbl">Entradas</div></div>
+    <div class="stat"><div class="stat-num a">${fmt(gastos)}</div><div class="stat-lbl">Gastos</div></div>
+    <div class="stat"><div class="stat-num r">${fmt(saques)}</div><div class="stat-lbl">Saques</div></div>
+  `;
+
+  // dica contextual
+  mostrarDica({entradas,gastos,saques,lucro,caixa,margem,n:doMes.length});
+
+  // lista
+  const lst = filtro==="todos" ? doMes : doMes.filter(d=>d.tipo===filtro);
+  lst.sort((a,b)=> (b.data.localeCompare(a.data)) || (b.ts-a.ts));
+  const el = document.getElementById("lista");
+  if(lst.length===0){
+    el.innerHTML = `<div class="vazio"><div class="vazio-t">NADA AQUI AINDA</div><div class="vazio-x">Lança tua primeira entrada, gasto ou saque lá em cima.</div></div>`;
+  } else {
+    el.innerHTML = lst.map(d=>{
+      const cls = d.tipo==="entrada"?"e":d.tipo==="gasto"?"g":"s";
+      const vcls = d.tipo==="entrada"?"pos":d.tipo==="gasto"?"neg":"saq";
+      const sinal = d.tipo==="entrada"?"+":d.tipo==="gasto"?"−":"−";
+      const dd = d.data.slice(8,10)+"/"+d.data.slice(5,7);
+      return `<div class="item">
+        <span class="badge ${cls}">${d.tipo}</span>
+        <div class="info">
+          <div class="desc">${d.desc? escapeHtml(d.desc) : d.cat}</div>
+          <div class="meta">${dd} · ${escapeHtml(d.cat||"")}</div>
+        </div>
+        <div class="val ${vcls}">${sinal}${fmt(d.valor).replace('R$ ','')}</div>
+        <div class="acoes">
+          <button class="iconbtn" onclick="editar('${d.id}')" title="Editar">✎</button>
+          <button class="iconbtn del" onclick="remover('${d.id}')" title="Apagar">✕</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  // breakdown de gastos
+  const gs = doMes.filter(d=>d.tipo==="gasto");
+  const cardBd = document.getElementById("card-bd");
+  if(gs.length===0){ cardBd.style.display="none"; }
+  else{
+    cardBd.style.display="block";
+    const porCat = {};
+    gs.forEach(d=>{ porCat[d.cat||"Outro"] = (porCat[d.cat||"Outro"]||0)+d.valor; });
+    const arr = Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
+    const max = arr[0][1];
+    document.getElementById("breakdown").innerHTML = arr.map(([c,v])=>`
+      <div class="bd-row"><div class="bd-cat">${escapeHtml(c)}</div>
+      <div class="bd-bar"><div class="bd-fill" style="width:${Math.max(4,v/max*100)}%"></div></div>
+      <div class="bd-val">${fmt(v)}</div></div>`).join("");
+  }
+}
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ================= DICAS ================= */
+function mostrarDica(x){
+  const box=document.getElementById("dica"), txt=document.getElementById("dica-txt");
+  let msg=null;
+  if(x.n===0){ box.style.display="none"; return; }
+  if(x.entradas>0 && x.gastos/x.entradas > 0.6){
+    msg = `Seus gastos comem <b>${(x.gastos/x.entradas*100).toFixed(0)}%</b> do que entra. Acima de 60% aperta demais — veja em "Gastos por categoria" o que dá pra cortar ou negociar.`;
+  } else if(x.entradas>0 && x.saques > x.lucro && x.lucro>0){
+    msg = `Cuidado: você sacou <b>${fmt(x.saques)}</b>, mais do que o lucro do mês (${fmt(x.lucro)}). Tirar mais do que sobra corrói o caixa — segura a retirada até o lucro cobrir.`;
+  } else if(x.caixa<0){
+    msg = `Seu caixa está <b>negativo</b> neste mês (${fmt(x.caixa)}). Saiu mais do que entrou. Antes de sacar de novo, foque em entrada e corte um gasto.`;
+  } else if(x.entradas>0 && x.margem>=40){
+    msg = `Margem de <b>${x.margem.toFixed(0)}%</b> — tá saudável. Mantém o controle e considera separar uma parte do lucro como reserva antes de sacar tudo.`;
+  } else if(x.entradas>0){
+    msg = `Lucro do mês: <b>${fmt(x.lucro)}</b> (margem ${x.margem.toFixed(0)}%). Lança tudo direitinho que a foto do mês fica real — dá pra decidir com número, não no achismo.`;
+  }
+  if(msg){ txt.innerHTML=msg; box.style.display="flex"; } else { box.style.display="none"; }
+}
+
+/* ================= BACKUP ================= */
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(dados,null,2)], {type:"application/json"});
+  baixar(blob, "orbis-caixa-backup-"+hojeISO()+".json");
+}
+function exportCSV(){
+  const linhas = [["data","tipo","categoria","descricao","valor"]];
+  [...dados].sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>linhas.push([d.data,d.tipo,d.cat||"",(d.desc||"").replace(/"/g,'""'),String(d.valor).replace(".",",")]));
+  const csv = "﻿"+linhas.map(r=>r.map(c=>`"${c}"`).join(";")).join("\n");
+  baixar(new Blob([csv],{type:"text/csv"}), "orbis-caixa-"+hojeISO()+".csv");
+}
+function baixar(blob,nome){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nome; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
+function importJSON(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const arr=JSON.parse(r.result);
+      if(!Array.isArray(arr)) throw 0;
+      if(!confirm("Restaurar "+arr.length+" lançamentos? Isso SUBSTITUI os dados atuais deste aparelho.")) return;
+      dados=arr; persistir(); render();
+      alert("Restaurado com sucesso.");
+    }catch(e){ alert("Arquivo inválido. Use um backup gerado por este painel."); }
+    ev.target.value="";
+  };
+  r.readAsText(f);
+}
+
+/* ================= INIT ================= */
+document.getElementById("f-data").value = hojeISO();
+setTipo("entrada");
+render();
+</script>
+</body>
+</html>
