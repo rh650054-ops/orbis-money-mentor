@@ -172,6 +172,8 @@ export default function Finances() {
   // Registrar "guardei X" num dia específico (selecionado na lista de próximos dias)
   const [diaSave, setDiaSave] = useState<{ label: string; isToday: boolean } | null>(null);
   const [diaSaveValue, setDiaSaveValue] = useState("");
+  // Data pra lançar/ajustar o guardado num dia ANTERIOR (rever dias passados).
+  const [outroDiaData, setOutroDiaData] = useState(getBrazilDate());
   // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
   const [savedToday, setSavedToday] = useState(() => {
     try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
@@ -1478,7 +1480,9 @@ export default function Finances() {
     }
     try {
       await distribuirGuardado(value);
-      registrarGuardadoHoje(value); // alimenta o saldo adiantado (abate os próximos dias)
+      // Só conta no "guardado hoje" se o dia selecionado for HOJE. Dia anterior/outro só
+      // abate as contas (senão inflava o buffer de hoje com um lançamento retroativo).
+      if (diaSave?.isToday) registrarGuardadoHoje(value);
       const label = diaSave?.label || "hoje";
       setDiaSave(null);
       setDiaSaveValue("");
@@ -1832,6 +1836,33 @@ export default function Finances() {
                 <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
                   Arraste pra baixo pra ver mais dias. Toque num dia pra registrar quanto guardou. Estimativa só das contas.
                 </p>
+
+                {/* Rever/lançar num dia ANTERIOR — pra corrigir depois que virou o dia */}
+                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground">Guardei em outro dia (rever / corrigir)</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={outroDiaData}
+                      max={getBrazilDate()}
+                      onChange={(e) => setOutroDiaData(e.target.value)}
+                      className="h-10 flex-1 min-w-0 bg-background border border-border rounded-lg px-2 text-sm text-foreground"
+                    />
+                    <button
+                      onClick={() => {
+                        setDiaSaveValue("");
+                        const [, m, d] = outroDiaData.split("-");
+                        setDiaSave({ label: outroDiaData === getBrazilDate() ? "Hoje" : `${d}/${m}`, isToday: outroDiaData === getBrazilDate() });
+                      }}
+                      className="shrink-0 h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold text-sm flex items-center gap-1.5 active:scale-95"
+                    >
+                      <Plus className="w-4 h-4" /> Lançar
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">
+                    Escolha um dia passado e informe quanto guardou nele — vai pras suas contas do mesmo jeito (quita o vencimento mais próximo primeiro).
+                  </p>
+                </div>
               </div>
             )}
           </CardContent>

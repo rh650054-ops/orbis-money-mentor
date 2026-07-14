@@ -520,6 +520,7 @@ export default function DefconHub() {
   const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0, transport: 0, food: 0 });
   const [hasSession, setHasSession] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [pdfDate, setPdfDate] = useState(getBrazilDate()); // dia do PDF (padrão: hoje)
   const [quickCost, setQuickCost] = useState("");
   const [quickCostCat, setQuickCostCat] = useState<"mercadoria" | "transporte" | "alimentacao">("mercadoria");
   const [showEdit, setShowEdit] = useState(false);
@@ -630,8 +631,9 @@ export default function DefconHub() {
     if (!user) return;
     setExporting(true);
     try {
-      await generateDefconDayPDF(user.id);
-      toast({ title: "PDF gerado", description: "Relatório do dia baixado com sucesso." });
+      await generateDefconDayPDF(user.id, pdfDate);
+      const label = pdfDate === getBrazilDate() ? "de hoje" : `de ${pdfDate.split("-").reverse().slice(0, 2).join("/")}`;
+      toast({ title: "PDF gerado", description: `Relatório ${label} baixado com sucesso.` });
     } catch (e) {
       toast({ title: "Erro ao gerar PDF", variant: "destructive" });
     } finally {
@@ -967,15 +969,24 @@ export default function DefconHub() {
       {/* Pix que caiu depois — lançar num dia anterior */}
       <LatePixSection />
 
-      {/* PDF do dia */}
-      <button
-        onClick={handlePDF}
-        disabled={exporting}
-        className="w-full h-12 rounded-xl bg-card border border-primary/30 hover:border-primary/60 text-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-50"
-      >
-        <FileDown className="w-4 h-4" />
-        {exporting ? "Gerando..." : "Baixar PDF do dia"}
-      </button>
+      {/* PDF do dia — escolha qual dia baixar */}
+      <div className="flex gap-2">
+        <input
+          type="date"
+          value={pdfDate}
+          max={getBrazilDate()}
+          onChange={(e) => setPdfDate(e.target.value)}
+          className="h-12 w-36 shrink-0 bg-card border border-border rounded-xl px-3 text-sm text-foreground"
+        />
+        <button
+          onClick={handlePDF}
+          disabled={exporting}
+          className="flex-1 h-12 rounded-xl bg-card border border-primary/30 hover:border-primary/60 text-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-50"
+        >
+          <FileDown className="w-4 h-4" />
+          {exporting ? "Gerando..." : pdfDate === getBrazilDate() ? "Baixar PDF do dia" : "Baixar PDF do dia escolhido"}
+        </button>
+      </div>
 
       <p className="text-center text-xs text-muted-foreground">
         Os relatórios completos e filtros do DEFCON 4 estão na aba <span className="text-primary">Relatório</span>.
