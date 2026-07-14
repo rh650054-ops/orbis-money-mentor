@@ -110,6 +110,8 @@ export function useDefconChallenge(userId: string | undefined) {
   // Tempo trabalhado RECONSTRUÍDO de uma sessão já encerrada (sobrevive ao reload).
   // null = sessão não encerrada -> usa o cálculo ao vivo (currentBlockIndex/remainingSeconds).
   const [workedMinutes, setWorkedMinutes] = useState<number | null>(null);
+  // Distância (GPS) salva de uma sessão já encerrada — pra mostrar no reload.
+  const [sessionDistance, setSessionDistance] = useState<number>(0);
   
   // Approach & sales tracking per block
   const [blockApproaches, setBlockApproaches] = useState(0);
@@ -447,6 +449,7 @@ export function useDefconChallenge(userId: string | undefined) {
         // teto de segurança. blockStart do bloco atual vem do timer_started_at daquele bloco.
         const idx = session.current_block_index || 0;
         setCurrentBlockIndex(idx);
+        setSessionDistance(Number((session as { distance_meters?: number }).distance_meters) || 0);
         if (session.started_at && session.ended_at) {
           const curTimer = (blocksData?.[idx] as { timer_started_at?: string } | undefined)?.timer_started_at;
           const blockStart = curTimer ? new Date(curTimer) : null;
@@ -1227,6 +1230,7 @@ export function useDefconChallenge(userId: string | undefined) {
     totalSold,
     remainingSeconds,
     workedMinutes,
+    sessionDistance,
     breakRemaining,
     blockStartedAt,
     blockEndTime,

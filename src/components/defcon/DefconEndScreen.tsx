@@ -21,6 +21,7 @@ interface DefconEndScreenProps {
   totalApproaches?: number;
   totalSalesCount?: number;
   workedMinutes?: number;
+  distanceMeters?: number;
   userId?: string;
   onSaveBreakdown: (dinheiro: number, cartao: number, pix: number) => Promise<void>;
   onExit: () => void;
@@ -36,6 +37,7 @@ export function DefconEndScreen({
   totalApproaches = 0,
   totalSalesCount = 0,
   workedMinutes,
+  distanceMeters = 0,
   userId,
   onSaveBreakdown,
   onExit,
@@ -188,6 +190,10 @@ export function DefconEndScreen({
     const totalSec = Math.round(min * 60);
     return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, "0")}`;
   };
+
+  // Distância REAL (GPS) do dia e metros andados por venda.
+  const kmDia = distanceMeters / 1000;
+  const metrosPorVendaDia = totalSalesCount > 0 && distanceMeters > 0 ? distanceMeters / totalSalesCount : null;
 
   const exportClientsPdf = async () => {
     if (!userId) return;
@@ -1015,6 +1021,19 @@ export function DefconEndScreen({
                 <ReportRow
                   label="⚡ Ritmo (durante a venda)"
                   value={`${paceMMSS(salesRhythmMin)} /venda`}
+                />
+              )}
+              {distanceMeters > 0 && (
+                <ReportRow
+                  label="🚶 Distância andada (GPS)"
+                  value={kmDia < 1 ? `${Math.round(distanceMeters)} m` : `${kmDia.toFixed(2)} km`}
+                />
+              )}
+              {metrosPorVendaDia != null && (
+                <ReportRow
+                  label="📍 Andou por venda"
+                  value={metrosPorVendaDia < 1000 ? `${Math.round(metrosPorVendaDia)} m` : `${(metrosPorVendaDia / 1000).toFixed(2)} km`}
+                  valueClass="text-primary"
                 />
               )}
             </div>

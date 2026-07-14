@@ -12,6 +12,8 @@ interface DefconBlockReportProps {
   approaches: number;
   sales: number;
   soldAmount: number;
+  distanceMeters?: number;
+  totalSalesCount?: number;
   onContinue: () => void;
 }
 
@@ -20,6 +22,8 @@ export function DefconBlockReport({
   approaches,
   sales,
   soldAmount,
+  distanceMeters = 0,
+  totalSalesCount = 0,
   onContinue,
 }: DefconBlockReportProps) {
   const [sharing, setSharing] = useState(false);
@@ -35,6 +39,9 @@ export function DefconBlockReport({
   };
   const paceHora = sales > 0 ? 60 / sales : null; // min por venda nesta hora
   const abordagensPorVenda = sales > 0 ? approaches / sales : null;
+  // Distância REAL (GPS) acumulada na sessão e metros por venda.
+  const km = distanceMeters / 1000;
+  const metrosPorVenda = totalSalesCount > 0 ? distanceMeters / totalSalesCount : null;
 
   // Dica da hora com IA (Gemini) — roda só quando o vendedor toca no botão.
   const generateBlockTip = async () => {
@@ -274,6 +281,20 @@ export function DefconBlockReport({
           <div className="bg-card rounded-xl p-4 flex justify-between items-center">
             <span className="text-sm font-mono text-muted-foreground">👥 Abordagens por venda</span>
             <span className="text-2xl font-black text-foreground">{abordagensPorVenda.toFixed(1)}</span>
+          </div>
+        )}
+
+        {distanceMeters > 0 && (
+          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+            <span className="text-sm font-mono text-muted-foreground">🚶 Distância (GPS)</span>
+            <span className="text-2xl font-black text-foreground">{km < 1 ? `${Math.round(distanceMeters)} m` : `${km.toFixed(2)} km`}</span>
+          </div>
+        )}
+
+        {metrosPorVenda != null && distanceMeters > 0 && (
+          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+            <span className="text-sm font-mono text-muted-foreground">📍 Andou por venda</span>
+            <span className="text-2xl font-black text-primary">{metrosPorVenda < 1000 ? `${Math.round(metrosPorVenda)} m` : `${(metrosPorVenda / 1000).toFixed(2)} km`}</span>
           </div>
         )}
 

@@ -186,6 +186,7 @@ export type Database = {
           current_block_index: number
           daily_goal: number
           date: string
+          distance_meters: number | null
           ended_at: string | null
           id: string
           started_at: string

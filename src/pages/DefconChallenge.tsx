@@ -1,7 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
+import { useDistanceTracker } from "@/hooks/useDistanceTracker";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
 import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
 import { useDefconPresence } from "@/hooks/useDefconPresence";
@@ -28,6 +30,20 @@ export default function DefconChallenge() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  // GPS: mede a distância REAL andada só enquanto o bloco está rodando (pausa no intervalo/almoço).
+  const { distanceMeters } = useDistanceTracker(!treino && defcon.phase === "running");
+  const distLatest = useRef(0);
+  distLatest.current = distanceMeters;
+  // Ao vivo usa o tracker; num reload de sessão encerrada usa o valor salvo no banco.
+  const distToShow = distanceMeters > 0 ? distanceMeters : (defcon.sessionDistance || 0);
+  // Ao terminar/encerrar, grava a distância na sessão (pro relatório e histórico).
+  useEffect(() => {
+    if (treino) return;
+    if ((defcon.phase === "finished" || defcon.phase === "abandoned") && defcon.sessionId) {
+      supabase.from("challenge_sessions").update({ distance_meters: Math.round(distLatest.current) } as never).eq("id", defcon.sessionId);
+    }
+  }, [defcon.phase, defcon.sessionId, treino]);
 
   // Valor da "venda rápida" = valor mais frequente do dia (mesmo critério dos
   // botões de venda rápida na tela). 0 = ainda sem nenhuma venda registrada.
@@ -187,6 +203,8 @@ export default function DefconChallenge() {
           approaches={defcon.blockReportData.approaches}
           sales={defcon.blockReportData.sales}
           soldAmount={defcon.blockReportData.soldAmount}
+          distanceMeters={distToShow}
+          totalSalesCount={defcon.totalSalesCount}
           onContinue={defcon.dismissBlockReport}
         />
       ) : null;
@@ -222,6 +240,7 @@ export default function DefconChallenge() {
             workedMinutes={defcon.workedMinutes ?? (defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60))))}
             totalApproaches={defcon.totalApproaches}
             totalSalesCount={defcon.totalSalesCount}
+            distanceMeters={distToShow}
             userId={user.id}
             onSaveBreakdown={defcon.savePaymentBreakdown}
             onExit={handleExit}
