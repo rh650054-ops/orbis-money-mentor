@@ -3,7 +3,7 @@ import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft,
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate, getBrazilDateLabel } from "@/shared/lib/date-utils";
+import { getBrazilDate, getBrazilDateLabel, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/orbis-logo-share.png";
@@ -57,6 +57,8 @@ export function DefconEndScreen({
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingTx, setExportingTx] = useState(false);
   const [daySales, setDaySales] = useState<{ amount: number; method: string; late: boolean; created_at: string }[]>([]);
+  // Faixa de ritmo (min entre vendas) dos MELHORES DIAS por faturamento — pra comparar com hoje.
+  const [bestPace, setBestPace] = useState<{ min: number; max: number; dias: number } | null>(null);
   const [totalTips, setTotalTips] = useState(0);
   const [editingTip, setEditingTip] = useState(false);
   const [tipInput, setTipInput] = useState("");
@@ -111,6 +113,43 @@ export function DefconEndScreen({
       .gte("created_at", startISO)
       .order("created_at", { ascending: true })
       .then(({ data }) => setDaySales((data as any) || []));
+  }, [userId]);
+
+  // MELHORES DIAS por faturamento (últimos 60 dias): qual a faixa de ritmo deles.
+  useEffect(() => {
+    if (!userId) return;
+    const since = new Date(`${getBrazilDateDaysAgo(60)}T00:00:00-03:00`).toISOString();
+    supabase
+      .from("defcon_sales")
+      .select("amount, method, late, created_at")
+      .eq("user_id", userId)
+      .gte("created_at", since)
+      .order("created_at", { ascending: true })
+      .then(({ data }) => {
+        const reais = ((data as any[]) || []).filter((s) => s.method !== "gorjeta" && !s.late);
+        // Agrupa por dia (fuso BR = UTC−3, sem horário de verão no Brasil desde 2019).
+        const porDia = new Map<string, { rev: number; ts: number[] }>();
+        for (const s of reais) {
+          const ms = new Date(s.created_at).getTime();
+          const key = new Date(ms - 3 * 3600000).toISOString().slice(0, 10);
+          const g = porDia.get(key) || { rev: 0, ts: [] };
+          g.rev += Number(s.amount) || 0;
+          g.ts.push(ms);
+          porDia.set(key, g);
+        }
+        const dias = [...porDia.values()]
+          .map((g) => {
+            const t = g.ts.sort((a, b) => a - b);
+            const ritmo = t.length >= 2 ? (t[t.length - 1] - t[0]) / (t.length - 1) / 60000 : null;
+            return { rev: g.rev, ritmo };
+          })
+          .filter((d): d is { rev: number; ritmo: number } => d.ritmo != null);
+        if (dias.length < 3) return; // precisa de histórico pra valer a comparação
+        dias.sort((a, z) => z.rev - a.rev);
+        const top = dias.slice(0, Math.max(3, Math.ceil(dias.length * 0.3)));
+        const paces = top.map((d) => d.ritmo);
+        setBestPace({ min: Math.min(...paces), max: Math.max(...paces), dias: top.length });
+      });
   }, [userId]);
 
   // Só VENDAS REAIS pro ritmo/pace — gorjeta não é venda, e pix-tardio (late) tem horário
@@ -962,6 +1001,22 @@ export function DefconEndScreen({
                 {paceDoDia != null && <><b className="text-foreground">Pace do dia</b> = tempo trabalhado ÷ vendas (como o pace do corredor): 1 venda a cada ~{paceDoDia < 10 ? paceDoDia.toFixed(1) : Math.round(paceDoDia)} min no dia todo. </>}
                 {salesRhythmMin != null && <>O <b className="text-foreground">ritmo durante a venda</b> (só entre uma venda e outra) foi 1 a cada ~{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min.</>}
               </p>
+            )}
+            {bestPace && (
+              <div className="rounded-xl bg-primary/5 border border-primary/25 px-3 py-2.5">
+                <p className="text-[11px] text-foreground leading-relaxed">
+                  🏆 Seus <b>melhores dias</b> (mais faturamento) rolam num ritmo de{" "}
+                  <b className="text-primary">
+                    {(bestPace.min < 10 ? bestPace.min.toFixed(1) : Math.round(bestPace.min))}–{(bestPace.max < 10 ? bestPace.max.toFixed(1) : Math.round(bestPace.max))} min
+                  </b>{" "}
+                  entre vendas.
+                  {salesRhythmMin != null && (
+                    <> Hoje você fez <b>{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min</b> —{" "}
+                      {salesRhythmMin <= bestPace.max ? "está na sua zona de melhor dia! 🔥" : "mais devagar que os seus melhores dias."}
+                    </>
+                  )}
+                </p>
+              </div>
             )}
           </div>
         )}
