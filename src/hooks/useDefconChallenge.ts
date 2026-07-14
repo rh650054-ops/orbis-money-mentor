@@ -71,6 +71,24 @@ async function queueBlockOffline(
   }
 }
 
+// Tempo REALMENTE trabalhado ao encerrar. O wall-clock (fim − início) inclui almoço e
+// intervalos, então tem teto. Mas o teto NÃO pode assumir o bloco atual inteiro (60min) —
+// senão finalizar 22min dentro da 6ª hora "cravava" em 6h. Teto = blocos COMPLETOS × 60 +
+// minutos decorridos no bloco atual (limitado a 60). blockStart = início do bloco atual.
+function calcWorkedMinutes(
+  startedAtISO: string,
+  endedAt: Date,
+  blockIndex: number,
+  blockStart: Date | null,
+): number {
+  const wall = Math.round((endedAt.getTime() - new Date(startedAtISO).getTime()) / 60000);
+  const elapsedInBlock = blockStart
+    ? Math.min(60, Math.max(0, (endedAt.getTime() - blockStart.getTime()) / 60000))
+    : 60; // sem info do bloco → assume bloco cheio (fallback conservador)
+  const capReal = blockIndex * 60 + elapsedInBlock;
+  return Math.max(0, Math.round(Math.min(wall, capReal)));
+}
+
 export function useDefconChallenge(userId: string | undefined) {
   const [phase, setPhase] = useState<DefconPhase>("idle");
   const [blocks, setBlocks] = useState<DefconBlock[]>([]);
@@ -108,6 +126,8 @@ export function useDefconChallenge(userId: string | undefined) {
   // Refs for stable closure access in timer callbacks
   const blocksRef = useRef<DefconBlock[]>([]);
   blocksRef.current = blocks;
+  const blockStartedAtRef = useRef<Date | null>(null);
+  blockStartedAtRef.current = blockStartedAt;
   const currentBlockIndexRef = useRef(0);
   currentBlockIndexRef.current = currentBlockIndex;
   const sessionIdRef = useRef<string | null>(null);
@@ -155,12 +175,9 @@ export function useDefconChallenge(userId: string | undefined) {
       .select("started_at")
       .maybeSingle();
 
-    // Tempo trabalhado AO VIVO — mesma regra do reload (fim − início, com teto de
-    // blocos × 60min). Antes ficava null e a tela final caía no fallback
-    // "índice do bloco × 60 + parcial", que mostrava horas a mais no fim do dia.
+    // Tempo trabalhado AO VIVO — blocos completos + parcial do bloco atual (sem cravar hora cheia).
     if (doneSession?.started_at) {
-      const wall = Math.round((endedAt.getTime() - new Date(doneSession.started_at).getTime()) / 60000);
-      setWorkedMinutes(Math.max(0, Math.min(wall, (currentBlockIndexRef.current + 1) * 60)));
+      setWorkedMinutes(calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current));
     }
 
     setPhase("finished");
@@ -422,22 +439,18 @@ export function useDefconChallenge(userId: string | undefined) {
       }
 
       if (session.status === "completed" || session.status === "abandoned") {
-        // TEMPO REAL trabalhado = fim − início da sessão.
-        // (Antes era current_block_index × 60 + parcial, o que INFLAVA MUITO: um vendedor
-        // com 9 blocos planejados aparecia com "8h" mesmo tendo trabalhado ~2h30. Agora
-        // usa o tempo de verdade entre iniciar e encerrar o DEFCON.)
-        let mins = 0;
+        // Tempo trabalhado reconstruído: blocos COMPLETOS + parcial do bloco atual (nunca a
+        // hora cheia). O wall-clock (fim − início) inclui almoço/intervalos, então serve só de
+        // teto de segurança. blockStart do bloco atual vem do timer_started_at daquele bloco.
+        const idx = session.current_block_index || 0;
+        setCurrentBlockIndex(idx);
         if (session.started_at && session.ended_at) {
-          mins = Math.round(
-            (new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 60000,
-          );
+          const curTimer = (blocksData?.[idx] as { timer_started_at?: string } | undefined)?.timer_started_at;
+          const blockStart = curTimer ? new Date(curTimer) : null;
+          setWorkedMinutes(calcWorkedMinutes(session.started_at, new Date(session.ended_at), idx, blockStart));
+        } else {
+          setWorkedMinutes(0);
         }
-        // TETO: o wall-clock (fim − início) inclui almoço (até 2h) e intervalos de 5min,
-        // então no FIM DO DIA aparecia com horas A MAIS (ex.: 10h30 tendo trabalhado 8 blocos).
-        // Tempo de trabalho real nunca passa de (blocos percorridos × 60min).
-        const capMins = ((session.current_block_index || 0) + 1) * 60;
-        setCurrentBlockIndex(session.current_block_index || 0);
-        setWorkedMinutes(Math.max(0, Math.min(mins, capMins)));
         setPhase(session.status === "completed" ? "finished" : "abandoned");
         setLoading(false);
         return;
@@ -1017,11 +1030,9 @@ export function useDefconChallenge(userId: string | undefined) {
       .select("started_at")
       .maybeSingle();
 
-    // Tempo trabalhado AO VIVO no encerramento manual — mesma regra do reload
-    // (fim − início, com teto de blocos × 60min), evitando o fallback inflado.
+    // Encerramento manual — blocos completos + parcial do bloco atual (sem cravar hora cheia).
     if (doneSession?.started_at) {
-      const wall = Math.round((endedAt.getTime() - new Date(doneSession.started_at).getTime()) / 60000);
-      setWorkedMinutes(Math.max(0, Math.min(wall, (currentBlockIndexRef.current + 1) * 60)));
+      setWorkedMinutes(calcWorkedMinutes(doneSession.started_at, endedAt, currentBlockIndexRef.current, blockStartedAtRef.current));
     }
 
     setPhase("abandoned");
