@@ -16,6 +16,7 @@ import { Skeleton } from "@/shared/ui/skeleton";
 import { Progress } from "@/shared/ui/progress";
 import AutoDistribution from "@/components/AutoDistribution";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
+import ImportPdfDialog from "@/components/ImportPdfDialog";
 import {
   Wallet,
   Plus,
@@ -36,7 +37,8 @@ import {
   PartyPopper,
   Loader2,
   CreditCard,
-  ChevronDown
+  ChevronDown,
+  Upload
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -109,6 +111,7 @@ export default function Finances() {
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
 
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
@@ -1983,6 +1986,16 @@ export default function Finances() {
       <FeatureErrorBoundary title="A distribuição automática deu uma travada">
         <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
       </FeatureErrorBoundary>
+
+      {/* Importar histórico de vendas por PDF (IA lê e você revisa) */}
+      <button
+        onClick={() => setImportOpen(true)}
+        className="w-full h-11 rounded-xl bg-card border border-primary/30 hover:border-primary/60 text-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition"
+      >
+        <Upload className="w-4 h-4" />
+        Importar histórico (PDF)
+      </button>
+      <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
 
       <Tabs defaultValue="bills" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
