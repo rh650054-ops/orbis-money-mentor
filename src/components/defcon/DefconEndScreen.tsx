@@ -113,14 +113,30 @@ export function DefconEndScreen({
       .then(({ data }) => setDaySales((data as any) || []));
   }, [userId]);
 
-  // Ritmo médio: minutos entre uma venda e a próxima.
+  // Só VENDAS REAIS pro ritmo/pace — gorjeta não é venda, e pix-tardio (late) tem horário
+  // do lançamento, não da venda, então distorceria os intervalos.
+  const vendasReais = useMemo(
+    () => daySales.filter((s) => s.method !== "gorjeta" && !s.late),
+    [daySales],
+  );
+
+  // RITMO ATIVO: média de minutos ENTRE uma venda e a próxima (só durante a venda —
+  // da 1ª à última venda). Matematicamente (última − primeira) ÷ (nº vendas − 1).
   const salesRhythmMin = useMemo(() => {
-    if (daySales.length < 2) return null;
-    const t = daySales.map((s) => new Date(s.created_at).getTime()).sort((a, b) => a - b);
+    if (vendasReais.length < 2) return null;
+    const t = vendasReais.map((s) => new Date(s.created_at).getTime()).sort((a, b) => a - b);
     let sum = 0;
     for (let i = 1; i < t.length; i++) sum += t[i] - t[i - 1];
     return sum / (t.length - 1) / 60000;
-  }, [daySales]);
+  }, [vendasReais]);
+
+  // PACE DO DIA (estilo corredor): tempo TOTAL trabalhado ÷ nº de vendas = 1 venda a cada
+  // X min considerando o dia inteiro (inclui os tempos parados entre vendas).
+  const paceDoDia = useMemo(() => {
+    const unidades = vendasReais.length || totalSalesCount || 0;
+    if (!workedMinutes || workedMinutes <= 0 || unidades <= 0) return null;
+    return workedMinutes / unidades;
+  }, [workedMinutes, vendasReais.length, totalSalesCount]);
 
   const exportClientsPdf = async () => {
     if (!userId) return;
@@ -929,14 +945,22 @@ export function DefconEndScreen({
               />
               {salesRhythmMin != null && (
                 <ReportRow
-                  label="⚡ Ritmo de vendas"
+                  label="⚡ Ritmo (durante a venda)"
                   value={`1 a cada ${salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min`}
                 />
               )}
+              {paceDoDia != null && (
+                <ReportRow
+                  label="🏃 Pace do dia"
+                  value={`1 venda a cada ${paceDoDia < 10 ? paceDoDia.toFixed(1) : Math.round(paceDoDia)} min`}
+                  valueClass="text-primary"
+                />
+              )}
             </div>
-            {salesRhythmMin != null && (
-              <p className="text-[11px] text-muted-foreground px-1">
-                No seu ritmo, você fecha uma venda a cada ~{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} minutos.
+            {(salesRhythmMin != null || paceDoDia != null) && (
+              <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
+                {paceDoDia != null && <><b className="text-foreground">Pace do dia</b> = tempo trabalhado ÷ vendas (como o pace do corredor): 1 venda a cada ~{paceDoDia < 10 ? paceDoDia.toFixed(1) : Math.round(paceDoDia)} min no dia todo. </>}
+                {salesRhythmMin != null && <>O <b className="text-foreground">ritmo durante a venda</b> (só entre uma venda e outra) foi 1 a cada ~{salesRhythmMin < 10 ? salesRhythmMin.toFixed(1) : Math.round(salesRhythmMin)} min.</>}
               </p>
             )}
           </div>
