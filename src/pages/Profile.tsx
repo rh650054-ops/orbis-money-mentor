@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, ShieldCheck } from "lucide-react";
+import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, ShieldCheck, Landmark } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
@@ -47,6 +47,13 @@ const menuItems: MenuItem[] = [
     description: "Metas, contas e transações",
     path: "/finances",
     color: "text-secondary",
+  },
+  {
+    icon: Landmark,
+    label: "Tributário",
+    description: "Imposto do MEI: DAS, limite anual e declaração",
+    path: "/tributario",
+    color: "text-primary",
   },
   {
     icon: Package,

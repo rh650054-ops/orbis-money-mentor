@@ -45,6 +45,7 @@ const Products = lazyWithReload(() => import("@/pages/Products"));
 const Chat = lazyWithReload(() => import("@/pages/Chat"));
 const Routine = lazyWithReload(() => import("@/pages/Routine"));
 const Finances = lazyWithReload(() => import("@/pages/Finances"));
+const Tributario = lazyWithReload(() => import("@/pages/Tributario"));
 const Auth = lazyWithReload(() => import("@/pages/Auth"));
 const ForgotPassword = lazyWithReload(() => import("@/pages/ForgotPassword"));
 const ResetPassword = lazyWithReload(() => import("@/pages/ResetPassword"));
@@ -109,6 +110,7 @@ export function AppRouter() {
                     <Route path="/chat" element={<Chat />} />
                     <Route path="/routine" element={<Routine />} />
                     <Route path="/finances" element={<Finances />} />
+                    <Route path="/tributario" element={<Tributario />} />
                     <Route path="/daily-goals" element={<DailyGoals />} />
                     <Route path="/ranking" element={<Ranking />} />
                     <Route path="/competitions" element={<Competitions />} />
