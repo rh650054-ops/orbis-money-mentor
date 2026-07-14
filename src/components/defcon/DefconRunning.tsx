@@ -629,18 +629,15 @@ export function DefconRunning({
             <FileText className="w-3 h-3 text-muted-foreground/60" />
             <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Ocorrência</span>
           </button>
-          {!lunchPauseUsed && (
-            <>
-              <span className="text-foreground/10">|</span>
-              <button
-                onClick={() => setShowLunchPicker(true)}
-                className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
-              >
-                <UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" />
-                <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Almoço</span>
-              </button>
-            </>
-          )}
+          {/* Pausa (almoço) — sempre disponível durante o corre; pode pausar quantas vezes precisar. */}
+          <span className="text-foreground/10">|</span>
+          <button
+            onClick={() => setShowLunchPicker(true)}
+            className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
+          >
+            <UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" />
+            <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Pausar</span>
+          </button>
           <span className="text-foreground/10">|</span>
           <button
             onClick={() => setShowConfirmEnd(true)}

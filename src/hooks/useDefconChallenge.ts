@@ -379,7 +379,7 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const { data: blocksData } = await supabase
       .from("hourly_goal_blocks")
-      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta, timer_started_at")
+      .select("id, hour_index, hour_label, target_amount, achieved_amount, is_completed, valor_dinheiro, valor_cartao, valor_pix, valor_calote, valor_gorjeta, timer_started_at, timer_status, timer_paused_at, lunch_ends_at")
       .eq("plan_id", planData.id)
       .order("hour_index");
 
@@ -467,6 +467,39 @@ export function useDefconChallenge(userId: string | undefined) {
       setCurrentBlockIndex(blockIdx);
 
       const currentBlockData = blocksData?.[blockIdx];
+
+      // BLOCO PAUSADO (almoço): recupera SEM bugar a hora. Se ainda está no almoço,
+      // continua a pausa com o tempo restante; se o almoço já acabou (app fechado),
+      // retoma o bloco EXATAMENTE no ponto em que pausou (nada de tempo perdido).
+      const cbd = currentBlockData as { id?: string; timer_started_at?: string; timer_status?: string; timer_paused_at?: string; lunch_ends_at?: string } | undefined;
+      if (cbd?.timer_status === "pausado" && cbd.timer_started_at && cbd.timer_paused_at) {
+        const started = new Date(cbd.timer_started_at).getTime();
+        const paused = new Date(cbd.timer_paused_at).getTime();
+        const remainingAtPause = Math.max(0, Math.min(BLOCK_DURATION, Math.round(BLOCK_DURATION - (paused - started) / 1000)));
+        setPausedBlockRemaining(remainingAtPause);
+        const lunchEnds = cbd.lunch_ends_at ? new Date(cbd.lunch_ends_at).getTime() : 0;
+        if (lunchEnds && Date.now() < lunchEnds) {
+          const restanteSeg = Math.ceil((lunchEnds - Date.now()) / 1000);
+          setLunchPauseStartedAt(new Date());
+          setLunchPauseDuration(restanteSeg);
+          setLunchPauseRemaining(restanteSeg);
+          setLunchPauseUsed(true);
+          setPhase("lunch_pause");
+        } else {
+          const newStartedAt = new Date(Date.now() - (BLOCK_DURATION - remainingAtPause) * 1000);
+          await supabase
+            .from("hourly_goal_blocks")
+            .update({ timer_status: "running", timer_started_at: newStartedAt.toISOString(), timer_paused_at: null, lunch_ends_at: null } as never)
+            .eq("id", cbd.id!);
+          setBlockStartedAt(newStartedAt);
+          setRemainingSeconds(remainingAtPause);
+          setLunchPauseUsed(false);
+          setPhase("running");
+        }
+        setLoading(false);
+        return;
+      }
+
       if (currentBlockData?.timer_started_at) {
         const startedAt = new Date(currentBlockData.timer_started_at);
         const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000);
@@ -512,8 +545,9 @@ export function useDefconChallenge(userId: string | undefined) {
     setLoading(false);
   }, [userId, loadSessionSales]);
 
+  // Pausa (almoço/descanso) — DISPONÍVEL QUANTAS VEZES precisar durante o corre.
   const startLunchPause = async (durationMinutes: number) => {
-    if (!userId || phase !== "running" || lunchPauseUsed) return;
+    if (!userId || phase !== "running") return;
 
     // Trava a duração: um dedo errado (ex.: 180 em vez de 18) prendia o vendedor
     // 3 horas na tela de almoço. Máximo 120 min.
@@ -531,9 +565,11 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const currentBlockData = blocks[currentBlockIndex];
     if (currentBlockData) {
+      // lunch_ends_at PERSISTE a pausa: se o app recarregar no meio do almoço, a gente
+      // restaura a pausa (ou retoma o bloco no ponto exato) — sem "bugar" a hora.
       await supabase
         .from("hourly_goal_blocks")
-        .update({ timer_status: "pausado", timer_paused_at: now.toISOString() })
+        .update({ timer_status: "pausado", timer_paused_at: now.toISOString(), lunch_ends_at: new Date(now.getTime() + mins * 60000).toISOString() } as never)
         .eq("id", currentBlockData.id);
     }
 
@@ -549,13 +585,14 @@ export function useDefconChallenge(userId: string | undefined) {
       const newStartedAt = new Date(now.getTime() - (BLOCK_DURATION - pausedBlockRemaining) * 1000);
       await supabase
         .from("hourly_goal_blocks")
-        .update({ timer_status: "running", timer_started_at: newStartedAt.toISOString(), timer_paused_at: null })
+        .update({ timer_status: "running", timer_started_at: newStartedAt.toISOString(), timer_paused_at: null, lunch_ends_at: null } as never)
         .eq("id", currentBlockData.id);
 
       setBlockStartedAt(newStartedAt);
       setRemainingSeconds(pausedBlockRemaining);
     }
 
+    setLunchPauseUsed(false);
     setPhase("running");
   }, [pausedBlockRemaining, clearTimer]);
 
