@@ -1027,6 +1027,20 @@ export default function Finances() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingData]);
 
+  // Carrega o "último guardei" salvo no aparelho (sobrevive a fechar/abrir o app),
+  // pra o botão de desfazer continuar disponível mesmo depois de sair e voltar.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("orbis_ultimo_guardei");
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      if (obj?.date === getBrazilDate() && obj?.data) setUltimoGuardei(obj.data);
+      else localStorage.removeItem("orbis_ultimo_guardei");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   if (loading || !user) {
     return null;
   }
@@ -1368,9 +1382,14 @@ export default function Finances() {
       }
       const savedHojeDelta = restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje;
       registrarGuardadoHoje(savedHojeDelta);
-      try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
+      const guardeiInfo = { billDeltas, goalDeltas, savedHojeDelta };
+      try {
+        localStorage.setItem("orbis_last_save_date", getBrazilDate());
+        // Persiste o "último guardei" pra o botão de desfazer sobreviver a fechar/abrir o app.
+        localStorage.setItem("orbis_ultimo_guardei", JSON.stringify({ date: getBrazilDate(), data: guardeiInfo }));
+      } catch { /* ignore */ }
       setSavedToday(true);
-      setUltimoGuardei({ billDeltas, goalDeltas, savedHojeDelta });
+      setUltimoGuardei(guardeiInfo);
       toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(totalGuardarHoje)} guardado.` });
       loadFinancialData();
     } catch {
@@ -1409,6 +1428,7 @@ export default function Finances() {
       } catch { /* ignore */ }
       setSavedToday(false);
       setUltimoGuardei(null);
+      try { localStorage.removeItem("orbis_ultimo_guardei"); } catch { /* ignore */ }
       toast({ title: "Desfeito", description: "O 'guardei tudo' foi revertido." });
       loadFinancialData();
     } catch {
