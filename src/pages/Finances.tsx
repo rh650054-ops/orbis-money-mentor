@@ -29,6 +29,7 @@ import {
   PiggyBank,
   AlertTriangle,
   RotateCw,
+  RotateCcw,
   Copy,
   Paperclip,
   FileText,
@@ -1400,27 +1401,33 @@ export default function Finances() {
   // DESFAZER o último "Guardei tudo": tira das contas/metas exatamente o que foi somado
   // e reverte o "guardado hoje". Só funciona na mesma sessão (não sobrevive a recarregar).
   const handleDesfazerGuardei = async () => {
-    if (!user || !ultimoGuardei) return;
+    if (!user) return;
     try {
-      for (const { id, delta } of ultimoGuardei.billDeltas) {
-        const bill = bills.find((b) => b.id === id);
-        if (bill) {
-          await supabase
-            .from("planned_bills")
-            .update({ saved_amount: Math.max(0, Number(bill.saved_amount) - delta) })
-            .eq("id", id);
+      // Se ainda tenho os deltas do clique (mesma sessão / mesmo dia), reverto no banco
+      // exatamente o que foi somado. Se não tenho (ex.: cliquei antes do app atualizar),
+      // só zero o "guardou hoje" local — o valor no banco já é o que a pessoa realmente tem.
+      let novoSaved = 0;
+      if (ultimoGuardei) {
+        for (const { id, delta } of ultimoGuardei.billDeltas) {
+          const bill = bills.find((b) => b.id === id);
+          if (bill) {
+            await supabase
+              .from("planned_bills")
+              .update({ saved_amount: Math.max(0, Number(bill.saved_amount) - delta) })
+              .eq("id", id);
+          }
         }
-      }
-      for (const { id, delta, prevStatus } of ultimoGuardei.goalDeltas) {
-        const goal = goals.find((g) => g.id === id);
-        if (goal) {
-          await supabase
-            .from("financial_goals")
-            .update({ current_amount: Math.max(0, Number(goal.current_amount) - delta), status: prevStatus || "active" })
-            .eq("id", id);
+        for (const { id, delta, prevStatus } of ultimoGuardei.goalDeltas) {
+          const goal = goals.find((g) => g.id === id);
+          if (goal) {
+            await supabase
+              .from("financial_goals")
+              .update({ current_amount: Math.max(0, Number(goal.current_amount) - delta), status: prevStatus || "active" })
+              .eq("id", id);
+          }
         }
+        novoSaved = Math.max(0, savedTodayAmount - ultimoGuardei.savedHojeDelta);
       }
-      const novoSaved = Math.max(0, savedTodayAmount - ultimoGuardei.savedHojeDelta);
       setSavedTodayAmount(novoSaved);
       try {
         localStorage.setItem("orbis_guardar_saved", String(novoSaved));
@@ -1654,7 +1661,19 @@ export default function Finances() {
           {/* A guardar hoje (accent primário) */}
           <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
             <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">A guardar hoje</p>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-xs text-muted-foreground">A guardar hoje</p>
+                {diaGuardadoFechado && (
+                  <button
+                    onClick={handleDesfazerGuardei}
+                    title="Reverter o guardar de hoje"
+                    aria-label="Reverter o guardar de hoje"
+                    className="shrink-0 -mr-1 -mt-1 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary active:scale-90 transition"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
               {diaGuardadoFechado ? (
                 <>
                   <p className="text-base font-bold text-success mt-1 tracking-tight">
@@ -1722,8 +1741,20 @@ export default function Finances() {
                   <p className="text-xs text-muted-foreground mt-1">Hoje é seu descanso.</p>
                 )}
               </div>
-              <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
-                <PiggyBank className="w-5 h-5 text-primary" />
+              <div className="flex flex-col items-end gap-2 shrink-0">
+                {!isLoadingData && diaGuardadoFechado && (
+                  <button
+                    onClick={handleDesfazerGuardei}
+                    title="Reverter o guardar de hoje"
+                    aria-label="Reverter o guardar de hoje"
+                    className="w-9 h-9 rounded-xl border border-primary/30 bg-primary/10 flex items-center justify-center text-primary active:scale-90 transition"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </button>
+                )}
+                <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+                  <PiggyBank className="w-5 h-5 text-primary" />
+                </div>
               </div>
             </div>
           </CardContent>
