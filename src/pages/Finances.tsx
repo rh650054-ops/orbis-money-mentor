@@ -177,6 +177,7 @@ export default function Finances() {
   // "Próximos dias": projeção de quanto guardar nos próximos dias de trabalho
   const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
+  const [urgentesAberto, setUrgentesAberto] = useState(false);
   // Registrar "guardei X" num dia específico (selecionado na lista de próximos dias)
   const [diaSave, setDiaSave] = useState<{ label: string; isToday: boolean } | null>(null);
   const [diaSaveValue, setDiaSaveValue] = useState("");
@@ -1585,18 +1586,21 @@ export default function Finances() {
   );
   // Contas "apertadas": vencem em poucos dias úteis e ainda falta bastante — são elas que
   // inflam o "a guardar hoje". Listamos pra avisar o porquê do valor alto.
-  const contasApertadas = bills
+  // Lista ÚNICA de contas urgentes: as que vencem HOJE (pague hoje pra não pegar juros)
+  // + as "apertadas" (vencem em poucos dias úteis e ainda falta juntar → inflam o "a guardar").
+  // Cada conta entra UMA vez (a que vence hoje não se repete no "apertadas"). Ordena:
+  // vence hoje primeiro, depois pelas que vencem mais cedo, depois pela maior falta.
+  const contasUrgentes = bills
     .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
-    .map((b) => ({ b, wd: workingDaysUntil(nextDueDate(b) ? toYMD(nextDueDate(b)!) : null), falta: remaining(b) }))
-    .filter((x) => x.wd <= 2 && x.falta > 20)
-    .sort((a, z) => a.wd - z.wd || z.falta - a.falta);
-
-  // Contas que VENCEM HOJE — precisa pagar hoje pra não pegar juros/multa.
-  const contasVenceHojeLista = bills.filter((b) => {
-    if (b.paid || Number(b.saved_amount) >= Number(b.amount) || isOverdue(b)) return false;
-    const nd = nextDueDate(b);
-    return nd != null && toYMD(nd) === getBrazilDate();
-  });
+    .map((b) => {
+      const nd = nextDueDate(b);
+      const wd = workingDaysUntil(nd ? toYMD(nd) : null);
+      const venceHoje = nd != null && toYMD(nd) === getBrazilDate();
+      return { b, wd, falta: remaining(b), venceHoje };
+    })
+    .filter((x) => x.venceHoje || (x.wd <= 2 && x.falta > 20))
+    .sort((a, z) => (Number(z.venceHoje) - Number(a.venceHoje)) || (a.wd - z.wd) || (z.falta - a.falta));
+  const venceHojeCount = contasUrgentes.filter((x) => x.venceHoje).length;
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -1761,53 +1765,55 @@ export default function Finances() {
         </Card>
       )}
 
-      {/* Aviso: contas apertadas (vencem logo) puxam o "a guardar hoje" pra cima */}
-      {!isLoadingData && contasApertadas.length > 0 && (
-        <Card className="bg-warning/5 border border-warning/30 rounded-2xl">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">Contas apertadas puxam o valor a guardar</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                  Vencem em poucos dias úteis e ainda falta juntar — por isso o "a guardar" do próximo dia útil sobe. Se der, pague ou adiante uma delas pra aliviar:
+      {/* Contas urgentes (vencem HOJE + apertadas) — bloco ÚNICO, abre/fecha no botão */}
+      {!isLoadingData && contasUrgentes.length > 0 && (
+        <Card className={`rounded-2xl border ${venceHojeCount > 0 ? "bg-destructive/5 border-destructive/40" : "bg-warning/5 border-warning/30"}`}>
+          <CardContent className="p-0">
+            <button
+              type="button"
+              onClick={() => setUrgentesAberto((v) => !v)}
+              className="w-full flex items-center gap-2 p-4 text-left"
+            >
+              <AlertTriangle className={`w-4 h-4 shrink-0 ${venceHojeCount > 0 ? "text-destructive" : "text-warning"}`} />
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-semibold ${venceHojeCount > 0 ? "text-destructive" : "text-foreground"}`}>
+                  {venceHojeCount > 0 ? "Contas pra pagar já" : "Contas apertadas"}
                 </p>
-                <div className="mt-2 space-y-1">
-                  {contasApertadas.map(({ b, wd, falta }) => (
-                    <div key={b.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="truncate text-foreground">{b.name} <span className="text-warning">· vence em {wd} {wd === 1 ? "dia útil" : "dias úteis"}</span></span>
-                      <span className="font-bold text-foreground tabular-nums shrink-0">{formatCurrency(falta)}</span>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {venceHojeCount > 0 ? `${venceHojeCount} vence${venceHojeCount === 1 ? "" : "m"} hoje` : ""}
+                  {venceHojeCount > 0 && contasUrgentes.length > venceHojeCount ? " · " : ""}
+                  {contasUrgentes.length > venceHojeCount ? `${contasUrgentes.length - venceHojeCount} apertada${contasUrgentes.length - venceHojeCount === 1 ? "" : "s"}` : ""}
+                  {" · toque pra ver"}
+                </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* VENCE HOJE — precisa pagar hoje pra não pegar juros/multa */}
-      {!isLoadingData && contasVenceHojeLista.length > 0 && (
-        <Card className="bg-destructive/5 border border-destructive/40 rounded-2xl">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-              <p className="text-sm font-semibold text-destructive">Vence HOJE — pague hoje</p>
-            </div>
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Se passar de hoje, pode pegar juros/multa (principalmente cartão). Pague ainda hoje:
-            </p>
-            <div className="space-y-1">
-              {contasVenceHojeLista.map((b) => (
-                <div key={b.id} className="flex items-center justify-between gap-2 rounded-lg bg-background border border-destructive/20 px-3 py-2">
-                  <span className="text-sm font-semibold truncate">
-                    {b.name}
-                    {b.risco === "alto" && <span className="ml-1.5 text-[10px] font-bold uppercase text-destructive">· risco alto</span>}
-                  </span>
-                  <span className="text-sm font-bold text-destructive tabular-nums shrink-0">{formatCurrency(remaining(b))}</span>
-                </div>
-              ))}
-            </div>
+              <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${urgentesAberto ? "rotate-180" : ""}`} />
+            </button>
+            {urgentesAberto && (
+              <div className="px-4 pb-4 space-y-2">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  As que vencem hoje: pague ainda hoje pra não pegar juros/multa (principalmente cartão). As apertadas vencem em poucos dias úteis e ainda falta juntar — por isso o "a guardar" sobe. Se der, adiante uma delas.
+                </p>
+                {contasUrgentes.map(({ b, wd, falta, venceHoje }) => (
+                  <div
+                    key={b.id}
+                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${venceHoje ? "bg-background border-destructive/30" : "bg-background/60 border-warning/30"}`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {b.name}
+                        {b.risco === "alto" && <span className="ml-1.5 text-[10px] font-bold uppercase text-destructive">· risco alto</span>}
+                      </p>
+                      <p className={`text-[11px] ${venceHoje ? "text-destructive font-semibold" : "text-warning"}`}>
+                        {venceHoje ? "vence HOJE · pague hoje" : `vence em ${wd} ${wd === 1 ? "dia útil" : "dias úteis"}`}
+                      </p>
+                    </div>
+                    <span className={`text-sm font-bold tabular-nums shrink-0 ${venceHoje ? "text-destructive" : "text-foreground"}`}>
+                      {formatCurrency(falta)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
