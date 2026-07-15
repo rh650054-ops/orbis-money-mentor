@@ -9,7 +9,6 @@ import { MoneyInput } from "@/shared/ui/money-input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Label } from "@/shared/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
-import { Switch } from "@/shared/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useToast } from "@/shared/hooks/use-toast";
 import { Skeleton } from "@/shared/ui/skeleton";
@@ -112,6 +111,11 @@ export default function Finances() {
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // Guarda o último "Guardei tudo" pra poder DESFAZER (reverte contas, metas e o guardado de hoje).
+  const [ultimoGuardei, setUltimoGuardei] = useState<
+    | { billDeltas: { id: string; delta: number }[]; goalDeltas: { id: string; delta: number; prevStatus: string }[]; savedHojeDelta: number }
+    | null
+  >(null);
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
 
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
@@ -129,7 +133,7 @@ export default function Finances() {
     cardMode: "total" as "total" | "parcela",
     installments: "",
     risco: "medio" as "baixo" | "medio" | "alto",
-    tipoTempo: "fixa" as "fixa" | "duracao", // conta fixa (todo mês) ou com duração (N meses)
+    tipoTempo: "fixa" as "fixa" | "duracao" | "unica", // fixa (todo mês) / com duração (N meses) / única (uma vez só)
     durationMonths: "",
   });
 
@@ -189,7 +193,7 @@ export default function Finances() {
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
-  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto", tipoTempo: "fixa" as "fixa" | "duracao", durationMonths: "" });
+  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto", tipoTempo: "fixa" as "fixa" | "duracao" | "unica", durationMonths: "" });
 
   // Anexo de boleto: id da conta cujo arquivo está subindo (spinner/disabled)
   const [uploadingBillId, setUploadingBillId] = useState<string | null>(null);
@@ -391,10 +395,9 @@ export default function Finances() {
       ? parseFloat(newBill.amount) / parcelas
       : parseFloat(newBill.amount);
 
-    // Duração: só quando o usuário escolhe "com duração" (conta normal). Fixa/cartão → null
-    // (cartão fica fixo por padrão; dá pra marcar duração depois na edição, se for parcelado).
+    // Duração: só quando "com duração". Fixa/única → null.
     const durMeses = parseInt(newBill.durationMonths) || 0;
-    const duration_months = !newBill.isCreditCard && newBill.tipoTempo === "duracao" && durMeses > 0 ? durMeses : null;
+    const duration_months = newBill.tipoTempo === "duracao" && durMeses > 0 ? durMeses : null;
 
     try {
       const { error } = await supabase
@@ -406,8 +409,8 @@ export default function Finances() {
           due_date: newBill.due_date || null,
           saved_amount: 0,
           paid: false,
-          // Fixa e com duração repetem todo mês (cartão idem). Duração acaba via cycles_paid.
-          recurring: true,
+          // Fixa/duração repetem todo mês; ÚNICA = pagamento único (não recorrente, some ao pagar).
+          recurring: newBill.tipoTempo !== "unica",
           payment_code: newBill.payment_code.trim() || null,
           file_path: null,
           is_credit_card: newBill.isCreditCard,
@@ -514,7 +517,7 @@ export default function Finances() {
       recurring: Boolean(bill.recurring),
       payment_code: bill.payment_code ?? "",
       risco: (bill.risco as "baixo" | "medio" | "alto") || "medio",
-      tipoTempo: bill.duration_months != null ? "duracao" : "fixa",
+      tipoTempo: bill.duration_months != null ? "duracao" : !bill.recurring ? "unica" : "fixa",
       durationMonths: bill.duration_months != null ? String(bill.duration_months) : "",
     });
   };
@@ -537,7 +540,7 @@ export default function Finances() {
           name: editBillForm.name,
           amount: parseFloat(editBillForm.amount),
           due_date: editBillForm.due_date || null,
-          recurring: editBillForm.recurring,
+          recurring: editBillForm.tipoTempo !== "unica",
           payment_code: editBillForm.payment_code.trim() || null,
           risco: editBillForm.risco,
           duration_months: editBillForm.tipoTempo === "duracao" && (parseInt(editBillForm.durationMonths) || 0) > 0
@@ -1338,6 +1341,8 @@ export default function Finances() {
   const handleGuardeiTudo = async () => {
     if (!user || totalGuardarHoje <= 0) return;
     try {
+      const billDeltas: { id: string; delta: number }[] = [];
+      const goalDeltas: { id: string; delta: number; prevStatus: string }[] = [];
       for (const bill of bills) {
         const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
         if (quitada || isOverdue(bill) || !todayIsWorkDay) continue;
@@ -1347,6 +1352,7 @@ export default function Finances() {
             .from("planned_bills")
             .update({ saved_amount: Number(bill.saved_amount) + add })
             .eq("id", bill.id);
+          billDeltas.push({ id: bill.id, delta: add });
         }
       }
       for (const goal of goals) {
@@ -1357,15 +1363,56 @@ export default function Finances() {
             .from("financial_goals")
             .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
             .eq("id", goal.id);
+          goalDeltas.push({ id: goal.id, delta: share, prevStatus: goal.status });
         }
       }
-      registrarGuardadoHoje(restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje);
+      const savedHojeDelta = restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje;
+      registrarGuardadoHoje(savedHojeDelta);
       try { localStorage.setItem("orbis_last_save_date", getBrazilDate()); } catch { /* ignore */ }
       setSavedToday(true);
+      setUltimoGuardei({ billDeltas, goalDeltas, savedHojeDelta });
       toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(totalGuardarHoje)} guardado.` });
       loadFinancialData();
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
+    }
+  };
+
+  // DESFAZER o último "Guardei tudo": tira das contas/metas exatamente o que foi somado
+  // e reverte o "guardado hoje". Só funciona na mesma sessão (não sobrevive a recarregar).
+  const handleDesfazerGuardei = async () => {
+    if (!user || !ultimoGuardei) return;
+    try {
+      for (const { id, delta } of ultimoGuardei.billDeltas) {
+        const bill = bills.find((b) => b.id === id);
+        if (bill) {
+          await supabase
+            .from("planned_bills")
+            .update({ saved_amount: Math.max(0, Number(bill.saved_amount) - delta) })
+            .eq("id", id);
+        }
+      }
+      for (const { id, delta, prevStatus } of ultimoGuardei.goalDeltas) {
+        const goal = goals.find((g) => g.id === id);
+        if (goal) {
+          await supabase
+            .from("financial_goals")
+            .update({ current_amount: Math.max(0, Number(goal.current_amount) - delta), status: prevStatus || "active" })
+            .eq("id", id);
+        }
+      }
+      const novoSaved = Math.max(0, savedTodayAmount - ultimoGuardei.savedHojeDelta);
+      setSavedTodayAmount(novoSaved);
+      try {
+        localStorage.setItem("orbis_guardar_saved", String(novoSaved));
+        localStorage.removeItem("orbis_last_save_date");
+      } catch { /* ignore */ }
+      setSavedToday(false);
+      setUltimoGuardei(null);
+      toast({ title: "Desfeito", description: "O 'guardei tudo' foi revertido." });
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao desfazer", variant: "destructive" });
     }
   };
 
@@ -1516,6 +1563,13 @@ export default function Finances() {
     .map((b) => ({ b, wd: workingDaysUntil(nextDueDate(b) ? toYMD(nextDueDate(b)!) : null), falta: remaining(b) }))
     .filter((x) => x.wd <= 2 && x.falta > 20)
     .sort((a, z) => a.wd - z.wd || z.falta - a.falta);
+
+  // Contas que VENCEM HOJE — precisa pagar hoje pra não pegar juros/multa.
+  const contasVenceHojeLista = bills.filter((b) => {
+    if (b.paid || Number(b.saved_amount) >= Number(b.amount) || isOverdue(b)) return false;
+    const nd = nextDueDate(b);
+    return nd != null && toYMD(nd) === getBrazilDate();
+  });
 
   return (
     <div className="space-y-6 pb-4 md:pb-8">
@@ -1681,6 +1735,32 @@ export default function Finances() {
         </Card>
       )}
 
+      {/* VENCE HOJE — precisa pagar hoje pra não pegar juros/multa */}
+      {!isLoadingData && contasVenceHojeLista.length > 0 && (
+        <Card className="bg-destructive/5 border border-destructive/40 rounded-2xl">
+          <CardContent className="p-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
+              <p className="text-sm font-semibold text-destructive">Vence HOJE — pague hoje</p>
+            </div>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Se passar de hoje, pode pegar juros/multa (principalmente cartão). Pague ainda hoje:
+            </p>
+            <div className="space-y-1">
+              {contasVenceHojeLista.map((b) => (
+                <div key={b.id} className="flex items-center justify-between gap-2 rounded-lg bg-background border border-destructive/20 px-3 py-2">
+                  <span className="text-sm font-semibold truncate">
+                    {b.name}
+                    {b.risco === "alto" && <span className="ml-1.5 text-[10px] font-bold uppercase text-destructive">· risco alto</span>}
+                  </span>
+                  <span className="text-sm font-bold text-destructive tabular-nums shrink-0">{formatCurrency(remaining(b))}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Vencidas — lista detalhada: o que venceu, quanto já tem guardado e quanto FALTA */}
       {!isLoadingData && overdueBills.length > 0 && (
         <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
@@ -1777,6 +1857,16 @@ export default function Finances() {
             Guardei outro valor
           </button>
         </div>
+      )}
+
+      {/* Desfazer o último "Guardei tudo" (caso tenha apertado sem querer) */}
+      {!isLoadingData && ultimoGuardei && (
+        <button
+          onClick={handleDesfazerGuardei}
+          className="w-full h-11 rounded-2xl bg-card border border-border text-muted-foreground hover:text-foreground font-semibold text-sm active:scale-[0.98] transition flex items-center justify-center gap-2"
+        >
+          <RotateCw className="w-4 h-4" /> Desfazer "Guardei tudo"
+        </button>
       )}
 
       {/* Próximos dias — projeção de quanto guardar (contas) nos dias que vêm */}
@@ -2114,45 +2204,39 @@ export default function Finances() {
                     />
                   </div>
 
-                  {/* Fixa vs Com duração: só conta normal (cartão usa as parcelas como duração) */}
-                  {!newBill.isCreditCard && (
-                    <div className="space-y-2">
-                      <Label>A conta é fixa ou tem duração?</Label>
-                      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                  {/* Fixa / Com duração / Única — vale pra conta normal E cartão */}
+                  <div className="space-y-2">
+                    <Label>Essa conta se repete?</Label>
+                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
+                      {(["fixa", "duracao", "unica"] as const).map((t) => (
                         <button
+                          key={t}
                           type="button"
-                          onClick={() => setNewBill({ ...newBill, tipoTempo: "fixa" })}
-                          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${newBill.tipoTempo === "fixa" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                          onClick={() => setNewBill({ ...newBill, tipoTempo: t })}
+                          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${newBill.tipoTempo === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
                         >
-                          Fixa (todo mês)
+                          {t === "fixa" ? "Fixa (todo mês)" : t === "duracao" ? "Com duração" : "Única (1 vez)"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewBill({ ...newBill, tipoTempo: "duracao" })}
-                          className={`py-2 rounded-lg text-sm font-semibold transition-colors ${newBill.tipoTempo === "duracao" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                        >
-                          Com duração
-                        </button>
-                      </div>
-                      {newBill.tipoTempo === "duracao" && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm text-muted-foreground">Dura</span>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={newBill.durationMonths}
-                            onChange={(e) => setNewBill({ ...newBill, durationMonths: e.target.value })}
-                            placeholder="12"
-                            className="w-20"
-                          />
-                          <span className="text-sm text-muted-foreground">meses e acaba</span>
-                        </div>
-                      )}
-                      <p className="text-[11px] text-muted-foreground">
-                        Fixa = todo mês pra sempre (aluguel, assinatura). Com duração = acaba depois de X meses (financiamento, curso).
-                      </p>
+                      ))}
                     </div>
-                  )}
+                    {newBill.tipoTempo === "duracao" && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">Dura</span>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={newBill.durationMonths}
+                          onChange={(e) => setNewBill({ ...newBill, durationMonths: e.target.value })}
+                          placeholder="12"
+                          className="w-20"
+                        />
+                        <span className="text-sm text-muted-foreground">meses e acaba</span>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-muted-foreground">
+                      Fixa = todo mês pra sempre. Com duração = acaba depois de X meses (financiamento). <b className="text-foreground">Única</b> = aparece só uma vez; depois de pagar, some (não volta no mês seguinte).
+                    </p>
+                  </div>
 
                   {/* Risco se atrasar — orienta a urgência quando vence (cartão sugere Alto). */}
                   <div className="space-y-2">
@@ -2268,6 +2352,8 @@ export default function Finances() {
                 // "Apertada": vence em poucos dias úteis e ainda falta bastante — é o que
                 // faz o "a guardar hoje" subir. Avisa em vez de só empilhar o valor num dia.
                 const apertada = !overdue && !quitada && remainingValue > 20 && workDaysLeft <= 2;
+                // Vence HOJE — precisa pagar hoje pra não pegar juros/multa.
+                const venceHoje = !overdue && !quitada && nextDue != null && toYMD(nextDue) === getBrazilDate();
 
                 return (
                   <Card
@@ -2323,7 +2409,13 @@ export default function Finances() {
                                   {ciclosPagos}/{bill.duration_months} pagas
                                 </span>
                               )}
-                              {apertada && (
+                              {venceHoje && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 border border-destructive/40 px-2 py-0.5 text-[10px] font-bold uppercase text-destructive">
+                                  <AlertTriangle className="w-3 h-3" />
+                                  Vence hoje · pague hoje
+                                </span>
+                              )}
+                              {apertada && !venceHoje && (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-warning/10 border border-warning/30 px-2 py-0.5 text-[10px] font-bold uppercase text-warning">
                                   <AlertTriangle className="w-3 h-3" />
                                   Aperta · vence em {workDaysLeft} {workDaysLeft === 1 ? "dia útil" : "dias úteis"}
@@ -3045,28 +3137,17 @@ export default function Finances() {
                 onChange={(e) => setEditBillForm({ ...editBillForm, due_date: e.target.value })}
               />
             </div>
-            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-              <div className="min-w-0 pr-3">
-                <Label htmlFor="edit-bill-recurring" className="cursor-pointer">Conta recorrente (todo mês)</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Repete todo mês no mesmo dia de vencimento.</p>
-              </div>
-              <Switch
-                id="edit-bill-recurring"
-                checked={editBillForm.recurring}
-                onCheckedChange={(checked) => setEditBillForm({ ...editBillForm, recurring: checked })}
-              />
-            </div>
             <div className="space-y-2">
-              <Label>A conta é fixa ou tem duração?</Label>
-              <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
-                {(["fixa", "duracao"] as const).map((t) => (
+              <Label>Essa conta se repete?</Label>
+              <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
+                {(["fixa", "duracao", "unica"] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setEditBillForm({ ...editBillForm, tipoTempo: t })}
-                    className={`py-2 rounded-lg text-sm font-semibold transition-colors ${editBillForm.tipoTempo === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                    className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${editBillForm.tipoTempo === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
                   >
-                    {t === "fixa" ? "Fixa (todo mês)" : "Com duração"}
+                    {t === "fixa" ? "Fixa (todo mês)" : t === "duracao" ? "Com duração" : "Única (1 vez)"}
                   </button>
                 ))}
               </div>
@@ -3084,6 +3165,9 @@ export default function Finances() {
                   <span className="text-sm text-muted-foreground">meses e acaba</span>
                 </div>
               )}
+              <p className="text-[11px] text-muted-foreground">
+                <b className="text-foreground">Única</b> = some depois de pagar (não volta no mês seguinte).
+              </p>
             </div>
             <div className="space-y-2">
               <Label>Risco se atrasar</Label>
