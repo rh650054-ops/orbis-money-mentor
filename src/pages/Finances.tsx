@@ -136,6 +136,9 @@ export default function Finances() {
     risco: "medio" as "baixo" | "medio" | "alto",
     tipoTempo: "fixa" as "fixa" | "duracao" | "unica", // fixa (todo mês) / com duração (N meses) / única (uma vez só)
     durationMonths: "",
+    // Cartão "fatura aberta": entra com R$0 e fica parado (sem pedir pra guardar)
+    // até você lançar uma compra nele.
+    faturaAberta: false,
   });
 
   // Form states for new goal
@@ -195,7 +198,7 @@ export default function Finances() {
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
-  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto", tipoTempo: "fixa" as "fixa" | "duracao" | "unica", durationMonths: "" });
+  const [editBillForm, setEditBillForm] = useState({ name: "", amount: "", savedAmount: "", due_date: "", recurring: false, payment_code: "", risco: "medio" as "baixo" | "medio" | "alto", tipoTempo: "fixa" as "fixa" | "duracao" | "unica", durationMonths: "" });
 
   // Anexo de boleto: id da conta cujo arquivo está subindo (spinner/disabled)
   const [uploadingBillId, setUploadingBillId] = useState<string | null>(null);
@@ -377,23 +380,27 @@ export default function Finances() {
   };
 
   const handleAddBill = async () => {
-    if (!user || !newBill.name || !newBill.amount) {
+    // Cartão em "fatura aberta" entra sem valor (R$0) — só o nome é obrigatório.
+    const faturaAberta = newBill.isCreditCard && newBill.faturaAberta;
+    if (!user || !newBill.name || (!faturaAberta && !newBill.amount)) {
       toast({
         title: "Campos obrigatórios",
-        description: "Preencha o nome e o valor da conta",
+        description: faturaAberta ? "Preencha o nome do cartão" : "Preencha o nome e o valor da conta",
         variant: "destructive"
       });
       return;
     }
 
     const parcelas = parseInt(newBill.installments) || 0;
-    if (newBill.isCreditCard && newBill.cardMode === "total" && parcelas < 1) {
+    if (!faturaAberta && newBill.isCreditCard && newBill.cardMode === "total" && parcelas < 1) {
       toast({ title: "Informe as parcelas", description: "No cartão por total, diga em quantas vezes dividiu.", variant: "destructive" });
       return;
     }
-    // Valor MENSAL no planejamento: cartão por total → divide pelas parcelas;
-    // por parcela → é o próprio valor. Cartão é sempre recorrente.
-    const monthly = newBill.isCreditCard && newBill.cardMode === "total"
+    // Valor MENSAL no planejamento: fatura aberta → 0 (fica parado até lançar uma compra);
+    // cartão por total → divide pelas parcelas; por parcela → é o próprio valor.
+    const monthly = faturaAberta
+      ? 0
+      : newBill.isCreditCard && newBill.cardMode === "total"
       ? parseFloat(newBill.amount) / parcelas
       : parseFloat(newBill.amount);
 
@@ -416,7 +423,7 @@ export default function Finances() {
           payment_code: newBill.payment_code.trim() || null,
           file_path: null,
           is_credit_card: newBill.isCreditCard,
-          installments: newBill.isCreditCard && parcelas > 0 ? parcelas : null,
+          installments: !faturaAberta && newBill.isCreditCard && parcelas > 0 ? parcelas : null,
           risco: newBill.risco,
           duration_months,
           cycles_paid: 0,
@@ -429,7 +436,7 @@ export default function Finances() {
         description: `${newBill.name} entrou no seu planejamento`,
       });
 
-      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "", risco: "medio", tipoTempo: "fixa", durationMonths: "" });
+      setNewBill({ name: "", amount: "", due_date: "", recurring: false, payment_code: "", isCreditCard: false, cardMode: "total", installments: "", risco: "medio", tipoTempo: "fixa", durationMonths: "", faturaAberta: false });
       setIsAddBillOpen(false);
       loadFinancialData();
     } catch (error) {
@@ -515,6 +522,7 @@ export default function Finances() {
     setEditBillForm({
       name: bill.name,
       amount: String(bill.amount ?? ""),
+      savedAmount: String(bill.saved_amount ?? 0),
       due_date: bill.due_date ?? "",
       recurring: Boolean(bill.recurring),
       payment_code: bill.payment_code ?? "",
@@ -527,7 +535,9 @@ export default function Finances() {
   // Salva a edição: atualiza nome, valor e vencimento da conta
   const handleSaveEditBill = async () => {
     if (!editBill) return;
-    if (!editBillForm.name || !editBillForm.amount) {
+    // Cartão pode ficar em R$0 ("fatura aberta") — pra ele o valor não é obrigatório.
+    const podeZerar = Boolean(editBill.is_credit_card);
+    if (!editBillForm.name || (!podeZerar && !editBillForm.amount)) {
       toast({
         title: "Campos obrigatórios",
         description: "Preencha o nome e o valor da conta",
@@ -536,11 +546,16 @@ export default function Finances() {
       return;
     }
     try {
+      const novoAmount = parseFloat(editBillForm.amount) || 0;
+      // Já guardado: nunca negativo e nunca maior que o valor da conta (senão a conta
+      // ficaria "quitada" por engano). O "guardar por dia" é derivado disso — recalcula sozinho.
+      const novoSaved = Math.max(0, Math.min(parseFloat(editBillForm.savedAmount) || 0, novoAmount));
       const { error } = await supabase
         .from("planned_bills")
         .update({
           name: editBillForm.name,
-          amount: parseFloat(editBillForm.amount),
+          amount: novoAmount,
+          saved_amount: novoSaved,
           due_date: editBillForm.due_date || null,
           recurring: editBillForm.tipoTempo !== "unica",
           payment_code: editBillForm.payment_code.trim() || null,
@@ -926,6 +941,12 @@ export default function Finances() {
         const base = new Date();
         return new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0, 0);
       }
+      // Se a data cadastrada ainda NÃO chegou (ex.: cadastrou hoje 15/07 com vencimento
+      // 20/08), o primeiro vencimento é ela mesma — não o dia 20 deste mês. Sem isso a
+      // tela mostrava um mês diferente do que a pessoa digitou.
+      if (bill.due_date > getBrazilDate()) {
+        return new Date(bill.due_date + "T12:00:00");
+      }
       const dueDay = Number(bill.due_date.slice(8, 10)); // dia-do-mês do due_date (1–31)
       const now = new Date();
       const cicloAtual = getBrazilDate().slice(0, 7);
@@ -956,6 +977,9 @@ export default function Finances() {
       // Já paga este ciclo → não está vencida (já está juntando pro próximo mês).
       const cicloAtual = getBrazilDate().slice(0, 7);
       if (bill.paid_cycle === cicloAtual) return false;
+      // Vencimento cadastrado ainda no futuro → não venceu (senão um cartão criado hoje
+      // com vencimento pro mês que vem já nascia "vencido" só por causa do dia do mês).
+      if (bill.due_date > getBrazilDate()) return false;
       const dueDay = Number(bill.due_date.slice(8, 10));
       return new Date().getDate() > dueDay;
     }
@@ -2198,8 +2222,36 @@ export default function Finances() {
                     />
                   </div>
 
-                  {/* Cartão: digitar o total ou a parcela */}
+                  {/* Cartão: já tem compra lançada OU fatura aberta (fica em R$0 até surgir algo) */}
                   {newBill.isCreditCard && (
+                    <div className="space-y-2">
+                      <Label>Já tem alguma compra nesse cartão?</Label>
+                      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                        <button
+                          type="button"
+                          onClick={() => setNewBill({ ...newBill, faturaAberta: false })}
+                          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${!newBill.faturaAberta ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                        >
+                          Sim, tem valor
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setNewBill({ ...newBill, faturaAberta: true })}
+                          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${newBill.faturaAberta ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                        >
+                          Ainda não (R$0)
+                        </button>
+                      </div>
+                      {newBill.faturaAberta && (
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">
+                          O cartão entra em <span className="font-semibold text-foreground">R$0</span> e fica parado: não pede pra guardar nem conta como vencido. Quando você comprar algo nele, é só lançar o valor.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Cartão: digitar o total ou a parcela */}
+                  {newBill.isCreditCard && !newBill.faturaAberta && (
                     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
                       <button
                         type="button"
@@ -2218,31 +2270,33 @@ export default function Finances() {
                     </div>
                   )}
 
-                  <div className={newBill.isCreditCard ? "flex gap-3" : "space-y-2"}>
-                    <div className="space-y-2 flex-1 min-w-0">
-                      <Label>{newBill.isCreditCard ? (newBill.cardMode === "total" ? "Total (R$)" : "Parcela (R$)") : "Valor (R$)"}</Label>
-                      <MoneyInput
-                        value={parseFloat(newBill.amount) || 0}
-                        onChange={(n) => setNewBill({ ...newBill, amount: n ? String(n) : "" })}
-                        placeholder="0,00"
-                      />
-                    </div>
-                    {newBill.isCreditCard && (
-                      <div className="space-y-2 w-24 shrink-0">
-                        <Label>Parcelas</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={newBill.installments}
-                          onChange={(e) => setNewBill({ ...newBill, installments: e.target.value })}
-                          placeholder="6"
+                  {!(newBill.isCreditCard && newBill.faturaAberta) && (
+                    <div className={newBill.isCreditCard ? "flex gap-3" : "space-y-2"}>
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <Label>{newBill.isCreditCard ? (newBill.cardMode === "total" ? "Total (R$)" : "Parcela (R$)") : "Valor (R$)"}</Label>
+                        <MoneyInput
+                          value={parseFloat(newBill.amount) || 0}
+                          onChange={(n) => setNewBill({ ...newBill, amount: n ? String(n) : "" })}
+                          placeholder="0,00"
                         />
                       </div>
-                    )}
-                  </div>
+                      {newBill.isCreditCard && (
+                        <div className="space-y-2 w-24 shrink-0">
+                          <Label>Parcelas</Label>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={newBill.installments}
+                            onChange={(e) => setNewBill({ ...newBill, installments: e.target.value })}
+                            placeholder="6"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Prévia do cartão */}
-                  {newBill.isCreditCard && parseFloat(newBill.amount) > 0 && (() => {
+                  {newBill.isCreditCard && !newBill.faturaAberta && parseFloat(newBill.amount) > 0 && (() => {
                     const parc = parseInt(newBill.installments) || 0;
                     const monthly = newBill.cardMode === "total" && parc > 0 ? parseFloat(newBill.amount) / parc : parseFloat(newBill.amount);
                     return (
@@ -2375,7 +2429,10 @@ export default function Finances() {
                 const saved = Number(bill.saved_amount) || 0;
                 const remainingValue = remaining(bill);
                 const progress = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
-                const quitada = bill.paid || saved >= amount;
+                // Cartão em "fatura aberta": está em R$0 esperando você lançar uma compra.
+                // NÃO é conta quitada — fica parado, sem pedir pra guardar e sem vencer.
+                const faturaAberta = Boolean(bill.is_credit_card) && amount <= 0 && !bill.paid;
+                const quitada = bill.paid || (amount > 0 && saved >= amount);
                 // "Pode pagar": já guardou tudo, mas ainda não marcou como paga.
                 const canPay = !bill.paid && amount > 0 && saved >= amount;
                 const hasFile = Boolean(bill.file_path && bill.file_path.trim() !== "");
@@ -2410,7 +2467,7 @@ export default function Finances() {
                 // faz o "a guardar hoje" subir. Avisa em vez de só empilhar o valor num dia.
                 const apertada = !overdue && !quitada && remainingValue > 20 && workDaysLeft <= 2;
                 // Vence HOJE — precisa pagar hoje pra não pegar juros/multa.
-                const venceHoje = !overdue && !quitada && nextDue != null && toYMD(nextDue) === getBrazilDate();
+                const venceHoje = !overdue && !quitada && !faturaAberta && nextDue != null && toYMD(nextDue) === getBrazilDate();
 
                 return (
                   <Card
@@ -2450,7 +2507,12 @@ export default function Finances() {
                                   Recorrente
                                 </span>
                               )}
-                              {bill.risco === "alto" && !pagoEsteCiclo && (
+                              {faturaAberta && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-muted border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  Aguardando lançamento
+                                </span>
+                              )}
+                              {bill.risco === "alto" && !pagoEsteCiclo && !faturaAberta && (
                                 <span className="inline-flex items-center rounded-full bg-destructive/15 border border-destructive/40 px-2 py-0.5 text-[10px] font-bold uppercase text-destructive">
                                   Risco alto
                                 </span>
@@ -2519,6 +2581,22 @@ export default function Finances() {
                         <div className="bg-success/10 border border-success/20 rounded-lg p-2.5 flex items-center justify-center gap-2">
                           <Check className="w-4 h-4 text-success" />
                           <p className="text-success font-semibold text-sm">Quitada ✓</p>
+                        </div>
+                      ) : faturaAberta ? (
+                        <div className="rounded-lg bg-muted/50 border border-border px-3 py-3 space-y-2.5">
+                          <div className="flex items-start gap-2">
+                            <CreditCard className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                            <div className="min-w-0">
+                              <p className="text-sm font-bold text-foreground">Fatura aberta — R$ 0,00</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Está parado: não pede pra guardar nem conta como vencido. Comprou algo nesse cartão? Lance o valor que ele entra no planejamento.
+                              </p>
+                            </div>
+                          </div>
+                          <Button size="sm" onClick={() => openEditBill(bill)} className="w-full">
+                            <Plus className="w-4 h-4 mr-1.5" />
+                            Lançar valor da fatura
+                          </Button>
                         </div>
                       ) : canPay ? (
                         <div className="rounded-lg bg-success/10 border border-success/30 px-3 py-3 space-y-2.5">
@@ -3185,6 +3263,32 @@ export default function Finances() {
                 onChange={(n) => setEditBillForm({ ...editBillForm, amount: n ? String(n) : "" })}
                 placeholder="0,00"
               />
+              {editBill?.is_credit_card && (parseFloat(editBillForm.amount) || 0) === 0 && (
+                <p className="text-[11px] text-muted-foreground">
+                  Em R$0 o cartão fica parado (fatura aberta): não pede pra guardar nem vence.
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label>Já guardado (R$)</Label>
+              <MoneyInput
+                value={parseFloat(editBillForm.savedAmount) || 0}
+                onChange={(n) => setEditBillForm({ ...editBillForm, savedAmount: n ? String(n) : "" })}
+                placeholder="0,00"
+              />
+              {(() => {
+                const amt = parseFloat(editBillForm.amount) || 0;
+                const sav = Math.max(0, Math.min(parseFloat(editBillForm.savedAmount) || 0, amt));
+                const falta = Math.max(0, amt - sav);
+                const dias = editBill ? Math.max(1, workingDaysUntil(nextDueDate(editBill) ? toYMD(nextDueDate(editBill)!) : null)) : 1;
+                return (
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Ajuste aqui o que você realmente tem guardado pra essa conta. Faltam{" "}
+                    <span className="font-semibold text-foreground">{formatCurrency(falta)}</span> — dá{" "}
+                    <span className="font-semibold text-primary">{formatCurrency(falta / dias)}</span> por dia útil até o vencimento.
+                  </p>
+                );
+              })()}
             </div>
             <div className="space-y-2">
               <Label>Data de vencimento</Label>
