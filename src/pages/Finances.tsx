@@ -72,6 +72,7 @@ interface Goal {
   icon: string;
   percentual_distribuicao?: number;
   prazo?: string; // 'curto' | 'medio' | 'longo'
+  created_at?: string; // usado pra achar a data-alvo quando a meta não tem deadline
 }
 
 interface FinancialSummary {
@@ -122,6 +123,10 @@ export default function Finances() {
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
   const [workingDays, setWorkingDays] = useState<string[]>([]);
   const [weeklyWorkDays, setWeeklyWorkDays] = useState<number>(0);
+  // Como as metas entram no "a guardar hoje":
+  //  "sobra" (padrão) = contas primeiro; a meta fica com o que sobrar do líquido do dia.
+  //  "junto" = a meta pede um valor próprio por dia, somado ao das contas.
+  const [metasModo, setMetasModo] = useState<"sobra" | "junto">("sobra");
 
   // Form state for new planned bill (Contas a pagar)
   const [newBill, setNewBill] = useState({
@@ -273,13 +278,14 @@ export default function Finances() {
       // Dias de trabalho do perfil (pra dividir "guardar por dia" só nos dias úteis)
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("working_days, weekly_work_days")
+        .select("working_days, weekly_work_days, metas_modo")
         .eq("user_id", user.id)
         .maybeSingle();
       setWorkingDays(
         Array.isArray(profileData?.working_days) ? (profileData!.working_days as string[]) : []
       );
       setWeeklyWorkDays(Number(profileData?.weekly_work_days) || 0);
+      setMetasModo(profileData?.metas_modo === "junto" ? "junto" : "sobra");
 
       // Calculate financial summary
       const now = new Date();
@@ -533,6 +539,21 @@ export default function Finances() {
   };
 
   // Salva a edição: atualiza nome, valor e vencimento da conta
+  // Troca o modo das metas (contas primeiro × junto com as contas) e salva no perfil.
+  const handleSaveMetasModo = async (modo: "sobra" | "junto") => {
+    if (!user) return;
+    setMetasModo(modo);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ metas_modo: modo } as never)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    } catch {
+      toast({ title: "Erro ao salvar preferência", variant: "destructive" });
+    }
+  };
+
   const handleSaveEditBill = async () => {
     if (!editBill) return;
     // Cartão pode ficar em R$0 ("fatura aberta") — pra ele o valor não é obrigatório.
@@ -929,6 +950,51 @@ export default function Finances() {
   const toYMD = (d: Date): string =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+  // Soma N DIAS DE TRABALHO a uma data (pula os dias de descanso do perfil).
+  const somarDiasUteis = (inicio: Date, n: number): Date => {
+    const weekdayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const cursor = new Date(inicio);
+    cursor.setHours(12, 0, 0, 0);
+    if (!workingDays || workingDays.length === 0) {
+      // Sem escala definida: estima pelos dias por semana (ou dias corridos).
+      const fator = weeklyWorkDays > 0 ? 7 / weeklyWorkDays : 1;
+      cursor.setDate(cursor.getDate() + Math.ceil(n * fator));
+      return cursor;
+    }
+    let restantes = n;
+    let guard = 0;
+    while (restantes > 0 && guard < 4000) {
+      cursor.setDate(cursor.getDate() + 1);
+      if (workingDays.includes(weekdayNames[cursor.getDay()])) restantes--;
+      guard++;
+    }
+    return cursor;
+  };
+
+  // Horizonte (em DIAS DE TRABALHO) de cada prazo — vira a data-alvo da meta.
+  const horizontePrazo = (p?: string): number => (p === "curto" ? 20 : p === "longo" ? 132 : 66);
+
+  // Data-alvo da meta: a deadline se ela tiver; senão, a data de criação + o horizonte
+  // do prazo. É ela que faz o valor por dia ACUMULAR sozinho: se você não guarda hoje,
+  // amanhã sobram menos dias pro mesmo "falta" → o valor por dia sobe.
+  const fimPrazoMeta = (goal: Goal): string | null => {
+    if (goal.deadline) return goal.deadline.slice(0, 10);
+    if (!goal.created_at) return null;
+    return toYMD(somarDiasUteis(new Date(goal.created_at), horizontePrazo(goal.prazo)));
+  };
+
+  // Quanto FALTA e quanto guardar POR DIA DE TRABALHO nessa meta pra bater o prazo.
+  // Prazo já vencido (ou sem data) → cobra tudo o quanto antes (1 dia).
+  const faltaMeta = (goal: Goal): number =>
+    Math.max(0, Number(goal.target_amount) - Number(goal.current_amount));
+  const metaRitmoDia = (goal: Goal): number => {
+    const falta = faltaMeta(goal);
+    if (falta <= 0) return 0;
+    const fim = fimPrazoMeta(goal);
+    const dias = fim && fim >= getBrazilDate() ? Math.max(1, workingDaysUntil(fim)) : 1;
+    return falta / dias;
+  };
+
   // Próximo vencimento "efetivo" da conta (ao meio-dia local).
   // - Recorrente: próxima ocorrência mensal do dia do due_date. Pega o dia do mês
   //   do due_date; a próxima ocorrência é a deste mês se hoje <= esse dia, senão a
@@ -1076,11 +1142,14 @@ export default function Finances() {
   const escaladoHoje = workingDays && workingDays.length > 0 ? workingDays.includes(todayName) : true;
   // Trabalhou no descanso? Conta como dia de trabalho → guarda a parte de hoje também.
   const todayIsWorkDay = escaladoHoje || trabalhouHoje;
-  const goalPctTotal = Math.min(
-    100,
-    goals.reduce((sum, g) => sum + (Number(g.percentual_distribuicao) || 0), 0)
-  );
-  const goalShareToday = (Math.max(0, summary.netToday) * goalPctTotal) / 100;
+  // Metas ativas que ainda faltam fechar + o ritmo (por dia útil) que cada uma pede.
+  const metasAtivasFila = goals.filter((g) => g.status === "active" && faltaMeta(g) > 0.005);
+  const metasRitmoTotal = metasAtivasFila.reduce((s, g) => s + metaRitmoDia(g), 0);
+  // Parte das METAS no "a guardar hoje":
+  //  - modo "sobra" (padrão): R$0 aqui. O "a guardar hoje" é só das CONTAS (a obrigação).
+  //    As metas ficam com o que SOBRAR do líquido do dia — mostrado na aba Metas.
+  //  - modo "junto": cada meta pede falta ÷ dias úteis restantes do prazo, somado às contas.
+  const goalShareToday = metasModo === "junto" ? metasRitmoTotal : 0;
   // Soma o "por dia" só das contas NÃO pagas e NÃO vencidas (recorrentes entram, pois rolam).
   // Vencida tem perDay = 0, mas filtramos explicitamente pra deixar claro.
   const billsShareToday = todayIsWorkDay
@@ -1395,15 +1464,21 @@ export default function Finances() {
           billDeltas.push({ id: bill.id, delta: add });
         }
       }
-      for (const goal of goals) {
-        const share = (Math.max(0, summary.netToday) * (Number(goal.percentual_distribuicao) || 0)) / 100;
-        if (share > 0) {
-          const newAmount = Number(goal.current_amount) + share;
-          await supabase
-            .from("financial_goals")
-            .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
-            .eq("id", goal.id);
-          goalDeltas.push({ id: goal.id, delta: share, prevStatus: goal.status });
+      // METAS: só entram no "Guardei tudo" no modo "junto" — aí cada uma recebe o ritmo
+      // do dia (falta ÷ dias úteis restantes do prazo), sem passar do que falta.
+      // No modo "sobra" as metas NÃO entram aqui: elas ficam com o que sobrar do dia,
+      // guardado pelo botão da aba Metas (contas primeiro).
+      if (metasModo === "junto") {
+        for (const goal of metasAtivasFila) {
+          const share = Math.min(metaRitmoDia(goal), faltaMeta(goal));
+          if (share > 0.005) {
+            const newAmount = Number(goal.current_amount) + share;
+            await supabase
+              .from("financial_goals")
+              .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
+              .eq("id", goal.id);
+            goalDeltas.push({ id: goal.id, delta: share, prevStatus: goal.status });
+          }
         }
       }
       const savedHojeDelta = restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje;
@@ -1481,14 +1556,18 @@ export default function Finances() {
     try {
       // Contas: paga em cascata (vencimento mais próximo primeiro).
       await distribuirGuardado(billPortion);
-      for (const goal of goals) {
-        const share = ((Math.max(0, summary.netToday) * (Number(goal.percentual_distribuicao) || 0)) / 100) * factor;
-        if (share > 0) {
-          const newAmount = Number(goal.current_amount) + share;
-          await supabase
-            .from("financial_goals")
-            .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
-            .eq("id", goal.id);
+      // Metas: mesma regra do "Guardei tudo" — só no modo "junto", proporcional ao que
+      // foi guardado (factor) e sem passar do que falta.
+      if (metasModo === "junto") {
+        for (const goal of metasAtivasFila) {
+          const share = Math.min(metaRitmoDia(goal) * factor, faltaMeta(goal));
+          if (share > 0.005) {
+            const newAmount = Number(goal.current_amount) + share;
+            await supabase
+              .from("financial_goals")
+              .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
+              .eq("id", goal.id);
+          }
         }
       }
       // Soma ao "guardado hoje": o card passa a mostrar o ALVO DO DIA − o que já foi
@@ -2901,6 +2980,45 @@ export default function Finances() {
             </Dialog>
           </div>
 
+          {/* Como as metas entram no "a guardar hoje" — contas primeiro × junto */}
+          {!isLoadingData && goals.length > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-semibold text-foreground">Quando guardar pras metas?</p>
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMetasModo("sobra")}
+                    className={`py-2 rounded-lg text-xs font-semibold transition-colors ${metasModo === "sobra" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                  >
+                    Contas primeiro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMetasModo("junto")}
+                    className={`py-2 rounded-lg text-xs font-semibold transition-colors ${metasModo === "junto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                  >
+                    Junto com as contas
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {metasModo === "sobra" ? (
+                    <>
+                      O <b className="text-foreground">"a guardar hoje"</b> cobra só as contas. A meta fica com o que{" "}
+                      <b className="text-foreground">sobrar</b> do dia — dia apertado, R$0 pra meta, sem culpa.
+                    </>
+                  ) : (
+                    <>
+                      A meta pede um valor próprio todo dia (
+                      <b className="text-primary">{formatCurrency(metasRitmoTotal)}</b>), somado ao das contas no{" "}
+                      <b className="text-foreground">"a guardar hoje"</b>. Se você não guardar hoje, amanhã esse valor sobe.
+                    </>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Total guardado — confira se bate com o que você separou de fato */}
           {!isLoadingData && goals.length > 0 && (
             <Card className="bg-card border border-border/60 rounded-2xl">
@@ -3046,15 +3164,31 @@ export default function Finances() {
                         )}
                         {goal.deadline && (
                           <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Calendar className="w-3 h-3" /> Data limite: {new Date(goal.deadline).toLocaleDateString('pt-BR')}
+                            {/* meio-dia local: sem isso o fuso jogava a data pro dia anterior */}
+                            <Calendar className="w-3 h-3" /> Data limite: {new Date(goal.deadline.slice(0, 10) + "T12:00:00").toLocaleDateString('pt-BR')}
                           </p>
                         )}
-                        {Number(goal.percentual_distribuicao) > 0 && (
-                          <p className="text-xs text-primary flex items-center gap-1.5">
-                            <Sparkles className="w-3 h-3 shrink-0" />
-                            Guardar {Number(goal.percentual_distribuicao).toFixed(0)}% do líquido do dia
-                          </p>
-                        )}
+                        {/* Ritmo REAL da meta: falta ÷ dias de trabalho que restam até a data-alvo
+                            (a data limite, ou a criação + o prazo). Acumula sozinho: pulou um dia,
+                            amanhã sobe. Prazo estourado → avisa em vez de esconder. */}
+                        {remaining > 0 && goal.status === "active" && (() => {
+                          const fim = fimPrazoMeta(goal);
+                          const atrasada = Boolean(fim && fim < getBrazilDate());
+                          const ritmo = metaRitmoDia(goal);
+                          return (
+                            <p className={`text-xs flex items-center gap-1.5 ${atrasada ? "text-warning" : "text-primary"}`}>
+                              <Sparkles className="w-3 h-3 shrink-0" />
+                              {atrasada ? (
+                                <>Prazo passou — faltam {formatCurrency(remaining)} pra fechar</>
+                              ) : (
+                                <>
+                                  Ritmo: {formatCurrency(ritmo)} por dia de trabalho
+                                  {fim ? ` até ${new Date(fim + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}` : ""}
+                                </>
+                              )}
+                            </p>
+                          );
+                        })()}
 
                       {/* Recomendação (cálculo direto) — toca pra abrir o detalhe com cenários */}
                       {remaining > 0 && (

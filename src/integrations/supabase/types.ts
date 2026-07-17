@@ -1567,6 +1567,7 @@ export type Database = {
           trial_days_remaining: number | null
           trial_end: string | null
           trial_start: string | null
+          metas_modo: string
           tax_atividade: string | null
           tax_cnpj: string | null
           tax_situacao: string | null
@@ -1635,6 +1636,7 @@ export type Database = {
           trial_days_remaining?: number | null
           trial_end?: string | null
           trial_start?: string | null
+          metas_modo?: string
           tax_atividade?: string | null
           tax_cnpj?: string | null
           tax_situacao?: string | null
@@ -1703,6 +1705,7 @@ export type Database = {
           trial_days_remaining?: number | null
           trial_end?: string | null
           trial_start?: string | null
+          metas_modo?: string
           tax_atividade?: string | null
           tax_cnpj?: string | null
           tax_situacao?: string | null
