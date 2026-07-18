@@ -157,7 +157,6 @@ export default function Finances() {
   const [goalImage, setGoalImage] = useState<File | null>(null);
   const [goalImagePreview, setGoalImagePreview] = useState<string>("");
   // Qual recomendação de meta está aberta (id da meta) — pra expandir o texto detalhado.
-  const [recAberta, setRecAberta] = useState<string | null>(null);
   // Qual meta está expandida (bloco compacto → abre detalhes ao tocar).
   const [metaAberta, setMetaAberta] = useState<string | null>(null);
   // Qual conta a pagar está expandida.
@@ -593,6 +592,37 @@ export default function Finances() {
       toast({ title: "Erro ao ajustar", variant: "destructive" });
     } finally {
       setAjusteGuardadoSaving(false);
+    }
+  };
+
+  // Guarda a SOBRA de hoje nas metas preenchendo por PRIORIDADE: completa a 1ª da fila e o
+  // que passar do que ela precisa TRANSBORDA pra próxima, e assim por diante. Assim nunca fica
+  // "guardado" acima do alvo (era o que confundia: mandava R$666 numa meta de R$600 — os R$66
+  // extras eram, na verdade, da meta seguinte).
+  const handleGuardarSobraMetas = async () => {
+    if (!user) return;
+    let resto = Math.round(Math.max(0, sobraMetasHoje) * 100) / 100;
+    if (resto <= 0.005) return;
+    const inicial = resto;
+    try {
+      for (const g of goalsOrdenadas) {
+        if (resto <= 0.005) break;
+        if (g.status !== "active") continue;
+        const falta = Math.max(0, Number(g.target_amount) - Number(g.current_amount));
+        if (falta <= 0.005) continue;
+        const add = Math.min(resto, falta);
+        const novo = Math.round((Number(g.current_amount) + add) * 100) / 100;
+        await supabase
+          .from("financial_goals")
+          .update({ current_amount: novo, status: novo >= Number(g.target_amount) ? "completed" : "active" })
+          .eq("id", g.id);
+        resto = Math.round((resto - add) * 100) / 100;
+      }
+      const guardado = Math.round((inicial - resto) * 100) / 100;
+      toast({ title: "Guardado nas metas ✓", description: `${formatCurrency(guardado)} distribuídos por prioridade.` });
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao guardar", variant: "destructive" });
     }
   };
 
@@ -1392,10 +1422,12 @@ export default function Finances() {
       return { key: dia.key, label: dia.label, isWork: true, isToday: dia.isToday, valor, meta };
     });
   })();
-  const metaHoje = proximosDiasMetas.find((d) => d.isToday)?.valor ?? 0;
   const temSobraMetas = proximosDiasMetas.some((d) => d.valor > 0.005);
   // Meta que recebe a sobra de hoje (a 1ª da fila de prioridade).
   const metaPrioritaria = goalsOrdenadas.find((g) => planoMetas.get(g.id)?.ordem === 1) ?? null;
+  // SOBRA REAL de HOJE pra metas = o líquido de HOJE que ainda sobra depois de reservar a
+  // parte das CONTAS de hoje. É o valor concreto que dá pra jogar nas metas agora.
+  const sobraMetasHoje = Math.max(0, (Number(summary.netToday) || 0) - restanteGuardarHoje);
 
   // Faixa de dias úteis "ideal" pra cada prazo (pra avisar quando aperta demais).
   const faixaPrazo = (p?: string) =>
@@ -3139,23 +3171,26 @@ export default function Finances() {
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground">Calendário das metas</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {temSobraMetas
-                        ? <>Hoje, depois das contas, sobra <span className="font-semibold text-primary">{formatCurrency(metaHoje)}</span> pra meta</>
-                        : "Suas contas consomem toda a renda do dia — as metas começam quando aliviar das contas"}
+                      {sobraMetasHoje > 0.005
+                        ? <>Hoje, depois das contas, sobra <span className="font-semibold text-primary">{formatCurrency(sobraMetasHoje)}</span> pra meta</>
+                        : "Depois de reservar as contas de hoje, ainda não sobra pra meta"}
                     </p>
                   </div>
                   <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecaoMetas ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* Guardar hoje pras metas — joga a sobra do dia na meta prioritária */}
-                {temSobraMetas && metaPrioritaria && (
-                  <Button
-                    onClick={() => openDeposit({ kind: "goal", goal: metaPrioritaria }, metaHoje)}
-                    className="w-full mt-3"
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Guardar hoje — {formatCurrency(metaHoje)} em {metaPrioritaria.name}
-                  </Button>
+                {/* Guardar a sobra de hoje nas metas — distribui por prioridade (completa a 1ª,
+                    transborda pra próxima). Só no modo "contas primeiro". */}
+                {metasModo === "sobra" && sobraMetasHoje > 0.005 && metaPrioritaria && (
+                  <>
+                    <Button onClick={handleGuardarSobraMetas} className="w-full mt-3">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Guardar {formatCurrency(sobraMetasHoje)} nas metas
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                      Começa pela <b className="text-foreground">{metaPrioritaria.name}</b> (falta {formatCurrency(faltaMeta(metaPrioritaria))}); o que passar vai pra próxima da fila.
+                    </p>
+                  </>
                 )}
 
                 {showProjecaoMetas && (
@@ -3209,8 +3244,6 @@ export default function Finances() {
                 const progress = (goal.current_amount / goal.target_amount) * 100;
                 const remaining = goal.target_amount - goal.current_amount;
                 const plano = planoMetas.get(goal.id);
-                const rec = recomendarMeta(goal.target_amount, goal.current_amount, goal.prazo, plano);
-                const recExpandida = recAberta === goal.id;
                 const aberta = metaAberta === goal.id;
 
                 return (
@@ -3261,61 +3294,33 @@ export default function Finances() {
                             <Calendar className="w-3 h-3" /> Data limite: {new Date(goal.deadline.slice(0, 10) + "T12:00:00").toLocaleDateString('pt-BR')}
                           </p>
                         )}
-                        {/* Ritmo REAL da meta: falta ÷ dias de trabalho que restam até a data-alvo
-                            (a data limite, ou a criação + o prazo). Acumula sozinho: pulou um dia,
-                            amanhã sobe. Prazo estourado → avisa em vez de esconder. */}
+                        {/* Como essa meta anda — UM bloco claro, sem número global repetido.
+                            "contas primeiro": mostra a fila e a sobra de hoje.
+                            "junto": mostra o valor por dia pra fechar no prazo. */}
                         {remaining > 0 && goal.status === "active" && (() => {
                           const fim = fimPrazoMeta(goal);
+                          const fimBR = fim ? new Date(fim + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null;
                           const atrasada = Boolean(fim && fim < getBrazilDate());
-                          const ritmo = metaRitmoDia(goal);
+                          const ehPrioritaria = plano?.ordem === 1;
                           return (
-                            <p className={`text-xs flex items-center gap-1.5 ${atrasada ? "text-warning" : "text-primary"}`}>
-                              <Sparkles className="w-3 h-3 shrink-0" />
-                              {atrasada ? (
-                                <>Prazo passou — faltam {formatCurrency(remaining)} pra fechar</>
-                              ) : (
-                                <>
-                                  Ritmo: {formatCurrency(ritmo)} por dia de trabalho
-                                  {fim ? ` até ${new Date(fim + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}` : ""}
-                                </>
-                              )}
-                            </p>
+                            <div className="rounded-xl bg-muted/40 border border-border/50 px-3 py-2 text-xs leading-relaxed flex items-start gap-2">
+                              <Sparkles className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${atrasada ? "text-warning" : "text-primary"}`} />
+                              <span className="text-foreground/90">
+                                {metasModo === "junto" ? (
+                                  atrasada
+                                    ? <>Prazo passou — junte os {formatCurrency(remaining)} que faltam o quanto puder.</>
+                                    : <>Guarde <b className="text-primary">{formatCurrency(metaRitmoDia(goal))}</b> por dia de trabalho{fimBR ? <> até {fimBR}</> : null} pra fechar no prazo.</>
+                                ) : ehPrioritaria ? (
+                                  sobraMetasHoje > 0.005
+                                    ? <>É a <b className="text-primary">próxima da fila</b>. Hoje sobra <b className="text-primary">{formatCurrency(sobraMetasHoje)}</b> pra ela, depois das contas.</>
+                                    : <>É a <b className="text-primary">próxima da fila</b>. Hoje as contas levaram a renda — ainda R$0 pra ela.</>
+                                ) : (
+                                  <>{plano?.ordem ?? ""}ª na fila — começa quando as metas acima fecharem{fimBR ? <> (~{fimBR})</> : null}.</>
+                                )}
+                              </span>
+                            </div>
                           );
                         })()}
-
-                      {/* Recomendação (cálculo direto) — toca pra abrir o detalhe com cenários */}
-                      {remaining > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setRecAberta(recExpandida ? null : goal.id)}
-                          className={`w-full text-left flex items-start gap-2 rounded-xl px-3 py-2.5 border transition-colors ${
-                            rec.tom === "ok" ? "bg-success/5 border-success/25"
-                            : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35"
-                            : "bg-muted/40 border-border/50"
-                          }`}
-                        >
-                          <Sparkles className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${
-                            rec.tom === "ok" ? "text-success" : rec.tom === "alerta" ? "text-destructive" : "text-muted-foreground"
-                          }`} />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className={`text-[10px] uppercase tracking-wider font-semibold ${rec.tom === "alerta" ? "text-destructive" : "text-muted-foreground"}`}>Recomendação</p>
-                              {rec.detalhe.length > 0 && (
-                                <span className="text-[10px] text-muted-foreground">{recExpandida ? "fechar ▲" : "ver mais ▼"}</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-foreground/90 leading-relaxed">{rec.resumo}</p>
-                            {recExpandida && rec.detalhe.length > 0 && (
-                              <div className="mt-2 pt-2 border-t border-border/40 space-y-1">
-                                {rec.detalhe.map((linha, i) => (
-                                  <p key={i} className="text-[11px] text-muted-foreground leading-relaxed">{linha}</p>
-                                ))}
-                                <p className="text-[10px] text-muted-foreground/70 italic pt-1">É uma recomendação baseada nos seus resultados — a decisão é sua.</p>
-                              </div>
-                            )}
-                          </div>
-                        </button>
-                      )}
 
                       {/* Depósito do dia — abre o diálogo "Guardar hoje" compartilhado */}
                       {goal.status === "active" && (
