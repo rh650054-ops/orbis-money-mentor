@@ -186,6 +186,10 @@ export default function Finances() {
   const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
   const [urgentesAberto, setUrgentesAberto] = useState(false);
+  // Ajuste manual do "total guardado nas contas" (redistribui proporcional entre as abertas).
+  const [ajusteGuardadoOpen, setAjusteGuardadoOpen] = useState(false);
+  const [ajusteGuardadoValor, setAjusteGuardadoValor] = useState(0);
+  const [ajusteGuardadoSaving, setAjusteGuardadoSaving] = useState(false);
   // Registrar "guardei X" num dia específico (selecionado na lista de próximos dias)
   const [diaSave, setDiaSave] = useState<{ label: string; isToday: boolean } | null>(null);
   const [diaSaveValue, setDiaSaveValue] = useState("");
@@ -539,6 +543,59 @@ export default function Finances() {
   };
 
   // Salva a edição: atualiza nome, valor e vencimento da conta
+  // Ajusta o TOTAL guardado nas contas pro valor real que você digitar, redistribuindo
+  // proporcionalmente entre as contas abertas (mantém a proporção de cada uma). Se estava
+  // tudo zerado, distribui proporcional ao VALOR de cada conta. Cada conta é limitada ao
+  // seu próprio valor (não fica "guardado" acima do que ela custa).
+  const handleAjustarGuardadoContas = async () => {
+    if (!user) return;
+    const alvo = Math.max(0, ajusteGuardadoValor);
+    const abertas = bills.filter((b) => !b.paid);
+    if (abertas.length === 0) { setAjusteGuardadoOpen(false); return; }
+    const somaSaved = abertas.reduce((s, b) => s + (Number(b.saved_amount) || 0), 0);
+    const somaAmount = abertas.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+    const usarSaved = somaSaved > 0.005;
+    const baseTotal = usarSaved ? somaSaved : somaAmount;
+    if (baseTotal <= 0) { setAjusteGuardadoOpen(false); return; }
+    setAjusteGuardadoSaving(true);
+    try {
+      const novos = abertas.map((b) => {
+        const peso = usarSaved ? (Number(b.saved_amount) || 0) : (Number(b.amount) || 0);
+        const cap = Number(b.amount) || 0;
+        return { b, novo: Math.min(Math.round(((alvo * peso) / baseTotal) * 100) / 100, cap) };
+      });
+      // Acerto de centavos: joga a diferença nas contas com mais folga (sem passar do valor).
+      let resto = Math.round((alvo - novos.reduce((s, x) => s + x.novo, 0)) * 100) / 100;
+      if (Math.abs(resto) >= 0.01) {
+        const ordenados = [...novos].sort(
+          (a, z) => ((Number(z.b.amount) || 0) - z.novo) - ((Number(a.b.amount) || 0) - a.novo),
+        );
+        for (const x of ordenados) {
+          if (Math.abs(resto) < 0.01) break;
+          if (resto > 0) {
+            const add = Math.min(resto, Math.max(0, (Number(x.b.amount) || 0) - x.novo));
+            x.novo = Math.round((x.novo + add) * 100) / 100;
+            resto = Math.round((resto - add) * 100) / 100;
+          } else {
+            const sub = Math.min(-resto, x.novo);
+            x.novo = Math.round((x.novo - sub) * 100) / 100;
+            resto = Math.round((resto + sub) * 100) / 100;
+          }
+        }
+      }
+      for (const { b, novo } of novos) {
+        await supabase.from("planned_bills").update({ saved_amount: novo } as never).eq("id", b.id);
+      }
+      toast({ title: "Guardado ajustado ✓", description: `Total agora: ${formatCurrency(alvo)}` });
+      setAjusteGuardadoOpen(false);
+      loadFinancialData();
+    } catch {
+      toast({ title: "Erro ao ajustar", variant: "destructive" });
+    } finally {
+      setAjusteGuardadoSaving(false);
+    }
+  };
+
   // Troca o modo das metas (contas primeiro × junto com as contas) e salva no perfil.
   const handleSaveMetasModo = async (modo: "sobra" | "junto") => {
     if (!user) return;
@@ -2476,7 +2533,7 @@ export default function Finances() {
             </Dialog>
           </div>
 
-          {/* Total guardado — confira se bate com o que você separou de fato */}
+          {/* Total guardado — confira se bate com o que você separou de fato (lápis pra ajustar) */}
           {!isLoadingData && bills.length > 0 && (
             <Card className="bg-card border border-border/60 rounded-2xl">
               <CardContent className="p-4 flex items-center justify-between gap-3">
@@ -2484,10 +2541,46 @@ export default function Finances() {
                   <p className="text-xs text-muted-foreground">Total guardado nas contas</p>
                   <p className="text-[11px] text-muted-foreground">de {formatCurrency(contasTotal)} no total das contas</p>
                 </div>
-                <p className="text-lg font-bold text-primary text-right shrink-0 tabular-nums">{formatCurrency(contasGuardado)}</p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <p className="text-lg font-bold text-primary text-right tabular-nums">{formatCurrency(contasGuardado)}</p>
+                  <button
+                    onClick={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
+                    aria-label="Ajustar total guardado"
+                    className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground hover:text-foreground active:scale-90 transition"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                </div>
               </CardContent>
             </Card>
           )}
+
+          {/* Dialog: ajustar o total guardado nas contas pro valor real */}
+          <Dialog open={ajusteGuardadoOpen} onOpenChange={setAjusteGuardadoOpen}>
+            <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
+              <DialogHeader>
+                <DialogTitle>Ajustar total guardado</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Digite quanto você <b className="text-foreground">realmente</b> tem guardado pras contas agora. Eu divido esse valor entre as contas abertas na mesma proporção — o "guardar por dia" se ajusta sozinho.
+                </p>
+                <div className="space-y-2">
+                  <Label>Total guardado (R$)</Label>
+                  <MoneyInput value={ajusteGuardadoValor} onChange={(n) => setAjusteGuardadoValor(n || 0)} placeholder="0,00" />
+                  <p className="text-[11px] text-muted-foreground">App mostra hoje: {formatCurrency(contasGuardado)}.</p>
+                </div>
+                <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1">
+                  <Button variant="outline" onClick={() => setAjusteGuardadoOpen(false)} className="w-full sm:flex-1" disabled={ajusteGuardadoSaving}>
+                    Cancelar
+                  </Button>
+                  <Button onClick={handleAjustarGuardadoContas} className="w-full sm:flex-1" disabled={ajusteGuardadoSaving}>
+                    {ajusteGuardadoSaving ? "Salvando..." : "Salvar"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {isLoadingData ? (
             <div className="space-y-2">
