@@ -9,8 +9,9 @@ import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, Trending
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
-import { Check, X } from "lucide-react";
+import { Check, X, Calendar } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
+import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
 import { CompetitionStatementUpload } from "@/components/defcon/CompetitionStatementUpload";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import HourlyBreakdown from "@/components/history/HourlyBreakdown";
@@ -524,6 +525,7 @@ export default function DefconHub() {
   const [quickCost, setQuickCost] = useState("");
   const [quickCostCat, setQuickCostCat] = useState<"mercadoria" | "transporte" | "alimentacao">("mercadoria");
   const [showEdit, setShowEdit] = useState(false);
+  const [ajustarDiaOpen, setAjustarDiaOpen] = useState(false);
   // Edição manual de "Como você recebeu" (dinheiro/cartão/pix) — p/ corrigir e lançar pagamentos tardios (ex.: Pix do outro dia)
   const [editingPay, setEditingPay] = useState(false);
   const [payCash, setPayCash] = useState("");
@@ -809,6 +811,16 @@ export default function DefconHub() {
           {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
         </button>
 
+        {/* Fechar um dia que passou (ex.: virou a meia-noite antes de lançar) — SEM precisar
+            entrar no DEFCON. Fica logo abaixo do botão de iniciar. */}
+        <button
+          onClick={() => setAjustarDiaOpen(true)}
+          className="mt-2 w-full h-11 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground font-semibold text-sm active:scale-[0.98] transition flex items-center justify-center gap-2"
+        >
+          <Calendar className="w-4 h-4" />
+          Ajustar dia anterior
+        </button>
+
         {/* Extrato do dia (só pra quem está em competição/X1) — bem separado do botão. */}
         <div className="mt-6">
           <CompetitionStatementUpload userId={user.id} />
@@ -997,6 +1009,14 @@ export default function DefconHub() {
           userId={user.id}
           isOpen={showEdit}
           onClose={() => { setShowEdit(false); loadAll(); }}
+        />
+      )}
+      {user && (
+        <DefconAjustarDiaModal
+          open={ajustarDiaOpen}
+          onOpenChange={setAjustarDiaOpen}
+          userId={user.id}
+          onSaved={loadAll}
         />
       )}
     </div>
