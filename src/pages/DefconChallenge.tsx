@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,11 +17,13 @@ import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
 import ExtratoDailyModal from "@/components/competitions/ExtratoDailyModal";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
+import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const treino = params.get("treino") === "1";
+  const [ajustarDiaOpen, setAjustarDiaOpen] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
   const onbDefcon = useDefconOnboarding(user?.id);
@@ -162,6 +164,7 @@ export default function DefconChallenge() {
           onStart={handleStart}
           onExit={handleExit}
           onboardingMode={treino}
+          onAdjustDay={treino ? undefined : () => setAjustarDiaOpen(true)}
         />
       );
 
@@ -266,6 +269,15 @@ export default function DefconChallenge() {
       {/* Coach por tela no DEFCON real (rota fica fora do layout, então renderiza aqui).
           Explica as funções: iniciar, venda rápida, cobrança no WhatsApp e abordagem. */}
       {!treino && user && <ScreenCoach userId={user.id} />}
+      {/* Fechar/corrigir um dia que passou (ex.: virou a meia-noite antes de lançar). */}
+      {!treino && user && (
+        <DefconAjustarDiaModal
+          open={ajustarDiaOpen}
+          onOpenChange={setAjustarDiaOpen}
+          userId={user.id}
+          onSaved={() => { /* dados de dia passado; não precisa recarregar a sessão de hoje */ }}
+        />
+      )}
     </>
   );
 }

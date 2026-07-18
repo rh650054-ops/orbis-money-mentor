@@ -9,9 +9,10 @@ interface DefconStartScreenProps {
   onStart: () => void;
   onExit: () => void;
   onboardingMode?: boolean;
+  onAdjustDay?: () => void;
 }
 
-export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode }: DefconStartScreenProps) {
+export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode, onAdjustDay }: DefconStartScreenProps) {
   const { enabled: battery, toggle: toggleBattery } = useBatterySaver();
   const [confirming, setConfirming] = useState(false);
 
@@ -98,6 +99,15 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
         >
           {!onboardingMode && confirming ? "CONFIRMAR — INICIAR AGORA" : "INICIAR DEFCON 4"}
         </button>
+        {/* Fechar um dia que passou (ex.: virou a meia-noite antes de lançar). */}
+        {!onboardingMode && onAdjustDay && (
+          <button
+            onClick={onAdjustDay}
+            className="w-full h-11 rounded-2xl border border-neutral-700 text-neutral-300 font-mono text-xs active:scale-95"
+          >
+            Ajustar dia anterior
+          </button>
+        )}
         <button
           onClick={onExit}
           className="w-full h-10 text-muted-foreground font-mono text-xs active:scale-95"
