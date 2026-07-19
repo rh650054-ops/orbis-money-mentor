@@ -427,6 +427,22 @@ export default function Insights() {
       .sort((a, b) => b.total - a.total);
   }, [expenses]);
 
+  // Custos por categoria COMPLETOS = CMV/transporte/alimentação do dia (daily_sales) +
+  // os lançamentos manuais. É o mesmo total do "Detalhamento financeiro" — antes esse
+  // bloco mostrava só os lançamentos manuais e ignorava o CMV (custo de mercadoria),
+  // fazendo Mercadoria parecer bem menor do que é de verdade.
+  const custosPorCategoria = useMemo(() => {
+    return [
+      { category: "Mercadoria", icon: "📦", total: summary.custoMercadoria },
+      { category: "Transporte", icon: "🚌", total: summary.custoTransporte },
+      { category: "Alimentação", icon: "🍽️", total: summary.custoAlimentacao },
+      { category: "Outros", icon: "💰", total: summary.custoOutros },
+    ]
+      .filter((c) => c.total > 0.005)
+      .sort((a, b) => b.total - a.total);
+  }, [summary.custoMercadoria, summary.custoTransporte, summary.custoAlimentacao, summary.custoOutros]);
+  const custosCategoriaTotal = custosPorCategoria.reduce((s, c) => s + c.total, 0);
+
   const chartData = useMemo(() => {
     const map = new Map(sales.map((d) => [d.date, d.total_profit || 0]));
     const result: { label: string; valor: number; iso: string }[] = [];
@@ -920,23 +936,19 @@ export default function Insights() {
             </div>
           )}
 
-          {/* Breakdown de custos operacionais por categoria */}
-          {expensesByCategory.length > 0 && (
+          {/* Breakdown de custos operacionais por categoria (CMV do dia + lançamentos manuais) */}
+          {custosPorCategoria.length > 0 && (
             <>
               <SectionTitle>Custos operacionais por categoria</SectionTitle>
               <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-2.5">
-                {expensesByCategory.map((c) => {
-                  const pct = summary.custosOperacionais > 0
-                    ? (c.total / summary.custosOperacionais) * 100
-                    : 0;
+                {custosPorCategoria.map((c) => {
+                  const pct = custosCategoriaTotal > 0 ? (c.total / custosCategoriaTotal) * 100 : 0;
                   return (
                     <div key={c.category} className="space-y-1">
                       <div className="flex items-center gap-2 text-sm">
                         <span className="text-base">{c.icon}</span>
                         <span className="flex-1 text-foreground/90 font-medium">{c.category}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {c.count} {c.count === 1 ? "item" : "itens"}
-                        </span>
+                        <span className="text-xs text-muted-foreground">{pct.toFixed(0)}%</span>
                         <span className="font-bold text-primary w-24 text-right">
                           {formatCurrency(c.total)}
                         </span>
