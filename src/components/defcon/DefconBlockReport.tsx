@@ -23,7 +23,6 @@ export function DefconBlockReport({
   sales,
   soldAmount,
   distanceMeters = 0,
-  totalSalesCount = 0,
   onContinue,
 }: DefconBlockReportProps) {
   const [sharing, setSharing] = useState(false);
@@ -31,17 +30,16 @@ export function DefconBlockReport({
   const [aiTipLoading, setAiTipLoading] = useState(false);
   const [aiTipError, setAiTipError] = useState(false);
   const conversionRate = approaches > 0 ? (sales / approaches) * 100 : 0;
-  // Estatísticas da HORA (o bloco dura 60 min). Pace = minutos por venda; velocidade =
-  // vendas por hora (= o próprio nº de vendas num bloco de 1h). Abordagens por venda.
+  // Deslocamento REAL pelo GPS. Tempo da sessão até aqui ≈ (blockIndex+1) horas de 60 min.
+  // Pace = minutos por km; velocidade real = km por hora; km = total percorrido na sessão.
   const paceMMSS = (min: number) => {
     const s = Math.round(min * 60);
     return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
   };
-  const paceHora = sales > 0 ? 60 / sales : null; // min por venda nesta hora
-  const abordagensPorVenda = sales > 0 ? approaches / sales : null;
-  // Distância REAL (GPS) acumulada na sessão e metros por venda.
   const km = distanceMeters / 1000;
-  const metrosPorVenda = totalSalesCount > 0 ? distanceMeters / totalSalesCount : null;
+  const horasSessao = blockIndex + 1;
+  const velocidadeReal = horasSessao > 0 ? km / horasSessao : 0; // km/h
+  const paceKmMin = km > 0 ? (horasSessao * 60) / km : null;     // min por km
 
   // Dica da hora com IA (Gemini) — roda só quando o vendedor toca no botão.
   const generateBlockTip = async () => {
@@ -265,36 +263,29 @@ export function DefconBlockReport({
           </span>
         </div>
 
-        {paceHora != null && (
-          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-            <span className="text-sm font-mono text-muted-foreground">🏃 Pace da hora</span>
-            <span className="text-2xl font-black text-primary">{paceMMSS(paceHora)} <span className="text-sm font-normal text-muted-foreground">/venda</span></span>
-          </div>
-        )}
+        {/* Deslocamento REAL pelo GPS — só isso: pace, km total e velocidade real. */}
+        {distanceMeters > 0 ? (
+          <>
+            {paceKmMin != null && (
+              <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+                <span className="text-sm font-mono text-muted-foreground">🏃 Pace da hora</span>
+                <span className="text-2xl font-black text-primary">{paceMMSS(paceKmMin)} <span className="text-sm font-normal text-muted-foreground">/km</span></span>
+              </div>
+            )}
 
-        <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-          <span className="text-sm font-mono text-muted-foreground">💨 Velocidade</span>
-          <span className="text-2xl font-black text-foreground">{sales} <span className="text-sm font-normal text-muted-foreground">vendas/h</span></span>
-        </div>
+            <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+              <span className="text-sm font-mono text-muted-foreground">🚶 Km percorrido (total)</span>
+              <span className="text-2xl font-black text-foreground">{km < 1 ? `${Math.round(distanceMeters)} m` : `${km.toFixed(2)} km`}</span>
+            </div>
 
-        {abordagensPorVenda != null && (
-          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-            <span className="text-sm font-mono text-muted-foreground">👥 Abordagens por venda</span>
-            <span className="text-2xl font-black text-foreground">{abordagensPorVenda.toFixed(1)}</span>
-          </div>
-        )}
-
-        {distanceMeters > 0 && (
-          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-            <span className="text-sm font-mono text-muted-foreground">🚶 Distância (GPS)</span>
-            <span className="text-2xl font-black text-foreground">{km < 1 ? `${Math.round(distanceMeters)} m` : `${km.toFixed(2)} km`}</span>
-          </div>
-        )}
-
-        {metrosPorVenda != null && distanceMeters > 0 && (
-          <div className="bg-card rounded-xl p-4 flex justify-between items-center">
-            <span className="text-sm font-mono text-muted-foreground">📍 Andou por venda</span>
-            <span className="text-2xl font-black text-primary">{metrosPorVenda < 1000 ? `${Math.round(metrosPorVenda)} m` : `${(metrosPorVenda / 1000).toFixed(2)} km`}</span>
+            <div className="bg-card rounded-xl p-4 flex justify-between items-center">
+              <span className="text-sm font-mono text-muted-foreground">💨 Velocidade real</span>
+              <span className="text-2xl font-black text-foreground">{velocidadeReal.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">km/h</span></span>
+            </div>
+          </>
+        ) : (
+          <div className="bg-card rounded-xl p-4 text-center">
+            <span className="text-xs font-mono text-muted-foreground">Ative o GPS pra ver pace, km e velocidade real.</span>
           </div>
         )}
 

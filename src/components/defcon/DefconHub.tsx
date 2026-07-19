@@ -2,14 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
+import { getBrazilDate, formatBrazilDate, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2, Trash2, ChevronDown } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
-import { Check, X, Calendar } from "lucide-react";
+import { Check, X, Calendar, MapPin } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
 import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
 import { CompetitionStatementUpload } from "@/components/defcon/CompetitionStatementUpload";
@@ -520,6 +520,8 @@ export default function DefconHub() {
   const [planId, setPlanId] = useState<string | null>(null);
   const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0, transport: 0, food: 0 });
   const [hasSession, setHasSession] = useState(false);
+  // Deslocamento REAL (GPS) somado das sessões: semana (últimos 7 dias) e total geral.
+  const [gps, setGps] = useState({ kmSemana: 0, minSemana: 0, kmTotal: 0, diasSemana: 0 });
   const [exporting, setExporting] = useState(false);
   const [pdfDate, setPdfDate] = useState(getBrazilDate()); // dia do PDF (padrão: hoje)
   const [quickCost, setQuickCost] = useState("");
@@ -540,7 +542,8 @@ export default function DefconHub() {
 
   const loadAll = async () => {
     if (!user) return;
-    const [{ data: plan }, { data: sales }, { data: session }] = await Promise.all([
+    const weekStart = getBrazilDateDaysAgo(6); // últimos 7 dias (hoje incluso)
+    const [{ data: plan }, { data: sales }, { data: session }, { data: gpsRows }] = await Promise.all([
       supabase
         .from("daily_goal_plans")
         .select("id, daily_goal, work_hours")
@@ -559,7 +562,27 @@ export default function DefconHub() {
         .eq("user_id", user.id)
         .eq("date", today)
         .maybeSingle(),
+      supabase
+        .from("challenge_sessions")
+        .select("date, distance_meters, worked_minutes")
+        .eq("user_id", user.id),
     ]);
+
+    // Deslocamento GPS: soma metros/minutos das sessões. Semana = últimos 7 dias.
+    {
+      const rows = (gpsRows || []) as Array<{ date: string; distance_meters?: number | null; worked_minutes?: number | null }>;
+      let distSemana = 0, minSemana = 0, distTotal = 0, diasSemana = 0;
+      for (const r of rows) {
+        const d = Number(r.distance_meters) || 0;
+        distTotal += d;
+        if (r.date >= weekStart) {
+          distSemana += d;
+          minSemana += Number(r.worked_minutes) || 0;
+          if (d > 0) diasSemana += 1;
+        }
+      }
+      setGps({ kmSemana: distSemana / 1000, minSemana, kmTotal: distTotal / 1000, diasSemana });
+    }
 
     if (!plan) {
       const { data: profile } = await supabase
@@ -628,6 +651,13 @@ export default function DefconHub() {
   const progresso = dailyGoal > 0 ? Math.min(100, (totalVendido / dailyGoal) * 100) : 0;
   const goalReached = totalVendido >= dailyGoal && dailyGoal > 0;
   const falta = Math.max(0, dailyGoal - totalVendido);
+
+  // GPS da semana: pace (min/km) e velocidade real (km/h) a partir de km + minutos trabalhados.
+  const gpsPaceMin = gps.kmSemana > 0 ? gps.minSemana / gps.kmSemana : null;
+  const gpsVelocidade = gps.minSemana > 0 ? gps.kmSemana / (gps.minSemana / 60) : 0;
+  const gpsPaceLabel = gpsPaceMin != null
+    ? (() => { const s = Math.round(gpsPaceMin * 60); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; })()
+    : null;
 
   const handlePDF = async () => {
     if (!user) return;
@@ -832,6 +862,36 @@ export default function DefconHub() {
 
       {/* LOADOUT */}
       <DefconLoadoutManager userId={user.id} />
+
+      {/* DESLOCAMENTO (GPS) — km da semana, pace e velocidade real + total geral */}
+      {gps.kmTotal > 0 && (
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Deslocamento (GPS)</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <p className="text-xl font-black text-primary tabular-nums">
+                {gps.kmSemana < 1 ? `${Math.round(gps.kmSemana * 1000)} m` : `${gps.kmSemana.toFixed(1)} km`}
+              </p>
+              <p className="text-[11px] text-muted-foreground">na semana</p>
+            </div>
+            <div>
+              <p className="text-xl font-black text-foreground tabular-nums">{gpsPaceLabel ?? "—"}</p>
+              <p className="text-[11px] text-muted-foreground">pace /km</p>
+            </div>
+            <div>
+              <p className="text-xl font-black text-foreground tabular-nums">{gpsVelocidade.toFixed(1)}</p>
+              <p className="text-[11px] text-muted-foreground">km/h real</p>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted-foreground text-center">
+            Total geral: <b className="text-foreground">{gps.kmTotal.toFixed(1)} km</b>
+            {gps.diasSemana > 0 && <> · {gps.diasSemana} {gps.diasSemana === 1 ? "dia" : "dias"} com GPS na semana</>}
+          </p>
+        </div>
+      )}
 
       {/* RESUMO POR PAGAMENTO — visual rico */}
       {totalVendido > 0 && (
