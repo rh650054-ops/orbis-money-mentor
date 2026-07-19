@@ -1136,18 +1136,74 @@ export function useDefconChallenge(userId: string | undefined) {
     await syncBlocksToDailySales(userId);
   };
 
-  // Estende o Defcon por +1 bloco de 1h, mantendo todos os dados.
+  // "Voltar e vender mais" depois de finalizar o dia. Retoma no ponto EXATO em que parou:
+  // se você fechou o dia na 2ª hora aos 38min, volta na 2ª hora com 22min restantes — NÃO
+  // pula pra frente (o bug antigo criava sempre um bloco novo no fim → 7ª hora). Só cria um
+  // bloco extra de bônus quando TODOS os blocos do plano já foram usados por completo.
   const extendChallenge = async () => {
     const sid = sessionIdRef.current;
     const pid = planIdRef.current;
     if (!sid || !pid || !userId) return;
 
-    const blks = blocksRef.current;
-    const lastBlock = blks[blks.length - 1];
-    const newHourIndex = (lastBlock?.hour_index ?? blks.length - 1) + 1;
-    const targetAmount = lastBlock?.target_amount ?? (dailyGoalRef.current / Math.max(blks.length, 1));
-    const startTime = new Date();
+    // Lê o estado real do banco (não depende de closure/refs que podem estar velhos).
+    const { data: session } = await supabase
+      .from("challenge_sessions")
+      .select("current_block_index, ended_at, total_blocks")
+      .eq("id", sid)
+      .maybeSingle();
+    const { data: blocksDb } = await supabase
+      .from("hourly_goal_blocks")
+      .select("id, hour_index, target_amount, timer_started_at")
+      .eq("plan_id", pid)
+      .order("hour_index");
+    if (!session || !blocksDb || blocksDb.length === 0) return;
 
+    const idx = Math.min(Number(session.current_block_index) || 0, blocksDb.length - 1);
+    const curBlock = blocksDb[idx] as { id: string; timer_started_at?: string | null };
+
+    // Reabre a sessão como ativa apontando pro bloco alvo, ajusta o timer dele e deixa o
+    // loadData() reidratar tudo (contadores do bloco, segundos restantes, fase) — a mesma
+    // lógica testada do "retomar sessão ativa".
+    const reabrir = async (targetIdx: number, timerStart: Date, blockId: string) => {
+      await supabase
+        .from("challenge_sessions")
+        .update({ status: "active", ended_at: null, current_block_index: targetIdx } as never)
+        .eq("id", sid);
+      await supabase
+        .from("hourly_goal_blocks")
+        .update({ timer_status: "running", timer_started_at: timerStart.toISOString(), timer_paused_at: null, lunch_ends_at: null } as never)
+        .eq("id", blockId);
+      await loadData();
+    };
+
+    // Quantos minutos já foram feitos no bloco atual (fim − início do bloco, limitado a 60).
+    let minNoBloco = 0;
+    if (session.ended_at && curBlock?.timer_started_at) {
+      minNoBloco = Math.max(
+        0,
+        Math.min(60, Math.round((new Date(session.ended_at).getTime() - new Date(curBlock.timer_started_at).getTime()) / 60000)),
+      );
+    }
+
+    // 1) Parou no MEIO do bloco atual → retoma NELE, no ponto exato (ex.: 38min feitos → 22 restantes).
+    if (minNoBloco < 59.5) {
+      const timerStart = new Date(Date.now() - minNoBloco * 60000);
+      await reabrir(idx, timerStart, curBlock.id);
+      return;
+    }
+
+    // 2) Bloco atual cheio, mas ainda há bloco do PLANO à frente → segue pro próximo.
+    if (idx + 1 < blocksDb.length) {
+      const next = blocksDb[idx + 1] as { id: string };
+      await reabrir(idx + 1, new Date(), next.id);
+      return;
+    }
+
+    // 3) Já era o último bloco e cheio → cria o bônus de +1h (comportamento antigo).
+    const lastBlock = blocksDb[blocksDb.length - 1] as { hour_index?: number; target_amount?: number };
+    const newHourIndex = (lastBlock?.hour_index ?? blocksDb.length - 1) + 1;
+    const targetAmount = lastBlock?.target_amount ?? (dailyGoalRef.current / Math.max(blocksDb.length, 1));
+    const now = new Date();
     const { data: newBlock } = await supabase
       .from("hourly_goal_blocks")
       .insert({
@@ -1159,7 +1215,7 @@ export function useDefconChallenge(userId: string | undefined) {
         achieved_amount: 0,
         is_completed: false,
         timer_status: "running",
-        timer_started_at: startTime.toISOString(),
+        timer_started_at: now.toISOString(),
         valor_dinheiro: 0,
         valor_cartao: 0,
         valor_pix: 0,
@@ -1168,39 +1224,12 @@ export function useDefconChallenge(userId: string | undefined) {
       })
       .select("id")
       .single();
-
     if (!newBlock) return;
-
-    const newBlockData: DefconBlock = {
-      id: newBlock.id,
-      hour_index: newHourIndex,
-      hour_label: "⏱ +1h",
-      target_amount: targetAmount,
-      achieved_amount: 0,
-      is_completed: false,
-      valor_dinheiro: 0,
-      valor_cartao: 0,
-      valor_pix: 0,
-      valor_calote: 0,
-      valor_gorjeta: 0,
-    };
-
-    const newBlocks = [...blks, newBlockData];
-    const newIdx = newBlocks.length - 1;
-
     await supabase
       .from("challenge_sessions")
-      .update({ status: "active", ended_at: null, total_blocks: newBlocks.length, current_block_index: newIdx })
+      .update({ status: "active", ended_at: null, total_blocks: blocksDb.length + 1, current_block_index: blocksDb.length } as never)
       .eq("id", sid);
-
-    setBlocks(newBlocks);
-    setCurrentBlockIndex(newIdx);
-    setBlockStartedAt(startTime);
-    setRemainingSeconds(BLOCK_DURATION);
-    setBlockApproaches(0);
-    setBlockSalesCount(0);
-    setWorkedMinutes(null);
-    setPhase("running");
+    await loadData();
   };
 
   // Apaga todos os dados do dia e volta para idle (começo do zero).
