@@ -67,6 +67,12 @@ export default function Index() {
   const [monthExpensesTotal, setMonthExpensesTotal] = useState(0);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  // Tem cache do dashboard? Sem cache (1º acesso), mostrar a tela real durante o load
+  // fazia os números PULAREM de R$0 pro valor real (layout shift feio). Com cache, a
+  // tela abre direto com os últimos valores conhecidos.
+  const [hasDashCache] = useState(() => {
+    try { return Boolean(localStorage.getItem("orbis_dashboard_cache")); } catch { return false; }
+  });
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
@@ -357,7 +363,7 @@ export default function Index() {
     return Math.min(progress, 100);
   };
 
-  if (loading || !user) {
+  if (loading || !user || (isLoadingData && !hasDashCache)) {
     // Esqueleto com o formato do dashboard — evita a tela "pular" do vazio pro design
     return (
       <div className="space-y-4 pb-8 animate-pulse">

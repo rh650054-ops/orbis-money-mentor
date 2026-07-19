@@ -75,8 +75,10 @@ const BankConnections = lazyWithReload(() => import("@/pages/BankConnections"));
 const SpotFinder = lazyWithReload(() => import("@/pages/SpotFinder"));
 
 function PageLoader() {
+  // Centralizado no viewport de verdade: com min-h-[50vh] o spinner ficava no alto
+  // e a metade de baixo virava um vão preto vazio a cada troca de tela.
   return (
-    <div className="flex items-center justify-center min-h-[50vh]">
+    <div className="flex items-center justify-center min-h-[calc(100dvh-10rem)]">
       <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
     </div>
   );

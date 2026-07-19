@@ -1831,7 +1831,7 @@ export default function Finances() {
   const venceHojeCount = contasUrgentes.filter((x) => x.venceHoje).length;
 
   return (
-    <div className="space-y-6 pb-4 md:pb-8">
+    <div className="space-y-4 md:space-y-6 pb-4 md:pb-8">
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
           <Wallet className="w-5 h-5 text-primary" />
@@ -1847,7 +1847,7 @@ export default function Finances() {
             {isLoadingData ? (
               <Skeleton className="h-11 w-40" />
             ) : (
-              <p className={`text-4xl font-bold tracking-tight ${summary.netToday >= 0 ? "text-primary" : "text-destructive"}`}>
+              <p className={`text-[clamp(1.75rem,8vw,2.25rem)] font-bold tracking-tight tabular-nums break-all ${summary.netToday >= 0 ? "text-primary" : "text-destructive"}`}>
                 {formatCurrency(summary.netToday)}
               </p>
             )}
@@ -1861,7 +1861,7 @@ export default function Finances() {
               {isLoadingData ? (
                 <Skeleton className="h-7 w-24 mt-1" />
               ) : (
-                <p className="text-xl font-bold text-foreground tracking-tight whitespace-nowrap">
+                <p className="text-lg font-bold text-foreground tracking-tight tabular-nums">
                   {formatCurrency(summary.grossToday)}
                 </p>
               )}
@@ -1871,7 +1871,7 @@ export default function Finances() {
               {isLoadingData ? (
                 <Skeleton className="h-7 w-24 mt-1 ml-auto" />
               ) : (
-                <p className="text-xl font-bold text-destructive tracking-tight whitespace-nowrap">
+                <p className="text-lg font-bold text-destructive tracking-tight tabular-nums">
                   {formatCurrency(summary.costToday + summary.transportToday + summary.foodToday + summary.expensesToday)}
                 </p>
               )}
@@ -1955,7 +1955,7 @@ export default function Finances() {
                     {savedTodayAmount > 0 ? `✓ Guardou ${formatCurrency(savedTodayAmount)} hoje` : "✓ Já guardou hoje"}
                   </p>
                 ) : (
-                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight whitespace-nowrap">
+                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight tabular-nums">
                     {formatCurrency(restanteGuardarHoje)}
                   </p>
                 )}

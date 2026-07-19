@@ -133,7 +133,7 @@ export default function Routine() {
 
   if (loading || !user || step === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="flex items-center justify-center min-h-[calc(100dvh-10rem)]">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
       </div>
     );

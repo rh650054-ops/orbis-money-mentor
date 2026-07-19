@@ -169,14 +169,21 @@ export default function Layout({ children }: LayoutProps) {
   // GATE DE AUTH: enquanto a sessão não resolve (ou o usuário está deslogado esperando
   // o redirect pro /auth), NÃO monta o app. Antes o dashboard + barra de baixo piscavam
   // por alguns frames pra quem estava deslogado — era um dos flashes do boot.
+  // Placeholder de carregamento: logo pulsando no centro em vez de TELA PRETA vazia
+  // (a tela preta parecia app travado e era o maior "espaço preto" do boot).
+  const bootHolder = (
+    <div className="min-h-[100dvh] bg-background grid place-items-center">
+      <img src="/orbis-logo.png" alt="" className="w-16 h-16 object-contain opacity-60 animate-pulse" />
+    </div>
+  );
   if (loading || !user) {
-    return <div className="min-h-[100dvh] bg-background" />;
+    return bootHolder;
   }
 
   // Espera a checagem no banco antes de decidir mostrar a missão,
   // pra não piscar o overlay pra quem já é cadastrado.
   if (!onboardingCompleto && user && !onboardingChecked) {
-    return <div className="min-h-[100dvh] bg-background" />;
+    return bootHolder;
   }
   // Nota: a Missão de Boas-Vindas NÃO substitui mais o app. Ela é renderizada
   // como overlay (MissionOrchestrator) por cima do app real, lá embaixo no JSX.

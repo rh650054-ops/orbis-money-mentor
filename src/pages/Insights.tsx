@@ -572,7 +572,7 @@ export default function Insights() {
   const maxHourTotal = bestHours[0]?.total || 1;
 
   return (
-    <div className="space-y-5 pb-4 md:pb-8 text-foreground">
+    <div className="space-y-4 md:space-y-5 pb-4 md:pb-8 text-foreground">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
         <div>

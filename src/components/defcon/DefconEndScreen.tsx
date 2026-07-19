@@ -809,7 +809,8 @@ export function DefconEndScreen({
           <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase">
             🔥 Desafio encerrado
           </div>
-          <div className={`text-5xl font-black tracking-tight ${valueColor}`}>
+          {/* Fonte fluida: text-5xl fixo estourava a largura com faturamento de 6 dígitos */}
+          <div className={`text-[clamp(2rem,11vw,3rem)] font-black tracking-tight tabular-nums ${valueColor}`}>
             {formatCurrency(totalSold)}
           </div>
           <div className={`text-sm font-medium ${subTextColor}`}>
