@@ -27,12 +27,15 @@ export async function syncBlocksToDailySales(userId: string) {
 
   if (!blocks || blocks.length === 0) return;
 
-  const totalDinheiro = blocks.reduce((sum, b) => sum + (b.valor_dinheiro || 0), 0);
-  const totalCartao = blocks.reduce((sum, b) => sum + (b.valor_cartao || 0), 0);
-  const totalPix = blocks.reduce((sum, b) => sum + (b.valor_pix || 0), 0);
-  const totalCalote = blocks.reduce((sum, b) => sum + (b.valor_calote || 0), 0);
-  const totalGorjeta = blocks.reduce((sum, b) => sum + ((b as any).valor_gorjeta || 0), 0);
-  const totalLiquido = totalDinheiro + totalCartao + totalPix;
+  // round2: sem arredondar, a soma de floats acumula ruído binário (1358.5000000000002)
+  // e grava esse lixo no daily_sales/relatórios.
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const totalDinheiro = round2(blocks.reduce((sum, b) => sum + (b.valor_dinheiro || 0), 0));
+  const totalCartao = round2(blocks.reduce((sum, b) => sum + (b.valor_cartao || 0), 0));
+  const totalPix = round2(blocks.reduce((sum, b) => sum + (b.valor_pix || 0), 0));
+  const totalCalote = round2(blocks.reduce((sum, b) => sum + (b.valor_calote || 0), 0));
+  const totalGorjeta = round2(blocks.reduce((sum, b) => sum + ((b as any).valor_gorjeta || 0), 0));
+  const totalLiquido = round2(totalDinheiro + totalCartao + totalPix);
 
   // Upsert manual de daily_sales.
   // A constraint UNIQUE(user_id, date) foi removida em migracoes antigas

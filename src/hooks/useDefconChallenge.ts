@@ -75,6 +75,12 @@ async function queueBlockOffline(
 // intervalos, então tem teto. Mas o teto NÃO pode assumir o bloco atual inteiro (60min) —
 // senão finalizar 22min dentro da 6ª hora "cravava" em 6h. Teto = blocos COMPLETOS × 60 +
 // minutos decorridos no bloco atual (limitado a 60). blockStart = início do bloco atual.
+// Arredonda pra centavos. Somar dinheiro em float sem isso acumula ruído binário
+// (ex.: 1358.5000000000002) que vai parar no banco e nos relatórios.
+export function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
 function calcWorkedMinutes(
   startedAtISO: string,
   endedAt: Date,
@@ -122,6 +128,8 @@ export function useDefconChallenge(userId: string | undefined) {
 
   // Per-sale rows for the current session (additive — aggregates remain source of truth).
   const [sessionSales, setSessionSales] = useState<any[]>([]);
+  // Vendas em exclusão — evita estorno em dobro no toque-duplo do X.
+  const deletingSalesRef = useRef<Set<string>>(new Set());
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -152,9 +160,11 @@ export function useDefconChallenge(userId: string | undefined) {
   }, []);
 
   const recalcTotal = (blocksData: DefconBlock[]) => {
-    return blocksData.reduce((sum, b) => {
+    // round2 no fim: somar floats sem arredondar acumulava ruído binário e gravava
+    // valores como 1358.5000000000002 no banco.
+    return round2(blocksData.reduce((sum, b) => {
       return sum + (b.valor_dinheiro || 0) + (b.valor_cartao || 0) + (b.valor_pix || 0) + (b.valor_calote || 0);
-    }, 0);
+    }, 0));
   };
 
   const completeChallenge = useCallback(async () => {
@@ -759,11 +769,11 @@ export function useDefconChallenge(userId: string | undefined) {
     const currentBlock = blocks[currentBlockIndex];
     if (!currentBlock) return;
 
-    const newDinheiro = currentBlock.valor_dinheiro + (method === "dinheiro" ? amount : 0);
-    const newPix = currentBlock.valor_pix + (method === "pix" ? amount : 0);
-    const newCartao = currentBlock.valor_cartao + (method === "cartao" ? amount : 0);
-    const newAchieved = newDinheiro + newCartao + newPix + currentBlock.valor_calote;
-    const newTotal = totalSold + amount;
+    const newDinheiro = round2(currentBlock.valor_dinheiro + (method === "dinheiro" ? amount : 0));
+    const newPix = round2(currentBlock.valor_pix + (method === "pix" ? amount : 0));
+    const newCartao = round2(currentBlock.valor_cartao + (method === "cartao" ? amount : 0));
+    const newAchieved = round2(newDinheiro + newCartao + newPix + currentBlock.valor_calote);
+    const newTotal = round2(totalSold + amount);
     const newBlockSales = blockSalesCount + 1;
     const newApproaches = blockApproaches + 1; // quem comprou foi abordado
 
@@ -839,6 +849,9 @@ export function useDefconChallenge(userId: string | undefined) {
   // sales_count só decrementa se NÃO for pix-depois (que nunca somou conversão).
   const deleteSale = async (sale: any) => {
     if (!userId || !sale?.id) return;
+    // Anti toque-duplo: excluir a mesma venda 2x estornava o valor em dobro.
+    if (deletingSalesRef.current.has(sale.id)) return;
+    deletingSalesRef.current.add(sale.id);
 
     const amount = Number(sale.amount) || 0;
     const isTip = sale.method === "gorjeta";
@@ -847,19 +860,34 @@ export function useDefconChallenge(userId: string | undefined) {
     const blockIdx = Number(sale.block_index) || 0;
     const isLate = !!sale.late;
 
+    // OTIMISTA: a TELA muda na hora (some da lista, estorna valores/contadores) e a
+    // gravação acontece em seguida. Antes eram até 6 requisições EM FILA antes de
+    // qualquer mudança visível — o usuário achava que o toque não tinha pego.
+    const targetBlock = blocks[blockIdx];
+    const newDinheiro = targetBlock ? round2(Math.max(0, targetBlock.valor_dinheiro - (method === "dinheiro" ? amount : 0))) : 0;
+    const newPix = targetBlock ? round2(Math.max(0, targetBlock.valor_pix - (method === "pix" ? amount : 0))) : 0;
+    const newCartao = targetBlock ? round2(Math.max(0, targetBlock.valor_cartao - (method === "cartao" ? amount : 0))) : 0;
+    const newGorjeta = targetBlock ? round2(Math.max(0, (targetBlock.valor_gorjeta || 0) - (isTip ? amount : 0))) : 0;
+    const newAchieved = targetBlock ? round2(Math.max(0, newDinheiro + newCartao + newPix + targetBlock.valor_calote)) : 0;
+    const newTotal = round2(Math.max(0, totalSold - amount));
+
+    setSessionSales(prev => prev.filter((s) => s?.id !== sale.id));
+    if (targetBlock) {
+      setBlocks(prev =>
+        prev.map((b, i) =>
+          i === blockIdx
+            ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao, valor_gorjeta: newGorjeta }
+            : b
+        )
+      );
+    }
+    setTotalSold(newTotal);
+
     // 1) Apaga a linha.
     await supabase.from("defcon_sales").delete().eq("id", sale.id);
 
     // 2) Reverte os agregados no BLOCO da venda (não necessariamente o atual).
-    const targetBlock = blocks[blockIdx];
     if (targetBlock) {
-      // Gorjeta entra como dinheiro E em valor_gorjeta, então ao cancelar estorna os dois.
-      const newDinheiro = Math.max(0, targetBlock.valor_dinheiro - (method === "dinheiro" ? amount : 0));
-      const newPix = Math.max(0, targetBlock.valor_pix - (method === "pix" ? amount : 0));
-      const newCartao = Math.max(0, targetBlock.valor_cartao - (method === "cartao" ? amount : 0));
-      const newGorjeta = Math.max(0, (targetBlock.valor_gorjeta || 0) - (isTip ? amount : 0));
-      const newAchieved = Math.max(0, newDinheiro + newCartao + newPix + targetBlock.valor_calote);
-
       await supabase
         .from("hourly_goal_blocks")
         .update({
@@ -870,22 +898,12 @@ export function useDefconChallenge(userId: string | undefined) {
           valor_gorjeta: newGorjeta,
         })
         .eq("id", targetBlock.id);
-
-      setBlocks(prev =>
-        prev.map((b, i) =>
-          i === blockIdx
-            ? { ...b, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_pix: newPix, valor_cartao: newCartao, valor_gorjeta: newGorjeta }
-            : b
-        )
-      );
     }
 
     // 3) Estorna total_sold da sessão (piso 0).
-    const newTotal = Math.max(0, totalSold - amount);
     if (sessionId) {
       await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
     }
-    setTotalSold(newTotal);
 
     // 4) venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
     //    então ao excluir a venda a gente tira a venda E a abordagem.
@@ -915,6 +933,7 @@ export function useDefconChallenge(userId: string | undefined) {
     // 5) Mesma cauda do addSale: ressincroniza daily_sales e recarrega a lista.
     await syncBlocksToDailySales(userId);
     await loadSessionSales(sessionId);
+    deletingSalesRef.current.delete(sale.id);
   };
 
   // "Pix que caiu depois": pagamento atrasado de uma venda já registrada.
@@ -927,9 +946,9 @@ export function useDefconChallenge(userId: string | undefined) {
     const currentBlock = blocks[blockIdx];
     if (!currentBlock) return;
 
-    const newPix = currentBlock.valor_pix + amount;
-    const newAchieved = currentBlock.valor_dinheiro + currentBlock.valor_cartao + newPix + currentBlock.valor_calote;
-    const newTotal = totalSold + amount;
+    const newPix = round2(currentBlock.valor_pix + amount);
+    const newAchieved = round2(currentBlock.valor_dinheiro + currentBlock.valor_cartao + newPix + currentBlock.valor_calote);
+    const newTotal = round2(totalSold + amount);
 
     // OTIMISTA: tela na hora; banco em seguida.
     setBlocks(prev =>
@@ -979,10 +998,10 @@ export function useDefconChallenge(userId: string | undefined) {
     const currentBlock = blocks[currentBlockIndex];
     if (!currentBlock) return;
 
-    const newDinheiro = currentBlock.valor_dinheiro + amount;
-    const newGorjeta = (currentBlock.valor_gorjeta || 0) + amount;
-    const newAchieved = newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote;
-    const newTotal = totalSold + amount;
+    const newDinheiro = round2(currentBlock.valor_dinheiro + amount);
+    const newGorjeta = round2((currentBlock.valor_gorjeta || 0) + amount);
+    const newAchieved = round2(newDinheiro + currentBlock.valor_cartao + currentBlock.valor_pix + currentBlock.valor_calote);
+    const newTotal = round2(totalSold + amount);
 
     // OTIMISTA: tela na hora; banco em seguida.
     setBlocks(prev =>

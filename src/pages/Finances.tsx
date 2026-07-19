@@ -185,6 +185,19 @@ export default function Finances() {
   const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
   const [urgentesAberto, setUrgentesAberto] = useState(false);
+  // ANTI TOQUE-DUPLO: enquanto uma ação de guardar/pagar está gravando, toques repetidos
+  // são ignorados. Sem isso, tocar 2x num botão lento gravava 2x no banco (guardar em
+  // dobro, conta duplicada, pago/reaberto) — uma das principais fontes de valores errados.
+  const actingRef = useRef(false);
+  const runOnce = async (fn: () => Promise<void>) => {
+    if (actingRef.current) return;
+    actingRef.current = true;
+    try {
+      await fn();
+    } finally {
+      actingRef.current = false;
+    }
+  };
   // Ajuste manual do "total guardado nas contas" (redistribui proporcional entre as abertas).
   const [ajusteGuardadoOpen, setAjusteGuardadoOpen] = useState(false);
   const [ajusteGuardadoValor, setAjusteGuardadoValor] = useState(0);
@@ -388,7 +401,7 @@ export default function Finances() {
     }
   };
 
-  const handleAddBill = async () => {
+  const handleAddBill = () => runOnce(async () => {
     // Cartão em "fatura aberta" entra sem valor (R$0) — só o nome é obrigatório.
     const faturaAberta = newBill.isCreditCard && newBill.faturaAberta;
     if (!user || !newBill.name || (!faturaAberta && !newBill.amount)) {
@@ -456,7 +469,7 @@ export default function Finances() {
         variant: "destructive"
       });
     }
-  };
+  });
 
   // Abre o diálogo de depósito ("Guardei" / "Guardar hoje") para uma conta ou meta.
   // prefill (opcional) já preenche o valor sugerido (ex: a sobra de hoje pras metas).
@@ -467,7 +480,7 @@ export default function Finances() {
 
   // Confirma o depósito do diálogo compartilhado: soma ao saved_amount (conta)
   // ou ao current_amount (meta).
-  const handleConfirmDeposit = async () => {
+  const handleConfirmDeposit = () => runOnce(async () => {
     if (!depositTarget) return;
     const value = parseFloat(depositValue.replace(",", "."));
     if (isNaN(value) || value <= 0) {
@@ -523,7 +536,7 @@ export default function Finances() {
       console.error("Error depositing:", error);
       toast({ title: "Erro ao guardar", variant: "destructive" });
     }
-  };
+  });
 
   // Abre o diálogo de edição de uma conta, pré-preenchido com os valores atuais
   const openEditBill = (bill: PlannedBill) => {
@@ -582,9 +595,11 @@ export default function Finances() {
           }
         }
       }
-      for (const { b, novo } of novos) {
-        await supabase.from("planned_bills").update({ saved_amount: novo } as never).eq("id", b.id);
-      }
+      await Promise.all(
+        novos.map(({ b, novo }) =>
+          supabase.from("planned_bills").update({ saved_amount: novo } as never).eq("id", b.id),
+        ),
+      );
       toast({ title: "Guardado ajustado ✓", description: `Total agora: ${formatCurrency(alvo)}` });
       setAjusteGuardadoOpen(false);
       loadFinancialData();
@@ -599,12 +614,14 @@ export default function Finances() {
   // que passar do que ela precisa TRANSBORDA pra próxima, e assim por diante. Assim nunca fica
   // "guardado" acima do alvo (era o que confundia: mandava R$666 numa meta de R$600 — os R$66
   // extras eram, na verdade, da meta seguinte).
-  const handleGuardarSobraMetas = async () => {
+  const handleGuardarSobraMetas = () => runOnce(async () => {
     if (!user) return;
     let resto = Math.round(Math.max(0, sobraMetasHoje) * 100) / 100;
     if (resto <= 0.005) return;
     const inicial = resto;
     try {
+      // Calcula o transbordo primeiro (serial por natureza) e grava tudo em paralelo.
+      const writes: PromiseLike<unknown>[] = [];
       for (const g of goalsOrdenadas) {
         if (resto <= 0.005) break;
         if (g.status !== "active") continue;
@@ -612,19 +629,22 @@ export default function Finances() {
         if (falta <= 0.005) continue;
         const add = Math.min(resto, falta);
         const novo = Math.round((Number(g.current_amount) + add) * 100) / 100;
-        await supabase
-          .from("financial_goals")
-          .update({ current_amount: novo, status: novo >= Number(g.target_amount) ? "completed" : "active" })
-          .eq("id", g.id);
+        writes.push(
+          supabase
+            .from("financial_goals")
+            .update({ current_amount: novo, status: novo >= Number(g.target_amount) ? "completed" : "active" })
+            .eq("id", g.id),
+        );
         resto = Math.round((resto - add) * 100) / 100;
       }
+      await Promise.all(writes);
       const guardado = Math.round((inicial - resto) * 100) / 100;
       toast({ title: "Guardado nas metas ✓", description: `${formatCurrency(guardado)} distribuídos por prioridade.` });
       loadFinancialData();
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
     }
-  };
+  });
 
   // Troca o modo das metas (contas primeiro × junto com as contas) e salva no perfil.
   const handleSaveMetasModo = async (modo: "sobra" | "junto") => {
@@ -686,7 +706,7 @@ export default function Finances() {
     }
   };
 
-  const handleToggleBillPaid = async (bill: PlannedBill) => {
+  const handleToggleBillPaid = (bill: PlannedBill) => runOnce(async () => {
     try {
       const cicloAtual = getBrazilDate().slice(0, 7);
       let update: Record<string, unknown>;
@@ -731,7 +751,7 @@ export default function Finances() {
       console.error("Error toggling bill paid:", error);
       toast({ title: "Erro ao atualizar conta", variant: "destructive" });
     }
-  };
+  });
 
   const handleDeleteBill = async (bill: PlannedBill) => {
     if (!confirm(`Tem certeza que deseja excluir a conta "${bill.name}"?`)) return;
@@ -879,7 +899,7 @@ export default function Finances() {
     }
   };
 
-  const handleAddGoal = async () => {
+  const handleAddGoal = () => runOnce(async () => {
     if (!user || !newGoal.name || !newGoal.target_amount) {
       toast({
         title: "Campos obrigatórios",
@@ -934,7 +954,7 @@ export default function Finances() {
         variant: "destructive"
       });
     }
-  };
+  });
 
   // Abrir/salvar edição de meta (sem apagar e recriar).
   const openEditGoal = (goal: Goal) => {
@@ -1536,39 +1556,49 @@ export default function Finances() {
 
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
-  const handleGuardeiTudo = async () => {
+  const handleGuardeiTudo = () => runOnce(async () => {
     if (!user || totalGuardarHoje <= 0) return;
     try {
       const billDeltas: { id: string; delta: number }[] = [];
       const goalDeltas: { id: string; delta: number; prevStatus: string }[] = [];
+      // Calcula tudo primeiro e grava em PARALELO (antes era 1 requisição por conta,
+      // em fila — com 10 contas a ação demorava segundos e parecia travada).
+      const billWrites: PromiseLike<unknown>[] = [];
       for (const bill of bills) {
         const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
         if (quitada || isOverdue(bill) || !todayIsWorkDay) continue;
         const add = perDay(bill);
         if (add > 0) {
-          await supabase
-            .from("planned_bills")
-            .update({ saved_amount: Number(bill.saved_amount) + add })
-            .eq("id", bill.id);
+          billWrites.push(
+            supabase
+              .from("planned_bills")
+              .update({ saved_amount: Number(bill.saved_amount) + add })
+              .eq("id", bill.id),
+          );
           billDeltas.push({ id: bill.id, delta: add });
         }
       }
+      await Promise.all(billWrites);
       // METAS: só entram no "Guardei tudo" no modo "junto" — aí cada uma recebe o ritmo
       // do dia (falta ÷ dias úteis restantes do prazo), sem passar do que falta.
       // No modo "sobra" as metas NÃO entram aqui: elas ficam com o que sobrar do dia,
       // guardado pelo botão da aba Metas (contas primeiro).
       if (metasModo === "junto") {
+        const goalWrites: PromiseLike<unknown>[] = [];
         for (const goal of metasAtivasFila) {
           const share = Math.min(metaRitmoDia(goal), faltaMeta(goal));
           if (share > 0.005) {
             const newAmount = Number(goal.current_amount) + share;
-            await supabase
-              .from("financial_goals")
-              .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
-              .eq("id", goal.id);
+            goalWrites.push(
+              supabase
+                .from("financial_goals")
+                .update({ current_amount: newAmount, status: newAmount >= Number(goal.target_amount) ? "completed" : "active" })
+                .eq("id", goal.id),
+            );
             goalDeltas.push({ id: goal.id, delta: share, prevStatus: goal.status });
           }
         }
+        await Promise.all(goalWrites);
       }
       const savedHojeDelta = restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje;
       registrarGuardadoHoje(savedHojeDelta);
@@ -1585,11 +1615,11 @@ export default function Finances() {
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
     }
-  };
+  });
 
   // DESFAZER o último "Guardei tudo": tira das contas/metas exatamente o que foi somado
   // e reverte o "guardado hoje". Só funciona na mesma sessão (não sobrevive a recarregar).
-  const handleDesfazerGuardei = async () => {
+  const handleDesfazerGuardei = () => runOnce(async () => {
     if (!user) return;
     try {
       // Se ainda tenho os deltas do clique (mesma sessão / mesmo dia), reverto no banco
@@ -1597,24 +1627,30 @@ export default function Finances() {
       // só zero o "guardou hoje" local — o valor no banco já é o que a pessoa realmente tem.
       let novoSaved = 0;
       if (ultimoGuardei) {
+        const writes: PromiseLike<unknown>[] = [];
         for (const { id, delta } of ultimoGuardei.billDeltas) {
           const bill = bills.find((b) => b.id === id);
           if (bill) {
-            await supabase
-              .from("planned_bills")
-              .update({ saved_amount: Math.max(0, Number(bill.saved_amount) - delta) })
-              .eq("id", id);
+            writes.push(
+              supabase
+                .from("planned_bills")
+                .update({ saved_amount: Math.max(0, Number(bill.saved_amount) - delta) })
+                .eq("id", id),
+            );
           }
         }
         for (const { id, delta, prevStatus } of ultimoGuardei.goalDeltas) {
           const goal = goals.find((g) => g.id === id);
           if (goal) {
-            await supabase
-              .from("financial_goals")
-              .update({ current_amount: Math.max(0, Number(goal.current_amount) - delta), status: prevStatus || "active" })
-              .eq("id", id);
+            writes.push(
+              supabase
+                .from("financial_goals")
+                .update({ current_amount: Math.max(0, Number(goal.current_amount) - delta), status: prevStatus || "active" })
+                .eq("id", id),
+            );
           }
         }
+        await Promise.all(writes);
         novoSaved = Math.max(0, savedTodayAmount - ultimoGuardei.savedHojeDelta);
       }
       setSavedTodayAmount(novoSaved);
@@ -1630,11 +1666,11 @@ export default function Finances() {
     } catch {
       toast({ title: "Erro ao desfazer", variant: "destructive" });
     }
-  };
+  });
 
   // "Guardei outro valor": distribui o valor informado (a mais OU a menos que o
   // sugerido) proporcionalmente entre metas e contas, e diz quanto ainda falta.
-  const handleGuardeiValor = async () => {
+  const handleGuardeiValor = () => runOnce(async () => {
     const value = parseFloat(customSaveValue.replace(",", "."));
     if (!user || totalGuardarHoje <= 0 || isNaN(value) || value <= 0) {
       toast({ title: "Valor inválido", description: "Digite um valor maior que zero", variant: "destructive" });
@@ -1676,7 +1712,7 @@ export default function Finances() {
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
     }
-  };
+  });
 
   // CASCATA: guardar paga o VENCIMENTO MAIS PRÓXIMO primeiro (não divide igual entre
   // todas). Assim os dias mais perto caem mais quando você guarda, de forma consistente

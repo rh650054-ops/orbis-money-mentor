@@ -150,6 +150,13 @@ export default function Layout({ children }: LayoutProps) {
     // Por isso NÃO redirecionamos mais os expirados para /payment aqui.
   }, [user, loading, navigate]);
 
+  // Solta a splash assim que a auth resolve — em QUALQUER rota. Antes o sinal só era
+  // disparado pelo Dashboard, então abrir direto em /insights, /defcon etc. prendia a
+  // splash pelos 2,5s inteiros (com o app piscando por baixo dela).
+  useEffect(() => {
+    if (!loading) window.dispatchEvent(new Event("orbis:ready"));
+  }, [loading]);
+
   const handleSignOut = async () => {
     await signOut();
     toast({
@@ -158,6 +165,13 @@ export default function Layout({ children }: LayoutProps) {
     });
     navigate("/auth");
   };
+
+  // GATE DE AUTH: enquanto a sessão não resolve (ou o usuário está deslogado esperando
+  // o redirect pro /auth), NÃO monta o app. Antes o dashboard + barra de baixo piscavam
+  // por alguns frames pra quem estava deslogado — era um dos flashes do boot.
+  if (loading || !user) {
+    return <div className="min-h-[100dvh] bg-background" />;
+  }
 
   // Espera a checagem no banco antes de decidir mostrar a missão,
   // pra não piscar o overlay pra quem já é cadastrado.
