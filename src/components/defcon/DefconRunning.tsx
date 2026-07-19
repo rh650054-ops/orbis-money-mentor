@@ -139,9 +139,9 @@ export function DefconRunning({
   const [floaters, setFloaters] = useState<{ id: number; text: string; tone: "sale" | "tip" | "approach" }[]>([]);
   const [approachPulse, setApproachPulse] = useState(false);
 
-  const minutes = Math.floor(remainingSeconds / 60);
-  const seconds = remainingSeconds % 60;
-  const progress = ((60 * 60 - remainingSeconds) / (60 * 60)) * 100;
+  // isUrgent vem do remainingSeconds "grosso" (atualizado a cada ~15s pelo hook);
+  // o contador VISUAL de segundo em segundo vive isolado no <BlockCountdown/> —
+  // assim a tela inteira não re-renderiza a cada segundo.
   const isUrgent = remainingSeconds < 300; // last 5 minutes
 
   const remaining = Math.max(0, dailyGoal - totalSold);
@@ -475,33 +475,9 @@ export function DefconRunning({
           Bloco #{currentBlockIndex + 1} • {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
         </div>
 
-        {/* Timer — elemento dominante */}
-        <div className="flex flex-col items-center gap-3 -my-1">
-          <div
-            className={`text-[clamp(64px,26vw,104px)] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
-              isUrgent ? "text-destructive animate-pulse" : "text-foreground"
-            }`}
-            style={{
-              textShadow: isUrgent
-                ? "0 0 50px rgba(239,68,68,0.55), 0 0 90px rgba(239,68,68,0.3)"
-                : "0 0 36px rgba(245,180,0,0.28), 0 0 70px rgba(245,180,0,0.12)",
-            }}
-          >
-            {String(minutes).padStart(2, "0")}
-            <span className={isUrgent ? "text-destructive/50" : "text-primary/50"}>:</span>
-            {String(seconds).padStart(2, "0")}
-          </div>
-
-          {/* Progress bar — mais visível, reforça ritmo */}
-          <div className="w-64 h-1.5 bg-foreground/8 rounded-full overflow-hidden border border-border">
-            <div
-              className={`h-full transition-[colors,transform,opacity] duration-1000 ease-linear rounded-full ${
-                isUrgent ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive)/0.7)]" : "bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
-              }`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+        {/* Timer — elemento dominante. Auto-suficiente: tem o próprio tick de 1s,
+            então SÓ ele re-renderiza a cada segundo (não a tela inteira). */}
+        <BlockCountdown blockStartedAt={blockStartedAt} />
 
         {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
             fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
@@ -1133,6 +1109,53 @@ export function DefconRunning({
           />
         </div>
       )}
+    </div>
+  );
+}
+
+// Contador do bloco AUTO-SUFICIENTE: deriva os segundos do início do bloco e tem o
+// próprio tick de 1s. Antes o hook atualizava o estado da página inteira a cada
+// segundo — todo o DEFCON re-renderizava 60x/min (bateria + travadinhas em celular
+// fraco). Agora só este componente re-renderiza por segundo.
+function BlockCountdown({ blockStartedAt }: { blockStartedAt: Date | null }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const elapsed = blockStartedAt ? Math.floor((now - blockStartedAt.getTime()) / 1000) : 0;
+  const remainingSeconds = Math.max(0, 60 * 60 - elapsed);
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  const progress = ((60 * 60 - remainingSeconds) / (60 * 60)) * 100;
+  const isUrgent = remainingSeconds < 300; // últimos 5 minutos
+
+  return (
+    <div className="flex flex-col items-center gap-3 -my-1">
+      <div
+        className={`text-[clamp(64px,26vw,104px)] md:text-[128px] font-black font-mono tabular-nums tracking-tighter leading-none ${
+          isUrgent ? "text-destructive animate-pulse" : "text-foreground"
+        }`}
+        style={{
+          textShadow: isUrgent
+            ? "0 0 50px rgba(239,68,68,0.55), 0 0 90px rgba(239,68,68,0.3)"
+            : "0 0 36px rgba(245,180,0,0.28), 0 0 70px rgba(245,180,0,0.12)",
+        }}
+      >
+        {String(minutes).padStart(2, "0")}
+        <span className={isUrgent ? "text-destructive/50" : "text-primary/50"}>:</span>
+        {String(seconds).padStart(2, "0")}
+      </div>
+
+      {/* Progress bar — mais visível, reforça ritmo */}
+      <div className="w-64 h-1.5 bg-foreground/8 rounded-full overflow-hidden border border-border">
+        <div
+          className={`h-full transition-[colors,transform,opacity] duration-1000 ease-linear rounded-full ${
+            isUrgent ? "bg-destructive shadow-[0_0_12px_hsl(var(--destructive)/0.7)]" : "bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.5)]"
+          }`}
+          style={{ width: `${progress}%` }}
+        />
+      </div>
     </div>
   );
 }

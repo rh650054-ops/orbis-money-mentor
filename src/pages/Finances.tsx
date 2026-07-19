@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -1240,9 +1240,8 @@ export default function Finances() {
     }
   }, []);
 
-  if (loading || !user) {
-    return null;
-  }
+  // (o "early return" de auth foi movido pra logo antes do JSX — precisava ficar DEPOIS
+  // dos useMemo abaixo pra não quebrar a regra dos hooks)
 
   // "A guardar hoje" — quanto reservar do líquido de hoje pras metas + contas
   const todayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()];
@@ -1294,7 +1293,9 @@ export default function Finances() {
   // ao cronograma antes de abater concentrado, pra não contar duas vezes (o dinheiro
   // guardado já reduziu as contas). Total ao longo dos dias fica igual; muda só ONDE
   // o alívio aparece → guardar hoje faz o próximo dia cair de verdade, consistente.
-  const proximosDias = (() => {
+  // useMemo: esse loop (dias do mês × contas) rodava em TODO render — inclusive a cada
+  // tecla digitada em qualquer modal. Era a maior fonte de lag de digitação da tela.
+  const proximosDias = useMemo(() => {
     const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const base = new Date();
     base.setHours(12, 0, 0, 0);
@@ -1341,7 +1342,8 @@ export default function Finances() {
       x.valor = x.isToday ? Math.max(0, x.raw - savedTodayAmount) : x.raw;
     }
     return out;
-  })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bills, workingDays, weeklyWorkDays, savedTodayAmount, trabalhouHoje, alvoHoje]);
   // Hoje e "dia fechado" saem da própria projeção (já com o crédito aplicado).
   const restanteGuardarHoje = proximosDias.find((d) => d.isToday)?.valor ?? Math.max(0, alvoHoje - savedTodayAmount);
   const diaGuardadoFechado = savedToday || (savedTodayAmount > 0 && restanteGuardarHoje <= 0.005);
@@ -1379,7 +1381,7 @@ export default function Finances() {
   // UMA DE CADA VEZ, por prioridade (curto → médio → longo; dentro do mesmo, a menor primeiro).
   // Cada meta "começa" quando as anteriores terminam → dá pra recomendar deixar as longas
   // pra um mês mais à frente.
-  const planoMetas = (() => {
+  const planoMetas = useMemo(() => {
     const ordemPrazo: Record<string, number> = { curto: 0, medio: 1, longo: 2 };
     const ativas = goals
       .filter((g) => g.status === "active" && (Number(g.target_amount) - Number(g.current_amount)) > 0.005)
@@ -1395,15 +1397,15 @@ export default function Finances() {
       if (dias !== null) acum = diasFim!;
     });
     return mapa;
-  })();
+  }, [goals, sobraDiaMetas]);
 
   // Metas ORDENADAS na tela pela mesma prioridade do plano (1ª, 2ª, 3ª...). As que já
   // não estão na fila (concluídas / atingidas) vão pro fim.
-  const goalsOrdenadas = [...goals].sort((a, z) => {
+  const goalsOrdenadas = useMemo(() => [...goals].sort((a, z) => {
     const oa = planoMetas.get(a.id)?.ordem ?? 9999;
     const oz = planoMetas.get(z.id)?.ordem ?? 9999;
     return oa - oz;
-  });
+  }), [goals, planoMetas]);
 
   // Totais GUARDADOS — só o que está EM ABERTO, pra bater com o dinheiro que você realmente
   // tem separado. Conta paga sai da conta (o dinheiro já foi usado) → o total cai sozinho.
@@ -1418,7 +1420,7 @@ export default function Finances() {
   // dia (o mesmo valor do calendário de contas). Só o que sobra vai pra meta. Dia em que a
   // conta come tudo → R$0 pra meta (as metas "começam" quando alivia das contas). A sobra vai
   // acumulando na meta prioritária; quando ela fecha, passa pra próxima. Sem reserva por ora.
-  const proximosDiasMetas = (() => {
+  const proximosDiasMetas = useMemo(() => {
     const fila = goalsOrdenadas
       .filter((g) => planoMetas.has(g.id))
       .map((g) => ({ nome: g.name, falta: Math.max(0, Number(g.target_amount) - Number(g.current_amount)) }));
@@ -1441,7 +1443,8 @@ export default function Finances() {
       }
       return { key: dia.key, label: dia.label, isWork: true, isToday: dia.isToday, valor, meta };
     });
-  })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalsOrdenadas, planoMetas, proximosDias, summary.mediaDiariaLiquida]);
   const temSobraMetas = proximosDiasMetas.some((d) => d.valor > 0.005);
   // Meta que recebe a sobra de hoje (a 1ª da fila de prioridade).
   const metaPrioritaria = goalsOrdenadas.find((g) => planoMetas.get(g.id)?.ordem === 1) ?? null;
@@ -1532,7 +1535,7 @@ export default function Finances() {
   // Ordem de prioridade das contas (1ª, 2ª, 3ª...) — vencidas antes, depois a que vence
   // mais cedo, cartão como desempate. É o mesmo critério que numera os cards e reordena
   // sozinho quando você paga uma conta (a paga sai e a próxima vira a 1ª).
-  const contasOrdem = (() => {
+  const contasOrdem = useMemo(() => {
     const ativas = bills
       .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)))
       .map((b) => ({
@@ -1545,14 +1548,15 @@ export default function Finances() {
     const mapa = new Map<string, { ordem: number; total: number }>();
     ativas.forEach((item, i) => mapa.set(item.b.id, { ordem: i + 1, total: ativas.length }));
     return mapa;
-  })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bills]);
 
   // Contas ORDENADAS na tela pela prioridade acima. As quitadas vão pro fim.
-  const billsOrdenadas = [...bills].sort((a, z) => {
+  const billsOrdenadas = useMemo(() => [...bills].sort((a, z) => {
     const oa = contasOrdem.get(a.id)?.ordem ?? 9999;
     const oz = contasOrdem.get(z.id)?.ordem ?? 9999;
     return oa - oz;
-  });
+  }), [bills, contasOrdem]);
 
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
@@ -1829,6 +1833,11 @@ export default function Finances() {
     .filter((x) => x.venceHoje || (x.wd <= 2 && x.falta > 20))
     .sort((a, z) => (Number(z.venceHoje) - Number(a.venceHoje)) || (a.wd - z.wd) || (z.falta - a.falta));
   const venceHojeCount = contasUrgentes.filter((x) => x.venceHoje).length;
+
+  // Auth gate (movido pra cá — depois de TODOS os hooks/useMemo, antes do JSX).
+  if (loading || !user) {
+    return null;
+  }
 
   return (
     <div className="space-y-4 md:space-y-6 pb-4 md:pb-8">

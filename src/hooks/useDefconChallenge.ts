@@ -625,10 +625,18 @@ export function useDefconChallenge(userId: string | undefined) {
     clearTimer();
 
     if (phase === "running" && blockStartedAt) {
+      // O contador VISUAL (segundo a segundo) vive no <BlockCountdown/> dentro da tela,
+      // com tick próprio. Aqui o estado só atualiza em passos de ~15s — atualizar todo
+      // segundo re-renderizava a página INTEIRA do DEFCON 60x/min (bateria + engasgos).
+      let lastCoarse = -1;
       timerRef.current = setInterval(() => {
         const elapsed = Math.floor((Date.now() - blockStartedAt.getTime()) / 1000);
         const remaining = Math.max(0, BLOCK_DURATION - elapsed);
-        setRemainingSeconds(remaining);
+        const coarse = remaining <= 0 ? 0 : Math.ceil(remaining / 15);
+        if (coarse !== lastCoarse) {
+          lastCoarse = coarse;
+          setRemainingSeconds(remaining);
+        }
 
         if (remaining <= 0) {
           clearTimer();
