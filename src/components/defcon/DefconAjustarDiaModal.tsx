@@ -18,11 +18,13 @@ interface Props {
 }
 
 // Estado dos campos do dia (tudo em número, 0 = vazio).
+// vendido = quanto ERA PRA CAIR no dia (total vendido). O calote NÃO se digita:
+// é calculado sozinho = vendido − o que caiu (din+pix+cartão).
 type Campos = {
-  cash: number; pix: number; card: number; tip: number;
-  debt: number; cost: number; transport: number; food: number; unpaidUnits: number;
+  vendido: number; cash: number; pix: number; card: number; tip: number;
+  cost: number; transport: number; food: number; unpaidUnits: number;
 };
-const zerado: Campos = { cash: 0, pix: 0, card: 0, tip: 0, debt: 0, cost: 0, transport: 0, food: 0, unpaidUnits: 0 };
+const zerado: Campos = { vendido: 0, cash: 0, pix: 0, card: 0, tip: 0, cost: 0, transport: 0, food: 0, unpaidUnits: 0 };
 
 /**
  * Ajustar/lançar os números de um dia que já passou (ex.: passou da meia-noite e não
@@ -52,12 +54,14 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: P
         .maybeSingle();
       if (cancelado) return;
       const r = (row || {}) as Record<string, number | null>;
+      const caiuSalvo = (Number(r.cash_sales) || 0) + (Number(r.pix_sales) || 0) + (Number(r.card_sales) || 0);
       setCampos({
+        // vendido pré-preenche com caiu + calote já gravado (round-trip sem perder nada)
+        vendido: Math.round((caiuSalvo + (Number(r.total_debt) || 0)) * 100) / 100,
         cash: Number(r.cash_sales) || 0,
         pix: Number(r.pix_sales) || 0,
         card: Number(r.card_sales) || 0,
         tip: Number(r.tip_sales) || 0,
-        debt: Number(r.total_debt) || 0,
         cost: Number(r.cost) || 0,
         transport: Number(r.transport_cost) || 0,
         food: Number(r.food_cost) || 0,
@@ -69,7 +73,10 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: P
   }, [open, date, userId]);
 
   const set = (k: keyof Campos) => (n: number) => setCampos((c) => ({ ...c, [k]: n || 0 }));
-  const faturamento = campos.cash + campos.pix + campos.card;
+  // CAIU = o que entrou de fato. FALTOU CAIR (calote) = vendido − caiu, calculado sozinho —
+  // era exatamente a diferença que não aparecia clara no relatório.
+  const faturamento = Math.round((campos.cash + campos.pix + campos.card) * 100) / 100;
+  const faltouCair = Math.round(Math.max(0, campos.vendido - faturamento) * 100) / 100;
 
   const salvar = async () => {
     setSaving(true);
@@ -82,12 +89,12 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: P
         pix_sales: campos.pix,
         card_sales: campos.card,
         tip_sales: campos.tip,
-        total_debt: campos.debt,
+        total_debt: faltouCair,
         cost: campos.cost,
         transport_cost: campos.transport,
         food_cost: campos.food,
         unpaid_units: campos.unpaidUnits,
-        unpaid_sales: campos.debt > 0 ? 1 : 0,
+        unpaid_sales: faltouCair > 0 ? 1 : 0,
         updated_at: new Date().toISOString(),
       };
       // 1 linha por (user_id, date) — substitui a do dia (índice único daily_sales_user_date_unique).
@@ -128,10 +135,10 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: P
             />
           </div>
 
-          {/* Faturamento (derivado) */}
-          <div className="rounded-lg bg-primary/10 border border-primary/30 px-3 py-2 flex items-center justify-between">
-            <span className="text-xs text-muted-foreground">Faturamento do dia</span>
-            <span className="text-lg font-bold text-primary tabular-nums">{formatCurrency(faturamento)}</span>
+          {/* Total vendido (era pra cair) — o calote sai da diferença, sem conta de cabeça */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Total vendido no dia (era pra cair)</Label>
+            <MoneyInput value={campos.vendido} onChange={set("vendido")} placeholder="0,00" />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
@@ -149,15 +156,30 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: P
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Gorjeta</Label>
-              <MoneyInput value={campos.tip} onChange={set("tip")} placeholder="0,00" />
+          {/* Resumo CLARO: era pra cair × caiu × faltou (vira o calote do relatório) */}
+          <div className="rounded-lg bg-primary/10 border border-primary/30 px-3 py-2.5 space-y-1">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Era pra cair</span>
+              <span className="font-bold tabular-nums">{formatCurrency(Math.max(campos.vendido, faturamento))}</span>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Não pago (calote)</Label>
-              <MoneyInput value={campos.debt} onChange={set("debt")} placeholder="0,00" />
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Caiu de verdade</span>
+              <span className="font-bold text-primary tabular-nums">{formatCurrency(faturamento)}</span>
             </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Faltou cair (vira o calote)</span>
+              <span className={`font-bold tabular-nums ${faltouCair > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                {formatCurrency(faltouCair)}
+              </span>
+            </div>
+            {campos.vendido > 0 && campos.vendido < faturamento && (
+              <p className="text-[10px] text-warning pt-0.5">O vendido está menor que o que caiu — confere os valores.</p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Gorjeta</Label>
+            <MoneyInput value={campos.tip} onChange={set("tip")} placeholder="0,00" />
           </div>
 
           <div className="grid grid-cols-3 gap-3">
