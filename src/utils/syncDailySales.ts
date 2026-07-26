@@ -6,10 +6,13 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
  * Called on every block value change for real-time dashboard updates.
  * Upserts a single daily_sales record for today with totals from hourly_goal_blocks.
  */
-export async function syncBlocksToDailySales(userId: string) {
-  const today = getBrazilDate();
+export async function syncBlocksToDailySales(userId: string, planDate?: string) {
+  // planDate: o DIA da sessão/plano sendo sincronizado. Essencial na VIRADA DE
+  // MEIA-NOITE — se o vendedor continua o DEFCON de ontem depois das 00h, as vendas
+  // têm que cair no daily_sales de ONTEM (o dia da sessão), não no do relógio.
+  const today = planDate ?? getBrazilDate();
 
-  // Get today's plan
+  // Plano do dia efetivo
   const { data: planData } = await supabase
     .from("daily_goal_plans")
     .select("id")

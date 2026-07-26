@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate, formatBrazilDate, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
+import { getBrazilDate, formatBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2, Trash2, ChevronDown } from "lucide-react";
@@ -520,6 +520,8 @@ export default function DefconHub() {
   const [planId, setPlanId] = useState<string | null>(null);
   const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0, transport: 0, food: 0 });
   const [hasSession, setHasSession] = useState(false);
+  // Sessão de ONTEM ainda aberta (virou meia-noite com o DEFCON rodando).
+  const [overnightOpen, setOvernightOpen] = useState(false);
   // Deslocamento REAL (GPS) somado das sessões: semana (últimos 7 dias) e total geral.
   const [gps, setGps] = useState({ kmSemana: 0, minSemana: 0, kmTotal: 0, diasSemana: 0 });
   const [exporting, setExporting] = useState(false);
@@ -543,7 +545,7 @@ export default function DefconHub() {
   const loadAll = async () => {
     if (!user) return;
     const weekStart = getBrazilDateDaysAgo(6); // últimos 7 dias (hoje incluso)
-    const [{ data: plan }, { data: sales }, { data: session }, { data: gpsRows }] = await Promise.all([
+    const [{ data: plan }, { data: sales }, { data: session }, { data: gpsRows }, { data: overnightSession }] = await Promise.all([
       supabase
         .from("daily_goal_plans")
         .select("id, daily_goal, work_hours")
@@ -566,6 +568,14 @@ export default function DefconHub() {
         .from("challenge_sessions")
         .select("date, distance_meters, worked_minutes")
         .eq("user_id", user.id),
+      supabase
+        .from("challenge_sessions")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .is("ended_at", null)
+        .eq("date", getBrazilDateDaysAgo(1))
+        .maybeSingle(),
     ]);
 
     // Deslocamento GPS: soma metros/minutos das sessões. Semana = últimos 7 dias.
@@ -628,6 +638,10 @@ export default function DefconHub() {
       food: Number((sales as any)?.food_cost || 0),
     });
     setHasSession(!!session);
+    // Só oferece "continuar o de ontem" na MADRUGADA (até 6h). De manhã em diante a
+    // sessão velha é fechada sozinha ao abrir o DEFCON — dia novo começa limpo.
+    const horaBR = parseInt(getBrazilTime().slice(0, 2), 10) || 0;
+    setOvernightOpen(!!overnightSession && horaBR < 6);
   };
 
   useEffect(() => {
@@ -838,8 +852,15 @@ export default function DefconHub() {
         >
           <span className="absolute inset-0 bg-foreground/10 opacity-0 group-active:opacity-100 transition" />
           <Zap className="w-5 h-5 fill-white" />
-          {hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
+          {overnightOpen ? "Continuar o DEFCON de ontem" : hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
         </button>
+
+        {/* Virada de meia-noite: o DEFCON de ontem segue aberto até o vendedor encerrar. */}
+        {overnightOpen && (
+          <p className="mt-2 text-[11px] leading-relaxed text-center rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 px-3 py-2">
+            🕛 Seu DEFCON de <b>ontem</b> ainda está aberto — tudo que você vender continua contando pra ontem até você <b>encerrar</b>. Depois de encerrar, o de hoje começa do zero.
+          </p>
+        )}
 
         {/* Fechar um dia que passou (ex.: virou a meia-noite antes de lançar) — SEM precisar
             entrar no DEFCON. Fica logo abaixo do botão de iniciar. */}

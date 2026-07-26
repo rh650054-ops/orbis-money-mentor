@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,14 @@ export default function DefconChallenge() {
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  // Tick de 30s: faz a comparação "sessão é de ontem?" re-rodar e o modal da virada
+  // aparecer NA HORA em que passa da meia-noite (não só num reload).
+  const [, setMidnightTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setMidnightTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
 
   // GPS: mede a distância REAL andada só enquanto o bloco está rodando (pausa no intervalo/almoço).
   const { distanceMeters } = useDistanceTracker(!treino && defcon.phase === "running");
@@ -257,8 +266,60 @@ export default function DefconChallenge() {
   }
   })();
 
+  // VIRADA DE MEIA-NOITE: sessão ainda aberta de ONTEM (madrugada). Primeiro PERGUNTA
+  // ("continuar vendendo ou encerrar?"); depois da escolha, fica só a faixa lembrando.
+  const overnight =
+    !treino &&
+    defcon.sessionDate &&
+    defcon.sessionDate < getBrazilDate() &&
+    ["running", "break", "block_report", "lunch_pause"].includes(defcon.phase);
+  const overnightLabel = defcon.sessionDate
+    ? new Date(defcon.sessionDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
+    : "";
+  const askKey = user && defcon.sessionDate ? `orbis_midnight_ask_${user.id}_${defcon.sessionDate}` : null;
+  const jaPerguntou = askKey ? localStorage.getItem(askKey) === "1" : true;
+  const mostrarPergunta = Boolean(overnight && !jaPerguntou);
+  const marcarPerguntado = () => { try { if (askKey) localStorage.setItem(askKey, "1"); } catch { /* ignore */ } setMidnightTick((t) => t + 1); };
+
   return (
     <>
+      {/* Pergunta da virada: continuar no mesmo desafio ou encerrar de vez? */}
+      {mostrarPergunta && (
+        <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center px-6">
+          <div className="w-full max-w-sm rounded-2xl bg-neutral-900 border border-amber-500/40 p-5 space-y-4">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🕛</div>
+              <p className="text-lg font-black text-white">Passou da meia-noite!</p>
+              <p className="text-sm text-neutral-300 mt-2 leading-relaxed">
+                Você ainda está no DEFCON do dia <b className="text-amber-400">{overnightLabel}</b>.
+                Quer <b>continuar vendendo</b> nele (pode seguir mais blocos — tudo conta pro dia {overnightLabel})
+                ou <b>encerrar agora</b>?
+              </p>
+            </div>
+            <button
+              onClick={marcarPerguntado}
+              className="w-full py-3 rounded-xl bg-amber-500 text-black font-black text-sm active:scale-[0.98] transition"
+            >
+              CONTINUAR VENDENDO — conta pro dia {overnightLabel}
+            </button>
+            <button
+              onClick={() => { marcarPerguntado(); defcon.endChallenge(); }}
+              className="w-full py-3 rounded-xl border border-neutral-700 text-neutral-300 font-bold text-sm active:scale-[0.98] transition"
+            >
+              Encerrar agora — fecha o dia {overnightLabel} de vez
+            </button>
+            <p className="text-[11px] text-neutral-500 text-center leading-relaxed">
+              Depois de encerrar é definitivo: o próximo DEFCON já começa no novo dia, do zero.
+            </p>
+          </div>
+        </div>
+      )}
+      {/* Faixa-lembrete enquanto a sessão de ontem segue aberta */}
+      {overnight && jaPerguntou && (
+        <div className="fixed top-0 inset-x-0 z-[60] bg-amber-500/95 text-black text-[12px] font-semibold px-4 py-2 text-center" style={{ paddingTop: "max(env(safe-area-inset-top), 8px)" }}>
+          🕛 Este DEFCON é de {overnightLabel} — tudo conta pra esse dia até você ENCERRAR.
+        </div>
+      )}
       {screen}
       {treino && user && (
         <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />

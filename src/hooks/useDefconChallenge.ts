@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getBrazilDate } from "@/shared/lib/date-utils";
+import { getBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { addOfflineRecord } from "@/shared/lib/offline-db";
@@ -150,6 +150,10 @@ export function useDefconChallenge(userId: string | undefined) {
   blockSalesCountRef.current = blockSalesCount;
   const planIdRef = useRef<string | null>(null);
   const dailyGoalRef = useRef(0);
+  // Dia REAL da sessão (na virada de meia-noite pode ser ontem). É pra esse dia que
+  // as vendas sincronizam no daily_sales — nunca pro dia do relógio.
+  const planDateRef = useRef<string>(getBrazilDate());
+  const [sessionDate, setSessionDate] = useState<string | null>(null);
   dailyGoalRef.current = dailyGoal;
 
   const clearTimer = useCallback(() => {
@@ -337,20 +341,71 @@ export function useDefconChallenge(userId: string | undefined) {
 
     const today = getBrazilDate();
 
+    // VIRADA DE MEIA-NOITE — checa PRIMEIRO se existe uma sessão ainda ATIVA de ONTEM
+    // (vendedor virou o dia com o DEFCON rodando). Se existir, ELA manda: o desafio
+    // continua valendo pro dia dela até o vendedor ENCERRAR; só depois o DEFCON do
+    // novo dia começa. Antes essa checagem só rodava quando o plano de hoje não
+    // existia — como o Hub cria o plano de hoje sozinho, a sessão de ontem ficava
+    // órfã e o vendedor "perdia" o desafio na virada (bug real relatado).
+    // REGRA DA MADRUGADA: a continuação só vale até as 6h. Depois disso, uma sessão
+    // de ontem ainda aberta é FECHADA sozinha — senão as vendas da TARDE do dia 26
+    // cairiam no dia 25 (a confusão que queremos evitar). Fechou, o dia novo começa limpo.
+    const horaBR = parseInt(getBrazilTime().slice(0, 2), 10) || 0;
+    const dentroDaMadrugada = horaBR < 6;
+
+    // Fecha uma sessão velha que ficou aberta (estima o fim pelo último bloco iniciado).
+    const fecharSessaoVelha = async (s: any) => {
+      const { data: blks } = await supabase
+        .from("hourly_goal_blocks")
+        .select("timer_started_at")
+        .eq("plan_id", (await supabase.from("daily_goal_plans").select("id").eq("user_id", userId).eq("date", s.date).maybeSingle()).data?.id ?? "")
+        .not("timer_started_at", "is", null)
+        .order("timer_started_at", { ascending: false })
+        .limit(1);
+      const lastStart = blks?.[0]?.timer_started_at ? new Date(blks[0].timer_started_at) : null;
+      const endedAt = lastStart ? new Date(lastStart.getTime() + 60 * 60000) : new Date(s.date + "T23:59:00");
+      const worked = s.started_at
+        ? calcWorkedMinutes(s.started_at, endedAt, Number(s.current_block_index) || 0, lastStart)
+        : null;
+      await supabase
+        .from("challenge_sessions")
+        .update({ status: "completed", ended_at: endedAt.toISOString(), ...(worked != null ? { worked_minutes: worked } : {}) } as never)
+        .eq("id", s.id);
+    };
+
+    let effectiveDate = today;
+    let carriedSession: any = null;
+    {
+      const ontem = getBrazilDateDaysAgo(1);
+      const { data: activeSession } = await supabase
+        .from("challenge_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .is("ended_at", null)
+        .eq("date", ontem)
+        .maybeSingle();
+      if (activeSession) {
+        if (dentroDaMadrugada) {
+          carriedSession = activeSession;
+          effectiveDate = activeSession.date;
+        } else {
+          await fecharSessaoVelha(activeSession);
+        }
+      }
+    }
+
     let { data: planData } = await supabase
       .from("daily_goal_plans")
       .select("id, daily_goal, date")
       .eq("user_id", userId)
-      .eq("date", today)
+      .eq("date", effectiveDate)
       .maybeSingle();
 
-    // Segurança de meia-noite: se NÃO há plano para "hoje", mas existe uma
-    // challenge_session ainda ATIVA de uma data anterior (vendedor virou a
-    // meia-noite com o Defcon rodando), mantemos essa sessão carregada usando
-    // o plano/blocos da data DELA — em vez de resetar para "sem plano".
-    let effectiveDate = today;
-    let carriedSession: any = null;
-    if (!planData) {
+    // Fallback: sem plano de hoje e sem sessão de ontem, mas há sessão ativa antiga.
+    // Só continua se for de ONTEM e ainda na madrugada; senão fecha (evita ressuscitar
+    // sessão esquecida dias depois).
+    if (!planData && !carriedSession) {
       const { data: activeSession } = await supabase
         .from("challenge_sessions")
         .select("*")
@@ -362,17 +417,22 @@ export function useDefconChallenge(userId: string | undefined) {
         .maybeSingle();
 
       if (activeSession) {
-        const { data: prevPlan } = await supabase
-          .from("daily_goal_plans")
-          .select("id, daily_goal, date")
-          .eq("user_id", userId)
-          .eq("date", activeSession.date)
-          .maybeSingle();
+        const ehDeOntem = activeSession.date === getBrazilDateDaysAgo(1);
+        if (ehDeOntem && dentroDaMadrugada) {
+          const { data: prevPlan } = await supabase
+            .from("daily_goal_plans")
+            .select("id, daily_goal, date")
+            .eq("user_id", userId)
+            .eq("date", activeSession.date)
+            .maybeSingle();
 
-        if (prevPlan) {
-          planData = prevPlan;
-          effectiveDate = activeSession.date;
-          carriedSession = activeSession;
+          if (prevPlan) {
+            planData = prevPlan;
+            effectiveDate = activeSession.date;
+            carriedSession = activeSession;
+          }
+        } else if (activeSession.date < today) {
+          await fecharSessaoVelha(activeSession);
         }
       }
     }
@@ -386,6 +446,8 @@ export function useDefconChallenge(userId: string | undefined) {
     setHasPlan(true);
     setDailyGoal(planData.daily_goal);
     planIdRef.current = planData.id;
+    planDateRef.current = effectiveDate;
+    setSessionDate(effectiveDate);
 
     const { data: blocksData } = await supabase
       .from("hourly_goal_blocks")
@@ -844,7 +906,7 @@ export function useDefconChallenge(userId: string | undefined) {
         });
       }
 
-      await syncBlocksToDailySales(userId);
+      await syncBlocksToDailySales(userId, planDateRef.current);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Rede caiu no meio (ou { error } retornado): enfileira pra subir ao reconectar.
@@ -939,7 +1001,7 @@ export function useDefconChallenge(userId: string | undefined) {
     }
 
     // 5) Mesma cauda do addSale: ressincroniza daily_sales e recarrega a lista.
-    await syncBlocksToDailySales(userId);
+    await syncBlocksToDailySales(userId, planDateRef.current);
     await loadSessionSales(sessionId);
     deletingSalesRef.current.delete(sale.id);
   };
@@ -993,7 +1055,7 @@ export function useDefconChallenge(userId: string | undefined) {
         });
       }
 
-      await syncBlocksToDailySales(userId);
+      await syncBlocksToDailySales(userId, planDateRef.current);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Offline / rede caiu: enfileira o estado do bloco pra sincronizar depois.
@@ -1051,7 +1113,7 @@ export function useDefconChallenge(userId: string | undefined) {
         });
       }
 
-      await syncBlocksToDailySales(userId);
+      await syncBlocksToDailySales(userId, planDateRef.current);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
@@ -1160,7 +1222,7 @@ export function useDefconChallenge(userId: string | undefined) {
       })
     );
 
-    await syncBlocksToDailySales(userId);
+    await syncBlocksToDailySales(userId, planDateRef.current);
   };
 
   // "Voltar e vender mais" depois de finalizar o dia. Retoma no ponto EXATO em que parou:
@@ -1264,7 +1326,8 @@ export function useDefconChallenge(userId: string | undefined) {
     if (!userId || !planIdRef.current) return;
     clearTimer();
 
-    const today = getBrazilDate();
+    // Usa o dia da SESSÃO (na virada de meia-noite pode ser ontem), não o do relógio.
+    const today = planDateRef.current;
     const sid = sessionIdRef.current;
     const pid = planIdRef.current;
 
@@ -1324,6 +1387,7 @@ export function useDefconChallenge(userId: string | undefined) {
     remainingSeconds,
     workedMinutes,
     sessionDistance,
+    sessionDate,
     breakRemaining,
     blockStartedAt,
     blockEndTime,

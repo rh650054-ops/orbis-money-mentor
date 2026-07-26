@@ -43,7 +43,6 @@ const MyAccount = lazyWithReload(() => import("@/pages/MyAccount"));
 const Settings = lazyWithReload(() => import("@/pages/Settings"));
 const Products = lazyWithReload(() => import("@/pages/Products"));
 const Chat = lazyWithReload(() => import("@/pages/Chat"));
-const Routine = lazyWithReload(() => import("@/pages/Routine"));
 const Finances = lazyWithReload(() => import("@/pages/Finances"));
 const Tributario = lazyWithReload(() => import("@/pages/Tributario"));
 const Auth = lazyWithReload(() => import("@/pages/Auth"));
@@ -110,7 +109,6 @@ export function AppRouter() {
                     <Route path="/history" element={<History />} />
                     <Route path="/insights" element={<Insights />} />
                     <Route path="/chat" element={<Chat />} />
-                    <Route path="/routine" element={<Routine />} />
                     <Route path="/finances" element={<Finances />} />
                     <Route path="/tributario" element={<Tributario />} />
                     <Route path="/daily-goals" element={<DailyGoals />} />
