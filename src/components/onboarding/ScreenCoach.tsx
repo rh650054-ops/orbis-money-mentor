@@ -302,13 +302,25 @@ export default function ScreenCoach({ userId, isAdmin }: Props) {
   // (momentum) do scroll não escorrega a tela e o anel não cai em elemento errado.
   // Ao avançar/pular, a rolagem é liberada de novo (o usuário rola até o próximo).
   // Não trava se um Dialog já abriu (ele gerencia o próprio overflow).
+  // Espera a rolagem assentar (~350ms sem novo scroll) antes de travar: como
+  // `shown` vira true dentro do próprio listener de scroll, travar o overflow
+  // na hora interrompe um gesto de rolagem em andamento — no mobile (iOS
+  // Safari, principalmente) isso trava a tela de forma abrupta ("bugada").
   useEffect(() => {
     const s = def?.steps[step];
     if (!shown || !s?.selector || dialogOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    let locked = false;
+    let prevOverflow = "";
+    const lock = () => {
+      if (locked) return;
+      locked = true;
+      prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    };
+    const timer = window.setTimeout(lock, 350);
     return () => {
-      document.body.style.overflow = prev;
+      window.clearTimeout(timer);
+      if (locked) document.body.style.overflow = prevOverflow;
     };
   }, [shown, step, def, dialogOpen]);
 
