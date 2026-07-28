@@ -8,6 +8,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
 import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
+import { TERMOS_VERSAO } from "@/components/AceiteTermosModal";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 
 type LoginMethod = "cpf" | "email";
@@ -157,7 +158,10 @@ export default function Auth() {
             is_trial_active: true,
             plan_status: "trial",
             plan_type: "trial",
-          }, { onConflict: "user_id" });
+            // LGPD: o cadastro exibe e vincula Termos/Política; registra o aceite
+            termos_aceitos_versao: TERMOS_VERSAO,
+            termos_aceitos_em: new Date().toISOString(),
+          } as never, { onConflict: "user_id" });
           // Garantia final: índices únicos no banco (cpf/phone/email). Se uma
           // corrida passar pela pré-checagem, o banco recusa o cadastro aqui.
           if (profileError) {
