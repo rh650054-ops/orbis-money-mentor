@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { useToast } from "@/shared/hooks/use-toast";
-import { ShoppingCart, Package, Beaker, Plus, X, TrendingDown, TrendingUp, Sparkles } from "lucide-react";
+import { ShoppingCart, Package, Beaker, Plus, X, TrendingDown, TrendingUp, Sparkles, Trash2 } from "lucide-react";
 
 // Compra de mercadoria com custo automático.
 // Modo "Total da compra": valor final gasto -> produto -> quantas unidades -> estoque + custo médio.
@@ -19,6 +19,10 @@ interface CartItem {
   itemId: string | null; nome: string; unidade: string; novo: boolean;
   qtd: number; valorUn: number; total: number; media: number | null;
   destinoId: string | null; destinoNome: string | null;
+}
+interface CompraRow {
+  id: string; item_tipo: string; ingredient_id: string | null; product_id: string | null;
+  quantidade: number; total_pago: number; custo_unitario: number; data: string;
 }
 
 const UNIDADES = ["un", "kg", "g", "L", "ml", "cx", "dz", "pct"];
@@ -45,16 +49,22 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
   const [aviso, setAviso] = useState<{ texto: string; caro: boolean } | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [producaoQtde, setProducaoQtde] = useState<Record<string, number>>({});
+  const [compras, setCompras] = useState<CompraRow[]>([]);
+  const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [{ data: prods }, { data: ii }] = await Promise.all([
+    const [{ data: prods }, { data: ii }, { data: cps }] = await Promise.all([
       supabase.from("products").select("id, name, cost, sale_price, stock_quantity")
         .eq("user_id", userId).eq("is_active", true).order("name"),
       supabase.from("ingredients").select("id, name, unit, stock_quantity, cost_per_unit")
         .eq("user_id", userId).order("name"),
+      sb.from("compras_mercadoria")
+        .select("id, item_tipo, ingredient_id, product_id, quantidade, total_pago, custo_unitario, data")
+        .eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
     ]);
     setProducts((prods as Prod[]) ?? []);
     setIngs((ii as Ing[]) ?? []);
+    setCompras((cps as CompraRow[]) ?? []);
   }, [userId]);
   useEffect(() => { load(); }, [load]);
 
@@ -181,6 +191,26 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
     setSaving(false);
   };
 
+  // Excluir compra: o banco reverte estoque, custo médio e o custo do dia no relatório.
+  const excluirCompra = async (id: string) => {
+    if (excluindoId !== id) { setExcluindoId(id); setTimeout(() => setExcluindoId((c) => (c === id ? null : c)), 3500); return; }
+    setExcluindoId(null);
+    try {
+      const { error } = await sb.from("compras_mercadoria").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: "Compra excluída", description: "Estoque, custo e relatório revertidos" });
+      await load(); onChanged?.();
+    } catch (e) {
+      console.warn("[compra] erro ao excluir", e);
+      toast({ title: "Erro ao excluir a compra", variant: "destructive" });
+    }
+  };
+
+  const nomeCompra = (c: CompraRow) =>
+    c.item_tipo === "ingrediente"
+      ? ings.find((i) => i.id === c.ingredient_id)?.name ?? "insumo"
+      : products.find((p) => p.id === c.product_id)?.name ?? "produto";
+
   const previewTotal = (() => {
     const u = parseInt(tUnidades, 10);
     return tValor > 0 && u > 0 ? tValor / u : null;
@@ -297,6 +327,33 @@ export function DefconCompraMercadoria({ userId, onChanged }: { userId: string; 
               </button>
             </div>
           )}
+        </div>
+      )}
+
+      {compras.length > 0 && (
+        <div className="space-y-1.5 pt-1 border-t border-border/60">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground pt-2">Últimas compras</p>
+          {compras.map((c) => (
+            <div key={c.id} className="flex items-center gap-2 rounded-xl bg-background border border-border px-3 py-2 text-xs">
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-foreground truncate">{nomeCompra(c)}</p>
+                <p className="text-muted-foreground">
+                  {Number(c.quantidade)} × {formatCurrency(Number(c.custo_unitario))} · {c.data.split("-").reverse().join("/")}
+                </p>
+              </div>
+              <span className="font-bold text-foreground">{formatCurrency(Number(c.total_pago))}</span>
+              <button
+                onClick={() => excluirCompra(c.id)}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center active:scale-90 transition-colors ${
+                  excluindoId === c.id ? "bg-destructive text-destructive-foreground" : "text-muted-foreground hover:text-destructive"
+                }`}
+                aria-label={excluindoId === c.id ? "Toque de novo para confirmar a exclusão" : "Excluir compra"}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+          {excluindoId && <p className="text-[11px] text-destructive font-medium">Toque de novo na lixeira para confirmar — estoque e relatório serão revertidos.</p>}
         </div>
       )}
     </div>
