@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { getCheckoutUrl } from "@/shared/lib/checkout";
-import { useNavigate } from "react-router-dom";
-import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, ArrowLeft } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, ArrowLeft, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
@@ -47,6 +47,32 @@ export default function Profile() {
   const { user, loading } = useAuth();
   const { toast } = useToast();
   const { whitelisted: isAdmin, loading: adminLoading } = useAdminAccess(user?.id);
+  // LGPD: exclusão de conta self-service (digita EXCLUIR pra confirmar)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm.trim().toUpperCase() !== "EXCLUIR") {
+      toast({ title: "Digite EXCLUIR pra confirmar", variant: "destructive" });
+      return;
+    }
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("delete-my-account", {
+        body: { confirmacao: "EXCLUIR" },
+      });
+      const dataErr = (data as { error?: string } | null)?.error;
+      if (error || dataErr) throw new Error(dataErr || error?.message || "erro");
+      toast({ title: "Conta excluída", description: "Todos os seus dados foram apagados. Até logo!" });
+      await supabase.auth.signOut();
+      navigate("/auth");
+    } catch (e) {
+      console.warn("[lgpd] erro ao excluir conta", e);
+      toast({ title: "Erro ao excluir a conta", description: "Tente de novo ou fale com o suporte.", variant: "destructive" });
+      setDeleting(false);
+    }
+  };
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -848,6 +874,57 @@ export default function Profile() {
               <p className="text-xs text-muted-foreground uppercase tracking-wide">Atividades</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* LGPD: privacidade e exclusão de conta */}
+      <Card>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+            <p className="text-sm font-semibold">Privacidade e dados</p>
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Seus dados são seus. Leia a{" "}
+            <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link> e os{" "}
+            <Link to="/termos" className="text-primary underline">Termos de Uso</Link>.
+          </p>
+          {!deleteOpen ? (
+            <button
+              onClick={() => { setDeleteOpen(true); setDeleteConfirm(""); }}
+              className="w-full h-10 rounded-xl border border-destructive/40 text-destructive font-semibold text-xs flex items-center justify-center gap-2 active:scale-[0.98] transition"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Excluir minha conta
+            </button>
+          ) : (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+              <p className="text-xs text-foreground font-semibold">Isso apaga TUDO, pra sempre.</p>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Vendas, metas, estoque, finanças, conversas e seu acesso — sem volta. Se tiver
+                assinatura ativa na Hotmart, cancele lá também. Pra confirmar, digite{" "}
+                <strong className="text-destructive">EXCLUIR</strong>:
+              </p>
+              <Input
+                value={deleteConfirm}
+                onChange={(e) => setDeleteConfirm(e.target.value)}
+                placeholder="EXCLUIR"
+                className="h-10 text-center font-bold tracking-widest"
+              />
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1 h-10" onClick={() => setDeleteOpen(false)} disabled={deleting}>
+                  Cancelar
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 h-10"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting || deleteConfirm.trim().toUpperCase() !== "EXCLUIR"}
+                >
+                  {deleting ? "Excluindo…" : "Excluir de vez"}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

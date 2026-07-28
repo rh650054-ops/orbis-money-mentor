@@ -425,6 +425,15 @@ export default function Auth() {
                   </>
                 )}
               </Button>
+
+              {/* LGPD: aviso de aceite com links fixos no cadastro */}
+              {!isLogin && (
+                <p className="text-[11px] text-muted-foreground text-center leading-relaxed mt-2">
+                  Ao criar a conta, você concorda com os{" "}
+                  <Link to="/termos" className="text-primary underline">Termos de Uso</Link> e a{" "}
+                  <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>.
+                </p>
+              )}
             </form>
 
             <div className="mt-4 pt-4 border-t border-border text-center">

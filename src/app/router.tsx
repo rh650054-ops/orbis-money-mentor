@@ -72,6 +72,8 @@ const Rewards = lazyWithReload(() => import("@/pages/Rewards"));
 const DefconChallenge = lazyWithReload(() => import("@/pages/DefconChallenge"));
 const BankConnections = lazyWithReload(() => import("@/pages/BankConnections"));
 const SpotFinder = lazyWithReload(() => import("@/pages/SpotFinder"));
+const Privacidade = lazyWithReload(() => import("@/pages/Privacidade"));
+const Termos = lazyWithReload(() => import("@/pages/Termos"));
 
 function PageLoader() {
   // Centralizado no viewport de verdade: com min-h-[50vh] o spinner ficava no alto
@@ -90,6 +92,8 @@ export function AppRouter() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/privacidade" element={<Privacidade />} />
+          <Route path="/termos" element={<Termos />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/force-password-change" element={<ForcePasswordChange />} />
