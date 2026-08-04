@@ -24,10 +24,17 @@ header{text-align:center; padding:48px 0 22px;}
 .subtitulo{font-size:12px; color:var(--cinza); letter-spacing:4px; text-transform:uppercase; margin-top:6px;}
 .frase{font-size:13px; color:#555; margin-top:10px;}
 
+/* ===== login ===== */
+#tela-login{max-width:420px; margin:0 auto;}
+.badge-cloud{display:inline-flex; align-items:center; gap:6px; font-size:11px; color:var(--verde); background:rgba(16,185,129,0.10); border:1px solid rgba(16,185,129,0.3); border-radius:20px; padding:4px 12px; margin-top:10px;}
+
 /* ===== controles de período ===== */
-.periodo{display:flex; align-items:center; justify-content:center; gap:10px; margin:6px 0 22px;}
+.periodo{display:flex; align-items:center; justify-content:center; gap:10px; margin:6px 0 22px; flex-wrap:wrap;}
 .periodo select{background:var(--surface2); border:1px solid var(--border); color:var(--branco); border-radius:10px; padding:9px 14px; font-family:'DM Sans'; font-size:14px; cursor:pointer;}
 .periodo select:focus{outline:none; border-color:var(--border-forte);}
+.quem{font-size:12px; color:var(--cinza);}
+.quem b{color:var(--ouro-claro);}
+.sair{background:none; border:none; color:#666; font-size:11px; cursor:pointer; text-decoration:underline;}
 
 /* ===== stats ===== */
 .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px;}
@@ -78,6 +85,7 @@ input::placeholder,textarea::placeholder{color:#555;}
 
 /* ===== lista ===== */
 .item{background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:13px 15px; margin-bottom:9px; display:flex; align-items:center; gap:12px;}
+.item.app{border-style:dashed; opacity:.92;}
 .item .badge{font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; padding:4px 9px; border-radius:7px; white-space:nowrap;}
 .badge.e{background:rgba(16,185,129,0.16); color:var(--verde);}
 .badge.g{background:rgba(232,74,74,0.16); color:#ff9a9a;}
@@ -106,6 +114,9 @@ input::placeholder,textarea::placeholder{color:#555;}
 .rodape{text-align:center; margin-top:30px; font-size:12px; color:#555; line-height:1.8;}
 .rodape a{color:var(--ouro); cursor:pointer; text-decoration:none;}
 
+.aviso-mig{background:linear-gradient(160deg,rgba(245,158,11,0.10),var(--card)); border:1px solid rgba(245,158,11,0.35); border-radius:14px; padding:15px 17px; margin-bottom:22px; font-size:13.5px; color:var(--cinza-claro);}
+.aviso-mig b{color:var(--ambar);}
+
 @media(max-width:620px){
   .stats{grid-template-columns:repeat(2,1fr);}
   .linha{grid-template-columns:1fr;}
@@ -120,112 +131,268 @@ input::placeholder,textarea::placeholder{color:#555;}
   <header>
     <div class="logo">ORBIS</div>
     <div class="subtitulo">Caixa &amp; Auditoria</div>
-    <div class="frase">Cada real que entra, sai ou você saca — anotado e conferido ao vivo.</div>
+    <div class="frase">Cada real que entra, sai ou você saca — salvo na nuvem, junto com o app.</div>
   </header>
 
-  <div class="periodo">
-    <span style="font-size:13px;color:var(--cinza)">Período:</span>
-    <select id="sel-mes" onchange="render()"></select>
+  <!-- LOGIN -->
+  <div id="tela-login" style="display:none">
+    <div class="card">
+      <div class="card-titulo">ENTRAR</div>
+      <div class="card-sub">Use o mesmo CPF e senha do app Orbis. Seus lançamentos ficam salvos na sua conta e aparecem em qualquer aparelho.</div>
+      <div style="margin-bottom:10px">
+        <label class="lbl">CPF</label>
+        <input id="l-cpf" type="text" inputmode="numeric" placeholder="000.000.000-00" autocomplete="username">
+      </div>
+      <div style="margin-bottom:10px">
+        <label class="lbl">Senha</label>
+        <input id="l-senha" type="password" placeholder="Sua senha do Orbis" autocomplete="current-password">
+      </div>
+      <div class="erro" id="l-erro">CPF ou senha incorretos. Tenta de novo.</div>
+      <button class="btn" id="l-btn" onclick="login()">Entrar</button>
+      <div style="text-align:center;margin-top:14px"><span class="badge-cloud">☁ dados salvos na nuvem Orbis</span></div>
+    </div>
   </div>
 
-  <div class="stats" id="stats"></div>
+  <!-- PAINEL -->
+  <div id="tela-painel" style="display:none">
 
-  <div class="dica" id="dica" style="display:none">
-    <div class="dica-icon">💡</div>
-    <div class="dica-txt" id="dica-txt"></div>
-  </div>
-
-  <!-- FORM -->
-  <div class="card">
-    <div class="card-titulo">LANÇAR MOVIMENTO</div>
-    <div class="card-sub">Entrada = dinheiro que entrou. Gasto = despesa do negócio. Saque = quanto você tirou pra você.</div>
-
-    <div class="seg" id="seg">
-      <button data-t="entrada" onclick="setTipo('entrada')"><span class="em">📈</span>Entrada</button>
-      <button data-t="gasto" onclick="setTipo('gasto')"><span class="em">📉</span>Gasto</button>
-      <button data-t="saque" onclick="setTipo('saque')"><span class="em">💸</span>Saque</button>
+    <div class="periodo">
+      <span style="font-size:13px;color:var(--cinza)">Período:</span>
+      <select id="sel-mes" onchange="render()"></select>
+      <span class="quem" id="quem"></span>
+      <button class="sair" onclick="sair()">sair</button>
     </div>
 
-    <div class="linha">
-      <div>
-        <label class="lbl">Valor (R$)</label>
-        <input id="f-valor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00">
-        <div class="erro" id="e-valor">Coloca um valor maior que zero.</div>
-      </div>
-      <div>
-        <label class="lbl">Data</label>
-        <input id="f-data" type="date">
-      </div>
+    <div class="aviso-mig" id="aviso-mig" style="display:none"></div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="dica" id="dica" style="display:none">
+      <div class="dica-icon">💡</div>
+      <div class="dica-txt" id="dica-txt"></div>
     </div>
 
-    <div class="linha" id="linha-cat">
-      <div id="wrap-cat">
-        <label class="lbl">Categoria</label>
-        <select id="f-cat"></select>
+    <!-- FORM -->
+    <div class="card">
+      <div class="card-titulo">LANÇAR MOVIMENTO</div>
+      <div class="card-sub">Entrada = dinheiro que entrou. Gasto = despesa do negócio. Saque = quanto você tirou pra você. Vendas e custos lançados no app já entram sozinhos.</div>
+
+      <div class="seg" id="seg">
+        <button data-t="entrada" onclick="setTipo('entrada')"><span class="em">📈</span>Entrada</button>
+        <button data-t="gasto" onclick="setTipo('gasto')"><span class="em">📉</span>Gasto</button>
+        <button data-t="saque" onclick="setTipo('saque')"><span class="em">💸</span>Saque</button>
       </div>
-      <div>
-        <label class="lbl" id="lbl-desc">Descrição</label>
-        <input id="f-desc" type="text" maxlength="80" placeholder="ex: garrafa PET, transporte…">
+
+      <div class="linha">
+        <div>
+          <label class="lbl">Valor (R$)</label>
+          <input id="f-valor" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0,00">
+          <div class="erro" id="e-valor">Coloca um valor maior que zero.</div>
+        </div>
+        <div>
+          <label class="lbl">Data</label>
+          <input id="f-data" type="date">
+        </div>
       </div>
+
+      <div class="linha" id="linha-cat">
+        <div id="wrap-cat">
+          <label class="lbl">Categoria</label>
+          <select id="f-cat"></select>
+        </div>
+        <div>
+          <label class="lbl" id="lbl-desc">Descrição</label>
+          <input id="f-desc" type="text" maxlength="80" placeholder="ex: garrafa PET, transporte…">
+        </div>
+      </div>
+
+      <button class="btn" id="btn-add" onclick="salvar()">Lançar</button>
     </div>
 
-    <button class="btn" id="btn-add" onclick="salvar()">Lançar</button>
-  </div>
-
-  <!-- LISTA -->
-  <div class="card">
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
-      <div class="card-titulo" style="margin:0">MOVIMENTOS</div>
-      <div style="display:flex;gap:6px">
-        <button class="btn-sec" onclick="exportJSON()">⬇ Backup</button>
-        <button class="btn-sec" onclick="document.getElementById('imp').click()">⬆ Restaurar</button>
-        <button class="btn-sec" onclick="exportCSV()">CSV</button>
-        <input id="imp" type="file" accept="application/json" style="display:none" onchange="importJSON(event)">
+    <!-- LISTA -->
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+        <div class="card-titulo" style="margin:0">MOVIMENTOS</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn-sec" onclick="exportCSV()">⬇ CSV</button>
+        </div>
       </div>
+
+      <div class="filtros" id="filtros">
+        <div class="chip on" data-f="todos" onclick="setFiltro('todos')">Todos</div>
+        <div class="chip" data-f="entrada" onclick="setFiltro('entrada')">Entradas</div>
+        <div class="chip" data-f="gasto" onclick="setFiltro('gasto')">Gastos</div>
+        <div class="chip" data-f="saque" onclick="setFiltro('saque')">Saques</div>
+      </div>
+
+      <div id="lista"></div>
     </div>
 
-    <div class="filtros" id="filtros">
-      <div class="chip on" data-f="todos" onclick="setFiltro('todos')">Todos</div>
-      <div class="chip" data-f="entrada" onclick="setFiltro('entrada')">Entradas</div>
-      <div class="chip" data-f="gasto" onclick="setFiltro('gasto')">Gastos</div>
-      <div class="chip" data-f="saque" onclick="setFiltro('saque')">Saques</div>
+    <!-- BREAKDOWN -->
+    <div class="card" id="card-bd" style="display:none">
+      <div class="card-titulo">GASTOS POR CATEGORIA</div>
+      <div class="card-sub">Onde seu dinheiro está indo neste período.</div>
+      <div id="breakdown"></div>
     </div>
 
-    <div id="lista"></div>
-  </div>
+    <div class="rodape">
+      Vendas e custos do dia a dia entram <b style="color:var(--cinza-claro)">automaticamente do app Orbis</b> (itens tracejados).<br>
+      Lançamentos manuais ficam salvos na sua conta, na nuvem — pode abrir de qualquer aparelho.
+    </div>
 
-  <!-- BREAKDOWN -->
-  <div class="card" id="card-bd" style="display:none">
-    <div class="card-titulo">GASTOS POR CATEGORIA</div>
-    <div class="card-sub">Onde seu dinheiro está indo neste período.</div>
-    <div id="breakdown"></div>
-  </div>
-
-  <div class="rodape">
-    Os dados ficam salvos <b style="color:var(--cinza-claro)">só neste aparelho/navegador</b> (privado, sem nuvem).<br>
-    Faz <a onclick="exportJSON()">backup</a> de vez em quando pra não perder. Painel independente do app Orbis.
   </div>
 
 </div>
 
 <script>
-/* ================= ESTADO ================= */
-const KEY = "orbis_caixa_v1";
+/* ================= CONFIG ================= */
+const SB_URL = "https://qbcsjsdwjjpybvzbxszi.supabase.co";
+const SB_KEY = "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy";
+const SESS_KEY = "orbis_caixa_sess_v1";
+const LEGADO_KEY = "orbis_caixa_v1"; // dados antigos, só locais
 const CATS = {
   entrada: ["Venda", "Recebimento", "Prêmio/Bônus", "Outra entrada"],
   gasto:   ["Mercadoria", "Ingredientes", "Transporte", "Embalagem", "Ponto/Aluguel", "Marketing", "Taxas", "Alimentação", "Outro gasto"],
   saque:   ["Retirada pessoal", "Pró-labore", "Reserva", "Investimento", "Outro saque"],
 };
-let dados = carregar();
+
+let sess = null;          // {access_token, refresh_token, user_id, nome}
+let movs = [];            // manuais (caixa_movimentos)
+let appDias = [];         // daily_sales resumidos
 let tipo = "entrada";
 let filtro = "todos";
 
-function carregar(){ try{ return JSON.parse(localStorage.getItem(KEY)) || []; }catch(e){ return []; } }
-function persistir(){ localStorage.setItem(KEY, JSON.stringify(dados)); }
+/* ================= HELPERS ================= */
 function hojeISO(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function fmt(v){ return "R$ " + (Number(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function mesDe(iso){ return (iso||"").slice(0,7); }
 function nomeMes(ym){ const [y,m]=ym.split("-"); const M=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"]; return M[+m-1]+"/"+y; }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+async function api(path, opts = {}, tentativa = 0){
+  const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      apikey: SB_KEY,
+      Authorization: "Bearer " + sess.access_token,
+      "Content-Type": "application/json",
+      Prefer: opts.method === "POST" ? "return=representation" : (opts.headers?.Prefer || ""),
+      ...(opts.headers||{}),
+    },
+  });
+  if (res.status === 401 && tentativa === 0 && sess?.refresh_token) {
+    const ok = await renovarSessao();
+    if (ok) return api(path, opts, 1);
+    sair(); throw new Error("sessão expirada");
+  }
+  if (!res.ok) throw new Error("API " + res.status + ": " + await res.text());
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+async function renovarSessao(){
+  try{
+    const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: sess.refresh_token }),
+    });
+    if (!res.ok) return false;
+    const j = await res.json();
+    sess.access_token = j.access_token; sess.refresh_token = j.refresh_token;
+    localStorage.setItem(SESS_KEY, JSON.stringify(sess));
+    return true;
+  }catch(e){ return false; }
+}
+
+/* ================= LOGIN ================= */
+async function login(){
+  const btn = document.getElementById("l-btn"); const erro = document.getElementById("l-erro");
+  erro.classList.remove("show");
+  let idv = document.getElementById("l-cpf").value.trim();
+  const senha = document.getElementById("l-senha").value;
+  const digits = idv.replace(/\D/g,"");
+  if (!idv.includes("@") && digits.length === 11) idv = digits + "@orbis.internal";
+  if (!idv || !senha) { erro.textContent = "Preenche CPF e senha."; erro.classList.add("show"); return; }
+  btn.disabled = true; btn.textContent = "Entrando…";
+  try{
+    const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email: idv, password: senha }),
+    });
+    const j = await res.json();
+    if (!res.ok || !j.access_token) {
+      erro.textContent = "CPF ou senha incorretos. Tenta de novo."; erro.classList.add("show");
+      return;
+    }
+    sess = { access_token: j.access_token, refresh_token: j.refresh_token, user_id: j.user.id, nome: "" };
+    localStorage.setItem(SESS_KEY, JSON.stringify(sess));
+    await entrarNoPainel();
+  }catch(e){
+    erro.textContent = "Falha de conexão. Confere a internet e tenta de novo."; erro.classList.add("show");
+  }finally{
+    btn.disabled = false; btn.textContent = "Entrar";
+  }
+}
+
+function sair(){
+  localStorage.removeItem(SESS_KEY);
+  sess = null; movs = []; appDias = [];
+  document.getElementById("tela-painel").style.display = "none";
+  document.getElementById("tela-login").style.display = "block";
+}
+
+/* ================= DADOS ================= */
+async function carregarTudo(){
+  const [perfil, m, ds] = await Promise.all([
+    api(`profiles?user_id=eq.${sess.user_id}&select=nickname`).catch(()=>[]),
+    api(`caixa_movimentos?user_id=eq.${sess.user_id}&select=*&order=data.desc,created_at.desc&limit=2000`),
+    api(`daily_sales?user_id=eq.${sess.user_id}&select=date,cash_sales,pix_sales,card_sales,tip_sales,cost,transport_cost,food_cost&order=date.desc&limit=1000`),
+  ]);
+  sess.nome = (perfil && perfil[0] && perfil[0].nickname) || "";
+  movs = m || [];
+  appDias = (ds || []).map(d => ({
+    date: d.date,
+    vendas: (+d.cash_sales||0) + (+d.pix_sales||0) + (+d.card_sales||0) + (+d.tip_sales||0),
+    custos: (+d.cost||0) + (+d.transport_cost||0) + (+d.food_cost||0),
+  })).filter(d => d.vendas > 0 || d.custos > 0);
+}
+
+// une app + manuais num "extrato" só
+function extrato(){
+  const itens = [];
+  movs.forEach(m => itens.push({ origem:"manual", id:m.id, tipo:m.tipo, valor:+m.valor, data:m.data, cat:m.cat||"", desc:m.descricao||"", ts:m.created_at }));
+  appDias.forEach(d => {
+    if (d.vendas > 0) itens.push({ origem:"app", tipo:"entrada", valor:d.vendas, data:d.date, cat:"Vendas do app", desc:"Vendas lançadas no Orbis", ts:d.date });
+    if (d.custos > 0) itens.push({ origem:"app", tipo:"gasto", valor:d.custos, data:d.date, cat:"Custos do app", desc:"Mercadoria/transporte/alimentação do dia", ts:d.date });
+  });
+  return itens;
+}
+
+/* ================= MIGRAÇÃO DO LEGADO ================= */
+async function checarLegado(){
+  let legado = [];
+  try{ legado = JSON.parse(localStorage.getItem(LEGADO_KEY)) || []; }catch(e){}
+  legado = legado.filter(x => x && x.valor > 0 && x.tipo && x.data);
+  const box = document.getElementById("aviso-mig");
+  if (!legado.length) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  box.innerHTML = `Achei <b>${legado.length} lançamento(s) antigos</b> salvos só neste navegador (da versão anterior do painel). Quer enviar pra sua conta na nuvem? <button class="btn" style="margin-top:10px" onclick="migrarLegado()">Enviar pra nuvem agora</button>`;
+}
+async function migrarLegado(){
+  let legado = [];
+  try{ legado = JSON.parse(localStorage.getItem(LEGADO_KEY)) || []; }catch(e){}
+  legado = legado.filter(x => x && x.valor > 0 && x.tipo && x.data);
+  if (!legado.length) return;
+  const linhas = legado.map(x => ({ user_id: sess.user_id, tipo: x.tipo, valor: x.valor, data: x.data, cat: x.cat||null, descricao: x.desc||null }));
+  await api("caixa_movimentos", { method:"POST", body: JSON.stringify(linhas) });
+  localStorage.removeItem(LEGADO_KEY);
+  await carregarTudo();
+  document.getElementById("aviso-mig").style.display = "none";
+  render();
+  alert("Prontinho! " + linhas.length + " lançamento(s) agora estão na nuvem, na sua conta.");
+}
 
 /* ================= FORM ================= */
 function setTipo(t){
@@ -233,7 +400,6 @@ function setTipo(t){
   document.querySelectorAll("#seg button").forEach(b=>{
     b.className = ""; if(b.dataset.t===t) b.classList.add(t==="entrada"?"on-e":t==="gasto"?"on-g":"on-s");
   });
-  // categoria sempre presente; descrição vira "cliente/origem" na entrada
   const cat = document.getElementById("f-cat");
   cat.innerHTML = CATS[t].map(c=>`<option>${c}</option>`).join("");
   document.getElementById("lbl-desc").textContent = t==="entrada" ? "De quem / o quê" : t==="saque" ? "Observação" : "Descrição";
@@ -241,58 +407,75 @@ function setTipo(t){
   document.getElementById("btn-add").textContent = t==="entrada"?"Lançar entrada":t==="gasto"?"Lançar gasto":"Lançar saque";
 }
 
-function salvar(){
+async function salvar(){
   const valor = parseFloat(String(document.getElementById("f-valor").value).replace(",","."));
   const eV = document.getElementById("e-valor");
   if(!valor || valor<=0){ eV.classList.add("show"); return; }
   eV.classList.remove("show");
-  const data = document.getElementById("f-data").value || hojeISO();
-  const cat = document.getElementById("f-cat").value;
-  const desc = document.getElementById("f-desc").value.trim();
-  dados.push({ id: (crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())), tipo, valor, data, cat, desc, ts: Date.now() });
-  persistir();
-  document.getElementById("f-valor").value = "";
-  document.getElementById("f-desc").value = "";
-  // garante que o mês do lançamento esteja selecionado
-  render(mesDe(data));
+  const btn = document.getElementById("btn-add");
+  btn.disabled = true;
+  try{
+    const data = document.getElementById("f-data").value || hojeISO();
+    const cat = document.getElementById("f-cat").value;
+    const desc = document.getElementById("f-desc").value.trim();
+    const novo = await api("caixa_movimentos", { method:"POST", body: JSON.stringify({ user_id: sess.user_id, tipo, valor, data, cat, descricao: desc||null }) });
+    movs.unshift(novo[0]);
+    document.getElementById("f-valor").value = "";
+    document.getElementById("f-desc").value = "";
+    render(mesDe(data));
+  }catch(e){
+    alert("Não consegui salvar agora. Confere a internet e tenta de novo.");
+  }finally{ btn.disabled = false; }
 }
 
-function editar(id){
-  const it = dados.find(d=>d.id===id); if(!it) return;
+async function editar(id){
+  const it = movs.find(d=>d.id===id); if(!it) return;
   const nv = prompt("Novo valor (R$):", it.valor);
   if(nv===null) return;
   const v = parseFloat(String(nv).replace(",","."));
-  if(v && v>0) it.valor = v;
-  const nd = prompt("Descrição:", it.desc||"");
-  if(nd!==null) it.desc = nd.trim().slice(0,80);
-  persistir(); render();
+  const nd = prompt("Descrição:", it.descricao||"");
+  const patch = {};
+  if(v && v>0) patch.valor = v;
+  if(nd!==null) patch.descricao = nd.trim().slice(0,80) || null;
+  if(!Object.keys(patch).length) return;
+  try{
+    await api(`caixa_movimentos?id=eq.${id}`, { method:"PATCH", body: JSON.stringify(patch) });
+    Object.assign(it, patch);
+    render();
+  }catch(e){ alert("Não consegui editar agora. Tenta de novo."); }
 }
-function remover(id){
-  const it = dados.find(d=>d.id===id);
+
+async function remover(id){
+  const it = movs.find(d=>d.id===id);
   if(!confirm("Apagar este lançamento de "+fmt(it?.valor)+"? Não dá pra desfazer.")) return;
-  dados = dados.filter(d=>d.id!==id); persistir(); render();
+  try{
+    await api(`caixa_movimentos?id=eq.${id}`, { method:"DELETE" });
+    movs = movs.filter(d=>d.id!==id);
+    render();
+  }catch(e){ alert("Não consegui apagar agora. Tenta de novo."); }
 }
 
 function setFiltro(f){ filtro=f; document.querySelectorAll("#filtros .chip").forEach(c=>c.classList.toggle("on",c.dataset.f===f)); render(); }
 
 /* ================= RENDER ================= */
-function mesesDisponiveis(){
-  const set = new Set(dados.map(d=>mesDe(d.data)));
+function mesesDisponiveis(itens){
+  const set = new Set(itens.map(d=>mesDe(d.data)));
   set.add(hojeISO().slice(0,7));
   return [...set].sort().reverse();
 }
 
 function render(forcarMes){
-  // popular selector de período ("Todo o período" + meses com lançamento)
+  const itens = extrato();
+
   const sel = document.getElementById("sel-mes");
-  const meses = mesesDisponiveis();
+  const meses = mesesDisponiveis(itens);
   const atual = forcarMes || sel.value || "todos";
   sel.innerHTML = `<option value="todos" ${atual==="todos"?"selected":""}>Todo o período</option>` +
     meses.map(m=>`<option value="${m}" ${m===atual?"selected":""}>${nomeMes(m)}</option>`).join("");
   const mes = sel.value || atual;
   const tudo = mes==="todos";
 
-  const doMes = tudo ? [...dados] : dados.filter(d=>mesDe(d.data)===mes);
+  const doMes = tudo ? itens : itens.filter(d=>mesDe(d.data)===mes);
   const entradas = doMes.filter(d=>d.tipo==="entrada").reduce((s,d)=>s+d.valor,0);
   const gastos = doMes.filter(d=>d.tipo==="gasto").reduce((s,d)=>s+d.valor,0);
   const saques = doMes.filter(d=>d.tipo==="saque").reduce((s,d)=>s+d.valor,0);
@@ -300,52 +483,48 @@ function render(forcarMes){
   const caixa = entradas - gastos - saques;
   const margem = entradas>0 ? (lucro/entradas*100) : 0;
 
-  // SALDO TOTAL: tudo que já foi lançado, de todos os meses (não só o mês selecionado)
-  const totEntradas = dados.filter(d=>d.tipo==="entrada").reduce((s,d)=>s+d.valor,0);
-  const totGastos = dados.filter(d=>d.tipo==="gasto").reduce((s,d)=>s+d.valor,0);
-  const totSaques = dados.filter(d=>d.tipo==="saque").reduce((s,d)=>s+d.valor,0);
-  const saldoTotal = totEntradas - totGastos - totSaques;
+  // saldo total: tudo, sempre
+  const totE = itens.filter(d=>d.tipo==="entrada").reduce((s,d)=>s+d.valor,0);
+  const totG = itens.filter(d=>d.tipo==="gasto").reduce((s,d)=>s+d.valor,0);
+  const totS = itens.filter(d=>d.tipo==="saque").reduce((s,d)=>s+d.valor,0);
+  const saldoTotal = totE - totG - totS;
 
-  // stats
   document.getElementById("stats").innerHTML = `
-    <div class="stat destaque full"><div class="stat-num ${saldoTotal>=0?'g':'a'}">${fmt(saldoTotal)}</div><div class="stat-lbl">Saldo total em caixa</div><div class="stat-sub">tudo que você já lançou: ${fmt(totEntradas)} entradas − ${fmt(totGastos)} gastos − ${fmt(totSaques)} saques</div></div>
+    <div class="stat destaque full"><div class="stat-num ${saldoTotal>=0?'g':'a'}">${fmt(saldoTotal)}</div><div class="stat-lbl">Saldo total em caixa</div><div class="stat-sub">tudo que você já lançou (app + painel): ${fmt(totE)} entradas − ${fmt(totG)} gastos − ${fmt(totS)} saques</div></div>
     <div class="stat"><div class="stat-num ${caixa>=0?'g':'a'}" style="font-size:26px">${fmt(caixa)}</div><div class="stat-lbl">${tudo?"Caixa (total)":"Caixa do mês"}</div></div>
     <div class="stat"><div class="stat-num v" style="font-size:26px">${fmt(entradas)}</div><div class="stat-lbl">Entradas${tudo?" (total)":""}</div></div>
     <div class="stat"><div class="stat-num a" style="font-size:26px">${fmt(gastos)}</div><div class="stat-lbl">Gastos${tudo?" (total)":""}</div></div>
     <div class="stat"><div class="stat-num r" style="font-size:26px">${fmt(saques)}</div><div class="stat-lbl">Saques${tudo?" (total)":""}</div></div>
   `;
 
-  // dica contextual
   mostrarDica({entradas,gastos,saques,lucro,caixa,margem,n:doMes.length,per:tudo?"do período":"do mês",nes:tudo?"no total":"neste mês"});
 
-  // lista
-  const lst = filtro==="todos" ? doMes : doMes.filter(d=>d.tipo===filtro);
-  lst.sort((a,b)=> (b.data.localeCompare(a.data)) || (b.ts-a.ts));
+  const lst = (filtro==="todos" ? doMes : doMes.filter(d=>d.tipo===filtro)).slice();
+  lst.sort((a,b)=> (b.data.localeCompare(a.data)) || String(b.ts).localeCompare(String(a.ts)));
   const el = document.getElementById("lista");
   if(lst.length===0){
-    el.innerHTML = `<div class="vazio"><div class="vazio-t">NADA AQUI AINDA</div><div class="vazio-x">Lança tua primeira entrada, gasto ou saque lá em cima.</div></div>`;
+    el.innerHTML = `<div class="vazio"><div class="vazio-t">NADA AQUI AINDA</div><div class="vazio-x">Lança tua primeira entrada, gasto ou saque lá em cima — ou registra vendas no app.</div></div>`;
   } else {
     el.innerHTML = lst.map(d=>{
       const cls = d.tipo==="entrada"?"e":d.tipo==="gasto"?"g":"s";
       const vcls = d.tipo==="entrada"?"pos":d.tipo==="gasto"?"neg":"saq";
-      const sinal = d.tipo==="entrada"?"+":d.tipo==="gasto"?"−":"−";
+      const sinal = d.tipo==="entrada"?"+":"−";
       const dd = d.data.slice(8,10)+"/"+d.data.slice(5,7)+(tudo?"/"+d.data.slice(2,4):"");
-      return `<div class="item">
+      const acoes = d.origem==="manual"
+        ? `<div class="acoes"><button class="iconbtn" onclick="editar('${d.id}')" title="Editar">✎</button><button class="iconbtn del" onclick="remover('${d.id}')" title="Apagar">✕</button></div>`
+        : `<div class="acoes" title="Veio do app Orbis — edite lá"><span style="font-size:10px;color:#666;letter-spacing:1px">APP</span></div>`;
+      return `<div class="item ${d.origem==="app"?"app":""}">
         <span class="badge ${cls}">${d.tipo}</span>
         <div class="info">
-          <div class="desc">${d.desc? escapeHtml(d.desc) : d.cat}</div>
+          <div class="desc">${d.desc? escapeHtml(d.desc) : escapeHtml(d.cat)}</div>
           <div class="meta">${dd} · ${escapeHtml(d.cat||"")}</div>
         </div>
         <div class="val ${vcls}">${sinal}${fmt(d.valor).replace('R$ ','')}</div>
-        <div class="acoes">
-          <button class="iconbtn" onclick="editar('${d.id}')" title="Editar">✎</button>
-          <button class="iconbtn del" onclick="remover('${d.id}')" title="Apagar">✕</button>
-        </div>
+        ${acoes}
       </div>`;
     }).join("");
   }
 
-  // breakdown de gastos
   const gs = doMes.filter(d=>d.tipo==="gasto");
   const cardBd = document.getElementById("card-bd");
   if(gs.length===0){ cardBd.style.display="none"; }
@@ -360,9 +539,9 @@ function render(forcarMes){
       <div class="bd-bar"><div class="bd-fill" style="width:${Math.max(4,v/max*100)}%"></div></div>
       <div class="bd-val">${fmt(v)}</div></div>`).join("");
   }
-}
 
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  document.getElementById("quem").innerHTML = sess.nome ? `<b>${escapeHtml(sess.nome.split(" ")[0])}</b> ·` : "";
+}
 
 /* ================= DICAS ================= */
 function mostrarDica(x){
@@ -383,38 +562,41 @@ function mostrarDica(x){
   if(msg){ txt.innerHTML=msg; box.style.display="flex"; } else { box.style.display="none"; }
 }
 
-/* ================= BACKUP ================= */
-function exportJSON(){
-  const blob = new Blob([JSON.stringify(dados,null,2)], {type:"application/json"});
-  baixar(blob, "orbis-caixa-backup-"+hojeISO()+".json");
-}
+/* ================= EXPORT ================= */
 function exportCSV(){
-  const linhas = [["data","tipo","categoria","descricao","valor"]];
-  [...dados].sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>linhas.push([d.data,d.tipo,d.cat||"",(d.desc||"").replace(/"/g,'""'),String(d.valor).replace(".",",")]));
+  const linhas = [["data","tipo","origem","categoria","descricao","valor"]];
+  extrato().sort((a,b)=>a.data.localeCompare(b.data)).forEach(d=>linhas.push([d.data,d.tipo,d.origem,d.cat||"",(d.desc||"").replace(/"/g,'""'),String(d.valor).replace(".",",")]));
   const csv = "﻿"+linhas.map(r=>r.map(c=>`"${c}"`).join(";")).join("\n");
-  baixar(new Blob([csv],{type:"text/csv"}), "orbis-caixa-"+hojeISO()+".csv");
-}
-function baixar(blob,nome){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=nome; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000); }
-function importJSON(ev){
-  const f=ev.target.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=()=>{
-    try{
-      const arr=JSON.parse(r.result);
-      if(!Array.isArray(arr)) throw 0;
-      if(!confirm("Restaurar "+arr.length+" lançamentos? Isso SUBSTITUI os dados atuais deste aparelho.")) return;
-      dados=arr; persistir(); render();
-      alert("Restaurado com sucesso.");
-    }catch(e){ alert("Arquivo inválido. Use um backup gerado por este painel."); }
-    ev.target.value="";
-  };
-  r.readAsText(f);
+  const a=document.createElement("a"); const blob=new Blob([csv],{type:"text/csv"});
+  a.href=URL.createObjectURL(blob); a.download="orbis-caixa-"+hojeISO()+".csv"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 
 /* ================= INIT ================= */
-document.getElementById("f-data").value = hojeISO();
-setTipo("entrada");
-render();
+async function entrarNoPainel(){
+  document.getElementById("tela-login").style.display = "none";
+  document.getElementById("tela-painel").style.display = "block";
+  document.getElementById("f-data").value = hojeISO();
+  setTipo("entrada");
+  document.getElementById("stats").innerHTML = `<div class="stat full"><div class="stat-lbl">Carregando seus dados…</div></div>`;
+  try{
+    await carregarTudo();
+    render();
+    checarLegado();
+  }catch(e){
+    document.getElementById("stats").innerHTML = `<div class="stat full"><div class="stat-lbl" style="color:var(--alerta)">Não consegui carregar. Recarrega a página.</div></div>`;
+  }
+}
+
+(async function(){
+  try{ sess = JSON.parse(localStorage.getItem(SESS_KEY)); }catch(e){}
+  if (sess && sess.access_token) {
+    const ok = await renovarSessao();
+    if (ok) { await entrarNoPainel(); return; }
+    sess = null; localStorage.removeItem(SESS_KEY);
+  }
+  document.getElementById("tela-login").style.display = "block";
+})();
 </script>
 </body>
 </html>
