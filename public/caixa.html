@@ -283,14 +283,16 @@ function mesesDisponiveis(){
 }
 
 function render(forcarMes){
-  // popular selector de mês
+  // popular selector de período ("Todo o período" + meses com lançamento)
   const sel = document.getElementById("sel-mes");
   const meses = mesesDisponiveis();
-  const atual = forcarMes || sel.value || meses[0];
-  sel.innerHTML = meses.map(m=>`<option value="${m}" ${m===atual?"selected":""}>${nomeMes(m)}</option>`).join("");
+  const atual = forcarMes || sel.value || "todos";
+  sel.innerHTML = `<option value="todos" ${atual==="todos"?"selected":""}>Todo o período</option>` +
+    meses.map(m=>`<option value="${m}" ${m===atual?"selected":""}>${nomeMes(m)}</option>`).join("");
   const mes = sel.value || atual;
+  const tudo = mes==="todos";
 
-  const doMes = dados.filter(d=>mesDe(d.data)===mes);
+  const doMes = tudo ? [...dados] : dados.filter(d=>mesDe(d.data)===mes);
   const entradas = doMes.filter(d=>d.tipo==="entrada").reduce((s,d)=>s+d.valor,0);
   const gastos = doMes.filter(d=>d.tipo==="gasto").reduce((s,d)=>s+d.valor,0);
   const saques = doMes.filter(d=>d.tipo==="saque").reduce((s,d)=>s+d.valor,0);
@@ -307,14 +309,14 @@ function render(forcarMes){
   // stats
   document.getElementById("stats").innerHTML = `
     <div class="stat destaque full"><div class="stat-num ${saldoTotal>=0?'g':'a'}">${fmt(saldoTotal)}</div><div class="stat-lbl">Saldo total em caixa</div><div class="stat-sub">tudo que você já lançou: ${fmt(totEntradas)} entradas − ${fmt(totGastos)} gastos − ${fmt(totSaques)} saques</div></div>
-    <div class="stat"><div class="stat-num ${caixa>=0?'g':'a'}" style="font-size:26px">${fmt(caixa)}</div><div class="stat-lbl">Caixa do mês</div></div>
-    <div class="stat"><div class="stat-num v" style="font-size:26px">${fmt(entradas)}</div><div class="stat-lbl">Entradas</div></div>
-    <div class="stat"><div class="stat-num a" style="font-size:26px">${fmt(gastos)}</div><div class="stat-lbl">Gastos</div></div>
-    <div class="stat"><div class="stat-num r" style="font-size:26px">${fmt(saques)}</div><div class="stat-lbl">Saques</div></div>
+    <div class="stat"><div class="stat-num ${caixa>=0?'g':'a'}" style="font-size:26px">${fmt(caixa)}</div><div class="stat-lbl">${tudo?"Caixa (total)":"Caixa do mês"}</div></div>
+    <div class="stat"><div class="stat-num v" style="font-size:26px">${fmt(entradas)}</div><div class="stat-lbl">Entradas${tudo?" (total)":""}</div></div>
+    <div class="stat"><div class="stat-num a" style="font-size:26px">${fmt(gastos)}</div><div class="stat-lbl">Gastos${tudo?" (total)":""}</div></div>
+    <div class="stat"><div class="stat-num r" style="font-size:26px">${fmt(saques)}</div><div class="stat-lbl">Saques${tudo?" (total)":""}</div></div>
   `;
 
   // dica contextual
-  mostrarDica({entradas,gastos,saques,lucro,caixa,margem,n:doMes.length});
+  mostrarDica({entradas,gastos,saques,lucro,caixa,margem,n:doMes.length,per:tudo?"do período":"do mês",nes:tudo?"no total":"neste mês"});
 
   // lista
   const lst = filtro==="todos" ? doMes : doMes.filter(d=>d.tipo===filtro);
@@ -327,7 +329,7 @@ function render(forcarMes){
       const cls = d.tipo==="entrada"?"e":d.tipo==="gasto"?"g":"s";
       const vcls = d.tipo==="entrada"?"pos":d.tipo==="gasto"?"neg":"saq";
       const sinal = d.tipo==="entrada"?"+":d.tipo==="gasto"?"−":"−";
-      const dd = d.data.slice(8,10)+"/"+d.data.slice(5,7);
+      const dd = d.data.slice(8,10)+"/"+d.data.slice(5,7)+(tudo?"/"+d.data.slice(2,4):"");
       return `<div class="item">
         <span class="badge ${cls}">${d.tipo}</span>
         <div class="info">
@@ -370,13 +372,13 @@ function mostrarDica(x){
   if(x.entradas>0 && x.gastos/x.entradas > 0.6){
     msg = `Seus gastos comem <b>${(x.gastos/x.entradas*100).toFixed(0)}%</b> do que entra. Acima de 60% aperta demais — veja em "Gastos por categoria" o que dá pra cortar ou negociar.`;
   } else if(x.entradas>0 && x.saques > x.lucro && x.lucro>0){
-    msg = `Cuidado: você sacou <b>${fmt(x.saques)}</b>, mais do que o lucro do mês (${fmt(x.lucro)}). Tirar mais do que sobra corrói o caixa — segura a retirada até o lucro cobrir.`;
+    msg = `Cuidado: você sacou <b>${fmt(x.saques)}</b>, mais do que o lucro ${x.per} (${fmt(x.lucro)}). Tirar mais do que sobra corrói o caixa — segura a retirada até o lucro cobrir.`;
   } else if(x.caixa<0){
-    msg = `Seu caixa está <b>negativo</b> neste mês (${fmt(x.caixa)}). Saiu mais do que entrou. Antes de sacar de novo, foque em entrada e corte um gasto.`;
+    msg = `Seu caixa está <b>negativo</b> ${x.nes} (${fmt(x.caixa)}). Saiu mais do que entrou. Antes de sacar de novo, foque em entrada e corte um gasto.`;
   } else if(x.entradas>0 && x.margem>=40){
     msg = `Margem de <b>${x.margem.toFixed(0)}%</b> — tá saudável. Mantém o controle e considera separar uma parte do lucro como reserva antes de sacar tudo.`;
   } else if(x.entradas>0){
-    msg = `Lucro do mês: <b>${fmt(x.lucro)}</b> (margem ${x.margem.toFixed(0)}%). Lança tudo direitinho que a foto do mês fica real — dá pra decidir com número, não no achismo.`;
+    msg = `Lucro ${x.per}: <b>${fmt(x.lucro)}</b> (margem ${x.margem.toFixed(0)}%). Lança tudo direitinho que a foto fica real — dá pra decidir com número, não no achismo.`;
   }
   if(msg){ txt.innerHTML=msg; box.style.display="flex"; } else { box.style.display="none"; }
 }
