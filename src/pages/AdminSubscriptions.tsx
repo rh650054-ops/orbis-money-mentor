@@ -275,31 +275,25 @@ export default function AdminSubscriptions() {
     }
   };
 
-  // Corrige o valor de um dia: ajusta o total e redistribui dinheiro/cartão/pix
-  // proporcionalmente; depois recalcula o ranking a partir do daily_sales.
+  // Corrige o valor de um dia via RPC no servidor (admin_corrigir_resultado_dia):
+  // atualiza daily_sales, escala os blocos de hora do usuário na mesma proporção
+  // (senão o app dele re-sincroniza e desfaz a correção) e recalcula o ranking
+  // do mês da data editada. O RPC dá erro explícito se nada for alterado —
+  // nada de sucesso falso.
   const saveSaleDay = async (sale: any, newTotalStr: string) => {
     if (!editUser) return;
     const newTotal = parseFloat(newTotalStr) || 0;
     setSavingSaleId(sale.id);
     try {
-      const orig = (sale.cash_sales || 0) + (sale.card_sales || 0) + (sale.pix_sales || 0);
-      let cash: number, card: number, pix: number;
-      if (orig > 0) {
-        const r = newTotal / orig;
-        cash = Math.round((sale.cash_sales || 0) * r * 100) / 100;
-        card = Math.round((sale.card_sales || 0) * r * 100) / 100;
-        pix = Math.round((sale.pix_sales || 0) * r * 100) / 100;
-      } else {
-        cash = newTotal; card = 0; pix = 0;
-      }
-      const { error } = await supabase
-        .from("daily_sales")
-        .update({ cash_sales: cash, card_sales: card, pix_sales: pix, total_profit: newTotal } as any)
-        .eq("id", sale.id);
+      const { data, error } = await supabase.rpc("admin_corrigir_resultado_dia" as never, {
+        p_sale_id: sale.id,
+        p_novo_total: newTotal,
+      } as never);
       if (error) throw error;
-      await syncLeaderboardRevenue(editUser.user_id);
-      setUserSales((prev) => prev.map((s) => (s.id === sale.id ? { ...s, cash_sales: cash, card_sales: card, pix_sales: pix, total_profit: newTotal } : s)));
-      toast({ title: "✅ Resultado corrigido", description: "Ranking recalculado." });
+      const fixed = data as any;
+      setUserSales((prev) => prev.map((s) => (s.id === sale.id ? { ...s, ...fixed } : s)));
+      setSaleEdits((m) => ({ ...m, [sale.id]: String(newTotal) }));
+      toast({ title: "✅ Resultado corrigido", description: "Dia, blocos de hora e ranking atualizados." });
     } catch (err: any) {
       toast({ title: "Erro ao corrigir", description: err.message || "Tente novamente.", variant: "destructive" });
     } finally {
@@ -307,14 +301,14 @@ export default function AdminSubscriptions() {
     }
   };
 
-  // Remove um lançamento de dia inteiro (ex.: venda falsa) e recalcula o ranking.
+  // Remove um lançamento de dia inteiro (ex.: venda falsa) via RPC: apaga o dia,
+  // zera os blocos de hora (pra não renascer no re-sync) e recalcula o ranking.
   const deleteSaleDay = async (sale: any) => {
     if (!editUser) return;
     setSavingSaleId(sale.id);
     try {
-      const { error } = await supabase.from("daily_sales").delete().eq("id", sale.id);
+      const { error } = await supabase.rpc("admin_remover_resultado_dia" as never, { p_sale_id: sale.id } as never);
       if (error) throw error;
-      await syncLeaderboardRevenue(editUser.user_id);
       setUserSales((prev) => prev.filter((s) => s.id !== sale.id));
       toast({ title: "🗑️ Dia removido", description: "Ranking recalculado." });
     } catch (err: any) {
@@ -347,7 +341,28 @@ export default function AdminSubscriptions() {
         .from("leaderboard_stats")
         .update({ nome_usuario: editForm.nickname || null } as any)
         .eq("user_id", editUser.user_id);
-      toast({ title: "✅ Perfil atualizado", description: editForm.nickname || editUser.email || "" });
+      // Salva também qualquer valor de dia digitado em "Resultados do mês" que
+      // não foi salvo pelo botão da linha — antes, digitar ali e tocar em
+      // "Salvar" descartava a correção em silêncio (a causa do "salvo e não muda").
+      const diasPendentes = userSales.filter((s) => {
+        const digitado = parseFloat(saleEdits[s.id] ?? "");
+        if (isNaN(digitado)) return false;
+        const atual = Number(s.total_profit ?? ((s.cash_sales || 0) + (s.card_sales || 0) + (s.pix_sales || 0)));
+        return Math.abs(digitado - atual) >= 0.005;
+      });
+      for (const s of diasPendentes) {
+        const { error: errDia } = await supabase.rpc("admin_corrigir_resultado_dia" as never, {
+          p_sale_id: s.id,
+          p_novo_total: parseFloat(saleEdits[s.id]),
+        } as never);
+        if (errDia) throw errDia;
+      }
+      toast({
+        title: "✅ Perfil atualizado",
+        description: diasPendentes.length
+          ? `${diasPendentes.length} resultado(s) do mês corrigido(s) e ranking recalculado.`
+          : (editForm.nickname || editUser.email || ""),
+      });
       setEditUser(null);
       loadUsers();
     } catch (err: any) {
