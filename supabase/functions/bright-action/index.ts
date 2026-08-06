@@ -298,7 +298,9 @@ Deno.serve(async (req) => {
             headers: { "Content-Type": "application/json" },
             signal: AbortSignal.timeout(15000),
             body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text }] }],
+              // O prefixo é ESSENCIAL: sem ele, o modelo de TTS às vezes "responde" ao texto
+              // em vez de lê-lo (falava conteúdo inventado, principalmente em perguntas).
+              contents: [{ role: "user", parts: [{ text: `Leia em voz alta, em português do Brasil, com tom natural de conversa, EXATAMENTE o texto a seguir, sem adicionar, responder ou comentar nada: ${text}` }] }],
               generationConfig: {
                 responseModalities: ["AUDIO"],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: ttsVoice } } },
