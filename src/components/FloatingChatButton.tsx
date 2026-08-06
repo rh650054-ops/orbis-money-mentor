@@ -331,13 +331,25 @@ export default function FloatingChatButton() {
   // ===== VOZ POR TOQUE (1 toque por mensagem — funciona no iPhone) =====
   // Toca o microfone, fala; quando você pausa (~1,5s) ele manda sozinho. A IA responde
   // por voz. Pra próxima pergunta, toca de novo (o iPhone exige um toque a cada vez).
+  // ANTI-DUPLICATA: o reconhecimento dispara um último resultado ATRASADO depois do
+  // envio, que re-armava o timer e mandava a MESMA fala 2x — aí chegavam 2 respostas
+  // quase juntas e a voz falava uma por cima da outra (o "nada com nada"). Agora o
+  // reconhecimento é descartado ANTES do envio e envio igual em <8s é ignorado.
+  const lastSentRef = useRef<{ t: string; ts: number }>({ t: "", ts: 0 });
   const sendPending = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     if (!nativeSpeech) { stopRecFallback(); return; } // plano B: parar a gravação já transcreve e envia
     const text = pendingTextRef.current.trim();
     pendingTextRef.current = "";
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
-    if (text) { setInput(""); sendMessage(text); }
+    const rec = recognitionRef.current;
+    recognitionRef.current = null; // resultados atrasados deste reconhecimento serão ignorados
+    try { rec?.stop(); } catch { /* noop */ }
+    if (!text) return;
+    const agora = Date.now();
+    if (text === lastSentRef.current.t && agora - lastSentRef.current.ts < 8000) return; // duplicata
+    lastSentRef.current = { t: text, ts: agora };
+    setInput("");
+    sendMessage(text);
   };
 
   const stopVoice = () => {
@@ -380,6 +392,7 @@ export default function FloatingChatButton() {
     setInput("");
     pendingTextRef.current = "";
     rec.onresult = (e: any) => {
+      if (recognitionRef.current !== rec) return; // resultado atrasado de reconhecimento já descartado
       let full = "";
       for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
       pendingTextRef.current = full;
