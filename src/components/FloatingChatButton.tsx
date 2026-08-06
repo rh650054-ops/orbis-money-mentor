@@ -11,8 +11,8 @@ import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: false = voz do servidor (OpenAI, estilo JARVIS — natural, rápida, toca no iPhone).
-// true = voz do aparelho (instantânea, robótica). Se a OpenAI falhar, cai nela sozinho.
+// Voz do modo VOZ: false = voz do servidor (Gemini TTS oficial, com fallbacks — natural, toca no iPhone).
+// true = voz do aparelho (instantânea, robótica). Se o servidor falhar, cai nela sozinho.
 const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
@@ -40,10 +40,59 @@ export default function FloatingChatButton() {
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
     try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
     setSpeaking(false);
+    speakingRef.current = false;
   };
-  const speechSupported =
+  // Reconhecimento nativo do navegador (Chrome/Safari). Onde NÃO existe (Firefox,
+  // vários WebViews Android), caímos no plano B: gravar com MediaRecorder e
+  // transcrever no servidor — o microfone funciona em TODO aparelho.
+  const nativeSpeech =
     typeof window !== "undefined" &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const speechSupported =
+    nativeSpeech ||
+    (typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined");
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const voiceModeRef = useRef(false);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+
+  // ---- Plano B do microfone: grava e transcreve no servidor (Gemini) ----
+  const startRecFallback = async (onText: (t: string) => void) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]
+        .find((m) => MediaRecorder.isTypeSupported?.(m)) || "";
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
+        const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+        if (blob.size < 1500) return; // gravação vazia/curtíssima
+        setTranscribing(true);
+        try {
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result).split(",")[1] || "");
+            fr.onerror = reject;
+            fr.readAsDataURL(blob);
+          });
+          const { data } = await supabase.functions.invoke("bright-action", { body: { stt: b64, mime: blob.type } });
+          const text = ((data as any)?.text || "").trim();
+          if (text) onText(text);
+        } catch { /* transcrição falhou: usuário grava de novo */ }
+        setTranscribing(false);
+      };
+      mediaRecRef.current = mr;
+      mr.start();
+      setIsRecording(true); isRecordingRef.current = true;
+    } catch {
+      setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
+    }
+  };
+  const stopRecFallback = () => { try { mediaRecRef.current?.stop(); } catch { /* noop */ } };
 
   const requestClose = () => {
     if (typeof window !== "undefined" && (window.history.state as any)?.orbisChat) {
@@ -55,6 +104,18 @@ export default function FloatingChatButton() {
 
   const toggleRecording = () => {
     if (!speechSupported) return;
+    // Navegador SEM reconhecimento nativo: grava e transcreve no servidor.
+    if (!nativeSpeech) {
+      if (isRecording) { stopRecFallback(); return; }
+      stopSpeaking();
+      const base = voiceMode ? "" : (input ? input.trim() + " " : "");
+      if (voiceMode) setInput("");
+      startRecFallback((text) => {
+        if (voiceModeRef.current) { sendMessage(text); setInput(""); }
+        else setInput(base + text);
+      });
+      return;
+    }
     if (isRecording) {
       recognitionRef.current?.stop();
       return;
@@ -137,6 +198,7 @@ export default function FloatingChatButton() {
     if (!isOpen) {
       if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
       recognitionRef.current?.stop();
+      stopRecFallback();
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
       setVoiceMode(false);
       stopSpeaking();
@@ -181,49 +243,89 @@ export default function FloatingChatButton() {
   };
 
   // ---- Modo voz ----
-  // Voz do servidor (OpenAI, estilo JARVIS) — natural e rápida. Cai pra voz do navegador se falhar.
+  // Quebra o texto em pedaços de ~1-2 frases: o 1º pedaço vira áudio e começa a tocar
+  // em ~2s, enquanto os próximos são gerados em paralelo. Nada de esperar a fala inteira.
+  const splitForSpeech = (text: string): string[] => {
+    const sentences = text.replace(/\s+/g, " ").trim().match(/[^.!?…]+[.!?…]+["')\]]*|[^.!?…]+$/g) || [text];
+    const chunks: string[] = [];
+    let cur = "";
+    for (const s of sentences) {
+      if (cur && (cur + s).length > 160) { chunks.push(cur.trim()); cur = s; }
+      else cur += s;
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+    return chunks.filter(Boolean);
+  };
+
+  const fetchTTS = async (text: string): Promise<string | null> => {
+    try {
+      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      const b64 = (data as any)?.audio;
+      if (!b64) return null;
+      return "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
+    } catch { return null; }
+  };
+
+  const playSrc = (src: string, myToken: number) =>
+    new Promise<boolean>((resolve) => {
+      const a = audioRef.current;
+      if (!a || myToken !== ttsTokenRef.current) { resolve(false); return; }
+      a.src = src;
+      a.onended = () => resolve(true);
+      a.onerror = () => resolve(false);
+      a.play().then(undefined, () => resolve(false));
+    });
+
+  // Voz do servidor (Gemini oficial, com fallbacks) falada POR PARTES. Se falhar, voz do navegador.
   const speak = async (text: string) => {
     if (!text) return;
-    stopSpeaking();                       // corta a fala anterior — foca na nova
+    stopSpeaking();                        // corta a fala anterior — foca na nova
     const myToken = ++ttsTokenRef.current; // token desta fala
     setSpeaking(true);
+    speakingRef.current = true;
 
-    // Se nesta sessão a voz do Gemini já se mostrou indisponível, mantém a voz do
-    // navegador (consistência — não fica alternando robô/voz-boa no meio da conversa).
     if (voiceEngineRef.current === "browser") {
-      setSpeaking(false);
+      setSpeaking(false); speakingRef.current = false;
       speakBrowser(text);
       return;
     }
 
-    // Tenta a voz do Gemini até 2x.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
-        if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
-        const b64 = (data as any)?.audio;
-        if (b64 && audioRef.current) {
-          voiceEngineRef.current = "gemini"; // funcionou: trava na voz boa nesta sessão
-          const a = audioRef.current;
-          a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
-          a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
-          a.onerror = () => { if (myToken === ttsTokenRef.current) { setSpeaking(false); speakBrowser(text); } };
-          await a.play();
-          return;
-        }
-      } catch (e) {
-        if (myToken !== ttsTokenRef.current) return; // cancelada por uma fala nova
-        console.warn("TTS Gemini falhou (tentativa " + (attempt + 1) + ")", e);
+    const chunks = splitForSpeech(text);
+    // dispara a geração dos pedaços em paralelo (limitada pela ordem de consumo)
+    const jobs: Promise<string | null>[] = chunks.map((c, i) =>
+      i === 0 ? fetchTTS(c) : new Promise((res) => setTimeout(() => fetchTTS(c).then(res), i * 150))
+    );
+
+    let anyOk = false;
+    for (let i = 0; i < jobs.length; i++) {
+      const src = await jobs[i];
+      if (myToken !== ttsTokenRef.current) return; // interrompida por fala nova
+      if (src) {
+        anyOk = true;
+        voiceEngineRef.current = "gemini";
+        const ok = await playSrc(src, myToken);
+        if (myToken !== ttsTokenRef.current) return;
+        if (!ok && !anyOk) break; // nem tocar deu: cai pro navegador
+      } else if (!anyOk) {
+        break; // 1º pedaço já falhou: cai pro navegador com o texto inteiro
       }
-      if (myToken !== ttsTokenRef.current) return;
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 600)); // respira e tenta de novo
     }
 
-    // Gemini falhou 2x. Se NUNCA funcionou nesta sessão, trava no navegador (consistência).
-    if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
     if (myToken !== ttsTokenRef.current) return;
     setSpeaking(false);
-    speakBrowser(text);
+    speakingRef.current = false;
+    if (!anyOk) {
+      if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
+      speakBrowser(text);
+      return;
+    }
+    // Conversa contínua: acabou de falar no modo voz -> volta a ouvir sozinho (fora do iPhone,
+    // que exige um toque por gravação).
+    if (voiceModeRef.current && nativeSpeech && !isIOS) {
+      setTimeout(() => {
+        if (voiceModeRef.current && !speakingRef.current && !isRecordingRef.current) startTalk();
+      }, 350);
+    }
   };
 
   // ===== VOZ POR TOQUE (1 toque por mensagem — funciona no iPhone) =====
@@ -231,6 +333,7 @@ export default function FloatingChatButton() {
   // por voz. Pra próxima pergunta, toca de novo (o iPhone exige um toque a cada vez).
   const sendPending = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    if (!nativeSpeech) { stopRecFallback(); return; } // plano B: parar a gravação já transcreve e envia
     const text = pendingTextRef.current.trim();
     pendingTextRef.current = "";
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
@@ -240,11 +343,19 @@ export default function FloatingChatButton() {
   const stopVoice = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    stopRecFallback();
     stopSpeaking();
   };
 
   const startTalk = () => {
     if (!speechSupported) return;
+    // Navegador sem reconhecimento nativo: grava, transcreve no servidor e envia sozinho.
+    if (!nativeSpeech) {
+      stopSpeaking();
+      setInput("");
+      startRecFallback((text) => { if (voiceModeRef.current) sendMessage(text); else setInput(text); });
+      return;
+    }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     stopSpeaking(); // corta a fala da IA (se estiver falando) e passa a te ouvir
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
@@ -309,7 +420,15 @@ export default function FloatingChatButton() {
       const pt = [...ptVoices].sort((a, b) => score(b) - score(a))[0];
       if (pt) u.voice = pt;
       u.onstart = () => { setSpeaking(true); speakingRef.current = true; };
-      u.onend = () => { setSpeaking(false); speakingRef.current = false; };
+      u.onend = () => {
+        setSpeaking(false); speakingRef.current = false;
+        // conversa contínua também na voz do navegador (fora do iPhone)
+        if (voiceModeRef.current && nativeSpeech && !isIOS) {
+          setTimeout(() => {
+            if (voiceModeRef.current && !speakingRef.current && !isRecordingRef.current) startTalk();
+          }, 350);
+        }
+      };
       u.onerror = () => { setSpeaking(false); speakingRef.current = false; };
       try { synth.resume(); } catch { /* noop */ }
       synth.speak(u);
@@ -400,8 +519,8 @@ export default function FloatingChatButton() {
     setRenamingId(null);
   };
 
-  const voiceState: SphereState = isSending ? "processing" : speaking ? "responding" : isRecording ? "listening" : "idle";
-  const voiceLabel = isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : "TOQUE PRA FALAR";
+  const voiceState: SphereState = (isSending || transcribing) ? "processing" : speaking ? "responding" : isRecording ? "listening" : "idle";
+  const voiceLabel = transcribing ? "ENTENDENDO" : isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : "TOQUE PRA FALAR";
 
   return (
     <>
@@ -578,7 +697,7 @@ export default function FloatingChatButton() {
                 <div className="space-y-2">
                   <p className="text-[11px] tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
                   <p className="text-base text-foreground/80 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
-                    {input || (isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
+                    {input || (transcribing ? "Entendendo o que você falou..." : isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
                   </p>
                 </div>
                 <button

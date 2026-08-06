@@ -1,6 +1,7 @@
 // Orbis — bright-action (chat do mentor de rua, 100% Gemini)
 // Recebe { messages: [{ role, content }] } e devolve { success, message }.
-// Tambem aceita { tts } (voz): por enquanto sem audio -> o app usa a voz do navegador.
+// Tambem aceita { tts } (voz do servidor: Gemini TTS oficial -> Edge -> StreamElements)
+// e { stt } (transcricao de audio pra navegador sem reconhecimento de voz).
 // Cerebro embutido (o metodo do Ricardo). Esta e' a funcao REAL do chat
 // (substitui a antiga chat-with-ai/Claude). Publicada no Supabase como bright-action.
 // Precisa do secret GEMINI_API_KEY.
@@ -200,7 +201,7 @@ async function edgeTTS(text: string, voice: string, pitch: string, rate: string,
   ws.binaryType = "arraybuffer";
   const chunks: Uint8Array[] = [];
   return await new Promise<Uint8Array>((resolve, reject) => {
-    const timer = setTimeout(() => { try { ws.close(); } catch { /*noop*/ } reject(new Error("edge_timeout")); }, 17000);
+    const timer = setTimeout(() => { try { ws.close(); } catch { /*noop*/ } reject(new Error("edge_timeout")); }, 8000);
     ws.onopen = () => {
       const date = edgeDateString();
       ws.send(`X-Timestamp:${date}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n` +
@@ -243,10 +244,85 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
 
-    // ===== VOZ (TTS): voz NEURAL grátis via Edge (sem chave/cartão) + fallback StreamElements =====
+    // ===== VOZ (STT): transcreve áudio gravado no aparelho (fallback pra navegador sem
+    // reconhecimento de voz — Firefox, WebViews). Usa o Gemini com a MESMA chave do chat. =====
+    if (body?.stt && typeof body.stt === "string" && body.stt.length > 100) {
+      // exige login (protege a chave contra abuso)
+      const authH = req.headers.get("Authorization") ?? "";
+      if (!authH) return json({ error: "login_necessario" }, 401);
+      try {
+        const supa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authH } } });
+        const { data: u } = await supa.auth.getUser();
+        if (!u?.user?.id) return json({ error: "sessao_expirada" }, 401);
+      } catch { return json({ error: "sessao_expirada" }, 401); }
+      const key = Deno.env.get("GEMINI_API_KEY");
+      if (!key) return json({ error: "sem_chave" });
+      try {
+        const mime = typeof body.mime === "string" && body.mime ? body.mime.split(";")[0] : "audio/webm";
+        const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: AbortSignal.timeout(20000),
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [
+              { text: "Transcreva EXATAMENTE o que foi falado neste áudio, em português do Brasil. Responda SÓ com a transcrição, sem comentários. Se não houver fala, responda com texto vazio." },
+              { inlineData: { mimeType: mime, data: body.stt } },
+            ] }],
+            generationConfig: { temperature: 0, maxOutputTokens: 500 },
+          }),
+        });
+        if (r.ok) {
+          const j = await r.json();
+          const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "").trim();
+          return json({ text: t });
+        }
+        console.error("Gemini STT erro", r.status, await r.text().catch(() => ""));
+      } catch (e) {
+        console.error("Gemini STT falhou:", String(e).slice(0, 200));
+      }
+      return json({ error: "stt_indisponivel" });
+    }
+
+    // ===== VOZ (TTS): 1) Gemini TTS OFICIAL (estável, voz natural) -> 2) Edge -> 3) StreamElements =====
     if (body?.tts && typeof body.tts === "string" && body.tts.trim()) {
-      const text = body.tts.slice(0, 900);
-      // 1) Edge TTS (neural, grave estilo JARVIS) — grátis, sem chave
+      const text = body.tts.slice(0, 1500);
+      // 1) Gemini TTS oficial — mesma chave do chat, sem gambiarra. Devolve PCM 24kHz -> WAV.
+      try {
+        const key = Deno.env.get("GEMINI_API_KEY");
+        if (key) {
+          const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
+          const ttsVoice = Deno.env.get("GEMINI_TTS_VOICE") ?? "Charon"; // grave, estilo mentor
+          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text }] }],
+              generationConfig: {
+                responseModalities: ["AUDIO"],
+                speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: ttsVoice } } },
+              },
+            }),
+          });
+          if (r.ok) {
+            const j = await r.json();
+            const part = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
+            if (part?.inlineData?.data) {
+              const rateMatch = /rate=(\d+)/.exec(part.inlineData.mimeType ?? "");
+              const rate = rateMatch ? parseInt(rateMatch[1]) : 24000;
+              const wav = pcmToWav(b64ToBytes(part.inlineData.data), rate);
+              return json({ audio: bytesToB64(wav), mime: "audio/wav" });
+            }
+            console.error("Gemini TTS sem áudio na resposta (cai pro Edge)");
+          } else {
+            console.error("Gemini TTS erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
+          }
+        }
+      } catch (e) {
+        console.error("Gemini TTS falhou (cai pro Edge):", String(e).slice(0, 200));
+      }
+      // 2) Edge TTS (neural, grave estilo JARVIS) — grátis, sem chave (endpoint não-oficial)
       try {
         const voice = Deno.env.get("EDGE_TTS_VOICE") ?? "pt-BR-AntonioNeural";
         const pitch = Deno.env.get("EDGE_TTS_PITCH") ?? "-5Hz";
@@ -258,7 +334,7 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error("Edge TTS falhou (cai pro StreamElements):", String(e).slice(0, 200));
       }
-      // 2) Fallback: StreamElements (Amazon Polly) — HTTP simples, grátis
+      // 3) Fallback: StreamElements (Amazon Polly) — HTTP simples, grátis
       try {
         const seVoice = Deno.env.get("SE_TTS_VOICE") ?? "Ricardo";
         const r = await fetch(
