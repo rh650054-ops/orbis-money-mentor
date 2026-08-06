@@ -2,8 +2,8 @@
 // Recebe { messages: [{ role, content }] } e devolve { success, message }.
 // Tambem aceita { tts } (voz do servidor: Gemini TTS oficial -> Edge -> StreamElements)
 // e { stt } (transcricao de audio pra navegador sem reconhecimento de voz).
-// Cerebro embutido (o metodo do Ricardo). Esta e' a funcao REAL do chat
-// (substitui a antiga chat-with-ai/Claude). Publicada no Supabase como bright-action.
+// FASE 1 do AGENTE: memoria permanente por vendedor (ai_memoria) — carrega no contexto
+// e aprende fatos novos apos cada resposta, em segundo plano.
 // Precisa do secret GEMINI_API_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -30,6 +30,7 @@ floreio corporativo, sem teoria de livro. Conselho que funciona na calçada, hoj
 - Nunca invente número que você não recebeu. Se faltar dado, pergunta rápido ou assume e avisa.
 - Honestidade acima de bajulação. Se ele tá indo mal, fala com firmeza e respeito — e mostra a saída.
 - Mensagem geralmente curta (2 a 6 linhas). Só alonga se ele pedir um plano detalhado.
+- MEMÓRIA: quando houver o bloco "MEMÓRIA DESTE VENDEDOR", use os fatos com naturalidade (sem listar), lembre o que ele te contou e COBRE os combinados pendentes.
 
 ## ESTILO: ESPECÍFICO, NUNCA GENÉRICO (regra de ouro)
 - PROIBIDO resposta de coach genérico ("acredite em você", "tenha foco", "seja confiante", "vai dar certo"). O vendedor já ouviu isso mil vezes e não ajuda em nada.
@@ -136,7 +137,7 @@ const CEREBRAS_CHAT_EXTRA = `
 
 MODO CONVERSA (regras extras, valem acima de tudo):
 - CURTO: no máximo 3 ou 4 frases, como parça que pensa na hora — nada de textão nem lista de robô.
-- USE OS DADOS REAIS DELE: se houver o bloco "DADOS REAIS DESTE VENDEDOR" mais acima, BASEIE a resposta nos números DELE (conversão, meta, faturamento, melhor horário, gasto). Cite o número e adapte o conselho à situação dele AGORA. Nada de resposta genérica que serviria pra qualquer um.
+- USE OS DADOS REAIS DELE: se houver o bloco "DADOS REAIS DESTE VENDEDOR" ou "MEMÓRIA DESTE VENDEDOR" mais acima, BASEIE a resposta nos números e fatos DELE (conversão, meta, faturamento, melhor horário, gasto, o que ele já te contou). Cite o número e adapte o conselho à situação dele AGORA. Nada de resposta genérica que serviria pra qualquer um.
 - Os scripts e frases de exemplo do método são só EXEMPLOS de inspiração. NUNCA repita as mesmas frases de exemplo, nem entregue o mesmo texto duas vezes. CRIE um script NOVO, com OUTRAS palavras, adaptado à pergunta e ao vendedor — varia sempre.
 - ESPECÍFICO, nunca genérico: toda resposta entrega algo concreto — um script teu (entre aspas), uma técnica citada pelo nome, OU um número dele. PROIBIDO papo vago ("tenha foco", "acredite", "seja confiante").
 - Não despeje o método inteiro. Escolhe SÓ o que resolve a pergunta, fala com TUAS palavras e fecha com 1 próximo passo.`;
@@ -230,6 +231,59 @@ async function edgeTTS(text: string, voice: string, pitch: string, rate: string,
     };
     ws.onerror = () => { clearTimeout(timer); reject(new Error("edge_ws_error")); };
   });
+}
+
+// ===== FASE 1 do Agente: extrai MEMÓRIA de longo prazo da conversa (roda DEPOIS da
+// resposta, sem atrasar o vendedor). Só grava o que o VENDEDOR afirmou. =====
+async function extractMemory(userId: string, userMsg: string, reply: string, existing: string[]) {
+  try {
+    const key = Deno.env.get("GEMINI_API_KEY");
+    if (!key || !userId || !userMsg || userMsg.length < 8) return;
+    const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+    const prompt = `Você extrai MEMÓRIA de longo prazo sobre um vendedor ambulante a partir de uma troca de chat com o mentor dele.
+
+FATOS JÁ CONHECIDOS (NÃO repita nem reescreva nenhum):
+${existing.length ? existing.map((f) => "- " + f).join("\n") : "(nenhum ainda)"}
+
+TROCA DE AGORA:
+Vendedor disse: ${userMsg}
+Mentor respondeu: ${reply}
+
+Liste APENAS fatos NOVOS e DURÁVEIS afirmados PELO PRÓPRIO VENDEDOR sobre ele ou o negócio dele: o que vende, onde vende, rotina, dificuldade recorrente, vitória com número, compromisso que ele assumiu, preferência. NADA passageiro (clima, humor do dia), NADA inventado, NADA que veio só do mentor. No máximo 3 fatos, cada um numa frase curta e objetiva em português. Se não houver fato novo durável, devolva a lista vazia.
+Responda SOMENTE com JSON neste formato: {"fatos":[{"tipo":"perfil|dificuldade|vitoria|combinado|preferencia|outro","fato":"..."}]}`;
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: "application/json" },
+      }),
+    });
+    if (!r.ok) { console.error("extractMemory http", r.status); return; }
+    const j = await r.json();
+    const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "{}";
+    let fatos: { tipo?: string; fato?: string }[] = [];
+    try { fatos = (JSON.parse(raw)?.fatos ?? []) as typeof fatos; } catch { return; }
+    const tiposOk = ["perfil", "dificuldade", "vitoria", "combinado", "preferencia", "outro"];
+    const baixa = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+    const conhecidos = existing.map(baixa);
+    const novos = fatos
+      .map((f) => ({ tipo: tiposOk.includes(String(f?.tipo)) ? String(f.tipo) : "outro", fato: String(f?.fato ?? "").trim() }))
+      .filter((f) => f.fato.length >= 10 && f.fato.length <= 220)
+      .filter((f) => !conhecidos.some((c) => c.includes(baixa(f.fato)) || baixa(f.fato).includes(c)))
+      .slice(0, 3);
+    if (!novos.length) return;
+    const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    await admin.from("ai_memoria").insert(novos.map((f) => ({ user_id: userId, tipo: f.tipo, fato: f.fato })));
+    // Teto de 40 fatos ativos por vendedor: os mais antigos saem.
+    const { data: todos } = await admin.from("ai_memoria").select("id").eq("user_id", userId).eq("ativo", true).order("created_at", { ascending: false });
+    const sobra = ((todos as { id: string }[]) || []).slice(40);
+    if (sobra.length) await admin.from("ai_memoria").delete().in("id", sobra.map((x) => x.id));
+    console.log("memoria: +", novos.length, "fato(s) pro user", userId.slice(0, 8));
+  } catch (e) {
+    console.error("extractMemory falhou:", String(e).slice(0, 200));
+  }
 }
 
 Deno.serve(async (req) => {
@@ -367,6 +421,7 @@ Deno.serve(async (req) => {
     console.log("CTX recebido (chars):", userCtx.length); // diagnóstico: >0 = dados chegaram
 
     // Trava de uso (protege o gasto): EXIGE login + falha FECHADO (bloqueia se a trava errar).
+    let chatUserId = "";
     {
       const authH = req.headers.get("Authorization") ?? "";
       if (!authH) {
@@ -378,6 +433,7 @@ Deno.serve(async (req) => {
         if (!u?.user?.id) {
           return json({ success: false, message: "Tua sessão expirou — entra de novo." }, 401);
         }
+        chatUserId = u.user.id;
         const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: 30 });
         if (usageErr) {
           return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
@@ -389,6 +445,34 @@ Deno.serve(async (req) => {
         return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
       }
     }
+
+    // ===== MEMÓRIA (Fase 1 do Agente): tudo que o mentor já aprendeu sobre ESTE vendedor =====
+    let memFacts: { tipo: string; fato: string }[] = [];
+    let memBlock = "";
+    try {
+      const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+      const { data: mem } = await admin
+        .from("ai_memoria").select("tipo, fato")
+        .eq("user_id", chatUserId).eq("ativo", true)
+        .order("created_at", { ascending: false }).limit(40);
+      memFacts = ((mem as any[]) || []).map((m) => ({ tipo: String(m.tipo), fato: String(m.fato) }));
+      if (memFacts.length) {
+        memBlock = "\n\nMEMÓRIA DESTE VENDEDOR (fatos que ELE te contou em conversas anteriores — use com naturalidade, personalize, e COBRE os combinados quando fizer sentido):\n" +
+          memFacts.map((f) => `- [${f.tipo}] ${f.fato}`).join("\n");
+      }
+    } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
+    const fullCtx = userCtx + memBlock;
+
+    // Depois de responder, aprende com a conversa (roda em segundo plano, não atrasa nada).
+    const finishChat = (reply: string) => {
+      try {
+        const lastUser = String(messages[messages.length - 1]?.content ?? "").slice(0, 1200);
+        const p = extractMemory(chatUserId, lastUser, reply.slice(0, 1200), memFacts.map((f) => f.fato));
+        const er = (globalThis as any).EdgeRuntime;
+        if (er?.waitUntil) er.waitUntil(p); else p.catch(() => {});
+      } catch { /* noop */ }
+      return json({ success: true, message: reply });
+    };
 
     // ===== TEXTO: tenta CLAUDE (Anthropic) primeiro; cai no Cerebras/Gemini (gratis) se faltar chave/erro/credito. =====
     try {
@@ -410,14 +494,14 @@ Deno.serve(async (req) => {
               model: amodel,
               max_tokens: 500,
               temperature: 0.8,
-              system: ORBIS_BRAIN + userCtx + CEREBRAS_CHAT_EXTRA,
+              system: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA,
               messages: ahist,
             }),
           });
           if (aRes.ok) {
             const aj = await aRes.json();
             const atext = ((aj?.content ?? []).map((b: any) => b?.text || "").join("")).replace(/\*\*/g, "").trim();
-            if (atext) return json({ success: true, message: atext });
+            if (atext) return finishChat(atext);
           } else {
             console.error("Claude chat erro", aRes.status);
           }
@@ -445,7 +529,7 @@ Deno.serve(async (req) => {
           signal: AbortSignal.timeout(20000),
           body: JSON.stringify({
             model: cmodel,
-            messages: [{ role: "system", content: ORBIS_BRAIN + userCtx + CEREBRAS_CHAT_EXTRA }, ...hist],
+            messages: [{ role: "system", content: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA }, ...hist],
             temperature: 0.8,
             max_tokens: 400,
             top_p: 0.95,
@@ -454,7 +538,7 @@ Deno.serve(async (req) => {
         if (cRes.ok) {
           const cj = await cRes.json();
           const ctext = (cj?.choices?.[0]?.message?.content?.toString() ?? "").replace(/\*\*/g, "").trim();
-          if (ctext) return json({ success: true, message: ctext });
+          if (ctext) return finishChat(ctext);
         } else {
           console.error("Cerebras chat erro", cRes.status);
         }
@@ -476,7 +560,7 @@ Deno.serve(async (req) => {
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     const payload = JSON.stringify({
-      systemInstruction: { parts: [{ text: ORBIS_BRAIN + userCtx }] },
+      systemInstruction: { parts: [{ text: ORBIS_BRAIN + fullCtx }] },
       contents,
       generationConfig: { temperature: 0.8, maxOutputTokens: 800, topP: 0.95 },
     });
@@ -504,7 +588,7 @@ Deno.serve(async (req) => {
     const text = raw.replace(/\*\*/g, "").trim(); // tira negrito que escapar
     if (!text) return json({ success: false, error: "resposta_vazia" });
 
-    return json({ success: true, message: text });
+    return finishChat(text);
   } catch (e) {
     console.error("bright-action erro", e);
     return json({ success: false, error: "erro_interno" });
