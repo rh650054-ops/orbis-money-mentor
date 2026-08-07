@@ -4,6 +4,8 @@
 // e { stt } (transcricao de audio pra navegador sem reconhecimento de voz).
 // FASE 1 do AGENTE: memoria permanente por vendedor (ai_memoria) — carrega no contexto
 // e aprende fatos novos apos cada resposta, em segundo plano.
+// FASE 2 do AGENTE: ferramentas — consulta vendas/estoque/financeiro/ranking com o token
+// do proprio vendedor e executa acoes (meta do dia, gasto) APOS confirmacao na conversa.
 // Precisa do secret GEMINI_API_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -286,6 +288,135 @@ Responda SOMENTE com JSON neste formato: {"fatos":[{"tipo":"perfil|dificuldade|v
   }
 }
 
+
+// ===== FASE 2 do Agente: FERRAMENTAS — o mentor consulta dados reais e AGE no app =====
+// Consultas rodam com o token do PRÓPRIO vendedor (RLS garante que só vê o que é dele).
+// Ações de escrita só são chamadas pelo modelo DEPOIS do vendedor confirmar na conversa.
+const AGENT_TOOLS = [
+  {
+    name: "consultar_vendas",
+    description: "Consulta as vendas reais do vendedor no período. Use sempre que ele perguntar de resultado, faturamento, como foi ontem/semana/mês.",
+    input_schema: { type: "object", properties: { periodo: { type: "string", enum: ["hoje", "ontem", "7dias", "30dias", "mes"], description: "Período desejado" } }, required: ["periodo"] },
+  },
+  {
+    name: "consultar_estoque",
+    description: "Lista os produtos ativos do vendedor com estoque atual, estoque mínimo, preço de venda e custo. Use quando ele falar de estoque, produto ou reposição.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "consultar_financeiro",
+    description: "Resumo financeiro: gastos por categoria (30 dias) e contas a pagar em aberto. Use quando ele falar de gasto, conta, dívida ou quanto sobrou.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "consultar_ranking",
+    description: "Posição do vendedor no ranking do mês e o top 3. Use quando ele perguntar do ranking ou da concorrência.",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "definir_meta_do_dia",
+    description: "AÇÃO: define/atualiza a meta de faturamento de HOJE do vendedor. Só chame DEPOIS que ele confirmar explicitamente o valor na conversa.",
+    input_schema: { type: "object", properties: { valor: { type: "number", description: "Meta do dia em reais" }, horas: { type: "number", description: "Horas de trabalho previstas (padrão 8)" } }, required: ["valor"] },
+  },
+  {
+    name: "registrar_gasto",
+    description: "AÇÃO: registra um gasto pessoal/do negócio de hoje. Só chame DEPOIS que o vendedor confirmar valor e categoria na conversa.",
+    input_schema: { type: "object", properties: { valor: { type: "number", description: "Valor em reais" }, categoria: { type: "string", description: "Categoria (ex: Transporte, Alimentação, Mercadoria, Outros)" }, nome: { type: "string", description: "Descrição curta do gasto" } }, required: ["valor", "categoria"] },
+  },
+];
+
+const AGENT_TOOLS_RULES = `
+
+FERRAMENTAS (você é um AGENTE, não só um chat):
+- Pra responder sobre vendas, estoque, financeiro ou ranking, USE as ferramentas de consulta e responda com o dado REAL que voltar. Nunca chute número quando dá pra consultar.
+- Ações (definir_meta_do_dia, registrar_gasto): PRIMEIRO diga o que vai fazer e pergunte "confirma?". SÓ chame a ferramenta depois do SIM explícito do vendedor na conversa. Depois de executar, confirme em 1 frase o que foi feito.
+- Se uma ferramenta falhar, avise com naturalidade e siga a conversa sem inventar dado.`;
+
+function hojeBrasil(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+}
+
+async function runTool(name: string, input: Record<string, unknown>, userSupa: any, userId: string): Promise<unknown> {
+  const hoje = hojeBrasil();
+  const back = (n: number) => {
+    const d = new Date(`${hoje}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n);
+    return d.toISOString().split("T")[0];
+  };
+  try {
+    if (name === "consultar_vendas") {
+      const p = String(input?.periodo ?? "7dias");
+      const ini = p === "hoje" ? hoje : p === "ontem" ? back(1) : p === "7dias" ? back(6) : p === "30dias" ? back(29) : `${hoje.slice(0, 7)}-01`;
+      const fim = p === "ontem" ? back(1) : hoje;
+      const { data, error } = await userSupa.from("daily_sales")
+        .select("date,total_profit,cost,transport_cost,food_cost,total_debt")
+        .eq("user_id", userId).gte("date", ini).lte("date", fim).order("date");
+      if (error) return { erro: error.message };
+      const rows = (data || []) as Record<string, number>[];
+      const fat = rows.reduce((s, r) => s + (Number(r.total_profit) || 0), 0);
+      const custos = rows.reduce((s, r) => s + (Number(r.cost) || 0) + (Number(r.transport_cost) || 0) + (Number(r.food_cost) || 0), 0);
+      const calote = rows.reduce((s, r) => s + (Number(r.total_debt) || 0), 0);
+      return { periodo: p, de: ini, ate: fim, faturamento: fat, custos, lucro: fat - custos, calote, dias_com_venda: rows.filter((r) => Number(r.total_profit) > 0).length, por_dia: rows.map((r) => ({ dia: r.date, faturou: Number(r.total_profit) || 0 })).slice(-12) };
+    }
+    if (name === "consultar_estoque") {
+      const { data, error } = await userSupa.from("products")
+        .select("name,stock_quantity,stock_min,sale_price,cost")
+        .eq("user_id", userId).eq("is_active", true).order("name");
+      if (error) return { erro: error.message };
+      return { produtos: (data || []).map((p: Record<string, unknown>) => ({ nome: p.name, estoque: Number(p.stock_quantity) || 0, minimo: Number(p.stock_min) || 0, preco_venda: Number(p.sale_price) || 0, custo: Number(p.cost) || 0 })) };
+    }
+    if (name === "consultar_financeiro") {
+      const [expR, billsR] = await Promise.all([
+        userSupa.from("personal_expenses").select("category,amount").eq("user_id", userId).gte("date", back(29)),
+        userSupa.from("planned_bills").select("name,amount,saved_amount,due_date").eq("user_id", userId).eq("paid", false).order("due_date"),
+      ]);
+      const porCat: Record<string, number> = {};
+      for (const e of (expR.data || []) as Record<string, unknown>[]) {
+        const k = String(e.category ?? "Outros");
+        porCat[k] = (porCat[k] || 0) + (Number(e.amount) || 0);
+      }
+      return {
+        gastos_30_dias_por_categoria: porCat,
+        contas_em_aberto: ((billsR.data || []) as Record<string, unknown>[]).slice(0, 8).map((b) => ({ nome: b.name, valor: Number(b.amount) || 0, guardado: Number(b.saved_amount) || 0, vence: b.due_date })),
+      };
+    }
+    if (name === "consultar_ranking") {
+      const mes = hoje.slice(0, 7);
+      const [meuR, topR] = await Promise.all([
+        userSupa.from("leaderboard_stats").select("posicao_faturamento,faturamento_total_mes,dias_trabalhados_mes").eq("user_id", userId).eq("mes_referencia", mes).maybeSingle(),
+        userSupa.from("leaderboard_stats").select("nome_usuario,faturamento_total_mes,posicao_faturamento").eq("mes_referencia", mes).not("posicao_faturamento", "is", null).order("posicao_faturamento").limit(3),
+      ]);
+      return { minha_posicao: meuR.data ?? "fora do ranking este mês", top3: topR.data ?? [] };
+    }
+    if (name === "definir_meta_do_dia") {
+      const valor = Math.round((Number(input?.valor) || 0) * 100) / 100;
+      if (valor <= 0 || valor > 100000) return { erro: "valor_invalido" };
+      const horas = Math.min(16, Math.max(1, Number(input?.horas) || 8));
+      const { data: plano } = await userSupa.from("daily_goal_plans").select("id,work_hours").eq("user_id", userId).eq("date", hoje).maybeSingle();
+      if (plano?.id) {
+        const h = Number(plano.work_hours) || horas;
+        const { error } = await userSupa.from("daily_goal_plans").update({ daily_goal: valor, hourly_goal: Math.round((valor / h) * 100) / 100 }).eq("id", plano.id);
+        if (error) return { erro: error.message };
+        return { ok: true, acao: "meta_atualizada", meta: valor };
+      }
+      const { error } = await userSupa.from("daily_goal_plans").insert({ user_id: userId, date: hoje, daily_goal: valor, work_hours: horas, mood: "confiante", hourly_goal: Math.round((valor / horas) * 100) / 100 });
+      if (error) return { erro: error.message };
+      return { ok: true, acao: "meta_criada", meta: valor, horas };
+    }
+    if (name === "registrar_gasto") {
+      const valor = Math.round((Number(input?.valor) || 0) * 100) / 100;
+      if (valor <= 0 || valor > 100000) return { erro: "valor_invalido" };
+      const categoria = String(input?.categoria ?? "Outros").slice(0, 40) || "Outros";
+      const nome = String(input?.nome ?? categoria).slice(0, 60) || categoria;
+      const { error } = await userSupa.from("personal_expenses").insert({ user_id: userId, category: categoria, name: nome, amount: valor, type: "variable", date: hoje });
+      if (error) return { erro: error.message };
+      return { ok: true, acao: "gasto_registrado", valor, categoria, nome };
+    }
+    return { erro: "ferramenta_desconhecida" };
+  } catch (e) {
+    return { erro: String(e).slice(0, 160) };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -422,8 +553,9 @@ Deno.serve(async (req) => {
 
     // Trava de uso (protege o gasto): EXIGE login + falha FECHADO (bloqueia se a trava errar).
     let chatUserId = "";
+    const reqAuthH = req.headers.get("Authorization") ?? "";
     {
-      const authH = req.headers.get("Authorization") ?? "";
+      const authH = reqAuthH;
       if (!authH) {
         return json({ success: false, message: "Entra na tua conta pra falar com o mentor." }, 401);
       }
@@ -474,6 +606,9 @@ Deno.serve(async (req) => {
       return json({ success: true, message: reply });
     };
 
+    // Cliente com o token do PRÓPRIO vendedor: as ferramentas do agente rodam com ele (RLS).
+    const userSupa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: reqAuthH } } });
+
     // ===== TEXTO: tenta CLAUDE (Anthropic) primeiro; cai no Cerebras/Gemini (gratis) se faltar chave/erro/credito. =====
     try {
       const akey = Deno.env.get("ANTHROPIC_API_KEY");
@@ -486,24 +621,39 @@ Deno.serve(async (req) => {
         // Claude exige que a 1a mensagem seja do "user".
         while (ahist.length && ahist[0].role !== "user") ahist.shift();
         if (ahist.length) {
-          const aRes = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
-            signal: AbortSignal.timeout(25000),
-            body: JSON.stringify({
-              model: amodel,
-              max_tokens: 500,
-              temperature: 0.8,
-              system: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA,
-              messages: ahist,
-            }),
-          });
-          if (aRes.ok) {
+          // LOOP DE AGENTE: o Claude pode pedir ferramentas (consultar/agir) antes de responder.
+          const aMessages: any[] = [...ahist];
+          for (let rodada = 0; rodada < 4; rodada++) {
+            const aRes = await fetch("https://api.anthropic.com/v1/messages", {
+              method: "POST",
+              headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
+              signal: AbortSignal.timeout(25000),
+              body: JSON.stringify({
+                model: amodel,
+                max_tokens: 600,
+                temperature: 0.8,
+                system: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES,
+                tools: AGENT_TOOLS,
+                messages: aMessages,
+              }),
+            });
+            if (!aRes.ok) { console.error("Claude chat erro", aRes.status); break; }
             const aj = await aRes.json();
+            if (aj?.stop_reason === "tool_use") {
+              const usos = ((aj.content ?? []) as any[]).filter((b) => b?.type === "tool_use");
+              aMessages.push({ role: "assistant", content: aj.content });
+              const resultados: any[] = [];
+              for (const tu of usos) {
+                console.log("agente ferramenta:", tu.name);
+                const out = await runTool(String(tu.name), (tu.input ?? {}) as Record<string, unknown>, userSupa, chatUserId);
+                resultados.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 4000) });
+              }
+              aMessages.push({ role: "user", content: resultados });
+              continue; // volta pro modelo com os dados reais
+            }
             const atext = ((aj?.content ?? []).map((b: any) => b?.text || "").join("")).replace(/\*\*/g, "").trim();
             if (atext) return finishChat(atext);
-          } else {
-            console.error("Claude chat erro", aRes.status);
+            break;
           }
         }
       }
