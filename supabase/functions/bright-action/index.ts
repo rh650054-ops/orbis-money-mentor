@@ -565,7 +565,7 @@ Deno.serve(async (req) => {
           return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
         }
         if ((usage as any)?.over) {
-          return json({ success: true, message: "Mandou bem hoje, parça! 💪 Você já usou bastante o mentor — amanhã ele volta com tudo. Bora vender." });
+          return json({ success: true, message: "Mandou bem hoje! Você já usou bastante o mentor — amanhã ele volta com tudo. Bora vender." });
         }
       } catch (_e) {
         return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
@@ -607,7 +607,7 @@ Deno.serve(async (req) => {
     try {
       const akey = Deno.env.get("ANTHROPIC_API_KEY");
       if (akey) {
-        const amodel = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
+        const amodel = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5"; // Sonnet: mais inteligente; mude via env se quiser voltar pro Haiku (mais barato)
         const ahist = messages.slice(-8).map((m: any) => ({
           role: m?.role === "assistant" ? "assistant" : "user",
           content: String(m?.content ?? "").slice(0, 2000),
