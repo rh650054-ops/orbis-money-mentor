@@ -5,6 +5,8 @@ import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { useAuth } from "@/hooks/useAuth";
+import EstudioMarca from "@/components/estudio/EstudioMarca";
 import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
@@ -16,7 +18,9 @@ import { ptBR } from "date-fns/locale";
 const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [estudioOpen, setEstudioOpen] = useState(false);
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -549,6 +553,9 @@ export default function FloatingChatButton() {
 
       <audio ref={audioRef} className="hidden" preload="auto" />
 
+      {/* Estúdio de Marca (gera adesivo/rótulo com arte de IA + QR Pix real) */}
+      {estudioOpen && user && <EstudioMarca userId={user.id} onClose={() => setEstudioOpen(false)} />}
+
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
         <div
@@ -571,6 +578,13 @@ export default function FloatingChatButton() {
               </div>
             </div>
             <div className="flex items-center gap-1">
+              <button
+                onClick={() => setEstudioOpen(true)}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary/80 tracking-[0.15em]"
+                aria-label="Estúdio de Marca"
+              >
+                ESTÚDIO
+              </button>
               <button
                 onClick={enterVoiceMode}
                 className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary/80 tracking-[0.15em]"
