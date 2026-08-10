@@ -1,9 +1,11 @@
-// Orbis — estudio-arte v3: gera o ADESIVO do vendedor com IA, guiado por um MODELO
+// Orbis — estudio-arte v4: gera o ADESIVO do vendedor com IA, guiado por um MODELO
 // DE REFERÊNCIA da biblioteca (estudio_modelos). Deixa ÁREA BRANCA pro app colocar o
 // QR Pix REAL. Só assinantes; limite diário via bump_ai_usage('estudio').
 // PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;
-// exige billing ativado na conta Google) → 2) OpenAI gpt-image-1 (se OPENAI_API_KEY
-// existir nos secrets) — "o gerador do GPT".
+// exige billing ativado na conta Google) → 2) OpenAI GPT Image (se OPENAI_API_KEY
+// existir nos secrets) — o MESMO gerador de imagem do ChatGPT.
+// v4: OpenAI usa gpt-image-1.5 (atual, mais barato e melhor) com fallback automatico
+// pro gpt-image-1; qualidade controlavel via OPENAI_IMAGE_QUALITY (padrao "medium").
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -111,41 +113,50 @@ REGRAS OBRIGATÓRIAS:
       } catch (e) { console.error("gemini imagem excecao", String(e).slice(0, 150)); }
     }
 
-    // ===== 2) OPENAI gpt-image-1 ("gerador do GPT") — se OPENAI_API_KEY existir =====
+    // ===== 2) OPENAI GPT Image (o gerador do ChatGPT) — se OPENAI_API_KEY existir =====
     const okey = Deno.env.get("OPENAI_API_KEY");
     if (okey) {
-      try {
-        // Com referência: images/edits (multipart). Sem: images/generations.
-        let r: Response;
-        if (refB64) {
-          const fd = new FormData();
-          fd.append("model", "gpt-image-1");
-          fd.append("prompt", prompt.slice(0, 30000));
-          fd.append("size", "1024x1536");
-          fd.append("image[]", new Blob([b64ToBytes(refB64)], { type: refMime }), "referencia.jpg");
-          r = await fetch("https://api.openai.com/v1/images/edits", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${okey}` },
-            signal: AbortSignal.timeout(90000),
-            body: fd,
-          });
-        } else {
-          r = await fetch("https://api.openai.com/v1/images/generations", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${okey}`, "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(90000),
-            body: JSON.stringify({ model: "gpt-image-1", prompt: prompt.slice(0, 30000), size: "1024x1536" }),
-          });
-        }
-        if (r.ok) {
-          const j = await r.json();
-          const b64 = j?.data?.[0]?.b64_json;
-          if (b64) return json({ imagem: b64, mime: "image/png", provedor: "openai" });
-          console.error("openai sem imagem");
-        } else {
-          console.error("openai imagem erro", r.status, (await r.text().catch(() => "")).slice(0, 300));
-        }
-      } catch (e) { console.error("openai imagem excecao", String(e).slice(0, 150)); }
+      const oQuality = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "medium";
+      // Tenta o modelo atual primeiro; se a conta/endpoint não aceitar, cai pro legado.
+      const oModels = [...new Set([Deno.env.get("OPENAI_IMAGE_MODEL") ?? "gpt-image-1.5", "gpt-image-1"])];
+      for (const om of oModels) {
+        try {
+          // Com referência: images/edits (multipart). Sem: images/generations.
+          let r: Response;
+          if (refB64) {
+            const fd = new FormData();
+            fd.append("model", om);
+            fd.append("prompt", prompt.slice(0, 30000));
+            fd.append("size", "1024x1536");
+            fd.append("quality", oQuality);
+            fd.append("image[]", new Blob([b64ToBytes(refB64)], { type: refMime }), "referencia.jpg");
+            r = await fetch("https://api.openai.com/v1/images/edits", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${okey}` },
+              signal: AbortSignal.timeout(90000),
+              body: fd,
+            });
+          } else {
+            r = await fetch("https://api.openai.com/v1/images/generations", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${okey}`, "Content-Type": "application/json" },
+              signal: AbortSignal.timeout(90000),
+              body: JSON.stringify({ model: om, prompt: prompt.slice(0, 30000), size: "1024x1536", quality: oQuality }),
+            });
+          }
+          if (r.ok) {
+            const j = await r.json();
+            const b64 = j?.data?.[0]?.b64_json;
+            if (b64) return json({ imagem: b64, mime: "image/png", provedor: `openai:${om}` });
+            console.error("openai sem imagem", om);
+            break;
+          } else {
+            console.error("openai imagem erro", om, r.status, (await r.text().catch(() => "")).slice(0, 300));
+            // 400/404 = provavelmente modelo não aceito → tenta o próximo; outros erros: para.
+            if (r.status !== 400 && r.status !== 404) break;
+          }
+        } catch (e) { console.error("openai imagem excecao", om, String(e).slice(0, 150)); break; }
+      }
     }
 
     // Nenhum provedor disponível/funcionando
