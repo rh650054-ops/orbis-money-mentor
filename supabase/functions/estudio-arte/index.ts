@@ -1,11 +1,11 @@
-// Orbis — estudio-arte v4: gera o ADESIVO do vendedor com IA, guiado por um MODELO
+// Orbis — estudio-arte v5: gera o ADESIVO do vendedor com IA, guiado por um MODELO
 // DE REFERÊNCIA da biblioteca (estudio_modelos). Deixa ÁREA BRANCA pro app colocar o
 // QR Pix REAL. Só assinantes; limite diário via bump_ai_usage('estudio').
 // PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;
 // exige billing ativado na conta Google) → 2) OpenAI GPT Image (se OPENAI_API_KEY
 // existir nos secrets) — o MESMO gerador de imagem do ChatGPT.
-// v4: OpenAI usa gpt-image-1.5 (atual, mais barato e melhor) com fallback automatico
-// pro gpt-image-1; qualidade controlavel via OPENAI_IMAGE_QUALITY (padrao "medium").
+// v5: OpenAI usa gpt-image-2 (o mesmo do ChatGPT atual; confirmado disponivel na conta
+// do Rick) com fallback automatico 1.5 -> 1; qualidade via OPENAI_IMAGE_QUALITY ("medium").
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -118,7 +118,7 @@ REGRAS OBRIGATÓRIAS:
     if (okey) {
       const oQuality = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "medium";
       // Tenta o modelo atual primeiro; se a conta/endpoint não aceitar, cai pro legado.
-      const oModels = [...new Set([Deno.env.get("OPENAI_IMAGE_MODEL") ?? "gpt-image-1.5", "gpt-image-1"])];
+      const oModels = [...new Set([Deno.env.get("OPENAI_IMAGE_MODEL") ?? "gpt-image-2", "gpt-image-1.5", "gpt-image-1"])];
       for (const om of oModels) {
         try {
           // Com referência: images/edits (multipart). Sem: images/generations.

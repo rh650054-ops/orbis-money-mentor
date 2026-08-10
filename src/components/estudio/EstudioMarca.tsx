@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move } from "lucide-react";
+import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,17 +9,27 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { useToast } from "@/shared/ui/use-toast";
 
-// ESTÚDIO DE MARCA v2 — biblioteca de MODELOS alimenta a IA:
+// ESTÚDIO DE MARCA v3 — biblioteca de MODELOS alimenta a IA:
 // 1) o vendedor escolhe um modelo de referência na galeria (estudio_modelos);
 // 2) responde POUCAS perguntas (marca, produto, cores, extra);
 // 3) a IA gera o adesivo completo NAQUELE estilo, deixando uma área branca
 //    reservada, e o vendedor ARRASTA o QR Pix REAL pra cima dela;
 // 4) baixa o PNG achatado em alta resolução, pronto pra gráfica.
 // O QR nunca é desenhado pela IA (sairia quebrado) — é gerado pelo motor Pix do Orbis.
+// Visual: segue DESIGN.md (tokens, sem gradiente em texto, floor text-xs).
 
 const sb = supabase as any;
 
 interface Modelo { id: string; slug: string; nome: string; descricao: string; imagem_url: string | null; }
+
+const FRASES_GERANDO = [
+  "Lendo o estilo que você escolheu…",
+  "Desenhando a sua marca…",
+  "Caprichando nas cores…",
+  "Escrevendo o nome sem erro de português…",
+  "Reservando o espaço do QR Pix…",
+  "Últimos retoques de designer…",
+];
 
 export default function EstudioMarca({ userId, onClose }: { userId: string; onClose: () => void }) {
   const { toast } = useToast();
@@ -37,6 +47,7 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
   const [merchantCity, setMerchantCity] = useState("");
   const [arte, setArte] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [fraseIdx, setFraseIdx] = useState(0);
   const [exportando, setExportando] = useState(false);
 
   // QR arrastável sobre a arte (posição em % pra sobreviver ao redimensionamento)
@@ -44,6 +55,8 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
   const [qrTam, setQrTam] = useState(26); // % da largura
   const artRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ ativo: boolean; offX: number; offY: number }>({ ativo: false, offX: 0, offY: 0 });
+
+  const passo = arte ? 3 : modelo ? 2 : 1;
 
   useEffect(() => {
     sb.from("estudio_modelos").select("id, slug, nome, descricao, imagem_url").eq("ativo", true).order("ordem")
@@ -58,6 +71,13 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
         if (data.what_i_sell) setProduto(data.what_i_sell);
       });
   }, [userId]);
+
+  // Mensagens de progresso enquanto a IA desenha (a geração leva 30–60s)
+  useEffect(() => {
+    if (!gerando) { setFraseIdx(0); return; }
+    const t = setInterval(() => setFraseIdx((i) => Math.min(i + 1, FRASES_GERANDO.length - 1)), 8000);
+    return () => clearInterval(t);
+  }, [gerando]);
 
   const payloadPix = pixKey.trim()
     ? generatePixPayload({ pixKey: pixKey.trim(), merchantName: merchantName || marca || "VENDEDOR", merchantCity: merchantCity || "SAO PAULO" })
@@ -137,14 +157,37 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
             </Button>
           )}
           <div>
-            <span className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ESTÚDIO DE MARCA</span>
-            <p className="text-[10px] text-muted-foreground -mt-0.5">
-              {arte ? "Posicione seu QR Pix e baixe" : modelo ? "Me conta sobre a sua marca" : "Escolha um modelo de referência"}
+            <span className="font-bold text-sm tracking-[0.12em] text-primary">ESTÚDIO DE MARCA</span>
+            <p className="text-xs text-muted-foreground">
+              {arte ? "Posicione seu QR Pix e baixe" : modelo ? "Me conta sobre a sua marca" : "Escolha um estilo de adesivo"}
             </p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar"><X className="h-5 w-5" /></Button>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground mr-1" aria-label={`Passo ${passo} de 3`}>
+            {passo}/3
+          </span>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar"><X className="h-5 w-5" /></Button>
+        </div>
       </header>
+
+      {/* Overlay de geração — a espera vira experiência, não tela travada */}
+      {gerando && (
+        <div className="fixed inset-0 z-[90] bg-background/95 backdrop-blur-sm flex items-center justify-center p-6" role="status" aria-live="polite">
+          <div className="max-w-xs w-full text-center space-y-5">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center">
+              <Loader2 className="w-7 h-7 text-primary animate-spin" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">Criando sua arte</p>
+              <p className="text-sm text-muted-foreground mt-1">{FRASES_GERANDO[fraseIdx]}</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Leva até 1 minuto — a IA desenha tudo do zero no estilo {modelo?.nome ?? "escolhido"}.
+            </p>
+          </div>
+        </div>
+      )}
 
       {!subLoading && !assinante ? (
         <div className="max-w-md mx-auto px-6 py-16 text-center space-y-4">
@@ -159,10 +202,10 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
         </div>
       ) : arte ? (
         /* ===== PASSO 3: arte gerada + QR real arrastável ===== */
-        <div className="max-w-md mx-auto p-4 space-y-4">
+        <div className="max-w-md mx-auto p-4 space-y-4 pb-safe">
           <div
             ref={artRef}
-            className="relative w-full rounded-2xl overflow-hidden select-none"
+            className="relative w-full rounded-2xl overflow-hidden select-none border border-border shadow-lg"
             style={{ touchAction: "none" }}
           >
             <img src={arte} alt="Adesivo gerado" className="w-full block" draggable={false} />
@@ -171,6 +214,8 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
                 onPointerDown={iniciarDrag}
                 onPointerMove={moverDrag}
                 onPointerUp={soltarDrag}
+                role="button"
+                aria-label="QR code Pix — arraste para posicionar"
                 style={{
                   position: "absolute",
                   left: `${qrPos.x}%`, top: `${qrPos.y}%`, width: `${qrTam}%`,
@@ -182,80 +227,112 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <Move className="w-4 h-4 shrink-0" />
-            <span className="flex-1">Arrasta o QR pra área branca. Tamanho:</span>
-            <input type="range" min={16} max={40} value={qrTam} onChange={(e) => setQrTam(+e.target.value)} className="w-28 accent-primary" />
-          </div>
-          {!payloadPix && (
-            <div className="text-xs text-amber-400 bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-              Cadastre sua chave Pix no perfil (ou preencha na tela anterior) pro QR real aparecer aqui.
+
+          <div className="rounded-2xl border border-border bg-card p-3 space-y-3">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <Move className="w-4 h-4 shrink-0 text-primary" />
+              <span className="flex-1">Arrasta o QR pra área branca. Tamanho:</span>
+              <input
+                type="range" min={16} max={40} value={qrTam}
+                onChange={(e) => setQrTam(+e.target.value)}
+                className="w-28 accent-primary" aria-label="Tamanho do QR code"
+              />
             </div>
-          )}
+            {!payloadPix && (
+              <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg p-3">
+                Cadastre sua chave Pix no perfil (ou preencha na tela anterior) pro QR real aparecer aqui.
+              </div>
+            )}
+          </div>
+
           <Button onClick={baixar} disabled={exportando} className="w-full h-11 bg-gradient-primary">
             {exportando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             Baixar PNG pra gráfica
           </Button>
-          <Button onClick={gerar} disabled={gerando} variant="outline" className="w-full h-10">
-            {gerando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+          <Button onClick={gerar} disabled={gerando} variant="outline" className="w-full h-11">
+            <Sparkles className="w-4 h-4 mr-2" />
             Gerar outra versão
           </Button>
+          <p className="text-xs text-muted-foreground text-center">
+            O PNG sai em alta resolução (3x), com o QR achatado na arte — é só mandar imprimir.
+          </p>
         </div>
       ) : !modelo ? (
         /* ===== PASSO 1: galeria de modelos (alimentada pelo admin) ===== */
-        <div className="max-w-2xl mx-auto p-4">
-          <p className="text-sm text-muted-foreground mb-4">
-            Esses são os estilos que a IA sabe fazer. Escolhe o que combina com a tua marca — a arte
-            criada vai ser NOVA, só inspirada no modelo.
-          </p>
+        <div className="max-w-2xl mx-auto p-4 pb-safe">
+          <div className="rounded-2xl border border-border bg-card p-4 mb-4">
+            <p className="text-base font-semibold">Sua marca merece um adesivo profissional</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Escolhe um estilo abaixo, responde 4 perguntas e a IA cria uma arte NOVA pra sua marca —
+              com espaço pro seu QR Pix de verdade.
+            </p>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {modelos.map((m) => (
-              <button key={m.id} onClick={() => setModelo(m)}
-                className="text-left rounded-2xl border border-border overflow-hidden bg-card hover:border-primary/50 transition-colors">
-                {m.imagem_url && <img src={m.imagem_url} alt={m.nome} className="w-full h-44 object-cover object-top" />}
+              <button
+                key={m.id} onClick={() => setModelo(m)}
+                className="group text-left rounded-2xl border border-border overflow-hidden bg-card hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+              >
+                {m.imagem_url && (
+                  <div className="relative">
+                    <img src={m.imagem_url} alt={m.nome} className="w-full aspect-[3/4] object-cover object-top" loading="lazy" />
+                    <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-background/85 backdrop-blur px-2.5 py-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Check className="w-3.5 h-3.5" /> Usar estilo
+                    </span>
+                  </div>
+                )}
                 <div className="p-3">
                   <p className="text-sm font-semibold">{m.nome}</p>
-                  <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{m.descricao}</p>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{m.descricao}</p>
                 </div>
               </button>
             ))}
           </div>
-          {modelos.length === 0 && <p className="text-sm text-muted-foreground text-center py-10">Carregando modelos…</p>}
+          {modelos.length === 0 && (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+              <Loader2 className="w-4 h-4 animate-spin" /> Carregando estilos…
+            </div>
+          )}
         </div>
       ) : (
         /* ===== PASSO 2: poucas perguntas certeiras ===== */
-        <div className="max-w-md mx-auto p-4 space-y-3">
-          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-2.5">
-            {modelo.imagem_url && <img src={modelo.imagem_url} alt="" className="w-12 h-12 rounded-lg object-cover object-top" />}
-            <div>
-              <p className="text-xs font-semibold">{modelo.nome}</p>
-              <p className="text-[10px] text-muted-foreground">Estilo escolhido</p>
+        <div className="max-w-md mx-auto p-4 space-y-4 pb-safe">
+          <div className="flex items-center gap-3 rounded-2xl border border-primary/40 bg-card p-3">
+            {modelo.imagem_url && <img src={modelo.imagem_url} alt="" className="w-14 h-14 rounded-xl object-cover object-top" />}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{modelo.nome}</p>
+              <p className="text-xs text-muted-foreground">Estilo escolhido — a arte vai nascer nesse clima</p>
+            </div>
+            <Check className="w-5 h-5 text-primary shrink-0" />
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label htmlFor="est-marca" className="text-xs font-medium text-muted-foreground">Qual o nome da sua marca?</label>
+              <Input id="est-marca" value={marca} onChange={(e) => setMarca(e.target.value.slice(0, 30))} placeholder="Ex: CREMO" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="est-produto" className="text-xs font-medium text-muted-foreground">O que você vende? (descreve pro desenho)</label>
+              <Input id="est-produto" value={produto} onChange={(e) => setProduto(e.target.value.slice(0, 140))} placeholder="Ex: shake cremoso de mousse de morango" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="est-cores" className="text-xs font-medium text-muted-foreground">Cores da sua marca (opcional)</label>
+              <Input id="est-cores" value={cores} onChange={(e) => setCores(e.target.value.slice(0, 80))} placeholder="Ex: preto com dourado / rosa e branco" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="est-extras" className="text-xs font-medium text-muted-foreground">Algum detalhe especial? (opcional)</label>
+              <Input id="est-extras" value={extras} onChange={(e) => setExtras(e.target.value.slice(0, 200))} placeholder="Ex: uma coroa em cima do nome" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="est-pix" className="text-xs font-medium text-muted-foreground">Sua chave Pix (pro QR real)</label>
+              <Input id="est-pix" value={pixKey} onChange={(e) => setPixKey(e.target.value.slice(0, 77))} placeholder="celular, e-mail, CPF ou aleatória" className="h-11" />
             </div>
           </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Qual o nome da sua marca?</label>
-            <Input value={marca} onChange={(e) => setMarca(e.target.value.slice(0, 30))} placeholder="Ex: CREMO" />
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">O que você vende? (descreve pro desenho)</label>
-            <Input value={produto} onChange={(e) => setProduto(e.target.value.slice(0, 140))} placeholder="Ex: shake cremoso de mousse de morango" />
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Cores da sua marca (opcional)</label>
-            <Input value={cores} onChange={(e) => setCores(e.target.value.slice(0, 80))} placeholder="Ex: preto com dourado / rosa e branco" />
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Algum detalhe especial? (opcional)</label>
-            <Input value={extras} onChange={(e) => setExtras(e.target.value.slice(0, 200))} placeholder="Ex: uma coroa em cima do nome / frase 'feito com amor'" />
-          </div>
-          <div>
-            <label className="text-[11px] text-muted-foreground uppercase tracking-wide">Sua chave Pix (pro QR real)</label>
-            <Input value={pixKey} onChange={(e) => setPixKey(e.target.value.slice(0, 77))} placeholder="celular, e-mail, CPF ou aleatória" />
-          </div>
+
           <Button onClick={gerar} disabled={gerando} className="w-full h-11 bg-gradient-primary">
-            {gerando ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Criando no estilo {modelo.nome}…</> : <><Sparkles className="w-4 h-4 mr-2" /> Gerar meu adesivo</>}
+            <Sparkles className="w-4 h-4 mr-2" /> Gerar meu adesivo
           </Button>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             A IA cria a arte no estilo escolhido e deixa um espaço em branco — depois você encaixa o
             QR Pix REAL da sua chave (gerado pelo Orbis, escaneável garantido) e baixa pronto pra imprimir.
           </p>
