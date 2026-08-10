@@ -512,6 +512,12 @@ export function useDefconChallenge(userId: string | undefined) {
         if (currentChallengeBlock) {
           setBlockApproaches(currentChallengeBlock.approaches_count || 0);
           setBlockSalesCount(Number((currentChallengeBlock as any).sales_count || 0));
+        } else {
+          // BUG FIX: bloco novo (ex.: hora extra ⏱ +1h) ainda não tem registro de
+          // abordagens — sem este else, os contadores da hora ANTERIOR ficavam
+          // "grudados" na tela da hora nova (VENDAS/ABORD./CONV. errados).
+          setBlockApproaches(0);
+          setBlockSalesCount(0);
         }
       }
 
@@ -1318,6 +1324,9 @@ export function useDefconChallenge(userId: string | undefined) {
       .from("challenge_sessions")
       .update({ status: "active", ended_at: null, total_blocks: blocksDb.length + 1, current_block_index: blocksDb.length } as never)
       .eq("id", sid);
+    // Hora nova começa DO ZERO também nos contadores (vendas/abordagens do bloco).
+    setBlockApproaches(0);
+    setBlockSalesCount(0);
     await loadData();
   };
 

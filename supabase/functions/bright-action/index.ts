@@ -125,8 +125,9 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
 - Conduza como CO-CRIAÇÃO, clima de "bora montar isso juntos". No máximo DUAS perguntas por mensagem, uma etapa de cada vez.
 - O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome). Se não tem, vire professor: explica em 1-2 frases o que faz um bom nome (curto, fácil de falar, que lembra o produto) e sugere 3 opções baseadas no que ele vende; 2) o que ele vende (descrito pro desenho); 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca; 6) se ele tem foto de um adesivo de referência que curte — avisa que dá pra anexar na tela de gerar.
-- Quando tiver marca + produto + estilo, resume em 1 frase o que vão criar e chama a ferramenta criar_adesivo. Ela abre a tela de geração no app já preenchida — avisa que é só conferir, anexar referência se quiser, e tocar em Gerar.
-- NUNCA diga que você mesmo vai desenhar na conversa nem descreva a arte como se estivesse pronta: quem gera é a tela do Estúdio.
+- Quando tiver marca + produto + estilo, resume em 1 frase o que vão criar e chama a ferramenta criar_adesivo — ela DESENHA a arte na hora e a imagem aparece direto na conversa (leva até 1 minuto). Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
+- Se ele quiser mudar algo (cor, estilo, detalhe), ajusta o briefing e chama criar_adesivo de novo — cada chamada gasta 1 geração do dia dele, então confirme a mudança antes.
+- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa.
 - Direitos autorais: referência de arte de OUTRA pessoa é só inspiração de estilo — a arte dele sai nova e única, sem copiar personagem, texto ou contato de ninguém.
 
 # REGRAS DE SEGURANÇA
@@ -144,7 +145,8 @@ MODO CONVERSA (regras extras, valem acima de tudo):
 - Use os blocos "DADOS REAIS" e "MEMÓRIA" pra personalizar de leve — UM dado certo na frase vale mais que cinco números despejados.
 - NUNCA repita frases de exemplo do método nem respostas que você já deu. Varie abertura, varie estrutura, crie script novo quando precisar de script.
 - Quando faltar contexto, pergunta de volta em vez de chutar conselho. Não termine tudo com ordem ou "próximo passo".
-- Sem emoji, sem formatação, sem tom de palestra ou de coach.`;
+- Sem emoji, sem formatação, sem tom de palestra ou de coach.
+- PROIBIDO escrever JSON, código ou simular "chamada de ferramenta" no texto da conversa. Se estiver montando o adesivo com o vendedor, colete marca, produto e estilo conversando normal — o aplicativo abre a tela de geração sozinho. NUNCA diga que a arte "já foi gerada": quem gera é a tela do Estúdio, depois que ele toca em Gerar.`;
 
 // ---- Helpers de audio: o Gemini TTS devolve PCM cru; o navegador toca WAV ----
 function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
@@ -327,7 +329,7 @@ const AGENT_TOOLS = [
   },
   {
     name: "criar_adesivo",
-    description: "AÇÃO: abre a tela do Estúdio de Marca no app com o briefing preenchido pro vendedor gerar o adesivo premium dele. Só chame quando já souber marca, produto e estilo (formato, com/sem personagem, cores). Chame UMA vez por briefing.",
+    description: "AÇÃO: desenha o adesivo premium do vendedor com IA e mostra a imagem direto na conversa (demora até 1 minuto). Só chame quando já souber marca, produto e estilo (formato, com/sem personagem, cores). Pra nova versão, chame de novo com o briefing ajustado.",
     input_schema: { type: "object", properties: {
       marca: { type: "string", description: "Nome da marca, exatamente como deve aparecer na arte" },
       produto: { type: "string", description: "O que ele vende, descrito pro desenho" },
@@ -344,13 +346,57 @@ FERRAMENTAS (você é um AGENTE, não só um chat):
 - Pra responder sobre vendas, estoque, financeiro ou ranking, USE as ferramentas de consulta e responda com o dado REAL que voltar. Nunca chute número quando dá pra consultar.
 - Ações (definir_meta_do_dia, registrar_gasto): PRIMEIRO diga o que vai fazer e pergunte "confirma?". SÓ chame a ferramenta depois do SIM explícito do vendedor na conversa. Depois de executar, confirme em 1 frase o que foi feito.
 - Se uma ferramenta falhar, avise com naturalidade e siga a conversa sem inventar dado.
-- criar_adesivo NÃO gera a imagem na hora: abre a tela de geração pro vendedor conferir e tocar em Gerar. Depois de chamar, diga isso a ele em 1 frase.`;
+- criar_adesivo desenha a arte NA HORA e mostra na conversa. Depois de chamar, comente o resultado em 1 frase e avise do botão do QR Pix embaixo da imagem.`;
 
 function hojeBrasil(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
 }
 
-async function runTool(name: string, input: Record<string, unknown>, userSupa: any, userId: string): Promise<unknown> {
+// Rede de segurança: se algum modelo (principalmente os reservas, que não têm ferramentas)
+// "vazar" no texto um JSON imitando a ferramenta criar_adesivo, a gente extrai o briefing
+// (aceita chaves em português E em inglês), abre o Estúdio mesmo assim e limpa a resposta.
+function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; limpo: string } | null {
+  const start = texto.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0, end = -1;
+  for (let i = start; i < texto.length; i++) {
+    if (texto[i] === "{") depth++;
+    else if (texto[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end === -1) return null;
+  let j: Record<string, unknown> | null = null;
+  try { j = JSON.parse(texto.slice(start, end + 1)); } catch { return null; }
+  if (!j || typeof j !== "object") return null;
+  const marca = String(j.marca ?? j.brand_name ?? j.brand ?? "").trim();
+  const produto = String(j.produto ?? j.product_description ?? j.product ?? "").trim();
+  if (!marca || !produto) return null;
+  let estilo: unknown = j.estilo ?? j.style ?? "";
+  if (estilo && typeof estilo === "object") {
+    const e = estilo as Record<string, unknown>;
+    const partes: string[] = [];
+    const formato = e.formato ?? e.format; if (formato) partes.push(`formato ${formato}`);
+    const cores = e.cores ?? e.colors; if (Array.isArray(cores) && cores.length) partes.push(`cores ${cores.join(", ")}`);
+    const mascote = e.mascote ?? e.mascot; if (typeof mascote === "boolean") partes.push(mascote ? "com mascote" : "sem mascote, clean");
+    estilo = partes.join("; ");
+  }
+  const dados: Record<string, string> = {
+    marca: marca.slice(0, 30),
+    produto: produto.slice(0, 140),
+    estilo: (String(estilo ?? "").trim() || "adesivo bonito e profissional").slice(0, 300),
+  };
+  const cores = j.cores ?? j.colors;
+  if (Array.isArray(cores)) dados.cores = cores.join(", ").slice(0, 80);
+  else if (typeof cores === "string") dados.cores = cores.slice(0, 80);
+  const extras = j.extras ?? j.details;
+  if (typeof extras === "string") dados.extras = extras.slice(0, 200);
+  const limpo = (texto.slice(0, start) + " " + texto.slice(end + 1))
+    .replace(/we need to call the tool\.?/gi, "")
+    .replace(/"tool"\s*:\s*"criar_adesivo",?/gi, "")
+    .replace(/\s+/g, " ").trim();
+  return { dados, limpo };
+}
+
+async function runTool(name: string, input: Record<string, unknown>, userSupa: any, userId: string, userAuthH: string): Promise<unknown> {
   const hoje = hojeBrasil();
   const back = (n: number) => {
     const d = new Date(`${hoje}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n);
@@ -430,8 +476,47 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
       const produto = String(input?.produto ?? "").slice(0, 140).trim();
       const estilo = String(input?.estilo ?? "").slice(0, 300).trim();
       if (!marca || !produto || !estilo) return { erro: "briefing_incompleto" };
-      // A geração acontece na tela do Estúdio (o cliente recebe a "acao" e abre já preenchido).
-      return { ok: true, acao: "estudio_aberto", msg: "A tela de geração abriu no app com o briefing preenchido. Avise o vendedor: é só conferir, anexar uma foto de referência se quiser, e tocar em Gerar." };
+      // Gera a arte AGORA, direto no chat (igual o GPT): chama a estudio-arte com o token
+      // do PRÓPRIO vendedor (assinatura + limite diário valem lá), sobe o PNG no Storage
+      // público e devolve a URL — o app mostra a imagem na conversa.
+      try {
+        const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/estudio-arte`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: userAuthH,
+            apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+          },
+          signal: AbortSignal.timeout(120000),
+          body: JSON.stringify({
+            marca, produto, estilo,
+            cores: String(input?.cores ?? "").slice(0, 80),
+            extras: String(input?.extras ?? "").slice(0, 200),
+          }),
+        });
+        const j = await r.json().catch(() => ({} as Record<string, unknown>));
+        if ((j as any)?.imagem) {
+          const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const bytes = b64ToBytes(String((j as any).imagem));
+          const path = `${userId}/${crypto.randomUUID()}.png`;
+          const up = await admin.storage.from("artes").upload(path, bytes, { contentType: String((j as any).mime || "image/png") });
+          if (up.error) return { erro: "upload_falhou" };
+          const { data: pub } = admin.storage.from("artes").getPublicUrl(path);
+          return {
+            ok: true, imagem_url: pub.publicUrl,
+            msg: "Arte gerada com sucesso — ela JÁ está aparecendo na conversa. Comente o resultado em 1 frase e avise que, embaixo da imagem, tem o botão pra colocar o QR Pix real e baixar. Se ele quiser mudar algo, é só pedir que você gera outra versão.",
+          };
+        }
+        const errCode = String((j as any)?.error ?? "geracao_falhou");
+        const msgs: Record<string, string> = {
+          limite_diario: "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
+          assinatura_necessaria: "O Estúdio é exclusivo pra assinantes.",
+          sem_chave: "Nenhum provedor de imagem está configurado no servidor.",
+        };
+        return { erro: errCode, aviso: msgs[errCode] ?? "A geração falhou agora. Peça pra ele tentar de novo em instantes." };
+      } catch (e) {
+        return { erro: "geracao_falhou", detalhe: String(e).slice(0, 120) };
+      }
     }
     return { erro: "ferramenta_desconhecida" };
   } catch (e) {
@@ -621,7 +706,23 @@ Deno.serve(async (req) => {
     let acaoChat: unknown = null;
 
     // Depois de responder, aprende com a conversa (roda em segundo plano, não atrasa nada).
-    const finishChat = (reply: string) => {
+    const finishChat = (replyIn: string) => {
+      let reply = replyIn;
+      // Rede de segurança: modelo reserva vazou JSON de adesivo no texto? Extrai, abre o
+      // Estúdio de verdade e entrega uma resposta limpa pro vendedor.
+      if (!acaoChat) {
+        const ext = extrairAdesivoDoTexto(reply);
+        if (ext) {
+          acaoChat = { tipo: "gerar_adesivo", dados: ext.dados };
+          reply = ext.limpo ||
+            "Fechado! Abri a tela de geração com tudo que combinamos — confere ali, anexa uma foto de referência se quiser e toca em Gerar.";
+        }
+      }
+      // Arte gerada no chat: anexa o marcador que o app transforma em imagem na conversa.
+      const acaoUrl = (acaoChat as { tipo?: string; url?: string } | null);
+      if (acaoUrl?.tipo === "adesivo_no_chat" && acaoUrl.url) {
+        reply = `${reply}\n\n[[adesivo:${acaoUrl.url}]]`;
+      }
       try {
         const lastUser = String(messages[messages.length - 1]?.content ?? "").slice(0, 1200);
         const p = extractMemory(chatUserId, lastUser, reply.slice(0, 1200), memFacts.map((f) => f.fato));
@@ -649,20 +750,31 @@ Deno.serve(async (req) => {
           // LOOP DE AGENTE: o Claude pode pedir ferramentas (consultar/agir) antes de responder.
           const aMessages: any[] = [...ahist];
           for (let rodada = 0; rodada < 4; rodada++) {
-            const aRes = await fetch("https://api.anthropic.com/v1/messages", {
-              method: "POST",
-              headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
-              signal: AbortSignal.timeout(25000),
-              body: JSON.stringify({
-                model: amodel,
-                max_tokens: 600,
-                temperature: 0.8,
-                system: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES,
-                tools: AGENT_TOOLS,
-                messages: aMessages,
-              }),
-            });
-            if (!aRes.ok) { console.error("Claude chat erro", aRes.status); break; }
+            // Instabilidade passageira (429/5xx/sobrecarga) NÃO derruba pro reserva:
+            // tenta até 3 vezes antes de desistir. Erro de chave (401) desiste na hora.
+            let aRes: Response | null = null;
+            for (let tent = 0; tent < 3; tent++) {
+              aRes = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
+                signal: AbortSignal.timeout(25000),
+                body: JSON.stringify({
+                  model: amodel,
+                  max_tokens: 600,
+                  temperature: 0.8,
+                  system: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES,
+                  tools: AGENT_TOOLS,
+                  messages: aMessages,
+                }),
+              });
+              if (aRes.ok || ![429, 500, 502, 503, 529].includes(aRes.status)) break;
+              console.error("Claude instável, tentando de novo", aRes.status);
+              await new Promise((r) => setTimeout(r, 700 * (tent + 1)));
+            }
+            if (!aRes || !aRes.ok) {
+              console.error("Claude chat erro", aRes?.status, (await aRes?.text().catch(() => ""))?.slice(0, 200));
+              break;
+            }
             const aj = await aRes.json();
             if (aj?.stop_reason === "tool_use") {
               const usos = ((aj.content ?? []) as any[]).filter((b) => b?.type === "tool_use");
@@ -670,9 +782,9 @@ Deno.serve(async (req) => {
               const resultados: any[] = [];
               for (const tu of usos) {
                 console.log("agente ferramenta:", tu.name);
-                const out = await runTool(String(tu.name), (tu.input ?? {}) as Record<string, unknown>, userSupa, chatUserId);
-                if (String(tu.name) === "criar_adesivo" && (out as any)?.ok) {
-                  acaoChat = { tipo: "gerar_adesivo", dados: tu.input ?? {} };
+                const out = await runTool(String(tu.name), (tu.input ?? {}) as Record<string, unknown>, userSupa, chatUserId, reqAuthH);
+                if (String(tu.name) === "criar_adesivo" && (out as any)?.imagem_url) {
+                  acaoChat = { tipo: "adesivo_no_chat", url: (out as any).imagem_url, dados: tu.input ?? {} };
                 }
                 resultados.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 4000) });
               }

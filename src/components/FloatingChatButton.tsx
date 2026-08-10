@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square } from "lucide-react";
+import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -20,8 +20,10 @@ const USE_INSTANT_VOICE = false;
 export default function FloatingChatButton() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  // Briefing do adesivo montado na conversa (a IA chama criar_adesivo -> abre o Estúdio preenchido)
+  // Briefing do adesivo montado na conversa (fallback: abre o Estúdio pra gerar por lá)
   const [estudioBrief, setEstudioBrief] = useState<EstudioBrief | null>(null);
+  // Arte que a IA gerou DENTRO do chat — abre o editor só pra encaixar o QR Pix e baixar
+  const [estudioArte, setEstudioArte] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -257,6 +259,30 @@ export default function FloatingChatButton() {
     if (isSending) return;
     recognitionRef.current?.stop();
     sendMessage(text);
+  };
+
+  // Renderiza o conteúdo da mensagem: texto normal + artes geradas no chat
+  // (o servidor manda [[adesivo:URL]] quando a IA desenha o adesivo na conversa).
+  const renderContent = (content: string) => {
+    const partes = content.split(/(\[\[adesivo:https?:\/\/[^\]\s]+\]\])/g);
+    return partes.map((p, i) => {
+      const m = /^\[\[adesivo:(https?:\/\/[^\]\s]+)\]\]$/.exec(p);
+      if (m) {
+        return (
+          <div key={i} className="mt-2 space-y-2">
+            <img
+              src={m[1]} alt="Adesivo criado pela Orbis IA"
+              className="w-full max-w-[260px] rounded-xl border border-border"
+              loading="lazy"
+            />
+            <Button size="sm" onClick={() => setEstudioArte(m[1])} className="h-9 bg-gradient-primary">
+              <Download className="w-4 h-4 mr-1.5" /> Colocar meu QR Pix e baixar
+            </Button>
+          </div>
+        );
+      }
+      return p ? <span key={i}>{p}</span> : null;
+    });
   };
 
   // ---- Modo voz ----
@@ -513,8 +539,11 @@ export default function FloatingChatButton() {
       lastSpokenRef.current = last.id;
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
       if (last.content.startsWith("Desculpe, tive um problema")) return;
-      if (USE_INSTANT_VOICE) speakBrowser(last.content); // voz do aparelho — instantânea
-      else speak(last.content);                          // voz do Gemini — bonita, porém ~30s
+      // Não lê o marcador da arte gerada no chat (a imagem aparece na tela, não na voz)
+      const falavel = last.content.replace(/\[\[adesivo:[^\]]+\]\]/g, "").trim();
+      if (!falavel) return;
+      if (USE_INSTANT_VOICE) speakBrowser(falavel); // voz do aparelho — instantânea
+      else speak(falavel);                          // voz do Gemini — bonita, porém ~30s
     }
   }, [messages, voiceMode]);
 
@@ -566,8 +595,9 @@ export default function FloatingChatButton() {
 
       <audio ref={audioRef} className="hidden" preload="auto" />
 
-      {/* Estúdio de Marca: aberto PELA CONVERSA, com o briefing que a IA montou */}
+      {/* Estúdio de Marca: fallback com briefing OU editor de QR pra arte gerada no chat */}
       {estudioBrief && user && <EstudioMarca userId={user.id} brief={estudioBrief} onClose={() => setEstudioBrief(null)} />}
+      {estudioArte && user && <EstudioMarca userId={user.id} arteInicial={estudioArte} onClose={() => setEstudioArte(null)} />}
 
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
@@ -657,7 +687,7 @@ export default function FloatingChatButton() {
                             : "bg-muted/60 border border-border text-foreground rounded-bl-md"
                         )}
                       >
-                        {m.content}
+                        {renderContent(m.content)}
                       </div>
                     </div>
                   ))}

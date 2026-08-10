@@ -36,7 +36,7 @@ const FRASES_GERANDO = [
   "Últimos retoques de designer…",
 ];
 
-export default function EstudioMarca({ userId, onClose, brief }: { userId: string; onClose: () => void; brief?: EstudioBrief | null }) {
+export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { userId: string; onClose: () => void; brief?: EstudioBrief | null; arteInicial?: string | null }) {
   const { toast } = useToast();
   const { status, loading: subLoading } = useSubscription(userId);
   const assinante = status.subscribed;
@@ -52,7 +52,8 @@ export default function EstudioMarca({ userId, onClose, brief }: { userId: strin
   const [pixKey, setPixKey] = useState("");
   const [merchantName, setMerchantName] = useState("");
   const [merchantCity, setMerchantCity] = useState("");
-  const [arte, setArte] = useState<string | null>(null);
+  // Arte pode chegar pronta do CHAT (a IA gerou na conversa; aqui só encaixa o QR e baixa)
+  const [arte, setArte] = useState<string | null>(arteInicial ?? null);
   const [gerando, setGerando] = useState(false);
   const [fraseIdx, setFraseIdx] = useState(0);
   const [exportando, setExportando] = useState(false);
@@ -64,8 +65,8 @@ export default function EstudioMarca({ userId, onClose, brief }: { userId: strin
   const dragRef = useRef<{ ativo: boolean; offX: number; offY: number }>({ ativo: false, offX: 0, offY: 0 });
 
   const briefMode = !!brief;
-  const totalPassos = briefMode ? 2 : 3;
-  const passo = arte ? totalPassos : briefMode ? 1 : modelo ? 2 : 1;
+  const totalPassos = arteInicial ? 1 : briefMode ? 2 : 3;
+  const passo = arteInicial ? 1 : arte ? totalPassos : briefMode ? 1 : modelo ? 2 : 1;
 
   useEffect(() => {
     if (!briefMode) {
@@ -193,7 +194,7 @@ export default function EstudioMarca({ userId, onClose, brief }: { userId: strin
     <div className="fixed inset-0 z-[80] bg-background overflow-y-auto">
       <header className="sticky top-0 z-10 flex items-center justify-between px-4 min-h-[3.5rem] border-b border-border/60 bg-background/95 backdrop-blur safe-top">
         <div className="flex items-center gap-2">
-          {(arte || (!briefMode && modelo)) && (
+          {((arte && !arteInicial) || (!briefMode && modelo)) && (
             <Button variant="ghost" size="icon" onClick={() => (arte ? setArte(null) : setModelo(null))} aria-label="Voltar">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -291,10 +292,17 @@ export default function EstudioMarca({ userId, onClose, brief }: { userId: strin
             {exportando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             Baixar PNG pra gráfica
           </Button>
-          <Button onClick={gerar} disabled={gerando} variant="outline" className="w-full h-11">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Gerar outra versão
-          </Button>
+          {(modelo || brief?.estilo || refUser) && (
+            <Button onClick={gerar} disabled={gerando} variant="outline" className="w-full h-11">
+              <Sparkles className="w-4 h-4 mr-2" />
+              Gerar outra versão
+            </Button>
+          )}
+          {arteInicial && !brief && (
+            <p className="text-xs text-muted-foreground text-center">
+              Quer outra versão? Volta no chat e pede pra IA — ela gera na conversa.
+            </p>
+          )}
           <p className="text-xs text-muted-foreground text-center">
             O PNG sai em alta resolução (3x), com o QR achatado na arte — é só mandar imprimir.
           </p>
