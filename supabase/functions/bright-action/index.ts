@@ -121,6 +121,14 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 - Visão longa: cada dia na rua é tijolo. Você não tá só vendendo hoje, tá construindo uma vida.
 - Quando travar: respira, abordagem simples e rápida pra destravar, e segue. Ação mata ansiedade.
 
+## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
+Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
+- Conduza como CO-CRIAÇÃO, clima de "bora montar isso juntos". No máximo DUAS perguntas por mensagem, uma etapa de cada vez.
+- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome). Se não tem, vire professor: explica em 1-2 frases o que faz um bom nome (curto, fácil de falar, que lembra o produto) e sugere 3 opções baseadas no que ele vende; 2) o que ele vende (descrito pro desenho); 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca; 6) se ele tem foto de um adesivo de referência que curte — avisa que dá pra anexar na tela de gerar.
+- Quando tiver marca + produto + estilo, resume em 1 frase o que vão criar e chama a ferramenta criar_adesivo. Ela abre a tela de geração no app já preenchida — avisa que é só conferir, anexar referência se quiser, e tocar em Gerar.
+- NUNCA diga que você mesmo vai desenhar na conversa nem descreva a arte como se estivesse pronta: quem gera é a tela do Estúdio.
+- Direitos autorais: referência de arte de OUTRA pessoa é só inspiração de estilo — a arte dele sai nova e única, sem copiar personagem, texto ou contato de ninguém.
+
 # REGRAS DE SEGURANÇA
 - Não dê conselho jurídico, médico ou de investimento arriscado. Foco é venda, rotina e disciplina.
 - Não prometa ganho garantido. Resultado vem de trabalho e constância, e você fala isso de boa.
@@ -317,6 +325,17 @@ const AGENT_TOOLS = [
     description: "AÇÃO: registra um gasto pessoal/do negócio de hoje. Só chame DEPOIS que o vendedor confirmar valor e categoria na conversa.",
     input_schema: { type: "object", properties: { valor: { type: "number", description: "Valor em reais" }, categoria: { type: "string", description: "Categoria (ex: Transporte, Alimentação, Mercadoria, Outros)" }, nome: { type: "string", description: "Descrição curta do gasto" } }, required: ["valor", "categoria"] },
   },
+  {
+    name: "criar_adesivo",
+    description: "AÇÃO: abre a tela do Estúdio de Marca no app com o briefing preenchido pro vendedor gerar o adesivo premium dele. Só chame quando já souber marca, produto e estilo (formato, com/sem personagem, cores). Chame UMA vez por briefing.",
+    input_schema: { type: "object", properties: {
+      marca: { type: "string", description: "Nome da marca, exatamente como deve aparecer na arte" },
+      produto: { type: "string", description: "O que ele vende, descrito pro desenho" },
+      estilo: { type: "string", description: "Estilo combinado: formato (rótulo/redondo/quadrado), com ou sem mascote, clima (premium, divertido, delicado...)" },
+      cores: { type: "string", description: "Cores da marca (opcional)" },
+      extras: { type: "string", description: "Detalhes extras que ele pediu (opcional)" },
+    }, required: ["marca", "produto", "estilo"] },
+  },
 ];
 
 const AGENT_TOOLS_RULES = `
@@ -324,7 +343,8 @@ const AGENT_TOOLS_RULES = `
 FERRAMENTAS (você é um AGENTE, não só um chat):
 - Pra responder sobre vendas, estoque, financeiro ou ranking, USE as ferramentas de consulta e responda com o dado REAL que voltar. Nunca chute número quando dá pra consultar.
 - Ações (definir_meta_do_dia, registrar_gasto): PRIMEIRO diga o que vai fazer e pergunte "confirma?". SÓ chame a ferramenta depois do SIM explícito do vendedor na conversa. Depois de executar, confirme em 1 frase o que foi feito.
-- Se uma ferramenta falhar, avise com naturalidade e siga a conversa sem inventar dado.`;
+- Se uma ferramenta falhar, avise com naturalidade e siga a conversa sem inventar dado.
+- criar_adesivo NÃO gera a imagem na hora: abre a tela de geração pro vendedor conferir e tocar em Gerar. Depois de chamar, diga isso a ele em 1 frase.`;
 
 function hojeBrasil(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -404,6 +424,14 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
       const { error } = await userSupa.from("personal_expenses").insert({ user_id: userId, category: categoria, name: nome, amount: valor, type: "variable", date: hoje });
       if (error) return { erro: error.message };
       return { ok: true, acao: "gasto_registrado", valor, categoria, nome };
+    }
+    if (name === "criar_adesivo") {
+      const marca = String(input?.marca ?? "").slice(0, 30).trim();
+      const produto = String(input?.produto ?? "").slice(0, 140).trim();
+      const estilo = String(input?.estilo ?? "").slice(0, 300).trim();
+      if (!marca || !produto || !estilo) return { erro: "briefing_incompleto" };
+      // A geração acontece na tela do Estúdio (o cliente recebe a "acao" e abre já preenchido).
+      return { ok: true, acao: "estudio_aberto", msg: "A tela de geração abriu no app com o briefing preenchido. Avise o vendedor: é só conferir, anexar uma foto de referência se quiser, e tocar em Gerar." };
     }
     return { erro: "ferramenta_desconhecida" };
   } catch (e) {
@@ -589,6 +617,9 @@ Deno.serve(async (req) => {
     } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
     const fullCtx = userCtx + memBlock;
 
+    // Ação pro app executar junto com a resposta (ex.: abrir o Estúdio com o briefing do adesivo).
+    let acaoChat: unknown = null;
+
     // Depois de responder, aprende com a conversa (roda em segundo plano, não atrasa nada).
     const finishChat = (reply: string) => {
       try {
@@ -597,7 +628,7 @@ Deno.serve(async (req) => {
         const er = (globalThis as any).EdgeRuntime;
         if (er?.waitUntil) er.waitUntil(p); else p.catch(() => {});
       } catch { /* noop */ }
-      return json({ success: true, message: reply });
+      return json({ success: true, message: reply, ...(acaoChat ? { acao: acaoChat } : {}) });
     };
 
     // Cliente com o token do PRÓPRIO vendedor: as ferramentas do agente rodam com ele (RLS).
@@ -640,6 +671,9 @@ Deno.serve(async (req) => {
               for (const tu of usos) {
                 console.log("agente ferramenta:", tu.name);
                 const out = await runTool(String(tu.name), (tu.input ?? {}) as Record<string, unknown>, userSupa, chatUserId);
+                if (String(tu.name) === "criar_adesivo" && (out as any)?.ok) {
+                  acaoChat = { tipo: "gerar_adesivo", dados: tu.input ?? {} };
+                }
                 resultados.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 4000) });
               }
               aMessages.push({ role: "user", content: resultados });

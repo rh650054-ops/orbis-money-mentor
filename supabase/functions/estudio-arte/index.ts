@@ -1,6 +1,7 @@
-// Orbis — estudio-arte v5: gera o ADESIVO do vendedor com IA, guiado por um MODELO
-// DE REFERÊNCIA da biblioteca (estudio_modelos). Deixa ÁREA BRANCA pro app colocar o
-// QR Pix REAL. Só assinantes; limite diário via bump_ai_usage('estudio').
+// Orbis — estudio-arte v6: gera o ADESIVO do vendedor com IA. O briefing vem da
+// GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Orbis IA (estilo em
+// texto + referência opcional enviada pelo PRÓPRIO usuário). Deixa ÁREA BRANCA pro app
+// colocar o QR Pix REAL. Só assinantes; limite diário via bump_ai_usage('estudio').
 // PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;
 // exige billing ativado na conta Google) → 2) OpenAI GPT Image (se OPENAI_API_KEY
 // existir nos secrets) — o MESMO gerador de imagem do ChatGPT.
@@ -57,15 +58,25 @@ Deno.serve(async (req) => {
     const produto = String(body?.produto ?? "").slice(0, 140).trim();
     const cores = String(body?.cores ?? "").slice(0, 80).trim();
     const extras = String(body?.extras ?? "").slice(0, 200).trim();
-    if (!modeloId || !marca || !produto) return json({ error: "dados_incompletos" });
+    // v6: briefing vindo do CHAT — estilo em texto e/ou referência ENVIADA pelo usuário.
+    const estilo = String(body?.estilo ?? "").slice(0, 300).trim();
+    const refUserB64 = typeof body?.ref_b64 === "string" ? body.ref_b64 : "";
+    const refUserMime = String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg";
+    if (refUserB64.length > 3_000_000) return json({ error: "referencia_grande" });
+    if (!marca || !produto || (!modeloId && !estilo && !refUserB64)) return json({ error: "dados_incompletos" });
 
-    const { data: modelo } = await admin.from("estudio_modelos")
-      .select("nome, descricao, imagem_url, imagem_b64").eq("id", modeloId).eq("ativo", true).maybeSingle();
-    if (!modelo) return json({ error: "modelo_nao_encontrado" });
+    let modelo: { nome?: unknown; descricao?: unknown; imagem_url?: unknown; imagem_b64?: unknown } | null = null;
+    if (modeloId) {
+      const { data } = await admin.from("estudio_modelos")
+        .select("nome, descricao, imagem_url, imagem_b64").eq("id", modeloId).eq("ativo", true).maybeSingle();
+      if (!data) return json({ error: "modelo_nao_encontrado" });
+      modelo = data;
+    }
 
-    let refB64 = String(modelo.imagem_b64 ?? "");
-    let refMime = "image/jpeg";
-    if (!refB64 && modelo.imagem_url) {
+    // Referência visual: a foto do PRÓPRIO usuário tem prioridade; senão, a do modelo da biblioteca.
+    let refB64 = refUserB64 || String(modelo?.imagem_b64 ?? "");
+    let refMime = refUserB64 ? refUserMime : "image/jpeg";
+    if (!refB64 && modelo?.imagem_url) {
       try {
         const ir = await fetch(String(modelo.imagem_url), { signal: AbortSignal.timeout(10000) });
         if (ir.ok) {
@@ -75,8 +86,9 @@ Deno.serve(async (req) => {
       } catch { /* segue sem referência visual */ }
     }
 
+    const estiloDesc = modelo ? `${modelo.nome}: ${modelo.descricao}` : (estilo || "estilo livre, bonito e profissional");
     const prompt = `Você é um designer profissional de adesivos e rótulos para vendedores ambulantes brasileiros.
-${refB64 ? "A imagem anexa é APENAS uma REFERÊNCIA de estilo, composição e clima" : "Estilo de referência"} (${modelo.nome}: ${modelo.descricao}).
+${refB64 ? "A imagem anexa é APENAS uma REFERÊNCIA de estilo, composição e clima" : "Estilo de referência"} (${estiloDesc}).
 Crie um adesivo NOVO e ORIGINAL nesse mesmo estilo, em orientação vertical (proporção 3:4), para:
 - Marca: "${marca}" (escreva EXATAMENTE assim, com destaque)
 - Produto: ${produto}
@@ -86,7 +98,7 @@ ${extras ? `- Detalhes pedidos pelo vendedor: ${extras}` : ""}
 REGRAS OBRIGATÓRIAS:
 1. Todo texto em português do Brasil, com ortografia PERFEITA. Use pouco texto: o nome da marca, no máximo um slogan curto, e o título "PAGUE COM PIX" ou "PAGUE COM CONFIANÇA".
 2. Reserve uma ÁREA QUADRADA TOTALMENTE BRANCA E VAZIA (sem nada dentro, sem moldura interna, sem QR desenhado) ocupando cerca de 25% da largura, na parte inferior direita do adesivo — é onde o aplicativo vai colocar o QR code verdadeiro.
-3. NÃO desenhe QR code, não desenhe código de barras, não copie textos nem contatos da imagem de referência.
+3. NÃO desenhe QR code, não desenhe código de barras, não copie textos, contatos, nomes de marca nem personagens da imagem de referência — ela é só inspiração de estilo; a arte deve ser original.
 4. Arte apetitosa/simpática de altíssima qualidade, digna de gráfica profissional.`;
 
     // ===== 1) GEMINI (precisa de billing ativado na conta Google) =====

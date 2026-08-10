@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check } from "lucide-react";
+import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check, ImagePlus, Trash2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,11 @@ const sb = supabase as any;
 
 interface Modelo { id: string; slug: string; nome: string; descricao: string; imagem_url: string | null; }
 
+// Briefing montado na CONVERSA com a Orbis IA (ferramenta criar_adesivo do cérebro).
+// Quando presente, a galeria é pulada: o estilo veio da conversa, e o vendedor ainda
+// pode anexar uma foto de referência DELE (inspiração de estilo — a arte sai original).
+export interface EstudioBrief { marca?: string; produto?: string; cores?: string; extras?: string; estilo?: string; }
+
 const FRASES_GERANDO = [
   "Lendo o estilo que você escolheu…",
   "Desenhando a sua marca…",
@@ -31,17 +36,19 @@ const FRASES_GERANDO = [
   "Últimos retoques de designer…",
 ];
 
-export default function EstudioMarca({ userId, onClose }: { userId: string; onClose: () => void }) {
+export default function EstudioMarca({ userId, onClose, brief }: { userId: string; onClose: () => void; brief?: EstudioBrief | null }) {
   const { toast } = useToast();
   const { status, loading: subLoading } = useSubscription(userId);
   const assinante = status.subscribed;
 
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [modelo, setModelo] = useState<Modelo | null>(null);
-  const [marca, setMarca] = useState("");
-  const [produto, setProduto] = useState("");
-  const [cores, setCores] = useState("");
-  const [extras, setExtras] = useState("");
+  const [marca, setMarca] = useState(brief?.marca?.slice(0, 30) ?? "");
+  const [produto, setProduto] = useState(brief?.produto?.slice(0, 140) ?? "");
+  const [cores, setCores] = useState(brief?.cores?.slice(0, 80) ?? "");
+  const [extras, setExtras] = useState(brief?.extras?.slice(0, 200) ?? "");
+  // Foto de referência anexada pelo PRÓPRIO vendedor (opcional, só inspiração de estilo)
+  const [refUser, setRefUser] = useState<{ b64: string; preview: string } | null>(null);
   const [pixKey, setPixKey] = useState("");
   const [merchantName, setMerchantName] = useState("");
   const [merchantCity, setMerchantCity] = useState("");
@@ -56,11 +63,15 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
   const artRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ ativo: boolean; offX: number; offY: number }>({ ativo: false, offX: 0, offY: 0 });
 
-  const passo = arte ? 3 : modelo ? 2 : 1;
+  const briefMode = !!brief;
+  const totalPassos = briefMode ? 2 : 3;
+  const passo = arte ? totalPassos : briefMode ? 1 : modelo ? 2 : 1;
 
   useEffect(() => {
-    sb.from("estudio_modelos").select("id, slug, nome, descricao, imagem_url").eq("ativo", true).order("ordem")
-      .then(({ data }: { data: Modelo[] | null }) => setModelos(data || []));
+    if (!briefMode) {
+      sb.from("estudio_modelos").select("id, slug, nome, descricao, imagem_url").eq("ativo", true).order("ordem")
+        .then(({ data }: { data: Modelo[] | null }) => setModelos(data || []));
+    }
     sb.from("profiles").select("nickname, pix_key, pix_merchant_name, pix_merchant_city, what_i_sell, city")
       .eq("user_id", userId).maybeSingle()
       .then(({ data }: { data: Record<string, string | null> | null }) => {
@@ -68,9 +79,34 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
         setPixKey(data.pix_key || "");
         setMerchantName(data.pix_merchant_name || data.nickname || "");
         setMerchantCity(data.pix_merchant_city || data.city || "SAO PAULO");
-        if (data.what_i_sell) setProduto(data.what_i_sell);
+        if (data.what_i_sell) setProduto((p) => p || data.what_i_sell || "");
       });
-  }, [userId]);
+  }, [userId, briefMode]);
+
+  // Anexa a foto de referência do vendedor: reduz pra <=1024px e comprime (JPEG)
+  const onRefFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1024;
+      const sc = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * sc));
+      c.height = Math.max(1, Math.round(img.height * sc));
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      const dataUrl = c.toDataURL("image/jpeg", 0.85);
+      setRefUser({ b64: dataUrl.split(",")[1] || "", preview: dataUrl });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      toast({ title: "Não consegui ler essa imagem", description: "Tenta outra foto.", variant: "destructive" });
+    };
+    img.src = url;
+  };
 
   // Mensagens de progresso enquanto a IA desenha (a geração leva 30–60s)
   useEffect(() => {
@@ -84,14 +120,20 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
     : "";
 
   const gerar = async () => {
-    if (!modelo || !marca.trim() || !produto.trim()) {
-      toast({ title: "Faltou pouco", description: "Escolha um modelo e preencha marca e produto.", variant: "destructive" });
+    if (!marca.trim() || !produto.trim() || (!modelo && !brief?.estilo && !refUser)) {
+      toast({ title: "Faltou pouco", description: briefMode ? "Preencha marca e produto." : "Escolha um modelo e preencha marca e produto.", variant: "destructive" });
       return;
     }
     setGerando(true);
     try {
       const { data, error } = await supabase.functions.invoke("estudio-arte", {
-        body: { modelo_id: modelo.id, marca: marca.trim(), produto: produto.trim(), cores: cores.trim(), extras: extras.trim() },
+        body: {
+          modelo_id: modelo?.id ?? "",
+          marca: marca.trim(), produto: produto.trim(), cores: cores.trim(), extras: extras.trim(),
+          estilo: brief?.estilo?.slice(0, 300) ?? "",
+          ref_b64: refUser?.b64 ?? "",
+          ref_mime: refUser ? "image/jpeg" : "",
+        },
       });
       const err = (data as any)?.error;
       if (error || err) {
@@ -151,7 +193,7 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
     <div className="fixed inset-0 z-[80] bg-background overflow-y-auto">
       <header className="sticky top-0 z-10 flex items-center justify-between px-4 min-h-[3.5rem] border-b border-border/60 bg-background/95 backdrop-blur safe-top">
         <div className="flex items-center gap-2">
-          {(modelo || arte) && (
+          {(arte || (!briefMode && modelo)) && (
             <Button variant="ghost" size="icon" onClick={() => (arte ? setArte(null) : setModelo(null))} aria-label="Voltar">
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -159,13 +201,13 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
           <div>
             <span className="font-bold text-sm tracking-[0.12em] text-primary">ESTÚDIO DE MARCA</span>
             <p className="text-xs text-muted-foreground">
-              {arte ? "Posicione seu QR Pix e baixe" : modelo ? "Me conta sobre a sua marca" : "Escolha um estilo de adesivo"}
+              {arte ? "Posicione seu QR Pix e baixe" : briefMode ? "Confere o briefing da conversa e gera" : modelo ? "Me conta sobre a sua marca" : "Escolha um estilo de adesivo"}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground mr-1" aria-label={`Passo ${passo} de 3`}>
-            {passo}/3
+          <span className="text-xs text-muted-foreground mr-1" aria-label={`Passo ${passo} de ${totalPassos}`}>
+            {passo}/{totalPassos}
           </span>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Fechar"><X className="h-5 w-5" /></Button>
         </div>
@@ -183,7 +225,7 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
               <p className="text-sm text-muted-foreground mt-1">{FRASES_GERANDO[fraseIdx]}</p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Leva até 1 minuto — a IA desenha tudo do zero no estilo {modelo?.nome ?? "escolhido"}.
+              Leva até 1 minuto — a IA desenha tudo do zero no estilo {modelo?.nome ?? (briefMode ? "que vocês combinaram" : "escolhido")}.
             </p>
           </div>
         </div>
@@ -257,7 +299,7 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
             O PNG sai em alta resolução (3x), com o QR achatado na arte — é só mandar imprimir.
           </p>
         </div>
-      ) : !modelo ? (
+      ) : !briefMode && !modelo ? (
         /* ===== PASSO 1: galeria de modelos (alimentada pelo admin) ===== */
         <div className="max-w-2xl mx-auto p-4 pb-safe">
           <div className="rounded-2xl border border-border bg-card p-4 mb-4">
@@ -295,16 +337,43 @@ export default function EstudioMarca({ userId, onClose }: { userId: string; onCl
           )}
         </div>
       ) : (
-        /* ===== PASSO 2: poucas perguntas certeiras ===== */
+        /* ===== PASSO 2: poucas perguntas certeiras (ou briefing pronto do chat) ===== */
         <div className="max-w-md mx-auto p-4 space-y-4 pb-safe">
-          <div className="flex items-center gap-3 rounded-2xl border border-primary/40 bg-card p-3">
-            {modelo.imagem_url && <img src={modelo.imagem_url} alt="" className="w-14 h-14 rounded-xl object-cover object-top" />}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate">{modelo.nome}</p>
-              <p className="text-xs text-muted-foreground">Estilo escolhido — a arte vai nascer nesse clima</p>
+          {modelo ? (
+            <div className="flex items-center gap-3 rounded-2xl border border-primary/40 bg-card p-3">
+              {modelo.imagem_url && <img src={modelo.imagem_url} alt="" className="w-14 h-14 rounded-xl object-cover object-top" />}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{modelo.nome}</p>
+                <p className="text-xs text-muted-foreground">Estilo escolhido — a arte vai nascer nesse clima</p>
+              </div>
+              <Check className="w-5 h-5 text-primary shrink-0" />
             </div>
-            <Check className="w-5 h-5 text-primary shrink-0" />
-          </div>
+          ) : brief?.estilo ? (
+            <div className="rounded-2xl border border-primary/40 bg-card p-3">
+              <p className="text-xs font-medium text-muted-foreground">Estilo combinado na conversa com a Orbis IA</p>
+              <p className="text-sm mt-1">{brief.estilo}</p>
+            </div>
+          ) : null}
+
+          {briefMode && (
+            <div className="rounded-2xl border border-border bg-card p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Foto de referência (opcional)</p>
+              {refUser ? (
+                <div className="flex items-center gap-3">
+                  <img src={refUser.preview} alt="Referência anexada" className="w-14 h-14 rounded-xl object-cover" />
+                  <p className="text-xs text-muted-foreground flex-1">Referência anexada — só inspiração de estilo, sua arte sai nova e única.</p>
+                  <Button variant="ghost" size="icon" onClick={() => setRefUser(null)} aria-label="Remover referência">
+                    <Trash2 className="w-4 h-4 text-destructive" />
+                  </Button>
+                </div>
+              ) : (
+                <label className="flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-border text-sm text-muted-foreground cursor-pointer hover:border-primary/50 transition-colors">
+                  <ImagePlus className="w-4 h-4" /> Anexar foto de um adesivo que você curte
+                  <input type="file" accept="image/*" className="hidden" onChange={onRefFile} />
+                </label>
+              )}
+            </div>
+          )}
 
           <div className="space-y-3">
             <div className="space-y-1.5">

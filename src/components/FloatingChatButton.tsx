@@ -6,7 +6,7 @@ import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useAuth } from "@/hooks/useAuth";
-import EstudioMarca from "@/components/estudio/EstudioMarca";
+import EstudioMarca, { type EstudioBrief } from "@/components/estudio/EstudioMarca";
 import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
@@ -20,7 +20,8 @@ const USE_INSTANT_VOICE = false;
 export default function FloatingChatButton() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  const [estudioOpen, setEstudioOpen] = useState(false);
+  // Briefing do adesivo montado na conversa (a IA chama criar_adesivo -> abre o Estúdio preenchido)
+  const [estudioBrief, setEstudioBrief] = useState<EstudioBrief | null>(null);
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -180,7 +181,17 @@ export default function FloatingChatButton() {
     renameConversation,
     deleteConversation,
     sendMessage,
+    action,
+    clearAction,
   } = useAIConversations();
+
+  // A IA montou o briefing do adesivo na conversa -> abre o Estúdio já preenchido
+  useEffect(() => {
+    if (action?.tipo === "gerar_adesivo") {
+      setEstudioBrief((action.dados as EstudioBrief) || {});
+      clearAction();
+    }
+  }, [action, clearAction]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -234,6 +245,8 @@ export default function FloatingChatButton() {
     setInput("");
   };
 
+  // A primeira sugestão inicia a CO-CRIAÇÃO do adesivo premium (a IA conduz a conversa)
+  const SUGGESTION_ADESIVO = "Quero criar o adesivo premium da minha marca";
   const SUGGESTIONS = [
     "Como melhorar minha conversão?",
     "Me motiva pra hoje",
@@ -541,9 +554,9 @@ export default function FloatingChatButton() {
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button — abre direto no CHAT DE TEXTO (a voz fica a 1 toque, no topo) */}
       <Button
-        onClick={() => { voiceEngineRef.current = null; setIsOpen(true); setVoiceMode(true); }}
+        onClick={() => setIsOpen(true)}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
@@ -553,8 +566,8 @@ export default function FloatingChatButton() {
 
       <audio ref={audioRef} className="hidden" preload="auto" />
 
-      {/* Estúdio de Marca (gera adesivo/rótulo com arte de IA + QR Pix real) */}
-      {estudioOpen && user && <EstudioMarca userId={user.id} onClose={() => setEstudioOpen(false)} />}
+      {/* Estúdio de Marca: aberto PELA CONVERSA, com o briefing que a IA montou */}
+      {estudioBrief && user && <EstudioMarca userId={user.id} brief={estudioBrief} onClose={() => setEstudioBrief(null)} />}
 
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
@@ -573,25 +586,21 @@ export default function FloatingChatButton() {
             <div className="flex items-center gap-2">
               <OrbisSphere size={28} state="idle" />
               <div className="leading-tight">
-                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
-                <p className="text-[10px] text-emerald-400/80 -mt-0.5">● online</p>
+                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] text-primary">ORBIS IA</span>
+                <p className="text-xs text-success">● online</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setEstudioOpen(true)}
-                className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary/80 tracking-[0.15em]"
-                aria-label="Estúdio de Marca"
-              >
-                ESTÚDIO
-              </button>
-              <button
-                onClick={enterVoiceMode}
-                className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary/80 tracking-[0.15em]"
-                aria-label="Modo voz"
-              >
-                VOZ
-              </button>
+            <div className="flex items-center gap-1.5">
+              {speechSupported && (
+                <button
+                  onClick={enterVoiceMode}
+                  className="flex items-center gap-1.5 h-10 px-3.5 rounded-full bg-primary/15 border border-primary/40 text-primary hover:bg-primary/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Conversar por voz"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span className="text-xs font-bold tracking-wide">VOZ</span>
+                </button>
+              )}
               <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
                 <X className="h-5 w-5" />
               </Button>
@@ -606,9 +615,15 @@ export default function FloatingChatButton() {
                   <div className="mb-4"><OrbisSphere size={88} state="listening" /></div>
                   <h2 className="text-2xl font-bold mb-2">Como posso ajudar?</h2>
                   <p className="text-sm text-muted-foreground max-w-xs">
-                    Pergunte sobre vendas, metas, finanças ou rotina.
+                    Pergunte sobre vendas, metas, finanças ou rotina — por texto ou tocando em VOZ.
                   </p>
-                  <div className="flex flex-wrap gap-2 justify-center mt-5 max-w-xs">
+                  <button
+                    onClick={() => sendSuggestion(SUGGESTION_ADESIVO)}
+                    className="mt-5 w-full max-w-xs h-12 rounded-2xl bg-gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Sparkles className="w-4 h-4" /> Gerar seu adesivo premium
+                  </button>
+                  <div className="flex flex-wrap gap-2 justify-center mt-3 max-w-xs">
                     {SUGGESTIONS.map((sug) => (
                       <button
                         key={sug}
@@ -671,7 +686,7 @@ export default function FloatingChatButton() {
                   variant={isRecording ? "default" : "ghost"}
                   className={cn(
                     "h-11 w-11 p-0 rounded-full shrink-0",
-                    isRecording && "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                    isRecording && "bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse"
                   )}
                   aria-label={isRecording ? "Parar gravação de voz" : "Falar por voz"}
                 >
@@ -714,15 +729,15 @@ export default function FloatingChatButton() {
               <header className="flex items-center justify-between px-4 min-h-[3.5rem] safe-top">
                 <div className="flex items-center gap-2">
                   <OrbisSphere size={26} state="idle" />
-                  <span className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
+                  <span className="font-bold text-sm tracking-[0.12em] text-primary">ORBIS IA</span>
                 </div>
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary/80 tracking-[0.15em]">VOZ</span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary/80 tracking-[0.15em]">VOZ</span>
               </header>
 
               <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-7">
                 <OrbisSphere size={210} state={voiceState} />
                 <div className="space-y-2">
-                  <p className="text-[11px] tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
+                  <p className="text-xs tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
                   <p className="text-base text-foreground/80 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
                     {input || (transcribing ? "Entendendo o que você falou..." : isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
                   </p>
@@ -730,9 +745,9 @@ export default function FloatingChatButton() {
                 <button
                   onClick={isRecording ? sendPending : startTalk}
                   className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center transition-all",
+                    "w-16 h-16 rounded-full flex items-center justify-center transition-colors",
                     isRecording
-                      ? "bg-red-500/15 border border-red-500/40 text-red-400"
+                      ? "bg-destructive/15 border border-destructive/40 text-destructive"
                       : "bg-primary/15 border border-primary/40 text-primary"
                   )}
                   aria-label={isRecording ? "Enviar" : "Falar"}
