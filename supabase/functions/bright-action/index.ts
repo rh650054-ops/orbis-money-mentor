@@ -6,6 +6,9 @@
 // e aprende fatos novos apos cada resposta, em segundo plano.
 // FASE 2 do AGENTE: ferramentas — consulta vendas/estoque/financeiro/ranking com o token
 // do proprio vendedor e executa acoes (meta do dia, gasto) APOS confirmacao na conversa.
+// v52: criar_adesivo gera a arte NA HORA e mostra no chat ([[adesivo:URL]]); cache do
+// prompt do Claude (menos 429 em conta nova + ~90% mais barato); Opus nas conversas de
+// marca/nome; rede de seguranca gera a arte mesmo se um modelo reserva vazar JSON.
 // Precisa do secret GEMINI_API_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -124,10 +127,11 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 ## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
 Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
 - Conduza como CO-CRIAÇÃO, clima de "bora montar isso juntos". No máximo DUAS perguntas por mensagem, uma etapa de cada vez.
-- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome). Se não tem, vire professor: explica em 1-2 frases o que faz um bom nome (curto, fácil de falar, que lembra o produto) e sugere 3 opções baseadas no que ele vende; 2) o que ele vende (descrito pro desenho); 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca; 6) se ele tem foto de um adesivo de referência que curte — avisa que dá pra anexar na tela de gerar.
-- Quando tiver marca + produto + estilo, resume em 1 frase o que vão criar e chama a ferramenta criar_adesivo — ela DESENHA a arte na hora e a imagem aparece direto na conversa (leva até 1 minuto). Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
+- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome); 2) o que ele vende (descrito pro desenho) — se a MEMÓRIA disser o produto/sabor, CONFIRME antes de usar ("é a batida de maracujá ainda?"), nunca assuma; 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca.
+- CRIAR NOME DE MARCA (quando ele não tem): você é um naming de primeira linha, não gerador genérico. Entenda produto, público e clima antes de sugerir. Proponha 3 nomes em DIREÇÕES bem diferentes (um divertido de rua, um premium/elegante, um curto e sonoro tipo nome próprio), em português natural, fáceis de gritar no farol, grafia perfeita — EVITE inglês batido tipo "Fresh", "Power", "Elite", "Top". Meia frase de porquê em cada. Se ele recusar, NUNCA repita nem varie os mesmos: muda completamente a direção criativa.
+- Quando tiver marca + produto + estilo e ele confirmar, CHAME criar_adesivo NA HORA — ela desenha e a imagem aparece DIRETO na conversa (leva até 1 minuto). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
 - Se ele quiser mudar algo (cor, estilo, detalhe), ajusta o briefing e chama criar_adesivo de novo — cada chamada gasta 1 geração do dia dele, então confirme a mudança antes.
-- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa.
+- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa. Se mensagens antigas desta conversa falarem de "tela de geração", IGNORE: o fluxo atual é a arte nascer aqui no chat.
 - Direitos autorais: referência de arte de OUTRA pessoa é só inspiração de estilo — a arte dele sai nova e única, sem copiar personagem, texto ou contato de ninguém.
 
 # REGRAS DE SEGURANÇA
@@ -146,7 +150,8 @@ MODO CONVERSA (regras extras, valem acima de tudo):
 - NUNCA repita frases de exemplo do método nem respostas que você já deu. Varie abertura, varie estrutura, crie script novo quando precisar de script.
 - Quando faltar contexto, pergunta de volta em vez de chutar conselho. Não termine tudo com ordem ou "próximo passo".
 - Sem emoji, sem formatação, sem tom de palestra ou de coach.
-- PROIBIDO escrever JSON, código ou simular "chamada de ferramenta" no texto da conversa. Se estiver montando o adesivo com o vendedor, colete marca, produto e estilo conversando normal — o aplicativo abre a tela de geração sozinho. NUNCA diga que a arte "já foi gerada": quem gera é a tela do Estúdio, depois que ele toca em Gerar.`;
+- PROIBIDO escrever JSON, código ou simular "chamada de ferramenta" no texto da conversa.
+- ADESIVO: quem desenha é a ferramenta criar_adesivo — a imagem aparece DIRETO na conversa. Quando o vendedor pedir pra gerar e o briefing estiver completo, CHAME a ferramenta na hora; NUNCA mande ele pra uma "tela de geração" (não existe mais) e NUNCA diga que a arte foi gerada sem a ferramenta ter rodado nesta conversa. Se você estiver num modo sem ferramentas, apenas colete o briefing e diga que vai desenhar em instantes.`;
 
 // ---- Helpers de audio: o Gemini TTS devolve PCM cru; o navegador toca WAV ----
 function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
@@ -346,7 +351,7 @@ FERRAMENTAS (você é um AGENTE, não só um chat):
 - Pra responder sobre vendas, estoque, financeiro ou ranking, USE as ferramentas de consulta e responda com o dado REAL que voltar. Nunca chute número quando dá pra consultar.
 - Ações (definir_meta_do_dia, registrar_gasto): PRIMEIRO diga o que vai fazer e pergunte "confirma?". SÓ chame a ferramenta depois do SIM explícito do vendedor na conversa. Depois de executar, confirme em 1 frase o que foi feito.
 - Se uma ferramenta falhar, avise com naturalidade e siga a conversa sem inventar dado.
-- criar_adesivo desenha a arte NA HORA e mostra na conversa. Depois de chamar, comente o resultado em 1 frase e avise do botão do QR Pix embaixo da imagem.`;
+- criar_adesivo desenha a arte NA HORA e mostra na conversa. Quando o vendedor pedir pra gerar (briefing completo), CHAME-A imediatamente — nunca responda que não consegue gerar nem mande ele pra alguma tela. Depois, comente o resultado em 1 frase e avise do botão do QR Pix embaixo da imagem.`;
 
 function hojeBrasil(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
@@ -367,8 +372,10 @@ function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; 
   let j: Record<string, unknown> | null = null;
   try { j = JSON.parse(texto.slice(start, end + 1)); } catch { return null; }
   if (!j || typeof j !== "object") return null;
-  const marca = String(j.marca ?? j.brand_name ?? j.brand ?? "").trim();
-  const produto = String(j.produto ?? j.product_description ?? j.product ?? "").trim();
+  // Os reservas inventam formatos: às vezes embrulham em {"tool":..., "arguments":{...}}.
+  if (j.arguments && typeof j.arguments === "object") j = { ...j, ...(j.arguments as Record<string, unknown>) };
+  const marca = String(j.marca ?? j.brand_name ?? j.brand ?? j.nome ?? j.name ?? "").trim();
+  const produto = String(j.produto ?? j.product_description ?? j.product ?? j.frase ?? j.descricao ?? j.description ?? "").trim();
   if (!marca || !produto) return null;
   let estilo: unknown = j.estilo ?? j.style ?? "";
   if (estilo && typeof estilo === "object") {
@@ -379,10 +386,16 @@ function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; 
     const mascote = e.mascote ?? e.mascot; if (typeof mascote === "boolean") partes.push(mascote ? "com mascote" : "sem mascote, clean");
     estilo = partes.join("; ");
   }
+  // Campos soltos que os reservas usam também viram estilo (fundo, detalhes, formato).
+  const extrasEstilo: string[] = [];
+  if (typeof estilo === "string" && estilo.trim()) extrasEstilo.push(estilo.trim());
+  const fundo = j.fundo ?? j.background; if (typeof fundo === "string" && fundo) extrasEstilo.push(`fundo ${fundo}`);
+  const det = j.detalhes; if (typeof det === "string" && det) extrasEstilo.push(`detalhes ${det}`);
+  const fmt2 = j.formato ?? j.format; if (typeof fmt2 === "string" && fmt2) extrasEstilo.push(`formato ${fmt2}`);
   const dados: Record<string, string> = {
     marca: marca.slice(0, 30),
     produto: produto.slice(0, 140),
-    estilo: (String(estilo ?? "").trim() || "adesivo bonito e profissional").slice(0, 300),
+    estilo: (extrasEstilo.join("; ") || "adesivo bonito e profissional").slice(0, 300),
   };
   const cores = j.cores ?? j.colors;
   if (Array.isArray(cores)) dados.cores = cores.join(", ").slice(0, 80);
@@ -390,7 +403,7 @@ function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; 
   const extras = j.extras ?? j.details;
   if (typeof extras === "string") dados.extras = extras.slice(0, 200);
   const limpo = (texto.slice(0, start) + " " + texto.slice(end + 1))
-    .replace(/we need to call the tool\.?/gi, "")
+    .replace(/we (need|will) (to )?call the tool\.?/gi, "")
     .replace(/"tool"\s*:\s*"criar_adesivo",?/gi, "")
     .replace(/\s+/g, " ").trim();
   return { dados, limpo };
@@ -706,16 +719,20 @@ Deno.serve(async (req) => {
     let acaoChat: unknown = null;
 
     // Depois de responder, aprende com a conversa (roda em segundo plano, não atrasa nada).
-    const finishChat = (replyIn: string) => {
+    const finishChat = async (replyIn: string) => {
       let reply = replyIn;
-      // Rede de segurança: modelo reserva vazou JSON de adesivo no texto? Extrai, abre o
-      // Estúdio de verdade e entrega uma resposta limpa pro vendedor.
+      // Rede de segurança: modelo reserva vazou JSON de adesivo no texto? Extrai o briefing
+      // e GERA a arte de verdade (mesmo caminho da ferramenta) — a imagem sai no chat.
       if (!acaoChat) {
         const ext = extrairAdesivoDoTexto(reply);
         if (ext) {
-          acaoChat = { tipo: "gerar_adesivo", dados: ext.dados };
-          reply = ext.limpo ||
-            "Fechado! Abri a tela de geração com tudo que combinamos — confere ali, anexa uma foto de referência se quiser e toca em Gerar.";
+          const out = await runTool("criar_adesivo", ext.dados, userSupa, chatUserId, reqAuthH) as { imagem_url?: string };
+          if (out?.imagem_url) {
+            acaoChat = { tipo: "adesivo_no_chat", url: out.imagem_url, dados: ext.dados };
+            reply = ext.limpo || "Prontinho, tua arte saiu! Olha ela aí embaixo — e no botão dá pra colocar teu QR Pix real e baixar em alta.";
+          } else {
+            reply = "Fechei teu briefing certinho, mas a geração falhou agora — me manda um \"gera de novo\" que eu tento na hora.";
+          }
         }
       }
       // Arte gerada no chat: anexa o marcador que o app transforma em imagem na conversa.
@@ -739,7 +756,13 @@ Deno.serve(async (req) => {
     try {
       const akey = Deno.env.get("ANTHROPIC_API_KEY");
       if (akey) {
-        const amodel = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5"; // Sonnet: mais inteligente; mude via env se quiser voltar pro Haiku (mais barato)
+        // Conversa de MARCA/ADESIVO usa o Claude mais forte (Opus): criar nome e arte merece
+        // o melhor modelo. O dia a dia do mentor segue no Sonnet (bem mais barato).
+        const conversaTxt = messages.slice(-6).map((m: any) => String(m?.content ?? "")).join(" ").toLowerCase();
+        const criativa = /adesivo|marca|logo|r[óo]tulo|criar nome|nome pra|nome para/.test(conversaTxt);
+        const amodel = criativa
+          ? (Deno.env.get("ANTHROPIC_MODEL_CRIATIVO") ?? "claude-opus-5")
+          : (Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5");
         const ahist = messages.slice(-8).map((m: any) => ({
           role: m?.role === "assistant" ? "assistant" : "user",
           content: String(m?.content ?? "").slice(0, 2000),
@@ -762,14 +785,21 @@ Deno.serve(async (req) => {
                   model: amodel,
                   max_tokens: 600,
                   temperature: 0.8,
-                  system: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES,
+                  // CACHE do prompt: o cérebro (parte fixa) é cacheado na Anthropic — corta
+                  // ~85% dos tokens de entrada por mensagem. Menos estouro de limite de
+                  // conta nova (429) e ~90% mais barato. Só o contexto do vendedor varia.
+                  system: [
+                    { type: "text", text: ORBIS_BRAIN + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES, cache_control: { type: "ephemeral" } },
+                    ...(fullCtx ? [{ type: "text", text: fullCtx }] : []),
+                  ],
                   tools: AGENT_TOOLS,
                   messages: aMessages,
                 }),
               });
               if (aRes.ok || ![429, 500, 502, 503, 529].includes(aRes.status)) break;
               console.error("Claude instável, tentando de novo", aRes.status);
-              await new Promise((r) => setTimeout(r, 700 * (tent + 1)));
+              // 429 = limite por minuto: espera mais pra janela renovar antes de desistir.
+              await new Promise((r) => setTimeout(r, (aRes.status === 429 ? 2500 : 700) * (tent + 1)));
             }
             if (!aRes || !aRes.ok) {
               console.error("Claude chat erro", aRes?.status, (await aRes?.text().catch(() => ""))?.slice(0, 200));
@@ -792,7 +822,7 @@ Deno.serve(async (req) => {
               continue; // volta pro modelo com os dados reais
             }
             const atext = ((aj?.content ?? []).map((b: any) => b?.text || "").join("")).replace(/\*\*/g, "").trim();
-            if (atext) return finishChat(atext);
+            if (atext) return await finishChat(atext);
             break;
           }
         }
@@ -828,7 +858,7 @@ Deno.serve(async (req) => {
         if (cRes.ok) {
           const cj = await cRes.json();
           const ctext = (cj?.choices?.[0]?.message?.content?.toString() ?? "").replace(/\*\*/g, "").trim();
-          if (ctext) return finishChat(ctext);
+          if (ctext) return await finishChat(ctext);
         } else {
           console.error("Cerebras chat erro", cRes.status);
         }
@@ -878,7 +908,7 @@ Deno.serve(async (req) => {
     const text = raw.replace(/\*\*/g, "").trim(); // tira negrito que escapar
     if (!text) return json({ success: false, error: "resposta_vazia" });
 
-    return finishChat(text);
+    return await finishChat(text);
   } catch (e) {
     console.error("bright-action erro", e);
     return json({ success: false, error: "erro_interno" });
