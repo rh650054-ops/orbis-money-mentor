@@ -201,6 +201,20 @@ export default function FloatingChatButton() {
     }
   }, [messages, isSending]);
 
+  // Desenhar o adesivo leva ~1 minuto (IA de imagem e' lenta mesmo). Sem aviso, o
+  // vendedor acha que travou e fecha o app no meio da geracao. Depois de 6s de espera
+  // a gente conta o que esta' acontecendo, em vez de so' tres bolinhas pulando.
+  const [esperaLonga, setEsperaLonga] = useState(false);
+  useEffect(() => {
+    if (!isSending) { setEsperaLonga(false); return; }
+    const t = setTimeout(() => setEsperaLonga(true), 6000);
+    return () => clearTimeout(t);
+  }, [isSending]);
+  const ultimaMinha = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  const avisoEspera = /adesivo|arte|logo|r[óo]tulo|marca|gera/i.test(ultimaMinha)
+    ? "Desenhando tua arte... leva até 1 minuto. Não fecha essa tela."
+    : "Pensando com calma aqui...";
+
   // Fecha o chat com o botão/gesto de voltar do celular (sem reabrir)
   useEffect(() => {
     if (!isOpen) return;
@@ -694,10 +708,13 @@ export default function FloatingChatButton() {
                   {isSending && (
                     <div className="flex gap-3 justify-start">
                       <div className="shrink-0"><OrbisSphere size={30} state="processing" /></div>
-                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-1 items-center">
+                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-2 items-center">
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.15s]" />
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.3s]" />
+                        {esperaLonga && (
+                          <span className="ml-1 text-xs text-muted-foreground">{avisoEspera}</span>
+                        )}
                       </div>
                     </div>
                   )}
