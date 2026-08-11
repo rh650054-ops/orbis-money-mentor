@@ -127,7 +127,7 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 ## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
 Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
 - Conduza como CO-CRIAÇÃO, clima de "bora montar isso juntos". No máximo DUAS perguntas por mensagem, uma etapa de cada vez.
-- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome); 2) o que ele vende (descrito pro desenho) — se a MEMÓRIA disser o produto/sabor, CONFIRME antes de usar ("é a batida de maracujá ainda?"), nunca assuma; 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca.
+- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome); 2) o que ele vende (descrito pro desenho); 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca. Se a MEMÓRIA trouxer produto/sabor OU um nome de marca de conversas antigas, CONFIRME antes de usar ("é a batida de maracujá ainda?") — nunca assuma que ainda vale, e NUNCA reapresente um nome antigo como se fosse ideia nova.
 - CRIAR NOME DE MARCA (quando ele não tem): você é um naming de primeira linha, não gerador genérico. Entenda produto, público e clima antes de sugerir. Proponha 3 nomes em DIREÇÕES bem diferentes (um divertido de rua, um premium/elegante, um curto e sonoro tipo nome próprio), em português natural, fáceis de gritar no farol, grafia perfeita — EVITE inglês batido tipo "Fresh", "Power", "Elite", "Top". Meia frase de porquê em cada. Se ele recusar, NUNCA repita nem varie os mesmos: muda completamente a direção criativa.
 - Quando tiver marca + produto + estilo e ele confirmar, CHAME criar_adesivo NA HORA — ela desenha e a imagem aparece DIRETO na conversa (leva até 1 minuto). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
 - Se ele quiser mudar algo (cor, estilo, detalhe), ajusta o briefing e chama criar_adesivo de novo — cada chamada gasta 1 geração do dia dele, então confirme a mudança antes.
@@ -372,10 +372,19 @@ function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; 
   let j: Record<string, unknown> | null = null;
   try { j = JSON.parse(texto.slice(start, end + 1)); } catch { return null; }
   if (!j || typeof j !== "object") return null;
-  // Os reservas inventam formatos: às vezes embrulham em {"tool":..., "arguments":{...}}.
+  // Os reservas inventam formatos: {"tool":...,"arguments":{...}} ou
+  // {"tool":"create_adesivo","tool_input":{"description":"..."}} — aceita todos.
   if (j.arguments && typeof j.arguments === "object") j = { ...j, ...(j.arguments as Record<string, unknown>) };
-  const marca = String(j.marca ?? j.brand_name ?? j.brand ?? j.nome ?? j.name ?? "").trim();
-  const produto = String(j.produto ?? j.product_description ?? j.product ?? j.frase ?? j.descricao ?? j.description ?? "").trim();
+  if (j.tool_input && typeof j.tool_input === "object") j = { ...j, ...(j.tool_input as Record<string, unknown>) };
+  let marca = String(j.marca ?? j.brand_name ?? j.brand ?? j.nome ?? j.name ?? "").trim();
+  let produto = String(j.produto ?? j.product_description ?? j.product ?? j.frase ?? j.descricao ?? "").trim();
+  const descLivre = typeof j.description === "string" ? j.description.trim() : "";
+  if (!produto && descLivre) produto = descLivre;
+  if (!marca && descLivre) {
+    // pesca o nome da marca dentro da descrição livre ("...para a marca Citrus Elite, ...")
+    const m = /marca\s+["“']?([A-Za-zÀ-ú0-9][^,.;"”']{0,28})/i.exec(descLivre);
+    if (m) marca = m[1].trim();
+  }
   if (!marca || !produto) return null;
   let estilo: unknown = j.estilo ?? j.style ?? "";
   if (estilo && typeof estilo === "object") {
@@ -407,6 +416,22 @@ function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; 
     .replace(/"tool"\s*:\s*"criar_adesivo",?/gi, "")
     .replace(/\s+/g, " ").trim();
   return { dados, limpo };
+}
+
+// Última linha de defesa: se sobrou JSON de "ferramenta" no texto e NEM deu pra extrair
+// briefing, corta o lixo e devolve uma pergunta limpa em vez de deixar o vendedor ver código.
+function limparJsonPerdido(texto: string): string | null {
+  if (!/"tool"|tool_input|"arguments"/.test(texto)) return null;
+  const start = texto.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0, end = -1;
+  for (let i = start; i < texto.length; i++) {
+    if (texto[i] === "{") depth++;
+    else if (texto[i] === "}") { depth--; if (depth === 0) { end = i; break; } }
+  }
+  const semJson = (start >= 0 && end > start ? texto.slice(0, start) + " " + texto.slice(end + 1) : texto)
+    .replace(/\s+/g, " ").trim();
+  return semJson || "Só me confirma uma coisa antes de eu desenhar: qual o nome EXATO da marca pra escrever na arte?";
 }
 
 async function runTool(name: string, input: Record<string, unknown>, userSupa: any, userId: string, userAuthH: string): Promise<unknown> {
@@ -733,6 +758,10 @@ Deno.serve(async (req) => {
           } else {
             reply = "Fechei teu briefing certinho, mas a geração falhou agora — me manda um \"gera de novo\" que eu tento na hora.";
           }
+        } else {
+          // Não deu pra extrair briefing, mas tem cara de JSON de ferramenta? Limpa o lixo.
+          const semLixo = limparJsonPerdido(reply);
+          if (semLixo) reply = semLixo;
         }
       }
       // Arte gerada no chat: anexa o marcador que o app transforma em imagem na conversa.
@@ -780,11 +809,15 @@ Deno.serve(async (req) => {
               aRes = await fetch("https://api.anthropic.com/v1/messages", {
                 method: "POST",
                 headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
-                signal: AbortSignal.timeout(25000),
+                signal: AbortSignal.timeout(45000),
                 body: JSON.stringify({
                   model: amodel,
-                  max_tokens: 600,
-                  temperature: 0.8,
+                  // Sobra pro raciocinio interno do Opus (thinking) + a resposta.
+                  max_tokens: 1600,
+                  // NAO mandar "temperature": os modelos claude-sonnet-5/opus-5 rejeitam
+                  // com 400 ("temperature is deprecated for this model"). Era ISSO que
+                  // derrubava TODA conversa pro reserva gratuito (que inventava nome e
+                  // escrevia JSON no chat em vez de gerar a arte de verdade).
                   // CACHE do prompt: o cérebro (parte fixa) é cacheado na Anthropic — corta
                   // ~85% dos tokens de entrada por mensagem. Menos estouro de limite de
                   // conta nova (429) e ~90% mais barato. Só o contexto do vendedor varia.
@@ -802,7 +835,13 @@ Deno.serve(async (req) => {
               await new Promise((r) => setTimeout(r, (aRes.status === 429 ? 2500 : 700) * (tent + 1)));
             }
             if (!aRes || !aRes.ok) {
-              console.error("Claude chat erro", aRes?.status, (await aRes?.text().catch(() => ""))?.slice(0, 200));
+              const corpoErr = (await aRes?.text().catch(() => ""))?.slice(0, 400) ?? "";
+              console.error("Claude chat erro", aRes?.status, corpoErr);
+              // Gravador de diagnóstico: registra o motivo exato da queda pro reserva.
+              try {
+                const adminD = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+                await adminD.from("ai_diag").insert({ info: { onde: "claude_http", status: aRes?.status ?? null, corpo: corpoErr, modelo: amodel } });
+              } catch { /* noop */ }
               break;
             }
             const aj = await aRes.json();
@@ -825,10 +864,19 @@ Deno.serve(async (req) => {
             if (atext) return await finishChat(atext);
             break;
           }
+          // A arte JÁ foi desenhada nesta rodada? Então nunca cai pro reserva: seria
+          // jogar fora uma imagem que já custou geração do dia do vendedor.
+          if (acaoChat) {
+            return await finishChat("Prontinho, tua arte saiu! Olha ela aí embaixo — no botão dá pra colocar teu QR Pix real e baixar em alta. Se quiser mudar cor ou detalhe, é só falar.");
+          }
         }
       }
     } catch (e) {
       console.error("Claude chat exceção (cai pro Cerebras)", e);
+      try {
+        const adminD = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+        await adminD.from("ai_diag").insert({ info: { onde: "claude_excecao", erro: String(e).slice(0, 300) } });
+      } catch { /* noop */ }
     }
 
     // ===== TEXTO: tenta Cerebras (gratis, 1M tokens/dia); cai no Gemini se faltar chave/erro. =====
