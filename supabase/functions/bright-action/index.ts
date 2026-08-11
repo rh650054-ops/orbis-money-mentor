@@ -530,6 +530,7 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
             marca, produto, estilo,
             cores: String(input?.cores ?? "").slice(0, 80),
             extras: String(input?.extras ?? "").slice(0, 200),
+            origem: "chat",
           }),
         });
         const j = await r.json().catch(() => ({} as Record<string, unknown>));
@@ -540,15 +541,22 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           const up = await admin.storage.from("artes").upload(path, bytes, { contentType: String((j as any).mime || "image/png") });
           if (up.error) return { erro: "upload_falhou" };
           const { data: pub } = admin.storage.from("artes").getPublicUrl(path);
+          // Amarra a URL no registro da geração: é assim que a gente sabe DEPOIS
+          // qual briefing virou arte que o vendedor achou boa o bastante pra baixar.
+          const gid = String((j as any)?.geracao_id ?? "");
+          if (gid) { try { await admin.from("estudio_geracoes").update({ imagem_url: pub.publicUrl }).eq("id", gid); } catch { /* noop */ } }
           return {
             ok: true, imagem_url: pub.publicUrl,
             msg: "Arte gerada com sucesso — ela JÁ está aparecendo na conversa. Comente o resultado em 1 frase e avise que, embaixo da imagem, tem o botão pra colocar o QR Pix real e baixar. Se ele quiser mudar algo, é só pedir que você gera outra versão.",
           };
         }
         const errCode = String((j as any)?.error ?? "geracao_falhou");
+        const ehTrial = String((j as any)?.plano ?? "") === "trial";
         const msgs: Record<string, string> = {
-          limite_diario: "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
-          assinatura_necessaria: "O Estúdio é exclusivo pra assinantes.",
+          limite_diario: ehTrial
+            ? "Ele já usou as artes grátis de hoje (são 2 por dia no teste). Diga isso com leveza e conte que assinando ele passa a ter 4 por dia E baixa sem a marca d'água — sem pressionar."
+            : "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
+          assinatura_necessaria: "O teste grátis dele acabou. Convide pra assinar, em 1 frase, sem sermão.",
           sem_chave: "Nenhum provedor de imagem está configurado no servidor.",
         };
         return { erro: errCode, aviso: msgs[errCode] ?? "A geração falhou agora. Peça pra ele tentar de novo em instantes." };
@@ -711,7 +719,17 @@ Deno.serve(async (req) => {
           return json({ success: false, message: "Tua sessão expirou — entra de novo." }, 401);
         }
         chatUserId = u.user.id;
-        const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: 30 });
+        // Limite por PLANO: quem paga conversa mais. O trial dos 3 dias tem teto
+        // menor — 156 pessoas já passaram por lá, e cada mensagem custa dinheiro.
+        let limiteChat = Number(Deno.env.get("CHAT_LIMITE_TRIAL") ?? "10");
+        try {
+          const adminP = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const { data: prof } = await adminP.from("profiles")
+            .select("plan_status,billing_exempt,is_demo").eq("user_id", chatUserId).maybeSingle();
+          const pagante = !!prof && ((prof as any).billing_exempt || (prof as any).is_demo || (prof as any).plan_status === "active");
+          if (pagante) limiteChat = Number(Deno.env.get("CHAT_LIMITE_PAGANTE") ?? "30");
+        } catch { /* na dúvida, vale o limite menor */ }
+        const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: limiteChat });
         if (usageErr) {
           return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
         }
