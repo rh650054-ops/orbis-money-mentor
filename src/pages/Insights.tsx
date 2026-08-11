@@ -110,7 +110,7 @@ export default function Insights() {
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
   const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
   const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
-  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null; worked_minutes?: number | null; current_block_index?: number | null }[]>([]);
+  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null; worked_minutes?: number | null; current_block_index?: number | null; distance_meters?: number | null; paused_seconds?: number | null }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
@@ -227,7 +227,7 @@ export default function Insights() {
           .order("created_at", { ascending: true }),
         supabase
           .from("challenge_sessions")
-          .select("started_at,ended_at,worked_minutes,current_block_index")
+          .select("started_at,ended_at,worked_minutes,current_block_index,distance_meters,paused_seconds")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO),
@@ -353,8 +353,14 @@ export default function Insights() {
     }
     const horasTrabalhadasMin = Math.round(workedMin);
 
+    // Km andado (GPS) e tempo OCIOSO (pausado) somados no período.
+    const distanciaKm = sessions.reduce((s, x) => s + (Number(x.distance_meters) || 0), 0) / 1000;
+    const tempoOciosoMin = Math.round(sessions.reduce((s, x) => s + (Number(x.paused_seconds) || 0), 0) / 60);
+
     return {
       horasTrabalhadasMin,
+      distanciaKm,
+      tempoOciosoMin,
       faturamento,
       lucro,
       sobra,
@@ -403,14 +409,18 @@ export default function Insights() {
   const pctRecebido = esperadoReceber > 0 ? (recebidoDeFato / esperadoReceber) * 100 : 0;
   const pctCalote = esperadoReceber > 0 ? (naoRecebido / esperadoReceber) * 100 : 0;
 
-  // Horas trabalhadas no período, formatadas: "0h", "3h", "2h 30min".
-  const horasLabel = (() => {
-    const min = summary.horasTrabalhadasMin || 0;
-    if (min <= 0) return "0h";
-    const h = Math.floor(min / 60);
-    const m = min % 60;
+  // Formata minutos: "0h", "3h", "2h 30min" — reusado por horas trabalhadas e tempo ocioso.
+  const fmtMin = (min: number) => {
+    const m0 = Math.max(0, Math.round(min || 0));
+    if (m0 <= 0) return "0min";
+    const h = Math.floor(m0 / 60);
+    const m = m0 % 60;
+    if (h <= 0) return `${m}min`;
     return m > 0 ? `${h}h ${m}min` : `${h}h`;
-  })();
+  };
+  const horasLabel = summary.horasTrabalhadasMin > 0 ? fmtMin(summary.horasTrabalhadasMin) : "0h";
+  const ociosoLabel = fmtMin(summary.tempoOciosoMin);
+  const kmLabel = summary.distanciaKm >= 0.01 ? `${summary.distanciaKm.toFixed(1)} km` : "—";
 
   const expensesByCategory = useMemo(() => {
     const map = new Map<string, { total: number; icon: string; count: number }>();
@@ -788,6 +798,15 @@ export default function Insights() {
             <MetricCell
               label="Vendas"
               value={summary.totalVendas.toString()}
+              accent="gold"
+            />
+            <MetricCell
+              label="Tempo ocioso"
+              value={ociosoLabel}
+            />
+            <MetricCell
+              label="Km andado"
+              value={kmLabel}
               accent="gold"
             />
           </section>

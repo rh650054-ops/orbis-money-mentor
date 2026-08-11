@@ -154,6 +154,26 @@ export function useDefconChallenge(userId: string | undefined) {
   // as vendas sincronizam no daily_sales — nunca pro dia do relógio.
   const planDateRef = useRef<string>(getBrazilDate());
   const [sessionDate, setSessionDate] = useState<string | null>(null);
+  // Tempo OCIOSO acumulado da sessão (segundos em pausa). Persiste em challenge_sessions.
+  const pausedSecondsRef = useRef(0);
+  const lunchPauseStartedAtRef = useRef<Date | null>(null);
+  lunchPauseStartedAtRef.current = lunchPauseStartedAt;
+  const lunchPauseDurationRef = useRef(0);
+  lunchPauseDurationRef.current = lunchPauseDuration;
+
+  // Soma o tempo (segundos) de uma pausa que acabou de ser encerrada e persiste na sessão.
+  const acumularPausa = async (elapsedSeg: number) => {
+    const seg = Math.max(0, Math.round(elapsedSeg));
+    if (seg <= 0) return;
+    pausedSecondsRef.current += seg;
+    const sid = sessionIdRef.current;
+    if (sid) {
+      await supabase
+        .from("challenge_sessions")
+        .update({ paused_seconds: pausedSecondsRef.current } as never)
+        .eq("id", sid);
+    }
+  };
   dailyGoalRef.current = dailyGoal;
 
   const clearTimer = useCallback(() => {
@@ -488,6 +508,8 @@ export function useDefconChallenge(userId: string | undefined) {
 
     if (session) {
       setSessionId(session.id);
+      // Restaura o tempo ocioso acumulado (segundos em pausa) pra continuar somando.
+      pausedSecondsRef.current = Number((session as { paused_seconds?: number }).paused_seconds) || 0;
 
       // Carrega as vendas-linha da sessão (aditivo — não afeta agregados).
       await loadSessionSales(session.id);
@@ -560,12 +582,23 @@ export function useDefconChallenge(userId: string | undefined) {
         const lunchEnds = cbd.lunch_ends_at ? new Date(cbd.lunch_ends_at).getTime() : 0;
         if (lunchEnds && Date.now() < lunchEnds) {
           const restanteSeg = Math.ceil((lunchEnds - Date.now()) / 1000);
-          setLunchPauseStartedAt(new Date());
-          setLunchPauseDuration(restanteSeg);
+          // Início/duração ORIGINAIS da pausa (não o "agora"), pra o tempo ocioso contar
+          // também a parte que já passou enquanto o app esteve fechado.
+          setLunchPauseStartedAt(new Date(paused));
+          setLunchPauseDuration(Math.max(1, Math.round((lunchEnds - paused) / 1000)));
           setLunchPauseRemaining(restanteSeg);
           setLunchPauseUsed(true);
           setPhase("lunch_pause");
         } else {
+          // Pausa terminou com o app fechado → contabiliza a duração cheia como ocioso.
+          const idleSeg = lunchEnds ? Math.max(0, Math.round((lunchEnds - paused) / 1000)) : 0;
+          if (idleSeg > 0) {
+            pausedSecondsRef.current += idleSeg;
+            await supabase
+              .from("challenge_sessions")
+              .update({ paused_seconds: pausedSecondsRef.current } as never)
+              .eq("id", session.id);
+          }
           const newStartedAt = new Date(Date.now() - (BLOCK_DURATION - remainingAtPause) * 1000);
           await supabase
             .from("hourly_goal_blocks")
@@ -659,6 +692,14 @@ export function useDefconChallenge(userId: string | undefined) {
 
   const resumeFromLunch = useCallback(async () => {
     const now = new Date();
+    // Contabiliza o tempo REAL que ficou pausado (do início da pausa até agora, sem passar
+    // da duração escolhida) — vira o "tempo ocioso" do relatório.
+    const inicio = lunchPauseStartedAtRef.current;
+    if (inicio) {
+      const durSeg = lunchPauseDurationRef.current || 0;
+      const decorrido = Math.round((now.getTime() - inicio.getTime()) / 1000);
+      await acumularPausa(Math.min(durSeg || decorrido, decorrido));
+    }
     const currentBlockData = blocksRef.current[currentBlockIndexRef.current];
 
     if (currentBlockData) {
@@ -749,6 +790,7 @@ export function useDefconChallenge(userId: string | undefined) {
   const startChallenge = async () => {
     if (!userId || blocks.length === 0) return;
 
+    pausedSecondsRef.current = 0; // novo dia/sessão: zera o tempo ocioso acumulado
     const today = getBrazilDate();
     const startTime = new Date();
 

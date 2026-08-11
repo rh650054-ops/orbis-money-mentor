@@ -189,6 +189,7 @@ export type Database = {
           distance_meters: number | null
           ended_at: string | null
           id: string
+          paused_seconds: number
           started_at: string
           status: string
           total_blocks: number
@@ -204,6 +205,7 @@ export type Database = {
           date?: string
           ended_at?: string | null
           id?: string
+          paused_seconds?: number
           started_at?: string
           status?: string
           total_blocks?: number
@@ -219,6 +221,7 @@ export type Database = {
           date?: string
           ended_at?: string | null
           id?: string
+          paused_seconds?: number
           started_at?: string
           status?: string
           total_blocks?: number
