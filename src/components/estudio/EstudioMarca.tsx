@@ -152,6 +152,9 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   const { toast } = useToast();
   const { status, loading: subLoading } = useSubscription(userId);
   const assinante = status.subscribed;
+  // Quem está nos 3 dias grátis TAMBÉM cria arte — mas baixa com marca d'água.
+  // Pra sair limpa, assina. (status.status === "trial" vem do useSubscription.)
+  const pagante = status.subscribed && status.status !== "trial";
 
   const [modelos, setModelos] = useState<Modelo[]>([]);
   const [modelo, setModelo] = useState<Modelo | null>(null);
@@ -173,6 +176,8 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   const [gerando, setGerando] = useState(false);
   const [fraseIdx, setFraseIdx] = useState(0);
   const [exportando, setExportando] = useState(false);
+  // Id do registro em estudio_geracoes — usado pra marcar que ele BAIXOU a arte
+  const [geracaoId, setGeracaoId] = useState("");
 
   // De onde vem o QR: da chave Pix (gerado pelo Orbis) ou de uma imagem que ele subiu
   const [qrModo, setQrModo] = useState<"chave" | "imagem">("chave");
@@ -337,14 +342,18 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
       });
       const err = (data as any)?.error;
       if (error || err) {
-        const msg = err === "limite_diario" ? "Você já gerou bastante arte hoje — amanhã libera de novo."
-          : err === "assinatura_necessaria" ? "O Estúdio é exclusivo pra assinantes."
+        const msg = err === "limite_diario"
+          ? ((data as any)?.plano === "trial"
+            ? "No teste grátis são 2 artes por dia. Assinando, sobe pra 4 e a arte baixa sem marca d'água."
+            : "Você já gerou suas 4 artes de hoje — amanhã libera de novo.")
+          : err === "assinatura_necessaria" ? "Seu teste grátis acabou. Assine pra continuar criando."
           : "Não consegui gerar agora. Tenta de novo em instantes.";
         toast({ title: "Ops", description: msg, variant: "destructive" });
         return;
       }
       areaRef.current = null;
       setEncaixou(false);
+      setGeracaoId(String((data as any)?.geracao_id ?? ""));
       setArte(`data:${(data as any).mime};base64,${(data as any).imagem}`);
       setQrPos({ x: 62, y: 68 });
     } catch {
@@ -374,6 +383,45 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   };
   const soltarDrag = () => { dragRef.current.ativo = false; };
 
+  // Marca d'água diagonal repetida, desenhada no PNG na hora da exportação.
+  // Só pra quem está no teste grátis — assinou, sai limpa.
+  const aplicarMarcaDagua = async (pngDataUrl: string): Promise<string> => {
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = pngDataUrl;
+    });
+    if (!img) return pngDataUrl;
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const ctx = c.getContext("2d");
+    if (!ctx) return pngDataUrl;
+    ctx.drawImage(img, 0, 0);
+
+    const texto = "ORBIS · VERSÃO DE TESTE";
+    const fonte = Math.round(img.width * 0.055);
+    ctx.font = `bold ${fonte}px system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.save();
+    ctx.translate(img.width / 2, img.height / 2);
+    ctx.rotate(-Math.PI / 6);
+    const passoX = ctx.measureText(texto).width + fonte * 1.6;
+    const passoY = fonte * 3.2;
+    const alcance = Math.max(img.width, img.height);
+    for (let y = -alcance; y < alcance; y += passoY) {
+      for (let x = -alcance; x < alcance; x += passoX) {
+        ctx.fillStyle = "rgba(0,0,0,0.30)";
+        ctx.fillText(texto, x + 2, y + 2);
+        ctx.fillStyle = "rgba(255,255,255,0.55)";
+        ctx.fillText(texto, x, y);
+      }
+    }
+    ctx.restore();
+    return c.toDataURL("image/png");
+  };
+
   const baixar = async () => {
     if (!artRef.current) return;
     if (!temQr) {
@@ -383,12 +431,26 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     setExportando(true);
     try {
       await salvarPix();
-      const png = await toPng(artRef.current, { pixelRatio: 3, cacheBust: true });
+      let png = await toPng(artRef.current, { pixelRatio: 3, cacheBust: true });
+      if (!pagante) png = await aplicarMarcaDagua(png);
       const a = document.createElement("a");
       a.href = png;
       a.download = `${(marca || "adesivo").toLowerCase().replace(/\s+/g, "-")}-orbis.png`;
       a.click();
-      toast({ title: "Arte baixada!", description: "PNG em alta resolução com seu QR Pix real, pronto pra gráfica." });
+      // Baixou = achou boa. É o sinal mais forte que o Estúdio produz — sem ele,
+      // melhorar o prompt vira chute.
+      try {
+        await sb.rpc("marcar_arte_baixada", {
+          p_id: geracaoId || null,
+          p_url: arte && !arte.startsWith("data:") ? arte : null,
+        });
+      } catch { /* não atrapalha o download */ }
+      toast({
+        title: pagante ? "Arte baixada!" : "Arte baixada (com marca d'água)",
+        description: pagante
+          ? "PNG em alta resolução com seu QR Pix real, pronto pra gráfica."
+          : "No teste grátis a arte sai marcada. Assinando, ela baixa limpa e pronta pra gráfica.",
+      });
     } catch {
       toast({ title: "Não consegui exportar", description: "Tenta de novo.", variant: "destructive" });
     } finally {
@@ -560,9 +622,21 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             </div>
           )}
 
+          {/* Teste grátis: mostra ANTES de baixar o que vai acontecer — sem pegadinha */}
+          {!pagante && (
+            <div className="rounded-2xl border border-warning/40 bg-warning/10 p-3 space-y-1">
+              <p className="text-sm font-semibold">Sua arte está pronta — e ficou boa.</p>
+              <p className="text-xs text-muted-foreground">
+                No teste grátis o download sai com a marca d'água do Orbis por cima. Assinando, essa
+                mesma arte baixa limpa, em alta resolução, pronta pra gráfica — e você passa de 2 pra
+                4 artes por dia.
+              </p>
+            </div>
+          )}
+
           <Button onClick={baixar} disabled={exportando || !temQr} className="w-full h-11 bg-gradient-primary">
             {exportando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-            Baixar PNG pra gráfica
+            {pagante ? "Baixar PNG pra gráfica" : "Baixar com marca d'água"}
           </Button>
           {(modelo || brief?.estilo || refUser) && (
             <Button onClick={gerar} disabled={gerando} variant="outline" className="w-full h-11">

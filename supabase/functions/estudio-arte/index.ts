@@ -1,12 +1,19 @@
-// Orbis — estudio-arte v6: gera o ADESIVO do vendedor com IA. O briefing vem da
+// Orbis — estudio-arte v9: gera o ADESIVO do vendedor com IA. O briefing vem da
 // GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Orbis IA (estilo em
 // texto + referência opcional enviada pelo PRÓPRIO usuário). Deixa ÁREA BRANCA pro app
-// colocar o QR Pix REAL. Só assinantes; limite diário via bump_ai_usage('estudio').
+// colocar o QR Pix REAL.
 // PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;
 // exige billing ativado na conta Google) → 2) OpenAI GPT Image (se OPENAI_API_KEY
 // existir nos secrets) — o MESMO gerador de imagem do ChatGPT.
-// v5: OpenAI usa gpt-image-2 (o mesmo do ChatGPT atual; confirmado disponivel na conta
-// do Rick) com fallback automatico 1.5 -> 1; qualidade via OPENAI_IMAGE_QUALITY ("medium").
+// v5: OpenAI usa gpt-image-2 (o mesmo do ChatGPT atual) com fallback 1.5 -> 1;
+// qualidade via OPENAI_IMAGE_QUALITY ("medium" — ~US$0,041 por arte 1024x1536).
+// v9 (custo + funil):
+//   - TRIAL (3 dias grátis) TAMBÉM gera arte, com limite menor, e a arte sai com
+//     marca d'água — pra baixar limpa ele assina. Antes o trial era tratado igual
+//     a assinante e baixava tudo de graça.
+//   - limites por dia: pagante 4, trial 2 (ESTUDIO_LIMITE_PAGANTE / _TRIAL).
+//   - TODA geração é registrada em estudio_geracoes (briefing + provedor + depois
+//     a URL e se o vendedor baixou) — é o dado que ensina o que funciona.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -39,18 +46,25 @@ Deno.serve(async (req) => {
     const supa = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_ANON_KEY") ?? "", { global: { headers: { Authorization: authH } } });
     const { data: u } = await supa.auth.getUser();
     if (!u?.user?.id) return json({ error: "sessao_expirada" }, 401);
+    const userId = u.user.id;
 
     const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const { data: prof } = await admin.from("profiles")
       .select("plan_status,is_trial_active,trial_end,billing_exempt,is_demo")
-      .eq("user_id", u.user.id).maybeSingle();
+      .eq("user_id", userId).maybeSingle();
     const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-    const assinante = !!prof && (prof.billing_exempt || prof.is_demo || prof.plan_status === "active" ||
-      (prof.is_trial_active && String(prof.trial_end ?? "") >= hoje));
-    if (!assinante) return json({ error: "assinatura_necessaria" }, 403);
 
-    const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: 6 });
-    if ((usage as any)?.over) return json({ error: "limite_diario" });
+    // PAGANTE = assinatura ativa (ou conta liberada). TRIAL = os 3 dias grátis.
+    // Os dois geram arte; só o pagante baixa sem marca d'água.
+    const pagante = !!prof && (prof.billing_exempt || prof.is_demo || prof.plan_status === "active");
+    const trial = !!prof && !pagante && !!prof.is_trial_active && String(prof.trial_end ?? "") >= hoje;
+    if (!pagante && !trial) return json({ error: "assinatura_necessaria" }, 403);
+
+    const limite = pagante
+      ? Number(Deno.env.get("ESTUDIO_LIMITE_PAGANTE") ?? "4")
+      : Number(Deno.env.get("ESTUDIO_LIMITE_TRIAL") ?? "2");
+    const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: limite });
+    if ((usage as any)?.over) return json({ error: "limite_diario", limite, plano: pagante ? "pagante" : "trial" });
 
     const body = await req.json().catch(() => ({}));
     const modeloId = String(body?.modelo_id ?? "").trim();
@@ -58,7 +72,8 @@ Deno.serve(async (req) => {
     const produto = String(body?.produto ?? "").slice(0, 140).trim();
     const cores = String(body?.cores ?? "").slice(0, 80).trim();
     const extras = String(body?.extras ?? "").slice(0, 200).trim();
-    // v6: briefing vindo do CHAT — estilo em texto e/ou referência ENVIADA pelo usuário.
+    const origem = String(body?.origem ?? "estudio") === "chat" ? "chat" : "estudio";
+    // Briefing vindo do CHAT — estilo em texto e/ou referência ENVIADA pelo usuário.
     const estilo = String(body?.estilo ?? "").slice(0, 300).trim();
     const refUserB64 = typeof body?.ref_b64 === "string" ? body.ref_b64 : "";
     const refUserMime = String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg";
@@ -86,6 +101,27 @@ Deno.serve(async (req) => {
       } catch { /* segue sem referência visual */ }
     }
 
+    // Registra a geração ANTES de desenhar: assim a gente vê até os briefings que
+    // falharam (provedor fora do ar), que é justamente onde mora o aprendizado.
+    let geracaoId = "";
+    try {
+      const { data: g } = await admin.from("estudio_geracoes").insert({
+        user_id: userId,
+        origem,
+        plano: pagante ? "pagante" : "trial",
+        marca, produto, estilo: estilo || String(modelo?.nome ?? ""), cores, extras,
+        modelo_id: modeloId || null,
+        com_referencia: !!refB64,
+      }).select("id").maybeSingle();
+      geracaoId = String((g as any)?.id ?? "");
+    } catch { /* registro nunca pode derrubar a geração */ }
+
+    const marcaDagua = !pagante;
+    const okResp = (imagem: string, mime: string, provedor: string) => {
+      if (geracaoId) admin.from("estudio_geracoes").update({ provedor }).eq("id", geracaoId).then(() => {}, () => {});
+      return json({ imagem, mime, provedor, geracao_id: geracaoId, marca_dagua: marcaDagua, plano: pagante ? "pagante" : "trial" });
+    };
+
     const estiloDesc = modelo ? `${modelo.nome}: ${modelo.descricao}` : (estilo || "estilo livre, bonito e profissional");
     const prompt = `Você é um designer profissional de adesivos e rótulos para vendedores ambulantes brasileiros.
 ${refB64 ? "A imagem anexa é APENAS uma REFERÊNCIA de estilo, composição e clima" : "Estilo de referência"} (${estiloDesc}).
@@ -103,7 +139,7 @@ REGRAS OBRIGATÓRIAS:
 
     // ===== 1) GEMINI (precisa de billing ativado na conta Google) =====
     const gkey = Deno.env.get("GEMINI_API_KEY");
-    if (gkey) {
+    if (gkey && (Deno.env.get("IMAGEM_TENTAR_GEMINI") ?? "1") !== "0") {
       try {
         const model = Deno.env.get("GEMINI_IMAGE_MODEL") ?? "gemini-3.1-flash-image";
         const parts: unknown[] = [{ text: prompt }];
@@ -117,7 +153,7 @@ REGRAS OBRIGATÓRIAS:
         if (r.ok) {
           const j = await r.json();
           const part = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
-          if (part?.inlineData?.data) return json({ imagem: part.inlineData.data, mime: part.inlineData.mimeType || "image/png", provedor: "gemini" });
+          if (part?.inlineData?.data) return okResp(part.inlineData.data, part.inlineData.mimeType || "image/png", "gemini");
           console.error("gemini sem imagem", JSON.stringify(j?.candidates?.[0]?.finishReason ?? "").slice(0, 120));
         } else {
           console.error("gemini imagem erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
@@ -159,7 +195,7 @@ REGRAS OBRIGATÓRIAS:
           if (r.ok) {
             const j = await r.json();
             const b64 = j?.data?.[0]?.b64_json;
-            if (b64) return json({ imagem: b64, mime: "image/png", provedor: `openai:${om}` });
+            if (b64) return okResp(b64, "image/png", `openai:${om}`);
             console.error("openai sem imagem", om);
             break;
           } else {
@@ -172,6 +208,7 @@ REGRAS OBRIGATÓRIAS:
     }
 
     // Nenhum provedor disponível/funcionando
+    if (geracaoId) { try { await admin.from("estudio_geracoes").update({ provedor: "falhou" }).eq("id", geracaoId); } catch { /* noop */ } }
     return json({ error: gkey || okey ? "geracao_falhou" : "sem_chave", detalhe: "provedor_de_imagem_indisponivel" });
   } catch (e) {
     console.error("estudio-arte erro", e);
