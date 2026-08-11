@@ -498,20 +498,28 @@ export function useDefconChallenge(userId: string | undefined) {
         .select("approaches_count, block_index, sales_count")
         .eq("session_id", session.id);
 
-      if (challengeBlocks) {
-        const totalApp = challengeBlocks.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
+      {
+        const cbs = challengeBlocks || [];
+        const totalApp = cbs.reduce((sum, b) => sum + (b.approaches_count || 0), 0);
         setTotalApproaches(totalApp);
 
         // Restaura o número real de vendas SOMANDO sales_count de cada bloco.
         // (Antes lia sold_amount, coluna que nunca é gravada -> sempre 0, zerando as vendas.)
-        const totalSls = challengeBlocks.reduce((sum, b) => sum + Number((b as any).sales_count || 0), 0);
+        const totalSls = cbs.reduce((sum, b) => sum + Number((b as any).sales_count || 0), 0);
         setTotalSalesCount(totalSls);
 
-        // Restaura abordagens + vendas do bloco atual
-        const currentChallengeBlock = challengeBlocks.find(b => b.block_index === session.current_block_index);
+        // Restaura abordagens + vendas do bloco atual. IMPORTANTE: se o bloco atual
+        // AINDA NÃO tem linha em challenge_blocks (ex.: bloco de extensão recém-criado
+        // no "voltar +1h"), os contadores TÊM que zerar. Sem o else abaixo, ficavam com
+        // o valor do bloco anterior e a 1ª venda gravava esse número inflado no bloco
+        // novo — foi o bug do "voltou com 25 vendas e 50 abordagens".
+        const currentChallengeBlock = cbs.find(b => b.block_index === session.current_block_index);
         if (currentChallengeBlock) {
           setBlockApproaches(currentChallengeBlock.approaches_count || 0);
           setBlockSalesCount(Number((currentChallengeBlock as any).sales_count || 0));
+        } else {
+          setBlockApproaches(0);
+          setBlockSalesCount(0);
         }
       }
 
