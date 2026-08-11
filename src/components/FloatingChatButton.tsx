@@ -1,22 +1,29 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square } from "lucide-react";
+import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
 import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
+import { useAuth } from "@/hooks/useAuth";
+import EstudioMarca, { type EstudioBrief } from "@/components/estudio/EstudioMarca";
 import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-// Voz do modo VOZ: false = voz do servidor (OpenAI, estilo JARVIS — natural, rápida, toca no iPhone).
-// true = voz do aparelho (instantânea, robótica). Se a OpenAI falhar, cai nela sozinho.
+// Voz do modo VOZ: false = voz do servidor (Gemini TTS oficial, com fallbacks — natural, toca no iPhone).
+// true = voz do aparelho (instantânea, robótica). Se o servidor falhar, cai nela sozinho.
 const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  // Briefing do adesivo montado na conversa (fallback: abre o Estúdio pra gerar por lá)
+  const [estudioBrief, setEstudioBrief] = useState<EstudioBrief | null>(null);
+  // Arte que a IA gerou DENTRO do chat — abre o editor só pra encaixar o QR Pix e baixar
+  const [estudioArte, setEstudioArte] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -40,10 +47,59 @@ export default function FloatingChatButton() {
     try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
     try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
     setSpeaking(false);
+    speakingRef.current = false;
   };
-  const speechSupported =
+  // Reconhecimento nativo do navegador (Chrome/Safari). Onde NÃO existe (Firefox,
+  // vários WebViews Android), caímos no plano B: gravar com MediaRecorder e
+  // transcrever no servidor — o microfone funciona em TODO aparelho.
+  const nativeSpeech =
     typeof window !== "undefined" &&
     !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const speechSupported =
+    nativeSpeech ||
+    (typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== "undefined");
+  const isIOS = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
+  const voiceModeRef = useRef(false);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+
+  // ---- Plano B do microfone: grava e transcreve no servidor (Gemini) ----
+  const startRecFallback = async (onText: (t: string) => void) => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg"]
+        .find((m) => MediaRecorder.isTypeSupported?.(m)) || "";
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const chunks: Blob[] = [];
+      mr.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
+        const blob = new Blob(chunks, { type: mr.mimeType || "audio/webm" });
+        if (blob.size < 1500) return; // gravação vazia/curtíssima
+        setTranscribing(true);
+        try {
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result).split(",")[1] || "");
+            fr.onerror = reject;
+            fr.readAsDataURL(blob);
+          });
+          const { data } = await supabase.functions.invoke("bright-action", { body: { stt: b64, mime: blob.type } });
+          const text = ((data as any)?.text || "").trim();
+          if (text) onText(text);
+        } catch { /* transcrição falhou: usuário grava de novo */ }
+        setTranscribing(false);
+      };
+      mediaRecRef.current = mr;
+      mr.start();
+      setIsRecording(true); isRecordingRef.current = true;
+    } catch {
+      setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
+    }
+  };
+  const stopRecFallback = () => { try { mediaRecRef.current?.stop(); } catch { /* noop */ } };
 
   const requestClose = () => {
     if (typeof window !== "undefined" && (window.history.state as any)?.orbisChat) {
@@ -55,6 +111,18 @@ export default function FloatingChatButton() {
 
   const toggleRecording = () => {
     if (!speechSupported) return;
+    // Navegador SEM reconhecimento nativo: grava e transcreve no servidor.
+    if (!nativeSpeech) {
+      if (isRecording) { stopRecFallback(); return; }
+      stopSpeaking();
+      const base = voiceMode ? "" : (input ? input.trim() + " " : "");
+      if (voiceMode) setInput("");
+      startRecFallback((text) => {
+        if (voiceModeRef.current) { sendMessage(text); setInput(""); }
+        else setInput(base + text);
+      });
+      return;
+    }
     if (isRecording) {
       recognitionRef.current?.stop();
       return;
@@ -115,13 +183,37 @@ export default function FloatingChatButton() {
     renameConversation,
     deleteConversation,
     sendMessage,
+    action,
+    clearAction,
   } = useAIConversations();
+
+  // A IA montou o briefing do adesivo na conversa -> abre o Estúdio já preenchido
+  useEffect(() => {
+    if (action?.tipo === "gerar_adesivo") {
+      setEstudioBrief((action.dados as EstudioBrief) || {});
+      clearAction();
+    }
+  }, [action, clearAction]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isSending]);
+
+  // Desenhar o adesivo leva ~1 minuto (IA de imagem e' lenta mesmo). Sem aviso, o
+  // vendedor acha que travou e fecha o app no meio da geracao. Depois de 6s de espera
+  // a gente conta o que esta' acontecendo, em vez de so' tres bolinhas pulando.
+  const [esperaLonga, setEsperaLonga] = useState(false);
+  useEffect(() => {
+    if (!isSending) { setEsperaLonga(false); return; }
+    const t = setTimeout(() => setEsperaLonga(true), 6000);
+    return () => clearTimeout(t);
+  }, [isSending]);
+  const ultimaMinha = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
+  const avisoEspera = /adesivo|arte|logo|r[óo]tulo|marca|gera/i.test(ultimaMinha)
+    ? "Desenhando tua arte... leva até 1 minuto. Não fecha essa tela."
+    : "Pensando com calma aqui...";
 
   // Fecha o chat com o botão/gesto de voltar do celular (sem reabrir)
   useEffect(() => {
@@ -137,6 +229,7 @@ export default function FloatingChatButton() {
     if (!isOpen) {
       if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
       recognitionRef.current?.stop();
+      stopRecFallback();
       if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel();
       setVoiceMode(false);
       stopSpeaking();
@@ -168,6 +261,8 @@ export default function FloatingChatButton() {
     setInput("");
   };
 
+  // A primeira sugestão inicia a CO-CRIAÇÃO do adesivo premium (a IA conduz a conversa)
+  const SUGGESTION_ADESIVO = "Quero criar o adesivo premium da minha marca";
   const SUGGESTIONS = [
     "Como melhorar minha conversão?",
     "Me motiva pra hoje",
@@ -180,71 +275,156 @@ export default function FloatingChatButton() {
     sendMessage(text);
   };
 
+  // Renderiza o conteúdo da mensagem: texto normal + artes geradas no chat
+  // (o servidor manda [[adesivo:URL]] quando a IA desenha o adesivo na conversa).
+  const renderContent = (content: string) => {
+    const partes = content.split(/(\[\[adesivo:https?:\/\/[^\]\s]+\]\])/g);
+    return partes.map((p, i) => {
+      const m = /^\[\[adesivo:(https?:\/\/[^\]\s]+)\]\]$/.exec(p);
+      if (m) {
+        return (
+          <div key={i} className="mt-2 space-y-2">
+            <img
+              src={m[1]} alt="Adesivo criado pela Orbis IA"
+              className="w-full max-w-[260px] rounded-xl border border-border"
+              loading="lazy"
+            />
+            <Button size="sm" onClick={() => setEstudioArte(m[1])} className="h-9 bg-gradient-primary">
+              <Download className="w-4 h-4 mr-1.5" /> Colocar meu QR Pix e baixar
+            </Button>
+          </div>
+        );
+      }
+      return p ? <span key={i}>{p}</span> : null;
+    });
+  };
+
   // ---- Modo voz ----
-  // Voz do servidor (OpenAI, estilo JARVIS) — natural e rápida. Cai pra voz do navegador se falhar.
+  // Quebra o texto em pedaços de ~1-2 frases: o 1º pedaço vira áudio e começa a tocar
+  // em ~2s, enquanto os próximos são gerados em paralelo. Nada de esperar a fala inteira.
+  const splitForSpeech = (text: string): string[] => {
+    const sentences = text.replace(/\s+/g, " ").trim().match(/[^.!?…]+[.!?…]+["')\]]*|[^.!?…]+$/g) || [text];
+    const chunks: string[] = [];
+    let cur = "";
+    for (const s of sentences) {
+      if (cur && (cur + s).length > 160) { chunks.push(cur.trim()); cur = s; }
+      else cur += s;
+    }
+    if (cur.trim()) chunks.push(cur.trim());
+    return chunks.filter(Boolean);
+  };
+
+  const fetchTTS = async (text: string): Promise<string | null> => {
+    try {
+      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      const b64 = (data as any)?.audio;
+      if (!b64) return null;
+      return "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
+    } catch { return null; }
+  };
+
+  const playSrc = (src: string, myToken: number) =>
+    new Promise<boolean>((resolve) => {
+      const a = audioRef.current;
+      if (!a || myToken !== ttsTokenRef.current) { resolve(false); return; }
+      a.src = src;
+      a.onended = () => resolve(true);
+      a.onerror = () => resolve(false);
+      a.play().then(undefined, () => resolve(false));
+    });
+
+  // Voz do servidor (Gemini oficial, com fallbacks) falada POR PARTES. Se falhar, voz do navegador.
   const speak = async (text: string) => {
     if (!text) return;
-    stopSpeaking();                       // corta a fala anterior — foca na nova
+    stopSpeaking();                        // corta a fala anterior — foca na nova
     const myToken = ++ttsTokenRef.current; // token desta fala
     setSpeaking(true);
+    speakingRef.current = true;
 
-    // Se nesta sessão a voz do Gemini já se mostrou indisponível, mantém a voz do
-    // navegador (consistência — não fica alternando robô/voz-boa no meio da conversa).
     if (voiceEngineRef.current === "browser") {
-      setSpeaking(false);
+      setSpeaking(false); speakingRef.current = false;
       speakBrowser(text);
       return;
     }
 
-    // Tenta a voz do Gemini até 2x.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
-        if (myToken !== ttsTokenRef.current) return; // já começou uma fala mais nova: ignora esta
-        const b64 = (data as any)?.audio;
-        if (b64 && audioRef.current) {
-          voiceEngineRef.current = "gemini"; // funcionou: trava na voz boa nesta sessão
-          const a = audioRef.current;
-          a.src = "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
-          a.onended = () => { if (myToken === ttsTokenRef.current) setSpeaking(false); };
-          a.onerror = () => { if (myToken === ttsTokenRef.current) { setSpeaking(false); speakBrowser(text); } };
-          await a.play();
-          return;
-        }
-      } catch (e) {
-        if (myToken !== ttsTokenRef.current) return; // cancelada por uma fala nova
-        console.warn("TTS Gemini falhou (tentativa " + (attempt + 1) + ")", e);
+    const chunks = splitForSpeech(text);
+    // dispara a geração dos pedaços em paralelo (limitada pela ordem de consumo)
+    const jobs: Promise<string | null>[] = chunks.map((c, i) =>
+      i === 0 ? fetchTTS(c) : new Promise((res) => setTimeout(() => fetchTTS(c).then(res), i * 150))
+    );
+
+    let anyOk = false;
+    for (let i = 0; i < jobs.length; i++) {
+      const src = await jobs[i];
+      if (myToken !== ttsTokenRef.current) return; // interrompida por fala nova
+      if (src) {
+        anyOk = true;
+        voiceEngineRef.current = "gemini";
+        const ok = await playSrc(src, myToken);
+        if (myToken !== ttsTokenRef.current) return;
+        if (!ok && !anyOk) break; // nem tocar deu: cai pro navegador
+      } else if (!anyOk) {
+        break; // 1º pedaço já falhou: cai pro navegador com o texto inteiro
       }
-      if (myToken !== ttsTokenRef.current) return;
-      if (attempt === 0) await new Promise((r) => setTimeout(r, 600)); // respira e tenta de novo
     }
 
-    // Gemini falhou 2x. Se NUNCA funcionou nesta sessão, trava no navegador (consistência).
-    if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
     if (myToken !== ttsTokenRef.current) return;
     setSpeaking(false);
-    speakBrowser(text);
+    speakingRef.current = false;
+    if (!anyOk) {
+      if (voiceEngineRef.current !== "gemini") voiceEngineRef.current = "browser";
+      speakBrowser(text);
+      return;
+    }
+    // Conversa contínua: acabou de falar no modo voz -> volta a ouvir sozinho (fora do iPhone,
+    // que exige um toque por gravação).
+    if (voiceModeRef.current && nativeSpeech && !isIOS) {
+      setTimeout(() => {
+        if (voiceModeRef.current && !speakingRef.current && !isRecordingRef.current) startTalk();
+      }, 350);
+    }
   };
 
   // ===== VOZ POR TOQUE (1 toque por mensagem — funciona no iPhone) =====
   // Toca o microfone, fala; quando você pausa (~1,5s) ele manda sozinho. A IA responde
   // por voz. Pra próxima pergunta, toca de novo (o iPhone exige um toque a cada vez).
+  // ANTI-DUPLICATA: o reconhecimento dispara um último resultado ATRASADO depois do
+  // envio, que re-armava o timer e mandava a MESMA fala 2x — aí chegavam 2 respostas
+  // quase juntas e a voz falava uma por cima da outra (o "nada com nada"). Agora o
+  // reconhecimento é descartado ANTES do envio e envio igual em <8s é ignorado.
+  const lastSentRef = useRef<{ t: string; ts: number }>({ t: "", ts: 0 });
   const sendPending = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    if (!nativeSpeech) { stopRecFallback(); return; } // plano B: parar a gravação já transcreve e envia
     const text = pendingTextRef.current.trim();
     pendingTextRef.current = "";
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
-    if (text) { setInput(""); sendMessage(text); }
+    const rec = recognitionRef.current;
+    recognitionRef.current = null; // resultados atrasados deste reconhecimento serão ignorados
+    try { rec?.stop(); } catch { /* noop */ }
+    if (!text) return;
+    const agora = Date.now();
+    if (text === lastSentRef.current.t && agora - lastSentRef.current.ts < 8000) return; // duplicata
+    lastSentRef.current = { t: text, ts: agora };
+    setInput("");
+    sendMessage(text);
   };
 
   const stopVoice = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    stopRecFallback();
     stopSpeaking();
   };
 
   const startTalk = () => {
     if (!speechSupported) return;
+    // Navegador sem reconhecimento nativo: grava, transcreve no servidor e envia sozinho.
+    if (!nativeSpeech) {
+      stopSpeaking();
+      setInput("");
+      startRecFallback((text) => { if (voiceModeRef.current) sendMessage(text); else setInput(text); });
+      return;
+    }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     stopSpeaking(); // corta a fala da IA (se estiver falando) e passa a te ouvir
     try { recognitionRef.current?.stop(); } catch { /* noop */ }
@@ -269,6 +449,7 @@ export default function FloatingChatButton() {
     setInput("");
     pendingTextRef.current = "";
     rec.onresult = (e: any) => {
+      if (recognitionRef.current !== rec) return; // resultado atrasado de reconhecimento já descartado
       let full = "";
       for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
       pendingTextRef.current = full;
@@ -309,7 +490,15 @@ export default function FloatingChatButton() {
       const pt = [...ptVoices].sort((a, b) => score(b) - score(a))[0];
       if (pt) u.voice = pt;
       u.onstart = () => { setSpeaking(true); speakingRef.current = true; };
-      u.onend = () => { setSpeaking(false); speakingRef.current = false; };
+      u.onend = () => {
+        setSpeaking(false); speakingRef.current = false;
+        // conversa contínua também na voz do navegador (fora do iPhone)
+        if (voiceModeRef.current && nativeSpeech && !isIOS) {
+          setTimeout(() => {
+            if (voiceModeRef.current && !speakingRef.current && !isRecordingRef.current) startTalk();
+          }, 350);
+        }
+      };
       u.onerror = () => { setSpeaking(false); speakingRef.current = false; };
       try { synth.resume(); } catch { /* noop */ }
       synth.speak(u);
@@ -364,8 +553,11 @@ export default function FloatingChatButton() {
       lastSpokenRef.current = last.id;
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
       if (last.content.startsWith("Desculpe, tive um problema")) return;
-      if (USE_INSTANT_VOICE) speakBrowser(last.content); // voz do aparelho — instantânea
-      else speak(last.content);                          // voz do Gemini — bonita, porém ~30s
+      // Não lê o marcador da arte gerada no chat (a imagem aparece na tela, não na voz)
+      const falavel = last.content.replace(/\[\[adesivo:[^\]]+\]\]/g, "").trim();
+      if (!falavel) return;
+      if (USE_INSTANT_VOICE) speakBrowser(falavel); // voz do aparelho — instantânea
+      else speak(falavel);                          // voz do Gemini — bonita, porém ~30s
     }
   }, [messages, voiceMode]);
 
@@ -400,14 +592,14 @@ export default function FloatingChatButton() {
     setRenamingId(null);
   };
 
-  const voiceState: SphereState = isSending ? "processing" : speaking ? "responding" : isRecording ? "listening" : "idle";
-  const voiceLabel = isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : "TOQUE PRA FALAR";
+  const voiceState: SphereState = (isSending || transcribing) ? "processing" : speaking ? "responding" : isRecording ? "listening" : "idle";
+  const voiceLabel = transcribing ? "ENTENDENDO" : isSending ? "PROCESSANDO" : speaking ? "RESPONDENDO" : isRecording ? "OUVINDO" : "TOQUE PRA FALAR";
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Floating Button — abre direto no CHAT DE TEXTO (a voz fica a 1 toque, no topo) */}
       <Button
-        onClick={() => { voiceEngineRef.current = null; setIsOpen(true); setVoiceMode(true); }}
+        onClick={() => setIsOpen(true)}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
         aria-label="Abrir Orbis IA"
@@ -416,6 +608,10 @@ export default function FloatingChatButton() {
       </Button>
 
       <audio ref={audioRef} className="hidden" preload="auto" />
+
+      {/* Estúdio de Marca: fallback com briefing OU editor de QR pra arte gerada no chat */}
+      {estudioBrief && user && <EstudioMarca userId={user.id} brief={estudioBrief} onClose={() => setEstudioBrief(null)} />}
+      {estudioArte && user && <EstudioMarca userId={user.id} arteInicial={estudioArte} onClose={() => setEstudioArte(null)} />}
 
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
@@ -434,18 +630,21 @@ export default function FloatingChatButton() {
             <div className="flex items-center gap-2">
               <OrbisSphere size={28} state="idle" />
               <div className="leading-tight">
-                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
-                <p className="text-[10px] text-emerald-400/80 -mt-0.5">● online</p>
+                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] text-primary">ORBIS IA</span>
+                <p className="text-xs text-success">● online</p>
               </div>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={enterVoiceMode}
-                className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/10 border border-primary/30 text-primary/80 tracking-[0.15em]"
-                aria-label="Modo voz"
-              >
-                VOZ
-              </button>
+            <div className="flex items-center gap-1.5">
+              {speechSupported && (
+                <button
+                  onClick={enterVoiceMode}
+                  className="flex items-center gap-1.5 h-10 px-3.5 rounded-full bg-primary/15 border border-primary/40 text-primary hover:bg-primary/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="Conversar por voz"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span className="text-xs font-bold tracking-wide">VOZ</span>
+                </button>
+              )}
               <Button variant="ghost" size="icon" onClick={requestClose} aria-label="Fechar">
                 <X className="h-5 w-5" />
               </Button>
@@ -460,9 +659,15 @@ export default function FloatingChatButton() {
                   <div className="mb-4"><OrbisSphere size={88} state="listening" /></div>
                   <h2 className="text-2xl font-bold mb-2">Como posso ajudar?</h2>
                   <p className="text-sm text-muted-foreground max-w-xs">
-                    Pergunte sobre vendas, metas, finanças ou rotina.
+                    Pergunte sobre vendas, metas, finanças ou rotina — por texto ou tocando em VOZ.
                   </p>
-                  <div className="flex flex-wrap gap-2 justify-center mt-5 max-w-xs">
+                  <button
+                    onClick={() => sendSuggestion(SUGGESTION_ADESIVO)}
+                    className="mt-5 w-full max-w-xs h-12 rounded-2xl bg-gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Sparkles className="w-4 h-4" /> Gerar seu adesivo premium
+                  </button>
+                  <div className="flex flex-wrap gap-2 justify-center mt-3 max-w-xs">
                     {SUGGESTIONS.map((sug) => (
                       <button
                         key={sug}
@@ -496,17 +701,20 @@ export default function FloatingChatButton() {
                             : "bg-muted/60 border border-border text-foreground rounded-bl-md"
                         )}
                       >
-                        {m.content}
+                        {renderContent(m.content)}
                       </div>
                     </div>
                   ))}
                   {isSending && (
                     <div className="flex gap-3 justify-start">
                       <div className="shrink-0"><OrbisSphere size={30} state="processing" /></div>
-                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-1 items-center">
+                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-2 items-center">
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.15s]" />
                         <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.3s]" />
+                        {esperaLonga && (
+                          <span className="ml-1 text-xs text-muted-foreground">{avisoEspera}</span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -525,7 +733,7 @@ export default function FloatingChatButton() {
                   variant={isRecording ? "default" : "ghost"}
                   className={cn(
                     "h-11 w-11 p-0 rounded-full shrink-0",
-                    isRecording && "bg-red-500 hover:bg-red-600 text-white animate-pulse"
+                    isRecording && "bg-destructive hover:bg-destructive/90 text-destructive-foreground animate-pulse"
                   )}
                   aria-label={isRecording ? "Parar gravação de voz" : "Falar por voz"}
                 >
@@ -568,25 +776,25 @@ export default function FloatingChatButton() {
               <header className="flex items-center justify-between px-4 min-h-[3.5rem] safe-top">
                 <div className="flex items-center gap-2">
                   <OrbisSphere size={26} state="idle" />
-                  <span className="font-bold text-sm tracking-[0.12em] bg-gradient-to-r from-[#C9A84C] to-[#F5D78E] bg-clip-text text-transparent">ORBIS IA</span>
+                  <span className="font-bold text-sm tracking-[0.12em] text-primary">ORBIS IA</span>
                 </div>
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary/80 tracking-[0.15em]">VOZ</span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary/80 tracking-[0.15em]">VOZ</span>
               </header>
 
               <div className="flex-1 flex flex-col items-center justify-center px-8 text-center gap-7">
                 <OrbisSphere size={210} state={voiceState} />
                 <div className="space-y-2">
-                  <p className="text-[11px] tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
+                  <p className="text-xs tracking-[0.35em] text-muted-foreground uppercase">{voiceLabel}</p>
                   <p className="text-base text-foreground/80 italic min-h-[3.5rem] max-w-[16rem] mx-auto leading-relaxed">
-                    {input || (isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
+                    {input || (transcribing ? "Entendendo o que você falou..." : isSending ? "..." : isRecording ? "Pode falar..." : "Toque no microfone pra falar")}
                   </p>
                 </div>
                 <button
                   onClick={isRecording ? sendPending : startTalk}
                   className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center transition-all",
+                    "w-16 h-16 rounded-full flex items-center justify-center transition-colors",
                     isRecording
-                      ? "bg-red-500/15 border border-red-500/40 text-red-400"
+                      ? "bg-destructive/15 border border-destructive/40 text-destructive"
                       : "bg-primary/15 border border-primary/40 text-primary"
                   )}
                   aria-label={isRecording ? "Enviar" : "Falar"}

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbis — Diagnóstico do Caixa</title>
+<style>
+:root{--ouro:#C9A84C;--ouro-claro:#F5D78E;--verde:#10B981;--alerta:#E84A4A;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0A0A0A;color:#fff;font-family:system-ui,sans-serif;line-height:1.6;padding:24px 16px 80px;max-width:760px;margin:0 auto;}
+h1{color:var(--ouro-claro);font-size:22px;margin-bottom:4px;}
+.sub{color:#888;font-size:13px;margin-bottom:22px;}
+.box{background:#111;border:1px solid rgba(201,168,76,.25);border-radius:14px;padding:16px;margin-bottom:14px;}
+.box h2{font-size:14px;color:var(--ouro);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+.ok{color:var(--verde);font-weight:700;} .ruim{color:var(--alerta);font-weight:700;}
+.kv{font-size:14px;padding:6px 0;border-bottom:1px solid #222;word-break:break-all;}
+.kv b{color:var(--ouro-claro);}
+.btn{display:inline-block;background:linear-gradient(135deg,var(--ouro),var(--ouro-claro));color:#1a1200;border:none;border-radius:10px;padding:12px 18px;font-weight:700;font-size:14px;cursor:pointer;margin-top:10px;}
+.mono{font-family:monospace;font-size:12px;color:#aaa;background:#000;border-radius:8px;padding:10px;margin-top:8px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow-y:auto;}
+</style>
+</head>
+<body>
+<h1>Diagnóstico do Caixa</h1>
+<div class="sub">Esta página mostra o que está salvo NESTE navegador, neste aparelho. Tire um print da tela inteira e mande pro Claude.</div>
+<div id="out"></div>
+<script>
+const OFICIAL = "orbis_caixa_v1";
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function pareceCaixa(v){
+  try{ const a=JSON.parse(v); return Array.isArray(a) && a.length>0 && a.every(x=>x && typeof x==='object' && 'valor' in x && 'tipo' in x && 'data' in x) ? a : null; }
+  catch(e){ return null; }
+}
+function resumo(a){
+  const meses={}; let tot=0;
+  a.forEach(x=>{ const m=(x.data||'').slice(0,7); meses[m]=(meses[m]||0)+1; tot += (x.tipo==='entrada'?1:-1)*(Number(x.valor)||0); });
+  return Object.entries(meses).sort().map(([m,n])=>m+": "+n+" lançamento(s)").join(" · ");
+}
+let html = "";
+
+// 1. identidade
+html += `<div class="box"><h2>Onde estamos</h2>
+<div class="kv">Endereço (origem): <b>${esc(location.origin + location.pathname)}</b></div>
+<div class="kv">Navegador: <b>${esc(navigator.userAgent)}</b></div>
+<div class="kv">Data/hora: <b>${new Date().toLocaleString("pt-BR")}</b></div></div>`;
+
+// 2. chave oficial
+const oficial = localStorage.getItem(OFICIAL);
+const arrOficial = oficial ? pareceCaixa(oficial) : null;
+html += `<div class="box"><h2>Dados do painel (chave oficial)</h2>`;
+if(arrOficial){
+  html += `<div class="kv"><span class="ok">ENCONTREI ${arrOficial.length} lançamento(s)</span></div><div class="kv">${esc(resumo(arrOficial))}</div>`;
+}else if(oficial){
+  html += `<div class="kv"><span class="ruim">A chave existe mas o conteúdo não parece válido.</span></div><div class="mono">${esc(oficial.slice(0,800))}</div>`;
+}else{
+  html += `<div class="kv"><span class="ruim">VAZIO — não há nenhum lançamento salvo neste navegador/aparelho.</span></div>`;
+}
+html += `</div>`;
+
+// 3. varredura de TODAS as chaves procurando dados de caixa perdidos
+let achados = [];
+let listaChaves = "";
+for(let i=0;i<localStorage.length;i++){
+  const k = localStorage.key(i);
+  const v = localStorage.getItem(k) || "";
+  listaChaves += `<div class="kv">${esc(k)} <span style="color:#666">(${v.length} caracteres)</span></div>`;
+  if(k!==OFICIAL){
+    const a = pareceCaixa(v);
+    if(a) achados.push([k,a]);
+  }
+}
+html += `<div class="box"><h2>Possíveis dados perdidos (outras chaves)</h2>`;
+if(achados.length){
+  achados.forEach(([k,a],i)=>{
+    html += `<div class="kv"><span class="ok">Achei ${a.length} lançamento(s) na chave "${esc(k)}"</span><br>${esc(resumo(a))}<br>
+    <button class="btn" onclick="recuperar(${i})">Recuperar esses dados pro painel</button></div>`;
+  });
+}else{
+  html += `<div class="kv">Nenhum dado de caixa encontrado em outras chaves.</div>`;
+}
+html += `</div>`;
+
+// 4. lista completa de chaves
+html += `<div class="box"><h2>Todas as chaves salvas neste navegador (${localStorage.length})</h2>${listaChaves || '<div class="kv">Nenhuma — o armazenamento está totalmente vazio.</div>'}</div>`;
+
+html += `<div class="box"><h2>O que fazer</h2>
+<div class="kv">Se apareceu "VAZIO" acima: os lançamentos de julho foram feitos em <b>outro aparelho, outro navegador ou outro perfil do Chrome</b> — abra esta mesma página lá pra conferir. Ou o navegador limpou os dados do site.</div>
+<div class="kv">Se apareceu um botão "Recuperar": clique nele e depois abra o <a href="/caixa.html" style="color:var(--ouro)">painel do caixa</a>.</div></div>`;
+
+document.getElementById("out").innerHTML = html;
+
+window.recuperar = function(i){
+  const [k,a] = achados[i];
+  const atual = pareceCaixa(localStorage.getItem(OFICIAL)||"") || [];
+  const ids = new Set(atual.map(x=>x.id));
+  a.forEach(x=>{ if(!ids.has(x.id)) atual.push(x); });
+  localStorage.setItem(OFICIAL, JSON.stringify(atual));
+  alert("Pronto! "+a.length+" lançamento(s) recuperado(s). Abrindo o painel…");
+  location.href = "/caixa.html";
+};
+</script>
+</body>
+</html>

@@ -185,6 +185,7 @@ export default function Finances() {
   const [showProjecao, setShowProjecao] = useState(false);
   const [showProjecaoMetas, setShowProjecaoMetas] = useState(false);
   const [urgentesAberto, setUrgentesAberto] = useState(false);
+  const [vencidasAberto, setVencidasAberto] = useState(false);
   // ANTI TOQUE-DUPLO: enquanto uma ação de guardar/pagar está gravando, toques repetidos
   // são ignorados. Sem isso, tocar 2x num botão lento gravava 2x no banco (guardar em
   // dobro, conta duplicada, pago/reaberto) — uma das principais fontes de valores errados.
@@ -2028,7 +2029,7 @@ export default function Finances() {
             {urgentesAberto && (
               <div className="px-4 pb-4 space-y-2">
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  As que vencem hoje: pague ainda hoje pra não pegar juros/multa (principalmente cartão). As apertadas vencem em poucos dias úteis e ainda falta juntar — por isso o "a guardar" sobe. Se der, adiante uma delas.
+                  Vencem hoje: pague hoje pra evitar juros. Apertadas: faltam poucos dias úteis pra juntar.
                 </p>
                 {contasUrgentes.map(({ b, wd, falta, venceHoje }) => (
                   <div
@@ -2055,14 +2056,26 @@ export default function Finances() {
         </Card>
       )}
 
-      {/* Vencidas — lista detalhada: o que venceu, quanto já tem guardado e quanto FALTA */}
+      {/* Vencidas — resumo expansível: detalhes e planejador só quando o usuário quiser */}
       {!isLoadingData && overdueBills.length > 0 && (
         <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
-          <CardContent className="p-4 space-y-2">
-            <div className="flex items-center gap-2">
+          <CardContent className="p-0">
+            <button
+              type="button"
+              onClick={() => setVencidasAberto((v) => !v)}
+              className="w-full flex items-center gap-2 p-4 text-left"
+            >
               <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-              <p className="text-sm font-semibold text-destructive">Vencidas — quite o quanto antes</p>
-            </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-destructive">Vencidas — quite o quanto antes</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+                  {overdueBills.length} {overdueBills.length === 1 ? "conta" : "contas"} · faltam {formatCurrency(vencidasTotal)} · toque pra ver
+                </p>
+              </div>
+              <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${vencidasAberto ? "rotate-180" : ""}`} />
+            </button>
+            {vencidasAberto && (
+            <div className="px-4 pb-4 space-y-2">
             {overdueBillsOrdenadas.map((bill) => {
               const saved = Number(bill.saved_amount) || 0;
               const amount = Number(bill.amount) || 0;
@@ -2121,7 +2134,7 @@ export default function Finances() {
               );
             })}
             <p className="text-[11px] text-muted-foreground leading-relaxed">
-              Já passaram do vencimento, então não entram no "a guardar hoje" (que é o ritmo pros próximos dias). São prioridade: o que você guardar aqui vai 100% pra quitar elas (mais antiga primeiro).
+              O que guardar aqui vai 100% pra quitar (a mais antiga primeiro).
             </p>
             <Button
               onClick={() => { setVencidasSaveValue(String(Math.round(vencidasTotal * 100) / 100)); setVencidasSaveOpen(true); }}
@@ -2131,6 +2144,8 @@ export default function Finances() {
               <PiggyBank className="w-4 h-4 mr-2" />
               Guardar pra quitar — {formatCurrency(vencidasTotal)}
             </Button>
+            </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -2146,7 +2161,7 @@ export default function Finances() {
           </button>
           <button
             onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }}
-            className="w-full h-11 rounded-2xl bg-card border border-primary/40 text-primary font-semibold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+            className="w-full h-9 rounded-xl text-primary/80 font-semibold text-xs active:scale-[0.98] transition-transform flex items-center justify-center gap-1"
           >
             Guardei outro valor
           </button>
@@ -2221,7 +2236,7 @@ export default function Finances() {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
-                  Arraste pra baixo pra ver mais dias. Toque num dia pra registrar quanto guardou. Estimativa só das contas.
+                  Toque num dia pra registrar quanto guardou.
                 </p>
 
                 {/* Rever/lançar num dia ANTERIOR — pra corrigir depois que virou o dia */}
@@ -2247,7 +2262,7 @@ export default function Finances() {
                     </button>
                   </div>
                   <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Escolha um dia passado e informe quanto guardou nele — vai pras suas contas do mesmo jeito (quita o vencimento mais próximo primeiro).
+                    Vai pras suas contas do mesmo jeito.
                   </p>
                 </div>
               </div>

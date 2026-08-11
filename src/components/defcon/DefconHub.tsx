@@ -11,6 +11,7 @@ import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { Check, X, Calendar, MapPin } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
+import { DefconCompraMercadoria } from "@/components/defcon/DefconCompraMercadoria";
 import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
 import { CompetitionStatementUpload } from "@/components/defcon/CompetitionStatementUpload";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
@@ -1004,6 +1005,9 @@ export default function DefconHub() {
           <HourlyBreakdown userId={user.id} date={today} />
         </div>
       )}
+
+      {/* COMPRA DE MERCADORIA — estoque + custo por produto automáticos */}
+      <DefconCompraMercadoria userId={user.id} onChanged={loadAll} />
 
       {/* CUSTO RÁPIDO — responsivo */}
       <div className="rounded-2xl bg-card border border-border p-4 space-y-3">

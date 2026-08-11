@@ -1326,6 +1326,9 @@ export function useDefconChallenge(userId: string | undefined) {
       .from("challenge_sessions")
       .update({ status: "active", ended_at: null, total_blocks: blocksDb.length + 1, current_block_index: blocksDb.length } as never)
       .eq("id", sid);
+    // Hora nova começa DO ZERO também nos contadores (vendas/abordagens do bloco).
+    setBlockApproaches(0);
+    setBlockSalesCount(0);
     await loadData();
   };
 

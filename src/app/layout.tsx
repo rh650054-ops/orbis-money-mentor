@@ -18,6 +18,7 @@ import PWAInstallButton from "@/components/PWAInstallButton";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
 import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import MorningCommitModal from "@/components/MorningCommitModal";
+import AceiteTermosModal from "@/components/AceiteTermosModal";
 import BackButton from "@/shared/components/back-button";
 import {
   DropdownMenu,
@@ -396,6 +397,9 @@ export default function Layout({ children }: LayoutProps) {
       {user && onboardingCompleto && (
         <MorningCommitModal userId={user.id} onDismiss={() => {}} />
       )}
+
+      {/* LGPD: aceite único dos Termos/Política no primeiro login após a publicação */}
+      {user && <AceiteTermosModal userId={user.id} />}
 
       {/* OBS: o popup de teste expirado agora é renderizado pelo PaywallGate (router.tsx),
           pra aparecer igual em TODAS as telas, inclusive o DEFCON. */}

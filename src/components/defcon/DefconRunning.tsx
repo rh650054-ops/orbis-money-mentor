@@ -85,6 +85,9 @@ export function DefconRunning({
   const [saleName, setSaleName] = useState("");
   const [showClientFields, setShowClientFields] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  // Quantas unidades saem nesta venda (bug antigo: sempre debitava 1 do estoque,
+  // mesmo quando a venda era de 2+ unidades).
+  const [saleQty, setSaleQty] = useState(1);
   const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
   const [saleMessage, setSaleMessage] = useState("");
   const [showChargePreview, setShowChargePreview] = useState(false);
@@ -171,14 +174,14 @@ export function DefconRunning({
     }
   };
 
-  const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+  const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro", qty = 1) => {
     onAddSale(amount, method);
     setSaleHistory((prev) => [...prev, amount]);
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
-    // Debita do loadout/estoque se houver produto selecionado
+    // Debita do loadout/estoque na QUANTIDADE da venda (vendeu 2, baixa 2)
     if (!onboardingMode && selectedProductId) {
-      incrementSold(selectedProductId, 1).catch((e) =>
+      incrementSold(selectedProductId, Math.max(1, qty)).catch((e) =>
         console.warn("[defcon] failed to debit loadout", e)
       );
     }
@@ -191,6 +194,7 @@ export function DefconRunning({
     setSalePhone("");
     setSaleName("");
     setSaleMessage("");
+    setSaleQty(1);
     setShowChargePreview(false);
     setShowClientFields(false);
     // Mantém o produto selecionado se houver só 1; reseta se múltiplos
@@ -200,7 +204,7 @@ export function DefconRunning({
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
     if (amount > 0) {
-      registerSale(amount, method);
+      registerSale(amount, method, saleQty);
       persistClient(amount, method);
       resetSaleForm();
       setShowAddSale(false);
@@ -268,7 +272,7 @@ export function DefconRunning({
     saveChargeTemplate(text, amount, saleName);
     // Cobrança por WhatsApp é sempre PIX (a mensagem manda a chave Pix) — antes
     // registrava como "dinheiro" e o valor caía errado no split do fim do dia.
-    registerSale(amount, "pix");
+    registerSale(amount, "pix", saleQty);
     persistClient(amount, "pix");
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
     setShowChargePreview(false);
@@ -700,6 +704,32 @@ export function DefconRunning({
                   <p className="text-xs text-primary font-mono">
                     {Math.max(0, Number(loadout[0]!.qty_initial) - Number(loadout[0]!.qty_sold))} restantes
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Quantas unidades saem nesta venda — corrige a baixa de estoque */}
+            {selectedProductId && (
+              <div className="flex items-center justify-between rounded-xl bg-background/40 border border-border px-3 py-2">
+                <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
+                  Quantas unidades?
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setSaleQty((q) => Math.max(1, q - 1))}
+                    className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center active:scale-90"
+                    aria-label="Menos uma unidade"
+                  >
+                    <Minus className="w-4 h-4 text-foreground" />
+                  </button>
+                  <span className="text-xl font-black text-foreground tabular-nums w-8 text-center">{saleQty}</span>
+                  <button
+                    onClick={() => setSaleQty((q) => q + 1)}
+                    className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/40 flex items-center justify-center active:scale-90"
+                    aria-label="Mais uma unidade"
+                  >
+                    <Plus className="w-4 h-4 text-primary" />
+                  </button>
                 </div>
               </div>
             )}

@@ -26,6 +26,9 @@ export const useAIConversations = () => {
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  // Ação que o servidor manda junto com a resposta (ex.: abrir o Estúdio com o briefing do adesivo)
+  const [action, setAction] = useState<{ tipo: string; dados?: Record<string, string> } | null>(null);
+  const clearAction = useCallback(() => setAction(null), []);
   const skipNextLoadRef = useRef(false);
   const userCtxRef = useRef<{ ctx: string; ts: number } | null>(null); // cache do contexto do vendedor
 
@@ -168,16 +171,19 @@ export const useAIConversations = () => {
       // Tenta o chat; se falhar (timeout/limite), tenta +1 vez antes de desistir.
       // Reduz bastante o "Desculpe, tive um problema..." aparecer/ser falado na voz.
       let chatMessage = "";
+      let chatAction: { tipo: string; dados?: Record<string, string> } | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data, error } = await supabase.functions.invoke("bright-action", {
           body: { messages: history, context: userContext },
         });
         if (!error && data?.success && data?.message) {
           chatMessage = data.message as string;
+          if ((data as any)?.acao?.tipo) chatAction = (data as any).acao;
           break;
         }
         if (attempt === 0) await new Promise((r) => setTimeout(r, 900));
       }
+      if (chatAction) setAction(chatAction);
       const aiText =
         chatMessage ||
         "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
@@ -210,5 +216,7 @@ export const useAIConversations = () => {
     renameConversation,
     deleteConversation,
     sendMessage,
+    action,
+    clearAction,
   };
 };
