@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check, ImagePlus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check, ImagePlus, Trash2, Crosshair, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,13 +9,14 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { useToast } from "@/shared/ui/use-toast";
 
-// ESTÚDIO DE MARCA v3 — biblioteca de MODELOS alimenta a IA:
-// 1) o vendedor escolhe um modelo de referência na galeria (estudio_modelos);
-// 2) responde POUCAS perguntas (marca, produto, cores, extra);
-// 3) a IA gera o adesivo completo NAQUELE estilo, deixando uma área branca
-//    reservada, e o vendedor ARRASTA o QR Pix REAL pra cima dela;
-// 4) baixa o PNG achatado em alta resolução, pronto pra gráfica.
-// O QR nunca é desenhado pela IA (sairia quebrado) — é gerado pelo motor Pix do Orbis.
+// ESTÚDIO DE MARCA v4 — a arte nasce no CHAT; aqui é o EDITOR do QR:
+// 1) (opcional) galeria de modelos + 4 perguntas, pra quem entra por aqui;
+// 2) a arte chega pronta (do chat ou da geração) com uma área branca reservada;
+// 3) o QR ENCAIXA SOZINHO no quadrado branco (a gente acha ele lendo os pixels);
+// 4) o QR pode vir da CHAVE PIX (gerado pelo Orbis, escaneável garantido) OU de uma
+//    FOTO/PRINT do QR que o vendedor já tem — dá pra arrastar e redimensionar;
+// 5) baixa o PNG achatado em alta resolução (3x), pronto pra gráfica.
+// A IA nunca desenha o QR (sairia quebrado) — o QR é sempre real.
 // Visual: segue DESIGN.md (tokens, sem gradiente em texto, floor text-xs).
 
 const sb = supabase as any;
@@ -36,6 +37,117 @@ const FRASES_GERANDO = [
   "Últimos retoques de designer…",
 ];
 
+// ---------------------------------------------------------------------------
+// Acha a ÁREA BRANCA reservada na arte (aquele quadradinho que a IA deixa vazio).
+// Lê os pixels numa versão pequena da imagem e procura o MAIOR quadrado branco
+// (programação dinâmica clássica do "maximal square"). Devolve em % da imagem,
+// que é a mesma unidade usada pra posicionar o QR na tela.
+// ---------------------------------------------------------------------------
+async function acharAreaBranca(src: string): Promise<{ x: number; y: number; tam: number } | null> {
+  const img = await new Promise<HTMLImageElement | null>((resolve) => {
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload = () => resolve(i);
+    i.onerror = () => resolve(null);
+    i.src = src;
+  });
+  if (!img || !img.width || !img.height) return null;
+
+  const L = 180; // largura de análise: rápido e mais que suficiente
+  const w = L;
+  const h = Math.max(1, Math.round((img.height / img.width) * L));
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d", { willReadFrequently: true });
+  if (!ctx) return null;
+  ctx.drawImage(img, 0, 0, w, h);
+  let px: Uint8ClampedArray;
+  try { px = ctx.getImageData(0, 0, w, h).data; } catch { return null; } // canvas "sujo" (CORS)
+
+  // branco = claro nos 3 canais E sem cor dominante (evita pegar amarelo clarinho)
+  const branco = (i: number) => {
+    const r = px[i], g = px[i + 1], b = px[i + 2];
+    return r > 232 && g > 232 && b > 232 && Math.max(r, g, b) - Math.min(r, g, b) < 14;
+  };
+
+  const dp = new Int16Array(w * h);
+  let melhor = 0, mx = 0, my = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!branco((y * w + x) * 4)) continue;
+      const v = (x === 0 || y === 0)
+        ? 1
+        : Math.min(dp[(y - 1) * w + x], dp[y * w + (x - 1)], dp[(y - 1) * w + (x - 1)]) + 1;
+      dp[y * w + x] = v;
+      if (v > melhor) { melhor = v; mx = x; my = y; }
+    }
+  }
+  // quadrado pequeno demais = provavelmente um brilho ou letra branca, não a área reservada
+  if (melhor < w * 0.09) return null;
+
+  // x/tam são % da LARGURA da arte; y é % da ALTURA (mesmas unidades do CSS)
+  const tam = (melhor / w) * 100;
+  const x = ((mx - melhor + 1) / w) * 100;
+  const y = ((my - melhor + 1) / h) * 100;
+  // O QR cobre o quadrado inteiro: o padding de 3% da caixa já faz a margem branca
+  // de respiro que o leitor precisa (box-sizing: border-box).
+  const tamEmAltura = (melhor / h) * 100; // o mesmo lado, medido em % da altura
+  return {
+    x: Math.max(0, Math.min(100 - tam, x)),
+    y: Math.max(0, Math.min(100 - tamEmAltura, y)),
+    tam,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Prepara a imagem de QR que o vendedor subiu: reduz e CORTA a borda branca
+// (print de banco quase sempre vem com margem). Só corta margem uniforme —
+// nunca invade o desenho do QR.
+// ---------------------------------------------------------------------------
+async function prepararQrEnviado(file: File): Promise<string | null> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise<HTMLImageElement | null>((resolve) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => resolve(null);
+      i.src = url;
+    });
+    if (!img || !img.width || !img.height) return null;
+
+    const max = 900;
+    const sc = Math.min(1, max / Math.max(img.width, img.height));
+    const w = Math.max(1, Math.round(img.width * sc));
+    const h = Math.max(1, Math.round(img.height * sc));
+    const c = document.createElement("canvas");
+    c.width = w; c.height = h;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    let x0 = 0, y0 = 0, x1 = w - 1, y1 = h - 1;
+    try {
+      const px = ctx.getImageData(0, 0, w, h).data;
+      const claro = (i: number) => px[i] > 236 && px[i + 1] > 236 && px[i + 2] > 236;
+      const linhaBranca = (y: number) => { for (let x = 0; x < w; x++) if (!claro((y * w + x) * 4)) return false; return true; };
+      const colBranca = (x: number) => { for (let y = 0; y < h; y++) if (!claro((y * w + x) * 4)) return false; return true; };
+      while (y0 < y1 && linhaBranca(y0)) y0++;
+      while (y1 > y0 && linhaBranca(y1)) y1--;
+      while (x0 < x1 && colBranca(x0)) x0++;
+      while (x1 > x0 && colBranca(x1)) x1--;
+    } catch { /* sem leitura de pixel: usa a imagem inteira */ }
+
+    const lw = Math.max(1, x1 - x0 + 1);
+    const lh = Math.max(1, y1 - y0 + 1);
+    const out = document.createElement("canvas");
+    out.width = lw; out.height = lh;
+    out.getContext("2d")?.drawImage(c, x0, y0, lw, lh, 0, 0, lw, lh);
+    return out.toDataURL("image/png");
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { userId: string; onClose: () => void; brief?: EstudioBrief | null; arteInicial?: string | null }) {
   const { toast } = useToast();
   const { status, loading: subLoading } = useSubscription(userId);
@@ -50,17 +162,27 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   // Foto de referência anexada pelo PRÓPRIO vendedor (opcional, só inspiração de estilo)
   const [refUser, setRefUser] = useState<{ b64: string; preview: string } | null>(null);
   const [pixKey, setPixKey] = useState("");
+  const [pixSalva, setPixSalva] = useState("");
   const [merchantName, setMerchantName] = useState("");
   const [merchantCity, setMerchantCity] = useState("");
   // Arte pode chegar pronta do CHAT (a IA gerou na conversa; aqui só encaixa o QR e baixa)
   const [arte, setArte] = useState<string | null>(arteInicial ?? null);
+  // Mesma arte convertida pra data URL: sem isso o navegador bloqueia ler os pixels
+  // (pra achar a área branca) e exportar o PNG, porque a imagem vem de outro domínio.
+  const [arteData, setArteData] = useState<string | null>(null);
   const [gerando, setGerando] = useState(false);
   const [fraseIdx, setFraseIdx] = useState(0);
   const [exportando, setExportando] = useState(false);
 
+  // De onde vem o QR: da chave Pix (gerado pelo Orbis) ou de uma imagem que ele subiu
+  const [qrModo, setQrModo] = useState<"chave" | "imagem">("chave");
+  const [qrImg, setQrImg] = useState<string | null>(null);
+  const [encaixou, setEncaixou] = useState(false);
+
   // QR arrastável sobre a arte (posição em % pra sobreviver ao redimensionamento)
   const [qrPos, setQrPos] = useState({ x: 62, y: 68 }); // canto inferior direito (área reservada)
   const [qrTam, setQrTam] = useState(26); // % da largura
+  const areaRef = useRef<{ x: number; y: number; tam: number } | null>(null);
   const artRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ ativo: boolean; offX: number; offY: number }>({ ativo: false, offX: 0, offY: 0 });
 
@@ -78,11 +200,60 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
       .then(({ data }: { data: Record<string, string | null> | null }) => {
         if (!data) return;
         setPixKey(data.pix_key || "");
+        setPixSalva(data.pix_key || "");
         setMerchantName(data.pix_merchant_name || data.nickname || "");
         setMerchantCity(data.pix_merchant_city || data.city || "SAO PAULO");
         if (data.what_i_sell) setProduto((p) => p || data.what_i_sell || "");
       });
   }, [userId, briefMode]);
+
+  // Baixa a arte e vira data URL (libera leitura de pixels + exportação sem CORS)
+  useEffect(() => {
+    if (!arte) { setArteData(null); return; }
+    if (arte.startsWith("data:")) { setArteData(arte); return; }
+    let cancelado = false;
+    (async () => {
+      try {
+        const r = await fetch(arte, { cache: "no-store" });
+        const blob = await r.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(String(fr.result));
+          fr.onerror = () => reject(new Error("leitura"));
+          fr.readAsDataURL(blob);
+        });
+        if (!cancelado) setArteData(dataUrl);
+      } catch {
+        if (!cancelado) setArteData(arte); // segue mostrando; o encaixe automático fica off
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [arte]);
+
+  // Encaixe automático: assim que a arte carrega, o QR vai pro quadrado branco sozinho
+  const encaixarNoQuadrado = useCallback(() => {
+    const a = areaRef.current;
+    if (!a) {
+      toast({ title: "Não achei o quadrado branco", description: "Arrasta o QR até ele e ajusta o tamanho — funciona igual." });
+      return;
+    }
+    setQrPos({ x: a.x, y: a.y });
+    setQrTam(a.tam);
+  }, [toast]);
+
+  useEffect(() => {
+    if (!arteData) return;
+    let cancelado = false;
+    (async () => {
+      const a = await acharAreaBranca(arteData);
+      if (cancelado || !a) return;
+      areaRef.current = a;
+      setQrPos({ x: a.x, y: a.y });
+      setQrTam(a.tam);
+      setEncaixou(true);
+    })();
+    return () => { cancelado = true; };
+  }, [arteData]);
 
   // Anexa a foto de referência do vendedor: reduz pra <=1024px e comprime (JPEG)
   const onRefFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,6 +280,22 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     img.src = url;
   };
 
+  // Sobe a IMAGEM do QR (print do banco, foto do papel, PNG que ele já tem)
+  const onQrFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const pronto = await prepararQrEnviado(f);
+    if (!pronto) {
+      toast({ title: "Não consegui ler essa imagem", description: "Tenta um print ou foto mais nítida do QR.", variant: "destructive" });
+      return;
+    }
+    setQrImg(pronto);
+    setQrModo("imagem");
+    if (areaRef.current) { setQrPos({ x: areaRef.current.x, y: areaRef.current.y }); setQrTam(areaRef.current.tam); }
+    toast({ title: "QR carregado", description: "Encaixei ele no quadrado branco — confere e ajusta se quiser." });
+  };
+
   // Mensagens de progresso enquanto a IA desenha (a geração leva 30–60s)
   useEffect(() => {
     if (!gerando) { setFraseIdx(0); return; }
@@ -119,6 +306,18 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   const payloadPix = pixKey.trim()
     ? generatePixPayload({ pixKey: pixKey.trim(), merchantName: merchantName || marca || "VENDEDOR", merchantCity: merchantCity || "SAO PAULO" })
     : "";
+  const temQr = qrModo === "imagem" ? !!qrImg : !!payloadPix;
+
+  // Guarda a chave no perfil pra ele nunca mais digitar
+  const salvarPix = async () => {
+    const k = pixKey.trim();
+    if (!k || k === pixSalva) return;
+    try {
+      await sb.from("profiles").update({ pix_key: k }).eq("user_id", userId);
+      setPixSalva(k);
+      toast({ title: "Chave Pix salva", description: "Da próxima vez o QR já vem pronto." });
+    } catch { /* não trava o fluxo por causa disso */ }
+  };
 
   const gerar = async () => {
     if (!marca.trim() || !produto.trim() || (!modelo && !brief?.estilo && !refUser)) {
@@ -144,6 +343,8 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
         toast({ title: "Ops", description: msg, variant: "destructive" });
         return;
       }
+      areaRef.current = null;
+      setEncaixou(false);
       setArte(`data:${(data as any).mime};base64,${(data as any).imagem}`);
       setQrPos({ x: 62, y: 68 });
     } catch {
@@ -175,8 +376,13 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
 
   const baixar = async () => {
     if (!artRef.current) return;
+    if (!temQr) {
+      toast({ title: "Falta o QR", description: "Coloca tua chave Pix ou sobe a imagem do teu QR antes de baixar.", variant: "destructive" });
+      return;
+    }
     setExportando(true);
     try {
+      await salvarPix();
       const png = await toPng(artRef.current, { pixelRatio: 3, cacheBust: true });
       const a = document.createElement("a");
       a.href = png;
@@ -202,7 +408,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
           <div>
             <span className="font-bold text-sm tracking-[0.12em] text-primary">ESTÚDIO DE MARCA</span>
             <p className="text-xs text-muted-foreground">
-              {arte ? "Posicione seu QR Pix e baixe" : briefMode ? "Confere o briefing da conversa e gera" : modelo ? "Me conta sobre a sua marca" : "Escolha um estilo de adesivo"}
+              {arte ? "Encaixe seu QR Pix e baixe" : briefMode ? "Confere o briefing da conversa e gera" : modelo ? "Me conta sobre a sua marca" : "Escolha um estilo de adesivo"}
             </p>
           </div>
         </div>
@@ -244,15 +450,15 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
           </p>
         </div>
       ) : arte ? (
-        /* ===== PASSO 3: arte gerada + QR real arrastável ===== */
+        /* ===== EDITOR: arte pronta + QR real encaixado no quadrado branco ===== */
         <div className="max-w-md mx-auto p-4 space-y-4 pb-safe">
           <div
             ref={artRef}
             className="relative w-full rounded-2xl overflow-hidden select-none border border-border shadow-lg"
             style={{ touchAction: "none" }}
           >
-            <img src={arte} alt="Adesivo gerado" className="w-full block" draggable={false} />
-            {payloadPix && (
+            <img src={arteData ?? arte} alt="Adesivo gerado" className="w-full block" draggable={false} />
+            {temQr && (
               <div
                 onPointerDown={iniciarDrag}
                 onPointerMove={moverDrag}
@@ -266,29 +472,95 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
                   cursor: "grab", boxShadow: "0 2px 10px rgba(0,0,0,.35)",
                 }}
               >
-                <QRCodeSVG value={payloadPix} style={{ width: "100%", height: "100%" }} level="M" />
+                {qrModo === "imagem" && qrImg ? (
+                  <img src={qrImg} alt="Seu QR Pix" style={{ width: "100%", display: "block" }} draggable={false} />
+                ) : (
+                  <QRCodeSVG value={payloadPix} style={{ width: "100%", height: "100%" }} level="M" />
+                )}
               </div>
             )}
           </div>
 
+          {/* Escolha da fonte do QR: chave Pix (recomendado) ou imagem que ele já tem */}
           <div className="rounded-2xl border border-border bg-card p-3 space-y-3">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <Move className="w-4 h-4 shrink-0 text-primary" />
-              <span className="flex-1">Arrasta o QR pra área branca. Tamanho:</span>
-              <input
-                type="range" min={16} max={40} value={qrTam}
-                onChange={(e) => setQrTam(+e.target.value)}
-                className="w-28 accent-primary" aria-label="Tamanho do QR code"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button" onClick={() => setQrModo("chave")}
+                className={`h-10 rounded-xl border text-xs font-medium transition-colors ${qrModo === "chave" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+              >
+                <QrCode className="w-4 h-4 inline mr-1.5 -mt-0.5" />Gerar da minha chave
+              </button>
+              <button
+                type="button" onClick={() => setQrModo("imagem")}
+                className={`h-10 rounded-xl border text-xs font-medium transition-colors ${qrModo === "imagem" ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/50"}`}
+              >
+                <ImagePlus className="w-4 h-4 inline mr-1.5 -mt-0.5" />Subir meu QR
+              </button>
             </div>
-            {!payloadPix && (
-              <div className="text-xs text-warning bg-warning/10 border border-warning/30 rounded-lg p-3">
-                Cadastre sua chave Pix no perfil (ou preencha na tela anterior) pro QR real aparecer aqui.
+
+            {qrModo === "chave" ? (
+              <div className="space-y-1.5">
+                <label htmlFor="edt-pix" className="text-xs font-medium text-muted-foreground">Sua chave Pix</label>
+                <Input
+                  id="edt-pix" value={pixKey} onBlur={salvarPix}
+                  onChange={(e) => setPixKey(e.target.value.slice(0, 77))}
+                  placeholder="celular, e-mail, CPF ou aleatória" className="h-11"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {payloadPix
+                    ? "QR gerado pelo Orbis — escaneável garantido, com seu nome no comprovante."
+                    : "Digita a chave e o QR aparece na hora na arte."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {qrImg ? (
+                  <div className="flex items-center gap-3">
+                    <img src={qrImg} alt="QR enviado" className="w-14 h-14 rounded-lg bg-white object-contain p-1" />
+                    <p className="text-xs text-muted-foreground flex-1">Teu QR entrou na arte. Arrasta e ajusta o tamanho se precisar.</p>
+                    <Button variant="ghost" size="icon" onClick={() => setQrImg(null)} aria-label="Remover QR">
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 h-11 rounded-xl border border-dashed border-border text-sm text-muted-foreground cursor-pointer hover:border-primary/50 transition-colors">
+                    <ImagePlus className="w-4 h-4" /> Escolher a imagem do meu QR
+                    <input type="file" accept="image/*" className="hidden" onChange={onQrFile} />
+                  </label>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Serve print do banco ou foto do papel — eu corto a borda branca sozinho. Confere se ele
+                  fica nítido antes de imprimir.
+                </p>
               </div>
             )}
           </div>
 
-          <Button onClick={baixar} disabled={exportando} className="w-full h-11 bg-gradient-primary">
+          {/* Ajuste fino */}
+          {temQr && (
+            <div className="rounded-2xl border border-border bg-card p-3 space-y-3">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <Move className="w-4 h-4 shrink-0 text-primary" />
+                <span className="flex-1">Arrasta o QR na arte. Tamanho:</span>
+                <input
+                  type="range" min={10} max={50} value={Math.round(qrTam)}
+                  onChange={(e) => setQrTam(+e.target.value)}
+                  className="w-28 accent-primary" aria-label="Tamanho do QR code"
+                />
+              </div>
+              <Button variant="outline" onClick={encaixarNoQuadrado} className="w-full h-10">
+                <Crosshair className="w-4 h-4 mr-2" />
+                Encaixar no quadrado branco
+              </Button>
+              {encaixou && (
+                <p className="text-xs text-muted-foreground text-center">
+                  Já encaixei ele no espaço reservado — mexe só se quiser.
+                </p>
+              )}
+            </div>
+          )}
+
+          <Button onClick={baixar} disabled={exportando || !temQr} className="w-full h-11 bg-gradient-primary">
             {exportando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             Baixar PNG pra gráfica
           </Button>
@@ -402,7 +674,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             </div>
             <div className="space-y-1.5">
               <label htmlFor="est-pix" className="text-xs font-medium text-muted-foreground">Sua chave Pix (pro QR real)</label>
-              <Input id="est-pix" value={pixKey} onChange={(e) => setPixKey(e.target.value.slice(0, 77))} placeholder="celular, e-mail, CPF ou aleatória" className="h-11" />
+              <Input id="est-pix" value={pixKey} onBlur={salvarPix} onChange={(e) => setPixKey(e.target.value.slice(0, 77))} placeholder="celular, e-mail, CPF ou aleatória" className="h-11" />
             </div>
           </div>
 
