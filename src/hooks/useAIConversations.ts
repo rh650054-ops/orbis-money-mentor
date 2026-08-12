@@ -113,7 +113,7 @@ export const useAIConversations = () => {
     await loadConversations();
   }, [user, activeId, loadConversations]);
 
-  const sendMessage = useCallback(async (text: string) => {
+  const sendMessage = useCallback(async (text: string, opts?: { voz?: boolean }) => {
     if (!user || !text.trim()) return;
     let convId = activeId;
 
@@ -174,7 +174,7 @@ export const useAIConversations = () => {
       let chatAction: { tipo: string; dados?: Record<string, string> } | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data, error } = await supabase.functions.invoke("bright-action", {
-          body: { messages: history, context: userContext },
+          body: { messages: history, context: userContext, voz: !!opts?.voz },
         });
         if (!error && data?.success && data?.message) {
           chatMessage = data.message as string;

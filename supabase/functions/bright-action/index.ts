@@ -153,6 +153,18 @@ MODO CONVERSA (regras extras, valem acima de tudo):
 - PROIBIDO escrever JSON, código ou simular "chamada de ferramenta" no texto da conversa.
 - ADESIVO: quem desenha é a ferramenta criar_adesivo — a imagem aparece DIRETO na conversa. Quando o vendedor pedir pra gerar e o briefing estiver completo, CHAME a ferramenta na hora; NUNCA mande ele pra uma "tela de geração" (não existe mais) e NUNCA diga que a arte foi gerada sem a ferramenta ter rodado nesta conversa. Se você estiver num modo sem ferramentas, apenas colete o briefing e diga que vai desenhar em instantes.`;
 
+// Regras extras SÓ pro MODO VOZ. Resposta falada não é resposta escrita: no texto
+// o vendedor lê no ritmo dele e pula o que não interessa; no áudio ele fica PARADO
+// ouvindo tudo. Resposta longa por voz é chata, não é completa.
+const VOZ_EXTRA = `
+
+MODO VOZ (esta resposta vai ser FALADA em voz alta — regras acima de qualquer outra):
+- NO MÁXIMO 2 frases curtas. Uma é melhor ainda. Se não couber em 2 frases, escolhe a parte mais útil e fala só ela.
+- Escreva como se fala, não como se escreve: sem lista, sem tópico, sem número de item, sem título, sem sigla, sem símbolo.
+- Números por extenso do jeito que a boca fala: "trezentos e vinte reais", não "R$ 320,00".
+- Vai direto ao ponto na PRIMEIRA frase. Nada de "boa pergunta", "deixa eu ver", "então", "olha só" antes de responder.
+- Se precisar de mais informação, faz UMA pergunta curta e para.`;
+
 // ---- Helpers de audio: o Gemini TTS devolve PCM cru; o navegador toca WAV ----
 function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
   const numChannels = 1, bitsPerSample = 16;
@@ -639,13 +651,18 @@ Deno.serve(async (req) => {
         if (okey) {
           const oModel = Deno.env.get("OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts";
           const oVoice = Deno.env.get("OPENAI_TTS_VOICE") ?? "onyx";
+          // ATENÇÃO ao mexer aqui: a 1a versão pedia "ritmo pausado, quase
+          // confidencial" e speed 0.95 — e o resultado ficou ARRASTADO e sem vida.
+          // Jarvis é SEGURO E DIRETO, não devagar. Velocidade de conversa normal,
+          // grave, sem sobrar tempo entre as palavras.
           const oInstr = Deno.env.get("OPENAI_TTS_INSTRUCTIONS") ??
-            "Fale em português do Brasil com voz grave, calma e firme. Ritmo pausado, " +
-            "quase confidencial, como um copiloto experiente falando perto do ouvido de " +
-            "quem está trabalhando. Segurança tranquila, nunca euforia de locutor de rádio " +
-            "nem entonação de propaganda. Frases terminadas com convicção, sem subir o tom " +
-            "no fim. Pausas curtas entre as ideias. Naturalidade acima de tudo.";
-          const oSpeed = Number(Deno.env.get("OPENAI_TTS_SPEED") ?? "0.95");
+            "Fale português do Brasil como um parceiro experiente falando com um amigo, " +
+            "em velocidade NORMAL de conversa — nem devagar, nem arrastado, nem soletrando. " +
+            "Voz grave e próxima, segura, com energia contida. Entonação viva de fala real: " +
+            "varie o tom naturalmente dentro da frase, sem ficar monótono. Nada de tom de " +
+            "locutor, narração ou propaganda. Emende as palavras como gente conversando " +
+            "rápido e tranquilo ao mesmo tempo. Direto ao ponto.";
+          const oSpeed = Number(Deno.env.get("OPENAI_TTS_SPEED") ?? "1.08");
           const body2: Record<string, unknown> = {
             model: oModel, voice: oVoice, input: text, response_format: "mp3", speed: oSpeed,
           };
@@ -838,7 +855,11 @@ Deno.serve(async (req) => {
         // o melhor modelo. O dia a dia do mentor segue no Sonnet (bem mais barato).
         const conversaTxt = messages.slice(-6).map((m: any) => String(m?.content ?? "")).join(" ").toLowerCase();
         const criativa = /adesivo|marca|logo|r[óo]tulo|criar nome|nome pra|nome para/.test(conversaTxt);
-        const amodel = criativa
+        // MODO VOZ: o vendedor está PARADO esperando o som sair. Cada segundo pesa
+        // dez vezes mais do que no texto, onde ele lê no próprio ritmo. Por isso a
+        // voz NUNCA usa o Opus (o modelo mais lento), nem em conversa de marca.
+        const modoVoz = body?.voz === true;
+        const amodel = (criativa && !modoVoz)
           ? (Deno.env.get("ANTHROPIC_MODEL_CRIATIVO") ?? "claude-opus-5")
           : (Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5");
         const ahist = messages.slice(-8).map((m: any) => ({
@@ -862,7 +883,9 @@ Deno.serve(async (req) => {
                 body: JSON.stringify({
                   model: amodel,
                   // Sobra pro raciocinio interno do Opus (thinking) + a resposta.
-                  max_tokens: 1600,
+                  // No modo voz o teto é menor: texto longo = espera longa, porque
+                  // cada frase ainda precisa virar áudio depois.
+                  max_tokens: modoVoz ? 500 : 1600,
                   // NAO mandar "temperature": os modelos claude-sonnet-5/opus-5 rejeitam
                   // com 400 ("temperature is deprecated for this model"). Era ISSO que
                   // derrubava TODA conversa pro reserva gratuito (que inventava nome e
@@ -873,6 +896,7 @@ Deno.serve(async (req) => {
                   system: [
                     { type: "text", text: ORBIS_BRAIN + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES, cache_control: { type: "ephemeral" } },
                     ...(fullCtx ? [{ type: "text", text: fullCtx }] : []),
+                    ...(modoVoz ? [{ type: "text", text: VOZ_EXTRA }] : []),
                   ],
                   tools: AGENT_TOOLS,
                   messages: aMessages,

@@ -118,7 +118,7 @@ export default function FloatingChatButton() {
       const base = voiceMode ? "" : (input ? input.trim() + " " : "");
       if (voiceMode) setInput("");
       startRecFallback((text) => {
-        if (voiceModeRef.current) { sendMessage(text); setInput(""); }
+        if (voiceModeRef.current) { sendMessage(text, { voz: true }); setInput(""); }
         else setInput(base + text);
       });
       return;
@@ -421,7 +421,7 @@ export default function FloatingChatButton() {
     if (text === lastSentRef.current.t && agora - lastSentRef.current.ts < 8000) return; // duplicata
     lastSentRef.current = { t: text, ts: agora };
     setInput("");
-    sendMessage(text);
+    sendMessage(text, { voz: voiceModeRef.current });
   };
 
   const stopVoice = () => {
@@ -437,7 +437,7 @@ export default function FloatingChatButton() {
     if (!nativeSpeech) {
       stopSpeaking();
       setInput("");
-      startRecFallback((text) => { if (voiceModeRef.current) sendMessage(text); else setInput(text); });
+      startRecFallback((text) => { if (voiceModeRef.current) sendMessage(text, { voz: true }); else setInput(text); });
       return;
     }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
@@ -470,7 +470,10 @@ export default function FloatingChatButton() {
       pendingTextRef.current = full;
       setInput(full.trim());
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      if (full.trim()) silenceTimerRef.current = setTimeout(sendPending, 1500); // pausou ~1,5s: manda
+      // 900ms em vez de 1500: no modo voz esse silencio e tempo morto puro — o
+      // vendedor ja terminou de falar e esta so esperando. 900ms ainda absorve a
+      // pausa natural do meio da frase.
+      if (full.trim()) silenceTimerRef.current = setTimeout(sendPending, 900);
     };
     rec.onstart = () => { setIsRecording(true); isRecordingRef.current = true; };
     rec.onend = () => { setIsRecording(false); isRecordingRef.current = false; recognitionRef.current = null; };
