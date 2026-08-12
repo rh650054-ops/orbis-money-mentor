@@ -1,6 +1,6 @@
 // Orbis — bright-action (chat do mentor de rua, 100% Gemini)
 // Recebe { messages: [{ role, content }] } e devolve { success, message }.
-// Tambem aceita { tts } (voz do servidor: Gemini TTS oficial -> Edge -> StreamElements)
+// Tambem aceita { tts } (voz do servidor: OpenAI "Jarvis" -> Gemini -> Edge)
 // e { stt } (transcricao de audio pra navegador sem reconhecimento de voz).
 // FASE 1 do AGENTE: memoria permanente por vendedor (ai_memoria) — carrega no contexto
 // e aprende fatos novos apos cada resposta, em segundo plano.
@@ -622,10 +622,54 @@ Deno.serve(async (req) => {
       return json({ error: "stt_indisponivel" });
     }
 
-    // ===== VOZ (TTS): 1) Gemini TTS OFICIAL (estável, voz natural) -> 2) Edge -> 3) StreamElements =====
+    // ===== VOZ (TTS): 1) OpenAI (JARVIS) -> 2) Gemini -> 3) Edge -> voz do aparelho =====
+    // Medido em 11/08/2026 com o mesmo texto:
+    //   OpenAI gpt-4o-mini-tts "onyx" .... 1,3s / 126 KB (mp3)
+    //   Gemini 2.5 flash TTS "Charon" .... 4,2s / 410 KB (wav)  <- era o 1o da fila
+    //   StreamElements ................... 401 (morreu) -> removido da fila
+    // O mp3 é 3x menor: no 4G da rua isso é MAIS tempo economizado que o próprio
+    // tempo de geração. E só a OpenAI aceita "instructions" — é o que deixa a voz
+    // com a pegada Jarvis (grave, calma, sem euforia de locutor).
     if (body?.tts && typeof body.tts === "string" && body.tts.trim()) {
       const text = body.tts.slice(0, 1500);
-      // 1) Gemini TTS oficial — mesma chave do chat, sem gambiarra. Devolve PCM 24kHz -> WAV.
+
+      // 1) OpenAI — a voz principal do Orbis
+      try {
+        const okey = Deno.env.get("OPENAI_API_KEY");
+        if (okey) {
+          const oModel = Deno.env.get("OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts";
+          const oVoice = Deno.env.get("OPENAI_TTS_VOICE") ?? "onyx";
+          const oInstr = Deno.env.get("OPENAI_TTS_INSTRUCTIONS") ??
+            "Fale em português do Brasil com voz grave, calma e firme. Ritmo pausado, " +
+            "quase confidencial, como um copiloto experiente falando perto do ouvido de " +
+            "quem está trabalhando. Segurança tranquila, nunca euforia de locutor de rádio " +
+            "nem entonação de propaganda. Frases terminadas com convicção, sem subir o tom " +
+            "no fim. Pausas curtas entre as ideias. Naturalidade acima de tudo.";
+          const oSpeed = Number(Deno.env.get("OPENAI_TTS_SPEED") ?? "0.95");
+          const body2: Record<string, unknown> = {
+            model: oModel, voice: oVoice, input: text, response_format: "mp3", speed: oSpeed,
+          };
+          // "instructions" só existe nos modelos gpt-4o*-tts; tts-1 ignora/recusa.
+          if (oModel.startsWith("gpt-")) body2.instructions = oInstr;
+          const r = await fetch("https://api.openai.com/v1/audio/speech", {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${okey}` },
+            signal: AbortSignal.timeout(20000),
+            body: JSON.stringify(body2),
+          });
+          if (r.ok) {
+            const buf = new Uint8Array(await r.arrayBuffer());
+            if (buf.length > 800) return json({ audio: bytesToB64(buf), mime: "audio/mpeg", voz: `openai:${oVoice}` });
+            console.error("OpenAI TTS áudio vazio (cai pro Gemini)");
+          } else {
+            console.error("OpenAI TTS erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
+          }
+        }
+      } catch (e) {
+        console.error("OpenAI TTS falhou (cai pro Gemini):", String(e).slice(0, 200));
+      }
+
+      // 2) Gemini TTS oficial — mesma chave do chat. Devolve PCM 24kHz -> WAV.
       try {
         const key = Deno.env.get("GEMINI_API_KEY");
         if (key) {
@@ -652,7 +696,7 @@ Deno.serve(async (req) => {
               const rateMatch = /rate=(\d+)/.exec(part.inlineData.mimeType ?? "");
               const rate = rateMatch ? parseInt(rateMatch[1]) : 24000;
               const wav = pcmToWav(b64ToBytes(part.inlineData.data), rate);
-              return json({ audio: bytesToB64(wav), mime: "audio/wav" });
+              return json({ audio: bytesToB64(wav), mime: "audio/wav", voz: "gemini" });
             }
             console.error("Gemini TTS sem áudio na resposta (cai pro Edge)");
           } else {
@@ -662,34 +706,21 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error("Gemini TTS falhou (cai pro Edge):", String(e).slice(0, 200));
       }
-      // 2) Edge TTS (neural, grave estilo JARVIS) — grátis, sem chave (endpoint não-oficial)
+      // 3) Edge TTS (neural, grave) — grátis, sem chave (endpoint não-oficial)
       try {
         const voice = Deno.env.get("EDGE_TTS_VOICE") ?? "pt-BR-AntonioNeural";
         const pitch = Deno.env.get("EDGE_TTS_PITCH") ?? "-5Hz";
         const rate = Deno.env.get("EDGE_TTS_RATE") ?? "-3%";
         const volume = Deno.env.get("EDGE_TTS_VOLUME") ?? "+0%";
         const audio = await edgeTTS(text, voice, pitch, rate, volume);
-        if (audio.length > 800) return json({ audio: bytesToB64(audio), mime: "audio/mpeg" });
-        console.error("Edge TTS vazio (cai pro StreamElements)");
+        if (audio.length > 800) return json({ audio: bytesToB64(audio), mime: "audio/mpeg", voz: "edge" });
+        console.error("Edge TTS vazio (cai pra voz do aparelho)");
       } catch (e) {
-        console.error("Edge TTS falhou (cai pro StreamElements):", String(e).slice(0, 200));
+        console.error("Edge TTS falhou (cai pra voz do aparelho):", String(e).slice(0, 200));
       }
-      // 3) Fallback: StreamElements (Amazon Polly) — HTTP simples, grátis
-      try {
-        const seVoice = Deno.env.get("SE_TTS_VOICE") ?? "Ricardo";
-        const r = await fetch(
-          `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text)}`,
-          { signal: AbortSignal.timeout(15000) },
-        );
-        if (r.ok) {
-          const buf = new Uint8Array(await r.arrayBuffer());
-          if (buf.length > 800) return json({ audio: bytesToB64(buf), mime: "audio/mpeg" });
-        } else {
-          console.error("StreamElements TTS erro", r.status);
-        }
-      } catch (e) {
-        console.error("StreamElements TTS falhou:", String(e).slice(0, 200));
-      }
+      // O StreamElements (Amazon Polly) saiu da fila: passou a devolver 401 em
+      // 11/08/2026 — endpoint não-oficial que fechou. Ficava só gastando ~15s de
+      // espera antes de cair na voz do aparelho.
       return json({ error: "tts_indisponivel" }); // o app cai na voz do aparelho sozinho
     }
 

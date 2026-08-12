@@ -307,7 +307,11 @@ export default function FloatingChatButton() {
     const chunks: string[] = [];
     let cur = "";
     for (const s of sentences) {
-      if (cur && (cur + s).length > 160) { chunks.push(cur.trim()); cur = s; }
+      // O PRIMEIRO pedaço é curto de propósito: é o que define quanto tempo o
+      // vendedor fica no silêncio olhando pro celular. Os seguintes são maiores
+      // (menos chamadas) porque já estão sendo gerados enquanto o 1º toca.
+      const teto = chunks.length === 0 ? 90 : 220;
+      if (cur && (cur + s).length > teto) { chunks.push(cur.trim()); cur = s; }
       else cur += s;
     }
     if (cur.trim()) chunks.push(cur.trim());
@@ -355,8 +359,14 @@ export default function FloatingChatButton() {
 
     let anyOk = false;
     for (let i = 0; i < jobs.length; i++) {
-      const src = await jobs[i];
+      let src = await jobs[i];
       if (myToken !== ttsTokenRef.current) return; // interrompida por fala nova
+      // Pedaço do MEIO que falhou: tenta uma vez mais antes de desistir. Sem isso a
+      // IA pulava uma frase no meio da fala e o vendedor ouvia um "nada com nada".
+      if (!src && anyOk) {
+        src = await fetchTTS(chunks[i]);
+        if (myToken !== ttsTokenRef.current) return;
+      }
       if (src) {
         anyOk = true;
         voiceEngineRef.current = "gemini";
@@ -365,6 +375,11 @@ export default function FloatingChatButton() {
         if (!ok && !anyOk) break; // nem tocar deu: cai pro navegador
       } else if (!anyOk) {
         break; // 1º pedaço já falhou: cai pro navegador com o texto inteiro
+      } else {
+        // 2ª tentativa também falhou: termina o resto na voz do aparelho em vez
+        // de engolir metade da resposta.
+        speakBrowser(chunks.slice(i).join(" "));
+        return;
       }
     }
 
