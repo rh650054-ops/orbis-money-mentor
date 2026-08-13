@@ -113,8 +113,13 @@ export const useAIConversations = () => {
     await loadConversations();
   }, [user, activeId, loadConversations]);
 
-  const sendMessage = useCallback(async (text: string, opts?: { voz?: boolean }) => {
-    if (!user || !text.trim()) return;
+  // opts.attach: imagem opcional (foto pro QR/adesivo OU um print pra IA analisar).
+  // opts.mode: qual "modo Orbis" está ativo (vendas, negociacao, mercadoria, ideias, design, foto, livre).
+  // opts.voz: veio do modo voz (o servidor ajusta a resposta pra ser falada).
+  const sendMessage = useCallback(async (text: string, opts?: { attach?: { b64: string; mime: string } | null; mode?: string; voz?: boolean }) => {
+    const attach = opts?.attach ?? null;
+    if (!user || (!text.trim() && !attach)) return;
+    const displayText = text.trim() || "📷 Imagem enviada";
     let convId = activeId;
 
     // Auto-create conversation if none active
@@ -130,7 +135,7 @@ export const useAIConversations = () => {
     const tempUser: AIMessage = {
       id: `temp-${Date.now()}`,
       role: "user",
-      content: text,
+      content: displayText,
       created_at: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, tempUser]);
@@ -139,7 +144,7 @@ export const useAIConversations = () => {
       // Persist user message
       const { data: insertedUser } = await supabase
         .from("ai_messages")
-        .insert({ conversation_id: convId, user_id: user.id, role: "user", content: text })
+        .insert({ conversation_id: convId, user_id: user.id, role: "user", content: displayText })
         .select()
         .single();
       if (insertedUser) {
@@ -148,13 +153,15 @@ export const useAIConversations = () => {
 
       // If first message, set title from text (first 40 chars)
       const conv = conversations.find((c) => c.id === convId);
-      if (conv && conv.title === "Nova conversa") {
+      if (conv && conv.title === "Nova conversa" && text.trim()) {
         const newTitle = text.slice(0, 40) + (text.length > 40 ? "..." : "");
         await renameConversation(convId, newTitle);
       }
 
       // Build conversation history for AI
       const history = [...messages, tempUser].map((m) => ({ role: m.role, content: m.content }));
+      // Imagem do turno atual (não vai no histórico persistido — só neste envio).
+      const image = attach ? { b64: attach.b64, mime: attach.mime || "image/jpeg" } : undefined;
 
       // Contexto com os números reais do vendedor (cache de 3 min pra não pesar a cada msg)
       let userContext = "";
@@ -174,7 +181,7 @@ export const useAIConversations = () => {
       let chatAction: { tipo: string; dados?: Record<string, string> } | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data, error } = await supabase.functions.invoke("bright-action", {
-          body: { messages: history, context: userContext, voz: !!opts?.voz },
+          body: { messages: history, context: userContext, image, mode: opts?.mode || "livre", voz: !!opts?.voz },
         });
         if (!error && data?.success && data?.message) {
           chatMessage = data.message as string;

@@ -78,7 +78,14 @@ Deno.serve(async (req) => {
     const refUserB64 = typeof body?.ref_b64 === "string" ? body.ref_b64 : "";
     const refUserMime = String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg";
     if (refUserB64.length > 3_000_000) return json({ error: "referencia_grande" });
-    if (!marca || !produto || (!modeloId && !estilo && !refUserB64)) return json({ error: "dados_incompletos" });
+    // tipo "foto" = MELHORAR a foto real do produto (luz/contraste, sem virar arte de IA).
+    // tipo "adesivo" (padrão) = criar o adesivo/QR da marca.
+    const tipo = String(body?.tipo ?? "adesivo") === "foto" ? "foto" : "adesivo";
+    if (tipo === "foto") {
+      if (!refUserB64) return json({ error: "sem_foto" });
+    } else if (!marca || !produto || (!modeloId && !estilo && !refUserB64)) {
+      return json({ error: "dados_incompletos" });
+    }
 
     let modelo: { nome?: unknown; descricao?: unknown; imagem_url?: unknown; imagem_b64?: unknown } | null = null;
     if (modeloId) {
@@ -122,20 +129,49 @@ Deno.serve(async (req) => {
       return json({ imagem, mime, provedor, geracao_id: geracaoId, marca_dagua: marcaDagua, plano: pagante ? "pagante" : "trial" });
     };
 
-    const estiloDesc = modelo ? `${modelo.nome}: ${modelo.descricao}` : (estilo || "estilo livre, bonito e profissional");
-    const prompt = `Você é um designer profissional de adesivos e rótulos para vendedores ambulantes brasileiros.
-${refB64 ? "A imagem anexa é APENAS uma REFERÊNCIA de estilo, composição e clima" : "Estilo de referência"} (${estiloDesc}).
-Crie um adesivo NOVO e ORIGINAL nesse mesmo estilo, em orientação vertical (proporção 3:4), para:
-- Marca: "${marca}" (escreva EXATAMENTE assim, com destaque)
-- Produto: ${produto}
-${cores ? `- Cores da marca: ${cores}` : ""}
-${extras ? `- Detalhes pedidos pelo vendedor: ${extras}` : ""}
+    const estiloDesc = modelo ? `${modelo.nome}: ${modelo.descricao}` : (estilo || "");
+    const temFoto = !!refB64;
 
-REGRAS OBRIGATÓRIAS:
-1. Todo texto em português do Brasil, com ortografia PERFEITA. Use pouco texto: o nome da marca, no máximo um slogan curto, e o título "PAGUE COM PIX" ou "PAGUE COM CONFIANÇA".
-2. Reserve uma ÁREA QUADRADA TOTALMENTE BRANCA E VAZIA (sem nada dentro, sem moldura interna, sem QR desenhado) ocupando cerca de 25% da largura, na parte inferior direita do adesivo — é onde o aplicativo vai colocar o QR code verdadeiro.
-3. NÃO desenhe QR code, não desenhe código de barras, não copie textos, contatos, nomes de marca nem personagens da imagem de referência — ela é só inspiração de estilo; a arte deve ser original.
-4. Arte apetitosa/simpática de altíssima qualidade, digna de gráfica profissional.`;
+    // ===== MODO FOTO: melhorar a foto REAL do produto (sem virar arte de IA) =====
+    const promptFoto = `Você é um RETOCADOR de fotografia gastronômica/de produto — NÃO um gerador de imagens. Sua tarefa é FAZER RETOQUE FOTOGRÁFICO na foto REAL anexa, como um fotógrafo profissional faria no Lightroom, entregando uma versão vertical (proporção 4:5, formato Instagram).
+
+O QUE FAZER (retoque leve e realista):
+- Corrija a iluminação: clareie sombras pesadas, equilibre a exposição, dê um brilho natural e apetitoso.
+- Ajuste contraste, nitidez e cor com naturalidade (cores fiéis ao produto real — nada saturado/plástico).
+- Limpe distrações discretas do fundo (migalhas fora do lugar, reflexo feio, um cabo de tomada), MAS mantenha o cenário real.
+- Se a foto estiver torta, endireite; se houver muito espaço vazio, aproxime levemente o enquadramento no produto.
+${estilo ? `- Direção do vendedor: ${estilo}` : ""}
+
+REGRAS DE OURO (o mais importante):
+1. É a MESMA foto, o MESMO produto real — NÃO redesenhe, NÃO gere um produto novo, NÃO troque formato, recheio, cor ou textura. Cada detalhe do produto (imperfeições, formato irregular, cobertura) tem que continuar igualzinho. A pessoa precisa reconhecer que é a foto DELA.
+2. Resultado tem que parecer FOTOGRAFIA REAL tirada por um bom celular — NUNCA com aquela cara de "imagem de IA" (pele/comida lisa demais, brilho plástico, luz irreal, fundo perfeito demais). Se ficar com cara de IA, você errou.
+3. Preserve a autenticidade: pode manter uma pequena imperfeição real (uma borda irregular, uma gota) — é isso que faz o cliente confiar e comprar.
+4. Sem texto, sem logo, sem moldura, sem adesivo. Só a foto do produto, melhor iluminada e enquadrada.`;
+
+    const promptAdesivo = `Você é o designer especialista nos adesivos "PAGUE COM PIX" dos vendedores ambulantes brasileiros — aquele estilo de CARICATURA cartoon do vendedor ao lado de um QR do Pix, com letreiro desenhado à mão. Crie um adesivo NOVO e ORIGINAL nesse estilo, orientação vertical/quadrada, acabamento de gráfica profissional.
+
+PERSONAGEM (à esquerda, meio corpo, sorrindo):
+${temFoto
+  ? `- Transforme a PESSOA da foto anexa numa CARICATURA cartoon vetorial simpática (traço limpo, cores chapadas, estilo desenho brasileiro). Mantenha FIEL: rosto, cor de pele, cabelo, barba/óculos e o sorriso dela. Ela acena OU segura o produto. É o personagem central.`
+  : `- Um(a) vendedor(a) cartoon simpático(a), acenando ou segurando o produto.`}
+
+ELEMENTOS OBRIGATÓRIOS (padrão desses adesivos):
+- Título grande em LETREIRO desenhado à mão: "PAGUE COM PIX", com tracinhos/raios decorativos e uma SETA curva apontando pra área do QR.
+- Um BALÃO DE FALA saindo do personagem com UMA frase curta e emocional${extras ? `. Se fizer sentido, use algo do que o vendedor pediu: "${String(extras).slice(0, 90)}"` : ` (ex.: "Seu apoio transforma meu sonho em realidade")`}.
+- Nome da marca "${marca}" com tipografia bonita e destaque.
+- FAIXA inferior colorida com um slogan curto de propósito (ex.: "Mais do que um produto, entregamos propósito").
+- Linha de contato pequena embaixo (ícones de WhatsApp e Instagram). Deixe os textos de telefone/@ genéricos se não forem informados.
+
+Produto vendido: ${produto}.
+Cores/clima: ${cores || "paleta alegre e apetitosa que combine com o produto"}.${estiloDesc ? ` Vibe: ${estiloDesc}.` : ""}
+
+REGRAS DE OURO:
+1. Todo texto em português do Brasil, ortografia PERFEITA — confira cada palavra (é o erro nº1 nessas artes).
+2. Reserve uma ÁREA CLARA (fundo branco/bem claro), retangular, ocupando ~35% da largura no LADO DIREITO, na altura do meio, TOTALMENTE VAZIA — sem moldura interna, sem QR, sem código de barras. É onde o app encaixa o QR do Pix REAL depois; a seta do "PAGUE COM PIX" deve apontar pra ela.
+3. NUNCA desenhe QR code nem código de barras (quebra a leitura). Não copie marca, contato nem personagem de nenhuma referência de estilo — arte 100% original.
+4. Nítido, vetorial, bem acabado, digno de gráfica.`;
+
+    const prompt = tipo === "foto" ? promptFoto : promptAdesivo;
 
     // ===== 1) GEMINI (precisa de billing ativado na conta Google) =====
     const gkey = Deno.env.get("GEMINI_API_KEY");

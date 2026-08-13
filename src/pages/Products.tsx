@@ -15,6 +15,7 @@ import {
   Star,
   ShoppingCart,
   ChefHat,
+  Calculator,
 } from "lucide-react";
 import IngredientsManager from "@/components/products/IngredientsManager";
 import RecipeEditor, { type RecipeItem } from "@/components/products/RecipeEditor";
@@ -44,6 +45,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { generatePixPayload } from "@/shared/lib/pix-code";
 import { BRAZILIAN_BANKS, getBankById } from "@/shared/lib/brazilian-banks";
+import CalculadoraPreco from "@/components/estudio/CalculadoraPreco";
 
 interface Product {
   id: string;
@@ -125,6 +127,7 @@ export default function Products() {
   const [pixForm, setPixForm] = useState(emptyPixForm);
   const [selectedBankId, setSelectedBankId] = useState<string | null>(null);
   const [profileDefaults, setProfileDefaults] = useState({ name: "", city: "" });
+  const [calcOpen, setCalcOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -452,10 +455,17 @@ export default function Products() {
             </p>
           </div>
         </div>
-        <Button size="icon" variant="outline" onClick={openPixManager} title="Contas Pix">
-          <Landmark className="w-4 h-4" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="icon" variant="outline" onClick={() => setCalcOpen(true)} title="Calculadora de preço">
+            <Calculator className="w-4 h-4" />
+          </Button>
+          <Button size="icon" variant="outline" onClick={openPixManager} title="Contas Pix">
+            <Landmark className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
+
+      <CalculadoraPreco open={calcOpen} onOpenChange={setCalcOpen} />
 
       {hasNoPix && (
         <Card className="border-warning/40 bg-warning/5">
