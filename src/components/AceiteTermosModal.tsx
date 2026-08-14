@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -14,6 +14,12 @@ export const TERMOS_VERSAO = "2026-07-28";
 export default function AceiteTermosModal({ userId }: { userId: string }) {
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const { pathname } = useLocation();
+  // O modal e' montado no layout, entao aparece em TODA rota. Sem esta linha, ao
+  // clicar em "Termos de Uso" o app navegava certinho... e o modal continuava por
+  // cima, tampando a pagina inteira. Do lado do vendedor parecia que o clique nao
+  // funcionava. Enquanto ele esta' lendo, o modal sai da frente e volta depois.
+  const lendoDocumento = pathname === "/termos" || pathname === "/privacidade";
 
   useEffect(() => {
     let vivo = true;
@@ -40,7 +46,7 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
     if (!error) setAberto(false);
   };
 
-  if (!aberto) return null;
+  if (!aberto || lendoDocumento) return null;
 
   return (
     <div className="fixed inset-0 z-[95] bg-background/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
@@ -60,6 +66,9 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
           <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>{" "}
           do Orbis, explicando quais dados usamos, pra quê, e os seus direitos (incluindo excluir a
           conta quando quiser). Pra continuar, confirme que leu e concorda.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Pode abrir e ler com calma — quando voltar, este aviso estará aqui esperando.
         </p>
         <Button className="w-full h-11" onClick={aceitar} disabled={salvando}>
           {salvando ? "Salvando…" : "Li e aceito"}

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 
 // Política de Privacidade (LGPD) — URL fixa: /privacidade
@@ -12,12 +12,16 @@ const S = ({ t, children }: { t: string; children: React.ReactNode }) => (
 );
 
 export default function Privacidade() {
+  const navigate = useNavigate();
+  // Volta pra tela de onde ele veio. Antes era fixo em /auth, o que jogava
+  // quem ja' estava logado direto na tela de login.
+  const voltar = () => (window.history.length > 1 ? navigate(-1) : navigate("/"));
   return (
     <div className="min-h-dvh bg-background">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-        <Link to="/auth" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <button type="button" onClick={voltar} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Voltar
-        </Link>
+        </button>
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
             <ShieldCheck className="w-5 h-5 text-primary" />
