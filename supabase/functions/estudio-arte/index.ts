@@ -216,7 +216,11 @@ ${REGRAS_COMUNS}`;
     // ===== 2) OPENAI GPT Image (o gerador do ChatGPT) — se OPENAI_API_KEY existir =====
     const okey = Deno.env.get("OPENAI_API_KEY");
     if (okey) {
-      const oQuality = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "medium";
+      // "high" desde 15/08/2026: o Rick achou as artes em medium "meio ruins" — e
+      // a arte é O produto do Estúdio, não vale economizar nela. Custo por arte
+      // 1024x1536: medium ~US$0,04 | high ~US$0,17 (~R$0,90). Pra voltar ao
+      // barato, é só criar o secret OPENAI_IMAGE_QUALITY = "medium".
+      const oQuality = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "high";
       // Tenta o modelo atual primeiro; se a conta/endpoint não aceitar, cai pro legado.
       const oModels = [...new Set([Deno.env.get("OPENAI_IMAGE_MODEL") ?? "gpt-image-2", "gpt-image-1.5", "gpt-image-1"])];
       for (const om of oModels) {
