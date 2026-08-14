@@ -11,7 +11,8 @@
 //   - TRIAL (3 dias grátis) TAMBÉM gera arte, com limite menor, e a arte sai com
 //     marca d'água — pra baixar limpa ele assina. Antes o trial era tratado igual
 //     a assinante e baixava tudo de graça.
-//   - limites por dia: pagante 4, trial 2 (ESTUDIO_LIMITE_PAGANTE / _TRIAL).
+//   - limites por dia via ESTUDIO_LIMITE_PAGANTE / _TRIAL. Em 14/08/2026 abertos
+//     pra 30/30 na fase de teste (eram 4 e 2), junto com MODO_TESTE_LIBERADO=1.
 //   - TODA geração é registrada em estudio_geracoes (briefing + provedor + depois
 //     a URL e se o vendedor baixou) — é o dado que ensina o que funciona.
 
@@ -58,11 +59,20 @@ Deno.serve(async (req) => {
     // Os dois geram arte; só o pagante baixa sem marca d'água.
     const pagante = !!prof && (prof.billing_exempt || prof.is_demo || prof.plan_status === "active");
     const trial = !!prof && !pagante && !!prof.is_trial_active && String(prof.trial_end ?? "") >= hoje;
-    if (!pagante && !trial) return json({ error: "assinatura_necessaria" }, 403);
 
+    // FASE DE TESTE (14/08/2026): com a porta antiga, quem tinha o trial VENCIDO nem
+    // gerava — e isso era a maioria (dos 352 cadastrados, 18 com trial válido e 54
+    // pagando). Enquanto MODO_TESTE_LIBERADO=1, qualquer logado cria arte; a marca
+    // d'água continua valendo pra quem não paga, então a monetização segue de pé.
+    // Pra voltar ao normal: secret MODO_TESTE_LIBERADO = "0".
+    const liberadoTeste = (Deno.env.get("MODO_TESTE_LIBERADO") ?? "1") === "1";
+    if (!pagante && !trial && !liberadoTeste) return json({ error: "assinatura_necessaria" }, 403);
+
+    // Tetos abertos na fase de teste. Não é "sem limite": é alto demais pra alguém
+    // encostar de propósito, e serve de freio se algo entrar em loop.
     const limite = pagante
-      ? Number(Deno.env.get("ESTUDIO_LIMITE_PAGANTE") ?? "4")
-      : Number(Deno.env.get("ESTUDIO_LIMITE_TRIAL") ?? "2");
+      ? Number(Deno.env.get("ESTUDIO_LIMITE_PAGANTE") ?? "30")
+      : Number(Deno.env.get("ESTUDIO_LIMITE_TRIAL") ?? "30");
     const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: limite });
     if ((usage as any)?.over) return json({ error: "limite_diario", limite, plano: pagante ? "pagante" : "trial" });
 
@@ -75,17 +85,26 @@ Deno.serve(async (req) => {
     const origem = String(body?.origem ?? "estudio") === "chat" ? "chat" : "estudio";
     // Briefing vindo do CHAT — estilo em texto e/ou referência ENVIADA pelo usuário.
     const estilo = String(body?.estilo ?? "").slice(0, 300).trim();
-    const refUserB64 = typeof body?.ref_b64 === "string" ? body.ref_b64 : "";
-    const refUserMime = String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg";
+    let refUserB64 = typeof body?.ref_b64 === "string" ? body.ref_b64 : "";
+    let refUserMime = String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg";
     if (refUserB64.length > 3_000_000) return json({ error: "referencia_grande" });
-    // tipo "foto" = MELHORAR a foto real do produto (luz/contraste, sem virar arte de IA).
-    // tipo "adesivo" (padrão) = criar o adesivo/QR da marca.
-    const tipo = String(body?.tipo ?? "adesivo") === "foto" ? "foto" : "adesivo";
-    if (tipo === "foto") {
-      if (!refUserB64) return json({ error: "sem_foto" });
-    } else if (!marca || !produto || (!modeloId && !estilo && !refUserB64)) {
-      return json({ error: "dados_incompletos" });
+
+    // AJUSTE: em vez de desenhar do zero, pega a arte que JÁ existe e muda só o que
+    // o vendedor pediu. ref_url é a arte anterior (Storage); ajuste é o pedido dele.
+    const ajuste = String(body?.ajuste ?? "").slice(0, 300).trim();
+    const refUrl = String(body?.ref_url ?? "").trim();
+    if (refUrl && !refUserB64 && /^https:\/\/[a-z0-9.-]+\.supabase\.co\/storage\//i.test(refUrl)) {
+      try {
+        const ir = await fetch(refUrl, { signal: AbortSignal.timeout(20000) });
+        if (ir.ok) {
+          refUserMime = ir.headers.get("content-type")?.split(";")[0] || "image/png";
+          refUserB64 = bytesToB64(new Uint8Array(await ir.arrayBuffer()));
+        }
+      } catch { /* sem a arte anterior, cai pra geração normal */ }
     }
+    const modoAjuste = !!ajuste && !!refUserB64;
+
+    if (!marca || !produto || (!modeloId && !estilo && !refUserB64)) return json({ error: "dados_incompletos" });
 
     let modelo: { nome?: unknown; descricao?: unknown; imagem_url?: unknown; imagem_b64?: unknown } | null = null;
     if (modeloId) {
@@ -116,7 +135,9 @@ Deno.serve(async (req) => {
         user_id: userId,
         origem,
         plano: pagante ? "pagante" : "trial",
-        marca, produto, estilo: estilo || String(modelo?.nome ?? ""), cores, extras,
+        marca, produto,
+        estilo: (modoAjuste ? `AJUSTE: ${ajuste}` : (estilo || String(modelo?.nome ?? ""))).slice(0, 300),
+        cores, extras,
         modelo_id: modeloId || null,
         com_referencia: !!refB64,
       }).select("id").maybeSingle();
@@ -129,49 +150,44 @@ Deno.serve(async (req) => {
       return json({ imagem, mime, provedor, geracao_id: geracaoId, marca_dagua: marcaDagua, plano: pagante ? "pagante" : "trial" });
     };
 
-    const estiloDesc = modelo ? `${modelo.nome}: ${modelo.descricao}` : (estilo || "");
-    const temFoto = !!refB64;
+    const estiloDesc = modelo ? `${modelo.nome}: ${modelo.descricao}` : (estilo || "estilo livre, bonito e profissional");
 
-    // ===== MODO FOTO: melhorar a foto REAL do produto (sem virar arte de IA) =====
-    const promptFoto = `Você é um RETOCADOR de fotografia gastronômica/de produto — NÃO um gerador de imagens. Sua tarefa é FAZER RETOQUE FOTOGRÁFICO na foto REAL anexa, como um fotógrafo profissional faria no Lightroom, entregando uma versão vertical (proporção 4:5, formato Instagram).
+    // Regras que valem nos DOIS modos. A de direito autoral é ESTREITA de propósito:
+    // usar referência pra estilo, composição, paleta e até "ter um mascote" é
+    // trabalho normal de design. O que não pode é sair com a identidade do OUTRO
+    // (nome, telefone, Pix) ou com personagem licenciado/famoso.
+    const REGRAS_COMUNS = `- Todo texto em português do Brasil, com ortografia PERFEITA. Pouco texto: o nome da marca, no máximo um slogan curto, e o título "PAGUE COM PIX" ou "PAGUE COM CONFIANÇA".
+- Deixe uma ÁREA QUADRADA TOTALMENTE BRANCA E VAZIA (sem nada dentro, sem moldura interna, sem QR desenhado) ocupando cerca de 25% da largura, na parte inferior direita — é onde o aplicativo encaixa o QR Pix verdadeiro depois.
+- NÃO desenhe QR code nem código de barras.
+- Direito autoral (regra estreita, só isto): não escreva o nome de marca, telefone, @ ou chave Pix de outra pessoa que apareça na referência, e não reproduza personagem famoso ou licenciado. Estilo, composição, paleta, clima e até "ter um mascote" são livres — o mascote só precisa ser um desenho NOVO, não a cópia do personagem de alguém.
+- Qualidade de gráfica profissional: apetitoso, caprichado, pronto pra imprimir.`;
 
-O QUE FAZER (retoque leve e realista):
-- Corrija a iluminação: clareie sombras pesadas, equilibre a exposição, dê um brilho natural e apetitoso.
-- Ajuste contraste, nitidez e cor com naturalidade (cores fiéis ao produto real — nada saturado/plástico).
-- Limpe distrações discretas do fundo (migalhas fora do lugar, reflexo feio, um cabo de tomada), MAS mantenha o cenário real.
-- Se a foto estiver torta, endireite; se houver muito espaço vazio, aproxime levemente o enquadramento no produto.
-${estilo ? `- Direção do vendedor: ${estilo}` : ""}
+    const prompt = modoAjuste
+      // MODO AJUSTE: a imagem anexa é a arte ATUAL do vendedor. Mexer só no pedido.
+      ? `Você é um designer profissional. A imagem anexa é uma arte que VOCÊ já fez para este vendedor e que ele aprovou.
 
-REGRAS DE OURO (o mais importante):
-1. É a MESMA foto, o MESMO produto real — NÃO redesenhe, NÃO gere um produto novo, NÃO troque formato, recheio, cor ou textura. Cada detalhe do produto (imperfeições, formato irregular, cobertura) tem que continuar igualzinho. A pessoa precisa reconhecer que é a foto DELA.
-2. Resultado tem que parecer FOTOGRAFIA REAL tirada por um bom celular — NUNCA com aquela cara de "imagem de IA" (pele/comida lisa demais, brilho plástico, luz irreal, fundo perfeito demais). Se ficar com cara de IA, você errou.
-3. Preserve a autenticidade: pode manter uma pequena imperfeição real (uma borda irregular, uma gota) — é isso que faz o cliente confiar e comprar.
-4. Sem texto, sem logo, sem moldura, sem adesivo. Só a foto do produto, melhor iluminada e enquadrada.`;
+Sua tarefa é UMA SÓ: aplicar exatamente esta mudança pedida por ele:
+"${ajuste}"
 
-    const promptAdesivo = `Você é o designer especialista nos adesivos "PAGUE COM PIX" dos vendedores ambulantes brasileiros — aquele estilo de CARICATURA cartoon do vendedor ao lado de um QR do Pix, com letreiro desenhado à mão. Crie um adesivo NOVO e ORIGINAL nesse estilo, orientação vertical/quadrada, acabamento de gráfica profissional.
+O QUE NÃO PODE MUDAR (isto é o mais importante da tarefa):
+Mantenha TODO o resto absolutamente idêntico — mesma composição, mesmo enquadramento, mesmas cores, mesma tipografia e mesmo desenho das letras, mesmo personagem com o mesmo traço e a mesma pose, mesmos elementos decorativos, mesma área branca reservada no mesmo lugar e do mesmo tamanho. Não redesenhe a arte, não "melhore" nada que não foi pedido, não mude o estilo. Alguém que olhe as duas lado a lado tem que dizer "é a mesma arte, só mudou ${ajuste}".
 
-PERSONAGEM (à esquerda, meio corpo, sorrindo):
-${temFoto
-  ? `- Transforme a PESSOA da foto anexa numa CARICATURA cartoon vetorial simpática (traço limpo, cores chapadas, estilo desenho brasileiro). Mantenha FIEL: rosto, cor de pele, cabelo, barba/óculos e o sorriso dela. Ela acena OU segura o produto. É o personagem central.`
-  : `- Um(a) vendedor(a) cartoon simpático(a), acenando ou segurando o produto.`}
+Contexto (mantenha igual, salvo se a mudança pedida for justamente esta):
+- Marca: "${marca}"
+- Produto: ${produto}
 
-ELEMENTOS OBRIGATÓRIOS (padrão desses adesivos):
-- Título grande em LETREIRO desenhado à mão: "PAGUE COM PIX", com tracinhos/raios decorativos e uma SETA curva apontando pra área do QR.
-- Um BALÃO DE FALA saindo do personagem com UMA frase curta e emocional${extras ? `. Se fizer sentido, use algo do que o vendedor pediu: "${String(extras).slice(0, 90)}"` : ` (ex.: "Seu apoio transforma meu sonho em realidade")`}.
-- Nome da marca "${marca}" com tipografia bonita e destaque.
-- FAIXA inferior colorida com um slogan curto de propósito (ex.: "Mais do que um produto, entregamos propósito").
-- Linha de contato pequena embaixo (ícones de WhatsApp e Instagram). Deixe os textos de telefone/@ genéricos se não forem informados.
+${REGRAS_COMUNS}`
+      // MODO NORMAL: arte nova, do zero.
+      : `Você é um designer profissional de adesivos e rótulos para vendedores ambulantes brasileiros.
+${refB64 ? "A imagem anexa é a REFERÊNCIA que o vendedor escolheu: siga o estilo, a composição, a paleta e o clima dela de perto — é isso que ele quer" : "Estilo de referência"} (${estiloDesc}).
+Crie um adesivo NOVO nesse mesmo espírito, em orientação vertical (proporção 3:4), para:
+- Marca: "${marca}" (escreva EXATAMENTE assim, com destaque)
+- Produto: ${produto}
+${cores ? `- Cores da marca: ${cores}` : ""}
+${extras ? `- Detalhes pedidos pelo vendedor: ${extras}` : ""}
 
-Produto vendido: ${produto}.
-Cores/clima: ${cores || "paleta alegre e apetitosa que combine com o produto"}.${estiloDesc ? ` Vibe: ${estiloDesc}.` : ""}
-
-REGRAS DE OURO:
-1. Todo texto em português do Brasil, ortografia PERFEITA — confira cada palavra (é o erro nº1 nessas artes).
-2. Reserve uma ÁREA CLARA (fundo branco/bem claro), retangular, ocupando ~35% da largura no LADO DIREITO, na altura do meio, TOTALMENTE VAZIA — sem moldura interna, sem QR, sem código de barras. É onde o app encaixa o QR do Pix REAL depois; a seta do "PAGUE COM PIX" deve apontar pra ela.
-3. NUNCA desenhe QR code nem código de barras (quebra a leitura). Não copie marca, contato nem personagem de nenhuma referência de estilo — arte 100% original.
-4. Nítido, vetorial, bem acabado, digno de gráfica.`;
-
-    const prompt = tipo === "foto" ? promptFoto : promptAdesivo;
+REGRAS OBRIGATÓRIAS:
+${REGRAS_COMUNS}`;
 
     // ===== 1) GEMINI (precisa de billing ativado na conta Google) =====
     const gkey = Deno.env.get("GEMINI_API_KEY");

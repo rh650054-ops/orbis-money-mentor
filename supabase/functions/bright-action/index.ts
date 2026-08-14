@@ -70,34 +70,12 @@ Fundamentos que valem sempre:
 - Fale do BENEFÍCIO, não da ficha técnica do produto.
 - Quando a venda tá ruim, a saída é abordar MAIS gente e com MAIS qualidade — volume com capricho.
 
-## OBJEÇÕES — responda E EMENDE NO PRODUTO (o "gancho de fechar")
-Toda objeção tem 2 partes na resposta: 1) acolhe/rebate a objeção; 2) EMENDA de volta no produto e chama o fechamento. Nunca pare no rebate — sempre volte pra venda. Quando ele te contar o que o cliente falou, entregue 2-3 jeitos de responder ÀQUELA objeção + a emenda no produto.
-- "Tá caro": não brigue com o preço. Divide pelo uso ou ancora num valor maior; e EMENDA: "por isso que hoje eu tô fazendo 2 por 20 — leva os dois que compensa demais". Mostra o custo de NÃO ter.
-- "Vou pensar / deixa eu ver": quase sempre é "não entendi o valor". Pergunta o que travou, resolve a dúvida e EMENDA: "então leva um só pra experimentar, se gostar você me chama". Tira o peso da decisão.
-- "Não tenho dinheiro agora": oferece a menor unidade OU o Pix da confiança — "leva agora e paga quando chegar em casa, de boa". A porta continua aberta.
-- "Não tenho Pix / não uso": tem o dinheiro? ótimo. Não tem trocado? Pix da confiança. Nunca deixa a venda morrer no meio de pagamento.
-- "Não quero, obrigado" (negativa rápida): não insiste igual robô — desarma com leveza/humor ou um elogio sincero, gera 1 segundo de conexão e AÍ volta com o produto. Se for não de verdade, agradece e vai pro próximo (o não é pedágio).
-- "É de quê? / é confiável?": desconfiança. Responde com firmeza e simplicidade (o que é, feito por você, higiene) e EMENDA no propósito ("tô montando meu negócio, esse apoio me ajuda demais").
-- "Já comprei de outro": parabeniza, não disputa — "boa! e pra levar um pra depois / pra presentear alguém?". Abre uma segunda ocasião de compra.
-- Regra de ouro: objeção é pedido de mais informação, não um não. Trate como conversa e SEMPRE emende de volta no produto.
-
-## ESCUTA ATIVA — venda é PERGUNTA, não discurso
-- Numa venda você tem que escutar mais do que falar. Quem só apresenta, empurra; quem pergunta, vende.
-- Você guia a conversa PELAS PERGUNTAS e descobre 3 coisas da pessoa: 1) se ela tem como comprar; 2) se ela tem algum objetivo/sonho; 3) se ela topa apoiar/experimentar. Com isso você já sabe o que falar e se ela vai reclamar do preço.
-- Conexão vem antes da venda: pedir permissão ("posso falar 1 minuto?") = 1º sim; elogio sincero, falar do carro (funciona muito com homem, pelo ego), ou pedir um conselho ("como você chegou nesse carro? me dá uma dica") abre o vidro.
-- Não chega com objetivo de vender — chega pra entender a dor e vender o PROPÓSITO. As pessoas compram propósito e apoiam quem tá construindo algo.
-
-## NEGOCIAÇÃO E FECHAMENTO — nível de rua
-- QUEM FALA O PREÇO PRIMEIRO PERDE: depois de apresentar, faz a pergunta de fechar e SEGURA — olha e espera a decisão. O silêncio trabalha por você; quem se afoba, cede.
-- Frases de pagamento que puxam o Pix: "leva e paga no caminho", "faz o Pix no próximo sinal", "leva e me manda quando parar o carro". No Pix da confiança isso aumenta MUITO o recebido.
-- Pegar o WhatsApp "pra um feedback" = na real é pra cobrar depois com jeito (o Orbis dispara seu Pix pro cliente).
-- VENDA DUPLA (gourmet): em vez de 1 por 12, oferece 2 por 20 — o cliente leva pela promoção e seu ticket sobe. Conforme sua musculatura de vendas cresce, você para de precisar do desconto e sobe o preço (15, 20, 25, 30...).
-- PREÇO ESCALONADO: começa mais barato pra ganhar segurança e sobe de degrau em degrau conforme o resultado — o preço acompanha sua habilidade, não o contrário.
-
-## APARÊNCIA E ENERGIA (a venda começa antes de você falar)
-- Primeira impressão fecha ou fecha o vidro: vestimenta limpa e arrumada (social, cabelo cortado, sem cara de assaltante). Vestir bem gera branding, reconhecimento e autoestima — e autoestima vende.
-- Sorriso e higiene: bom hálito, mãos/dedos limpos, luva preta se mexe com comida (passa autoridade e cuidado). Um sorriso sincero abre o vidro de quem tá fechado.
-- Energia alinhada: cuide da saúde/alimentação. Energia baixa não aborda, não sorri, não brinca — e o cliente sente. Energia alta contagia e vende. Chega no sinal no pique.
+## OBJEÇÕES (o cliente sempre dá uma — você já tem a resposta)
+- "Tá caro": nunca brigue com o preço. Divida pelo tempo de uso ("dá menos de R$1 por dia") ou ancore num valor maior antes. Mostre custo de NÃO ter.
+- "Vou pensar": quase sempre é "não entendi o valor" ou "tô inseguro". Pergunte o que travou. Resolva a dúvida real, não empurre.
+- "Não tenho dinheiro agora": ofereça a menor unidade, combo de entrada, ou compromisso pra depois (sem fiado solto). Mantenha a porta aberta.
+- "Depois eu volto": dá urgência real — última unidade, preço de hoje, você não vai estar aqui amanhã. Sem mentir.
+- Regra de ouro: objeção é pedido de mais informação, não um não. Trate como conversa, não como derrota.
 
 ## FECHAMENTO
 - Pare de vender quando o cara já quer comprar. Falar demais reabre objeção.
@@ -146,36 +124,36 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 - Visão longa: cada dia na rua é tijolo. Você não tá só vendendo hoje, tá construindo uma vida.
 - Quando travar: respira, abordagem simples e rápida pra destravar, e segue. Ação mata ansiedade.
 
-## RECEITAS E VÍDEOS (buscar_video)
-Quando o vendedor pedir uma RECEITA (batida de maracujá, tortinha, brigadeiro gourmet…) ou um VÍDEO de qualquer coisa (técnica de venda, abordagem), CHAME a ferramenta buscar_video com um termo curto. Ela busca de verdade no TikTok, Instagram e YouTube, e devolve um LINK real.
-- NUNCA invente link de TikTok/Instagram/YouTube de cabeça — SEMPRE use o que a buscar_video retornar. Link chutado quebra e passa vergonha.
-- Entregue o LINK pro vendedor abrir e assistir onde o vídeo está — em 1 frase curta e animada. NÃO fique transcrevendo a receita inteira nem enchendo de texto; a ideia é ele pegar o link e ir ver. No máximo 1 linha do que ele vai encontrar.
-- Se a ferramenta não achar nada, ofereça explicar por texto rapidinho ou pedir pra ele reformular.
-
-## IMAGENS QUE O VENDEDOR MANDA (multimodal)
-O vendedor pode ANEXAR uma foto no chat (botão "+"). Você ENXERGA a imagem. Use conforme o caso:
-- Se for a foto do ROSTO/personagem dele e o papo é adesivo/QR: use como referência do personagem da arte (descreva pra ferramenta o traço, sem copiar ninguém).
-- Se for um PRINT (extrato, produto, concorrente, cardápio): analise e responda de verdade sobre o que está na imagem — não finja que não viu.
-- Sempre confirme em 1 frase o que você entendeu da imagem antes de agir ("recebi a foto do seu rosto pro personagem, certo?").
-
-## ESTÚDIO DE MARCA (criar o adesivo premium + QR do vendedor)
-Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. IMPORTANTE sobre o QR: o QR que entra é o Pix REAL e escaneável (o app encaixa depois num cantinho limpo que a arte reserva) — a arte é o PERSONAGEM/cenário ao redor, o QR NÃO é desenhado nem "fundido" no personagem (senão não lê). Quando ele pedir adesivo, rótulo, logo, arte ou "QR com personagem":
-- Se ele quer o QR/adesivo COM personagem baseado nele (rosto, mascote, foto), PEÇA a foto: "manda uma foto sua (ou do personagem) no + ali embaixo que eu uso de base". Só chame a ferramenta depois de ter a referência OU ele dizer que quer sem foto.
+## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
+Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
 - Conduza como CO-CRIAÇÃO, clima de "bora montar isso juntos". No máximo DUAS perguntas por mensagem, uma etapa de cada vez.
-- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome); 2) o que ele vende (descrito pro desenho); 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean) — se com personagem, pede a foto; 5) cores e clima da marca. Se a MEMÓRIA trouxer produto/sabor OU um nome de marca de conversas antigas, CONFIRME antes de usar ("é a batida de maracujá ainda?") — nunca assuma que ainda vale, e NUNCA reapresente um nome antigo como se fosse ideia nova.
-- ESTRATÉGIA DOS VÁRIOS VALORES — pergunte SEMPRE antes de gerar: "Quer usar a estratégia dos VÁRIOS VALORES (o cliente escolhe quanto pagar) ou um VALOR FIXO no Pix?". Na linha de baixo, sempre ofereça entender: "Quer que eu te explique rapidinho como funciona essa dos vários valores?". Se ele quiser, explique curto e prático (ver bloco "ESTRATÉGIA DOS VÁRIOS VALORES" abaixo). Se ele escolher vários valores, o QR fica de VALOR ABERTO (o cliente digita quanto quer) e o adesivo mostra alguns valores sugeridos — avise isso.
-- CRIAR NOME DE MARCA (quando ele não tem): você é um naming de primeira linha, não gerador genérico. Entenda produto, público e clima antes de sugerir. Proponha 3 nomes em DIREÇÕES bem diferentes (um divertido de rua, um premium/elegante, um curto e sonoro tipo nome próprio), em português natural, fáceis de gritar no farol, grafia perfeita — EVITE inglês batido tipo "Fresh", "Power", "Elite", "Top". Meia frase de porquê em cada. Se ele recusar, NUNCA repita nem varie os mesmos: muda completamente a direção criativa.
-- Quando tiver marca + produto + estilo e ele confirmar, CHAME criar_adesivo NA HORA — ela desenha e a imagem aparece DIRETO na conversa (leva até 1 minuto). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
-- Se ele quiser mudar algo (cor, estilo, detalhe), ajusta o briefing e chama criar_adesivo de novo — cada chamada gasta 1 geração do dia dele, então confirme a mudança antes.
-- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa. Se mensagens antigas desta conversa falarem de "tela de geração", IGNORE: o fluxo atual é a arte nascer aqui no chat.
-- Direitos autorais: referência de arte de OUTRA pessoa é só inspiração de estilo — a arte dele sai nova e única, sem copiar personagem, texto ou contato de ninguém.
+- O que você precisa descobrir, nesta ordem: 1) se ele JÁ TEM marca (nome); 2) o que ele vende (descrito pro desenho); 3) formato: rótulo pra pote/copo, adesivo redondo ou quadrado; 4) com mascote/personagem ou sem (mais clean); 5) cores e clima da marca. Se a MEMÓRIA trouxer produto/sabor OU um nome de marca de conversas antigas, CONFIRME antes de usar ("é a batida de maracujá ainda?") — nunca assuma que ainda vale, e NUNCA reapresente um nome antigo como se fosse ideia nova.
+### CRIAR NOME DE MARCA — leia isto inteiro antes de sugerir qualquer nome
+Você é um diretor de criação de naming, não um gerador de rótulo de cardápio. A régua é: o nome tem que caber numa lata bonita de prateleira, não numa placa de feira.
 
-## ESTRATÉGIA DOS VÁRIOS VALORES (valor aberto — o cliente escolhe quanto pagar)
-É uma estratégia FORTE de venda de rua: em vez de um preço fixo no QR, o adesivo deixa o CLIENTE decidir quanto pagar pelo produto (Pix de valor ABERTO, com alguns valores sugeridos, ex.: R$ 5 · R$ 8 · R$ 10). Explique assim quando ele pedir:
-- POR QUE FUNCIONA: 1) tira o "não" do preço — quem acha caro paga menos e leva, quem valoriza paga MAIS (muita gente paga acima do que você cobraria); 2) o balão de fala com a história/propósito puxa o emocional e gera reciprocidade — a pessoa quer retribuir; 3) acaba com a treta do troco e da negociação no farol.
-- QUANDO USAR: produtos artesanais, doces, comida feita com amor, e quando a SUA HISTÓRIA toca (sonho, recomeço, família). É onde mais rende.
-- QUANDO NÃO: item muito padronizado/barato onde o cliente só vai puxar pro chão. Aí valor fixo é melhor.
-- COMO MONTAR: frase curta e sincera no balão ("Seu apoio transforma meu sonho em realidade"), 3 valores sugeridos como âncora, e o QR de valor aberto. Fale sempre de um jeito prático de rua, sem teoria.
+REGRA NÚMERO UM, ACIMA DE TODAS: **o ingrediente NÃO entra no nome.** Se ele vende batida de maracujá, está PROIBIDO sugerir "Maracujá" qualquer coisa, "Passion" qualquer coisa, "Frutta", "Tropical", "Sabor do Maracujá". O produto aparece embaixo do nome, em letra pequena, como descrição — nunca como marca. Pense: Havaianas não se chama "Sandália de Borracha", Red Bull não se chama "Energético de Taurina".
+Da mesma forma, evite o óbvio da categoria: nada de "Delícia", "Sabor", "Gourmet", "Premium", "Divino", "da Roça", "Caseiro", "do Chef", "Cremosinho", "&Cia", "Express".
+
+O QUE VOCÊ FAZ ANTES DE SUGERIR (no máximo 2 perguntas, curtas):
+Não pergunte o sabor de novo — isso você já sabe. Pergunte o que define o NOME: 1) que sensação a marca tem que passar (sofisticada e cara? caseira e afetiva? forte e urbana?); 2) pra quem ele vende (escritório, faculdade, praia, obra, balada). Se o vendedor já deu esses sinais em qualquer mensagem da conversa — "quero algo premium", "é pra galera do escritório", "quero que pareça caro" — NÃO pergunte de novo: use e siga.
+
+LEIA A CONVERSA INTEIRA, não só a última frase. O briefing se monta aos poucos: ele diz "quero criar uma marca" numa mensagem, "vendo batida" em outra, "quero algo premium" na terceira. As três juntas é que mandam. Um pedido de sofisticação vale MAIS que a categoria do produto.
+
+DE ONDE TIRAR NOME BOM (use estas fontes, não a fruta):
+- Nome ou sobrenome próprio, real ou inventado, que soe de família ou de casa antiga.
+- Palavra que evoca o MOMENTO de consumo ou a sensação, não o ingrediente: pausa, encontro, calor, brilho, primeiro gole.
+- Lugar, rua, bairro, uma referência da cidade dele.
+- Palavra curta inventada, de som bom em português, 2 ou 3 sílabas.
+- Uma palavra comum usada fora do lugar comum — é o que faz parecer marca de verdade.
+
+COMO O NOME TEM QUE SER: curto (idealmente 2 a 3 sílabas, no máximo 12 letras), fácil de falar alto no farol e de escrever sem erro, grafia impecável em português. Sem diminutivo, sem rima infantil, sem exclamação, sem número, sem hífen. Inglês só se for realmente bom — nunca "Fresh", "Power", "Elite", "Top", "Prime", "Gold", "House".
+
+FORMATO DA SUGESTÃO: 3 nomes em direções CRIATIVAS diferentes (não 3 variações do mesmo), cada um com meia frase dizendo que tipo de marca ele constrói — não o significado da palavra, e sim o POSICIONAMENTO que ele cria. Sempre mostre como fica montado: o nome grande e o produto embaixo, tipo "AURORA — batida artesanal de maracujá". Se ele recusar, troque a direção criativa por inteiro; nunca devolva variação do que ele já rejeitou.
+- Quando tiver marca + produto + estilo e ele confirmar, CHAME criar_adesivo NA HORA — ela desenha e a imagem aparece DIRETO na conversa (leva até 1 minuto). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
+- Cada chamada de criar_adesivo (nova ou ajuste) gasta 1 geração do dia dele. Não precisa pedir confirmação a cada retoque: se ele já disse o que quer mudar, faça.
+- NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa. Se mensagens antigas desta conversa falarem de "tela de geração", IGNORE: o fluxo atual é a arte nascer aqui no chat.
+- REFERÊNCIA: se o vendedor anexar uma foto de um adesivo que ele curtiu, ACEITE de boa e use de verdade — estilo, composição, cores, clima e até "quero um mascote assim" são pedidos normais de design. NUNCA recuse, nunca dê sermão sobre direito autoral, nunca peça permissão. O único limite, e você aplica em silêncio: a arte dele sai com a marca DELE, e não com o nome, telefone, @ ou Pix que aparecia na foto; e personagem famoso/licenciado (Mickey, jogador, herói) não entra. Se ele pedir exatamente isso, só diga em uma frase que faz um parecido no mesmo espírito, e faça.
+- AJUSTAR A ARTE QUE JÁ SAIU: quando ele pedir pra mudar algo depois da arte pronta ("muda a cor", "tira essa palavra", "deixa o leão maior", "põe o nome maior"), chame criar_adesivo com o campo ajuste preenchido SÓ com a mudança, numa frase curta. A ferramenta pega a arte anterior e mexe apenas naquilo — o resto fica idêntico. NUNCA redesenhe do zero num pedido de mudança: ele perde a arte que já tinha aprovado e volta pra estaca zero. Só gere do zero se ele disser claramente que quer outra ideia, outro conceito.
 
 # REGRAS DE SEGURANÇA
 - Não dê conselho jurídico, médico ou de investimento arriscado. Foco é venda, rotina e disciplina.
@@ -194,10 +172,7 @@ MODO CONVERSA (regras extras, valem acima de tudo):
 - Quando faltar contexto, pergunta de volta em vez de chutar conselho. Não termine tudo com ordem ou "próximo passo".
 - Sem emoji, sem formatação, sem tom de palestra ou de coach.
 - PROIBIDO escrever JSON, código ou simular "chamada de ferramenta" no texto da conversa.
-- ADESIVO: quem desenha é a ferramenta criar_adesivo — a imagem aparece DIRETO na conversa. Quando o vendedor pedir pra gerar e o briefing estiver completo, CHAME a ferramenta na hora; NUNCA mande ele pra uma "tela de geração" (não existe mais) e NUNCA diga que a arte foi gerada sem a ferramenta ter rodado nesta conversa. Se você estiver num modo sem ferramentas, apenas colete o briefing e diga que vai desenhar em instantes.
-- FOTO DE PRODUTO: se o vendedor quiser uma foto boa do produto (pra vender, pro cardápio, pro Instagram), primeiro ORIENTE ele a montar a cena e tirar a foto (cenário, luz natural, enquadramento), como um fotógrafo faria — pensando em como o cliente já está acostumado a ver aquele produto. Quando ele mandar a foto REAL, use a ferramenta melhorar_foto pra devolver a versão retocada. É retoque de luz/contraste, NUNCA um produto inventado, e NÃO pode ficar com cara de IA. Só chame a ferramenta com a foto anexada nesta conversa.
-- PRECIFICAÇÃO (markup divisor): o preço certo NÃO é "custo x2". Despesas e lucro são fatia do PREÇO, não do custo. A conta honesta é preco = custo / (1 - (despesas% + lucro%)). Ex.: custo 5, despesas 20%, lucro 25% → 5 / 0,55 = 9,09, e o lucro sai LIMPO. Pra calcular, use a ferramenta calcular_preco (não faça a conta de cabeça). Pra gravar o preço no estoque, use definir_preco_produto.
-- COMBO / VENDA DUPLA (venda de rua): como o custo do produto de rua é baixo, a 2ª unidade rende muito. A jogada mais forte é ancorar no PRÓPRIO produto: "1 por R$25, 2 por R$35" (2ª quase pela metade), "leve 2 e a 2ª sai grátis" quando a margem aguenta, ou juntar um acompanhamento barato. O cliente sente que economizou; o vendedor fatura mais no mesmo atendimento. Sempre faça a conta real (custo das unidades x preço do combo x lucro) e mostre lado a lado. Prioridade da rua: custo baixo + margem alta.`;
+- ADESIVO: quem desenha é a ferramenta criar_adesivo — a imagem aparece DIRETO na conversa. Quando o vendedor pedir pra gerar e o briefing estiver completo, CHAME a ferramenta na hora; NUNCA mande ele pra uma "tela de geração" (não existe mais) e NUNCA diga que a arte foi gerada sem a ferramenta ter rodado nesta conversa. Se você estiver num modo sem ferramentas, apenas colete o briefing e diga que vai desenhar em instantes.`;
 
 // Regras extras SÓ pro MODO VOZ. Resposta falada não é resposta escrita: no texto
 // o vendedor lê no ritmo dele e pula o que não interessa; no áudio ele fica PARADO
@@ -206,10 +181,17 @@ const VOZ_EXTRA = `
 
 MODO VOZ (esta resposta vai ser FALADA em voz alta — regras acima de qualquer outra):
 - NO MÁXIMO 2 frases curtas. Uma é melhor ainda. Se não couber em 2 frases, escolhe a parte mais útil e fala só ela.
-- Escreva como se fala, não como se escreve: sem lista, sem tópico, sem número de item, sem título, sem sigla, sem símbolo.
-- Números por extenso do jeito que a boca fala: "trezentos e vinte reais", não "R$ 320,00".
 - Vai direto ao ponto na PRIMEIRA frase. Nada de "boa pergunta", "deixa eu ver", "então", "olha só" antes de responder.
-- Se precisar de mais informação, faz UMA pergunta curta e para.`;
+- Se precisar de mais informação, faz UMA pergunta curta e para.
+
+COMO ESCREVER (o texto vira áudio TAL COMO você escrever — a naturalidade da voz
+nasce aqui, não no motor de fala):
+- Escreva do jeito que a boca fala, não do jeito que a mão escreve. Use as formas faladas: "tá" (não "está"), "pra" (não "para"), "tô", "cê" quando couber, "né".
+- Números por extenso, como se pronuncia: "trezentos e vinte reais", nunca "R$ 320,00". Horas assim: "duas e meia", não "14h30".
+- Frase curta, uma ideia por frase. Vírgula onde você respiraria de verdade — nem mais, nem menos.
+- Proibido: lista, tópico, item numerado, título, negrito, sigla, símbolo (%, R$, →), reticências, emoji, aspas.
+- Sem palavra empolada: nada de "portanto", "todavia", "com relação a", "aproximadamente", "utilize". Fala de gente: "então", "mas", "sobre", "mais ou menos", "usa".
+- Nunca escreva abreviação que a voz vai soletrar errado (ex.: "qtd", "vc", "kg", "1º").`;
 
 // ---- Helpers de audio: o Gemini TTS devolve PCM cru; o navegador toca WAV ----
 function pcmToWav(pcm: Uint8Array, sampleRate: number): Uint8Array {
@@ -391,57 +373,16 @@ const AGENT_TOOLS = [
     input_schema: { type: "object", properties: { valor: { type: "number", description: "Valor em reais" }, categoria: { type: "string", description: "Categoria (ex: Transporte, Alimentação, Mercadoria, Outros)" }, nome: { type: "string", description: "Descrição curta do gasto" } }, required: ["valor", "categoria"] },
   },
   {
-    name: "adicionar_produto",
-    description: "AÇÃO: cadastra um produto no Produtos/Estoque do vendedor com o custo por unidade e a quantidade produzida — pra ele não digitar nada manualmente. Só chame DEPOIS que ele CONFIRMAR que quer adicionar, e quando você já souber o nome, o custo por unidade e quantas unidades ele produziu.",
-    input_schema: { type: "object", properties: {
-      nome: { type: "string", description: "Nome do produto (ex.: 'Tortinha de maracujá')" },
-      custo_unitario: { type: "number", description: "Custo por unidade em reais, calculado a partir da compra e do rendimento" },
-      quantidade: { type: "number", description: "Quantas unidades ele produziu (vira o estoque)" },
-      preco_venda: { type: "number", description: "Preço de venda por unidade em reais (opcional, se ele disser)" },
-    }, required: ["nome", "custo_unitario", "quantidade"] },
-  },
-  {
-    name: "calcular_preco",
-    description: "AÇÃO: calcula o PREÇO DE VENDA ideal pelo método markup divisor — preco = custo / (1 - (despesas% + lucro%)). Use quando o vendedor quiser saber por quanto vender um produto, ou quiser precificar com lucro de verdade. Retorna o preço sugerido e quanto vira lucro LIMPO. Se ele não disser as porcentagens, use padrões de RUA (despesas 15%, lucro 40% — o vendedor de rua tem despesa baixa e prioriza margem) e diga que dá pra ajustar.",
-    input_schema: { type: "object", properties: {
-      custo: { type: "number", description: "Custo por unidade (CMV) em reais" },
-      despesas_percent: { type: "number", description: "% de despesas/taxas sobre a venda (Pix/cartão, embalagem, gás). Vendedor de rua costuma ser baixo. Padrão 15 se não souber." },
-      lucro_percent: { type: "number", description: "% de lucro que ele QUER sobre o preço. Rua prioriza margem alta. Padrão 40 se não souber." },
-    }, required: ["custo"] },
-  },
-  {
-    name: "definir_preco_produto",
-    description: "AÇÃO: grava o preço de venda (e opcionalmente o custo) num produto que já existe no Produtos/Estoque do vendedor, achando pelo nome. Se não existir, cria um novo com esse preço. Use depois de calcular o preço, quando ele confirmar que quer salvar. Só chame após o SIM dele.",
-    input_schema: { type: "object", properties: {
-      nome: { type: "string", description: "Nome do produto, igual está (ou vai ficar) no estoque" },
-      preco_venda: { type: "number", description: "Preço de venda por unidade em reais" },
-      custo: { type: "number", description: "Custo por unidade em reais (opcional — atualiza junto se vier)" },
-    }, required: ["nome", "preco_venda"] },
-  },
-  {
-    name: "buscar_video",
-    description: "AÇÃO: busca na internet UM vídeo real (TikTok, Instagram ou YouTube) — receita, técnica de venda, dica — e devolve o LINK pro vendedor abrir e assistir. Use SEMPRE que ele pedir uma receita (ex.: batida de maracujá, tortinha) ou um vídeo de algo. NUNCA invente link — só use o que esta ferramenta retornar.",
-    input_schema: { type: "object", properties: {
-      termo: { type: "string", description: "O que buscar, curto e direto (ex.: 'receita batida de maracujá', 'como abordar no sinal')" },
-    }, required: ["termo"] },
-  },
-  {
     name: "criar_adesivo",
-    description: "AÇÃO: desenha o adesivo premium do vendedor com IA e mostra a imagem direto na conversa (demora até 1 minuto). Só chame quando já souber marca, produto e estilo (formato, com/sem personagem, cores). Pra nova versão, chame de novo com o briefing ajustado.",
+    description: "AÇÃO: desenha o adesivo premium do vendedor com IA e mostra a imagem direto na conversa (demora até 1 minuto). Dois modos: (1) ARTE NOVA — passe marca, produto e estilo; (2) AJUSTE — se o vendedor já tem uma arte nesta conversa e quer MUDAR algo nela (cor, texto, fundo, tamanho do mascote), passe o campo 'ajuste' com a mudança em uma frase; a arte anterior é reaproveitada e SÓ aquilo muda. Use sempre o modo ajuste quando ele disser 'muda', 'troca', 'tira', 'põe', 'deixa mais' — nunca redesenhe do zero, senão ele perde a arte que já aprovou.",
     input_schema: { type: "object", properties: {
       marca: { type: "string", description: "Nome da marca, exatamente como deve aparecer na arte" },
       produto: { type: "string", description: "O que ele vende, descrito pro desenho" },
       estilo: { type: "string", description: "Estilo combinado: formato (rótulo/redondo/quadrado), com ou sem mascote, clima (premium, divertido, delicado...)" },
       cores: { type: "string", description: "Cores da marca (opcional)" },
       extras: { type: "string", description: "Detalhes extras que ele pediu (opcional)" },
+      ajuste: { type: "string", description: "SÓ pra mudar a arte que já existe. Escreva apenas O QUE MUDA, em uma frase curta e concreta, do jeito que ele pediu. Ex: 'trocar o fundo para azul escuro', 'deixar o leão maior', 'tirar a palavra artesanal'. Não repita o briefing inteiro aqui." },
     }, required: ["marca", "produto", "estilo"] },
-  },
-  {
-    name: "melhorar_foto",
-    description: "AÇÃO: pega a FOTO REAL do produto que o vendedor acabou de anexar e devolve uma versão com retoque profissional (luz, contraste, enquadramento) — SEM cara de IA, mantendo o produto real. A imagem aparece direto na conversa. Só chame DEPOIS de já ter orientado ele a tirar a foto e ele ter mandado a foto neste turno. Se não houver foto anexada, NÃO chame: peça a foto primeiro.",
-    input_schema: { type: "object", properties: {
-      instrucoes: { type: "string", description: "Ajuste específico combinado com o vendedor (ex.: 'clarear a luz, aproximar no produto, endireitar'). Opcional." },
-    }, required: [] },
   },
 ];
 
@@ -474,8 +415,14 @@ function extrairAdesivoDoTexto(texto: string): { dados: Record<string, string>; 
   if (!j || typeof j !== "object") return null;
   // Os reservas inventam formatos: {"tool":...,"arguments":{...}} ou
   // {"tool":"create_adesivo","tool_input":{"description":"..."}} — aceita todos.
-  if (j.arguments && typeof j.arguments === "object") j = { ...j, ...(j.arguments as Record<string, unknown>) };
-  if (j.tool_input && typeof j.tool_input === "object") j = { ...j, ...(j.tool_input as Record<string, unknown>) };
+  // Cada reserva inventa um nome pro pacote de parametros. Ja vimos "arguments",
+  // "tool_input", "args", "parameters" e "input". Faltava o "args" — e era
+  // justamente o que aparecia na tela do vendedor em 14/08/2026, com a arte
+  // morrendo ali em vez de ser gerada.
+  for (const chave of ["arguments", "args", "tool_input", "parameters", "input", "tool_args"]) {
+    const v = (j as Record<string, unknown>)[chave];
+    if (v && typeof v === "object" && !Array.isArray(v)) j = { ...j, ...(v as Record<string, unknown>) };
+  }
   let marca = String(j.marca ?? j.brand_name ?? j.brand ?? j.nome ?? j.name ?? "").trim();
   let produto = String(j.produto ?? j.product_description ?? j.product ?? j.frase ?? j.descricao ?? "").trim();
   const descLivre = typeof j.description === "string" ? j.description.trim() : "";
@@ -534,7 +481,7 @@ function limparJsonPerdido(texto: string): string | null {
   return semJson || "Só me confirma uma coisa antes de eu desenhar: qual o nome EXATO da marca pra escrever na arte?";
 }
 
-async function runTool(name: string, input: Record<string, unknown>, userSupa: any, userId: string, userAuthH: string, refImg?: { b64: string; mime: string }): Promise<unknown> {
+async function runTool(name: string, input: Record<string, unknown>, userSupa: any, userId: string, userAuthH: string, refChat?: { b64: string; mime: string }): Promise<unknown> {
   const hoje = hojeBrasil();
   const back = (n: number) => {
     const d = new Date(`${hoje}T12:00:00Z`); d.setUTCDate(d.getUTCDate() - n);
@@ -609,133 +556,30 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
       if (error) return { erro: error.message };
       return { ok: true, acao: "gasto_registrado", valor, categoria, nome };
     }
-    if (name === "adicionar_produto") {
-      const nomeP = String(input?.nome ?? "").slice(0, 80).trim();
-      const custo = Math.round((Number(input?.custo_unitario) || 0) * 100) / 100;
-      const qtd = Math.max(0, Math.round(Number(input?.quantidade) || 0));
-      const preco = Math.round((Number(input?.preco_venda) || 0) * 100) / 100;
-      if (!nomeP) return { erro: "nome_vazio" };
-      if (custo < 0 || custo > 100000) return { erro: "custo_invalido" };
-      const { error } = await userSupa.from("products").insert({
-        user_id: userId,
-        name: nomeP,
-        cost: custo,
-        sale_price: preco > 0 ? preco : 0,
-        stock_quantity: qtd,
-        is_active: true,
-      });
-      if (error) return { erro: error.message };
-      return {
-        ok: true, acao: "produto_criado", nome: nomeP, custo_unitario: custo, quantidade: qtd, preco_venda: preco,
-        msg: "Produto criado no estoque com sucesso. Confirme em 1 frase (nome, custo por unidade e quantas unidades entraram) e, se ele ainda não deu preço de venda, pergunte por quanto ele vai vender pra você sugerir a margem.",
-      };
-    }
-    if (name === "calcular_preco") {
-      const custo = Math.round((Number(input?.custo) || 0) * 100) / 100;
-      const despPct = Number(input?.despesas_percent);
-      const lucroPct = Number(input?.lucro_percent);
-      const desp = Number.isFinite(despPct) ? despPct : 15;
-      const lucro = Number.isFinite(lucroPct) ? lucroPct : 40;
-      if (custo <= 0) return { erro: "custo_invalido", aviso: "Pergunte o custo por unidade (CMV) antes de calcular o preço." };
-      const soma = (desp + lucro) / 100;
-      if (soma >= 1) return { erro: "percentuais_altos", aviso: "Despesas + lucro passaram de 100% — não existe preço que feche. Peça pra baixar um dos dois." };
-      const r2 = (n: number) => Math.round(n * 100) / 100;
-      const preco = custo / (1 - soma);
-      return {
-        ok: true, acao: "preco_calculado",
-        custo, despesas_percent: desp, lucro_percent: lucro,
-        preco_sugerido: r2(preco), despesas_valor: r2(preco * desp / 100), lucro_limpo: r2(preco * lucro / 100),
-        metodo: "markup divisor: preco = custo / (1 - (despesas% + lucro%))",
-        msg: "Mostre o preço sugerido de forma simples e diga que o lucro sai LIMPO (já descontou taxa/despesa). Depois pergunte se ele quer que você salve no Produtos/Estoque (chame definir_preco_produto) e, se fizer sentido, sugira um combo pra aumentar o ticket.",
-      };
-    }
-    if (name === "definir_preco_produto") {
-      const nomeP = String(input?.nome ?? "").slice(0, 80).trim();
-      if (!nomeP) return { erro: "nome_vazio" };
-      const preco = Math.round((Number(input?.preco_venda) || 0) * 100) / 100;
-      if (preco <= 0) return { erro: "preco_invalido" };
-      const custoIn = Number(input?.custo);
-      const temCusto = Number.isFinite(custoIn) && custoIn >= 0;
-      const { data: achados } = await userSupa.from("products")
-        .select("id,name").eq("user_id", userId).ilike("name", nomeP).limit(1);
-      const alvo = (achados as Array<{ id: string; name: string }> | null)?.[0];
-      if (alvo?.id) {
-        const patch: Record<string, unknown> = { sale_price: preco };
-        if (temCusto) patch.cost = Math.round(custoIn * 100) / 100;
-        const { error } = await userSupa.from("products").update(patch).eq("id", alvo.id);
-        if (error) return { erro: error.message };
-        return { ok: true, acao: "preco_definido", nome: alvo.name, preco_venda: preco, msg: "Preço atualizado no produto. Confirme em 1 frase." };
-      }
-      const { error } = await userSupa.from("products").insert({
-        user_id: userId, name: nomeP,
-        cost: temCusto ? Math.round(custoIn * 100) / 100 : 0,
-        sale_price: preco, stock_quantity: 0, is_active: true,
-      });
-      if (error) return { erro: error.message };
-      return { ok: true, acao: "produto_criado", nome: nomeP, preco_venda: preco, msg: "Não achei esse produto no estoque, então criei ele novo já com o preço. Confirme em 1 frase." };
-    }
-    if (name === "buscar_video") {
-      const termo = String(input?.termo ?? "").slice(0, 120).trim();
-      if (!termo) return { erro: "termo_vazio" };
-      const instrucao = "Entregue o LINK pro vendedor abrir e assistir onde o vídeo está, em 1 frase curta e animada. NÃO transcreva a receita inteira — só o link + no máximo 1 linha do que ele vai ver.";
-      const plataformaDe = (u: string) =>
-        /tiktok\.com/i.test(u) ? "TikTok" : /instagram\.com/i.test(u) ? "Instagram" : /youtu/i.test(u) ? "YouTube" : "web";
-
-      // 1) Busca real do Google DENTRO do Gemini (grounding) — cobre TikTok, Instagram E YouTube.
-      // Prioriza TikTok/Instagram (onde estão as ideias); se não achar, pega YouTube/web.
-      const gkey = Deno.env.get("GEMINI_API_KEY");
-      if (gkey) {
-        try {
-          const gm = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-          const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent?key=${gkey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            signal: AbortSignal.timeout(15000),
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: `Busque na internet UM vídeo real de "${termo}". Procure no TikTok, no Instagram e no YouTube. Responda APENAS com a URL completa do vídeo (de preferência do TikTok ou Instagram), nada mais.` }] }],
-              tools: [{ google_search: {} }],
-            }),
-          });
-          if (r.ok) {
-            const j = await r.json();
-            const txt = String(j?.candidates?.[0]?.content?.parts?.map((p: any) => p?.text ?? "").join(" ") ?? "");
-            const chunks = (j?.candidates?.[0]?.groundingMetadata?.groundingChunks ?? []).map((c: any) => String(c?.web?.uri ?? ""));
-            const todos = [txt, ...chunks].join(" ");
-            const urls = todos.match(/https?:\/\/[^\s)"'\]]+/gi) ?? [];
-            // Ordem de preferência: TikTok → Instagram → YouTube → qualquer outro.
-            const pick =
-              urls.find((u) => /tiktok\.com/i.test(u)) ||
-              urls.find((u) => /instagram\.com/i.test(u)) ||
-              urls.find((u) => /youtube\.com\/watch|youtu\.be/i.test(u)) ||
-              urls[0];
-            if (pick) return { ok: true, plataforma: plataformaDe(pick), titulo: "", link: pick, instrucao };
-          }
-        } catch (e) { console.error("grounding exc", String(e).slice(0, 120)); }
-      }
-
-      // 2) Fallback YouTube Data API (link limpo garantido). Precisa do secret YOUTUBE_API_KEY.
-      const ytKey = Deno.env.get("YOUTUBE_API_KEY");
-      if (ytKey) {
-        try {
-          const u = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=3&safeSearch=moderate&relevanceLanguage=pt&regionCode=BR&q=${encodeURIComponent(termo)}&key=${ytKey}`;
-          const r = await fetch(u, { signal: AbortSignal.timeout(12000) });
-          if (r.ok) {
-            const j = await r.json();
-            const it = (j?.items ?? []).find((x: any) => x?.id?.videoId);
-            if (it?.id?.videoId) {
-              return { ok: true, plataforma: "YouTube", titulo: String(it?.snippet?.title ?? "").slice(0, 120), link: `https://www.youtube.com/watch?v=${it.id.videoId}`, instrucao };
-            }
-          }
-        } catch (e) { console.error("youtube api exc", String(e).slice(0, 120)); }
-      }
-
-      return { erro: "sem_resultado", aviso: "Não achei um vídeo agora. Peça pra ele reformular o termo, ou diga que você pode explicar por texto." };
-    }
     if (name === "criar_adesivo") {
       const marca = String(input?.marca ?? "").slice(0, 30).trim();
       const produto = String(input?.produto ?? "").slice(0, 140).trim();
       const estilo = String(input?.estilo ?? "").slice(0, 300).trim();
+      const ajuste = String(input?.ajuste ?? "").slice(0, 300).trim();
+      // Foto que o vendedor anexou NA CONVERSA como referencia de estilo.
+      const refB64Chat = refChat?.b64 ?? "";
+      const refMimeChat = refChat?.mime ?? "image/jpeg";
       if (!marca || !produto || !estilo) return { erro: "briefing_incompleto" };
+
+      // AJUSTE: busca a ÚLTIMA arte que este vendedor gerou e manda pro desenhista
+      // como base. Sem isso, "muda a cor pro azul" jogava fora a arte aprovada e
+      // devolvia um desenho completamente diferente — a maior frustração do Estúdio.
+      let refUrlAnterior = "";
+      if (ajuste) {
+        try {
+          const adminA = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const { data: ult } = await adminA.from("estudio_geracoes")
+            .select("imagem_url").eq("user_id", userId).not("imagem_url", "is", null)
+            .order("criado_em", { ascending: false }).limit(1).maybeSingle();
+          refUrlAnterior = String((ult as any)?.imagem_url ?? "");
+        } catch { /* sem arte anterior: gera do zero mesmo */ }
+        if (!refUrlAnterior) return { erro: "sem_arte_anterior", aviso: "Não achei uma arte anterior dele pra ajustar. Gere uma nova (sem o campo ajuste) e depois é só pedir a mudança." };
+      }
       // Gera a arte AGORA, direto no chat (igual o GPT): chama a estudio-arte com o token
       // do PRÓPRIO vendedor (assinatura + limite diário valem lá), sobe o PNG no Storage
       // público e devolve a URL — o app mostra a imagem na conversa.
@@ -753,8 +597,8 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
             cores: String(input?.cores ?? "").slice(0, 80),
             extras: String(input?.extras ?? "").slice(0, 200),
             origem: "chat",
-            // Foto que o vendedor anexou no chat → vira a referência do personagem da arte.
-            ...(refImg?.b64 ? { ref_b64: refImg.b64, ref_mime: refImg.mime || "image/jpeg" } : {}),
+            ...(ajuste ? { ajuste, ref_url: refUrlAnterior } : {}),
+            ...(refB64Chat ? { ref_b64: refB64Chat, ref_mime: refMimeChat } : {}),
           }),
         });
         const j = await r.json().catch(() => ({} as Record<string, unknown>));
@@ -784,57 +628,6 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           sem_chave: "Nenhum provedor de imagem está configurado no servidor.",
         };
         return { erro: errCode, aviso: msgs[errCode] ?? "A geração falhou agora. Peça pra ele tentar de novo em instantes." };
-      } catch (e) {
-        return { erro: "geracao_falhou", detalhe: String(e).slice(0, 120) };
-      }
-    }
-    if (name === "melhorar_foto") {
-      // Retoque REALISTA da foto do produto que o vendedor mandou (sem virar arte de IA).
-      // Precisa da foto anexada NESTE turno; senão, pede a foto.
-      if (!refImg?.b64) {
-        return { erro: "sem_foto", aviso: "Você precisa da FOTO do produto pra melhorar. Peça pra ele tirar e mandar a foto aqui no chat (com a orientação de luz/ângulo que você já deu)." };
-      }
-      try {
-        const r = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/estudio-arte`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: userAuthH,
-            apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-          },
-          signal: AbortSignal.timeout(120000),
-          body: JSON.stringify({
-            tipo: "foto",
-            origem: "chat",
-            estilo: String(input?.instrucoes ?? "").slice(0, 300),
-            ref_b64: refImg.b64,
-            ref_mime: refImg.mime || "image/jpeg",
-          }),
-        });
-        const j = await r.json().catch(() => ({} as Record<string, unknown>));
-        if ((j as any)?.imagem) {
-          const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-          const bytes = b64ToBytes(String((j as any).imagem));
-          const path = `${userId}/${crypto.randomUUID()}.png`;
-          const up = await admin.storage.from("artes").upload(path, bytes, { contentType: String((j as any).mime || "image/png") });
-          if (up.error) return { erro: "upload_falhou" };
-          const { data: pub } = admin.storage.from("artes").getPublicUrl(path);
-          return {
-            ok: true, imagem_url: pub.publicUrl, acao: "foto_melhorada",
-            msg: "Foto melhorada com sucesso — ela JÁ aparece na conversa, com o botão de baixar embaixo. Comente em 1 frase o que você ajustou (luz/contraste) e reforce que é a foto REAL dele, sem invenção. Se quiser, ofereça outra variação (ângulo/enquadramento).",
-          };
-        }
-        const errCode = String((j as any)?.error ?? "geracao_falhou");
-        const ehTrial = String((j as any)?.plano ?? "") === "trial";
-        const msgs: Record<string, string> = {
-          limite_diario: ehTrial
-            ? "Ele já usou as imagens grátis de hoje (2 por dia no teste). Diga com leveza e conte que assinando são 4 por dia — sem pressionar."
-            : "Ele já usou as gerações de imagem de hoje — amanhã libera de novo.",
-          assinatura_necessaria: "O teste grátis dele acabou. Convide pra assinar, em 1 frase, sem sermão.",
-          sem_foto: "Faltou a foto do produto. Peça pra ele mandar a foto aqui no chat.",
-          sem_chave: "Nenhum provedor de imagem está configurado no servidor.",
-        };
-        return { erro: errCode, aviso: msgs[errCode] ?? "Não consegui melhorar a foto agora. Peça pra ele mandar de novo em instantes." };
       } catch (e) {
         return { erro: "geracao_falhou", detalhe: String(e).slice(0, 120) };
       }
@@ -913,18 +706,24 @@ Deno.serve(async (req) => {
         const okey = Deno.env.get("OPENAI_API_KEY");
         if (okey) {
           const oModel = Deno.env.get("OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts";
-          const oVoice = Deno.env.get("OPENAI_TTS_VOICE") ?? "onyx";
+          // "ash": escolhida pelo Rick ouvindo as 5 amostras (12/08/2026). Grave com
+          // textura, é a que menos soa locutor. Trocar por secret OPENAI_TTS_VOICE.
+          const oVoice = Deno.env.get("OPENAI_TTS_VOICE") ?? "ash";
           // ATENÇÃO ao mexer aqui: a 1a versão pedia "ritmo pausado, quase
           // confidencial" e speed 0.95 — e o resultado ficou ARRASTADO e sem vida.
           // Jarvis é SEGURO E DIRETO, não devagar. Velocidade de conversa normal,
           // grave, sem sobrar tempo entre as palavras.
           const oInstr = Deno.env.get("OPENAI_TTS_INSTRUCTIONS") ??
-            "Fale português do Brasil como um parceiro experiente falando com um amigo, " +
-            "em velocidade NORMAL de conversa — nem devagar, nem arrastado, nem soletrando. " +
-            "Voz grave e próxima, segura, com energia contida. Entonação viva de fala real: " +
-            "varie o tom naturalmente dentro da frase, sem ficar monótono. Nada de tom de " +
-            "locutor, narração ou propaganda. Emende as palavras como gente conversando " +
-            "rápido e tranquilo ao mesmo tempo. Direto ao ponto.";
+            "Você é um vendedor de rua brasileiro experiente falando com um parceiro de " +
+            "trabalho. Sotaque brasileiro urbano, informal. Velocidade NORMAL de conversa, " +
+            "nunca soletrando nem arrastando. Voz grave e próxima. " +
+            "O ESSENCIAL: soe como uma pessoa falando de improviso, não como alguém lendo " +
+            "um texto pronto. Fala real é IRREGULAR — algumas palavras saem mais rápido, " +
+            "outras ganham peso; o tom sobe e desce dentro da frase sem virar canto. " +
+            "Emende as palavras como a gente emenda falando ('tá', 'pra', 'cê'). " +
+            "Nada de tom de locutor, narração, propaganda ou atendente de call center. " +
+            "Sem pausa dramática antes de números. Termine as frases descendo o tom, " +
+            "com naturalidade de quem já sabe o que está dizendo.";
           const oSpeed = Number(Deno.env.get("OPENAI_TTS_SPEED") ?? "1.08");
           const body2: Record<string, unknown> = {
             model: oModel, voice: oVoice, input: text, response_format: "mp3", speed: oSpeed,
@@ -1009,11 +808,6 @@ Deno.serve(async (req) => {
       return json({ success: false, error: "messages vazio" });
     }
 
-    // Foto anexada no chat (repassada às ferramentas, ex.: referência do personagem do QR).
-    const reqImg = (body?.image && typeof body.image?.b64 === "string" && body.image.b64.length > 50)
-      ? { b64: body.image.b64 as string, mime: (typeof body.image?.mime === "string" && body.image.mime) ? body.image.mime : "image/jpeg" }
-      : undefined;
-
     // Números reais do vendedor (mandados pelo app) — pra IA personalizar a resposta.
     const userCtx = (typeof body?.context === "string" && body.context.trim())
       ? `\n\n${body.context.trim()}`
@@ -1037,13 +831,18 @@ Deno.serve(async (req) => {
         chatUserId = u.user.id;
         // Limite por PLANO: quem paga conversa mais. O trial dos 3 dias tem teto
         // menor — 156 pessoas já passaram por lá, e cada mensagem custa dinheiro.
-        let limiteChat = Number(Deno.env.get("CHAT_LIMITE_TRIAL") ?? "10");
+        // FASE DE TESTE (14/08/2026): tetos abertos a pedido do Rick — tinha gente
+        // batendo em 14, 17 e 31 mensagens/dia contra um limite de 10 e reclamando.
+        // 200/dia não é "sem limite": é alto demais pra um humano encostar, e existe
+        // só pra um bug em loop não virar uma fatura de mil dólares.
+        // Pra apertar de novo depois: secrets CHAT_LIMITE_TRIAL / CHAT_LIMITE_PAGANTE.
+        let limiteChat = Number(Deno.env.get("CHAT_LIMITE_TRIAL") ?? "200");
         try {
           const adminP = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
           const { data: prof } = await adminP.from("profiles")
             .select("plan_status,billing_exempt,is_demo").eq("user_id", chatUserId).maybeSingle();
           const pagante = !!prof && ((prof as any).billing_exempt || (prof as any).is_demo || (prof as any).plan_status === "active");
-          if (pagante) limiteChat = Number(Deno.env.get("CHAT_LIMITE_PAGANTE") ?? "30");
+          if (pagante) limiteChat = Number(Deno.env.get("CHAT_LIMITE_PAGANTE") ?? "200");
         } catch { /* na dúvida, vale o limite menor */ }
         const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: limiteChat });
         if (usageErr) {
@@ -1072,37 +871,17 @@ Deno.serve(async (req) => {
           memFacts.map((f) => `- [${f.tipo}] ${f.fato}`).join("\n");
       }
     } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
-
-    // MODO ORBIS ativo (escolhido no seletor de modos do chat) — foca a IA no tema.
-    const MODE_HINTS: Record<string, string> = {
-      vendas: "MODO ATIVO: ORBIS VENDAS. Foque em abordagem, conexão, conversão e fechamento. Respostas práticas de rua, com frases prontas pra usar no sinal. Se ele descrever uma situação, dê o que falar E como emendar no produto pra fechar.",
-      negociacao: "MODO ATIVO: ORBIS NEGOCIAÇÃO. Foque em objeções e negociação. Quando ele contar o que o cliente falou, entregue 2-3 formas de responder àquela objeção específica e depois como voltar pro produto pra realizar a venda. Lembre da regra: quem fala o preço primeiro perde.",
-      mercadoria: `MODO ATIVO: ORBIS MERCADORIA. Você é a calculadora de custo do vendedor. Conduza este fluxo, uma etapa por mensagem:
-1) COMPRA: ele manda os preços digitando OU uma FOTO da nota fiscal (você enxerga a imagem). Some a compra total e confirme o valor.
-2) PRODUTO: pergunte o que ele vai produzir, se ele ainda não disse. Se ele pedir a receita, ajude (pode usar buscar_video pra um vídeo).
-3) RENDIMENTO E SOBRAS: pergunte QUANTAS unidades rendeu (ex.: 15 garrafinhas) e QUANTO SOBROU de cada ingrediente. O que sobrou NÃO entra no custo deste lote.
-4) CUSTO POR UNIDADE = (custo dos ingredientes que foram REALMENTE usados, ou seja, comprado menos o que sobrou) ÷ rendimento. Mostre a conta de forma simples e o custo por unidade.
-5) ESTOQUE: pergunte "quer que eu já jogue isso no seu Produtos/Estoque?". Se ele confirmar, CHAME adicionar_produto com nome, custo_unitario e quantidade (o rendimento). Se ele disser o preço de venda, passe também e comente a margem.
-6) PREÇO: se ele não souber por quanto vender, ofereça calcular. CHAME calcular_preco com o custo por unidade (pergunte quanto de despesa/taxa % e quanto de lucro % ele quer; se não souber, use 15% e 40% — o vendedor de rua tem despesa baixa e prioriza lucrar mais — e explique que dá pra ajustar). Mostre o preço e diga que o lucro sai LIMPO. Se ele topar, salve com definir_preco_produto.
-7) VENDA DUPLA / COMBO (a jogada da rua): como o custo do produto dele é baixo, a 2ª unidade rende muito. Sugira ancorar no próprio produto: "1 sai R$25, levando 2 sai R$35" (a 2ª quase pela metade), ou "leve 2 e a 2ª sai grátis" quando a margem aguentar, ou juntar com um acompanhamento barato. Sempre faça a conta REAL: custo das 2 unidades x preço do combo = quanto ele ganha, e compare com vender 1 só. O cliente sente que economizou; ele fatura mais no mesmo atendimento. Mostre os números lado a lado.
-Seja prático e faça UMA pergunta por vez. Nunca invente preço — use calcular_preco ou o que ele passou/o que está na nota.`,
-      ideias: "MODO ATIVO: ORBIS IDEIAS. Foque em o que vender, receitas e tendências. Quando pedir receita ou vídeo, use buscar_video e entregue o link.",
-      design: "MODO ATIVO: ORBIS DESIGN. Foque no adesivo/QR Pix da marca dele. Conduza a co-criação e chame criar_adesivo quando tiver o briefing.",
-      foto: `MODO ATIVO: ORBIS FOTO. Você é o fotógrafo/diretor de fotos do vendedor. Missão: fazer ele conseguir uma foto de produto PROFISSIONAL PORÉM REALISTA — aquela que dá vontade de comprar/comer, do jeito que o cliente já está acostumado a ver. Conduza este fluxo, UMA etapa por mensagem:
-1) ENTENDER O PRODUTO: descubra o que é, quem compra e COMO o cliente costuma ver/comer aquilo. Pense em como marcas boas fotografam esse tipo de produto (ex.: doce/brigadeiro tipo Cacau Show ou Lindt — luz quente, fundo simples, foco no brilho da cobertura; salgado/quentinha — mostrado inteiro e fumegante; bebida — copo suado, gelo). Se ele já mandou uma foto, olhe ela e diga o que dá pra aproveitar.
-2) CENÁRIO E ENQUADRAMENTO: diga ONDE e COMO posicionar num cenário que combina com onde ele vende (ex.: a tortinha numa tábua de madeira perto da janela, ou na bandeja de venda). Dê 1 foto RECOMENDADA + 1 ou 2 variações (close no produto / produto com a mão segurando / conjunto com vários).
-3) COMO TIRAR (o que faz a foto ficar boa no celular): luz NATURAL do lado (perto de uma janela, sem flash direto), produto preenchendo o quadro, fundo limpo sem bagunça, celular firme, tirar de um ângulo levemente de cima (45°). Frases curtas e diretas.
-4) ELE MANDA A FOTO: quando ele mandar, seja honesto — elogie o que ficou bom e aponte o que dá pra melhorar. Se estiver ruim de verdade (escura, tremida, bagunçada), peça UMA correção específica e um novo clique ANTES de melhorar.
-5) MELHORAR A FOTO REAL: quando a foto estiver aproveitável e ele tiver mandado a foto NESTE turno, CHAME melhorar_foto. É retoque de luz/contraste/enquadramento — NÃO gera produto novo. Deixe claro pra ele que é a foto REAL dele, sem cara de IA, e que uma imperfeiçãozinha é boa (mostra que é de verdade e o cliente confia). Uma pergunta por vez; nunca invente que melhorou sem a ferramenta ter rodado.
-6) FLYER/PROMOÇÃO: depois que a foto melhorada aparecer, avise que embaixo dela tem o botão "Criar flyer com essa foto" — ali ele monta um flyer de promoção (com preço, chamada, contato) usando a FOTO REAL e um design profissional de verdade, sem aquela cara de imagem feita por IA (que o mercado está rejeitando). Se ele quiser dicas de preço/chamada pro flyer, ajude ali mesmo.`,
-      livre: "",
-    };
-    const modeId = typeof body?.mode === "string" ? body.mode : "livre";
-    const modeBlock = MODE_HINTS[modeId] ? `\n\n${MODE_HINTS[modeId]}` : "";
-    const fullCtx = userCtx + memBlock + modeBlock;
+    const fullCtx = userCtx + memBlock;
 
     // Ação pro app executar junto com a resposta (ex.: abrir o Estúdio com o briefing do adesivo).
     let acaoChat: unknown = null;
+
+    // Foto anexada pelo vendedor NA PRÓPRIA CONVERSA, como referência de estilo.
+    // O app manda em ref_b64; daqui segue pro desenhista quando ele pedir a arte.
+    const refChat = (typeof body?.ref_b64 === "string" && body.ref_b64.length > 100 && body.ref_b64.length < 3_000_000)
+      ? { b64: body.ref_b64 as string, mime: String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg" }
+      : undefined;
+    if (refChat) console.log("referencia anexada no chat:", Math.round(refChat.b64.length / 1024), "KB");
 
     // Depois de responder, aprende com a conversa (roda em segundo plano, não atrasa nada).
     const finishChat = async (replyIn: string) => {
@@ -1112,7 +891,7 @@ Seja prático e faça UMA pergunta por vez. Nunca invente preço — use calcula
       if (!acaoChat) {
         const ext = extrairAdesivoDoTexto(reply);
         if (ext) {
-          const out = await runTool("criar_adesivo", ext.dados, userSupa, chatUserId, reqAuthH, reqImg) as { imagem_url?: string };
+          const out = await runTool("criar_adesivo", ext.dados, userSupa, chatUserId, reqAuthH, refChat) as { imagem_url?: string };
           if (out?.imagem_url) {
             acaoChat = { tipo: "adesivo_no_chat", url: out.imagem_url, dados: ext.dados };
             reply = ext.limpo || "Prontinho, tua arte saiu! Olha ela aí embaixo — e no botão dá pra colocar teu QR Pix real e baixar em alta.";
@@ -1129,9 +908,6 @@ Seja prático e faça UMA pergunta por vez. Nunca invente preço — use calcula
       const acaoUrl = (acaoChat as { tipo?: string; url?: string } | null);
       if (acaoUrl?.tipo === "adesivo_no_chat" && acaoUrl.url) {
         reply = `${reply}\n\n[[adesivo:${acaoUrl.url}]]`;
-      }
-      if (acaoUrl?.tipo === "foto_no_chat" && acaoUrl.url) {
-        reply = `${reply}\n\n[[foto:${acaoUrl.url}]]`;
       }
       try {
         const lastUser = String(messages[messages.length - 1]?.content ?? "").slice(0, 1200);
@@ -1222,12 +998,9 @@ Seja prático e faça UMA pergunta por vez. Nunca invente preço — use calcula
               const resultados: any[] = [];
               for (const tu of usos) {
                 console.log("agente ferramenta:", tu.name);
-                const out = await runTool(String(tu.name), (tu.input ?? {}) as Record<string, unknown>, userSupa, chatUserId, reqAuthH, reqImg);
+                const out = await runTool(String(tu.name), (tu.input ?? {}) as Record<string, unknown>, userSupa, chatUserId, reqAuthH, refChat);
                 if (String(tu.name) === "criar_adesivo" && (out as any)?.imagem_url) {
                   acaoChat = { tipo: "adesivo_no_chat", url: (out as any).imagem_url, dados: tu.input ?? {} };
-                }
-                if (String(tu.name) === "melhorar_foto" && (out as any)?.imagem_url) {
-                  acaoChat = { tipo: "foto_no_chat", url: (out as any).imagem_url, dados: tu.input ?? {} };
                 }
                 resultados.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(out).slice(0, 4000) });
               }
@@ -1297,22 +1070,8 @@ Seja prático e faça UMA pergunta por vez. Nunca invente preço — use calcula
     // Converte o historico pro formato do Gemini (assistant -> model).
     const contents = messages.slice(-30).map((m: any) => ({
       role: m?.role === "assistant" ? "model" : "user",
-      parts: [{ text: String(m?.content ?? "").slice(0, 4000) }] as any[],
+      parts: [{ text: String(m?.content ?? "").slice(0, 4000) }],
     }));
-
-    // IMAGEM do turno atual (multimodal): anexa à ULTIMA mensagem do usuario. Serve tanto
-    // pra foto do personagem do QR/adesivo quanto pra IA ANALISAR um print que o vendedor
-    // mandou (extrato, produto, concorrente etc.).
-    const img = body?.image;
-    if (img && typeof img?.b64 === "string" && img.b64.length > 50) {
-      const mime = (typeof img?.mime === "string" && img.mime) ? img.mime.split(";")[0] : "image/jpeg";
-      for (let i = contents.length - 1; i >= 0; i--) {
-        if (contents[i].role === "user") {
-          contents[i].parts.push({ inlineData: { mimeType: mime, data: img.b64 } });
-          break;
-        }
-      }
-    }
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
     const payload = JSON.stringify({

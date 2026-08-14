@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, type ChangeEvent } from "react";
-import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download, ImagePlus } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -7,7 +7,6 @@ import { ScrollArea } from "@/shared/ui/scroll-area";
 import { useAIConversations } from "@/hooks/useAIConversations";
 import { useAuth } from "@/hooks/useAuth";
 import EstudioMarca, { type EstudioBrief } from "@/components/estudio/EstudioMarca";
-import FlyerEstudio from "@/components/estudio/FlyerEstudio";
 import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
@@ -18,32 +17,17 @@ import { ptBR } from "date-fns/locale";
 // true = voz do aparelho (instantânea, robótica). Se o servidor falhar, cai nela sozinho.
 const USE_INSTANT_VOICE = false;
 
-// Modos "Orbis" (estilo GPTs do ChatGPT): cada um foca a IA num tema. O id vai pro
-// cérebro (bright-action), que ajusta a resposta pro foco escolhido.
-const ORBIS_MODES = [
-  { id: "livre", label: "Orbis Livre", emoji: "💬", desc: "Pergunte qualquer coisa" },
-  { id: "vendas", label: "Orbis Vendas", emoji: "🔥", desc: "Abordagem, conversão, fechar mais" },
-  { id: "negociacao", label: "Orbis Negociação", emoji: "🤝", desc: "O que falar quando o cliente objeta" },
-  { id: "mercadoria", label: "Orbis Mercadoria", emoji: "📦", desc: "Custo por unidade e estoque" },
-  { id: "ideias", label: "Orbis Ideias", emoji: "💡", desc: "O que vender, receitas, tendências" },
-  { id: "design", label: "Orbis Design", emoji: "🎨", desc: "Adesivo e QR Pix da sua marca" },
-  { id: "foto", label: "Orbis Foto", emoji: "📸", desc: "Foto profissional do seu produto" },
-] as const;
-
 export default function FloatingChatButton() {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
-  // Modo Orbis ativo (padrão: livre).
-  const [mode, setMode] = useState<string>("livre");
   // Briefing do adesivo montado na conversa (fallback: abre o Estúdio pra gerar por lá)
   const [estudioBrief, setEstudioBrief] = useState<EstudioBrief | null>(null);
   // Arte que a IA gerou DENTRO do chat — abre o editor só pra encaixar o QR Pix e baixar
   const [estudioArte, setEstudioArte] = useState<string | null>(null);
-  const [flyerFoto, setFlyerFoto] = useState<string | null>(null);
+  // Foto que o vendedor anexa NA CONVERSA como referencia de estilo pro adesivo.
+  // Vai junto com a proxima mensagem e some depois — nao fica grudada no chat.
+  const [refFoto, setRefFoto] = useState<{ b64: string; preview: string } | null>(null);
   const [input, setInput] = useState("");
-  // Imagem anexada ao chat (foto pro QR/adesivo OU um print pra IA analisar).
-  const [attach, setAttach] = useState<{ b64: string; mime: string; preview: string } | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
@@ -137,7 +121,7 @@ export default function FloatingChatButton() {
       const base = voiceMode ? "" : (input ? input.trim() + " " : "");
       if (voiceMode) setInput("");
       startRecFallback((text) => {
-        if (voiceModeRef.current) { sendMessage(text, { voz: true, mode }); setInput(""); }
+        if (voiceModeRef.current) { sendMessage(text, { voz: true }); setInput(""); }
         else setInput(base + text);
       });
       return;
@@ -273,39 +257,34 @@ export default function FloatingChatButton() {
     return () => window.removeEventListener("keydown", onKey);
   }, [isOpen, sidebarOpen]);
 
-  const handleSend = () => {
-    if ((!input.trim() && !attach) || isSending) return;
-    recognitionRef.current?.stop();
-    sendMessage(input.trim(), { attach: attach ? { b64: attach.b64, mime: attach.mime } : null, mode });
-    setInput("");
-    setAttach(null);
+  // Anexa a referencia: reduz pra <=1024px e comprime, senao o upload trava no 4G
+  const onRefChatFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      const max = 1024;
+      const sc = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * sc));
+      c.height = Math.max(1, Math.round(img.height * sc));
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      const dataUrl = c.toDataURL("image/jpeg", 0.85);
+      setRefFoto({ b64: dataUrl.split(",")[1] || "", preview: dataUrl });
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); };
+    img.src = url;
   };
 
-  // Anexo de imagem: redimensiona pra ≤1024px, comprime JPEG e extrai base64 (mesmo padrão
-  // do Estúdio). Serve pra foto do personagem do QR OU um print que a IA vai analisar.
-  const onPickImage = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 1024;
-        const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale);
-        const h = Math.round(img.height * scale);
-        const c = document.createElement("canvas");
-        c.width = w; c.height = h;
-        const ctx = c.getContext("2d");
-        if (!ctx) return;
-        ctx.drawImage(img, 0, 0, w, h);
-        const dataUrl = c.toDataURL("image/jpeg", 0.85);
-        setAttach({ b64: dataUrl.split(",")[1] || "", mime: "image/jpeg", preview: dataUrl });
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
+  const handleSend = () => {
+    if (!input.trim() || isSending) return;
+    recognitionRef.current?.stop();
+    sendMessage(input.trim(), refFoto ? { refB64: refFoto.b64 } : undefined);
+    setInput("");
+    setRefFoto(null);
   };
 
   // A primeira sugestão inicia a CO-CRIAÇÃO do adesivo premium (a IA conduz a conversa)
@@ -316,17 +295,16 @@ export default function FloatingChatButton() {
     "Os 5 princípios da abordagem",
     "Como não tomar calote?",
   ];
-  const sendSuggestion = (text: string, modeOverride?: string) => {
+  const sendSuggestion = (text: string) => {
     if (isSending) return;
     recognitionRef.current?.stop();
-    sendMessage(text, { mode: modeOverride || mode });
+    sendMessage(text);
   };
-  const modoAtivo = ORBIS_MODES.find((m) => m.id === mode) ?? ORBIS_MODES[0];
 
   // Renderiza o conteúdo da mensagem: texto normal + artes geradas no chat
   // (o servidor manda [[adesivo:URL]] quando a IA desenha o adesivo na conversa).
   const renderContent = (content: string) => {
-    const partes = content.split(/(\[\[(?:adesivo|foto):https?:\/\/[^\]\s]+\]\])/g);
+    const partes = content.split(/(\[\[adesivo:https?:\/\/[^\]\s]+\]\])/g);
     return partes.map((p, i) => {
       const m = /^\[\[adesivo:(https?:\/\/[^\]\s]+)\]\]$/.exec(p);
       if (m) {
@@ -343,52 +321,7 @@ export default function FloatingChatButton() {
           </div>
         );
       }
-      // Foto de produto melhorada: mostra a imagem real retocada + botão de baixar (sem QR).
-      const f = /^\[\[foto:(https?:\/\/[^\]\s]+)\]\]$/.exec(p);
-      if (f) {
-        return (
-          <div key={i} className="mt-2 space-y-2">
-            <img
-              src={f[1]} alt="Foto do produto melhorada pela Orbis IA"
-              className="w-full max-w-[260px] rounded-xl border border-border"
-              loading="lazy"
-            />
-            <div className="flex flex-wrap gap-2">
-              <a href={f[1]} target="_blank" rel="noopener noreferrer" download>
-                <Button size="sm" variant="outline" className="h-9">
-                  <Download className="w-4 h-4 mr-1.5" /> Baixar foto
-                </Button>
-              </a>
-              <Button size="sm" onClick={() => setFlyerFoto(f[1])} className="h-9 bg-gradient-primary">
-                <Sparkles className="w-4 h-4 mr-1.5" /> Criar flyer com essa foto
-              </Button>
-            </div>
-          </div>
-        );
-      }
-      // Texto normal: transforma URLs (ex.: link de vídeo que a IA achou) em links clicáveis,
-      // que abrem em nova aba. Assim o vendedor toca e vai assistir onde o vídeo está.
-      if (!p) return null;
-      const sub = p.split(/(https?:\/\/[^\s)]+)/g);
-      return (
-        <span key={i}>
-          {sub.map((s, j) =>
-            /^https?:\/\//.test(s) ? (
-              <a
-                key={j}
-                href={s}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary underline underline-offset-2 break-all"
-              >
-                {s}
-              </a>
-            ) : (
-              <span key={j}>{s}</span>
-            ),
-          )}
-        </span>
-      );
+      return p ? <span key={i}>{p}</span> : null;
     });
   };
 
@@ -514,7 +447,7 @@ export default function FloatingChatButton() {
     if (text === lastSentRef.current.t && agora - lastSentRef.current.ts < 8000) return; // duplicata
     lastSentRef.current = { t: text, ts: agora };
     setInput("");
-    sendMessage(text, { voz: voiceModeRef.current, mode });
+    sendMessage(text, { voz: voiceModeRef.current });
   };
 
   const stopVoice = () => {
@@ -530,7 +463,7 @@ export default function FloatingChatButton() {
     if (!nativeSpeech) {
       stopSpeaking();
       setInput("");
-      startRecFallback((text) => { if (voiceModeRef.current) sendMessage(text, { voz: true, mode }); else setInput(text); });
+      startRecFallback((text) => { if (voiceModeRef.current) sendMessage(text, { voz: true }); else setInput(text); });
       return;
     }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
@@ -649,7 +582,7 @@ export default function FloatingChatButton() {
     }
     const text = input.trim();
     recognitionRef.current?.stop();
-    if (text) { sendMessage(text, { mode }); setInput(""); }
+    if (text) { sendMessage(text); setInput(""); }
   };
   const voiceListen = () => {
     if (!isRecording) toggleRecording();
@@ -665,7 +598,7 @@ export default function FloatingChatButton() {
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
       if (last.content.startsWith("Desculpe, tive um problema")) return;
       // Não lê o marcador da arte gerada no chat (a imagem aparece na tela, não na voz)
-      const falavel = last.content.replace(/\[\[(?:adesivo|foto):[^\]]+\]\]/g, "").trim();
+      const falavel = last.content.replace(/\[\[adesivo:[^\]]+\]\]/g, "").trim();
       if (!falavel) return;
       if (USE_INSTANT_VOICE) speakBrowser(falavel); // voz do aparelho — instantânea
       else speak(falavel);                          // voz do Gemini — bonita, porém ~30s
@@ -723,7 +656,6 @@ export default function FloatingChatButton() {
       {/* Estúdio de Marca: fallback com briefing OU editor de QR pra arte gerada no chat */}
       {estudioBrief && user && <EstudioMarca userId={user.id} brief={estudioBrief} onClose={() => setEstudioBrief(null)} />}
       {estudioArte && user && <EstudioMarca userId={user.id} arteInicial={estudioArte} onClose={() => setEstudioArte(null)} />}
-      {flyerFoto && user && <FlyerEstudio userId={user.id} fotoInicial={flyerFoto} onClose={() => setFlyerFoto(null)} />}
 
       {/* Full-screen ChatGPT-style overlay */}
       {isOpen && (
@@ -767,42 +699,19 @@ export default function FloatingChatButton() {
           <ScrollArea className="flex-1" ref={scrollRef}>
             <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
               {!activeId && messages.length === 0 ? (
-                <div className="flex flex-col items-center text-center py-8">
-                  <div className="mb-3"><OrbisSphere size={72} state="listening" /></div>
-                  <h2 className="text-xl font-bold mb-1">Escolha um especialista Orbis</h2>
-                  <p className="text-sm text-muted-foreground max-w-xs mb-5">
-                    Cada modo deixa a IA afiada num tema. Toque num pra começar — ou é só perguntar.
+                <div className="flex flex-col items-center justify-center text-center py-16">
+                  <div className="mb-4"><OrbisSphere size={88} state="listening" /></div>
+                  <h2 className="text-2xl font-bold mb-2">Como posso ajudar?</h2>
+                  <p className="text-sm text-muted-foreground max-w-xs">
+                    Pergunte sobre vendas, metas, finanças ou rotina — por texto ou tocando em VOZ.
                   </p>
-                  {/* Seletor de modos — estilo GPTs do ChatGPT (cards) */}
-                  <div className="grid grid-cols-2 gap-2.5 w-full max-w-sm">
-                    {ORBIS_MODES.map((mo) => (
-                      <button
-                        key={mo.id}
-                        onClick={() => setMode(mo.id)}
-                        className={cn(
-                          "flex items-start gap-2.5 rounded-2xl border p-3 text-left transition-colors",
-                          mode === mo.id
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-muted/40 hover:bg-muted/70"
-                        )}
-                      >
-                        <span className="text-xl leading-none shrink-0">{mo.emoji}</span>
-                        <span className="min-w-0">
-                          <span className="block text-sm font-semibold truncate">{mo.label}</span>
-                          <span className="block text-[11px] text-muted-foreground leading-tight">{mo.desc}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                  {mode === "design" && (
-                    <button
-                      onClick={() => sendSuggestion(SUGGESTION_ADESIVO, "design")}
-                      className="mt-4 w-full max-w-sm h-11 rounded-2xl bg-gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-                    >
-                      <Sparkles className="w-4 h-4" /> Gerar meu adesivo premium
-                    </button>
-                  )}
-                  <div className="flex flex-wrap gap-2 justify-center mt-4 max-w-sm">
+                  <button
+                    onClick={() => sendSuggestion(SUGGESTION_ADESIVO)}
+                    className="mt-5 w-full max-w-xs h-12 rounded-2xl bg-gradient-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <Sparkles className="w-4 h-4" /> Gerar seu adesivo premium
+                  </button>
+                  <div className="flex flex-wrap gap-2 justify-center mt-3 max-w-xs">
                     {SUGGESTIONS.map((sug) => (
                       <button
                         key={sug}
@@ -843,13 +752,12 @@ export default function FloatingChatButton() {
                   {isSending && (
                     <div className="flex gap-3 justify-start">
                       <div className="shrink-0"><OrbisSphere size={30} state="processing" /></div>
-                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-1.5 items-center">
-                        {/* "digitando…" — 3 pontinhos em onda (delay inline = garantido em qualquer build) */}
-                        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                        <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3 flex gap-2 items-center">
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" />
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.15s]" />
+                        <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce [animation-delay:0.3s]" />
                         {esperaLonga && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">{avisoEspera}</span>
+                          <span className="ml-1 text-xs text-muted-foreground">{avisoEspera}</span>
                         )}
                       </div>
                     </div>
@@ -861,50 +769,29 @@ export default function FloatingChatButton() {
 
           {/* Input */}
           <div className="border-t border-border/60 bg-background/95 backdrop-blur safe-bottom">
-            {/* Seletor de modo compacto (sempre visível — troca o foco no meio da conversa) */}
-            <div className="max-w-2xl mx-auto px-3 pt-2 flex gap-1.5 overflow-x-auto no-scrollbar">
-              {ORBIS_MODES.map((mo) => (
-                <button
-                  key={mo.id}
-                  onClick={() => setMode(mo.id)}
-                  className={cn(
-                    "shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors flex items-center gap-1",
-                    mode === mo.id
-                      ? "bg-primary/15 border-primary/40 text-primary"
-                      : "bg-muted/40 border-border text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <span>{mo.emoji}</span>{mo.label.replace("Orbis ", "")}
-                </button>
-              ))}
-            </div>
-            {/* Preview da imagem anexada */}
-            {attach && (
-              <div className="max-w-2xl mx-auto px-3 pt-3">
-                <div className="relative inline-block">
-                  <img src={attach.preview} alt="anexo" className="h-16 w-16 object-cover rounded-xl border border-border" />
-                  <button
-                    onClick={() => setAttach(null)}
-                    className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center"
-                    aria-label="Remover imagem"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
+            {refFoto && (
+              <div className="max-w-2xl mx-auto px-3 pt-3 flex items-center gap-3">
+                <img src={refFoto.preview} alt="Referencia anexada" className="w-12 h-12 rounded-lg object-cover border border-border" />
+                <p className="text-xs text-muted-foreground flex-1">
+                  Referencia anexada. Escreve o que voce quer que ela crie nesse estilo.
+                </p>
+                <Button variant="ghost" size="icon" onClick={() => setRefFoto(null)} aria-label="Remover referencia">
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={onPickImage} />
             <div className="max-w-2xl mx-auto p-3 flex items-end gap-2">
-              {/* "+" estilo ChatGPT: anexar foto (personagem do QR ou print pra IA ver) */}
-              <Button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                variant="ghost"
-                className="h-11 w-11 p-0 rounded-full shrink-0"
-                aria-label="Anexar imagem"
+              <label
+                className={cn(
+                  "h-11 w-11 shrink-0 rounded-full flex items-center justify-center cursor-pointer transition-colors",
+                  refFoto ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/60"
+                )}
+                aria-label="Anexar uma referencia de adesivo"
+                title="Anexar uma referencia de adesivo"
               >
-                <Plus className="w-5 h-5" />
-              </Button>
+                <ImagePlus className="w-5 h-5" />
+                <input type="file" accept="image/*" className="hidden" onChange={onRefChatFile} disabled={isSending} />
+              </label>
               {speechSupported && (
                 <Button
                   type="button"
@@ -928,14 +815,14 @@ export default function FloatingChatButton() {
                     handleSend();
                   }
                 }}
-                placeholder={mode === "livre" ? "Pergunte algo..." : `${modoAtivo.label}: pergunte...`}
+                placeholder="Pergunte algo..."
                 disabled={isSending}
                 rows={1}
                 className="flex-1 resize-none min-h-[44px] max-h-32 rounded-2xl bg-muted/40 border-border/60"
               />
               <Button
                 onClick={handleSend}
-                disabled={isSending || (!input.trim() && !attach)}
+                disabled={isSending || !input.trim()}
                 className="h-11 w-11 p-0 rounded-full bg-gradient-primary hover:opacity-90"
                 aria-label="Enviar"
               >
