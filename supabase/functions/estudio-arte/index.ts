@@ -237,14 +237,14 @@ ${REGRAS_COMUNS}`;
             r = await fetch("https://api.openai.com/v1/images/edits", {
               method: "POST",
               headers: { Authorization: `Bearer ${okey}` },
-              signal: AbortSignal.timeout(90000),
+              // 220s: em qualidade high a OpenAI passa de 90s — com o prazo antigo a\n              // arte era abortada no meio (TimeoutError em 14/08/2026).\n              signal: AbortSignal.timeout(220000),
               body: fd,
             });
           } else {
             r = await fetch("https://api.openai.com/v1/images/generations", {
               method: "POST",
               headers: { Authorization: `Bearer ${okey}`, "Content-Type": "application/json" },
-              signal: AbortSignal.timeout(90000),
+              signal: AbortSignal.timeout(220000),
               body: JSON.stringify({ model: om, prompt: prompt.slice(0, 30000), size: "1024x1536", quality: oQuality }),
             });
           }

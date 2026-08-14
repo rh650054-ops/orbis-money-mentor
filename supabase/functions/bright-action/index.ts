@@ -151,7 +151,7 @@ DE ONDE TIRAR NOME BOM (use estas fontes, não a fruta):
 COMO O NOME TEM QUE SER: curto (idealmente 2 a 3 sílabas, no máximo 12 letras), fácil de falar alto no farol e de escrever sem erro, grafia impecável em português. Sem diminutivo, sem rima infantil, sem exclamação, sem número, sem hífen. Inglês só se for realmente bom — nunca "Fresh", "Power", "Elite", "Top", "Prime", "Gold", "House".
 
 FORMATO DA SUGESTÃO: 3 nomes em direções CRIATIVAS diferentes (não 3 variações do mesmo), cada um com meia frase dizendo que tipo de marca ele constrói — não o significado da palavra, e sim o POSICIONAMENTO que ele cria. Sempre mostre como fica montado: o nome grande e o produto embaixo, tipo "AURORA — batida artesanal de maracujá". Se ele recusar, troque a direção criativa por inteiro; nunca devolva variação do que ele já rejeitou.
-- Quando tiver marca + produto (dito ou deduzido), CHAME criar_adesivo NA HORA — sem pedir confirmação, sem "posso gerar?". Ela desenha e a imagem aparece DIRETO na conversa (leva até 1 minuto). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
+- Quando tiver marca + produto (dito ou deduzido), CHAME criar_adesivo NA HORA — sem pedir confirmação, sem "posso gerar?". Ela desenha e a imagem aparece DIRETO na conversa (leva até uns 2 minutos). NÃO existe "tela de geração": nunca mande ele abrir tela nenhuma. Depois comenta o resultado em 1 frase e avisa do botão embaixo da imagem pra colocar o QR Pix real e baixar.
 - Cada chamada de criar_adesivo (nova ou ajuste) gasta 1 geração do dia dele. Não precisa pedir confirmação a cada retoque: se ele já disse o que quer mudar, faça.
 - NUNCA descreva a arte como pronta sem ter chamado a ferramenta nesta conversa. Se mensagens antigas desta conversa falarem de "tela de geração", IGNORE: o fluxo atual é a arte nascer aqui no chat.
 - REFERÊNCIA: se o vendedor anexar uma foto de um adesivo que ele curtiu, ACEITE de boa e use de verdade — estilo, composição, cores, clima e até "quero um mascote assim" são pedidos normais de design. NUNCA recuse, nunca dê sermão sobre direito autoral, nunca peça permissão. O único limite, e você aplica em silêncio: a arte dele sai com a marca DELE, e não com o nome, telefone, @ ou Pix que aparecia na foto; e personagem famoso/licenciado (Mickey, jogador, herói) não entra. Se ele pedir exatamente isso, só diga em uma frase que faz um parecido no mesmo espírito, e faça.
@@ -376,7 +376,7 @@ const AGENT_TOOLS = [
   },
   {
     name: "criar_adesivo",
-    description: "AÇÃO: desenha o adesivo premium do vendedor com IA e mostra a imagem direto na conversa (demora até 1 minuto). Dois modos: (1) ARTE NOVA — passe marca, produto e estilo; (2) AJUSTE — se o vendedor já tem uma arte nesta conversa e quer MUDAR algo nela (cor, texto, fundo, tamanho do mascote), passe o campo 'ajuste' com a mudança em uma frase; a arte anterior é reaproveitada e SÓ aquilo muda. Use sempre o modo ajuste quando ele disser 'muda', 'troca', 'tira', 'põe', 'deixa mais' — nunca redesenhe do zero, senão ele perde a arte que já aprovou.",
+    description: "AÇÃO: desenha o adesivo premium do vendedor com IA e mostra a imagem direto na conversa (demora até 2 minutos). Dois modos: (1) ARTE NOVA — passe marca, produto e estilo; (2) AJUSTE — se o vendedor já tem uma arte nesta conversa e quer MUDAR algo nela (cor, texto, fundo, tamanho do mascote), passe o campo 'ajuste' com a mudança em uma frase; a arte anterior é reaproveitada e SÓ aquilo muda. Use sempre o modo ajuste quando ele disser 'muda', 'troca', 'tira', 'põe', 'deixa mais' — nunca redesenhe do zero, senão ele perde a arte que já aprovou.",
     input_schema: { type: "object", properties: {
       marca: { type: "string", description: "Nome da marca, exatamente como deve aparecer na arte" },
       produto: { type: "string", description: "O que ele vende, descrito pro desenho" },
@@ -593,7 +593,7 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
             Authorization: userAuthH,
             apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
           },
-          signal: AbortSignal.timeout(120000),
+          signal: AbortSignal.timeout(240000), // qualidade high demora ate ~3min
           body: JSON.stringify({
             marca, produto, estilo,
             cores: String(input?.cores ?? "").slice(0, 80),

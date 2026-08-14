@@ -215,7 +215,7 @@ export default function FloatingChatButton() {
   }, [isSending]);
   const ultimaMinha = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
   const avisoEspera = /adesivo|arte|logo|r[óo]tulo|marca|gera/i.test(ultimaMinha)
-    ? "Desenhando tua arte... leva até 1 minuto. Não fecha essa tela."
+    ? "Desenhando tua arte em alta qualidade... leva uns 2 minutos. Não fecha essa tela."
     : "Pensando com calma aqui...";
 
   // Fecha o chat com o botão/gesto de voltar do celular (sem reabrir)

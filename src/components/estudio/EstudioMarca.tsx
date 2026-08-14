@@ -494,7 +494,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
               <p className="text-sm text-muted-foreground mt-1">{FRASES_GERANDO[fraseIdx]}</p>
             </div>
             <p className="text-xs text-muted-foreground">
-              Leva até 1 minuto — a IA desenha tudo do zero no estilo {modelo?.nome ?? (briefMode ? "que vocês combinaram" : "escolhido")}.
+              Leva uns 2 minutos — a IA desenha tudo do zero, em alta qualidade no estilo {modelo?.nome ?? (briefMode ? "que vocês combinaram" : "escolhido")}.
             </p>
           </div>
         </div>
