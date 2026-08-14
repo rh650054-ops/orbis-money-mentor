@@ -871,17 +871,37 @@ Deno.serve(async (req) => {
           memFacts.map((f) => `- [${f.tipo}] ${f.fato}`).join("\n");
       }
     } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
-    const fullCtx = userCtx + memBlock;
+    // Foto anexada pelo vendedor NA PRÓPRIA CONVERSA, como referência de estilo.
+    const refChat = (typeof body?.ref_b64 === "string" && body.ref_b64.length > 100 && body.ref_b64.length < 3_000_000)
+      ? { b64: body.ref_b64 as string, mime: String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg" }
+      : undefined;
+
+    // Sobe a foto pro Storage pra ela APARECER na conversa (o app mostra a
+    // miniatura na mensagem do vendedor). Sem isso ele anexa e nao ve nada,
+    // e fica achando que nao subiu.
+    let refUrlChat = "";
+    if (refChat) {
+      try {
+        const adminR = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+        const ext = refChat.mime.includes("png") ? "png" : "jpg";
+        const pathR = `refs/${chatUserId}/${crypto.randomUUID()}.${ext}`;
+        const up = await adminR.storage.from("artes").upload(pathR, b64ToBytes(refChat.b64), { contentType: refChat.mime });
+        if (!up.error) refUrlChat = adminR.storage.from("artes").getPublicUrl(pathR).data.publicUrl;
+      } catch { /* a foto ainda vale como referencia mesmo sem aparecer */ }
+      console.log("referencia anexada no chat:", Math.round(refChat.b64.length / 1024), "KB");
+    }
+
+    // O AVISO QUE FALTAVA: sem esta linha o modelo nao sabia que existia foto —
+    // respondia como se nada tivesse chegado, e ate' pedia uma referencia que o
+    // vendedor JA tinha mandado. Era esse o bug do "anexei e nao aconteceu nada".
+    const refBlock = refChat
+      ? "\n\nO VENDEDOR ACABOU DE ANEXAR UMA FOTO DE REFERÊNCIA NESTA MENSAGEM. Ela já está no servidor e vai junto automaticamente quando você chamar criar_adesivo — você NÃO precisa vê-la e NUNCA deve pedir que ele mande de novo, nem dizer que não consegue ver imagem. Trate como um adesivo que ele curtiu e quer no mesmo espírito: comente em 1 frase que pegou a referência, confirme o que falta (marca e produto, se ainda não souber) e gere. Se ele já tiver dito marca e produto, chame criar_adesivo NA HORA."
+      : "";
+    const fullCtx = userCtx + memBlock + refBlock;
 
     // Ação pro app executar junto com a resposta (ex.: abrir o Estúdio com o briefing do adesivo).
     let acaoChat: unknown = null;
 
-    // Foto anexada pelo vendedor NA PRÓPRIA CONVERSA, como referência de estilo.
-    // O app manda em ref_b64; daqui segue pro desenhista quando ele pedir a arte.
-    const refChat = (typeof body?.ref_b64 === "string" && body.ref_b64.length > 100 && body.ref_b64.length < 3_000_000)
-      ? { b64: body.ref_b64 as string, mime: String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg" }
-      : undefined;
-    if (refChat) console.log("referencia anexada no chat:", Math.round(refChat.b64.length / 1024), "KB");
 
     // Depois de responder, aprende com a conversa (roda em segundo plano, não atrasa nada).
     const finishChat = async (replyIn: string) => {
@@ -915,7 +935,7 @@ Deno.serve(async (req) => {
         const er = (globalThis as any).EdgeRuntime;
         if (er?.waitUntil) er.waitUntil(p); else p.catch(() => {});
       } catch { /* noop */ }
-      return json({ success: true, message: reply, ...(acaoChat ? { acao: acaoChat } : {}) });
+      return json({ success: true, message: reply, ...(acaoChat ? { acao: acaoChat } : {}), ...(refUrlChat ? { ref_url: refUrlChat } : {}) });
     };
 
     // Cliente com o token do PRÓPRIO vendedor: as ferramentas do agente rodam com ele (RLS).

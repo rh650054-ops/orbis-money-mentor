@@ -304,8 +304,19 @@ export default function FloatingChatButton() {
   // Renderiza o conteúdo da mensagem: texto normal + artes geradas no chat
   // (o servidor manda [[adesivo:URL]] quando a IA desenha o adesivo na conversa).
   const renderContent = (content: string) => {
-    const partes = content.split(/(\[\[adesivo:https?:\/\/[^\]\s]+\]\])/g);
+    const partes = content.split(/(\[\[(?:adesivo|foto):https?:\/\/[^\]\s]+\]\])/g);
     return partes.map((p, i) => {
+      // Foto de referência que o vendedor anexou — miniatura dentro da mensagem dele
+      const f = /^\[\[foto:(https?:\/\/[^\]\s]+)\]\]$/.exec(p);
+      if (f) {
+        return (
+          <img
+            key={i} src={f[1]} alt="Referência que você enviou"
+            className="mt-2 w-full max-w-[180px] rounded-xl border border-border/60"
+            loading="lazy"
+          />
+        );
+      }
       const m = /^\[\[adesivo:(https?:\/\/[^\]\s]+)\]\]$/.exec(p);
       if (m) {
         return (
@@ -598,7 +609,7 @@ export default function FloatingChatButton() {
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
       if (last.content.startsWith("Desculpe, tive um problema")) return;
       // Não lê o marcador da arte gerada no chat (a imagem aparece na tela, não na voz)
-      const falavel = last.content.replace(/\[\[adesivo:[^\]]+\]\]/g, "").trim();
+      const falavel = last.content.replace(/\[\[(?:adesivo|foto):[^\]]+\]\]/g, "").trim();
       if (!falavel) return;
       if (USE_INSTANT_VOICE) speakBrowser(falavel); // voz do aparelho — instantânea
       else speak(falavel);                          // voz do Gemini — bonita, porém ~30s

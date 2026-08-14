@@ -145,6 +145,7 @@ export const useAIConversations = () => {
       if (insertedUser) {
         setMessages((prev) => prev.map((m) => (m.id === tempUser.id ? (insertedUser as AIMessage) : m)));
       }
+      const idMinhaMsg = (insertedUser as AIMessage | null)?.id ?? null;
 
       // If first message, set title from text (first 40 chars)
       const conv = conversations.find((c) => c.id === convId);
@@ -171,6 +172,7 @@ export const useAIConversations = () => {
       // Tenta o chat; se falhar (timeout/limite), tenta +1 vez antes de desistir.
       // Reduz bastante o "Desculpe, tive um problema..." aparecer/ser falado na voz.
       let chatMessage = "";
+      let refUrlEnviada = "";
       let chatAction: { tipo: string; dados?: Record<string, string> } | null = null;
       for (let attempt = 0; attempt < 2; attempt++) {
         const { data, error } = await supabase.functions.invoke("bright-action", {
@@ -181,12 +183,24 @@ export const useAIConversations = () => {
         });
         if (!error && data?.success && data?.message) {
           chatMessage = data.message as string;
+          refUrlEnviada = String((data as any)?.ref_url ?? "");
           if ((data as any)?.acao?.tipo) chatAction = (data as any).acao;
           break;
         }
         if (attempt === 0) await new Promise((r) => setTimeout(r, 900));
       }
       if (chatAction) setAction(chatAction);
+
+      // A foto que ele anexou vira parte da mensagem DELE, com marcador que o chat
+      // desenha como miniatura. Assim ela aparece na conversa e continua la' quando
+      // ele voltar depois — antes o anexo sumia e parecia que nao tinha subido.
+      if (refUrlEnviada && idMinhaMsg) {
+        const comFoto = `${text}\n\n[[foto:${refUrlEnviada}]]`;
+        setMessages((prev) => prev.map((m) => (m.id === idMinhaMsg ? { ...m, content: comFoto } : m)));
+        try {
+          await supabase.from("ai_messages").update({ content: comFoto }).eq("id", idMinhaMsg);
+        } catch { /* a miniatura ja' esta' na tela; se o banco falhar, some so' no reload */ }
+      }
       const aiText =
         chatMessage ||
         "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
