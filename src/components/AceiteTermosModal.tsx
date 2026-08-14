@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -15,6 +15,10 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const { pathname } = useLocation();
+  // Os links abaixo são <a target="_blank">, e NÃO <Link> do react-router, de
+  // propósito: consentimento não pode depender do roteamento interno do app.
+  // Abrindo em aba nova, o documento carrega direto do servidor — imune a chunk
+  // que falhou no cache, a overlay por cima e a qualquer guarda de rota.
   // O modal e' montado no layout, entao aparece em TODA rota. Sem esta linha, ao
   // clicar em "Termos de Uso" o app navegava certinho... e o modal continuava por
   // cima, tampando a pagina inteira. Do lado do vendedor parecia que o clique nao
@@ -62,13 +66,13 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
         </div>
         <p className="text-sm text-muted-foreground leading-relaxed">
           Publicamos os{" "}
-          <Link to="/termos" className="text-primary underline">Termos de Uso</Link> e a{" "}
-          <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>{" "}
+          <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-primary underline">Termos de Uso</a> e a{" "}
+          <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-primary underline">Política de Privacidade</a>{" "}
           do Orbis, explicando quais dados usamos, pra quê, e os seus direitos (incluindo excluir a
           conta quando quiser). Pra continuar, confirme que leu e concorda.
         </p>
         <p className="text-xs text-muted-foreground">
-          Pode abrir e ler com calma — quando voltar, este aviso estará aqui esperando.
+          Os documentos abrem numa aba nova — esta tela continua aqui, esperando você voltar.
         </p>
         <Button className="w-full h-11" onClick={aceitar} disabled={salvando}>
           {salvando ? "Salvando…" : "Li e aceito"}
