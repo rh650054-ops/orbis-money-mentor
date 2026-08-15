@@ -16,9 +16,6 @@ Deno.serve(async (req) => {
     const expectedHottok = Deno.env.get("HOTMART_HOTTOK");
 
     // FAIL-CLOSED: sem o segredo configurado OU com hottok inválido, rejeita.
-    // (Antes "falhava aberto" sem o segredo — qualquer um podia forjar um
-    // pagamento e ativar assinatura de graça.) Configure HOTMART_HOTTOK nos
-    // secrets do Supabase com o valor do hottok do Hotmart.
     if (!expectedHottok || hottok !== expectedHottok) {
       console.error("hotmart-webhook: hottok inválido ou HOTMART_HOTTOK ausente — rejeitado");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -55,37 +52,34 @@ Deno.serve(async (req) => {
       .from("processed_hotmart_events")
       .insert({ event_id: eventId, event_type: event, purchase_id: purchaseId });
     if (dupErr) {
-      // 23505 = unique_violation -> evento repetido, ja processado. Ignora.
       if ((dupErr as { code?: string }).code === "23505") {
         console.log("hotmart-webhook: evento duplicado ignorado", eventId);
         return new Response(JSON.stringify({ status: "duplicate" }), { headers: corsHeaders });
       }
-      // Outro erro (ex: tabela ainda nao migrada) -> loga e segue, pra nao travar pagamento legitimo.
       console.error("hotmart-webhook: dedup falhou (seguindo)", (dupErr as { message?: string }).message);
     }
 
-    // Find user by CPF first, then email fallback
+    // BUSCA UNIFICADA (v16): orbis_achar_usuario acha o dono por CPF (perfil) e por
+    // E-MAIL sem diferenciar maiúsculas — no perfil E no e-mail de LOGIN (auth.users).
+    // Antes era .eq("email", ...) só no perfil: "Fulano@Gmail.com" na Hotmart não
+    // casava com "fulano@gmail.com" no app, e quem se cadastrou por CPF (sem e-mail
+    // no perfil) nunca era encontrado.
     let userId: string | null = null;
-
-    if (buyerCpf) {
-      const { data: profileByCpf } = await supabase
-        .from("profiles")
-        .select("user_id")
-        .eq("cpf", buyerCpf)
-        .maybeSingle();
-      if (profileByCpf) userId = profileByCpf.user_id;
+    try {
+      const { data: achado, error: achadoErr } = await supabase.rpc("orbis_achar_usuario", {
+        p_email: buyerEmail ?? "",
+        p_cpf: buyerCpf ?? "",
+      });
+      if (achadoErr) console.error("orbis_achar_usuario erro:", achadoErr.message);
+      if (achado) userId = String(achado);
+    } catch (e) {
+      console.error("orbis_achar_usuario exceção:", String(e).slice(0, 200));
     }
 
-    if (!userId && buyerEmail) {
-      const { data: profileByEmail } = await supabase
-        .from("profiles")
-        .select("user_id")
-        .eq("email", buyerEmail)
-        .maybeSingle();
-      if (profileByEmail) userId = profileByEmail.user_id;
-    }
-
-    // If can't identify user, store as unlinked
+    // If can't identify user, store as unlinked.
+    // NÃO é beco sem saída: o gatilho trg_reivindicar_compras (profiles) reivindica
+    // esta compra automaticamente quando a pessoa se cadastrar com o mesmo
+    // e-mail/CPF — ela já entra como pagante, sem ninguém precisar mexer.
     if (!userId) {
       console.log("Could not identify user, storing as unlinked purchase");
       await supabase.from("unlinked_purchases").insert({
