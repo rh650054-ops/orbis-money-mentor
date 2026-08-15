@@ -80,7 +80,7 @@ export function OrbisSphere({
     const cx = size / 2;
     const cy = size / 2;
 
-    const animate = () => {
+    const drawFrame = () => {
       const st = stateRef.current;
       ctx.clearRect(0, 0, size, size);
       stateTime += 0.016;
@@ -145,11 +145,71 @@ export function OrbisSphere({
       });
 
       ctx.globalAlpha = 1;
-      rafRef.current = requestAnimationFrame(animate);
     };
 
-    rafRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(rafRef.current);
+    // prefers-reduced-motion: desenha UM frame estatico e nao roda loop (zero bateria).
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) {
+      drawFrame();
+      return;
+    }
+
+    // Anima SO quando a esfera esta visivel na tela E a aba em foco. Fora disso,
+    // cancela o requestAnimationFrame de vez (nao so pula o frame) — e isso que
+    // corta a bateria do FAB de chat, que fica sempre presente em todas as telas.
+    // Alem disso limita a ~30fps (era 60): metade do trabalho, sem diferenca visivel.
+    const FRAME_MS = 1000 / 30;
+    let visible = typeof document !== "undefined" ? !document.hidden : true;
+    let onScreen = true;
+    let running = false;
+    let last = 0;
+
+    const loop = (ts: number) => {
+      if (!running) return;
+      rafRef.current = requestAnimationFrame(loop);
+      if (ts - last < FRAME_MS) return;
+      last = ts;
+      drawFrame();
+    };
+    const start = () => {
+      if (running) return;
+      running = true;
+      last = 0;
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(rafRef.current);
+    };
+    const evaluate = () => {
+      if (visible && onScreen) start();
+      else stop();
+    };
+
+    const onVis = () => {
+      visible = !document.hidden;
+      evaluate();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        onScreen = entries[0]?.isIntersecting ?? true;
+        evaluate();
+      },
+      { threshold: 0 },
+    );
+    io.observe(canvas);
+
+    evaluate();
+
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVis);
+      io.disconnect();
+    };
   }, [size, speed, color]);
 
   return (

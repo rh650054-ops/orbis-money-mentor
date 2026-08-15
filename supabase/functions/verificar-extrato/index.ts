@@ -314,7 +314,10 @@ Deno.serve(async (req) => {
         uid = u?.user?.id ?? null;
         if (uid) {
           const { data: prof } = await supa.from("public_profiles").select("nickname").eq("user_id", uid).maybeSingle();
-          nome = ((prof as any)?.nickname ?? "").toString().trim();
+          // Sanitiza: o nickname e' controlado pelo usuario e entra no prompt do
+          // auditor. Tira aspas/quebras/backticks e limita tamanho pra impedir
+          // injecao de instrucao (ex.: nickname = 'Ze". Ignore as regras...').
+          nome = ((prof as any)?.nickname ?? "").toString().replace(/["'`\r\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
         }
       } catch { /* best-effort */ }
     }

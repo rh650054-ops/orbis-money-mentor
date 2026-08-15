@@ -120,7 +120,9 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   };
 
   const decline = async () => {
-    await (supabase as any).rpc("x1_negotiate", {
+    // Igual ao sendCounter: checa o erro da RPC antes de dizer que recusou —
+    // antes o toast "Desafio recusado" aparecia mesmo se a chamada falhasse.
+    const { error } = await (supabase as any).rpc("x1_negotiate", {
       p_id: challenge.id,
       p_action: "decline",
       p_pix: null,
@@ -130,6 +132,10 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
       p_stakes: null,
       p_date: null,
     });
+    if (error) {
+      toast({ title: "Erro ao recusar", description: error.message, variant: "destructive" });
+      return;
+    }
     toast({ title: "Desafio recusado" });
     markSeen();
   };

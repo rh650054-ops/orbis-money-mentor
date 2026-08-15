@@ -118,7 +118,9 @@ Deno.serve(async (req) => {
     let nome = "";
     try {
       const { data: pp } = await supa.from("public_profiles").select("nickname").eq("user_id", userId).maybeSingle();
-      nome = ((pp as any)?.nickname ?? "").toString().trim();
+      // Sanitiza: nickname e' controlado pelo usuario e entra no prompt do auditor.
+      // Tira aspas/quebras/backticks e limita tamanho (anti-injecao de instrucao).
+      nome = ((pp as any)?.nickname ?? "").toString().replace(/["'`\r\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
     } catch { /* noop */ }
 
     const key = Deno.env.get("ANTHROPIC_API_KEY");

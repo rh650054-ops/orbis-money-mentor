@@ -177,9 +177,14 @@ export default function Ranking() {
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
       const url = `${urlData.publicUrl}?t=${Date.now()}`;
-      await supabase.from("profiles").update({ avatar_url: url }).eq("user_id", user.id);
+      // .update() NAO lanca excecao sozinho: se o RLS bloquear, o erro vem em {error}.
+      // Sem checar, "Foto atualizada" aparecia mesmo quando a gravacao falhava.
+      const { error: profErr } = await supabase.from("profiles").update({ avatar_url: url }).eq("user_id", user.id);
+      if (profErr) throw profErr;
       const mref = new Date().toISOString().slice(0, 7);
-      await supabase.from("leaderboard_stats").update({ avatar_url: url }).eq("user_id", user.id).eq("mes_referencia", mref);
+      // leaderboard_stats pode nao ter a linha do mes ainda (0 linhas = ok); so erro real derruba.
+      const { error: lbErr } = await supabase.from("leaderboard_stats").update({ avatar_url: url }).eq("user_id", user.id).eq("mes_referencia", mref);
+      if (lbErr) throw lbErr;
       toast({ title: "Foto atualizada! 📸" });
       loadUserProfile();
       loadLeaderboard();
