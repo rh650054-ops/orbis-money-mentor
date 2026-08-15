@@ -182,14 +182,12 @@ serve(async (req) => {
         .maybeSingle();
       plan = resolvePlan(prof);
       firstName = String((prof as any)?.nickname || "").trim().split(/\s+/)[0] || "";
-      const { data: usage } = await svc
-        .from("ai_usage")
-        .select("count")
-        .eq("user_id", user.id)
-        .eq("date", today)
-        .maybeSingle();
-      usedToday = usage?.count ?? 0;
-      if (usedToday >= plan.limit) {
+      // Teto diario via bump_ai_usage (fonte unica e atomica, igual as outras
+      // funcoes). Usa o client do USUARIO porque a RPC depende de auth.uid().
+      // Incrementa e ja diz se passou do limite — nao precisa mais do upsert manual.
+      const { data: usage } = await supabase.rpc("bump_ai_usage", { p_feature: "chat", p_limit: plan.limit });
+      usedToday = (usage as any)?.count ?? 0;
+      if ((usage as any)?.over) {
         return new Response(
           JSON.stringify({
             success: true,
@@ -468,12 +466,8 @@ serve(async (req) => {
       throw new Error("Nenhuma chave de IA configurada. Adicione GEMINI_API_KEY (grátis) ou ANTHROPIC_API_KEY no painel do Supabase.");
     }
 
-    if (svc) {
-      await svc.from("ai_usage").upsert(
-        { user_id: user.id, date: today, count: usedToday + 1, updated_at: new Date().toISOString() },
-        { onConflict: "user_id,date" },
-      );
-    }
+    // O contador ja foi incrementado atomicamente por bump_ai_usage la em cima —
+    // nao ha mais upsert manual na coluna antiga 'date' (que causava o conflito de esquema).
 
     return new Response(
       JSON.stringify({ message: assistantMessage, success: true }),

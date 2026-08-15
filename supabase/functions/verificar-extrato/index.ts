@@ -326,7 +326,12 @@ Deno.serve(async (req) => {
         if ((usage as any)?.over) {
           return json({ error: "limite_diario", dica: "Você já enviou bastante extrato hoje. Volta amanhã." }, 200);
         }
-      } catch { /* deixa passar se a trava falhar */ }
+      } catch (e) {
+        // FALHA FECHADA: extrato roda Claude vision (caro). Se a trava quebrar, NAO
+        // liberamos de graca — antes o catch vazio deixava passar sem limite nenhum.
+        console.error("bump_ai_usage extrato falhou", String(e).slice(0, 120));
+        return json({ error: "trava_indisponivel", dica: "Tenta de novo em instantes." }, 503);
+      }
     }
 
     // Janela do modo MES: do dia 1 do mes atual (fuso BR) ate hoje — E sempre
