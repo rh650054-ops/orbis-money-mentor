@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-admin-secret",
+    "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
@@ -15,53 +15,38 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
-    const adminSecret = req.headers.get("x-admin-secret");
 
-    // Allow access via service role key in x-admin-secret header
-    const isServiceRole = adminSecret === serviceRoleKey;
+    // SEM bypass por x-admin-secret: essa funcao troca email/CPF de contas (poder de
+    // tomada de conta). Transmitir a service_role key num header era um risco enorme
+    // (um vazamento em log/proxy = admin total). Agora SEMPRE exige um admin logado,
+    // verificado no banco pela funcao blindada is_orbis_admin() — mesmo padrao das
+    // funcoes admin-delete-user / admin-reset-password.
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Not authenticated" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    if (!isServiceRole) {
-      if (!authHeader) {
-        return new Response(JSON.stringify({ error: "Not authenticated" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const anonClient = createClient(
+      supabaseUrl,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const { data: { user: caller } } = await anonClient.auth.getUser();
+    if (!caller) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-      const anonClient = createClient(
-        supabaseUrl,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-        { global: { headers: { Authorization: authHeader } } }
-      );
-      const { data: { user: caller } } = await anonClient.auth.getUser();
-      if (!caller) {
-        return new Response(JSON.stringify({ error: "Invalid token" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const adminClient = createClient(supabaseUrl, serviceRoleKey);
-      const { data: adminRole } = await adminClient
-        .from("admin_access")
-        .select("cpf")
-        .limit(100);
-      const { data: callerProfile } = await adminClient
-        .from("profiles")
-        .select("cpf")
-        .eq("user_id", caller.id)
-        .single();
-
-      const isAdmin =
-        callerProfile?.cpf &&
-        adminRole?.some((a: { cpf: string }) => a.cpf === callerProfile.cpf);
-
-      if (!isAdmin) {
-        return new Response(JSON.stringify({ error: "Admin access required" }), {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const { data: isAdmin, error: adminErr } = await anonClient.rpc("is_orbis_admin");
+    if (adminErr || isAdmin !== true) {
+      return new Response(JSON.stringify({ error: "Admin access required" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const { email, cpf } = await req.json();
