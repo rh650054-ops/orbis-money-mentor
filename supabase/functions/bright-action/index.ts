@@ -956,8 +956,8 @@ Deno.serve(async (req) => {
         // voz NUNCA usa o Opus (o modelo mais lento), nem em conversa de marca.
         const modoVoz = body?.voz === true;
         const amodel = (criativa && !modoVoz)
-          ? (Deno.env.get("ANTHROPIC_MODEL_CRIATIVO") ?? "claude-opus-5")
-          : (Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5");
+          ? (Deno.env.get("ANTHROPIC_MODEL_CRIATIVO") ?? "claude-opus-4-8")
+          : (Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6");
         const ahist = messages.slice(-8).map((m: any) => ({
           role: m?.role === "assistant" ? "assistant" : "user",
           content: String(m?.content ?? "").slice(0, 2000),
@@ -982,10 +982,12 @@ Deno.serve(async (req) => {
                   // No modo voz o teto é menor: texto longo = espera longa, porque
                   // cada frase ainda precisa virar áudio depois.
                   max_tokens: modoVoz ? 500 : 1600,
-                  // NAO mandar "temperature": os modelos claude-sonnet-5/opus-5 rejeitam
-                  // com 400 ("temperature is deprecated for this model"). Era ISSO que
-                  // derrubava TODA conversa pro reserva gratuito (que inventava nome e
-                  // escrevia JSON no chat em vez de gerar a arte de verdade).
+                  // Diagnostico ANTIGO estava errado: o 400 nao era "temperature
+                  // deprecated" — era "model not found", porque os IDs claude-opus-5/
+                  // claude-sonnet-5 NAO existem. Eram esses IDs invalidos que derrubavam
+                  // TODA conversa pro reserva gratuito (que inventava nome e escrevia JSON
+                  // no chat). Corrigido pra claude-opus-4-8 / claude-sonnet-4-6 (reais).
+                  // Nao mandamos "temperature" (usa o default do modelo) — inofensivo.
                   // CACHE do prompt: o cérebro (parte fixa) é cacheado na Anthropic — corta
                   // ~85% dos tokens de entrada por mensagem. Menos estouro de limite de
                   // conta nova (429) e ~90% mais barato. Só o contexto do vendedor varia.
