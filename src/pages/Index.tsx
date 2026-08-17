@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
 import { supabase } from "@/integrations/supabase/client";
 import AntiProcrastination from "@/components/AntiProcrastination";
+import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
@@ -76,6 +77,11 @@ export default function Index() {
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
   const [showCardModal, setShowCardModal] = useState(false);
+  // Gerenciador de custos aberto pelo card "Custos". Sem ele, um custo lançado
+  // (ex.: CMV vindo do DEFCON) ficava INAPAGÁVEL fora do DEFCON: o vendedor
+  // apagava as vendas, o custo sobrava na linha do dia e o lucro ficava errado
+  // pra sempre — caso real do Emerson em 13/08/2026 (R$ 2.225 fantasmas).
+  const [showCustos, setShowCustos] = useState(false);
   const [showEditPlanning, setShowEditPlanning] = useState(false);
   const [isRestDay, setIsRestDay] = useState(false);
   // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
@@ -515,15 +521,37 @@ export default function Index() {
             </p>
           </CardContent>
         </Card>
-        <Card className="bg-card border border-border rounded-2xl">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Custos</p>
-            <p className="text-2xl font-bold mt-1 text-destructive tracking-tight truncate">
-              {formatCurrency(custosTotal)}
-            </p>
-          </CardContent>
-        </Card>
+        <button
+          type="button"
+          onClick={() => setShowCustos(true)}
+          className="text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="Ver e editar os custos do mês"
+        >
+          <Card className="bg-card border border-border rounded-2xl h-full hover:border-primary/40 transition-colors">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Custos</p>
+              <p className="text-2xl font-bold mt-1 text-destructive tracking-tight truncate">
+                {formatCurrency(custosTotal)}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">toque pra ver e corrigir</p>
+            </CardContent>
+          </Card>
+        </button>
       </div>
+
+      {/* Gerenciador de custos (mesmo do DEFCON): lista custos manuais E o CMV de
+          cada dia, com apagar/zerar. Ao fechar, recarrega o painel — o lucro muda
+          na frente do vendedor, sem F5. */}
+      {showCustos && (
+        <QuickExpenseButton
+          open={showCustos}
+          hideFab
+          onOpenChange={(o) => {
+            setShowCustos(o);
+            if (!o) loadDashboardData();
+          }}
+        />
+      )}
 
       {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
       <WeeklyChallengeDashboardCard />
