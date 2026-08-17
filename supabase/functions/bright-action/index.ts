@@ -226,6 +226,28 @@ function bytesToB64(bytes: Uint8Array): string {
 }
 
 // ---- VOZ NEURAL GRÁTIS via Microsoft Edge (edge-tts) — sem chave, sem cartão ----
+// ===== MEDIDOR DE GASTO: toda chamada de IA vira uma linha em ai_custos =====
+// Roda em segundo plano e NUNCA derruba o app se falhar. Preços de ago/2026:
+// claude-sonnet-5 US$2/M entrada, US$10/M saída (promo até 31/08; depois 3/15 —
+// ATUALIZAR AQUI em setembro), cache: leitura 0.20, gravação 2.50.
+// claude-opus-5: 5/25, cache 0.50/6.25. gpt-4o-mini-tts ~US$0,015 por minuto
+// falado (~900 caracteres em PT-BR).
+async function registrarCusto(linha: { user_id?: string | null; servico: string; modelo?: string; qtd?: number; unidade?: string; custo_usd: number }) {
+  try {
+    const a = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    const p = Promise.resolve(a.from("ai_custos").insert({
+      user_id: linha.user_id ?? null,
+      servico: linha.servico,
+      modelo: linha.modelo ?? null,
+      qtd: linha.qtd ?? 1,
+      unidade: linha.unidade ?? "chamada",
+      custo_usd: Math.round(linha.custo_usd * 1e6) / 1e6,
+    })).then(() => {}, () => {});
+    const er = (globalThis as any).EdgeRuntime;
+    if (er?.waitUntil) er.waitUntil(p); else await p;
+  } catch { /* medidor nunca atrapalha o vendedor */ }
+}
+
 const EDGE_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 const EDGE_GEC_VERSION = "1-143.0.3650.75";
 function xmlEscape(s: string): string {
@@ -683,6 +705,7 @@ Deno.serve(async (req) => {
         if (r.ok) {
           const j = await r.json();
           const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "").trim();
+          registrarCusto({ servico: "stt_gemini", modelo: model, qtd: 1, unidade: "transcricao", custo_usd: 0 });
           return json({ text: t });
         }
         console.error("Gemini STT erro", r.status, await r.text().catch(() => ""));
@@ -740,7 +763,11 @@ Deno.serve(async (req) => {
           });
           if (r.ok) {
             const buf = new Uint8Array(await r.arrayBuffer());
-            if (buf.length > 800) return json({ audio: bytesToB64(buf), mime: "audio/mpeg", voz: `openai:${oVoice}` });
+            if (buf.length > 800) {
+              // ~900 caracteres = ~1 minuto falado = ~US$0,015 no gpt-4o-mini-tts
+              registrarCusto({ servico: "tts_openai", modelo: oModel, qtd: text.length, unidade: "caracteres", custo_usd: (text.length / 900) * 0.015 });
+              return json({ audio: bytesToB64(buf), mime: "audio/mpeg", voz: `openai:${oVoice}` });
+            }
             console.error("OpenAI TTS áudio vazio (cai pro Gemini)");
           } else {
             console.error("OpenAI TTS erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
@@ -956,8 +983,8 @@ Deno.serve(async (req) => {
         // voz NUNCA usa o Opus (o modelo mais lento), nem em conversa de marca.
         const modoVoz = body?.voz === true;
         const amodel = (criativa && !modoVoz)
-          ? (Deno.env.get("ANTHROPIC_MODEL_CRIATIVO") ?? "claude-opus-4-8")
-          : (Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-4-6");
+          ? (Deno.env.get("ANTHROPIC_MODEL_CRIATIVO") ?? "claude-opus-5")
+          : (Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5");
         const ahist = messages.slice(-8).map((m: any) => ({
           role: m?.role === "assistant" ? "assistant" : "user",
           content: String(m?.content ?? "").slice(0, 2000),
@@ -982,12 +1009,10 @@ Deno.serve(async (req) => {
                   // No modo voz o teto é menor: texto longo = espera longa, porque
                   // cada frase ainda precisa virar áudio depois.
                   max_tokens: modoVoz ? 500 : 1600,
-                  // Diagnostico ANTIGO estava errado: o 400 nao era "temperature
-                  // deprecated" — era "model not found", porque os IDs claude-opus-5/
-                  // claude-sonnet-5 NAO existem. Eram esses IDs invalidos que derrubavam
-                  // TODA conversa pro reserva gratuito (que inventava nome e escrevia JSON
-                  // no chat). Corrigido pra claude-opus-4-8 / claude-sonnet-4-6 (reais).
-                  // Nao mandamos "temperature" (usa o default do modelo) — inofensivo.
+                  // NAO mandar "temperature": os modelos claude-sonnet-5/opus-5 rejeitam
+                  // com 400 ("temperature is deprecated for this model"). Era ISSO que
+                  // derrubava TODA conversa pro reserva gratuito (que inventava nome e
+                  // escrevia JSON no chat em vez de gerar a arte de verdade).
                   // CACHE do prompt: o cérebro (parte fixa) é cacheado na Anthropic — corta
                   // ~85% dos tokens de entrada por mensagem. Menos estouro de limite de
                   // conta nova (429) e ~90% mais barato. Só o contexto do vendedor varia.
@@ -1016,6 +1041,25 @@ Deno.serve(async (req) => {
               break;
             }
             const aj = await aRes.json();
+            // Medidor: converte os tokens desta chamada em dólares e registra.
+            try {
+              const u = aj?.usage;
+              if (u) {
+                const pr = amodel.includes("opus")
+                  ? { ent: 5, sai: 25, cacheLe: 0.5, cacheGrava: 6.25 }
+                  : { ent: 2, sai: 10, cacheLe: 0.2, cacheGrava: 2.5 };
+                const usd =
+                  (Number(u.input_tokens) || 0) * pr.ent / 1e6 +
+                  (Number(u.output_tokens) || 0) * pr.sai / 1e6 +
+                  (Number(u.cache_read_input_tokens) || 0) * pr.cacheLe / 1e6 +
+                  (Number(u.cache_creation_input_tokens) || 0) * pr.cacheGrava / 1e6;
+                registrarCusto({
+                  user_id: chatUserId, servico: "claude_chat", modelo: amodel,
+                  qtd: (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0),
+                  unidade: "tokens", custo_usd: usd,
+                });
+              }
+            } catch { /* noop */ }
             if (aj?.stop_reason === "tool_use") {
               const usos = ((aj.content ?? []) as any[]).filter((b) => b?.type === "tool_use");
               aMessages.push({ role: "assistant", content: aj.content });

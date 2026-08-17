@@ -147,6 +147,17 @@ Deno.serve(async (req) => {
     const marcaDagua = !pagante;
     const okResp = (imagem: string, mime: string, provedor: string) => {
       if (geracaoId) admin.from("estudio_geracoes").update({ provedor }).eq("id", geracaoId).then(() => {}, () => {});
+      // MEDIDOR DE GASTO: preço por imagem 1024x1536 no gpt-image (ago/2026):
+      // low US$0,005 | medium US$0,041 | high US$0,165. Gemini/fallbacks: 0.
+      try {
+        const q = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "high";
+        const tabela: Record<string, number> = { low: 0.005, medium: 0.041, high: 0.165 };
+        const usd = provedor.startsWith("openai") ? (tabela[q] ?? 0.165) : 0;
+        admin.from("ai_custos").insert({
+          user_id: userId, servico: "imagem", modelo: `${provedor}:${q}`,
+          qtd: 1, unidade: "imagem", custo_usd: usd,
+        }).then(() => {}, () => {});
+      } catch { /* medidor nunca atrapalha a geração */ }
       return json({ imagem, mime, provedor, geracao_id: geracaoId, marca_dagua: marcaDagua, plano: pagante ? "pagante" : "trial" });
     };
 
