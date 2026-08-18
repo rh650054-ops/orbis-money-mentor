@@ -633,6 +633,18 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           const up = await admin.storage.from("artes").upload(path, bytes, { contentType: String((j as any).mime || "image/png") });
           if (up.error) return { erro: "upload_falhou" };
           const { data: pub } = admin.storage.from("artes").getPublicUrl(path);
+          // FAXINA DE STORAGE (17/08/2026): cada arte tem ~2 MB; sem limpeza o bucket
+          // só cresce e vira conta de storage. Mantém as 12 artes mais novas do
+          // vendedor e apaga o resto — em segundo plano, sem atrasar a resposta.
+          try {
+            const faxina = admin.storage.from("artes").list(userId, { limit: 100, sortBy: { column: "created_at", order: "desc" } })
+              .then(({ data: arquivos }) => {
+                const velhos = (arquivos ?? []).slice(12).map((f) => `${userId}/${f.name}`);
+                if (velhos.length) return admin.storage.from("artes").remove(velhos);
+              }).then(() => {}, () => {});
+            const er = (globalThis as any).EdgeRuntime;
+            if (er?.waitUntil) er.waitUntil(faxina);
+          } catch { /* faxina nunca atrapalha a geração */ }
           // Amarra a URL no registro da geração: é assim que a gente sabe DEPOIS
           // qual briefing virou arte que o vendedor achou boa o bastante pra baixar.
           const gid = String((j as any)?.geracao_id ?? "");
@@ -645,6 +657,9 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
         const errCode = String((j as any)?.error ?? "geracao_falhou");
         const ehTrial = String((j as any)?.plano ?? "") === "trial";
         const msgs: Record<string, string> = {
+          trava_gasto_conta: "Ele já usou bastante o desenhista hoje — por segurança, libera de novo amanhã. Avise com leveza.",
+          trava_gasto_global: "O Estúdio está em pausa técnica agora — peça pra ele tentar mais tarde.",
+          limite_mensal: "Ele atingiu o teto de artes do mês. Libera de novo no dia 1º.",
           limite_diario: ehTrial
             ? "Ele já usou as artes grátis de hoje (são 2 por dia no teste). Diga isso com leveza e conte que assinando ele passa a ter 4 por dia E baixa sem a marca d'água — sem pressionar."
             : "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
@@ -873,6 +888,17 @@ Deno.serve(async (req) => {
           const pagante = !!prof && ((prof as any).billing_exempt || (prof as any).is_demo || (prof as any).plan_status === "active");
           if (pagante) limiteChat = Number(Deno.env.get("CHAT_LIMITE_PAGANTE") ?? "200");
         } catch { /* na dúvida, vale o limite menor */ }
+        // TRAVA POR CONTA em dólar/dia (17/08/2026): mesmo com limite de mensagens
+        // alto na fase de teste, ninguém consegue drenar o crédito das APIs.
+        try {
+          const travaUser = Number(Deno.env.get("AI_TRAVA_USER_DIA_USD") ?? "1.5");
+          const adminT = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const { data: gastoU } = await adminT.rpc("orbis_gasto_usuario_hoje", { p_user: chatUserId });
+          if (Number(gastoU) >= travaUser) {
+            console.error("trava de gasto POR CONTA acionada no chat", chatUserId, gastoU);
+            return json({ success: true, message: "Tu usou MUITO o mentor hoje — pra manter o app de pé pra todo mundo, ele volta amanhã. Bora pra rua vender!" });
+          }
+        } catch { /* na dúvida, deixa passar: trava nunca derruba usuário honesto */ }
         const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: limiteChat });
         if (usageErr) {
           return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
