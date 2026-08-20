@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X } from "lucide-react";
+import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +59,10 @@ export function DefconEndScreen({
   const [exportingPdf, setExportingPdf] = useState(false);
   const [exportingTx, setExportingTx] = useState(false);
   const [daySales, setDaySales] = useState<{ amount: number; method: string; late: boolean; created_at: string }[]>([]);
+  // Blocos de hora do dia: cada bloco tem hora de início/fim e as abordagens daquela
+  // hora — é o que permite mostrar a conversão hora a hora, e não só a do dia inteiro.
+  const [dayBlocks, setDayBlocks] = useState<{ started_at: string; ended_at: string | null; approaches_count: number; sales_count: number }[]>([]);
+  const [horasAbertas, setHorasAbertas] = useState(true);
   // Faixa de ritmo (min entre vendas) dos MELHORES DIAS por faturamento — pra comparar com hoje.
   const [bestPace, setBestPace] = useState<{ min: number; max: number; dias: number } | null>(null);
   const [totalTips, setTotalTips] = useState(0);
@@ -115,6 +119,14 @@ export function DefconEndScreen({
       .gte("created_at", startISO)
       .order("created_at", { ascending: true })
       .then(({ data }) => setDaySales((data as any) || []));
+
+    supabase
+      .from("challenge_blocks")
+      .select("started_at, ended_at, approaches_count, sales_count")
+      .eq("user_id", userId)
+      .gte("started_at", startISO)
+      .order("started_at", { ascending: true })
+      .then(({ data }) => setDayBlocks((data as any) || []));
   }, [userId]);
 
   // MELHORES DIAS por faturamento (últimos 60 dias): qual a faixa de ritmo deles.
@@ -179,13 +191,46 @@ export function DefconEndScreen({
   }, [workedMinutes, vendasReais.length, totalSalesCount]);
 
   // VELOCIDADE: vendas por hora (tipo km/h do corredor).
-  const vendasPorHora = useMemo(() => {
-    const unidades = vendasReais.length || totalSalesCount || 0;
-    if (!workedMinutes || workedMinutes <= 0 || unidades <= 0) return null;
-    return unidades / (workedMinutes / 60);
-  }, [workedMinutes, vendasReais.length, totalSalesCount]);
 
   // Formata minutos decimais como PACE min:seg (ex.: 3.9 → "3:54").
+  // ===== COMO FOI CADA HORA =====
+  // Cruza os blocos de hora (que sabem as abordagens) com as vendas reais (que
+  // sabem o valor e o horário). Assim cada hora tem faturamento E conversão.
+  const horas = useMemo(() => {
+    if (dayBlocks.length === 0) return [];
+    const agora = Date.now();
+    const linhas = dayBlocks.map((b) => {
+      const ini = new Date(b.started_at).getTime();
+      const fim = b.ended_at ? new Date(b.ended_at).getTime() : agora;
+      const doBloco = vendasReais.filter((v) => {
+        const t = new Date(v.created_at).getTime();
+        return t >= ini && t < fim;
+      });
+      const valor = doBloco.reduce((acc, v) => acc + (Number(v.amount) || 0), 0);
+      const vendas = b.sales_count ?? doBloco.length;
+      const abordagens = b.approaches_count ?? 0;
+      const inicioBR = new Date(ini - 3 * 3600000);
+      const h = inicioBR.getUTCHours();
+      return {
+        chave: b.started_at,
+        label: `${String(h).padStart(2, "0")}h`,
+        valor,
+        vendas,
+        abordagens,
+        conversao: abordagens > 0 ? (vendas / abordagens) * 100 : null,
+      };
+    });
+    return linhas.filter((l) => l.valor > 0 || l.abordagens > 0);
+  }, [dayBlocks, vendasReais]);
+
+  const horaTop = useMemo(() => {
+    const comValor = horas.filter((h) => h.valor > 0);
+    if (comValor.length < 2) return { melhor: null as (typeof horas)[number] | null, pior: null as (typeof horas)[number] | null, max: 1 };
+    const melhor = comValor.reduce((a, b) => (b.valor > a.valor ? b : a));
+    const pior = comValor.reduce((a, b) => (b.valor < a.valor ? b : a));
+    return { melhor, pior, max: melhor.valor || 1 };
+  }, [horas]);
+
   const paceMMSS = (min: number) => {
     const totalSec = Math.round(min * 60);
     return `${Math.floor(totalSec / 60)}:${String(totalSec % 60).padStart(2, "0")}`;
@@ -365,9 +410,10 @@ export function DefconEndScreen({
         doc.setFont("helvetica", "normal");
         doc.setTextColor(80, 80, 80);
         const partes: string[] = [];
-        if (paceDoDia != null) partes.push(`Pace: ${paceMMSS(paceDoDia)} /venda`);
-        if (vendasPorHora != null) partes.push(`${vendasPorHora.toFixed(1).replace(".", ",")} vendas/h`);
-        if (salesRhythmMin != null) partes.push(`Ritmo na venda: ${paceMMSS(salesRhythmMin)} /venda`);
+        // "Pace" e "velocidade" saíram do relatório (jargão de corrida): o vendedor
+        // entende "tempo médio por venda", que é a mesma conta em português de gente.
+        const tempoMedio = paceDoDia ?? salesRhythmMin;
+        if (tempoMedio != null) partes.push(`Tempo médio por venda: ${paceMMSS(tempoMedio)}`);
         doc.text(partes.join("    "), margin, y);
         y += 20;
       }
@@ -1005,23 +1051,11 @@ export function DefconEndScreen({
                 value={`${conversionRate.toFixed(0)}%`}
                 valueClass={conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"}
               />
-              {paceDoDia != null && (
+              {(paceDoDia ?? salesRhythmMin) != null && (
                 <ReportRow
-                  label="🏃 Pace do dia"
-                  value={`${paceMMSS(paceDoDia)} /venda`}
+                  label="⏳ Tempo médio por venda"
+                  value={paceMMSS((paceDoDia ?? salesRhythmMin) as number)}
                   valueClass="text-primary"
-                />
-              )}
-              {vendasPorHora != null && (
-                <ReportRow
-                  label="💨 Velocidade"
-                  value={`${vendasPorHora.toFixed(1).replace(".", ",")} vendas/h`}
-                />
-              )}
-              {salesRhythmMin != null && (
-                <ReportRow
-                  label="⚡ Ritmo (durante a venda)"
-                  value={`${paceMMSS(salesRhythmMin)} /venda`}
                 />
               )}
               {distanceMeters > 0 && (
@@ -1038,21 +1072,110 @@ export function DefconEndScreen({
                 />
               )}
             </div>
-            {(salesRhythmMin != null || paceDoDia != null) && (
+
+            {/* HORA A HORA — recolhível. A conversão por hora é o que mostra em qual
+                hora ele converte melhor, não só em qual hora ele vendeu mais. */}
+            {horas.length > 0 && (
+              <div className="rounded-2xl bg-card border border-border overflow-hidden">
+                <button
+                  onClick={() => setHorasAbertas((v) => !v)}
+                  aria-expanded={horasAbertas}
+                  className="w-full flex items-center justify-between gap-2 px-3.5 py-3 text-left"
+                >
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    🕐 Como foi cada hora
+                  </span>
+                  <ChevronDown
+                    className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${horasAbertas ? "rotate-180" : ""}`}
+                  />
+                </button>
+
+                {horasAbertas && (
+                  <div className="px-3.5 pb-3.5 space-y-3">
+                    {horaTop.melhor && horaTop.pior && (
+                      <div className="flex gap-2">
+                        <div className="flex-1 rounded-xl border border-success/30 bg-success/10 px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Melhor hora</p>
+                          <p className="text-base font-bold text-success leading-tight">{horaTop.melhor.label}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatCurrency(horaTop.melhor.valor)}
+                            {horaTop.melhor.conversao != null && <> · {horaTop.melhor.conversao.toFixed(0)}% conv.</>}
+                          </p>
+                        </div>
+                        <div className="flex-1 rounded-xl border border-border bg-muted/30 px-3 py-2">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hora mais fraca</p>
+                          <p className="text-base font-bold leading-tight">{horaTop.pior.label}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {formatCurrency(horaTop.pior.valor)}
+                            {horaTop.pior.conversao != null && <> · {horaTop.pior.conversao.toFixed(0)}% conv.</>}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-2">
+                      {horas.map((h) => {
+                        const eMelhor = horaTop.melhor?.chave === h.chave;
+                        return (
+                          <div key={h.chave} className="flex items-center gap-2.5">
+                            <span className={`text-[11px] w-9 shrink-0 font-semibold tabular-nums ${eMelhor ? "text-success" : "text-muted-foreground"}`}>
+                              {h.label}
+                            </span>
+                            <div className="flex-1 h-2 rounded-full bg-muted/40 overflow-hidden">
+                              {h.valor > 0 && (
+                                <div
+                                  className={`h-full rounded-full ${eMelhor ? "bg-success" : "bg-primary/50"}`}
+                                  style={{ width: `${Math.max(4, (h.valor / horaTop.max) * 100)}%` }}
+                                />
+                              )}
+                            </div>
+                            <span className={`text-[11px] font-semibold tabular-nums w-[74px] text-right ${h.valor > 0 ? "text-foreground" : "text-muted-foreground/50"}`}>
+                              {h.valor > 0 ? formatCurrency(h.valor) : "—"}
+                            </span>
+                            <span
+                              className={`text-[11px] font-semibold tabular-nums w-[52px] text-right ${
+                                h.conversao == null ? "text-muted-foreground/40"
+                                : h.conversao >= 30 ? "text-success"
+                                : h.conversao >= 15 ? "text-warning"
+                                : "text-destructive"
+                              }`}
+                            >
+                              {h.conversao == null ? "—" : `${h.conversao.toFixed(0)}%`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 text-[10px] text-muted-foreground/70">
+                      <span className="w-[74px] text-right">vendido</span>
+                      <span className="w-[52px] text-right">conversão</span>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      A conversão é quantas das suas abordagens viraram venda naquela hora.
+                      Uma hora pode faturar pouco e converter bem — aí o problema não é a
+                      abordagem, é a quantidade de gente passando.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            {(paceDoDia ?? salesRhythmMin) != null && (
               <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
-                Pensa como uma corrida: <b className="text-foreground">cada venda é 1 km</b>.
-                {paceDoDia != null && <> Seu <b className="text-foreground">pace</b> hoje foi <b className="text-primary">{paceMMSS(paceDoDia)} por venda</b>{vendasPorHora != null && <> (velocidade de {vendasPorHora.toFixed(1).replace(".", ",")} vendas por hora)</>}.</>}
-                {salesRhythmMin != null && <> Só no tempo em que estava vendendo, o ritmo foi {paceMMSS(salesRhythmMin)} por venda.</>}
+                Hoje você levou, em média,{" "}
+                <b className="text-primary">{paceMMSS((paceDoDia ?? salesRhythmMin) as number)}</b> pra fechar
+                cada venda. Quanto menor esse tempo, mais venda cabe no mesmo dia de trabalho.
               </p>
             )}
             {bestPace && (
               <div className="rounded-xl bg-primary/5 border border-primary/25 px-3 py-2.5">
                 <p className="text-[11px] text-foreground leading-relaxed">
-                  🏆 Seus <b>melhores dias</b> (mais faturamento) rolam num pace de{" "}
-                  <b className="text-primary">{paceMMSS(bestPace.min)}–{paceMMSS(bestPace.max)} /venda</b>.
-                  {salesRhythmMin != null && (
-                    <> Hoje: <b>{paceMMSS(salesRhythmMin)} /venda</b> —{" "}
-                      {salesRhythmMin <= bestPace.max ? "na sua zona de melhor dia! 🔥" : "mais devagar que os seus melhores dias."}
+                  🏆 Nos seus <b>melhores dias</b> (os de mais faturamento) você leva de{" "}
+                  <b className="text-primary">{paceMMSS(bestPace.min)} a {paceMMSS(bestPace.max)}</b> por venda.
+                  {(paceDoDia ?? salesRhythmMin) != null && (
+                    <> Hoje: <b>{paceMMSS((paceDoDia ?? salesRhythmMin) as number)}</b> —{" "}
+                      {((paceDoDia ?? salesRhythmMin) as number) <= bestPace.max ? "tá na sua zona de melhor dia! 🔥" : "mais devagar que os seus melhores dias."}
                     </>
                   )}
                 </p>
