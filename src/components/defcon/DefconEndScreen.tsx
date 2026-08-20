@@ -13,6 +13,19 @@ import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { WeeklyChallengeExtratoNudge } from "@/components/competitions/WeeklyChallenge";
 
+// Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
+function fmtHora(s: string): string {
+  return new Date(s).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+}
+function faixaHora(ini: string | null, fim: string | null): string {
+  if (!ini) return "";
+  return fim ? `${fmtHora(ini)}–${fmtHora(fim)}` : `desde ${fmtHora(ini)}`;
+}
+function duracaoMin(ini: string | null, fim: string | null): number | null {
+  if (!ini || !fim) return null;
+  return Math.max(0, (new Date(fim).getTime() - new Date(ini).getTime()) / 60000);
+}
+
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
   totalSold: number;
@@ -72,6 +85,38 @@ export function DefconEndScreen({
   const [aiTip, setAiTip] = useState<string | null>(null);
   const [aiTipLoading, setAiTipLoading] = useState(false);
   const [aiTipError, setAiTipError] = useState(false);
+  // Revisitar as horas anteriores: blocos da sessão que acabou de encerrar + qual está sendo visto (0 = dia).
+  const [blocks, setBlocks] = useState<{ i: number; sold: number; ab: number; vn: number; ini: string | null; fim: string | null }[]>([]);
+  const [reportView, setReportView] = useState(0);
+  useEffect(() => {
+    if (!userId) return;
+    let cancel = false;
+    (async () => {
+      const { data: sess } = await supabase
+        .from("challenge_sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (cancel || !(sess as any)?.id) return;
+      const { data: bl } = await supabase
+        .from("challenge_blocks")
+        .select("block_index, sold_amount, approaches_count, sales_count, started_at, ended_at")
+        .eq("session_id", (sess as any).id)
+        .order("block_index", { ascending: true });
+      if (cancel || !bl) return;
+      setBlocks((bl as any[]).map((b) => ({
+        i: Number(b.block_index) || 0,
+        sold: Number(b.sold_amount) || 0,
+        ab: Number(b.approaches_count) || 0,
+        vn: Number(b.sales_count) || 0,
+        ini: b.started_at || null,
+        fim: b.ended_at || null,
+      })));
+    })();
+    return () => { cancel = true; };
+  }, [userId]);
 
   // Carrega quantidade de clientes salvos hoje pra mostrar/esconder o botão de PDF + gorjetas
   useEffect(() => {
@@ -992,9 +1037,39 @@ export function DefconEndScreen({
         {/* 5. RELATÓRIO DO DIA — no estilo do relatório de bloco de hora */}
         {(totalApproaches > 0 || totalSalesCount > 0 || totalSold > 0) && (
           <div className="space-y-2">
-            <h2 className="text-xs font-semibold text-muted-foreground px-1 uppercase tracking-wider">
-              Relatório do dia
-            </h2>
+            <div className="flex items-center justify-between px-1 gap-2">
+              <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider truncate">
+                {reportView === 0
+                  ? "Relatório do dia"
+                  : `Hora ${reportView}${faixaHora(blocks[reportView - 1]?.ini ?? null, blocks[reportView - 1]?.fim ?? null) ? " · " + faixaHora(blocks[reportView - 1]?.ini ?? null, blocks[reportView - 1]?.fim ?? null) : ""}`}
+              </h2>
+              {blocks.length > 0 && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button type="button" onClick={() => setReportView((v) => (v - 1 + blocks.length + 1) % (blocks.length + 1))} aria-label="Relatório anterior" className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-base leading-none text-muted-foreground hover:text-foreground active:scale-95 transition">‹</button>
+                  <span className="text-[10px] text-muted-foreground w-9 text-center tabular-nums">{reportView === 0 ? "Dia" : `${reportView}/${blocks.length}`}</span>
+                  <button type="button" onClick={() => setReportView((v) => (v + 1) % (blocks.length + 1))} aria-label="Próximo relatório" className="w-7 h-7 rounded-full bg-card border border-border flex items-center justify-center text-base leading-none text-muted-foreground hover:text-foreground active:scale-95 transition">›</button>
+                </div>
+              )}
+            </div>
+            {reportView > 0 && blocks[reportView - 1] && (() => {
+              const b = blocks[reportView - 1];
+              const dur = duracaoMin(b.ini, b.fim);
+              const conv = b.ab > 0 ? (b.vn / b.ab) * 100 : 0;
+              const pace = dur && b.vn > 0 ? dur / b.vn : null;
+              const vph = dur && dur > 0 ? b.vn / (dur / 60) : null;
+              return (
+                <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
+                  <ReportRow label="⏱️ Duração" value={dur != null ? `${Math.floor(dur / 60)}h${String(Math.round(dur % 60)).padStart(2, "0")}` : "—"} />
+                  <ReportRow label="💰 Vendido" value={formatCurrency(b.sold)} />
+                  <ReportRow label="👤 Abordagens" value={String(b.ab)} />
+                  <ReportRow label="🛒 Vendas" value={String(b.vn)} valueClass="text-success" />
+                  <ReportRow label="📊 Conversão" value={`${conv.toFixed(0)}%`} valueClass={conv >= 30 ? "text-success" : conv >= 15 ? "text-warning" : "text-destructive"} />
+                  {pace != null && <ReportRow label="🏃 Pace" value={`${paceMMSS(pace)} /venda`} valueClass="text-primary" />}
+                  {vph != null && <ReportRow label="💨 Velocidade" value={`${vph.toFixed(1).replace(".", ",")} vendas/h`} />}
+                </div>
+              );
+            })()}
+            {reportView === 0 && (
             <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
               <ReportRow label="⏱️ Horas trabalhadas" value={horasLabel} />
               <ReportRow label="💰 Vendido" value={formatCurrency(totalSold)} />
@@ -1038,14 +1113,15 @@ export function DefconEndScreen({
                 />
               )}
             </div>
-            {(salesRhythmMin != null || paceDoDia != null) && (
+            )}
+            {reportView === 0 && (salesRhythmMin != null || paceDoDia != null) && (
               <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
                 Pensa como uma corrida: <b className="text-foreground">cada venda é 1 km</b>.
                 {paceDoDia != null && <> Seu <b className="text-foreground">pace</b> hoje foi <b className="text-primary">{paceMMSS(paceDoDia)} por venda</b>{vendasPorHora != null && <> (velocidade de {vendasPorHora.toFixed(1).replace(".", ",")} vendas por hora)</>}.</>}
                 {salesRhythmMin != null && <> Só no tempo em que estava vendendo, o ritmo foi {paceMMSS(salesRhythmMin)} por venda.</>}
               </p>
             )}
-            {bestPace && (
+            {reportView === 0 && bestPace && (
               <div className="rounded-xl bg-primary/5 border border-primary/25 px-3 py-2.5">
                 <p className="text-[11px] text-foreground leading-relaxed">
                   🏆 Seus <b>melhores dias</b> (mais faturamento) rolam num pace de{" "}
