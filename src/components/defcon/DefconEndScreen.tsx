@@ -1099,14 +1099,24 @@ export function DefconEndScreen({
             </div>
             {reportView > 0 && blocks[reportView - 1] && (() => {
               const b = blocks[reportView - 1];
-              const dur = duracaoMin(b.ini, b.fim);
+              // A hora pode estar "aberta" (sem ended_at): fecha com o início da próxima hora ou com agora.
+              // E o vendido do bloco vem das VENDAS reais na janela — o sold_amount do bloco não é
+              // confiável (às vezes fica 0 mesmo com venda).
+              const fimEff = b.fim || blocks[reportView]?.ini || new Date().toISOString();
+              const dur = duracaoMin(b.ini, fimEff);
+              const iniMs = b.ini ? new Date(b.ini).getTime() : 0;
+              const fimMs = new Date(fimEff).getTime();
+              const soldReal = daySales
+                .filter((s) => s.method !== "gorjeta" && new Date(s.created_at).getTime() >= iniMs && new Date(s.created_at).getTime() < fimMs)
+                .reduce((acc, s) => acc + (s.amount || 0), 0);
+              const soldBloco = soldReal > 0 ? soldReal : (b.sold || 0);
               const conv = b.ab > 0 ? (b.vn / b.ab) * 100 : 0;
               const pace = dur && b.vn > 0 ? dur / b.vn : null;
               const vph = dur && dur > 0 ? b.vn / (dur / 60) : null;
               return (
                 <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
-                  <ReportRow label="⏱️ Duração" value={dur != null ? `${Math.floor(dur / 60)}h${String(Math.round(dur % 60)).padStart(2, "0")}` : "—"} />
-                  <ReportRow label="💰 Vendido" value={formatCurrency(b.sold)} />
+                  <ReportRow label="⏱️ Duração" value={dur != null && dur > 0 ? `${Math.floor(dur / 60)}h${String(Math.round(dur % 60)).padStart(2, "0")}` : "—"} />
+                  <ReportRow label="💰 Vendido" value={formatCurrency(soldBloco)} />
                   <ReportRow label="👤 Abordagens" value={String(b.ab)} />
                   <ReportRow label="🛒 Vendas" value={String(b.vn)} valueClass="text-success" />
                   <ReportRow label="📊 Conversão" value={`${conv.toFixed(0)}%`} valueClass={conv >= 30 ? "text-success" : conv >= 15 ? "text-warning" : "text-destructive"} />
