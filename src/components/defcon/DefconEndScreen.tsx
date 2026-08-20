@@ -21,10 +21,6 @@ function faixaHora(ini: string | null, fim: string | null): string {
   if (!ini) return "";
   return fim ? `${fmtHora(ini)}–${fmtHora(fim)}` : `desde ${fmtHora(ini)}`;
 }
-function duracaoMin(ini: string | null, fim: string | null): number | null {
-  if (!ini || !fim) return null;
-  return Math.max(0, (new Date(fim).getTime() - new Date(ini).getTime()) / 60000);
-}
 
 interface DefconEndScreenProps {
   phase: "finished" | "abandoned";
@@ -104,20 +100,35 @@ export function DefconEndScreen({
         .limit(1)
         .maybeSingle();
       if (cancel || !(sess as any)?.id) return;
-      const { data: bl } = await supabase
-        .from("challenge_blocks")
-        .select("block_index, sold_amount, approaches_count, sales_count, started_at, ended_at")
-        .eq("session_id", (sess as any).id)
-        .order("block_index", { ascending: true });
+      const sid = (sess as any).id;
+      const [blRes, vendasRes] = await Promise.all([
+        supabase.from("challenge_blocks")
+          .select("block_index, sold_amount, approaches_count, sales_count, started_at, ended_at")
+          .eq("session_id", sid).order("block_index", { ascending: true }),
+        supabase.from("defcon_sales").select("block_index, amount, method").eq("session_id", sid),
+      ]);
+      const bl = blRes.data;
       if (cancel || !bl) return;
-      setBlocks((bl as any[]).map((b) => ({
-        i: Number(b.block_index) || 0,
-        sold: Number(b.sold_amount) || 0,
-        ab: Number(b.approaches_count) || 0,
-        vn: Number(b.sales_count) || 0,
-        ini: b.started_at || null,
-        fim: b.ended_at || null,
-      })));
+      // Valor EXATO por hora: soma as vendas LIGADAS ao block_index (exclui gorjeta).
+      // Nao depende do horario da venda — pega tudo que foi registrado naquela hora.
+      const soldPorBloco: Record<number, number> = {};
+      for (const v of (vendasRes.data as any[]) || []) {
+        if (v.method === "gorjeta") continue;
+        const k = Number(v.block_index);
+        if (!Number.isFinite(k)) continue;
+        soldPorBloco[k] = (soldPorBloco[k] || 0) + (Number(v.amount) || 0);
+      }
+      setBlocks((bl as any[]).map((b) => {
+        const k = Number(b.block_index) || 0;
+        return {
+          i: k,
+          sold: soldPorBloco[k] ?? (Number(b.sold_amount) || 0),
+          ab: Number(b.approaches_count) || 0,
+          vn: Number(b.sales_count) || 0,
+          ini: b.started_at || null,
+          fim: b.ended_at || null,
+        };
+      }));
     })();
     return () => { cancel = true; };
   }, [userId]);
@@ -1099,29 +1110,13 @@ export function DefconEndScreen({
             </div>
             {reportView > 0 && blocks[reportView - 1] && (() => {
               const b = blocks[reportView - 1];
-              // A hora pode estar "aberta" (sem ended_at): fecha com o início da próxima hora ou com agora.
-              // E o vendido do bloco vem das VENDAS reais na janela — o sold_amount do bloco não é
-              // confiável (às vezes fica 0 mesmo com venda).
-              const fimEff = b.fim || blocks[reportView]?.ini || new Date().toISOString();
-              const dur = duracaoMin(b.ini, fimEff);
-              const iniMs = b.ini ? new Date(b.ini).getTime() : 0;
-              const fimMs = new Date(fimEff).getTime();
-              const soldReal = daySales
-                .filter((s) => s.method !== "gorjeta" && new Date(s.created_at).getTime() >= iniMs && new Date(s.created_at).getTime() < fimMs)
-                .reduce((acc, s) => acc + (s.amount || 0), 0);
-              const soldBloco = soldReal > 0 ? soldReal : (b.sold || 0);
               const conv = b.ab > 0 ? (b.vn / b.ab) * 100 : 0;
-              const pace = dur && b.vn > 0 ? dur / b.vn : null;
-              const vph = dur && dur > 0 ? b.vn / (dur / 60) : null;
               return (
                 <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
-                  <ReportRow label="⏱️ Duração" value={dur != null && dur > 0 ? `${Math.floor(dur / 60)}h${String(Math.round(dur % 60)).padStart(2, "0")}` : "—"} />
-                  <ReportRow label="💰 Vendido" value={formatCurrency(soldBloco)} />
+                  <ReportRow label="💰 Vendido" value={formatCurrency(b.sold)} />
                   <ReportRow label="👤 Abordagens" value={String(b.ab)} />
                   <ReportRow label="🛒 Vendas" value={String(b.vn)} valueClass="text-success" />
                   <ReportRow label="📊 Conversão" value={`${conv.toFixed(0)}%`} valueClass={conv >= 30 ? "text-success" : conv >= 15 ? "text-warning" : "text-destructive"} />
-                  {pace != null && <ReportRow label="🏃 Pace" value={`${paceMMSS(pace)} /venda`} valueClass="text-primary" />}
-                  {vph != null && <ReportRow label="💨 Velocidade" value={`${vph.toFixed(1).replace(".", ",")} vendas/h`} />}
                 </div>
               );
             })()}
