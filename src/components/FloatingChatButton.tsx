@@ -38,6 +38,15 @@ export default function FloatingChatButton() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [falandoId, setFalandoId] = useState<string | null>(null); // qual mensagem esta sendo lida em voz alta
+  // Voz masculina (ash) ou feminina (coral) — escolha fica salva no aparelho.
+  const [vozFeminina, setVozFeminina] = useState<boolean>(() => {
+    try { return localStorage.getItem("orbis_voz_sexo") === "f"; } catch { return false; }
+  });
+  const vozFemininaRef = useRef(vozFeminina);
+  useEffect(() => {
+    vozFemininaRef.current = vozFeminina;
+    try { localStorage.setItem("orbis_voz_sexo", vozFeminina ? "f" : "m"); } catch { /* noop */ }
+  }, [vozFeminina]);
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
@@ -379,7 +388,7 @@ export default function FloatingChatButton() {
 
   const fetchTTS = async (text: string): Promise<string | null> => {
     try {
-      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text, voz_sexo: vozFemininaRef.current ? "f" : "m" } });
       const b64 = (data as any)?.audio;
       if (!b64) return null;
       return "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
@@ -934,6 +943,21 @@ export default function FloatingChatButton() {
               </div>
 
               <div className="pb-8 flex justify-center safe-bottom">
+                <div className="flex items-center gap-1 rounded-full border border-border bg-card p-0.5">
+                  {([["m", "Voz dele"], ["f", "Voz dela"]] as const).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => { setVozFeminina(k === "f"); stopSpeaking(); }}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                        (k === "f") === vozFeminina
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <button onClick={exitVoiceMode} className="text-xs text-muted-foreground hover:text-foreground">
                   usar o chat de texto
                 </button>
