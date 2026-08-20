@@ -276,6 +276,7 @@ export default function Auth() {
                     id="cpf"
                     type="text"
                     inputMode="numeric"
+                    autoComplete="username"
                     placeholder="Apenas números"
                     value={cpf}
                     onChange={(e) => setCpf(e.target.value.replace(/\D/g, ""))}
@@ -349,6 +350,7 @@ export default function Auth() {
                       id="phone"
                       type="text"
                       inputMode="numeric"
+                      autoComplete="tel"
                       placeholder="DDD + número"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
@@ -365,6 +367,7 @@ export default function Auth() {
                     </Label>
                     <div className="grid grid-cols-3 gap-2">
                       <select
+                        aria-label="Estado (UF)"
                         value={state}
                         onChange={(e) => { setState(e.target.value); setCity(""); }}
                         required
@@ -376,6 +379,7 @@ export default function Auth() {
                         ))}
                       </select>
                       <select
+                        aria-label="Cidade"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
                         required

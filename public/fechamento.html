@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBIS — FECHAMENTO DE COMISSÕES</title>
+<style>
+  :root{
+    --bg:#0A0A0A; --panel:#111111; --line:#242424; --line2:#1a1a1a;
+    --amber:#F5A524; --amber-b:#FFC24D; --green:#4ADE80; --dim:#7A7A7A; --fg:#E8E8E8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--fg);
+    font-family:"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+    font-size:13px; line-height:1.5; padding:14px;
+  }
+  a{color:inherit}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .brand{letter-spacing:.28em;font-weight:700;color:var(--amber);font-size:14px}
+  .brand small{color:var(--dim);letter-spacing:.18em;font-weight:400}
+  .btn{
+    background:#161616;border:1px solid var(--line);color:var(--fg);
+    padding:7px 13px;border-radius:7px;cursor:pointer;font:inherit;font-size:12px;
+  }
+  .btn:hover{border-color:var(--amber);color:var(--amber-b)}
+  .btn.on{background:var(--amber);border-color:var(--amber);color:#0A0A0A;font-weight:700}
+  .btn.ghost{background:transparent}
+  input,select{
+    background:#0E0E0E;border:1px solid var(--line);color:var(--fg);
+    padding:7px 10px;border-radius:7px;font:inherit;font-size:12px;
+  }
+  input:focus,select:focus{outline:none;border-color:var(--amber)}
+  .card{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:14px}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+  .kpi .n{font-size:26px;font-weight:700;color:var(--amber);letter-spacing:-.02em}
+  .kpi .n.green{color:var(--green)}
+  .kpi .l{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-top:5px}
+  .kpi .s{font-size:10.5px;color:#585858;margin-top:2px}
+  .bar{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+  .sec{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--amber);margin:20px 0 9px}
+  table{width:100%;border-collapse:collapse}
+  th{
+    text-align:left;font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--dim);font-weight:600;padding:0 10px 9px;border-bottom:1px solid var(--line)
+  }
+  td{padding:9px 10px;border-bottom:1px solid var(--line2);font-size:12.5px}
+  tr:last-child td{border-bottom:none}
+  .r{text-align:right}
+  .nome{color:#fff;font-weight:600}
+  .cod{color:var(--amber)}
+  .val{color:var(--green);font-weight:700}
+  .zero{color:#4A4A4A}
+  .tag{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:1px 7px}
+  .tot td{border-top:2px solid var(--amber);border-bottom:none;padding-top:12px;font-weight:700}
+  .msg{color:var(--dim);padding:22px 10px;text-align:center;font-size:12px}
+  #login{max-width:340px;margin:12vh auto;display:none}
+  #login h1{font-size:15px;letter-spacing:.2em;color:var(--amber);margin-bottom:6px}
+  #login p{color:var(--dim);font-size:11.5px;margin-bottom:16px;line-height:1.6}
+  #login input{width:100%;margin-bottom:9px}
+  #login .btn{width:100%}
+  #app{display:none}
+  .err{color:#F87171;font-size:11.5px;margin-top:9px;min-height:16px}
+  details{border:1px solid var(--line);border-radius:10px;margin-top:16px}
+  summary{padding:10px 14px;cursor:pointer;font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim)}
+  summary:hover{color:var(--amber)}
+  details table{border-top:1px solid var(--line)}
+  @media(max-width:640px){
+    body{padding:10px;font-size:12px}
+    .kpi .n{font-size:21px}
+    td,th{padding-left:6px;padding-right:6px}
+    .hide-sm{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login">
+  <h1>ORBIS · FECHAMENTO</h1>
+  <p>Entra com a sua conta de admin do Orbis — a mesma do app.<br>
+  Os dados são protegidos pelo banco: sem admin, não abre.</p>
+  <input id="email" type="email" placeholder="seu e-mail" autocomplete="username">
+  <input id="senha" type="password" placeholder="sua senha" autocomplete="current-password">
+  <button class="btn on" id="btnEntrar">ENTRAR</button>
+  <div class="err" id="erroLogin"></div>
+</div>
+
+<!-- ===================== PAINEL ===================== -->
+<div id="app">
+  <div class="top">
+    <div class="brand">◈ ORBIS <small>— FECHAMENTO DE COMISSÕES</small></div>
+    <div style="display:flex;gap:7px;align-items:center">
+      <span id="carimbo" style="color:#585858;font-size:10.5px"></span>
+      <button class="btn" id="btnCSV">↓ CSV</button>
+      <button class="btn ghost" id="btnSair">sair</button>
+    </div>
+  </div>
+
+  <div class="bar">
+    <button class="btn" data-p="hoje">Hoje</button>
+    <button class="btn" data-p="ontem">Ontem</button>
+    <button class="btn" data-p="7dias">7 dias</button>
+    <button class="btn on" data-p="mes">Este mês</button>
+    <button class="btn" data-p="mes_passado">Mês passado</button>
+    <span style="color:var(--line);margin:0 3px">|</span>
+    <input type="date" id="dIni"> <span style="color:var(--dim)">até</span> <input type="date" id="dFim">
+    <button class="btn" id="btnAplicar">Aplicar</button>
+  </div>
+
+  <div class="kpis">
+    <div class="card kpi"><div class="n" id="kLeads">—</div><div class="l">Leads no período</div><div class="s" id="kLeadsT"></div></div>
+    <div class="card kpi"><div class="n" id="kCad">—</div><div class="l">Cadastros</div><div class="s" id="kCadT"></div></div>
+    <div class="card kpi"><div class="n green" id="kVendas">—</div><div class="l">Vendas</div><div class="s" id="kAtivas"></div></div>
+    <div class="card kpi"><div class="n" id="kComissao">—</div><div class="l">Comissão a pagar</div><div class="s" id="kPeriodo"></div></div>
+  </div>
+
+  <div class="sec">★ Rateio por parceiro</div>
+  <div class="card" style="padding:6px 4px">
+    <table>
+      <thead>
+        <tr>
+          <th>Parceiro</th>
+          <th class="hide-sm">Código</th>
+          <th class="r">Leads</th>
+          <th class="r hide-sm">Cadastros</th>
+          <th class="r">Vendas</th>
+          <th class="r hide-sm">Unit.</th>
+          <th class="r">A pagar</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"><tr><td colspan="7" class="msg">carregando…</td></tr></tbody>
+    </table>
+  </div>
+
+  <details>
+    <summary>Dia a dia</summary>
+    <table><tbody id="tdias"></tbody></table>
+  </details>
+
+  <p style="color:#4A4A4A;font-size:10.5px;margin-top:18px;line-height:1.7">
+    Vendas = assinaturas criadas dentro do período. A origem vem do <code>?ref=</code> do link,
+    casado pelo e-mail do lead — quem trouxe primeiro leva. Quem comprou com e-mail diferente
+    do que cadastrou no formulário entra no total, mas não é atribuído a ninguém.
+  </p>
+</div>
+
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+const SUPABASE_URL = "https://qbcsjsdwjjpybvzbxszi.supabase.co";
+const SUPABASE_KEY = "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy";
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const $ = (id) => document.getElementById(id);
+const brl = (v) => "R$ " + Number(v || 0).toFixed(2).replace(".", ",");
+const br = (iso) => String(iso).split("-").reverse().join("/");
+
+// O dia é o dia de São Paulo, não o do relógio do navegador.
+const hojeSP = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+const soma = (iso, d) => { const x = new Date(iso + "T12:00:00"); x.setDate(x.getDate() + d); return x.toLocaleDateString("en-CA"); };
+const mes1 = (iso) => iso.slice(0, 8) + "01";
+
+let dados = null;
+
+function faixa(preset) {
+  const h = hojeSP();
+  if (preset === "hoje") return [h, h];
+  if (preset === "ontem") return [soma(h, -1), soma(h, -1)];
+  if (preset === "7dias") return [soma(h, -6), h];
+  if (preset === "mes") return [mes1(h), h];
+  const ultimo = soma(mes1(h), -1);
+  return [mes1(ultimo), ultimo];
+}
+
+async function carregar(ini, fim) {
+  $("dIni").value = ini; $("dFim").value = fim;
+  $("tbody").innerHTML = '<tr><td colspan="7" class="msg">carregando…</td></tr>';
+  const { data, error } = await sb.rpc("orbis_painel_periodo", { p_inicio: ini, p_fim: fim });
+  if (error) {
+    $("tbody").innerHTML = '<tr><td colspan="7" class="msg">erro: ' + error.message + "</td></tr>";
+    return;
+  }
+  dados = data;
+  pintar();
+}
+
+function pintar() {
+  const d = dados;
+  $("kLeads").textContent = d.leads;
+  $("kLeadsT").textContent = d.leads_total + " no total";
+  $("kCad").textContent = d.cadastros;
+  $("kCadT").textContent = d.cadastros_total + " no total";
+  $("kVendas").textContent = d.assinaturas_novas;
+  $("kAtivas").textContent = d.assinaturas_ativas_agora + " ativas hoje";
+  $("kComissao").textContent = brl(d.comissao_total);
+  $("kPeriodo").textContent = br(d.inicio) + " a " + br(d.fim);
+  $("carimbo").textContent = "atualizado " + new Date().toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+  const linhas = d.por_ref || [];
+  $("tbody").innerHTML = linhas.length
+    ? linhas.map((r) => `
+        <tr>
+          <td><span class="nome">${r.nome || r.ref}</span>
+              ${r.tipo ? `<span class="tag" style="margin-left:6px">${r.tipo}</span>` : ""}
+              ${r.recorrente ? '<span class="tag" style="margin-left:4px;color:#F5A524">mensal</span>' : ""}</td>
+          <td class="cod hide-sm">${r.ref}</td>
+          <td class="r ${r.leads ? "" : "zero"}">${r.leads}</td>
+          <td class="r hide-sm ${r.cadastros ? "" : "zero"}">${r.cadastros}</td>
+          <td class="r ${r.assinaturas ? "val" : "zero"}">${r.assinaturas}</td>
+          <td class="r hide-sm" style="color:#585858">${brl(r.comissao_unitaria)}</td>
+          <td class="r ${Number(r.comissao) ? "val" : "zero"}">${Number(r.comissao) ? brl(r.comissao) : "—"}</td>
+        </tr>`).join("") +
+        `<tr class="tot"><td colspan="6" class="r">TOTAL A PAGAR</td>
+         <td class="r" style="color:var(--amber);font-size:14px">${brl(d.comissao_total)}</td></tr>`
+    : '<tr><td colspan="7" class="msg">ninguém trouxe nada nesse período.</td></tr>';
+
+  const dias = (d.por_dia || []).filter((x) => x.cadastros || x.assinaturas).reverse();
+  $("tdias").innerHTML = dias.length
+    ? dias.map((x) => `<tr><td>${br(x.dia)}</td>
+        <td class="r" style="color:var(--dim)">${x.cadastros} cadastro(s)</td>
+        <td class="r val">${x.assinaturas} venda(s)</td></tr>`).join("")
+    : '<tr><td class="msg">sem movimento no período.</td></tr>';
+}
+
+function baixarCSV() {
+  if (!dados) return;
+  const linhas = [
+    "parceiro;codigo;tipo;leads;cadastros;vendas;comissao_unitaria;total_a_pagar",
+    ...(dados.por_ref || []).map((r) =>
+      [r.nome || r.ref, r.ref, r.tipo, r.leads, r.cadastros, r.assinaturas,
+       Number(r.comissao_unitaria).toFixed(2).replace(".", ","),
+       Number(r.comissao).toFixed(2).replace(".", ",")].join(";")),
+    `TOTAL;;;;;;;${Number(dados.comissao_total).toFixed(2).replace(".", ",")}`,
+  ].join("\n");
+  const url = URL.createObjectURL(new Blob(["﻿" + linhas], { type: "text/csv;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `comissao-orbis-${dados.inicio}-a-${dados.fim}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- eventos ----------
+document.querySelectorAll("[data-p]").forEach((b) => {
+  b.onclick = () => {
+    document.querySelectorAll("[data-p]").forEach((x) => x.classList.remove("on"));
+    b.classList.add("on");
+    const [i, f] = faixa(b.dataset.p);
+    carregar(i, f);
+  };
+});
+$("btnAplicar").onclick = () => {
+  const i = $("dIni").value, f = $("dFim").value;
+  if (!i || !f || i > f) return;
+  document.querySelectorAll("[data-p]").forEach((x) => x.classList.remove("on"));
+  carregar(i, f);
+};
+$("btnCSV").onclick = baixarCSV;
+$("btnSair").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+$("btnEntrar").onclick = async () => {
+  $("erroLogin").textContent = "";
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("email").value.trim(),
+    password: $("senha").value,
+  });
+  if (error) { $("erroLogin").textContent = "não entrou: " + error.message; return; }
+  iniciar();
+};
+$("senha").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btnEntrar").click(); });
+
+async function iniciar() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $("login").style.display = "block"; $("app").style.display = "none"; return; }
+  $("login").style.display = "none";
+  $("app").style.display = "block";
+  const [i, f] = faixa("mes");
+  carregar(i, f);
+}
+iniciar();
+</script>
+</body>
+</html>

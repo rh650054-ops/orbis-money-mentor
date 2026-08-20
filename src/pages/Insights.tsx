@@ -110,6 +110,8 @@ export default function Insights() {
   const [prevRangeProfit, setPrevRangeProfit] = useState(0);
   const [latePix, setLatePix] = useState<{ amount: number | null }[]>([]);
   const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
+  // 2a fonte de hora real: quem vende pelo catálogo de produtos não passa pelo DEFCON.
+  const [prodSales, setProdSales] = useState<{ created_at: string; total_amount: number | null }[]>([]);
   const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null; worked_minutes?: number | null; current_block_index?: number | null; distance_meters?: number | null; paused_seconds?: number | null }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
@@ -174,7 +176,7 @@ export default function Insights() {
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayISO = isoDate(yesterday);
 
-      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes, sessionsRes] = await Promise.all([
+      const [salesRes, blocksRes, ydRes, prevRes, expensesRes, chBlocksRes, lateRes, defconRes, sessionsRes, prodRes] = await Promise.all([
         supabase
           .from("daily_sales")
           .select("date,total_profit,total_debt,cost,transport_cost,food_cost,unpaid_units,cash_sales,pix_sales,card_sales,tip_sales,units_carried")
@@ -231,6 +233,13 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO),
+        supabase
+          .from("product_sales_log")
+          .select("created_at,total_amount")
+          .eq("user_id", user.id)
+          .gte("created_at", range.start.toISOString())
+          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
+          .order("created_at", { ascending: true }),
       ]);
 
       setSales(salesRes.data || []);
@@ -243,6 +252,7 @@ export default function Insights() {
       );
       setLatePix((lateRes.data as any) || []);
       setDefconSales((defconRes.data as any) || []);
+      setProdSales((prodRes.data as any) || []);
       setSessions((sessionsRes.data as any) || []);
     } finally {
       setLoading(false);
@@ -513,6 +523,52 @@ export default function Insights() {
       .sort((a, b) => b.total - a.total);
   }, [defconSales]);
 
+  // ===== HORA A HORA =====
+  // Junta as vendas com carimbo de hora real (DEFCON + catálogo de produtos) e
+  // monta a linha do tempo do dia. Mostra TODAS as horas entre a primeira e a
+  // última venda — inclusive as vazias, que são justamente as que ensinam algo.
+  const horaAHora = useMemo(() => {
+    const byHour: Record<number, { total: number; vendas: number; dias: Set<string> }> = {};
+    const registrar = (iso: string, valor: number) => {
+      const t = new Date(iso).getTime();
+      if (!Number.isFinite(t) || !valor) return;
+      const sp = new Date(t - 3 * 3600000); // hora de Brasília
+      const h = sp.getUTCHours();
+      const slot = byHour[h] ?? (byHour[h] = { total: 0, vendas: 0, dias: new Set() });
+      slot.total += valor;
+      slot.vendas += 1;
+      slot.dias.add(sp.toISOString().slice(0, 10));
+    };
+    for (const v of defconSales) registrar(v.created_at, Number(v.amount) || 0);
+    for (const v of prodSales) registrar(v.created_at, Number(v.total_amount) || 0);
+
+    const horasComVenda = Object.keys(byHour).map(Number).sort((a, b) => a - b);
+    if (horasComVenda.length === 0) return { linhas: [], melhor: null, pior: null, maxTotal: 0, diasNoPeriodo: 0 };
+
+    const primeira = horasComVenda[0];
+    const ultima = horasComVenda[horasComVenda.length - 1];
+    const linhas: { hora: number; label: string; total: number; vendas: number; ticket: number; dias: number }[] = [];
+    for (let h = primeira; h <= ultima; h++) {
+      const v = byHour[h];
+      linhas.push({
+        hora: h,
+        label: `${String(h).padStart(2, "0")}h`,
+        total: v?.total ?? 0,
+        vendas: v?.vendas ?? 0,
+        ticket: v && v.vendas > 0 ? v.total / v.vendas : 0,
+        dias: v ? v.dias.size : 0,
+      });
+    }
+    const comVenda = linhas.filter((l) => l.total > 0);
+    const melhor = comVenda.reduce((a, b) => (b.total > a.total ? b : a), comVenda[0]);
+    const pior = comVenda.reduce((a, b) => (b.total < a.total ? b : a), comVenda[0]);
+    const maxTotal = melhor?.total || 1;
+    const diasNoPeriodo = new Set(
+      linhas.flatMap((l) => Array.from(byHour[l.hora]?.dias ?? [])),
+    ).size;
+    return { linhas, melhor, pior, maxTotal, diasNoPeriodo };
+  }, [defconSales, prodSales]);
+
   const periodoLabel =
     period === "today" ? "dia de hoje"
     : period === "7d" ? "semana (últimos 7 dias)"
@@ -579,7 +635,6 @@ export default function Insights() {
 
   if (authLoading || !user) return null;
 
-  const maxHourTotal = bestHours[0]?.total || 1;
 
   return (
     <div className="space-y-4 md:space-y-5 pb-4 md:pb-8 text-foreground">
@@ -811,46 +866,93 @@ export default function Insights() {
             />
           </section>
 
-          {/* Melhores horários (pela hora real das vendas) */}
-          <SectionTitle>Melhores horários</SectionTitle>
+          {/* Hora a hora — a linha do tempo real do dia (antes só existia o top 5) */}
+          <SectionTitle>Hora a hora</SectionTitle>
           <div className="rounded-2xl border border-border/60 bg-card p-5">
-            {bestHours.length === 0 ? (
+            {horaAHora.linhas.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Sem vendas registradas no período pra calcular os horários.
+                Ainda não tem venda com horário registrado nesse período. Registrando a venda
+                na hora que ela acontece, aqui aparece como foi cada hora do seu dia.
               </p>
             ) : (
-              <div className="space-y-3">
-                {bestHours.slice(0, 5).map((h, i) => (
-                  <div key={h.hour} className="flex items-center gap-3">
-                    <span
-                      className={cn(
-                        "text-xs w-16 shrink-0 font-medium",
-                        i === 0 ? "text-primary" : "text-muted-foreground",
-                      )}
-                    >
-                      {h.label}
-                    </span>
-                    <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
-                      <div
-                        className={cn(
-                          "h-full rounded-full transition-[colors,transform,opacity]",
-                          i === 0
-                            ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
-                            : "bg-primary/40",
-                        )}
-                        style={{ width: `${(h.total / maxHourTotal) * 100}%` }}
-                      />
+              <div className="space-y-4">
+                {/* O resumo que o vendedor leva pra rua */}
+                <div className="flex flex-wrap gap-2">
+                  {horaAHora.melhor && (
+                    <div className="flex-1 min-w-[140px] rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hora mais forte</p>
+                      <p className="text-lg font-bold text-primary leading-tight">{horaAHora.melhor.label}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatCurrency(horaAHora.melhor.total)} · {horaAHora.melhor.vendas}{" "}
+                        {horaAHora.melhor.vendas === 1 ? "venda" : "vendas"}
+                      </p>
                     </div>
-                    <span
-                      className={cn(
-                        "text-xs font-semibold w-20 text-right",
-                        i === 0 ? "text-primary" : "text-foreground/80",
-                      )}
-                    >
-                      {formatCurrency(h.total)}
-                    </span>
-                  </div>
-                ))}
+                  )}
+                  {horaAHora.pior && horaAHora.pior.hora !== horaAHora.melhor?.hora && (
+                    <div className="flex-1 min-w-[140px] rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hora mais fraca</p>
+                      <p className="text-lg font-bold leading-tight">{horaAHora.pior.label}</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatCurrency(horaAHora.pior.total)} · {horaAHora.pior.vendas}{" "}
+                        {horaAHora.pior.vendas === 1 ? "venda" : "vendas"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* A linha do tempo: toda hora entre a primeira e a última venda */}
+                <div className="space-y-2">
+                  {horaAHora.linhas.map((l) => {
+                    const vazia = l.total <= 0;
+                    const eMelhor = !vazia && l.hora === horaAHora.melhor?.hora;
+                    return (
+                      <div key={l.hora} className="flex items-center gap-3">
+                        <span
+                          className={cn(
+                            "text-xs w-16 shrink-0 font-medium tabular-nums",
+                            eMelhor ? "text-primary" : vazia ? "text-muted-foreground/50" : "text-muted-foreground",
+                          )}
+                        >
+                          {l.label}
+                        </span>
+                        <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
+                          {!vazia && (
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-[colors,transform,opacity]",
+                                eMelhor
+                                  ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                                  : "bg-primary/40",
+                              )}
+                              style={{ width: `${Math.max(3, (l.total / horaAHora.maxTotal) * 100)}%` }}
+                            />
+                          )}
+                        </div>
+                        <div className="w-[104px] text-right shrink-0">
+                          <span
+                            className={cn(
+                              "text-xs font-semibold tabular-nums block",
+                              eMelhor ? "text-primary" : vazia ? "text-muted-foreground/50" : "text-foreground/80",
+                            )}
+                          >
+                            {vazia ? "—" : formatCurrency(l.total)}
+                          </span>
+                          {!vazia && (
+                            <span className="text-[10px] text-muted-foreground tabular-nums">
+                              {l.vendas} {l.vendas === 1 ? "venda" : "vendas"} · {formatCurrency(l.ticket)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {horaAHora.diasNoPeriodo > 1
+                    ? `Somando ${horaAHora.diasNoPeriodo} dias de trabalho. As horas em branco são horas em que você estava na rua e não vendeu — vale olhar o que muda nelas.`
+                    : "As horas em branco são horas em que você estava na rua e não vendeu — vale olhar o que muda nelas."}
+                </p>
               </div>
             )}
           </div>

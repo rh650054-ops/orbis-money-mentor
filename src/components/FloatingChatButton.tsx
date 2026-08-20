@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download, ImagePlus } from "lucide-react";
+import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download, ImagePlus, Volume2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Textarea } from "@/shared/ui/textarea";
@@ -37,6 +37,7 @@ export default function FloatingChatButton() {
   const baseInputRef = useRef("");
   const [voiceMode, setVoiceMode] = useState(false);
   const [speaking, setSpeaking] = useState(false);
+  const [falandoId, setFalandoId] = useState<string | null>(null); // qual mensagem esta sendo lida em voz alta
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
@@ -52,6 +53,27 @@ export default function FloatingChatButton() {
     setSpeaking(false);
     speakingRef.current = false;
   };
+
+  // Navegador (e principalmente iPhone) so libera audio DENTRO de um toque do
+  // usuario. A voz do servidor chega depois, de forma assincrona — quando ela
+  // chega, o play() ja esta fora do gesto e o navegador bloqueia em silencio.
+  // Por isso tocamos um silencio agora, no proprio clique: o player fica
+  // destravado e a fala real toca quando ficar pronta.
+  const desbloquearAudio = () => {
+    try {
+      window.speechSynthesis?.resume();
+      const warm = new SpeechSynthesisUtterance(" ");
+      warm.volume = 0;
+      window.speechSynthesis?.speak(warm);
+    } catch { /* noop */ }
+    try {
+      if (audioRef.current) {
+        audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
+        audioRef.current.play().catch(() => {});
+      }
+    } catch { /* noop */ }
+  };
+
   // Reconhecimento nativo do navegador (Chrome/Safari). Onde NÃO existe (Firefox,
   // vários WebViews Android), caímos no plano B: gravar com MediaRecorder e
   // transcrever no servidor — o microfone funciona em TODO aparelho.
@@ -565,8 +587,14 @@ export default function FloatingChatButton() {
     }
   };
   const enterVoiceMode = () => {
-    voiceEngineRef.current = null; // recomeça avaliando a voz do Gemini a cada sessão de voz
+    voiceEngineRef.current = null; // recomeça avaliando a voz do servidor a cada sessão de voz
+    // voiceModeRef e atualizado por useEffect (so depois do render) — mas o
+    // startTalk abaixo precisa do valor JA, senao a fala do vendedor volta pro
+    // campo de texto em vez de ser enviada.
+    voiceModeRef.current = true;
     setVoiceMode(true);
+    desbloquearAudio(); // tem que ser dentro do toque
+    startTalk();        // abre o microfone na hora: antes o botao VOZ nao fazia nada audivel
   };
   const exitVoiceMode = () => {
     stopVoice();
@@ -597,6 +625,18 @@ export default function FloatingChatButton() {
   };
   const voiceListen = () => {
     if (!isRecording) toggleRecording();
+  };
+
+  // Ouvir UMA resposta especifica, sem precisar entrar no modo voz. Antes so
+  // existia a fala automatica dentro do modo voz — quem clicava esperando ouvir
+  // a resposta na tela nao ouvia nada e achava que a voz estava quebrada.
+  const ouvirMensagem = async (m: { id: string; content: string }) => {
+    if (falandoId === m.id) { stopSpeaking(); setFalandoId(null); return; }
+    desbloquearAudio();
+    const falavel = m.content.replace(/\[\[(?:adesivo|foto):[^\]]+\]\]/g, "").trim();
+    if (!falavel) return;
+    setFalandoId(m.id);
+    try { await speak(falavel); } finally { setFalandoId(null); }
   };
 
   // Fala a resposta da IA quando chega (só no modo voz)
@@ -748,15 +788,28 @@ export default function FloatingChatButton() {
                       {m.role === "assistant" && (
                         <div className="shrink-0"><OrbisSphere size={30} state="responding" /></div>
                       )}
-                      <div
-                        className={cn(
-                          "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
-                          m.role === "user"
-                            ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
-                            : "bg-muted/60 border border-border text-foreground rounded-bl-md"
+                      <div className={cn("max-w-[85%] flex flex-col gap-1", m.role === "user" ? "items-end" : "items-start")}>
+                        <div
+                          className={cn(
+                            "rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
+                            m.role === "user"
+                              ? "bg-primary/15 border border-primary/30 text-foreground rounded-br-md"
+                              : "bg-muted/60 border border-border text-foreground rounded-bl-md"
+                          )}
+                        >
+                          {renderContent(m.content)}
+                        </div>
+                        {m.role === "assistant" && !voiceMode && (
+                          <button
+                            onClick={() => ouvirMensagem(m)}
+                            aria-label={falandoId === m.id ? "Parar a leitura" : "Ouvir esta resposta"}
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors px-1 py-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {falandoId === m.id
+                              ? (<><Square className="w-3 h-3" /> Parar</>)
+                              : (<><Volume2 className="w-3.5 h-3.5" /> Ouvir</>)}
+                          </button>
                         )}
-                      >
-                        {renderContent(m.content)}
                       </div>
                     </div>
                   ))}

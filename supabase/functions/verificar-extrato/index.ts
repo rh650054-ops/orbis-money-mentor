@@ -314,7 +314,10 @@ Deno.serve(async (req) => {
         uid = u?.user?.id ?? null;
         if (uid) {
           const { data: prof } = await supa.from("public_profiles").select("nickname").eq("user_id", uid).maybeSingle();
-          nome = ((prof as any)?.nickname ?? "").toString().trim();
+          // Sanitiza: o nickname e' controlado pelo usuario e entra no prompt do
+          // auditor. Tira aspas/quebras/backticks e limita tamanho pra impedir
+          // injecao de instrucao (ex.: nickname = 'Ze". Ignore as regras...').
+          nome = ((prof as any)?.nickname ?? "").toString().replace(/["'`\r\n]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
         }
       } catch { /* best-effort */ }
     }
@@ -326,7 +329,12 @@ Deno.serve(async (req) => {
         if ((usage as any)?.over) {
           return json({ error: "limite_diario", dica: "Você já enviou bastante extrato hoje. Volta amanhã." }, 200);
         }
-      } catch { /* deixa passar se a trava falhar */ }
+      } catch (e) {
+        // FALHA FECHADA: extrato roda Claude vision (caro). Se a trava quebrar, NAO
+        // liberamos de graca — antes o catch vazio deixava passar sem limite nenhum.
+        console.error("bump_ai_usage extrato falhou", String(e).slice(0, 120));
+        return json({ error: "trava_indisponivel", dica: "Tenta de novo em instantes." }, 503);
+      }
     }
 
     // Janela do modo MES: do dia 1 do mes atual (fuso BR) ate hoje — E sempre

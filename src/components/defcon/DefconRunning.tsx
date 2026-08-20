@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -814,7 +814,7 @@ export function DefconRunning({
               <button
                 onClick={() => handleAddSale("dinheiro")}
                 disabled={!saleValue || parseFloat(saleValue) <= 0}
-                className="flex-1 h-16 bg-success text-success-foreground font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                className="flex-1 h-16 bg-success text-success-foreground font-black text-sm rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-1"
               >
                 <Coins className="w-5 h-5" strokeWidth={2.5} />
                 DINHEIRO
@@ -822,10 +822,18 @@ export function DefconRunning({
               <button
                 onClick={() => handleAddSale("pix")}
                 disabled={!saleValue || parseFloat(saleValue) <= 0}
-                className="flex-1 h-16 bg-primary text-primary-foreground font-black text-base rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                className="flex-1 h-16 bg-primary text-primary-foreground font-black text-sm rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-1"
               >
                 <Smartphone className="w-5 h-5" strokeWidth={2.5} />
-                <span className="text-lg font-black">PIX</span>
+                PIX
+              </button>
+              <button
+                onClick={() => handleAddSale("cartao")}
+                disabled={!saleValue || parseFloat(saleValue) <= 0}
+                className="flex-1 h-16 bg-foreground text-background font-black text-sm rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-1"
+              >
+                <CreditCard className="w-5 h-5" strokeWidth={2.5} />
+                CARTÃO
               </button>
             </div>
           </div>

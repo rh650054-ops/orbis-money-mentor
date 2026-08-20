@@ -226,6 +226,28 @@ function bytesToB64(bytes: Uint8Array): string {
 }
 
 // ---- VOZ NEURAL GRÁTIS via Microsoft Edge (edge-tts) — sem chave, sem cartão ----
+// ===== MEDIDOR DE GASTO: toda chamada de IA vira uma linha em ai_custos =====
+// Roda em segundo plano e NUNCA derruba o app se falhar. Preços de ago/2026:
+// claude-sonnet-5 US$2/M entrada, US$10/M saída (promo até 31/08; depois 3/15 —
+// ATUALIZAR AQUI em setembro), cache: leitura 0.20, gravação 2.50.
+// claude-opus-5: 5/25, cache 0.50/6.25. gpt-4o-mini-tts ~US$0,015 por minuto
+// falado (~900 caracteres em PT-BR).
+async function registrarCusto(linha: { user_id?: string | null; servico: string; modelo?: string; qtd?: number; unidade?: string; custo_usd: number }) {
+  try {
+    const a = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    const p = Promise.resolve(a.from("ai_custos").insert({
+      user_id: linha.user_id ?? null,
+      servico: linha.servico,
+      modelo: linha.modelo ?? null,
+      qtd: linha.qtd ?? 1,
+      unidade: linha.unidade ?? "chamada",
+      custo_usd: Math.round(linha.custo_usd * 1e6) / 1e6,
+    })).then(() => {}, () => {});
+    const er = (globalThis as any).EdgeRuntime;
+    if (er?.waitUntil) er.waitUntil(p); else await p;
+  } catch { /* medidor nunca atrapalha o vendedor */ }
+}
+
 const EDGE_TOKEN = "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
 const EDGE_GEC_VERSION = "1-143.0.3650.75";
 function xmlEscape(s: string): string {
@@ -611,6 +633,18 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           const up = await admin.storage.from("artes").upload(path, bytes, { contentType: String((j as any).mime || "image/png") });
           if (up.error) return { erro: "upload_falhou" };
           const { data: pub } = admin.storage.from("artes").getPublicUrl(path);
+          // FAXINA DE STORAGE (17/08/2026): cada arte tem ~2 MB; sem limpeza o bucket
+          // só cresce e vira conta de storage. Mantém as 12 artes mais novas do
+          // vendedor e apaga o resto — em segundo plano, sem atrasar a resposta.
+          try {
+            const faxina = admin.storage.from("artes").list(userId, { limit: 100, sortBy: { column: "created_at", order: "desc" } })
+              .then(({ data: arquivos }) => {
+                const velhos = (arquivos ?? []).slice(12).map((f) => `${userId}/${f.name}`);
+                if (velhos.length) return admin.storage.from("artes").remove(velhos);
+              }).then(() => {}, () => {});
+            const er = (globalThis as any).EdgeRuntime;
+            if (er?.waitUntil) er.waitUntil(faxina);
+          } catch { /* faxina nunca atrapalha a geração */ }
           // Amarra a URL no registro da geração: é assim que a gente sabe DEPOIS
           // qual briefing virou arte que o vendedor achou boa o bastante pra baixar.
           const gid = String((j as any)?.geracao_id ?? "");
@@ -623,6 +657,9 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
         const errCode = String((j as any)?.error ?? "geracao_falhou");
         const ehTrial = String((j as any)?.plano ?? "") === "trial";
         const msgs: Record<string, string> = {
+          trava_gasto_conta: "Ele já usou bastante o desenhista hoje — por segurança, libera de novo amanhã. Avise com leveza.",
+          trava_gasto_global: "O Estúdio está em pausa técnica agora — peça pra ele tentar mais tarde.",
+          limite_mensal: "Ele atingiu o teto de artes do mês. Libera de novo no dia 1º.",
           limite_diario: ehTrial
             ? "Ele já usou as artes grátis de hoje (são 2 por dia no teste). Diga isso com leveza e conte que assinando ele passa a ter 4 por dia E baixa sem a marca d'água — sem pressionar."
             : "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
@@ -683,6 +720,7 @@ Deno.serve(async (req) => {
         if (r.ok) {
           const j = await r.json();
           const t = (j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "").trim();
+          registrarCusto({ servico: "stt_gemini", modelo: model, qtd: 1, unidade: "transcricao", custo_usd: 0 });
           return json({ text: t });
         }
         console.error("Gemini STT erro", r.status, await r.text().catch(() => ""));
@@ -740,7 +778,11 @@ Deno.serve(async (req) => {
           });
           if (r.ok) {
             const buf = new Uint8Array(await r.arrayBuffer());
-            if (buf.length > 800) return json({ audio: bytesToB64(buf), mime: "audio/mpeg", voz: `openai:${oVoice}` });
+            if (buf.length > 800) {
+              // ~900 caracteres = ~1 minuto falado = ~US$0,015 no gpt-4o-mini-tts
+              registrarCusto({ servico: "tts_openai", modelo: oModel, qtd: text.length, unidade: "caracteres", custo_usd: (text.length / 900) * 0.015 });
+              return json({ audio: bytesToB64(buf), mime: "audio/mpeg", voz: `openai:${oVoice}` });
+            }
             console.error("OpenAI TTS áudio vazio (cai pro Gemini)");
           } else {
             console.error("OpenAI TTS erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
@@ -846,6 +888,17 @@ Deno.serve(async (req) => {
           const pagante = !!prof && ((prof as any).billing_exempt || (prof as any).is_demo || (prof as any).plan_status === "active");
           if (pagante) limiteChat = Number(Deno.env.get("CHAT_LIMITE_PAGANTE") ?? "200");
         } catch { /* na dúvida, vale o limite menor */ }
+        // TRAVA POR CONTA em dólar/dia (17/08/2026): mesmo com limite de mensagens
+        // alto na fase de teste, ninguém consegue drenar o crédito das APIs.
+        try {
+          const travaUser = Number(Deno.env.get("AI_TRAVA_USER_DIA_USD") ?? "1.5");
+          const adminT = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const { data: gastoU } = await adminT.rpc("orbis_gasto_usuario_hoje", { p_user: chatUserId });
+          if (Number(gastoU) >= travaUser) {
+            console.error("trava de gasto POR CONTA acionada no chat", chatUserId, gastoU);
+            return json({ success: true, message: "Tu usou MUITO o mentor hoje — pra manter o app de pé pra todo mundo, ele volta amanhã. Bora pra rua vender!" });
+          }
+        } catch { /* na dúvida, deixa passar: trava nunca derruba usuário honesto */ }
         const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: limiteChat });
         if (usageErr) {
           return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
@@ -1014,6 +1067,25 @@ Deno.serve(async (req) => {
               break;
             }
             const aj = await aRes.json();
+            // Medidor: converte os tokens desta chamada em dólares e registra.
+            try {
+              const u = aj?.usage;
+              if (u) {
+                const pr = amodel.includes("opus")
+                  ? { ent: 5, sai: 25, cacheLe: 0.5, cacheGrava: 6.25 }
+                  : { ent: 2, sai: 10, cacheLe: 0.2, cacheGrava: 2.5 };
+                const usd =
+                  (Number(u.input_tokens) || 0) * pr.ent / 1e6 +
+                  (Number(u.output_tokens) || 0) * pr.sai / 1e6 +
+                  (Number(u.cache_read_input_tokens) || 0) * pr.cacheLe / 1e6 +
+                  (Number(u.cache_creation_input_tokens) || 0) * pr.cacheGrava / 1e6;
+                registrarCusto({
+                  user_id: chatUserId, servico: "claude_chat", modelo: amodel,
+                  qtd: (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0),
+                  unidade: "tokens", custo_usd: usd,
+                });
+              }
+            } catch { /* noop */ }
             if (aj?.stop_reason === "tool_use") {
               const usos = ((aj.content ?? []) as any[]).filter((b) => b?.type === "tool_use");
               aMessages.push({ role: "assistant", content: aj.content });

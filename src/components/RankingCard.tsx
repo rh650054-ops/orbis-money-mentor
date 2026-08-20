@@ -67,9 +67,16 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
                 <span className="text-[11px] font-black tracking-wider px-1.5 py-0.5 rounded" style={{ color: accent, background: `${accent}1f` }}>
                   {tier!.label}
                 </span>
-                {!!currentUserStats!.constancia_streak_atual && (
-                  <span className="inline-flex items-center gap-0.5 text-[11px] font-black" style={{ color: accent }}>
-                    <Flame className="w-3 h-3" /> {currentUserStats!.constancia_streak_atual}
+                {/* Foguinho = DIAS TRABALHADOS NO MÊS. Antes mostrava o streak
+                    (constancia_streak_atual), que vive zerando e travava no "1" —
+                    parecia bug. Dias do mês só cresce, que é a sensação certa. */}
+                {!!currentUserStats!.dias_trabalhados_mes && (
+                  <span
+                    className="inline-flex items-center gap-0.5 text-[11px] font-black"
+                    style={{ color: accent }}
+                    title={`${currentUserStats!.dias_trabalhados_mes} dia${currentUserStats!.dias_trabalhados_mes === 1 ? "" : "s"} trabalhado${currentUserStats!.dias_trabalhados_mes === 1 ? "" : "s"} este mês`}
+                  >
+                    <Flame className="w-3 h-3" /> {currentUserStats!.dias_trabalhados_mes}
                   </span>
                 )}
               </div>

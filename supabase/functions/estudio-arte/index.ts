@@ -73,6 +73,29 @@ Deno.serve(async (req) => {
     const limite = pagante
       ? Number(Deno.env.get("ESTUDIO_LIMITE_PAGANTE") ?? "30")
       : Number(Deno.env.get("ESTUDIO_LIMITE_TRIAL") ?? "30");
+    // ===== TRAVAS DE GASTO (17/08/2026) — protegem o crédito das APIs =====
+    // 1) Por CONTA, em dólar/dia: mal-intencionado ou bug em loop para aqui.
+    // 2) GLOBAL, em dólar/dia: disjuntor — se o app inteiro estourar, imagem pausa.
+    // 3) Por CONTA, no MÊS: o teto diário sozinho não segura quem volta todo dia.
+    // Ajustes por secret: AI_TRAVA_USER_DIA_USD / AI_TRAVA_GLOBAL_DIA_USD / ESTUDIO_LIMITE_MES.
+    try {
+      const travaUser = Number(Deno.env.get("AI_TRAVA_USER_DIA_USD") ?? "1.5");
+      const { data: gastoU } = await admin.rpc("orbis_gasto_usuario_hoje", { p_user: userId });
+      if (Number(gastoU) >= travaUser) {
+        console.error("trava de gasto POR CONTA acionada", userId, gastoU);
+        return json({ error: "trava_gasto_conta" });
+      }
+      const travaGlobal = Number(Deno.env.get("AI_TRAVA_GLOBAL_DIA_USD") ?? "25");
+      const { data: gastoG } = await admin.rpc("orbis_gasto_global_hoje");
+      if (Number(gastoG) >= travaGlobal) {
+        console.error("DISJUNTOR GLOBAL de gasto acionado", gastoG);
+        return json({ error: "trava_gasto_global" });
+      }
+      const limiteMes = Number(Deno.env.get("ESTUDIO_LIMITE_MES") ?? "120");
+      const { data: usoMes } = await admin.rpc("orbis_uso_mes", { p_user: userId, p_feature: "estudio" });
+      if (Number(usoMes) >= limiteMes) return json({ error: "limite_mensal", limite: limiteMes });
+    } catch (e) { console.error("checagem de trava falhou (seguindo):", String(e).slice(0, 150)); }
+
     const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: limite });
     if ((usage as any)?.over) return json({ error: "limite_diario", limite, plano: pagante ? "pagante" : "trial" });
 
@@ -147,6 +170,17 @@ Deno.serve(async (req) => {
     const marcaDagua = !pagante;
     const okResp = (imagem: string, mime: string, provedor: string) => {
       if (geracaoId) admin.from("estudio_geracoes").update({ provedor }).eq("id", geracaoId).then(() => {}, () => {});
+      // MEDIDOR DE GASTO: preço por imagem 1024x1536 no gpt-image (ago/2026):
+      // low US$0,005 | medium US$0,041 | high US$0,165. Gemini/fallbacks: 0.
+      try {
+        const q = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "high";
+        const tabela: Record<string, number> = { low: 0.005, medium: 0.041, high: 0.165 };
+        const usd = provedor.startsWith("openai") ? (tabela[q] ?? 0.165) : 0;
+        admin.from("ai_custos").insert({
+          user_id: userId, servico: "imagem", modelo: `${provedor}:${q}`,
+          qtd: 1, unidade: "imagem", custo_usd: usd,
+        }).then(() => {}, () => {});
+      } catch { /* medidor nunca atrapalha a geração */ }
       return json({ imagem, mime, provedor, geracao_id: geracaoId, marca_dagua: marcaDagua, plano: pagante ? "pagante" : "trial" });
     };
 

@@ -8,7 +8,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check, MessageCircle, Crown } from "lucide-react";
+import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check, MessageCircle, Crown, CalendarDays, Users, Wallet, Download, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
@@ -32,6 +32,67 @@ export default function AdminSubscriptions() {
   const { toast } = useToast();
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  // ---- Painel por PERÍODO (pra pagar comissão de afiliado) ----
+  // O total acumulado não serve pra fechar comissão: o que importa é quantos
+  // entraram e quantos ASSINARAM dentro da janela que a gente vai pagar.
+  const hojeSP = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // yyyy-mm-dd
+  const somaDias = (iso: string, dias: number) => {
+    const d = new Date(iso + "T12:00:00");
+    d.setDate(d.getDate() + dias);
+    return d.toLocaleDateString("en-CA");
+  };
+  const primeiroDoMes = (iso: string) => iso.slice(0, 8) + "01";
+  const [periodoPreset, setPeriodoPreset] = useState<"hoje" | "ontem" | "7dias" | "mes" | "mes_passado" | "custom">("mes");
+  const [periodoIni, setPeriodoIni] = useState<string>(primeiroDoMes(hojeSP()));
+  const [periodoFim, setPeriodoFim] = useState<string>(hojeSP());
+  const [periodo, setPeriodo] = useState<any>(null);
+  const [loadingPeriodo, setLoadingPeriodo] = useState(false);
+
+  const aplicarPreset = (preset: typeof periodoPreset) => {
+    setPeriodoPreset(preset);
+    const hoje = hojeSP();
+    if (preset === "hoje") { setPeriodoIni(hoje); setPeriodoFim(hoje); }
+    else if (preset === "ontem") { const o = somaDias(hoje, -1); setPeriodoIni(o); setPeriodoFim(o); }
+    else if (preset === "7dias") { setPeriodoIni(somaDias(hoje, -6)); setPeriodoFim(hoje); }
+    else if (preset === "mes") { setPeriodoIni(primeiroDoMes(hoje)); setPeriodoFim(hoje); }
+    else if (preset === "mes_passado") {
+      const ultimoDoMesPassado = somaDias(primeiroDoMes(hoje), -1);
+      setPeriodoIni(primeiroDoMes(ultimoDoMesPassado));
+      setPeriodoFim(ultimoDoMesPassado);
+    }
+  };
+
+  const carregarPeriodo = async (ini = periodoIni, fim = periodoFim) => {
+    if (!ini || !fim || ini > fim) return;
+    setLoadingPeriodo(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("orbis_painel_periodo", { p_inicio: ini, p_fim: fim });
+      if (error) throw error;
+      setPeriodo(data);
+    } catch (e) {
+      console.error("Erro ao carregar o período:", e);
+      toast({ title: "Não consegui carregar o período", description: "Tenta de novo em instantes.", variant: "destructive" });
+    } finally {
+      setLoadingPeriodo(false);
+    }
+  };
+
+  // Planilha pra fechar o pagamento dos afiliados sem digitar nada na mão.
+  const baixarCSVComissao = () => {
+    const linhas = (periodo?.por_ref ?? []) as any[];
+    if (!linhas.length) return;
+    const csv = [
+      "afiliado;leads;cadastros;assinaturas;comissao_brl",
+      ...linhas.map((r) => `${r.ref};${r.leads};${r.cadastros};${r.assinaturas};${Number(r.comissao).toFixed(2).replace(".", ",")}`),
+      `TOTAL;;;;${Number(periodo?.comissao_total ?? 0).toFixed(2).replace(".", ",")}`,
+    ].join("\n");
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comissao-orbis-${periodoIni}-a-${periodoFim}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
   const [users, setUsers] = useState<SubscriptionUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [searchEmail, setSearchEmail] = useState("");
@@ -74,6 +135,7 @@ export default function AdminSubscriptions() {
     if (isAdmin) {
       loadUsers();
       loadAdminMeta();
+      carregarPeriodo();
     }
   }, [isAdmin]);
 
@@ -537,6 +599,156 @@ export default function AdminSubscriptions() {
           </p>
         </div>
       </div>
+
+      {/* ===== Período: cadastros, vendas e comissão por afiliado ===== */}
+      <Card className="border-primary/30">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <CalendarDays className="w-5 h-5 text-primary" />
+            Resultados do período
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Escolha o dia, o mês ou um intervalo pra ver quantos entraram, quantos assinaram e quanto cada afiliado tem a receber.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {([
+              ["hoje", "Hoje"],
+              ["ontem", "Ontem"],
+              ["7dias", "Últimos 7 dias"],
+              ["mes", "Este mês"],
+              ["mes_passado", "Mês passado"],
+              ["custom", "Personalizado"],
+            ] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => {
+                  if (key === "custom") { setPeriodoPreset("custom"); return; }
+                  aplicarPreset(key);
+                  const hoje = hojeSP();
+                  const ini = key === "hoje" ? hoje
+                    : key === "ontem" ? somaDias(hoje, -1)
+                    : key === "7dias" ? somaDias(hoje, -6)
+                    : key === "mes" ? primeiroDoMes(hoje)
+                    : primeiroDoMes(somaDias(primeiroDoMes(hoje), -1));
+                  const fim = key === "hoje" ? hoje
+                    : key === "ontem" ? somaDias(hoje, -1)
+                    : key === "mes_passado" ? somaDias(primeiroDoMes(hoje), -1)
+                    : hoje;
+                  carregarPeriodo(ini, fim);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  periodoPreset === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {periodoPreset === "custom" && (
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">De</Label>
+                <Input type="date" value={periodoIni} max={periodoFim} onChange={(e) => setPeriodoIni(e.target.value)} className="w-[160px]" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Até</Label>
+                <Input type="date" value={periodoFim} min={periodoIni} max={hojeSP()} onChange={(e) => setPeriodoFim(e.target.value)} className="w-[160px]" />
+              </div>
+              <Button onClick={() => carregarPeriodo()} disabled={loadingPeriodo || periodoIni > periodoFim}>
+                {loadingPeriodo ? <RefreshCw className="w-4 h-4 animate-spin" /> : "Aplicar"}
+              </Button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-xl border border-border bg-muted/40 p-3">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Users className="w-3.5 h-3.5" /> Cadastros</div>
+              <p className="text-2xl font-bold mt-1">{loadingPeriodo ? "—" : (periodo?.cadastros ?? 0)}</p>
+              <p className="text-[11px] text-muted-foreground">{periodo?.cadastros_total ?? 0} no total</p>
+            </div>
+            <div className="rounded-xl border border-success/30 bg-success/10 p-3">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><TrendingUp className="w-3.5 h-3.5" /> Vendas (assinaturas)</div>
+              <p className="text-2xl font-bold mt-1 text-success">{loadingPeriodo ? "—" : (periodo?.assinaturas_novas ?? 0)}</p>
+              <p className="text-[11px] text-muted-foreground">{periodo?.assinaturas_ativas_agora ?? 0} ativas hoje</p>
+            </div>
+            <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Wallet className="w-3.5 h-3.5" /> Comissão a pagar</div>
+              <p className="text-2xl font-bold mt-1 text-primary">
+                {loadingPeriodo ? "—" : `R$ ${Number(periodo?.comissao_total ?? 0).toFixed(2).replace(".", ",")}`}
+              </p>
+              <p className="text-[11px] text-muted-foreground">R$ {Number(periodo?.comissao_unitaria ?? 11.96).toFixed(2).replace(".", ",")} por assinante</p>
+            </div>
+            <div className="rounded-xl border border-border bg-muted/40 p-3">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Link2 className="w-3.5 h-3.5" /> Leads no link</div>
+              <p className="text-2xl font-bold mt-1">{loadingPeriodo ? "—" : (periodo?.leads ?? 0)}</p>
+              <p className="text-[11px] text-muted-foreground">{periodoIni.split("-").reverse().join("/")} a {periodoFim.split("-").reverse().join("/")}</p>
+            </div>
+          </div>
+
+          {/* Rateio por afiliado — é essa tabela que fecha o pagamento */}
+          {(periodo?.por_ref?.length ?? 0) > 0 && (
+            <div className="rounded-xl border border-border overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2 bg-muted/50">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Por afiliado</span>
+                <Button variant="ghost" size="sm" onClick={baixarCSVComissao} className="h-7 gap-1.5 text-xs">
+                  <Download className="w-3.5 h-3.5" /> CSV
+                </Button>
+              </div>
+              <div className="max-h-[320px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 bg-background">
+                    <tr className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      <th className="text-left font-semibold px-3 py-2">Afiliado</th>
+                      <th className="text-right font-semibold px-2 py-2">Leads</th>
+                      <th className="text-right font-semibold px-2 py-2">Cadastros</th>
+                      <th className="text-right font-semibold px-2 py-2">Vendas</th>
+                      <th className="text-right font-semibold px-3 py-2">Comissão</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(periodo.por_ref as any[]).map((r) => (
+                      <tr key={r.ref} className="border-t border-border/60">
+                        <td className="px-3 py-2 font-medium">{r.ref}</td>
+                        <td className="px-2 py-2 text-right text-muted-foreground">{r.leads}</td>
+                        <td className="px-2 py-2 text-right text-muted-foreground">{r.cadastros}</td>
+                        <td className="px-2 py-2 text-right font-semibold text-success">{r.assinaturas}</td>
+                        <td className="px-3 py-2 text-right font-bold text-primary">
+                          {Number(r.comissao) > 0 ? `R$ ${Number(r.comissao).toFixed(2).replace(".", ",")}` : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Dia a dia — só faz sentido quando o intervalo tem mais de um dia */}
+          {(periodo?.por_dia?.length ?? 0) > 1 && (
+            <details className="rounded-xl border border-border">
+              <summary className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground cursor-pointer">
+                Dia a dia
+              </summary>
+              <div className="max-h-[260px] overflow-y-auto border-t border-border">
+                <table className="w-full text-sm">
+                  <tbody>
+                    {(periodo.por_dia as any[]).filter((d) => d.cadastros > 0 || d.assinaturas > 0).reverse().map((d) => (
+                      <tr key={d.dia} className="border-b border-border/50 last:border-0">
+                        <td className="px-3 py-1.5">{String(d.dia).split("-").reverse().join("/")}</td>
+                        <td className="px-2 py-1.5 text-right text-muted-foreground">{d.cadastros} cadastro(s)</td>
+                        <td className="px-3 py-1.5 text-right font-semibold text-success">{d.assinaturas} venda(s)</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Search */}
       <Card>

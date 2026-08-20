@@ -76,7 +76,12 @@ Deno.serve(async (req) => {
     try {
       const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "deposito", p_limit: 5 });
       if ((usage as any)?.over) return json({ error: "limite_diario", dica: "Muitas tentativas hoje. Fala com o admin." }, 200);
-    } catch { /* segue */ }
+    } catch (e) {
+      // FALHA FECHADA: deposito roda Claude vision e pode creditar dinheiro. Se a
+      // trava quebrar, NAO liberamos sem limite — antes o catch vazio deixava passar.
+      console.error("bump_ai_usage deposito falhou", String(e).slice(0, 120));
+      return json({ error: "trava_indisponivel", dica: "Tenta de novo em instantes." }, 503);
+    }
 
     const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const { data: st } = await admin.from("x1_settings").select("pix_account").eq("id", 1).maybeSingle();
