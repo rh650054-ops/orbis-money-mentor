@@ -191,273 +191,285 @@ export default function Auth() {
 
   return (
     <div
-      className="min-h-[100dvh] flex items-center justify-center p-5 bg-background animate-fade-in"
+      className="relative min-h-[100dvh] flex flex-col overflow-hidden bg-background animate-fade-in"
       style={{
         paddingTop: "max(1.25rem, env(safe-area-inset-top))",
         paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
       }}
     >
-      <div className="w-full max-w-[420px] space-y-4">
-        {/* Header com logo girando */}
-        <div className="flex flex-col items-center gap-2">
-          <img
-            src="/orbis-logo.png"
-            alt="Orbis"
-            className="w-16 h-16 object-contain animate-orbis-spin-in"
-          />
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-foreground">
-              {isLogin ? "Entre no Orbis" : "Crie sua conta"}
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {isLogin ? "Use seu CPF ou e-mail" : "3 dias grátis pra começar"}
-            </p>
+      {/* Luz de marca no topo: um brilho dourado sutil — sem elemento, sem ruído.
+          É o que separa "tela de template" de "tela da marca" sem poluir nada. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-[360px]"
+        style={{ background: "radial-gradient(460px 280px at 50% -60px, hsl(45 100% 48% / 0.13), transparent 70%)" }}
+      />
+
+      <div className="relative flex-1 flex items-center justify-center p-5">
+        <div className="w-full max-w-[420px]">
+          {/* Marca: logo maior, título do momento e a assinatura da casa */}
+          <div className="flex flex-col items-center gap-3 mb-6">
+            <img
+              src="/orbis-logo.png"
+              alt="Orbis"
+              className="w-20 h-20 object-contain animate-orbis-spin-in drop-shadow-[0_10px_28px_hsl(45_100%_48%_/_0.30)]"
+            />
+            <div className="text-center space-y-1">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                {isLogin ? "Bem-vindo de volta" : "Crie sua conta"}
+              </h1>
+              <p className="text-sm text-muted-foreground">
+                O copiloto de vendas do vendedor de rua
+              </p>
+            </div>
+            {!isLogin && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1.5 text-xs font-semibold text-primary">
+                3 dias grátis — sem pedir cartão
+              </span>
+            )}
           </div>
-        </div>
 
-        <Card className="bg-card border border-border rounded-2xl shadow-xl">
-          <CardContent className="p-5">
-            <form onSubmit={handleAuth} className="space-y-3">
-              {/* Toggle CPF / E-mail (apenas no login) */}
-              {isLogin && (
-                <div className="flex rounded-lg bg-muted p-1">
-                  <button
-                    type="button"
-                    onClick={() => setLoginMethod("cpf")}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-[colors,transform,opacity] ${
-                      loginMethod === "cpf"
-                        ? "bg-primary text-primary-foreground shadow"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    CPF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLoginMethod("email")}
-                    className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-[colors,transform,opacity] ${
-                      loginMethod === "email"
-                        ? "bg-primary text-primary-foreground shadow"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    E-mail
-                  </button>
-                </div>
-              )}
+          <Card className="bg-card border border-border rounded-2xl shadow-xl">
+            <CardContent className="p-5 sm:p-6">
+              <form onSubmit={handleAuth} className="space-y-3.5">
+                {/* Toggle CPF / E-mail (apenas no login) */}
+                {isLogin && (
+                  <div className="flex rounded-xl bg-muted p-1">
+                    {([["cpf", "CPF"], ["email", "E-mail"]] as const).map(([m, label]) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setLoginMethod(m)}
+                        className={`flex-1 h-9 text-sm font-medium rounded-lg transition-colors ${
+                          loginMethod === m
+                            ? "bg-primary text-primary-foreground shadow"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              {/* Nome (signup) */}
-              {!isLogin && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="name" className="flex items-center gap-1.5 text-xs">
-                    <User className="w-3.5 h-3.5 text-primary" />
-                    Nome completo
-                  </Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder="Seu nome"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-              )}
-
-              {/* CPF */}
-              {(!isLogin || loginMethod === "cpf") && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="cpf" className="flex items-center gap-1.5 text-xs">
-                    <IdCard className="w-3.5 h-3.5 text-primary" />
-                    CPF
-                  </Label>
-                  <Input
-                    id="cpf"
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="username"
-                    placeholder="Apenas números"
-                    value={cpf}
-                    onChange={(e) => setCpf(e.target.value.replace(/\D/g, ""))}
-                    required
-                    maxLength={11}
-                    className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-              )}
-
-              {/* E-mail (login) */}
-              {isLogin && loginMethod === "email" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="loginEmail" className="flex items-center gap-1.5 text-xs">
-                    <Mail className="w-3.5 h-3.5 text-primary" />
-                    E-mail
-                  </Label>
-                  <Input
-                    id="loginEmail"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="seu@email.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                    className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-              )}
-
-              {/* Senha */}
-              <div className="space-y-1.5">
-                <Label htmlFor="password" className="flex items-center gap-1.5 text-xs">
-                  <KeyRound className="w-3.5 h-3.5 text-primary" />
-                  Senha
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  autoComplete={isLogin ? "current-password" : "new-password"}
-                  className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                />
-              </div>
-
-              {/* Esqueci senha (só no login) */}
-              {isLogin && (
-                <div className="flex justify-end -mt-1">
-                  <Link
-                    to="/forgot-password"
-                    className="text-xs text-primary hover:underline"
-                  >
-                    Esqueci minha senha
-                  </Link>
-                </div>
-              )}
-
-              {/* Campos extras do signup */}
-              {!isLogin && (
-                <>
+                {/* Nome (signup) */}
+                {!isLogin && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="phone" className="flex items-center gap-1.5 text-xs">
-                      <Phone className="w-3.5 h-3.5 text-primary" />
-                      WhatsApp
+                    <Label htmlFor="name" className="flex items-center gap-1.5 text-xs">
+                      <User className="w-3.5 h-3.5 text-primary" />
+                      Nome completo
                     </Label>
                     <Input
-                      id="phone"
+                      id="name"
                       type="text"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      placeholder="DDD + número"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Seu nome"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       required
-                      maxLength={11}
-                      className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
+                      className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
                     />
                   </div>
+                )}
 
+                {/* CPF */}
+                {(!isLogin || loginMethod === "cpf") && (
                   <div className="space-y-1.5">
-                    <Label className="flex items-center gap-1.5 text-xs">
-                      <MapPin className="w-3.5 h-3.5 text-primary" />
-                      Sua localização
-                    </Label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <select
-                        aria-label="Estado (UF)"
-                        value={state}
-                        onChange={(e) => { setState(e.target.value); setCity(""); }}
-                        required
-                        className="col-span-1 h-10 rounded-lg border border-border bg-input px-3 text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                      >
-                        <option value="">UF</option>
-                        {BR_STATES.map((uf) => (
-                          <option key={uf} value={uf}>{uf}</option>
-                        ))}
-                      </select>
-                      <select
-                        aria-label="Cidade"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        required
-                        disabled={!state || loadingCities}
-                        className="col-span-2 h-10 rounded-lg border border-border bg-input px-3 text-sm outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
-                      >
-                        <option value="">
-                          {!state ? "Selecione UF" : loadingCities ? "Carregando..." : "Cidade"}
-                        </option>
-                        {cities.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="email" className="flex items-center gap-1.5 text-xs">
-                      <Mail className="w-3.5 h-3.5 text-primary" />
-                      E-mail <span className="text-muted-foreground">(opcional, p/ recuperar senha)</span>
+                    <Label htmlFor="cpf" className="flex items-center gap-1.5 text-xs">
+                      <IdCard className="w-3.5 h-3.5 text-primary" />
+                      CPF
                     </Label>
                     <Input
-                      id="email"
+                      id="cpf"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="username"
+                      placeholder="Apenas números"
+                      value={cpf}
+                      onChange={(e) => setCpf(e.target.value.replace(/\D/g, ""))}
+                      required
+                      maxLength={11}
+                      className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
+                    />
+                  </div>
+                )}
+
+                {/* E-mail (login) */}
+                {isLogin && loginMethod === "email" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="loginEmail" className="flex items-center gap-1.5 text-xs">
+                      <Mail className="w-3.5 h-3.5 text-primary" />
+                      E-mail
+                    </Label>
+                    <Input
+                      id="loginEmail"
                       type="email"
                       autoComplete="email"
                       placeholder="seu@email.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
+                      value={loginEmail}
+                      onChange={(e) => setLoginEmail(e.target.value)}
+                      required
+                      className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
                     />
                   </div>
-                </>
-              )}
+                )}
 
-              <Button
-                type="submit"
-                className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold mt-1"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  "Carregando..."
-                ) : isLogin ? (
+                {/* Senha */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="password" className="flex items-center gap-1.5 text-xs">
+                    <KeyRound className="w-3.5 h-3.5 text-primary" />
+                    Senha
+                  </Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    autoComplete={isLogin ? "current-password" : "new-password"}
+                    className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
+                  />
+                </div>
+
+                {/* Esqueci senha (só no login) — área de toque confortável */}
+                {isLogin && (
+                  <div className="flex justify-end -mt-1">
+                    <Link
+                      to="/forgot-password"
+                      className="text-xs text-primary hover:underline py-2 px-1"
+                    >
+                      Esqueci minha senha
+                    </Link>
+                  </div>
+                )}
+
+                {/* Campos extras do signup */}
+                {!isLogin && (
                   <>
-                    <LogIn className="w-4 h-4 mr-2" />
-                    Entrar
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Criar conta
+                    <div className="space-y-1.5">
+                      <Label htmlFor="phone" className="flex items-center gap-1.5 text-xs">
+                        <Phone className="w-3.5 h-3.5 text-primary" />
+                        WhatsApp
+                      </Label>
+                      <Input
+                        id="phone"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="tel"
+                        placeholder="DDD + número"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                        required
+                        maxLength={11}
+                        className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="flex items-center gap-1.5 text-xs">
+                        <MapPin className="w-3.5 h-3.5 text-primary" />
+                        Sua localização
+                      </Label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <select
+                          aria-label="Estado (UF)"
+                          value={state}
+                          onChange={(e) => { setState(e.target.value); setCity(""); }}
+                          required
+                          className="col-span-1 h-11 rounded-xl border border-border bg-input px-3 text-base outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        >
+                          <option value="">UF</option>
+                          {BR_STATES.map((uf) => (
+                            <option key={uf} value={uf}>{uf}</option>
+                          ))}
+                        </select>
+                        <select
+                          aria-label="Cidade"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          required
+                          disabled={!state || loadingCities}
+                          className="col-span-2 h-11 rounded-xl border border-border bg-input px-3 text-base outline-none focus:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-60"
+                        >
+                          <option value="">
+                            {!state ? "Selecione UF" : loadingCities ? "Carregando..." : "Cidade"}
+                          </option>
+                          {cities.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="email" className="flex items-center gap-1.5 text-xs">
+                        <Mail className="w-3.5 h-3.5 text-primary" />
+                        E-mail <span className="text-muted-foreground">(opcional, p/ recuperar senha)</span>
+                      </Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        autoComplete="email"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
+                      />
+                    </div>
                   </>
                 )}
-              </Button>
 
-              {/* LGPD: aviso de aceite com links fixos no cadastro */}
-              {!isLogin && (
-                <p className="text-[11px] text-muted-foreground text-center leading-relaxed mt-2">
-                  Ao criar a conta, você concorda com os{" "}
-                  <Link to="/termos" className="text-primary underline">Termos de Uso</Link> e a{" "}
-                  <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>.
-                </p>
-              )}
-            </form>
+                <Button
+                  type="submit"
+                  className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-base font-semibold mt-1 shadow-[0_8px_28px_-10px_hsl(45_100%_48%_/_0.55)]"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    "Carregando..."
+                  ) : isLogin ? (
+                    <>
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Entrar
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Começar meus 3 dias grátis
+                    </>
+                  )}
+                </Button>
 
-            <div className="mt-4 pt-4 border-t border-border text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-xs text-muted-foreground hover:text-primary transition-colors"
-              >
-                {isLogin ? "Não tem conta? " : "Já tem conta? "}
-                <span className="text-primary font-medium">
-                  {isLogin ? "Cadastre-se" : "Entre"}
-                </span>
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+                {/* LGPD: aviso de aceite com links fixos no cadastro */}
+                {!isLogin && (
+                  <p className="text-xs text-muted-foreground text-center leading-relaxed mt-2">
+                    Ao criar a conta, você concorda com os{" "}
+                    <Link to="/termos" className="text-primary underline">Termos de Uso</Link> e a{" "}
+                    <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>.
+                  </p>
+                )}
+              </form>
+
+              <div className="mt-5 pt-4 border-t border-border text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors py-2 px-3"
+                >
+                  {isLogin ? "Não tem conta? " : "Já tem conta? "}
+                  <span className="text-primary font-semibold">
+                    {isLogin ? "Cadastre-se" : "Entre"}
+                  </span>
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Um fio de confiança embaixo — discreto, sem virar banner */}
+          <p className="text-xs text-muted-foreground/70 text-center mt-4">
+            Feito no Brasil pra quem vende na rua. Seus números são só seus.
+          </p>
+        </div>
       </div>
     </div>
   );
