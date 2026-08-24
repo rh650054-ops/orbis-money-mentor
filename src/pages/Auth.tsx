@@ -8,6 +8,7 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
 import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
+import { getReferralCode } from "@/shared/lib/checkout";
 import { TERMOS_VERSAO } from "@/components/AceiteTermosModal";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 
@@ -133,7 +134,7 @@ export default function Auth() {
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
-            data: { nickname: name, cpf: cleanedCpf },
+            data: { nickname: name, cpf: cleanedCpf, ref: getReferralCode() ?? undefined },
           },
         });
 

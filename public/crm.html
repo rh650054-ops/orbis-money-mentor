@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ORBIS — CRM</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --bg:#0d0c09; --panel:#16140f; --panel2:#1d1a13; --borda:#2b271d;
+  --ouro:#e8b00a; --ouro2:#f5c94a; --texto:#efe9dc; --mudo:#9a9282;
+  --verde:#4caf72; --verm:#e05b5b; --azul:#4FC3F7; --roxo:#BA68C8; --lar:#FF8A65;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--texto);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+
+/* ---------- login ---------- */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(232,176,10,.10),transparent)}
+.login-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--borda);border-radius:16px;padding:32px}
+.login-box h1{font-size:22px;text-align:center;margin-bottom:4px}
+.login-box h1 span{color:var(--ouro)}
+.login-box p{text-align:center;color:var(--mudo);font-size:13px;margin-bottom:24px}
+.login-box label{font-size:12px;color:var(--mudo);display:block;margin:14px 0 6px}
+.login-box input{width:100%;height:46px;background:var(--panel2);border:1px solid var(--borda);border-radius:10px;color:var(--texto);padding:0 14px;font-size:15px}
+.login-box input:focus{outline:none;border-color:var(--ouro)}
+.btn-ouro{width:100%;height:48px;margin-top:22px;background:linear-gradient(180deg,var(--ouro2),var(--ouro));border:none;border-radius:10px;color:#1a1502;font-size:15px;font-weight:700}
+.login-erro{color:var(--verm);font-size:13px;text-align:center;margin-top:14px;min-height:18px}
+
+/* ---------- topo ---------- */
+header{position:sticky;top:0;z-index:20;background:rgba(13,12,9,.92);backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--borda);padding:12px 20px;display:flex;align-items:center;gap:12px}
+header h1{font-size:16px}
+header h1 span{color:var(--ouro)}
+.hspace{flex:1}
+.btn-fantasma{background:none;border:1px solid var(--borda);border-radius:8px;color:var(--mudo);padding:8px 14px;font-size:13px}
+.btn-fantasma:hover{color:var(--texto);border-color:var(--ouro)}
+
+/* ---------- home: 4 cards ---------- */
+.home{max-width:960px;margin:0 auto;padding:28px 20px}
+.home h2{font-size:20px;margin-bottom:4px}
+.home .sub{color:var(--mudo);font-size:13px;margin-bottom:24px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+.card-pipe{background:var(--panel);border:1px solid var(--borda);border-radius:16px;padding:20px;text-align:left;transition:.15s;position:relative;overflow:hidden}
+.card-pipe:hover{border-color:var(--ouro);transform:translateY(-2px)}
+.card-pipe .icone{font-size:26px;margin-bottom:10px;display:block}
+.card-pipe .nome{font-size:15px;font-weight:600;margin-bottom:2px}
+.card-pipe .desc{font-size:12px;color:var(--mudo);margin-bottom:14px;min-height:32px}
+.card-pipe .num{font-size:30px;font-weight:800;color:var(--ouro)}
+.card-pipe .num small{font-size:12px;color:var(--mudo);font-weight:400;margin-left:6px}
+.card-pipe .saldo{font-size:12px;margin-top:6px}
+.saldo .g{color:var(--verde)} .saldo .p{color:var(--verm);margin-left:10px}
+
+/* ---------- funil (kanban) ---------- */
+.board-top{padding:16px 20px 4px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.board-top h2{font-size:18px}
+.board-top input,.board-top select{background:var(--panel2);border:1px solid var(--borda);border-radius:8px;color:var(--texto);height:38px;padding:0 12px;font-size:13px}
+.board{display:flex;gap:12px;overflow-x:auto;padding:14px 20px 40px;align-items:flex-start}
+.col{min-width:265px;width:265px;background:var(--panel);border:1px solid var(--borda);border-radius:14px;flex-shrink:0}
+.col-head{padding:12px 14px;border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:8px;position:sticky;top:0}
+.col-head .ponto{width:9px;height:9px;border-radius:50%}
+.col-head .t{font-size:13px;font-weight:600;flex:1}
+.col-head .n{font-size:12px;color:var(--mudo);background:var(--panel2);border-radius:20px;padding:2px 9px}
+.col-corpo{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px;max-height:calc(100vh - 220px);overflow-y:auto}
+.col.drag-sobre{border-color:var(--ouro)}
+.cartao{background:var(--panel2);border:1px solid var(--borda);border-radius:12px;padding:12px;cursor:grab;transition:.12s}
+.cartao:hover{border-color:var(--ouro)}
+.cartao .nm{font-size:13px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.cartao .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.tag{font-size:10.5px;padding:2px 8px;border-radius:20px;border:1px solid var(--borda);color:var(--mudo)}
+.tag.parceiro{color:var(--ouro2);border-color:rgba(232,176,10,.4)}
+.tag.dia{color:var(--azul);border-color:rgba(79,195,247,.4)}
+.tag.alerta{color:var(--lar);border-color:rgba(255,138,101,.4)}
+.tag.ok{color:var(--verde);border-color:rgba(76,175,114,.4)}
+.prog{height:5px;background:#0009;border-radius:4px;overflow:hidden;margin-bottom:8px}
+.prog i{display:block;height:100%;background:var(--ouro);border-radius:4px}
+.cartao .rodape{display:flex;align-items:center;justify-content:space-between}
+.cartao .rodape .quando{font-size:11px;color:var(--mudo)}
+.zap{font-size:12px;color:var(--verde);text-decoration:none;border:1px solid rgba(76,175,114,.4);border-radius:8px;padding:3px 9px}
+.vazio{color:var(--mudo);font-size:12px;text-align:center;padding:16px 6px}
+
+/* ---------- drawer do cartão ---------- */
+.fundo-modal{position:fixed;inset:0;background:#000a;z-index:40;display:none}
+.fundo-modal.aberto{display:block}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--panel);border-left:1px solid var(--borda);
+  z-index:50;transform:translateX(105%);transition:.2s;overflow-y:auto;padding:22px}
+.drawer.aberto{transform:none}
+.drawer .fechar{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--mudo);font-size:22px}
+.drawer h3{font-size:18px;margin-bottom:2px;padding-right:30px}
+.drawer .linha-info{font-size:13px;color:var(--mudo);margin:3px 0}
+.drawer .linha-info b{color:var(--texto);font-weight:600}
+.drawer .tags{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.sec-t{font-size:12px;color:var(--ouro);text-transform:uppercase;letter-spacing:.08em;margin:20px 0 10px;font-weight:700}
+.tarefa{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--panel2);border:1px solid var(--borda);border-radius:10px;margin-bottom:7px;cursor:pointer}
+.tarefa input{width:18px;height:18px;accent-color:var(--ouro);margin-top:1px;flex-shrink:0;cursor:pointer}
+.tarefa span{font-size:13px;line-height:1.45}
+.tarefa.feita span{color:var(--mudo);text-decoration:line-through}
+.drawer textarea{width:100%;min-height:90px;background:var(--panel2);border:1px solid var(--borda);border-radius:10px;color:var(--texto);padding:10px 12px;font-size:13px;resize:vertical}
+.drawer textarea:focus{outline:none;border-color:var(--ouro)}
+.acoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.btn-ganhou{height:44px;border:none;border-radius:10px;background:rgba(76,175,114,.15);border:1px solid var(--verde);color:var(--verde);font-weight:700;font-size:14px}
+.btn-perdeu{height:44px;border:none;border-radius:10px;background:rgba(224,91,91,.12);border:1px solid var(--verm);color:var(--verm);font-weight:700;font-size:14px}
+.aviso-salvo{font-size:12px;color:var(--verde);min-height:16px;margin-top:6px}
+
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--ouro);
+  color:var(--texto);padding:12px 20px;border-radius:12px;font-size:13px;z-index:99;display:none;max-width:90vw}
+.oculto{display:none!important}
+@media(max-width:640px){ .col{min-width:82vw;width:82vw} }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="vLogin" class="login-wrap">
+  <div class="login-box">
+    <h1>ORBIS <span>CRM</span></h1>
+    <p>Funil de vendas — acesso do time</p>
+    <label>E-mail</label>
+    <input id="inEmail" type="email" autocomplete="username" placeholder="seu@email.com">
+    <label>Senha</label>
+    <input id="inSenha" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button class="btn-ouro" onclick="entrar()">Entrar</button>
+    <div id="loginErro" class="login-erro"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="vApp" class="oculto">
+  <header>
+    <button id="btnVoltar" class="btn-fantasma oculto" onclick="irHome()">← Voltar</button>
+    <h1>ORBIS <span>CRM</span></h1>
+    <div class="hspace"></div>
+    <span id="quemSou" style="font-size:12px;color:var(--mudo)"></span>
+    <button class="btn-fantasma" onclick="sair()">Sair</button>
+  </header>
+
+  <!-- HOME -->
+  <div id="vHome" class="home">
+    <h2>Bom trabalho, <span id="nomeYan">time</span> 👊</h2>
+    <div class="sub" id="subSync">Sincronizando as esteiras…</div>
+    <div class="cards" id="gridCards"></div>
+  </div>
+
+  <!-- FUNIL -->
+  <div id="vBoard" class="oculto">
+    <div class="board-top">
+      <h2 id="tituloFunil"></h2>
+      <div class="hspace"></div>
+      <select id="selParceiro" class="oculto" onchange="renderBoard()"></select>
+      <input id="inBusca" placeholder="Buscar nome, e-mail, zap…" oninput="renderBoard()">
+    </div>
+    <div class="board" id="board"></div>
+  </div>
+</div>
+
+<!-- DRAWER -->
+<div id="fundoModal" class="fundo-modal" onclick="fecharCartao()"></div>
+<div id="drawer" class="drawer"></div>
+<div id="toast" class="toast"></div>
+
+<script>
+const SB_URL = "https://qbcsjsdwjjpybvzbxszi.supabase.co";
+const SB_KEY = "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const PIPES = {
+  trial: { icone:"⏳", nome:"Trial", desc:"Quem está no teste grátis. Dia 1 → 2 → 3 → fechamento." },
+  relacionamento: { icone:"🤝", nome:"Relacionamento", desc:"Assinantes ativos. Mensagens estratégicas do mês." },
+  inadimplente: { icone:"🚨", nome:"Inadimplentes", desc:"Recorrência que não passou. Recuperar o pagamento." },
+  parceiro: { icone:"📣", nome:"Leads por parceiro", desc:"Leads de cada influenciador e afiliado." },
+};
+
+let funilAtual = null, dadosFunil = null, cartaoAberto = null;
+
+/* ---------------- auth ---------------- */
+async function entrar(){
+  const el = document.getElementById("loginErro");
+  el.textContent = "";
+  const email = document.getElementById("inEmail").value.trim();
+  const senha = document.getElementById("inSenha").value;
+  if(!email || !senha){ el.textContent = "Preencha e-mail e senha."; return; }
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  if(error){ el.textContent = "Login recusado. Confira e-mail e senha."; return; }
+  await depoisDoLogin();
+}
+async function depoisDoLogin(){
+  const { data } = await sb.rpc("is_orbis_admin");
+  if(data !== true){
+    document.getElementById("loginErro").textContent = "Essa conta não tem acesso ao CRM.";
+    await sb.auth.signOut(); return;
+  }
+  const { data:{ user } } = await sb.auth.getUser();
+  const nome = (user?.email || "").split("@")[0];
+  document.getElementById("quemSou").textContent = user?.email || "";
+  document.getElementById("nomeYan").textContent = nome.charAt(0).toUpperCase()+nome.slice(1);
+  document.getElementById("vLogin").classList.add("oculto");
+  document.getElementById("vApp").classList.remove("oculto");
+  await carregarHome();
+}
+async function sair(){ await sb.auth.signOut(); location.reload(); }
+
+/* ---------------- home ---------------- */
+async function carregarHome(){
+  const sub = document.getElementById("subSync");
+  sub.textContent = "Sincronizando as esteiras…";
+  const { data:sync, error:e1 } = await sb.rpc("crm_sync");
+  const { data:resumo, error:e2 } = await sb.rpc("crm_resumo");
+  if(e1 || e2){ sub.textContent = "Erro ao sincronizar: " + (e1?.message || e2?.message); return; }
+  const novos = (sync?.trial_novos||0)+(sync?.inadimplentes_novos||0)+(sync?.leads_novos||0)+(sync?.relacionamento_novos||0);
+  sub.textContent = novos > 0
+    ? `Esteiras atualizadas — ${novos} cartão(ões) novo(s) entrou(aram) sozinho(s).`
+    : "Esteiras atualizadas. Nada novo desde a última olhada.";
+  const grid = document.getElementById("gridCards");
+  grid.innerHTML = Object.entries(PIPES).map(([k,p])=>{
+    const r = resumo?.[k] || {abertos:0,ganhos_30d:0,perdidos_30d:0};
+    return `<button class="card-pipe" onclick="abrirFunil('${k}')">
+      <span class="icone">${p.icone}</span>
+      <div class="nome">${p.nome}</div>
+      <div class="desc">${p.desc}</div>
+      <div class="num">${r.abertos}<small>para trabalhar</small></div>
+      <div class="saldo"><span class="g">✓ ${r.ganhos_30d} ganhos</span><span class="p">✗ ${r.perdidos_30d} perdidos</span> <small style="color:var(--mudo)">· 30d</small></div>
+    </button>`;
+  }).join("");
+}
+function irHome(){
+  funilAtual = null;
+  document.getElementById("vBoard").classList.add("oculto");
+  document.getElementById("btnVoltar").classList.add("oculto");
+  document.getElementById("vHome").classList.remove("oculto");
+  carregarHome();
+}
+
+/* ---------------- funil ---------------- */
+async function abrirFunil(pipe){
+  funilAtual = pipe;
+  document.getElementById("vHome").classList.add("oculto");
+  document.getElementById("vBoard").classList.remove("oculto");
+  document.getElementById("btnVoltar").classList.remove("oculto");
+  document.getElementById("tituloFunil").textContent = PIPES[pipe].icone + " " + PIPES[pipe].nome;
+  document.getElementById("inBusca").value = "";
+  document.getElementById("board").innerHTML = '<div class="vazio">Carregando…</div>';
+  const { data, error } = await sb.rpc("crm_funil", { p_pipeline: pipe });
+  if(error){ document.getElementById("board").innerHTML = '<div class="vazio">Erro: '+error.message+'</div>'; return; }
+  dadosFunil = data;
+  const sel = document.getElementById("selParceiro");
+  if(pipe === "parceiro"){
+    const nomes = [...new Set((data.cartoes||[]).map(c=>c.parceiro||c.ref).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">Todos os parceiros</option>' + nomes.map(n=>`<option>${n}</option>`).join("");
+    sel.classList.remove("oculto");
+  } else sel.classList.add("oculto");
+  renderBoard();
+}
+
+function tarefasDaEtapa(etapa){ return (dadosFunil.tarefas||[]).filter(t=>t.etapa===etapa); }
+
+function renderBoard(){
+  const busca = document.getElementById("inBusca").value.trim().toLowerCase();
+  const filtroParc = document.getElementById("selParceiro").value;
+  const abertos = (dadosFunil.cartoes||[]).filter(c=>{
+    if(c.status !== "aberto") return false;
+    if(filtroParc && (c.parceiro||c.ref) !== filtroParc) return false;
+    if(busca){
+      const alvo = [c.nome,c.email,c.whatsapp,c.parceiro,c.ref].join(" ").toLowerCase();
+      if(!alvo.includes(busca)) return false;
+    }
+    return true;
+  });
+  const board = document.getElementById("board");
+  board.innerHTML = (dadosFunil.etapas||[]).map(e=>{
+    const doCol = abertos.filter(c=>c.etapa===e.etapa);
+    const tarefasEtapa = tarefasDaEtapa(e.etapa);
+    return `<div class="col" data-etapa="${e.etapa}" ondragover="dragSobre(event)" ondragleave="dragSai(event)" ondrop="soltar(event)">
+      <div class="col-head"><span class="ponto" style="background:${e.cor}"></span><span class="t">${e.titulo}</span><span class="n">${doCol.length}</span></div>
+      <div class="col-corpo">
+        ${doCol.length ? doCol.map(c=>htmlCartao(c,tarefasEtapa)).join("") : '<div class="vazio">ninguém aqui</div>'}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function htmlCartao(c, tarefasEtapa){
+  const feitas = tarefasEtapa.filter(t=>(c.feitas||[]).includes(t.id)).length;
+  const total = tarefasEtapa.length;
+  const pct = total ? Math.round(100*feitas/total) : 0;
+  const tags = [];
+  if(c.parceiro) tags.push(`<span class="tag parceiro">${c.parceiro_tipo==="afiliado"?"🔗":"📣"} ${c.parceiro}</span>`);
+  else if(c.ref) tags.push(`<span class="tag parceiro">🔗 ${c.ref}</span>`);
+  if(funilAtual==="trial" && c.dia_do_teste) tags.push(`<span class="tag dia">Dia ${Math.min(c.dia_do_teste,3)} do teste</span>`);
+  if(funilAtual==="trial" && c.trial_end){
+    const hojeISO = new Date().toLocaleDateString("sv-SE");
+    if(c.trial_end < hojeISO) tags.push(`<span class="tag alerta">teste acabou</span>`);
+    else if(c.trial_end === hojeISO) tags.push(`<span class="tag alerta">acaba HOJE</span>`);
+  }
+  if(funilAtual==="relacionamento" && c.etapa==="renovacao" && c.period_end)
+    tags.push(`<span class="tag alerta">renova ${c.period_end.split("-").reverse().slice(0,2).join("/")}</span>`);
+  if(c.cidade) tags.push(`<span class="tag">📍 ${c.cidade}</span>`);
+  if(c.notas) tags.push(`<span class="tag">📝</span>`);
+  const zap = c.whatsapp ? `<a class="zap" href="https://wa.me/55${(c.whatsapp||'').replace(/\D/g,'').replace(/^55/,'')}" target="_blank" onclick="event.stopPropagation()">WhatsApp</a>` : "";
+  return `<div class="cartao" draggable="true" ondragstart="pegar(event,${c.id})" onclick="abrirCartao(${c.id})">
+    <div class="nm">${c.nome}</div>
+    <div class="tags">${tags.join("")}</div>
+    ${total?`<div class="prog"><i style="width:${pct}%"></i></div>`:""}
+    <div class="rodape"><span class="quando">${feitas}/${total} atividades · desde ${c.criado_em||""}</span>${zap}</div>
+  </div>`;
+}
+
+/* ---------------- drag & drop ---------------- */
+let arrastando = null;
+function pegar(ev,id){ arrastando = id; ev.dataTransfer.effectAllowed = "move"; }
+function dragSobre(ev){ ev.preventDefault(); ev.currentTarget.classList.add("drag-sobre"); }
+function dragSai(ev){ ev.currentTarget.classList.remove("drag-sobre"); }
+async function soltar(ev){
+  ev.preventDefault();
+  ev.currentTarget.classList.remove("drag-sobre");
+  const etapaNova = ev.currentTarget.dataset.etapa;
+  const c = (dadosFunil.cartoes||[]).find(x=>x.id===arrastando);
+  if(!c || c.etapa===etapaNova) return;
+  const ordem = Object.fromEntries((dadosFunil.etapas||[]).map(e=>[e.etapa,e.ordem]));
+  if(ordem[etapaNova] > ordem[c.etapa]){
+    const pend = tarefasDaEtapa(c.etapa).filter(t=>!(c.feitas||[]).includes(t.id));
+    if(pend.length){
+      toast(`⚠️ Faltam ${pend.length} atividade(s) obrigatória(s) em "${c.nome}" antes de avançar.`);
+      return;
+    }
+  }
+  c.etapa = etapaNova; renderBoard();
+  const { error } = await sb.rpc("crm_mover", { p_cartao:c.id, p_etapa:etapaNova });
+  if(error){ toast("Erro ao mover: "+error.message); abrirFunil(funilAtual); }
+}
+
+/* ---------------- drawer ---------------- */
+function abrirCartao(id){
+  cartaoAberto = (dadosFunil.cartoes||[]).find(x=>x.id===id);
+  if(!cartaoAberto) return;
+  const c = cartaoAberto;
+  const etapaInfo = (dadosFunil.etapas||[]).find(e=>e.etapa===c.etapa);
+  const tarefas = tarefasDaEtapa(c.etapa);
+  const zapNum = (c.whatsapp||"").replace(/\D/g,"").replace(/^55/,"");
+  document.getElementById("drawer").innerHTML = `
+    <button class="fechar" onclick="fecharCartao()">×</button>
+    <h3>${c.nome}</h3>
+    <div class="linha-info">Etapa: <b style="color:${etapaInfo?.cor||'#fff'}">${etapaInfo?.titulo||c.etapa}</b></div>
+    ${c.email?`<div class="linha-info">E-mail: <b>${c.email}</b></div>`:""}
+    ${c.whatsapp?`<div class="linha-info">WhatsApp: <b>${c.whatsapp}</b> — <a class="zap" href="https://wa.me/55${zapNum}" target="_blank">abrir conversa</a></div>`:""}
+    ${c.parceiro?`<div class="linha-info">Veio de: <b>${c.parceiro}</b> (${c.parceiro_tipo||"parceiro"})</div>`:(c.ref?`<div class="linha-info">Origem: <b>${c.ref}</b></div>`:`<div class="linha-info">Origem: <b>orgânico / sem link</b></div>`)}
+    ${c.dia_do_teste?`<div class="linha-info">Dia do teste: <b>${c.dia_do_teste>3?"acabou":"dia "+c.dia_do_teste}</b>${c.trial_end?` (termina ${c.trial_end.split("-").reverse().join("/")})`:""}</div>`:""}
+    ${c.period_end?`<div class="linha-info">Assinatura vai até: <b>${c.period_end.split("-").reverse().join("/")}</b></div>`:""}
+    <div class="sec-t">Atividades desta etapa</div>
+    ${tarefas.length?tarefas.map(t=>{
+      const feita = (c.feitas||[]).includes(t.id);
+      return `<label class="tarefa ${feita?'feita':''}"><input type="checkbox" ${feita?'checked':''} onchange="mudarTarefa(${t.id},this.checked)"><span>${t.titulo}</span></label>`;
+    }).join(""):'<div class="vazio">sem atividades nesta etapa</div>'}
+    <div class="sec-t">Notas</div>
+    <textarea id="txtNotas" placeholder="Objeções, combinados, contexto…">${c.notas||""}</textarea>
+    <button class="btn-fantasma" style="margin-top:8px" onclick="salvarNota()">Salvar notas</button>
+    <span class="aviso-salvo" id="avisoSalvo"></span>
+    <div class="acoes">
+      <button class="btn-ganhou" onclick="fecharCom('ganho')">✓ Ganhou</button>
+      <button class="btn-perdeu" onclick="fecharCom('perdido')">✗ Perdido</button>
+    </div>`;
+  document.getElementById("drawer").classList.add("aberto");
+  document.getElementById("fundoModal").classList.add("aberto");
+}
+function fecharCartao(){
+  document.getElementById("drawer").classList.remove("aberto");
+  document.getElementById("fundoModal").classList.remove("aberto");
+  cartaoAberto = null;
+}
+async function mudarTarefa(tarefaId, feito){
+  const c = cartaoAberto; if(!c) return;
+  if(feito){ if(!(c.feitas||[]).includes(tarefaId)) c.feitas = [...(c.feitas||[]), tarefaId]; }
+  else c.feitas = (c.feitas||[]).filter(x=>x!==tarefaId);
+  renderBoard();
+  const { error } = await sb.rpc("crm_tarefa", { p_cartao:c.id, p_tarefa:tarefaId, p_feito:feito });
+  if(error) toast("Erro ao salvar atividade: "+error.message);
+}
+async function salvarNota(){
+  const c = cartaoAberto; if(!c) return;
+  c.notas = document.getElementById("txtNotas").value;
+  const { error } = await sb.rpc("crm_nota", { p_cartao:c.id, p_nota:c.notas });
+  document.getElementById("avisoSalvo").textContent = error ? "Erro: "+error.message : "Notas salvas ✓";
+  renderBoard();
+}
+async function fecharCom(status){
+  const c = cartaoAberto; if(!c) return;
+  if(status==="perdido" && !(c.notas||"").trim()){
+    toast("Antes de marcar como perdido, anote o motivo nas notas.");
+    return;
+  }
+  const { error } = await sb.rpc("crm_mover", { p_cartao:c.id, p_etapa:c.etapa, p_status:status });
+  if(error){ toast("Erro: "+error.message); return; }
+  c.status = status;
+  fecharCartao(); renderBoard();
+  toast(status==="ganho" ? "🎉 Marcado como GANHO!" : "Marcado como perdido.");
+}
+
+/* ---------------- util ---------------- */
+let toastTimer = null;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ t.style.display = "none"; }, 3500);
+}
+document.getElementById("inSenha").addEventListener("keydown", e=>{ if(e.key==="Enter") entrar(); });
+
+/* sessão já aberta? */
+sb.auth.getSession().then(({ data })=>{ if(data?.session) depoisDoLogin(); });
+</script>
+</body>
+</html>

@@ -60,6 +60,7 @@ const dtBR = (iso: string) =>
 
 // Outras áreas de admin que já existem no app — atalhos num lugar só.
 const OUTRAS_AREAS = [
+  { icon: Users, label: "CRM — Funil de vendas", desc: "Trial, relacionamento, inadimplentes e leads por parceiro", path: "/crm.html" },
   { icon: Swords, label: "Competições", desc: "Criar e gerenciar competições", path: "/admin/competitions" },
   { icon: Users, label: "Usuários demo", desc: "Contas de demonstração", path: "/admin/demo-users" },
   { icon: CreditCard, label: "Assinaturas", desc: "Planos e pagamentos", path: "/admin/subscriptions" },
@@ -570,7 +571,7 @@ export default function AdminCenter() {
               {OUTRAS_AREAS.map((a) => {
                 const Icon = a.icon;
                 return (
-                  <button key={a.path} onClick={() => navigate(a.path)} className="w-full flex items-center gap-3 rounded-xl bg-card border border-border/60 px-3 py-2.5 text-left active:scale-[0.99] transition-transform">
+                  <button key={a.path} onClick={() => (a.path.endsWith(".html") ? window.open(a.path, "_blank") : navigate(a.path))} className="w-full flex items-center gap-3 rounded-xl bg-card border border-border/60 px-3 py-2.5 text-left active:scale-[0.99] transition-transform">
                     <Icon className="w-4 h-4 text-primary shrink-0" />
                     <span className="flex-1 min-w-0">
                       <span className="block text-xs font-bold text-foreground">{a.label}</span>
