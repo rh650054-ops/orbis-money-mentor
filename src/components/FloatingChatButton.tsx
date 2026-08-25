@@ -10,6 +10,7 @@ import EstudioMarca, { type EstudioBrief } from "@/components/estudio/EstudioMar
 import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
+import { useToast } from "@/shared/ui/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -18,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
+  const { toast } = useToast();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   // Briefing do adesivo montado na conversa (fallback: abre o Estúdio pra gerar por lá)
@@ -131,6 +133,13 @@ export default function FloatingChatButton() {
       setIsRecording(true); isRecordingRef.current = true;
     } catch {
       setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
+      // Sem isso o botão "morre" em silêncio e parece que a IA quebrou — quando na
+      // verdade o microfone está bloqueado no navegador ou preso por outro app.
+      toast({
+        title: "Não consegui usar o microfone",
+        description: "Libere o microfone pro Orbis (ícone de cadeado na barra de endereço → Microfone → Permitir) ou feche outro app que esteja usando ele. Enquanto isso, dá pra digitar normalmente.",
+        variant: "destructive",
+      });
     }
   };
   const stopRecFallback = () => { try { mediaRecRef.current?.stop(); } catch { /* noop */ } };
@@ -656,7 +665,7 @@ export default function FloatingChatButton() {
     if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
       lastSpokenRef.current = last.id;
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
-      if (last.content.startsWith("Desculpe, tive um problema")) return;
+      if (last.content.startsWith("Desculpe, tive um problema") || last.content.startsWith("Não consegui responder agora")) return;
       // Não lê o marcador da arte gerada no chat (a imagem aparece na tela, não na voz)
       const falavel = last.content.replace(/\[\[(?:adesivo|foto):[^\]]+\]\]/g, "").trim();
       if (!falavel) return;

@@ -8,6 +8,7 @@ import { generatePixPayload } from "@/shared/lib/pix-code";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { useToast } from "@/shared/ui/use-toast";
+import { getCheckoutUrl } from "@/shared/lib/checkout";
 
 // ESTÚDIO DE MARCA v4 — a arte nasce no CHAT; aqui é o EDITOR do QR:
 // 1) (opcional) galeria de modelos + 4 perguntas, pra quem entra por aqui;
@@ -176,6 +177,8 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   const [gerando, setGerando] = useState(false);
   const [fraseIdx, setFraseIdx] = useState(0);
   const [exportando, setExportando] = useState(false);
+  // Paywall do download: no teste, antes de baixar aparece a chance de assinar
+  const [mostrarPaywall, setMostrarPaywall] = useState(false);
   // Id do registro em estudio_geracoes — usado pra marcar que ele BAIXOU a arte
   const [geracaoId, setGeracaoId] = useState("");
 
@@ -428,6 +431,13 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
       toast({ title: "Falta o QR", description: "Coloca tua chave Pix ou sobe a imagem do teu QR antes de baixar.", variant: "destructive" });
       return;
     }
+    // Teste grátis: na hora do download aparece a escolha — assinar e levar a
+    // arte limpa, ou baixar com a marca d'água. É o momento de maior desejo.
+    if (!pagante && !mostrarPaywall) {
+      setMostrarPaywall(true);
+      return;
+    }
+    setMostrarPaywall(false);
     setExportando(true);
     try {
       await salvarPix();
@@ -634,6 +644,26 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             </div>
           )}
 
+          {mostrarPaywall && (
+            <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/70 p-4" onClick={() => setMostrarPaywall(false)}>
+              <div className="w-full max-w-sm rounded-2xl border border-primary/40 bg-card p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+                <p className="text-base font-bold">Quer levar essa arte SEM a marca d'água?</p>
+                <p className="text-sm text-muted-foreground">
+                  Assinando o Orbis agora, essa mesma arte baixa limpa, em alta resolução, pronta pra
+                  gráfica — e você passa de 2 pra 4 artes por dia, além do mentor de vendas completo.
+                </p>
+                <Button
+                  onClick={() => { try { window.open(getCheckoutUrl(), "_blank"); } catch { /* noop */ } }}
+                  className="w-full h-12 bg-gradient-primary text-base font-bold"
+                >
+                  ⭐ Assinar e baixar sem marca d'água
+                </Button>
+                <button onClick={baixar} className="w-full py-2 text-xs text-muted-foreground underline underline-offset-2">
+                  Baixar com a marca d'água mesmo
+                </button>
+              </div>
+            </div>
+          )}
           <Button onClick={baixar} disabled={exportando || !temQr} className="w-full h-11 bg-gradient-primary">
             {exportando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             {pagante ? "Baixar PNG pra gráfica" : "Baixar com marca d'água"}

@@ -181,7 +181,9 @@ export const useAIConversations = () => {
             ...(opts?.refB64 ? { ref_b64: opts.refB64, ref_mime: "image/jpeg" } : {}),
           },
         });
-        if (!error && data?.success && data?.message) {
+        // Mesmo quando success vem false, se o servidor mandou um texto (limite do
+        // dia, trava de gasto), esse texto é melhor que o "Desculpe..." genérico.
+        if (!error && data?.message && (data?.success || attempt === 1)) {
           chatMessage = data.message as string;
           refUrlEnviada = String((data as any)?.ref_url ?? "");
           if ((data as any)?.acao?.tipo) chatAction = (data as any).acao;
@@ -203,7 +205,7 @@ export const useAIConversations = () => {
       }
       const aiText =
         chatMessage ||
-        "Desculpe, tive um problema ao responder agora. Tente de novo em instantes.";
+        "Não consegui responder agora — parece problema de conexão ou de login. Confere sua internet, e se continuar, sai e entra de novo na conta. Seu histórico está salvo.";
 
       const { data: insertedAi } = await supabase
         .from("ai_messages")
