@@ -148,6 +148,7 @@ header h1 span{color:var(--ouro)}
     <div class="board-top">
       <h2 id="tituloFunil"></h2>
       <div class="hspace"></div>
+      <button class="btn-fantasma" onclick="abrirFunil(funilAtual)">↻ Atualizar</button>
       <select id="selParceiro" class="oculto" onchange="renderBoard()"></select>
       <input id="inBusca" placeholder="Buscar nome, e-mail, zap…" oninput="renderBoard()">
     </div>
@@ -258,14 +259,22 @@ function tarefasDaEtapa(etapa){ return (dadosFunil.tarefas||[]).filter(t=>t.etap
 function renderBoard(){
   const busca = document.getElementById("inBusca").value.trim().toLowerCase();
   const filtroParc = document.getElementById("selParceiro").value;
+  const etapasFinais = new Set((dadosFunil.etapas||[]).filter(e=>["fechou","nao_renovou","virou_teste"].includes(e.etapa)).map(e=>e.etapa));
   const abertos = (dadosFunil.cartoes||[]).filter(c=>{
-    if(c.status !== "aberto") return false;
+    // abertos aparecem na etapa deles; fechados só nas colunas finais
+    if(c.status !== "aberto" && !etapasFinais.has(c.etapa)) return false;
     if(filtroParc && (c.parceiro||c.ref) !== filtroParc) return false;
     if(busca){
       const alvo = [c.nome,c.email,c.whatsapp,c.parceiro,c.ref].join(" ").toLowerCase();
       if(!alvo.includes(busca)) return false;
     }
     return true;
+  });
+  // urgência primeiro: teste que vence antes; depois quem está há mais tempo parado na etapa
+  abertos.sort((a,b)=>{
+    if(funilAtual==="trial" && a.trial_end && b.trial_end && a.trial_end !== b.trial_end)
+      return a.trial_end < b.trial_end ? -1 : 1;
+    return (b.dias_na_etapa||0) - (a.dias_na_etapa||0);
   });
   const board = document.getElementById("board");
   board.innerHTML = (dadosFunil.etapas||[]).map(e=>{
@@ -295,6 +304,8 @@ function htmlCartao(c, tarefasEtapa){
   }
   if(funilAtual==="relacionamento" && c.etapa==="renovacao" && c.period_end)
     tags.push(`<span class="tag alerta">renova ${c.period_end.split("-").reverse().slice(0,2).join("/")}</span>`);
+  const dEtapa = c.dias_na_etapa || 0;
+  tags.push(`<span class="tag ${dEtapa>=3?'alerta':''}">⏱ ${dEtapa===0?'hoje':dEtapa+(dEtapa===1?' dia':' dias')} na etapa</span>`);
   if(c.cidade) tags.push(`<span class="tag">📍 ${c.cidade}</span>`);
   if(c.notas) tags.push(`<span class="tag">📝</span>`);
   const zap = c.whatsapp ? `<a class="zap" href="https://wa.me/55${(c.whatsapp||'').replace(/\D/g,'').replace(/^55/,'')}" target="_blank" onclick="event.stopPropagation()">WhatsApp</a>` : "";
@@ -307,6 +318,36 @@ function htmlCartao(c, tarefasEtapa){
 }
 
 /* ---------------- drag & drop ---------------- */
+const MENSAGENS = {
+  trial: {
+    dia1: c=>`Fala ${primeiroNome(c)}! Aqui é o Yan, do Orbis 👊 Vi que você começou seu teste grátis. Me conta: o que você vende e onde? Vou te ajudar a tirar o máximo do app nesses 3 dias.`,
+    dia2: c=>`E aí ${primeiroNome(c)}, como foi o primeiro dia com o Orbis? Já registrou suas vendas? Tem uma função que quase ninguém conhece e muda o jogo — quer que eu te mostre?`,
+    dia3: c=>`${primeiroNome(c)}, seu teste acaba HOJE! Dá uma olhada no quanto você já registrou nesses dias. Pra não perder seu histórico e seguir com o mentor de vendas do seu lado, garante sua assinatura — te mando o link.`,
+    fechamento: c=>`${primeiroNome(c)}, seu teste do Orbis venceu, mas seu histórico continua guardado. Quer continuar de onde parou? Te mando o link — e qualquer dúvida do app eu resolvo contigo agora.`,
+  },
+  relacionamento: {
+    inicio_mes: c=>`Fala ${primeiroNome(c)}! Mês novo começando 🚀 Qual sua meta de vendas esse mês? Bora configurar ela no Orbis que o app te puxa todo dia.`,
+    meio_mes: c=>`E aí ${primeiroNome(c)}, metade do mês! Como tá a meta? Me manda um print do seu painel que eu te dou uma ideia pra acelerar a segunda quinzena.`,
+    fim_mes: c=>`${primeiroNome(c)}, fechou o mês! 👏 Dá uma olhada no seu resumo no Orbis e me conta quanto deu — quero comemorar contigo (e já planejar o próximo).`,
+    renovacao: c=>`Fala ${primeiroNome(c)}! Sua assinatura renova em poucos dias. Só passando pra garantir que tá tudo certo com o cartão — e pra lembrar o quanto você já vendeu com o Orbis do seu lado 💪`,
+  },
+  inadimplente: {
+    novo: c=>`Oi ${primeiroNome(c)}, aqui é o Yan, do Orbis. Vi que o pagamento da sua renovação não passou — foi o cartão? Te mando o link pra regularizar em 1 minuto, seu histórico continua intacto.`,
+    contato1: c=>`${primeiroNome(c)}, segue o link pra regularizar sua assinatura do Orbis. Qualquer problema com o pagamento me fala que eu resolvo contigo.`,
+    negociando: c=>`${primeiroNome(c)}, não deixa seu Orbis vencer de vez — seu histórico de vendas e seu ranking continuam te esperando. Posso te ajudar em algo pra facilitar?`,
+    fechamento: c=>`${primeiroNome(c)}, última chamada 😅 consigo segurar seu acesso até hoje. Bora regularizar?`,
+  },
+  parceiro: {
+    novo: c=>`Fala ${primeiroNome(c)}! Vi que você chegou pelo ${c.parceiro||"nosso parceiro"} 👊 O Orbis é o app que ele indica pra organizar as vendas na rua. Quer testar 3 dias grátis, sem cartão? Te mando o link!`,
+    contatado: c=>`E aí ${primeiroNome(c)}, conseguiu ver minha mensagem? O teste é grátis mesmo, sem pedir cartão — 3 dias usando tudo.`,
+    respondeu: c=>`Boa, ${primeiroNome(c)}! Qualquer dúvida do app me chama aqui. Te mando o link do teste grátis!`,
+  },
+};
+function primeiroNome(c){ return String(c.nome||"").trim().split(/\s+/)[0] || "amigo"; }
+function mensagemDaEtapa(c){
+  const f = MENSAGENS[funilAtual]?.[c.etapa];
+  return f ? f(c) : "";
+}
 let arrastando = null;
 function pegar(ev,id){ arrastando = id; ev.dataTransfer.effectAllowed = "move"; }
 function dragSobre(ev){ ev.preventDefault(); ev.currentTarget.classList.add("drag-sobre"); }
@@ -325,8 +366,13 @@ async function soltar(ev){
       return;
     }
   }
-  c.etapa = etapaNova; renderBoard();
-  const { error } = await sb.rpc("crm_mover", { p_cartao:c.id, p_etapa:etapaNova });
+  let statusNovo = null;
+  if(etapaNova === "fechou") statusNovo = "ganho";
+  else if(etapaNova === "nao_renovou") statusNovo = "perdido";
+  else if(c.status !== "aberto") statusNovo = "aberto"; // saiu da coluna final: reabre
+  c.etapa = etapaNova; if(statusNovo) c.status = statusNovo;
+  c.dias_na_etapa = 0; renderBoard();
+  const { error } = await sb.rpc("crm_mover", { p_cartao:c.id, p_etapa:etapaNova, p_status:statusNovo });
   if(error){ toast("Erro ao mover: "+error.message); abrirFunil(funilAtual); }
 }
 
@@ -352,6 +398,13 @@ function abrirCartao(id){
       const feita = (c.feitas||[]).includes(t.id);
       return `<label class="tarefa ${feita?'feita':''}"><input type="checkbox" ${feita?'checked':''} onchange="mudarTarefa(${t.id},this.checked)"><span>${t.titulo}</span></label>`;
     }).join(""):'<div class="vazio">sem atividades nesta etapa</div>'}
+    ${mensagemDaEtapa(c) ? `
+    <div class="sec-t">Mensagem pronta desta etapa</div>
+    <textarea id="txtMsgPronta" style="min-height:110px">${mensagemDaEtapa(c)}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      ${zapNum ? `<button class="btn-fantasma" style="color:var(--verde);border-color:rgba(76,175,114,.4)" onclick="abrirZapComMsg('${zapNum}')">📲 Abrir no WhatsApp</button>` : ""}
+      <button class="btn-fantasma" onclick="copiarMsg()">Copiar</button>
+    </div>` : ""}
     <div class="sec-t">Notas</div>
     <textarea id="txtNotas" placeholder="Objeções, combinados, contexto…">${c.notas||""}</textarea>
     <button class="btn-fantasma" style="margin-top:8px" onclick="salvarNota()">Salvar notas</button>
@@ -396,6 +449,15 @@ async function fecharCom(status){
   toast(status==="ganho" ? "🎉 Marcado como GANHO!" : "Marcado como perdido.");
 }
 
+function abrirZapComMsg(zapNum){
+  const msg = document.getElementById("txtMsgPronta")?.value || "";
+  window.open(`https://wa.me/55${zapNum}?text=${encodeURIComponent(msg)}`, "_blank");
+}
+async function copiarMsg(){
+  const msg = document.getElementById("txtMsgPronta")?.value || "";
+  try { await navigator.clipboard.writeText(msg); toast("Mensagem copiada ✓"); }
+  catch { toast("Não consegui copiar — seleciona e copia manualmente."); }
+}
 /* ---------------- util ---------------- */
 let toastTimer = null;
 function toast(msg){
