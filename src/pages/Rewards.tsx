@@ -81,6 +81,7 @@ const TIERS: Tier[] = [
     rarityColor: "text-tier-gold",
     bgGradient: "from-tier-gold/10 via-transparent to-transparent",
     rewards: [
+      "Viagem internacional com tudo pago (ex.: Dubai) ✈️",
       "3 meses grátis de assinatura",
       "Convite para grupo VIP",
       "Mentoria coletiva trimestral",
