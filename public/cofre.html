@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbis — Cofre de Conhecimento</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+/* ===== Design inspirado no Obsidian: grafite profundo + roxo ===== */
+:root{
+  --bg:#1e1e1e; --bg2:#161616; --painel:#242424; --painel2:#2a2a2a;
+  --borda:#363636; --texto:#dcddde; --mudo:#8a8a8a;
+  --roxo:#a882ff; --roxo2:#7c5cd6; --verde:#4caf72; --verm:#e05b5b; --ouro:#e8b00a;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--texto);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+
+/* ---------- login ---------- */
+.login-wrap{height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:radial-gradient(ellipse 60% 45% at 50% 0%,rgba(168,130,255,.10),transparent)}
+.login-box{width:100%;max-width:360px;background:var(--painel);border:1px solid var(--borda);border-radius:12px;padding:30px}
+.login-box .gema{width:54px;height:54px;margin:0 auto 14px;display:block}
+.login-box h1{font-size:19px;text-align:center;margin-bottom:4px}
+.login-box h1 span{color:var(--roxo)}
+.login-box p{text-align:center;color:var(--mudo);font-size:12.5px;margin-bottom:20px}
+.login-box label{font-size:12px;color:var(--mudo);display:block;margin:12px 0 5px}
+.login-box input{width:100%;height:42px;background:var(--bg2);border:1px solid var(--borda);border-radius:8px;color:var(--texto);padding:0 12px;font-size:14px}
+.login-box input:focus{outline:none;border-color:var(--roxo)}
+.btn-roxo{width:100%;height:44px;margin-top:20px;background:linear-gradient(180deg,var(--roxo),var(--roxo2));border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:700}
+.login-erro{color:var(--verm);font-size:12.5px;text-align:center;margin-top:12px;min-height:16px}
+
+/* ---------- layout Obsidian: sidebar + editor ---------- */
+.app{display:none;height:100vh}
+.app.aberto{display:flex}
+.sidebar{width:280px;min-width:280px;background:var(--bg2);border-right:1px solid var(--borda);display:flex;flex-direction:column}
+.vault{padding:14px 14px 10px;border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:9px}
+.vault .nome{font-size:13px;font-weight:700;letter-spacing:.03em}
+.vault .nome span{color:var(--roxo)}
+.vault .sub{font-size:10.5px;color:var(--mudo)}
+.acoes-top{display:flex;gap:6px;padding:10px 12px;border-bottom:1px solid var(--borda)}
+.btn-mini{flex:1;height:30px;background:var(--painel);border:1px solid var(--borda);border-radius:6px;color:var(--mudo);font-size:12px}
+.btn-mini:hover{color:var(--roxo);border-color:var(--roxo)}
+.arvore{flex:1;overflow-y:auto;padding:8px 6px}
+.pasta{margin-bottom:2px}
+.pasta-t{display:flex;align-items:center;gap:5px;padding:5px 8px;font-size:11px;color:var(--mudo);
+  text-transform:uppercase;letter-spacing:.08em;cursor:pointer;border-radius:5px;user-select:none}
+.pasta-t:hover{background:var(--painel)}
+.pasta-t .chev{transition:.15s;font-size:9px}
+.pasta.fechada .chev{transform:rotate(-90deg)}
+.pasta.fechada .notas{display:none}
+.nota-item{display:flex;align-items:center;gap:7px;padding:6px 8px 6px 22px;font-size:13px;border-radius:5px;cursor:pointer;color:var(--texto)}
+.nota-item:hover{background:var(--painel)}
+.nota-item.ativa{background:rgba(168,130,255,.14);color:var(--roxo)}
+.nota-item .ic{font-size:11px;opacity:.6}
+.nota-item.desligada{color:var(--mudo);text-decoration:line-through;opacity:.65}
+.orcamento{padding:10px 14px;border-top:1px solid var(--borda);font-size:10.5px;color:var(--mudo)}
+.orc-barra{height:4px;background:#000;border-radius:3px;overflow:hidden;margin-top:5px}
+.orc-barra i{display:block;height:100%;background:var(--roxo);border-radius:3px}
+.orc-barra i.cheio{background:var(--verm)}
+.quem{padding:8px 14px;border-top:1px solid var(--borda);display:flex;align-items:center;justify-content:space-between}
+.quem .em{font-size:10.5px;color:var(--mudo);overflow:hidden;text-overflow:ellipsis}
+.quem button{background:none;border:none;color:var(--mudo);font-size:11px;text-decoration:underline}
+
+/* ---------- editor ---------- */
+.editor{flex:1;display:flex;flex-direction:column;min-width:0}
+.ed-topo{padding:12px 22px;border-bottom:1px solid var(--borda);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ed-topo input.titulo{flex:1;min-width:180px;background:none;border:none;color:var(--texto);font-size:19px;font-weight:700;font-family:'Georgia',serif}
+.ed-topo input.titulo:focus{outline:none}
+.chip{display:flex;align-items:center;gap:5px;background:var(--painel);border:1px solid var(--borda);border-radius:6px;padding:4px 8px;font-size:11.5px;color:var(--mudo)}
+.chip input,.chip select{background:none;border:none;color:var(--roxo);font-size:11.5px;width:88px}
+.chip input:focus,.chip select:focus{outline:none}
+.chip input.num{width:36px;text-align:center}
+.toggle{width:34px;height:19px;border-radius:20px;background:var(--borda);border:none;position:relative;transition:.15s}
+.toggle.on{background:var(--roxo)}
+.toggle i{position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:.15s}
+.toggle.on i{left:17px}
+.ed-corpo{flex:1;padding:18px 22px;overflow-y:auto}
+.ed-corpo textarea{width:100%;height:100%;background:none;border:none;color:var(--texto);font-size:14.5px;line-height:1.75;resize:none}
+.ed-corpo textarea:focus{outline:none}
+.ed-rodape{padding:10px 22px;border-top:1px solid var(--borda);display:flex;gap:10px;align-items:center}
+.btn-salvar{height:36px;padding:0 22px;background:linear-gradient(180deg,var(--roxo),var(--roxo2));border:none;border-radius:7px;color:#fff;font-size:13px;font-weight:700}
+.btn-apagar{height:36px;padding:0 14px;background:none;border:1px solid rgba(224,91,91,.4);border-radius:7px;color:var(--verm);font-size:12.5px}
+.ed-status{font-size:11.5px;color:var(--mudo)}
+.ed-status.ok{color:var(--verde)}
+.aviso-mentor{margin-left:auto;font-size:10.5px;color:var(--mudo);display:flex;align-items:center;gap:5px}
+.vazio-ed{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--mudo);gap:8px}
+.vazio-ed .g{font-size:40px;opacity:.4}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--painel2);border:1px solid var(--roxo);
+  color:var(--texto);padding:10px 18px;border-radius:9px;font-size:12.5px;z-index:99;display:none;max-width:90vw}
+@media(max-width:700px){
+  .app.aberto{flex-direction:column}
+  .sidebar{width:100%;min-width:0;max-height:44vh}
+}
+</style>
+</head>
+<body>
+
+<div id="vLogin" class="login-wrap">
+  <div class="login-box">
+    <svg class="gema" viewBox="0 0 100 100"><polygon points="50,4 88,30 76,92 30,96 12,38" fill="none" stroke="#a882ff" stroke-width="5" stroke-linejoin="round"/><polygon points="50,4 60,50 30,96" fill="none" stroke="#a882ff" stroke-width="3" opacity=".5"/><polygon points="88,30 60,50 76,92" fill="none" stroke="#a882ff" stroke-width="3" opacity=".5"/></svg>
+    <h1>Cofre de <span>Conhecimento</span></h1>
+    <p>Cada nota daqui entra no cérebro do mentor.<br>Acesso do time Orbis.</p>
+    <label>E-mail</label>
+    <input id="inEmail" type="email" autocomplete="username">
+    <label>Senha</label>
+    <input id="inSenha" type="password" autocomplete="current-password">
+    <button class="btn-roxo" onclick="entrar()">Abrir o cofre</button>
+    <div id="loginErro" class="login-erro"></div>
+  </div>
+</div>
+
+<div id="vApp" class="app">
+  <div class="sidebar">
+    <div class="vault">
+      <svg width="26" height="26" viewBox="0 0 100 100"><polygon points="50,4 88,30 76,92 30,96 12,38" fill="none" stroke="#a882ff" stroke-width="6" stroke-linejoin="round"/></svg>
+      <div><div class="nome">ORBIS · <span>Cofre</span></div><div class="sub">o que o mentor sabe</div></div>
+    </div>
+    <div class="acoes-top">
+      <button class="btn-mini" onclick="novaNota()">+ Nova nota</button>
+      <button class="btn-mini" onclick="carregar()">↻ Atualizar</button>
+    </div>
+    <div class="arvore" id="arvore"></div>
+    <div class="orcamento">
+      <span id="orcTxt">—</span> do espaço no cérebro
+      <div class="orc-barra"><i id="orcBar" style="width:0%"></i></div>
+    </div>
+    <div class="quem"><span class="em" id="quemSou"></span><button onclick="sair()">sair</button></div>
+  </div>
+
+  <div class="editor" id="editor">
+    <div class="vazio-ed" id="edVazio">
+      <div class="g">◈</div>
+      <div>Escolha uma nota ao lado, ou crie uma nova.</div>
+      <div style="font-size:11px;max-width:300px;text-align:center;line-height:1.5">Tudo que estiver ativo aqui é lido pelo mentor em <b>toda conversa</b> com os vendedores — e vale no minuto seguinte, sem publicar nada.</div>
+    </div>
+    <div id="edForm" style="display:none;flex:1;flex-direction:column;min-height:0">
+      <div class="ed-topo">
+        <input class="titulo" id="fTitulo" placeholder="Título da nota">
+        <span class="chip">pasta <input id="fCategoria" placeholder="geral"></span>
+        <span class="chip">ordem <input id="fOrdem" class="num" type="number" value="100"></span>
+        <span class="chip">no cérebro
+          <button class="toggle" id="fAtivo" onclick="this.classList.toggle('on')"><i></i></button>
+        </span>
+      </div>
+      <div class="ed-corpo"><textarea id="fConteudo" placeholder="O conhecimento em si. Escreva como quem ensina um vendedor novo do time: direto, com números e exemplos. O mentor vai usar isso com naturalidade nas conversas."></textarea></div>
+      <div class="ed-rodape">
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+        <button class="btn-apagar" onclick="apagar()">Apagar</button>
+        <span class="ed-status" id="edStatus"></span>
+        <span class="aviso-mentor">◈ lida pelo mentor em toda conversa</span>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast"></div>
+
+<script>
+const sb = supabase.createClient(
+  "https://qbcsjsdwjjpybvzbxszi.supabase.co",
+  "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy"
+);
+let notas = [], notaAtual = null, pastasFechadas = new Set();
+const LIMITE = 24000;
+
+async function entrar(){
+  const el = document.getElementById("loginErro"); el.textContent = "";
+  const { error } = await sb.auth.signInWithPassword({
+    email: document.getElementById("inEmail").value.trim(),
+    password: document.getElementById("inSenha").value,
+  });
+  if(error){ el.textContent = "Login recusado. Confira e-mail e senha."; return; }
+  await depoisDoLogin();
+}
+async function depoisDoLogin(){
+  const { data } = await sb.rpc("is_orbis_admin");
+  if(data !== true){
+    document.getElementById("loginErro").textContent = "Essa conta não tem acesso ao cofre.";
+    await sb.auth.signOut(); return;
+  }
+  const { data:{ user } } = await sb.auth.getUser();
+  document.getElementById("quemSou").textContent = user?.email || "";
+  document.getElementById("vLogin").style.display = "none";
+  document.getElementById("vApp").classList.add("aberto");
+  await carregar();
+}
+async function sair(){ await sb.auth.signOut(); location.reload(); }
+
+async function carregar(){
+  const { data, error } = await sb.from("ai_conhecimento").select("*").order("ordem").order("id");
+  if(error){ toast("Erro ao carregar: "+error.message); return; }
+  notas = data || [];
+  renderArvore(); renderOrcamento();
+}
+function renderArvore(){
+  const porPasta = {};
+  notas.forEach(n => { (porPasta[n.categoria || "geral"] ??= []).push(n); });
+  document.getElementById("arvore").innerHTML = Object.keys(porPasta).sort().map(p => `
+    <div class="pasta ${pastasFechadas.has(p)?'fechada':''}">
+      <div class="pasta-t" onclick="togglePasta('${p}')"><span class="chev">▼</span> ${p} <span style="margin-left:auto;opacity:.6">${porPasta[p].length}</span></div>
+      <div class="notas">${porPasta[p].map(n => `
+        <div class="nota-item ${notaAtual?.id===n.id?'ativa':''} ${n.ativo?'':'desligada'}" onclick="abrirNota(${n.id})">
+          <span class="ic">◈</span> ${escapa(n.titulo)}
+        </div>`).join("")}
+      </div>
+    </div>`).join("");
+}
+function togglePasta(p){
+  pastasFechadas.has(p) ? pastasFechadas.delete(p) : pastasFechadas.add(p);
+  renderArvore();
+}
+function renderOrcamento(){
+  const usado = notas.filter(n=>n.ativo).reduce((s,n)=>s + (n.titulo?.length||0) + (n.conteudo?.length||0) + 6, 0);
+  const pct = Math.min(100, Math.round(100*usado/LIMITE));
+  document.getElementById("orcTxt").textContent = `${pct}% usado`;
+  const bar = document.getElementById("orcBar");
+  bar.style.width = pct+"%"; bar.className = pct >= 90 ? "cheio" : "";
+}
+function abrirNota(id){
+  notaAtual = notas.find(n=>n.id===id); if(!notaAtual) return;
+  document.getElementById("edVazio").style.display = "none";
+  document.getElementById("edForm").style.display = "flex";
+  document.getElementById("fTitulo").value = notaAtual.titulo;
+  document.getElementById("fCategoria").value = notaAtual.categoria || "geral";
+  document.getElementById("fOrdem").value = notaAtual.ordem ?? 100;
+  document.getElementById("fConteudo").value = notaAtual.conteudo || "";
+  document.getElementById("fAtivo").classList.toggle("on", !!notaAtual.ativo);
+  document.getElementById("edStatus").textContent = "";
+  renderArvore();
+}
+function novaNota(){
+  notaAtual = { id: null, titulo: "", categoria: "geral", ordem: 100, conteudo: "", ativo: true };
+  abrirNotaNova();
+}
+function abrirNotaNova(){
+  document.getElementById("edVazio").style.display = "none";
+  document.getElementById("edForm").style.display = "flex";
+  document.getElementById("fTitulo").value = "";
+  document.getElementById("fCategoria").value = "geral";
+  document.getElementById("fOrdem").value = 100;
+  document.getElementById("fConteudo").value = "";
+  document.getElementById("fAtivo").classList.add("on");
+  document.getElementById("fTitulo").focus();
+  renderArvore();
+}
+async function salvar(){
+  const linha = {
+    titulo: document.getElementById("fTitulo").value.trim(),
+    categoria: (document.getElementById("fCategoria").value.trim() || "geral").toLowerCase(),
+    ordem: Number(document.getElementById("fOrdem").value) || 100,
+    conteudo: document.getElementById("fConteudo").value.trim(),
+    ativo: document.getElementById("fAtivo").classList.contains("on"),
+    atualizado_em: new Date().toISOString(),
+  };
+  if(!linha.titulo || !linha.conteudo){ toast("Título e conteúdo são obrigatórios."); return; }
+  let r;
+  if(notaAtual?.id) r = await sb.from("ai_conhecimento").update(linha).eq("id", notaAtual.id).select().single();
+  else r = await sb.from("ai_conhecimento").insert(linha).select().single();
+  if(r.error){ toast("Erro ao salvar: "+r.error.message); return; }
+  notaAtual = r.data;
+  document.getElementById("edStatus").textContent = "Salvo ✓ — o mentor já está lendo esta versão";
+  document.getElementById("edStatus").className = "ed-status ok";
+  await carregar(); abrirNota(notaAtual.id);
+}
+async function apagar(){
+  if(!notaAtual?.id){ fecharEditor(); return; }
+  if(!confirm(`Apagar a nota "${notaAtual.titulo}"? O mentor deixa de saber isso.`)) return;
+  const { error } = await sb.from("ai_conhecimento").delete().eq("id", notaAtual.id);
+  if(error){ toast("Erro: "+error.message); return; }
+  notaAtual = null; fecharEditor(); await carregar();
+  toast("Nota apagada.");
+}
+function fecharEditor(){
+  document.getElementById("edForm").style.display = "none";
+  document.getElementById("edVazio").style.display = "flex";
+}
+function escapa(s){ return String(s??"").replace(/</g,"&lt;"); }
+let tTimer=null;
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.style.display="block";
+  clearTimeout(tTimer); tTimer=setTimeout(()=>t.style.display="none", 3200); }
+document.getElementById("inSenha").addEventListener("keydown", e=>{ if(e.key==="Enter") entrar(); });
+sb.auth.getSession().then(({ data })=>{ if(data?.session) depoisDoLogin(); });
+</script>
+</body>
+</html>
