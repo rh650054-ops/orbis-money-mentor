@@ -102,8 +102,8 @@ input,select,textarea{font-family:inherit}
     <svg class="gema" viewBox="0 0 100 100"><polygon points="50,4 88,30 76,92 30,96 12,38" fill="none" stroke="#a882ff" stroke-width="5" stroke-linejoin="round"/><polygon points="50,4 60,50 30,96" fill="none" stroke="#a882ff" stroke-width="3" opacity=".5"/><polygon points="88,30 60,50 76,92" fill="none" stroke="#a882ff" stroke-width="3" opacity=".5"/></svg>
     <h1>Cofre de <span>Conhecimento</span></h1>
     <p>Cada nota daqui entra no cérebro do mentor.<br>Acesso do time Orbis.</p>
-    <label>E-mail</label>
-    <input id="inEmail" type="email" autocomplete="username">
+    <label>CPF ou e-mail</label>
+    <input id="inEmail" type="text" autocomplete="username" placeholder="Use o mesmo acesso do app Orbis">
     <label>Senha</label>
     <input id="inSenha" type="password" autocomplete="current-password">
     <button class="btn-roxo" onclick="entrar()">Abrir o cofre</button>
@@ -164,13 +164,22 @@ const sb = supabase.createClient(
 let notas = [], notaAtual = null, pastasFechadas = new Set();
 const LIMITE = 24000;
 
+// O login do Orbis e' por CPF: por dentro, o app converte o CPF num endereco
+// interno (digitos@orbis.internal). Aqui a gente faz a MESMA conversao — assim
+// o time entra com exatamente o mesmo acesso do app, CPF ou e-mail.
+function resolverLogin(entrada){
+  const v = String(entrada || "").trim();
+  if(v.includes("@")) return v;
+  const dig = v.replace(/\D/g, "");
+  return dig ? `${dig}@orbis.internal` : v;
+}
 async function entrar(){
   const el = document.getElementById("loginErro"); el.textContent = "";
   const { error } = await sb.auth.signInWithPassword({
-    email: document.getElementById("inEmail").value.trim(),
+    email: resolverLogin(document.getElementById("inEmail").value),
     password: document.getElementById("inSenha").value,
   });
-  if(error){ el.textContent = "Login recusado. Confira e-mail e senha."; return; }
+  if(error){ el.textContent = "Login recusado. Use o MESMO CPF (ou e-mail) e senha do app Orbis."; return; }
   await depoisDoLogin();
 }
 async function depoisDoLogin(){

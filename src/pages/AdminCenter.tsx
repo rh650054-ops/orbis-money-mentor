@@ -61,6 +61,7 @@ const dtBR = (iso: string) =>
 // Outras áreas de admin que já existem no app — atalhos num lugar só.
 const OUTRAS_AREAS = [
   { icon: Users, label: "CRM — Funil de vendas", desc: "Trial, relacionamento, inadimplentes e leads por parceiro", path: "/crm.html" },
+  { icon: Brain, label: "Cofre de Conhecimento", desc: "O que o mentor de IA sabe — cada nota afia a IA na hora", path: "/cofre.html" },
   { icon: Swords, label: "Competições", desc: "Criar e gerenciar competições", path: "/admin/competitions" },
   { icon: Users, label: "Usuários demo", desc: "Contas de demonstração", path: "/admin/demo-users" },
   { icon: CreditCard, label: "Assinaturas", desc: "Planos e pagamentos", path: "/admin/subscriptions" },

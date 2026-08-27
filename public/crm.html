@@ -117,8 +117,8 @@ header h1 span{color:var(--ouro)}
   <div class="login-box">
     <h1>ORBIS <span>CRM</span></h1>
     <p>Funil de vendas — acesso do time</p>
-    <label>E-mail</label>
-    <input id="inEmail" type="email" autocomplete="username" placeholder="seu@email.com">
+    <label>CPF ou e-mail</label>
+    <input id="inEmail" type="text" autocomplete="username" placeholder="Mesmo acesso do app Orbis">
     <label>Senha</label>
     <input id="inSenha" type="password" autocomplete="current-password" placeholder="••••••••">
     <button class="btn-ouro" onclick="entrar()">Entrar</button>
@@ -176,14 +176,21 @@ const PIPES = {
 let funilAtual = null, dadosFunil = null, cartaoAberto = null;
 
 /* ---------------- auth ---------------- */
+// Login por CPF: converte pro endereco interno igual o app faz.
+function resolverLogin(entrada){
+  const v = String(entrada || "").trim();
+  if(v.includes("@")) return v;
+  const dig = v.replace(/\D/g, "");
+  return dig ? `${dig}@orbis.internal` : v;
+}
 async function entrar(){
   const el = document.getElementById("loginErro");
   el.textContent = "";
-  const email = document.getElementById("inEmail").value.trim();
+  const email = resolverLogin(document.getElementById("inEmail").value);
   const senha = document.getElementById("inSenha").value;
-  if(!email || !senha){ el.textContent = "Preencha e-mail e senha."; return; }
+  if(!email || !senha){ el.textContent = "Preencha CPF (ou e-mail) e senha."; return; }
   const { error } = await sb.auth.signInWithPassword({ email, password: senha });
-  if(error){ el.textContent = "Login recusado. Confira e-mail e senha."; return; }
+  if(error){ el.textContent = "Login recusado. Use o MESMO CPF (ou e-mail) e senha do app Orbis."; return; }
   await depoisDoLogin();
 }
 async function depoisDoLogin(){
