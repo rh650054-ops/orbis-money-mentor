@@ -87,6 +87,16 @@ input,select,textarea{font-family:inherit}
 .aviso-mentor{margin-left:auto;font-size:10.5px;color:var(--mudo);display:flex;align-items:center;gap:5px}
 .vazio-ed{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--mudo);gap:8px}
 .vazio-ed .g{font-size:40px;opacity:.4}
+/* ---------- grafo estilo Obsidian ---------- */
+.grafo-wrap{position:fixed;inset:0;background:#121212;z-index:60;display:none;flex-direction:column}
+.grafo-wrap.aberto{display:flex}
+.grafo-topo{padding:12px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--borda)}
+.grafo-topo .t{font-size:13px;font-weight:700}
+.grafo-topo .t span{color:var(--roxo)}
+.grafo-topo button{margin-left:auto;background:none;border:1px solid var(--borda);border-radius:6px;color:var(--mudo);padding:5px 12px;font-size:12px}
+.grafo-legenda{display:flex;gap:12px;padding:6px 18px;font-size:10.5px;color:var(--mudo);flex-wrap:wrap}
+.grafo-legenda span::before{content:"●";margin-right:4px}
+canvas#grafoCv{flex:1;cursor:grab}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--painel2);border:1px solid var(--roxo);
   color:var(--texto);padding:10px 18px;border-radius:9px;font-size:12.5px;z-index:99;display:none;max-width:90vw}
 @media(max-width:700px){
@@ -119,7 +129,8 @@ input,select,textarea{font-family:inherit}
     </div>
     <div class="acoes-top">
       <button class="btn-mini" onclick="novaNota()">+ Nova nota</button>
-      <button class="btn-mini" onclick="carregar()">↻ Atualizar</button>
+      <button class="btn-mini" onclick="carregar()">↻</button>
+      <button class="btn-mini" onclick="abrirGrafo()">◉ Grafo</button>
     </div>
     <div class="arvore" id="arvore"></div>
     <div class="orcamento">
@@ -144,7 +155,9 @@ input,select,textarea{font-family:inherit}
           <button class="toggle" id="fAtivo" onclick="this.classList.toggle('on')"><i></i></button>
         </span>
       </div>
-      <div class="ed-corpo"><textarea id="fConteudo" placeholder="O conhecimento em si. Escreva como quem ensina um vendedor novo do time: direto, com números e exemplos. O mentor vai usar isso com naturalidade nas conversas."></textarea></div>
+      <div class="ed-corpo" style="display:flex;flex-direction:column;gap:10px"><textarea id="fConteudo" oninput="renderImagens()" placeholder="O conhecimento em si. Escreva como quem ensina um vendedor novo do time: direto, com números e exemplos. Cole links de imagem (termina em .png/.jpg) que eles aparecem aqui embaixo."></textarea>
+        <div id="fImagens" style="display:none;gap:8px;flex-wrap:wrap"></div>
+      </div>
       <div class="ed-rodape">
         <button class="btn-salvar" onclick="salvar()">Salvar</button>
         <button class="btn-apagar" onclick="apagar()">Apagar</button>
@@ -153,6 +166,11 @@ input,select,textarea{font-family:inherit}
       </div>
     </div>
   </div>
+</div>
+<div class="grafo-wrap" id="grafoWrap">
+  <div class="grafo-topo"><div class="t">ORBIS · <span>Grafo do Cofre</span></div><button onclick="fecharGrafo()">✕ Fechar</button></div>
+  <div class="grafo-legenda" id="grafoLegenda"></div>
+  <canvas id="grafoCv"></canvas>
 </div>
 <div id="toast" class="toast"></div>
 
@@ -236,6 +254,7 @@ function abrirNota(id){
   document.getElementById("fConteudo").value = notaAtual.conteudo || "";
   document.getElementById("fAtivo").classList.toggle("on", !!notaAtual.ativo);
   document.getElementById("edStatus").textContent = "";
+  renderImagens();
   renderArvore();
 }
 function novaNota(){
@@ -288,6 +307,91 @@ function escapa(s){ return String(s??"").replace(/</g,"&lt;"); }
 let tTimer=null;
 function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.style.display="block";
   clearTimeout(tTimer); tTimer=setTimeout(()=>t.style.display="none", 3200); }
+/* ===== preview de imagens: o time VE as referencias; o mentor le o texto ===== */
+function renderImagens(){
+  const txt = document.getElementById("fConteudo").value;
+  const urls = [...txt.matchAll(/https?:\/\/\S+\.(?:png|jpe?g|webp|gif)/gi)].map(m=>m[0]);
+  const box = document.getElementById("fImagens");
+  if(!urls.length){ box.style.display="none"; box.innerHTML=""; return; }
+  box.style.display = "flex";
+  box.innerHTML = urls.slice(0,8).map(u=>`<img src="${u}" style="height:90px;border-radius:8px;border:1px solid var(--borda)" onerror="this.remove()">`).join("");
+}
+
+/* ===== grafo estilo Obsidian: pastas como nucleos, notas orbitando ===== */
+const CORES = ["#a882ff","#e8b00a","#4caf72","#5fc7ef","#ff8a65","#e05b7c","#8bd450","#c9a0ff"];
+let gAnim = null;
+function abrirGrafo(){
+  document.getElementById("grafoWrap").classList.add("aberto");
+  const cv = document.getElementById("grafoCv");
+  const ctx = cv.getContext("2d");
+  const W = cv.width = cv.clientWidth * devicePixelRatio;
+  const H = cv.height = cv.clientHeight * devicePixelRatio;
+
+  const pastas = [...new Set(notas.map(n=>n.categoria||"geral"))].sort();
+  const corDe = {}; pastas.forEach((p,i)=>corDe[p]=CORES[i%CORES.length]);
+  document.getElementById("grafoLegenda").innerHTML =
+    pastas.map(p=>`<span style="color:${corDe[p]}">${p}</span>`).join("");
+
+  const nos = [], arestas = [];
+  pastas.forEach((p,i)=>{
+    const ang = 2*Math.PI*i/pastas.length;
+    nos.push({ id:"p:"+p, rotulo:p, pasta:p, hub:true,
+      x:W/2+Math.cos(ang)*W/5, y:H/2+Math.sin(ang)*H/5, vx:0, vy:0 });
+  });
+  notas.forEach(n=>{
+    const hub = nos.find(o=>o.id==="p:"+(n.categoria||"geral"));
+    nos.push({ id:"n:"+n.id, rotulo:n.titulo, pasta:n.categoria||"geral", notaId:n.id,
+      ativo:n.ativo, x:hub.x+(Math.random()-0.5)*160, y:hub.y+(Math.random()-0.5)*160, vx:0, vy:0 });
+    arestas.push(["p:"+(n.categoria||"geral"), "n:"+n.id]);
+  });
+
+  let tick = 0;
+  function passo(){
+    // repulsao entre todos + mola nas arestas + gravidade pro centro
+    for(const a of nos) for(const b of nos){
+      if(a===b) continue;
+      const dx=a.x-b.x, dy=a.y-b.y, d2=dx*dx+dy*dy+40, f=2600/d2;
+      a.vx += dx*f/Math.sqrt(d2); a.vy += dy*f/Math.sqrt(d2);
+    }
+    for(const [ia,ib] of arestas){
+      const a=nos.find(o=>o.id===ia), b=nos.find(o=>o.id===ib);
+      const dx=b.x-a.x, dy=b.y-a.y, d=Math.sqrt(dx*dx+dy*dy)||1, f=(d-110)*0.004;
+      a.vx+=dx*f; a.vy+=dy*f; b.vx-=dx*f; b.vy-=dy*f;
+    }
+    for(const n of nos){
+      n.vx += (W/2-n.x)*0.0006; n.vy += (H/2-n.y)*0.0006;
+      n.vx*=0.86; n.vy*=0.86; n.x+=n.vx; n.y+=n.vy;
+    }
+    // desenha
+    ctx.clearRect(0,0,W,H);
+    ctx.lineWidth = 1*devicePixelRatio;
+    for(const [ia,ib] of arestas){
+      const a=nos.find(o=>o.id===ia), b=nos.find(o=>o.id===ib);
+      ctx.strokeStyle="rgba(138,138,138,.25)";
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    }
+    for(const n of nos){
+      const r = (n.hub?9:5)*devicePixelRatio;
+      ctx.fillStyle = n.hub ? corDe[n.pasta] : (n.ativo===false ? "#555" : corDe[n.pasta]);
+      ctx.globalAlpha = n.hub?1:.85;
+      ctx.beginPath(); ctx.arc(n.x,n.y,r,0,7); ctx.fill(); ctx.globalAlpha=1;
+      ctx.fillStyle = n.hub ? "#dcddde" : "rgba(220,221,222,.75)";
+      ctx.font = `${(n.hub?12:10)*devicePixelRatio}px Segoe UI`;
+      ctx.textAlign="center";
+      ctx.fillText(n.rotulo.length>26?n.rotulo.slice(0,25)+"…":n.rotulo, n.x, n.y+r+12*devicePixelRatio);
+    }
+    if(tick++ < 400){ gAnim = requestAnimationFrame(passo); }
+  }
+  cancelAnimationFrame(gAnim); passo();
+
+  cv.onclick = (ev)=>{
+    const mx = ev.offsetX*devicePixelRatio, my = ev.offsetY*devicePixelRatio;
+    const alvo = nos.find(n=>!n.hub && Math.hypot(n.x-mx,n.y-my) < 22*devicePixelRatio);
+    if(alvo){ fecharGrafo(); abrirNota(alvo.notaId); }
+  };
+}
+function fecharGrafo(){ cancelAnimationFrame(gAnim); document.getElementById("grafoWrap").classList.remove("aberto"); }
+
 document.getElementById("inSenha").addEventListener("keydown", e=>{ if(e.key==="Enter") entrar(); });
 sb.auth.getSession().then(({ data })=>{ if(data?.session) depoisDoLogin(); });
 </script>
