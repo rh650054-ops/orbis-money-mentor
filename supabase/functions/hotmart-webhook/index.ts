@@ -33,6 +33,26 @@ Deno.serve(async (req) => {
     const purchaseId = payload.data?.purchase?.transaction || payload.purchase?.transaction || "";
     const subscriptionId = payload.data?.subscription?.subscriber?.code || "";
 
+    // ===== ORIGEM E DINHEIRO DA VENDA (23/08/2026) =====
+    // A Hotmart manda quem indicou e quanto entrou — e a gente ignorava tudo isso.
+    // Sem esses campos era impossível auditar comissão de afiliado: o painel só
+    // conseguia atribuir venda por e-mail de lead, e quem comprou por link de
+    // afiliado DA HOTMART não aparecia pra ninguém.
+    const compra = payload.data?.purchase ?? payload.purchase ?? {};
+    const afiliados = payload.data?.affiliates ?? payload.affiliates ?? [];
+    const afiliado = Array.isArray(afiliados) && afiliados.length > 0 ? afiliados[0] : null;
+    const afiliadoNome = afiliado?.name ?? afiliado?.affiliate_name ?? null;
+    const afiliadoCodigo = afiliado?.affiliate_code ?? afiliado?.code ?? null;
+    const origemSrc =
+      compra?.origin?.src ?? compra?.origin?.sck ?? compra?.origin?.xcod ??
+      compra?.sck ?? compra?.src ?? null;
+    const valorVenda =
+      compra?.price?.value ?? compra?.full_price?.value ?? compra?.offer?.price?.value ?? null;
+    const moedaVenda =
+      compra?.price?.currency_value ?? compra?.price?.currency_code ??
+      compra?.full_price?.currency_value ?? null;
+    const buyerNome = payload.data?.buyer?.name ?? payload.buyer?.name ?? null;
+
     // Clean CPF (remove non-digits)
     const buyerCpf = buyerDoc ? buyerDoc.replace(/\D/g, "") : null;
 
@@ -59,6 +79,22 @@ Deno.serve(async (req) => {
       console.error("hotmart-webhook: dedup falhou (seguindo)", (dupErr as { message?: string }).message);
     }
 
+    // ===== CAIXA-PRETA DA VENDA =====
+    // Guarda o evento INTEIRO antes de processar. Se o processamento falhar depois,
+    // o dado não se perde — dá pra reprocessar na mão. E é isso que permite auditar
+    // comissão: origem, afiliado e valor de cada venda ficam registrados pra sempre.
+    let ehRenovacao: boolean | null = null;
+    try {
+      if (buyerEmail || buyerCpf) {
+        const { data: jaExiste } = await supabase
+          .from("subscriptions")
+          .select("id")
+          .eq("hotmart_subscription_id", subscriptionId)
+          .maybeSingle();
+        ehRenovacao = subscriptionId ? !!jaExiste : null;
+      }
+    } catch { /* renovação é informativo — nunca derruba o webhook */ }
+
     // BUSCA UNIFICADA (v16): orbis_achar_usuario acha o dono por CPF (perfil) e por
     // E-MAIL sem diferenciar maiúsculas — no perfil E no e-mail de LOGIN (auth.users).
     // Antes era .eq("email", ...) só no perfil: "Fulano@Gmail.com" na Hotmart não
@@ -74,6 +110,29 @@ Deno.serve(async (req) => {
       if (achado) userId = String(achado);
     } catch (e) {
       console.error("orbis_achar_usuario exceção:", String(e).slice(0, 200));
+    }
+
+    // Grava a caixa-preta agora que já sabemos de quem é (userId pode ser null).
+    try {
+      await supabase.from("hotmart_eventos").insert({
+        event_id: eventId,
+        event_type: event,
+        purchase_id: purchaseId,
+        subscription_id: subscriptionId,
+        buyer_email: buyerEmail || null,
+        buyer_cpf: buyerCpf || null,
+        buyer_nome: buyerNome,
+        valor: valorVenda,
+        moeda: moedaVenda,
+        afiliado_nome: afiliadoNome,
+        afiliado_codigo: afiliadoCodigo,
+        origem_src: origemSrc,
+        eh_renovacao: ehRenovacao,
+        user_id: userId,
+        payload,
+      });
+    } catch (e) {
+      console.error("hotmart_eventos: falhou ao registrar (seguindo)", String(e).slice(0, 200));
     }
 
     // If can't identify user, store as unlinked.

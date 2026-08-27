@@ -739,7 +739,18 @@ Deno.serve(async (req) => {
     // tempo de geração. E só a OpenAI aceita "instructions" — é o que deixa a voz
     // com a pegada Jarvis (grave, calma, sem euforia de locutor).
     if (body?.tts && typeof body.tts === "string" && body.tts.trim()) {
+      // TRAVA BARATA (20/08/2026): antes qualquer pessoa com a chave publicável do
+      // site gerava áudio na nossa conta da OpenAI. Sessão de usuário logado manda
+      // "Bearer eyJ..." (JWT); a chave publicável manda "Bearer sb_publishable_...".
+      // Checar o prefixo custa zero ms — não fazemos roundtrip de auth pra não
+      // atrasar a voz (cada 100ms aqui é atraso na fala).
+      const authTTS = req.headers.get("Authorization") ?? "";
+      if (!/Bearer\s+eyJ/.test(authTTS)) return json({ error: "login_necessario" }, 401);
       const text = body.tts.slice(0, 1500);
+      // VOZ HOMEM/MULHER (20/08/2026): o app manda voz_sexo "f" ou "m".
+      // Homem: ash (escolhida pelo Rick em 12/08). Mulher: coral (a melhor das 6
+      // amostras geradas em 17/08). Troca por secret sem deploy.
+      const vozFeminina = body?.voz_sexo === "f";
 
       // 1) OpenAI — a voz principal do Orbis
       try {
@@ -748,7 +759,9 @@ Deno.serve(async (req) => {
           const oModel = Deno.env.get("OPENAI_TTS_MODEL") ?? "gpt-4o-mini-tts";
           // "ash": escolhida pelo Rick ouvindo as 5 amostras (12/08/2026). Grave com
           // textura, é a que menos soa locutor. Trocar por secret OPENAI_TTS_VOICE.
-          const oVoice = Deno.env.get("OPENAI_TTS_VOICE") ?? "ash";
+          const oVoice = vozFeminina
+            ? (Deno.env.get("OPENAI_TTS_VOICE_F") ?? "coral")
+            : (Deno.env.get("OPENAI_TTS_VOICE") ?? "ash");
           // ATENÇÃO ao mexer aqui: a 1a versão pedia "ritmo pausado, quase
           // confidencial" e speed 0.95 — e o resultado ficou ARRASTADO e sem vida.
           // Jarvis é SEGURO E DIRETO, não devagar. Velocidade de conversa normal,
@@ -764,12 +777,20 @@ Deno.serve(async (req) => {
             "Nada de tom de locutor, narração, propaganda ou atendente de call center. " +
             "Sem pausa dramática antes de números. Termine as frases descendo o tom, " +
             "com naturalidade de quem já sabe o que está dizendo.";
+          // A mesma instrução, no gênero certo — sem isso a voz feminina fala
+          // "um vendedor experiente" e o timbre sai meio travado.
+          const oInstrFinal = vozFeminina
+            ? oInstr
+                .replace("Você é um vendedor de rua brasileiro experiente", "Você é uma vendedora de rua brasileira experiente")
+                .replace("um parceiro de ", "uma parceira de ")
+                .replace("Voz grave e próxima", "Voz quente e próxima")
+            : oInstr;
           const oSpeed = Number(Deno.env.get("OPENAI_TTS_SPEED") ?? "1.08");
           const body2: Record<string, unknown> = {
             model: oModel, voice: oVoice, input: text, response_format: "mp3", speed: oSpeed,
           };
           // "instructions" só existe nos modelos gpt-4o*-tts; tts-1 ignora/recusa.
-          if (oModel.startsWith("gpt-")) body2.instructions = oInstr;
+          if (oModel.startsWith("gpt-")) body2.instructions = oInstrFinal;
           const r = await fetch("https://api.openai.com/v1/audio/speech", {
             method: "POST",
             headers: { "content-type": "application/json", authorization: `Bearer ${okey}` },
@@ -797,7 +818,9 @@ Deno.serve(async (req) => {
         const key = Deno.env.get("GEMINI_API_KEY");
         if (key) {
           const ttsModel = Deno.env.get("GEMINI_TTS_MODEL") ?? "gemini-2.5-flash-preview-tts";
-          const ttsVoice = Deno.env.get("GEMINI_TTS_VOICE") ?? "Charon"; // grave, estilo mentor
+          const ttsVoice = vozFeminina
+            ? (Deno.env.get("GEMINI_TTS_VOICE_F") ?? "Kore")   // feminina natural do Gemini
+            : (Deno.env.get("GEMINI_TTS_VOICE") ?? "Charon"); // grave, estilo mentor
           const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${ttsModel}:generateContent?key=${key}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -831,7 +854,9 @@ Deno.serve(async (req) => {
       }
       // 3) Edge TTS (neural, grave) — grátis, sem chave (endpoint não-oficial)
       try {
-        const voice = Deno.env.get("EDGE_TTS_VOICE") ?? "pt-BR-AntonioNeural";
+        const voice = vozFeminina
+          ? (Deno.env.get("EDGE_TTS_VOICE_F") ?? "pt-BR-FranciscaNeural")
+          : (Deno.env.get("EDGE_TTS_VOICE") ?? "pt-BR-AntonioNeural");
         const pitch = Deno.env.get("EDGE_TTS_PITCH") ?? "-5Hz";
         const rate = Deno.env.get("EDGE_TTS_RATE") ?? "-3%";
         const volume = Deno.env.get("EDGE_TTS_VOLUME") ?? "+0%";

@@ -39,10 +39,18 @@ function storedCoupon(): string | null {
   return null;
 }
 
+/** Código do influenciador guardado no aparelho (ou null). Usado também no cadastro. */
+export function getReferralCode(): string | null {
+  return storedCoupon();
+}
+
 /** Link do checkout Hotmart já com o cupom do influenciador (se houver). */
 export function getCheckoutUrl(): string {
   const code = storedCoupon();
   if (!code) return HOTMART_CHECKOUT_URL;
-  const sep = HOTMART_CHECKOUT_URL.includes("?") ? "&" : "?";
-  return `${HOTMART_CHECKOUT_URL}${sep}offDiscount=${encodeURIComponent(code)}`;
+  // O sck viaja até a Hotmart e VOLTA no webhook de venda — é o que fecha a
+  // comissão sozinha, mesmo se a pessoa pagar com outro e-mail.
+  const url = HOTMART_CHECKOUT_URL.replace("sck=orbis_app", `sck=${encodeURIComponent(code)}`);
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}offDiscount=${encodeURIComponent(code)}`;
 }

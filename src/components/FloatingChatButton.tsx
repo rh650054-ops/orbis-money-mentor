@@ -10,6 +10,7 @@ import EstudioMarca, { type EstudioBrief } from "@/components/estudio/EstudioMar
 import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
+import { useToast } from "@/shared/ui/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -18,6 +19,7 @@ import { ptBR } from "date-fns/locale";
 const USE_INSTANT_VOICE = false;
 
 export default function FloatingChatButton() {
+  const { toast } = useToast();
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   // Briefing do adesivo montado na conversa (fallback: abre o Estúdio pra gerar por lá)
@@ -38,6 +40,15 @@ export default function FloatingChatButton() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [falandoId, setFalandoId] = useState<string | null>(null); // qual mensagem esta sendo lida em voz alta
+  // Voz masculina (ash) ou feminina (coral) — escolha fica salva no aparelho.
+  const [vozFeminina, setVozFeminina] = useState<boolean>(() => {
+    try { return localStorage.getItem("orbis_voz_sexo") === "f"; } catch { return false; }
+  });
+  const vozFemininaRef = useRef(vozFeminina);
+  useEffect(() => {
+    vozFemininaRef.current = vozFeminina;
+    try { localStorage.setItem("orbis_voz_sexo", vozFeminina ? "f" : "m"); } catch { /* noop */ }
+  }, [vozFeminina]);
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsTokenRef = useRef(0); // cada fala tem um token; uma fala nova invalida a anterior
@@ -122,6 +133,13 @@ export default function FloatingChatButton() {
       setIsRecording(true); isRecordingRef.current = true;
     } catch {
       setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
+      // Sem isso o botão "morre" em silêncio e parece que a IA quebrou — quando na
+      // verdade o microfone está bloqueado no navegador ou preso por outro app.
+      toast({
+        title: "Não consegui usar o microfone",
+        description: "Libere o microfone pro Orbis (ícone de cadeado na barra de endereço → Microfone → Permitir) ou feche outro app que esteja usando ele. Enquanto isso, dá pra digitar normalmente.",
+        variant: "destructive",
+      });
     }
   };
   const stopRecFallback = () => { try { mediaRecRef.current?.stop(); } catch { /* noop */ } };
@@ -379,7 +397,7 @@ export default function FloatingChatButton() {
 
   const fetchTTS = async (text: string): Promise<string | null> => {
     try {
-      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text } });
+      const { data } = await supabase.functions.invoke("bright-action", { body: { tts: text, voz_sexo: vozFemininaRef.current ? "f" : "m" } });
       const b64 = (data as any)?.audio;
       if (!b64) return null;
       return "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
@@ -647,7 +665,7 @@ export default function FloatingChatButton() {
     if (last && last.role === "assistant" && last.id !== lastSpokenRef.current) {
       lastSpokenRef.current = last.id;
       // Não fala mensagem de erro do chat (evita ouvir "Desculpe, tive um problema...")
-      if (last.content.startsWith("Desculpe, tive um problema")) return;
+      if (last.content.startsWith("Desculpe, tive um problema") || last.content.startsWith("Não consegui responder agora")) return;
       // Não lê o marcador da arte gerada no chat (a imagem aparece na tela, não na voz)
       const falavel = last.content.replace(/\[\[(?:adesivo|foto):[^\]]+\]\]/g, "").trim();
       if (!falavel) return;
@@ -934,6 +952,21 @@ export default function FloatingChatButton() {
               </div>
 
               <div className="pb-8 flex justify-center safe-bottom">
+                <div className="flex items-center gap-1 rounded-full border border-border bg-card p-0.5">
+                  {([["m", "Voz dele"], ["f", "Voz dela"]] as const).map(([k, label]) => (
+                    <button
+                      key={k}
+                      onClick={() => { setVozFeminina(k === "f"); stopSpeaking(); }}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                        (k === "f") === vozFeminina
+                          ? "bg-primary text-primary-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
                 <button onClick={exitVoiceMode} className="text-xs text-muted-foreground hover:text-foreground">
                   usar o chat de texto
                 </button>
