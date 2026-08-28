@@ -14,6 +14,7 @@ export const TERMOS_VERSAO = "2026-07-28";
 export default function AceiteTermosModal({ userId }: { userId: string }) {
   const [aberto, setAberto] = useState(false);
   const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
   const { pathname } = useLocation();
   // Os links abaixo são <a target="_blank">, e NÃO <Link> do react-router, de
   // propósito: consentimento não pode depender do roteamento interno do app.
@@ -42,18 +43,30 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
 
   const aceitar = async () => {
     setSalvando(true);
+    setErro("");
     const { error } = await supabase
       .from("profiles")
       .update({ termos_aceitos_versao: TERMOS_VERSAO, termos_aceitos_em: new Date().toISOString() } as never)
       .eq("user_id", userId);
     setSalvando(false);
-    if (!error) setAberto(false);
+    if (!error) { setAberto(false); return; }
+    // Antes, falha aqui era SILENCIOSA: o botao voltava ao normal e o vendedor
+    // clicava pra sempre achando que o app travou. Agora ele sabe o que houve.
+    setErro("Não consegui salvar seu aceite — confere a internet e toca de novo.");
   };
 
   if (!aberto || lendoDocumento) return null;
 
   return (
-    <div className="fixed inset-0 z-[95] bg-background/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-4">
+    // pointerEvents "auto" A FORCA: quando o popup de teste expirado (Radix
+    // Dialog) esta aberto embaixo, o Radix desliga os cliques do <body> inteiro
+    // (pointer-events: none) — e este modal, desenhado POR CIMA, ficava bonito
+    // e MORTO: o vendedor via "Li e aceito", clicava, e nada. Preso entre os
+    // dois. Reativar os cliques so' nesta camada resolve sem mexer no paywall.
+    <div
+      className="fixed inset-0 z-[95] bg-background/85 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
+      style={{ pointerEvents: "auto" }}
+    >
       <div className="w-full max-w-md rounded-2xl bg-card border border-border p-5 space-y-4 shadow-2xl">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -74,8 +87,9 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
         <p className="text-xs text-muted-foreground">
           Os documentos abrem numa aba nova — esta tela continua aqui, esperando você voltar.
         </p>
+        {erro && <p className="text-xs text-destructive font-medium">{erro}</p>}
         <Button className="w-full h-11" onClick={aceitar} disabled={salvando}>
-          {salvando ? "Salvando…" : "Li e aceito"}
+          {salvando ? "Salvando…" : erro ? "Tentar de novo" : "Li e aceito"}
         </Button>
       </div>
     </div>
