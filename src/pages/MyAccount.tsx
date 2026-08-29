@@ -432,27 +432,6 @@ export default function Profile() {
         </div>
       </div>
 
-      {/* Faixa BLACK - destaque premium no topo para admin/assinante */}
-      {isBlack && (
-        <div className="relative overflow-hidden rounded-xl border border-primary/50 bg-gradient-to-r from-primary/20 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_24px_-8px_hsl(var(--primary)/0.6)]">
-          <div className="absolute inset-0 pointer-events-none opacity-50 bg-[radial-gradient(circle_at_top_left,hsl(var(--primary)/0.3),transparent_60%)]" />
-          <div className="relative flex items-center gap-3">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-primary/25 border border-primary/50 text-lg shrink-0">
-              👑
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-primary leading-tight">Usuário BLACK</p>
-              <p className="text-xs text-foreground/80 leading-tight mt-0.5">
-                Acesso completo liberado · obrigado por fazer parte
-              </p>
-            </div>
-            <Badge className="bg-primary text-primary-foreground border-0 text-xs px-2 py-0 h-5 font-bold tracking-wider shrink-0">
-              BLACK
-            </Badge>
-          </div>
-        </div>
-      )}
-
       {/* Faixa Demo - destaque para que o usuário entenda seu status */}
       {!isBlack && isDemo && profile.billing_exempt && (
         <div className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-r from-primary/15 via-primary/10 to-transparent p-3 animate-fade-in shadow-[0_0_20px_-8px_hsl(var(--primary)/0.5)]">
@@ -827,28 +806,6 @@ export default function Profile() {
             <p className="text-xs text-center text-muted-foreground">
               🔒 Cancele quando quiser. Sem taxas escondidas.
             </p>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Status PRO - Para assinantes ativos */}
-      {profile.plan_status === 'active' && !isDemo && (
-        <Card className="border-primary/30">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
-                  <Crown className="w-5 h-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-base font-semibold leading-tight">Usuário BLACK</p>
-                  <p className="text-xs text-muted-foreground truncate">Acesso completo aos recursos premium</p>
-                </div>
-              </div>
-              <Badge className="bg-primary/15 text-primary border border-primary/30 text-xs px-1.5 py-0 h-5 font-semibold shrink-0">
-                PRO
-              </Badge>
-            </div>
           </CardContent>
         </Card>
       )}

@@ -876,30 +876,6 @@ export default function Insights() {
               </p>
             ) : (
               <div className="space-y-4">
-                {/* O resumo que o vendedor leva pra rua */}
-                <div className="flex flex-wrap gap-2">
-                  {horaAHora.melhor && (
-                    <div className="flex-1 min-w-[140px] rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hora mais forte</p>
-                      <p className="text-lg font-bold text-primary leading-tight">{horaAHora.melhor.label}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatCurrency(horaAHora.melhor.total)} · {horaAHora.melhor.vendas}{" "}
-                        {horaAHora.melhor.vendas === 1 ? "venda" : "vendas"}
-                      </p>
-                    </div>
-                  )}
-                  {horaAHora.pior && horaAHora.pior.hora !== horaAHora.melhor?.hora && (
-                    <div className="flex-1 min-w-[140px] rounded-xl border border-border/60 bg-muted/30 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Hora mais fraca</p>
-                      <p className="text-lg font-bold leading-tight">{horaAHora.pior.label}</p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {formatCurrency(horaAHora.pior.total)} · {horaAHora.pior.vendas}{" "}
-                        {horaAHora.pior.vendas === 1 ? "venda" : "vendas"}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
                 {/* A linha do tempo: toda hora entre a primeira e a última venda */}
                 <div className="space-y-2">
                   {horaAHora.linhas.map((l) => {

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, MapPin, Radar, Navigation, Clock, Users, Sparkles, Loader2, TrafficCone, Zap, Calendar, Download } from "lucide-react";
+import { MapPin, Radar, Navigation, Clock, Users, Sparkles, Loader2, TrafficCone, Zap, Calendar, Download } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -66,7 +65,6 @@ const audienceLabel: Record<string, string> = {
 };
 
 export default function SpotFinder() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
@@ -172,9 +170,6 @@ export default function SpotFinder() {
   return (
     <div className="space-y-5 pb-8 max-w-2xl mx-auto">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
         <div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2">
             <Radar className="w-6 h-6" /> Caça-Sinal

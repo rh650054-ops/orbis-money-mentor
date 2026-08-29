@@ -289,7 +289,7 @@ export default function QuickExpenseButton({
       )}
 
       <Dialog open={isOpen} onOpenChange={(o) => { setIsOpen(o); if (!o) reset(); }}>
-        <DialogContent className="max-w-md p-0 gap-0 bg-card border-border/60">
+        <DialogContent className="max-w-md w-[calc(100%-1.5rem)] p-0 gap-0 bg-card border-border/60 overflow-x-hidden">
           <DialogTitle className="sr-only">Custos de hoje</DialogTitle>
           <DialogDescription className="sr-only">
             Registre seus gastos do dia para contabilizar no relatório.

@@ -64,7 +64,6 @@ export default function HourlyBreakdown({ userId, date }: Props) {
   const totalTips = blocks.reduce((s, b) => s + Number(b.valor_gorjeta || 0), 0);
   const activeBlocks = blocks.filter((b) => Number(b.achieved_amount) > 0).length;
   const perHour = activeBlocks > 0 ? totalDay / activeBlocks : 0;
-  const perMinute = perHour / 60;
   const maxBlock = Math.max(...blocks.map((b) => Number(b.achieved_amount || 0)), 1);
 
   return (
@@ -77,7 +76,7 @@ export default function HourlyBreakdown({ userId, date }: Props) {
           <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
             <Clock className="w-3.5 h-3.5 text-primary" />
           </div>
-          <span className="font-semibold text-foreground">Vendas por hora e por minuto</span>
+          <span className="font-semibold text-foreground">Vendas por hora</span>
         </span>
         {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </button>
@@ -92,21 +91,13 @@ export default function HourlyBreakdown({ userId, date }: Props) {
             </p>
           ) : (
             <>
-              {/* Resumo: por hora / por minuto */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Resumo: por hora ativa */}
+              <div className="grid grid-cols-1 gap-2">
                 <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/12 to-primary/4 border border-primary/25 p-3">
                   <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-primary/20 blur-2xl pointer-events-none" />
                   <p className="relative text-xs uppercase tracking-wider text-primary font-semibold">Por hora ativa</p>
                   <p className="relative text-lg font-bold text-foreground tabular-nums mt-1">
                     {formatCurrency(perHour)}
-                  </p>
-                </div>
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-violet/18 to-violet/5 border border-violet-soft/25 p-3">
-                  <div className="absolute -top-6 -right-6 w-14 h-14 rounded-full bg-violet-soft/25 blur-2xl pointer-events-none" />
-                  <p className="relative text-xs uppercase tracking-wider text-violet-soft font-semibold">Por minuto</p>
-                  <p className="relative text-lg font-bold text-foreground tabular-nums mt-1">
-                    {formatCurrency(perMinute)}
-                    <span className="text-xs text-muted-foreground font-normal">/min</span>
                   </p>
                 </div>
               </div>
@@ -127,7 +118,6 @@ export default function HourlyBreakdown({ userId, date }: Props) {
                 {blocks.map((b) => {
                   const amount = Number(b.achieved_amount || 0);
                   const tip = Number(b.valor_gorjeta || 0);
-                  const minRate = amount / 60;
                   const isActive = amount > 0;
                   const pct = (amount / maxBlock) * 100;
                   return (
@@ -164,9 +154,6 @@ export default function HourlyBreakdown({ userId, date }: Props) {
                           )}
                         </div>
                         <div className="flex items-baseline gap-3 text-right shrink-0">
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {formatCurrency(minRate)}<span className="text-xs">/min</span>
-                          </span>
                           <span
                             className={`text-sm font-bold tabular-nums ${
                               isActive ? "text-white" : "text-neutral-600"

@@ -19,10 +19,6 @@ import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
 import CompetitionCard from "@/components/CompetitionCard";
-import X1InvitePopup from "@/components/competitions/X1InvitePopup";
-import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
-import { X1ResultBanner } from "@/components/competitions/X1ResultBanner";
-import { RankingOvertakeAlert } from "@/components/ranking/RankingOvertakeAlert";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
@@ -423,12 +419,6 @@ export default function Index() {
   const greeting = getGreeting();
 
   return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
-      {user && <X1InvitePopup userId={user.id} />}
-      <X1HomeBanner userId={user?.id} />
-      {/* Resultado do X1 liquidado às 9h05 — vitória/derrota/empate, 1x por duelo */}
-      <X1ResultBanner userId={user?.id} />
-      {/* Te ultrapassaram no ranking da semana? Banner de contra-ataque + notificação */}
-      <RankingOvertakeAlert userId={user?.id} />
       {/* Greeting */}
       <div className="flex items-center gap-3 py-2">
         <img
@@ -516,7 +506,7 @@ export default function Index() {
         <Card className="bg-card border border-border rounded-2xl">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Lucro líquido</p>
-            <p className="text-2xl font-bold mt-1 text-success tracking-tight truncate">
+            <p className="text-xl font-bold mt-1 text-success tracking-tight tabular-nums leading-tight break-words">
               {formatCurrency(lucroLiquido)}
             </p>
           </CardContent>
@@ -530,7 +520,7 @@ export default function Index() {
           <Card className="bg-card border border-border rounded-2xl h-full hover:border-primary/40 transition-colors">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Custos</p>
-              <p className="text-2xl font-bold mt-1 text-destructive tracking-tight truncate">
+              <p className="text-xl font-bold mt-1 text-destructive tracking-tight tabular-nums leading-tight break-words">
                 {formatCurrency(custosTotal)}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">toque pra ver e corrigir</p>

@@ -924,10 +924,10 @@ export default function DefconHub() {
               {!editingPay && (
                 <button
                   onClick={openPayEditor}
-                  className="w-6 h-6 rounded-md bg-foreground/5 hover:bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-95 transition"
+                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-primary/15 hover:bg-primary/25 border border-primary/40 text-primary text-xs font-semibold active:scale-95 transition"
                   aria-label="Editar recebimentos"
                 >
-                  <Pencil className="w-3 h-3" />
+                  <Pencil className="w-3 h-3" /> Editar
                 </button>
               )}
             </div>
@@ -991,7 +991,7 @@ export default function DefconHub() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className={`grid gap-2 ${(totals.debt > 0 || (totals.cost + totals.transport + totals.food) > 0) ? "grid-cols-2" : "grid-cols-1"}`}>
             <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
             {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
             {(totals.cost + totals.transport + totals.food) > 0 && <MiniStat label="Custos" value={formatCurrency(totals.cost + totals.transport + totals.food)} />}
@@ -1142,7 +1142,7 @@ function PayCard({
         {icon}
         <span className="text-xs font-semibold tracking-wide uppercase">{label}</span>
       </div>
-      <p className="relative text-base font-bold text-foreground tabular-nums truncate leading-tight">
+      <p className="relative text-sm font-bold text-foreground tabular-nums leading-tight break-words">
         {formatCurrency(value)}
       </p>
       {/* mini barra com % do total */}

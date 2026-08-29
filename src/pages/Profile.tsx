@@ -46,7 +46,7 @@ const menuItems: MenuItem[] = [
     label: "Financeiro",
     description: "Metas, contas e transações",
     path: "/finances",
-    color: "text-secondary",
+    color: "text-primary",
   },
   {
     icon: Landmark,
