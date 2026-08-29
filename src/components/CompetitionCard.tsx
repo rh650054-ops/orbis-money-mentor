@@ -38,35 +38,75 @@ export default function CompetitionCard({ userId, onClick }: Props) {
     };
   }, [userId]);
 
+  const accent = "#F5B544"; // dourado = competição
+  const glow = "rgba(245,181,68,0.45)";
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3 text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
-      <div className="relative w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-        <Swords className="w-4 h-4 text-muted-foreground" />
+    <div className="space-y-2">
+      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Competição</p>
+      <button
+        onClick={onClick}
+        className="group relative w-full overflow-hidden rounded-2xl border p-4 flex items-center gap-4 text-left transition-transform active:scale-[0.99]"
+        style={{
+          borderColor: x1Pending > 0 ? "#ef444466" : `${accent}44`,
+          background: `linear-gradient(135deg, ${accent}14 0%, rgba(12,12,15,0.6) 55%)`,
+          boxShadow: `0 6px 24px -10px ${glow}, inset 0 1px 0 ${accent}22`,
+        }}
+      >
         {x1Pending > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-semibold flex items-center justify-center">
+          <span className="absolute top-2 right-2 z-10 min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center shadow-md">
             {x1Pending}
           </span>
         )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground">Competição</p>
-        {activeCount === null ? (
-          <div className="h-3 w-24 rounded bg-muted animate-pulse mt-1" />
-        ) : x1Pending > 0 ? (
-          <p className="text-xs text-destructive">{x1Pending} X1 te esperando</p>
-        ) : activeCount > 0 ? (
-          <p className="text-xs text-muted-foreground truncate">
-            {activeCount} ativa{activeCount === 1 ? "" : "s"}
-            {joinedCount > 0 ? ` · você está em ${joinedCount}` : ""}
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">Em breve</p>
-        )}
-      </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-    </button>
+        <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
+          <div
+            className="w-12 h-12 rounded-full flex items-center justify-center"
+            style={{ background: `${accent}1f`, border: `2px solid ${accent}`, color: accent, boxShadow: `0 0 18px -2px ${glow}` }}
+          >
+            <Swords className="w-5 h-5" />
+          </div>
+        </div>
+        <div className="relative flex-1 min-w-0">
+          {activeCount === null ? (
+            <>
+              <div className="h-4 w-32 rounded bg-white/10 animate-pulse" />
+              <div className="h-3 w-24 rounded bg-white/5 animate-pulse mt-1.5" />
+            </>
+          ) : activeCount > 0 ? (
+            <>
+              <p className="text-sm font-bold text-foreground">
+                {activeCount} competiç{activeCount === 1 ? "ão" : "ões"} ativa{activeCount === 1 ? "" : "s"}
+              </p>
+              {x1Pending > 0 ? (
+                <p className="text-xs font-bold text-red-400">
+                  ⚔️ {x1Pending} X1 te esperando!
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {joinedCount > 0 ? `Você está em ${joinedCount} · veja o ranking` : "Entre e dispute prêmios 🏆"}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold text-foreground">Competições</p>
+              {x1Pending > 0 ? (
+                <p className="text-xs font-bold text-red-400">
+                  ⚔️ {x1Pending} X1 te esperando!
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Em breve — fique de olho 🏆</p>
+              )}
+            </>
+          )}
+        </div>
+        <span
+          className="relative text-xs inline-flex items-center shrink-0 group-hover:translate-x-0.5 transition-transform"
+          style={{ color: accent }}
+        >
+          Ver <ChevronRight className="w-4 h-4 ml-0.5" />
+        </span>
+      </button>
+    </div>
   );
 }

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Pencil, Zap, ChevronRight } from "lucide-react";
+import { Card, CardContent } from "@/shared/ui/card";
+import { Pencil } from "lucide-react";
+import { Button } from "@/shared/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
@@ -418,22 +420,22 @@ export default function Index() {
 
   return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
       {/* Greeting */}
-      <div className="flex items-center gap-3 pt-1 pb-2">
+      <div className="flex items-center gap-3 py-2">
         <img
           src="/orbis-logo.png"
           alt="Orbis"
-          className="w-9 h-9 object-contain shrink-0 animate-orbis-spin-in"
+          className="w-11 h-11 object-contain shrink-0 animate-orbis-spin-in"
         />
         <div className="min-w-0 flex-1">
-          <p className="text-base font-medium tracking-tight text-foreground truncate">
+          <p className="text-xl font-semibold tracking-tight text-foreground truncate">
             {greeting}, <span className="text-primary">{nickname || "vendedor"}</span>
           </p>
           <p className="text-xs text-muted-foreground">
             {progressoMeta >= 100
               ? "Meta do mês batida"
               : faltaDia > 0
-              ? "Bora bater a meta de hoje"
-              : "Meta de hoje atingida"}
+              ? `Faltam ${formatCurrency(faltaDia)} para a meta diária`
+              : "Meta diária atingida hoje"}
           </p>
         </div>
       </div>
@@ -444,85 +446,89 @@ export default function Index() {
         </div>
       )}
 
-      {/* Faturamento do mês — área principal, sem caixa, respirando */}
-      <section className="pt-2 pb-6">
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Faturamento do mês</p>
-          <button
-            data-tour="meta-input"
-            onClick={() => setShowEditPlanning(true)}
-            className="h-8 w-8 -mr-1 inline-flex items-center justify-center hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
-            aria-label="Editar planejamento"
-          >
-            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-          </button>
-        </div>
-        <p className="text-5xl font-bold tracking-tight text-foreground tabular-nums mt-1">
-          {formatCurrency(faturamentoMes)}
-        </p>
-        <div className="h-1 bg-muted rounded-full overflow-hidden mt-5">
-          <div
-            className="h-full bg-primary rounded-full transition-[width] duration-300 ease-out"
-            style={{ width: `${progressoMeta}%` }}
-          />
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-muted-foreground">Meta {formatCurrency(monthlyGoal)}</p>
-          <p className="text-xs font-medium text-primary tabular-nums">{progressoMeta.toFixed(0)}%</p>
-        </div>
-
-        {/* Hoje — desempenho do dia, discreto */}
-        <div className="flex items-center gap-8 mt-6">
-          <div>
-            <p className="text-xs text-muted-foreground">Hoje</p>
-            <p className="text-lg font-semibold text-foreground tabular-nums mt-0.5">{formatCurrency(dailyProfit)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Vendas</p>
-            <p className="text-lg font-semibold text-foreground tabular-nums mt-0.5">{totalSalesToday}</p>
-          </div>
-          {faltaDia > 0 && (
-            <div className="ml-auto text-right">
-              <p className="text-xs text-muted-foreground">Falta hoje</p>
-              <p className="text-lg font-semibold text-foreground tabular-nums mt-0.5">{formatCurrency(faltaDia)}</p>
+      {/* HERO: Faturamento do mês (single hero) */}
+      <Card className="bg-card border border-border rounded-2xl shadow-lg">
+        <CardContent className="p-6 space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm text-muted-foreground mb-2">Faturamento do mês</p>
+              <p className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+                {formatCurrency(faturamentoMes)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Meta {formatCurrency(monthlyGoal)} · <span className="text-primary font-semibold">{progressoMeta.toFixed(0)}%</span>
+              </p>
             </div>
-          )}
-        </div>
-      </section>
+            <button
+              data-tour="meta-input"
+              onClick={() => setShowEditPlanning(true)}
+              className="h-11 w-11 inline-flex items-center justify-center hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+              aria-label="Editar planejamento"
+            >
+              <Pencil className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
 
-      {/* Iniciar sessão de vendas → modo operacional (Ritmo/DEFCON) */}
-      <button
-        onClick={() => navigate('/daily-goals')}
-        className="w-full rounded-xl border border-primary/30 bg-primary/5 px-4 py-3.5 flex items-center gap-3 text-left hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
-        <div className="w-10 h-10 rounded-lg bg-primary/15 flex items-center justify-center shrink-0">
-          <Zap className="w-4 h-4 text-primary" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-foreground">Iniciar sessão de vendas</p>
-          <p className="text-xs text-muted-foreground">Modo foco pra registrar em tempo real</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-primary shrink-0" />
-      </button>
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-[width] duration-300 ease-out"
+              style={{ width: `${progressoMeta}%` }}
+            />
+          </div>
 
-      {/* Financeiro — lucro e custos compactos, predominantemente cinza */}
-      <button
-        type="button"
-        onClick={() => setShowCustos(true)}
-        className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="Ver e editar os custos do mês"
-      >
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">Lucro líquido</p>
-          <p className="text-lg font-semibold text-success tabular-nums mt-0.5 whitespace-nowrap">{formatCurrency(lucroLiquido)}</p>
-        </div>
-        <div className="w-px self-stretch bg-border mx-4" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">Custos</p>
-          <p className="text-lg font-semibold text-destructive tabular-nums mt-0.5 whitespace-nowrap">{formatCurrency(custosTotal)}</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-3" />
-      </button>
+          {/* Today inline (demoted) */}
+          <div className="flex items-end justify-between pt-3 border-t border-border">
+            <div>
+              <p className="text-xs text-muted-foreground">Hoje</p>
+              <p className="text-2xl font-bold text-foreground tracking-tight">
+                {formatCurrency(dailyProfit)}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">{totalSalesToday} {totalSalesToday === 1 ? "venda" : "vendas"}</p>
+              <p className="text-xs text-muted-foreground">
+                {faltaDia > 0 ? `Faltam ${formatCurrency(faltaDia)}` : "Meta diária atingida"}
+              </p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => navigate('/daily-goals')}
+            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-xl"
+          >
+            Ir para Ritmo
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Lucro líquido + Custos (split) */}
+      <div className="grid grid-cols-2 gap-3">
+        <Card className="bg-card border border-border rounded-2xl h-full">
+          <CardContent className="p-4">
+            <p className="text-xs text-muted-foreground">Lucro líquido</p>
+            <p className="text-xl font-bold mt-1 text-success tracking-tight tabular-nums leading-tight whitespace-nowrap">
+              {formatCurrency(lucroLiquido)}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">depois dos custos</p>
+          </CardContent>
+        </Card>
+        <button
+          type="button"
+          onClick={() => setShowCustos(true)}
+          className="text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          aria-label="Ver e editar os custos do mês"
+        >
+          <Card className="bg-card border border-border rounded-2xl h-full hover:border-primary/40 transition-colors">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground">Custos</p>
+              <p className="text-xl font-bold mt-1 text-destructive tracking-tight tabular-nums leading-tight whitespace-nowrap">
+                {formatCurrency(custosTotal)}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">toque pra corrigir</p>
+            </CardContent>
+          </Card>
+        </button>
+      </div>
 
       {/* Gerenciador de custos (mesmo do DEFCON): lista custos manuais E o CMV de
           cada dia, com apagar/zerar. Ao fechar, recarrega o painel — o lucro muda
@@ -541,26 +547,45 @@ export default function Index() {
       {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
       <WeeklyChallengeDashboardCard />
 
-      {/* Próxima patente — contida, no mesmo sistema visual */}
+      {/* Próxima patente — compact, no shine, no float */}
       <button
         onClick={() => navigate('/rewards')}
-        className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3 text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="w-full text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-label="Ver recompensas por conquista"
       >
-        <div className="w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-          <span className="text-lg leading-none">{nextTier.emoji}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate">Patente {nextTier.name}</p>
-          <div className="h-1 bg-muted rounded-full overflow-hidden mt-1.5">
-            <div
-              className="h-full rounded-full transition-[width] duration-300 ease-out"
-              style={{ width: `${tierProgress}%`, background: `hsl(${nextTier.accent})` }}
-            />
+        <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3 hover:bg-muted/40 transition-colors">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: `hsl(${nextTier.accent} / 0.15)`,
+              border: `1px solid hsl(${nextTier.accent} / 0.35)`,
+            }}
+          >
+            <span className="text-2xl leading-none">{nextTier.emoji}</span>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Faltam {formatCurrency(tierRestante)} · {tierProgress.toFixed(0)}%</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground truncate">
+                Próxima: Patente {nextTier.name}
+              </p>
+              <p className="text-xs text-muted-foreground shrink-0">
+                {tierProgress.toFixed(0)}%
+              </p>
+            </div>
+            <div className="h-1 bg-muted rounded-full overflow-hidden mt-2">
+              <div
+                className="h-full rounded-full transition-[width] duration-300 ease-out"
+                style={{
+                  width: `${tierProgress}%`,
+                  background: `hsl(${nextTier.accent})`,
+                }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Faltam {formatCurrency(tierRestante)}
+            </p>
+          </div>
         </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
       </button>
 
       {user && faltaDia <= 0 && dailyProfit > 0 && (
