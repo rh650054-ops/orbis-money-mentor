@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
-import { Pencil } from "lucide-react";
+import { Pencil, ChevronRight } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -501,34 +501,24 @@ export default function Index() {
         </CardContent>
       </Card>
 
-      {/* Lucro líquido + Custos (split) */}
-      <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-card border border-border rounded-2xl h-full">
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Lucro líquido</p>
-            <p className="text-xl font-bold mt-1 text-success tracking-tight tabular-nums leading-tight whitespace-nowrap">
-              {formatCurrency(lucroLiquido)}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">depois dos custos</p>
-          </CardContent>
-        </Card>
-        <button
-          type="button"
-          onClick={() => setShowCustos(true)}
-          className="text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          aria-label="Ver e editar os custos do mês"
-        >
-          <Card className="bg-card border border-border rounded-2xl h-full hover:border-primary/40 transition-colors">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Custos</p>
-              <p className="text-xl font-bold mt-1 text-destructive tracking-tight tabular-nums leading-tight whitespace-nowrap">
-                {formatCurrency(custosTotal)}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">toque pra corrigir</p>
-            </CardContent>
-          </Card>
-        </button>
-      </div>
+      {/* Financeiro — lucro e custos compactos, predominantemente cinza */}
+      <button
+        type="button"
+        onClick={() => setShowCustos(true)}
+        className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        aria-label="Ver e editar os custos do mês"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground">Lucro líquido</p>
+          <p className="text-lg font-semibold text-success tabular-nums mt-0.5 whitespace-nowrap">{formatCurrency(lucroLiquido)}</p>
+        </div>
+        <div className="w-px self-stretch bg-border mx-4" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-muted-foreground">Custos</p>
+          <p className="text-lg font-semibold text-destructive tabular-nums mt-0.5 whitespace-nowrap">{formatCurrency(custosTotal)}</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-3" />
+      </button>
 
       {/* Gerenciador de custos (mesmo do DEFCON): lista custos manuais E o CMV de
           cada dia, com apagar/zerar. Ao fechar, recarrega o painel — o lucro muda
@@ -547,45 +537,26 @@ export default function Index() {
       {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
       <WeeklyChallengeDashboardCard />
 
-      {/* Próxima patente — compact, no shine, no float */}
+      {/* Próxima patente — contida, no mesmo sistema visual */}
       <button
         onClick={() => navigate('/rewards')}
-        className="w-full text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3 text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-label="Ver recompensas por conquista"
       >
-        <div className="rounded-2xl border border-border bg-card p-4 flex items-center gap-3 hover:bg-muted/40 transition-colors">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: `hsl(${nextTier.accent} / 0.15)`,
-              border: `1px solid hsl(${nextTier.accent} / 0.35)`,
-            }}
-          >
-            <span className="text-2xl leading-none">{nextTier.emoji}</span>
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground truncate">
-                Próxima: Patente {nextTier.name}
-              </p>
-              <p className="text-xs text-muted-foreground shrink-0">
-                {tierProgress.toFixed(0)}%
-              </p>
-            </div>
-            <div className="h-1 bg-muted rounded-full overflow-hidden mt-2">
-              <div
-                className="h-full rounded-full transition-[width] duration-300 ease-out"
-                style={{
-                  width: `${tierProgress}%`,
-                  background: `hsl(${nextTier.accent})`,
-                }}
-              />
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Faltam {formatCurrency(tierRestante)}
-            </p>
-          </div>
+        <div className="w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
+          <span className="text-lg leading-none">{nextTier.emoji}</span>
         </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-foreground truncate">Patente {nextTier.name}</p>
+          <div className="h-1 bg-muted rounded-full overflow-hidden mt-1.5">
+            <div
+              className="h-full rounded-full transition-[width] duration-300 ease-out"
+              style={{ width: `${tierProgress}%`, background: `hsl(${nextTier.accent})` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">Faltam {formatCurrency(tierRestante)} · {tierProgress.toFixed(0)}%</p>
+        </div>
+        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
       </button>
 
       {user && faltaDia <= 0 && dailyProfit > 0 && (
