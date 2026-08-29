@@ -296,19 +296,18 @@ export default function Layout({ children }: LayoutProps) {
         className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none"
         style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
       >
-        <div className="mx-auto max-w-md px-4 pt-1 pointer-events-auto">
-          <div className="relative grid grid-cols-5 items-center h-16 px-2 rounded-full border border-border/70 bg-card/90 backdrop-blur-xl shadow-[0_10px_30px_-8px_rgba(0,0,0,0.6)]">
-            {/* Cápsula do item ativo — desliza com animação suave */}
-            {navActiveIndex >= 0 && (
-              <div
-                className="pointer-events-none absolute top-2 bottom-2 rounded-full bg-primary/12 transition-transform duration-300 ease-out"
-                style={{
-                  left: '0.5rem',
-                  width: 'calc((100% - 1rem) / 5)',
-                  transform: `translateX(calc(${navActiveIndex} * 100%))`,
-                }}
-              />
-            )}
+        <div className="mx-auto max-w-lg px-3 pt-1 pointer-events-auto">
+          <div className="relative grid grid-cols-5 items-center h-[74px] px-2.5 rounded-[30px] border border-white/10 bg-card/95 backdrop-blur-xl shadow-[0_16px_40px_-10px_rgba(0,0,0,0.8)]">
+            {/* Cápsula do item ativo — sempre montada pra animar o deslize */}
+            <div
+              className="pointer-events-none absolute top-2.5 bottom-2.5 rounded-[24px] bg-white/[0.1] border border-white/10 transition-[transform,opacity] duration-300 ease-out"
+              style={{
+                left: '0.625rem',
+                width: 'calc((100% - 1.25rem) / 5)',
+                transform: `translateX(calc(${Math.max(navActiveIndex, 0)} * 100%))`,
+                opacity: navActiveIndex >= 0 ? 1 : 0,
+              }}
+            />
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const Icon = item.icon;
@@ -318,26 +317,26 @@ export default function Layout({ children }: LayoutProps) {
                   to={item.href}
                   {...(item.tourId ? { "data-tour": item.tourId } : {})}
                   aria-label={item.name}
-                  className="relative z-10 flex flex-col items-center justify-center gap-1 select-none"
+                  className="relative z-10 flex flex-col items-center justify-center gap-1.5 select-none"
                 >
                   {item.isCenter ? (
                     <div
                       className={cn(
-                        "w-8 h-8 rounded-full flex items-center justify-center transition-transform active:scale-95",
-                        "bg-gradient-to-br from-primary to-[hsl(45_100%_40%)] shadow-[0_2px_8px_-1px_hsl(var(--primary)/0.5)]"
+                        "w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-95",
+                        "bg-gradient-to-br from-primary to-[hsl(45_100%_40%)] shadow-[0_3px_12px_-2px_hsl(var(--primary)/0.6)]"
                       )}
                     >
-                      <Icon className="h-4 w-4 text-primary-foreground" strokeWidth={2.75} />
+                      <Icon className="h-5 w-5 text-primary-foreground" strokeWidth={2.75} />
                     </div>
                   ) : (
                     <Icon
-                      className={cn("h-[22px] w-[22px] transition-colors", isActive ? "text-primary" : "text-muted-foreground")}
+                      className={cn("h-6 w-6 transition-colors", isActive ? "text-primary" : "text-muted-foreground")}
                       strokeWidth={2}
                     />
                   )}
                   <span
                     className={cn(
-                      "text-[10px] leading-none font-medium transition-colors",
+                      "text-[11px] leading-none font-semibold transition-colors",
                       isActive ? "text-primary" : "text-muted-foreground"
                     )}
                   >
