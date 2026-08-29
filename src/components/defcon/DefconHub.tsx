@@ -15,7 +15,6 @@ import { DefconCompraMercadoria } from "@/components/defcon/DefconCompraMercador
 import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
 import { CompetitionStatementUpload } from "@/components/defcon/CompetitionStatementUpload";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
-import HourlyBreakdown from "@/components/history/HourlyBreakdown";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 
@@ -999,12 +998,6 @@ export default function DefconHub() {
         </div>
       )}
 
-      {/* VENDAS POR HORA */}
-      {planId && totalVendido > 0 && (
-        <div className="rounded-2xl bg-card border border-border p-4">
-          <HourlyBreakdown userId={user.id} date={today} />
-        </div>
-      )}
 
       {/* COMPRA DE MERCADORIA — estoque + custo por produto automáticos */}
       <DefconCompraMercadoria userId={user.id} onChanged={loadAll} />

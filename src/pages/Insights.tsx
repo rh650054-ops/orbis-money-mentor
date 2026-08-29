@@ -525,50 +525,6 @@ export default function Insights() {
 
   // ===== HORA A HORA =====
   // Junta as vendas com carimbo de hora real (DEFCON + catálogo de produtos) e
-  // monta a linha do tempo do dia. Mostra TODAS as horas entre a primeira e a
-  // última venda — inclusive as vazias, que são justamente as que ensinam algo.
-  const horaAHora = useMemo(() => {
-    const byHour: Record<number, { total: number; vendas: number; dias: Set<string> }> = {};
-    const registrar = (iso: string, valor: number) => {
-      const t = new Date(iso).getTime();
-      if (!Number.isFinite(t) || !valor) return;
-      const sp = new Date(t - 3 * 3600000); // hora de Brasília
-      const h = sp.getUTCHours();
-      const slot = byHour[h] ?? (byHour[h] = { total: 0, vendas: 0, dias: new Set() });
-      slot.total += valor;
-      slot.vendas += 1;
-      slot.dias.add(sp.toISOString().slice(0, 10));
-    };
-    for (const v of defconSales) registrar(v.created_at, Number(v.amount) || 0);
-    for (const v of prodSales) registrar(v.created_at, Number(v.total_amount) || 0);
-
-    const horasComVenda = Object.keys(byHour).map(Number).sort((a, b) => a - b);
-    if (horasComVenda.length === 0) return { linhas: [], melhor: null, pior: null, maxTotal: 0, diasNoPeriodo: 0 };
-
-    const primeira = horasComVenda[0];
-    const ultima = horasComVenda[horasComVenda.length - 1];
-    const linhas: { hora: number; label: string; total: number; vendas: number; ticket: number; dias: number }[] = [];
-    for (let h = primeira; h <= ultima; h++) {
-      const v = byHour[h];
-      linhas.push({
-        hora: h,
-        label: `${String(h).padStart(2, "0")}h`,
-        total: v?.total ?? 0,
-        vendas: v?.vendas ?? 0,
-        ticket: v && v.vendas > 0 ? v.total / v.vendas : 0,
-        dias: v ? v.dias.size : 0,
-      });
-    }
-    const comVenda = linhas.filter((l) => l.total > 0);
-    const melhor = comVenda.reduce((a, b) => (b.total > a.total ? b : a), comVenda[0]);
-    const pior = comVenda.reduce((a, b) => (b.total < a.total ? b : a), comVenda[0]);
-    const maxTotal = melhor?.total || 1;
-    const diasNoPeriodo = new Set(
-      linhas.flatMap((l) => Array.from(byHour[l.hora]?.dias ?? [])),
-    ).size;
-    return { linhas, melhor, pior, maxTotal, diasNoPeriodo };
-  }, [defconSales, prodSales]);
-
   const periodoLabel =
     period === "today" ? "dia de hoje"
     : period === "7d" ? "semana (últimos 7 dias)"
@@ -865,73 +821,6 @@ export default function Insights() {
               accent="gold"
             />
           </section>
-
-          {/* Hora a hora — a linha do tempo real do dia (antes só existia o top 5) */}
-          <SectionTitle>Hora a hora</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card p-5">
-            {horaAHora.linhas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Ainda não tem venda com horário registrado nesse período. Registrando a venda
-                na hora que ela acontece, aqui aparece como foi cada hora do seu dia.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {/* A linha do tempo: toda hora entre a primeira e a última venda */}
-                <div className="space-y-2">
-                  {horaAHora.linhas.map((l) => {
-                    const vazia = l.total <= 0;
-                    const eMelhor = !vazia && l.hora === horaAHora.melhor?.hora;
-                    return (
-                      <div key={l.hora} className="flex items-center gap-3">
-                        <span
-                          className={cn(
-                            "text-xs w-16 shrink-0 font-medium tabular-nums",
-                            eMelhor ? "text-primary" : vazia ? "text-muted-foreground/50" : "text-muted-foreground",
-                          )}
-                        >
-                          {l.label}
-                        </span>
-                        <div className="flex-1 h-2.5 rounded-full bg-muted/40 overflow-hidden">
-                          {!vazia && (
-                            <div
-                              className={cn(
-                                "h-full rounded-full transition-[colors,transform,opacity]",
-                                eMelhor
-                                  ? "bg-primary shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
-                                  : "bg-primary/40",
-                              )}
-                              style={{ width: `${Math.max(3, (l.total / horaAHora.maxTotal) * 100)}%` }}
-                            />
-                          )}
-                        </div>
-                        <div className="w-[104px] text-right shrink-0">
-                          <span
-                            className={cn(
-                              "text-xs font-semibold tabular-nums block",
-                              eMelhor ? "text-primary" : vazia ? "text-muted-foreground/50" : "text-foreground/80",
-                            )}
-                          >
-                            {vazia ? "—" : formatCurrency(l.total)}
-                          </span>
-                          {!vazia && (
-                            <span className="text-[10px] text-muted-foreground tabular-nums">
-                              {l.vendas} {l.vendas === 1 ? "venda" : "vendas"} · {formatCurrency(l.ticket)}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {horaAHora.diasNoPeriodo > 1
-                    ? `Somando ${horaAHora.diasNoPeriodo} dias de trabalho. As horas em branco são horas em que você estava na rua e não vendeu — vale olhar o que muda nelas.`
-                    : "As horas em branco são horas em que você estava na rua e não vendeu — vale olhar o que muda nelas."}
-                </p>
-              </div>
-            )}
-          </div>
 
           {/* Detalhamento financeiro */}
           <SectionTitle>Detalhamento financeiro</SectionTitle>

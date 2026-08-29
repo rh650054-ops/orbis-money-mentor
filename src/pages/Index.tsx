@@ -503,12 +503,13 @@ export default function Index() {
 
       {/* Lucro líquido + Custos (split) */}
       <div className="grid grid-cols-2 gap-3">
-        <Card className="bg-card border border-border rounded-2xl">
+        <Card className="bg-card border border-border rounded-2xl h-full">
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Lucro líquido</p>
-            <p className="text-xl font-bold mt-1 text-success tracking-tight tabular-nums leading-tight break-words">
+            <p className="text-xl font-bold mt-1 text-success tracking-tight tabular-nums leading-tight whitespace-nowrap">
               {formatCurrency(lucroLiquido)}
             </p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">depois dos custos</p>
           </CardContent>
         </Card>
         <button
@@ -520,7 +521,7 @@ export default function Index() {
           <Card className="bg-card border border-border rounded-2xl h-full hover:border-primary/40 transition-colors">
             <CardContent className="p-4">
               <p className="text-xs text-muted-foreground">Custos</p>
-              <p className="text-xl font-bold mt-1 text-destructive tracking-tight tabular-nums leading-tight break-words">
+              <p className="text-xl font-bold mt-1 text-destructive tracking-tight tabular-nums leading-tight whitespace-nowrap">
                 {formatCurrency(custosTotal)}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">toque pra ver e corrigir</p>
