@@ -509,7 +509,7 @@ export default function Index() {
             <p className="text-xl font-bold mt-1 text-success tracking-tight tabular-nums leading-tight whitespace-nowrap">
               {formatCurrency(lucroLiquido)}
             </p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">depois dos custos</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">depois dos custos</p>
           </CardContent>
         </Card>
         <button
@@ -524,7 +524,7 @@ export default function Index() {
               <p className="text-xl font-bold mt-1 text-destructive tracking-tight tabular-nums leading-tight whitespace-nowrap">
                 {formatCurrency(custosTotal)}
               </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">toque pra ver e corrigir</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap">toque pra corrigir</p>
             </CardContent>
           </Card>
         </button>
