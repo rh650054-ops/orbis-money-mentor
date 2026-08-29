@@ -43,6 +43,7 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const navActiveIndex = navigation.findIndex((i) => i.href === location.pathname);
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
   const { trialStatus, loading: trialLoading } = useTrialStatus(user?.id);
@@ -290,79 +291,58 @@ export default function Layout({ children }: LayoutProps) {
         {children}
       </main>
 
-      {/* Mobile bottom navigation - Fixed */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
-        {/* Notch SVG para o botão central */}
-        <div className="relative">
-          <svg
-            className="absolute -top-[1px] left-1/2 -translate-x-1/2 pointer-events-none"
-            width="88"
-            height="32"
-            viewBox="0 0 88 32"
-            fill="none"
-          >
-            <path
-              d="M0 0 C 18 0, 22 32, 44 32 C 66 32, 70 0, 88 0 Z"
-              fill="hsl(var(--background))"
-            />
-          </svg>
-        </div>
-
-        <div
-          className="border-t border-border bg-background/95 backdrop-blur-xl supports-[backdrop-filter]:bg-background/90"
-          style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
-        >
-          <div className="grid grid-cols-5 items-end h-16 px-1 relative">
-            {navigation.map((item, idx) => {
+      {/* Mobile bottom navigation — pill flutuante com cápsula deslizante (estilo Strava) */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
+      >
+        <div className="mx-auto max-w-md px-4 pt-1 pointer-events-auto">
+          <div className="relative grid grid-cols-5 items-center h-16 px-2 rounded-full border border-border/70 bg-card/90 backdrop-blur-xl shadow-[0_10px_30px_-8px_rgba(0,0,0,0.6)]">
+            {/* Cápsula do item ativo — desliza com animação suave */}
+            {navActiveIndex >= 0 && (
+              <div
+                className="pointer-events-none absolute top-2 bottom-2 rounded-full bg-primary/12 transition-transform duration-300 ease-out"
+                style={{
+                  left: '0.5rem',
+                  width: 'calc((100% - 1rem) / 5)',
+                  transform: `translateX(calc(${navActiveIndex} * 100%))`,
+                }}
+              />
+            )}
+            {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const Icon = item.icon;
-
-              // Center CTA - sifrão dourado flutuante
-              if (item.isCenter) {
-                return (
-                  <div key={item.name} className="flex justify-center">
-                    <Link
-                      to={item.href}
-                      {...(item.tourId ? { "data-tour": item.tourId } : {})}
-                      className="absolute left-1/2 -translate-x-1/2 -top-7 group"
-                      aria-label={item.name}
-                    >
-                      <div className="relative">
-                        {/* Halo externo */}
-                        <div className="absolute inset-0 rounded-full bg-primary/30 blur-xl scale-110 group-hover:scale-125 transition-transform" />
-                        {/* Anel sutil */}
-                        <div className="absolute -inset-1 rounded-full border border-primary/40" />
-                        {/* Botão principal */}
-                        <div
-                          className={cn(
-                            "relative w-16 h-16 rounded-full flex items-center justify-center",
-                            "bg-gradient-to-br from-primary to-[hsl(45_100%_38%)]",
-                            "shadow-[0_8px_24px_-4px_hsl(var(--primary)/0.6),inset_0_1px_0_hsl(0_0%_100%/0.25)]",
-                            "transition-transform duration-200 group-hover:scale-105 group-active:scale-95"
-                          )}
-                        >
-                          <Icon className="h-7 w-7 text-primary-foreground" strokeWidth={2.75} />
-                        </div>
-                      </div>
-                    </Link>
-                  </div>
-                );
-              }
-
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   {...(item.tourId ? { "data-tour": item.tourId } : {})}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 py-2 text-xs font-medium transition-[colors,transform,opacity]",
-                    isActive
-                      ? "text-primary"
-                      : "text-muted-foreground hover:text-primary"
-                  )}
+                  aria-label={item.name}
+                  className="relative z-10 flex flex-col items-center justify-center gap-1 select-none"
                 >
-                  <Icon className={cn("h-5 w-5", isActive && "drop-shadow-[0_0_6px_hsl(var(--primary)/0.6)]")} />
-                  <span className="text-xs">{item.name}</span>
+                  {item.isCenter ? (
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center transition-transform active:scale-95",
+                        "bg-gradient-to-br from-primary to-[hsl(45_100%_40%)] shadow-[0_2px_8px_-1px_hsl(var(--primary)/0.5)]"
+                      )}
+                    >
+                      <Icon className="h-4 w-4 text-primary-foreground" strokeWidth={2.75} />
+                    </div>
+                  ) : (
+                    <Icon
+                      className={cn("h-[22px] w-[22px] transition-colors", isActive ? "text-primary" : "text-muted-foreground")}
+                      strokeWidth={2}
+                    />
+                  )}
+                  <span
+                    className={cn(
+                      "text-[10px] leading-none font-medium transition-colors",
+                      isActive ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
+                    {item.name}
+                  </span>
                 </Link>
               );
             })}
