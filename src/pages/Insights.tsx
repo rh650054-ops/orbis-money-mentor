@@ -35,6 +35,8 @@ import {
   generateAndDownloadReport,
   type ReportFormat,
 } from "@/utils/reportExport";
+import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
+import { DefconShareCarousel } from "@/components/defcon/DefconShareCarousel";
 
 import { formatCurrency, cn } from "@/shared/lib/utils";
 import {
@@ -47,7 +49,8 @@ import {
   CartesianGrid,
 } from "recharts";
 
-type Period = "today" | "7d" | "30d" | "custom";
+// "day" = escolher UM dia específico no calendário (ex.: "como foi o dia 30?")
+type Period = "today" | "day" | "7d" | "30d" | "custom";
 
 interface DailySale {
   date: string;
@@ -55,6 +58,9 @@ interface DailySale {
   total_debt: number | null;
   cost: number | null;
   unpaid_units?: number | null;
+  cash_sales?: number | null;
+  pix_sales?: number | null;
+  card_sales?: number | null;
 }
 
 interface HourBlock {
@@ -67,6 +73,7 @@ interface HourBlock {
 
 const PERIOD_LABELS: Record<Period, string> = {
   today: "Hoje",
+  day: "Escolher dia",
   "7d": "7 dias",
   "30d": "30 dias",
   custom: "Personalizado",
@@ -100,6 +107,12 @@ export default function Insights() {
     return startOfDay(d);
   });
   const [customEnd, setCustomEnd] = useState<Date | undefined>(() => startOfDay(new Date()));
+  // Dia único escolhido no calendário (padrão: ontem — o dia que a pessoa mais quer rever)
+  const [dayDate, setDayDate] = useState<Date | undefined>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return startOfDay(d);
+  });
 
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
@@ -124,6 +137,10 @@ export default function Insights() {
   const range = useMemo(() => {
     const today = startOfDay(new Date());
     if (period === "today") return { start: today, end: today };
+    if (period === "day") {
+      const d = dayDate ? startOfDay(dayDate) : today;
+      return { start: d, end: d };
+    }
     if (period === "7d") {
       const s = new Date(today);
       s.setDate(s.getDate() - 6);
@@ -137,7 +154,7 @@ export default function Insights() {
     const s = customStart ? startOfDay(customStart) : today;
     const e = customEnd ? startOfDay(customEnd) : today;
     return s <= e ? { start: s, end: e } : { start: e, end: s };
-  }, [period, customStart, customEnd]);
+  }, [period, customStart, customEnd, dayDate]);
 
   const rangeDays = useMemo(() => {
     return Math.round((range.end.getTime() - range.start.getTime()) / 86400000) + 1;
@@ -214,12 +231,14 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("created_at", range.start.toISOString())
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
+        // "Caiu depois": conta pelo DIA DA VENDA (sale_date), não pelo dia em que foi
+        // lançado — assim o recuperado casa com o calote do mesmo período.
         supabase
           .from("late_pix_entries")
           .select("amount")
           .eq("user_id", user.id)
-          .gte("created_at", range.start.toISOString())
-          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
+          .gte("sale_date", startISO)
+          .lte("sale_date", endISO),
         supabase
           .from("defcon_sales")
           .select("created_at,amount")
@@ -527,9 +546,19 @@ export default function Insights() {
   // Junta as vendas com carimbo de hora real (DEFCON + catálogo de produtos) e
   const periodoLabel =
     period === "today" ? "dia de hoje"
+    : period === "day" ? `dia ${fmtBR(range.start)}`
     : period === "7d" ? "semana (últimos 7 dias)"
     : period === "30d" ? "mês (últimos 30 dias)"
     : "período selecionado";
+
+  // Rótulo curto que vai impresso na arte de compartilhar
+  const shareLabel =
+    period === "today" ? `HOJE · ${fmtBR(range.start)}`
+    : period === "day" ? `DIA ${fmtBR(range.start)}`
+    : period === "7d" ? "ÚLTIMOS 7 DIAS"
+    : period === "30d" ? "ÚLTIMOS 30 DIAS"
+    : isSingleDay ? `DIA ${fmtBR(range.start)}`
+    : `${fmtBR(range.start)} → ${fmtBR(range.end)}`;
 
   // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
   useEffect(() => {
@@ -628,7 +657,7 @@ export default function Insights() {
       {/* Period filter */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
-          {(["today", "7d", "30d", "custom"] as Period[]).map((p) => (
+          {(["today", "day", "7d", "30d", "custom"] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -649,6 +678,13 @@ export default function Insights() {
             <DateField label="De" date={customStart} onChange={setCustomStart} />
             <span className="text-muted-foreground text-xs">até</span>
             <DateField label="Até" date={customEnd} onChange={setCustomEnd} />
+          </div>
+        )}
+
+        {period === "day" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <DateField label="Dia" date={dayDate} onChange={(d) => d && setDayDate(d)} />
+            <span className="text-[11px] text-muted-foreground">toque pra escolher o dia que quer rever</span>
           </div>
         )}
 
@@ -707,6 +743,20 @@ export default function Insights() {
             </div>
           </section>
 
+          {/* Compartilhar o resultado do período (mesmas artes do fim do DEFCON, com o
+              rótulo do período: dia, semana, mês ou o intervalo escolhido) */}
+          {summary.faturamento > 0 && (
+            <DefconShareCarousel
+              stats={{
+                faturamento: summary.faturamento,
+                vendas: summary.totalVendas,
+                conversao: summary.conversao,
+                horas: horasLabel,
+                periodo: shareLabel,
+              }}
+            />
+          )}
+
           {/* Era pra cair × Caiu — só vendido vs recebido (o calote é a diferença) */}
           <section className="rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-background p-5 space-y-4">
             <div className="flex items-start justify-between gap-3">
@@ -754,6 +804,17 @@ export default function Insights() {
               </div>
             </div>
           </section>
+
+          {/* FECHAMENTO DO DIA — só com um dia filtrado: rever o dia, lançar "caiu mais",
+              corrigir o dia e ver a frase direta do calote */}
+          {isSingleDay && (
+            <FechamentoDoDia
+              userId={user.id}
+              date={isoDate(range.start)}
+              dia={sales.find((d) => d.date === isoDate(range.start)) ?? null}
+              onChanged={loadData}
+            />
+          )}
 
           {/* Análise da IA — comprimida: só um botão quando não há análise ainda */}
           {aiReport ? (
@@ -887,7 +948,7 @@ export default function Insights() {
               tone="muted"
             />
             <FinanceRow
-              label="Recuperado via Pix depois"
+              label="Caiu depois (recuperado)"
               value={formatCurrency(summary.pixRecuperado)}
               sub={
                 summary.pixRecuperado > 0
