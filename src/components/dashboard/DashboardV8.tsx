@@ -14,18 +14,20 @@ export function DashboardHeader({ nome, diasFoco }: { nome: string; diasFoco: nu
   const agora = new Date();
   const h = agora.getHours();
   const saud = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-  const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  // Data CURTA ("seg, 31 ago") — a longa ("segunda-feira, 31 de agosto") não cabe
+  // em tela de 375px ao lado do chip e virava "31 de ag…".
+  const data = agora.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
-        <p className="orbis-section truncate">{data}</p>
-        <p className="font-display text-[19px] font-extrabold whitespace-nowrap">
+    <div className="flex items-center justify-between gap-2 pt-1">
+      <div className="min-w-0 flex-1">
+        <p className="orbis-section">{data}</p>
+        <p className="font-display text-[19px] font-extrabold leading-tight mt-0.5 truncate">
           {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
         </p>
       </div>
       {diasFoco > 0 && (
         <span
-          className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[10.5px] font-extrabold whitespace-nowrap shrink-0"
+          className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-extrabold whitespace-nowrap shrink-0"
           style={{ color: "var(--orbis-gold)", background: "var(--orbis-gold-soft)", borderColor: "rgba(245,184,0,.35)" }}
         >
           <Flame className="w-3 h-3" /> {diasFoco} {diasFoco === 1 ? "dia" : "dias"} de Foco
@@ -57,10 +59,10 @@ export function HeroMes({ faturamento, meta, ritmoDia, onEditMeta }: {
     >
       <div className="min-w-0">
         <p className="orbis-label">Faturamento de {mes}</p>
-        <p className="font-display text-[38px] font-extrabold leading-none mt-2 orbis-num">
+        <p className="font-display text-[clamp(28px,9vw,38px)] font-extrabold leading-none mt-2 orbis-num whitespace-nowrap">
           <AnimatedCurrency value={faturamento} />
         </p>
-        <p className="text-[12.5px] mt-2 whitespace-nowrap" style={{ color: "var(--orbis-fg-2)" }}>
+        <p className="text-[12px] mt-2 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
           Meta <b style={{ color: "var(--orbis-fg)" }}>{formatCurrency(meta)}</b> · ritmo{" "}
           <b style={{ color: "var(--orbis-fg)" }}>{formatCurrency(ritmoDia)}/dia</b>
         </p>

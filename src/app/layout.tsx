@@ -84,10 +84,11 @@ export default function Layout({ children }: LayoutProps) {
         localStorage.setItem(doneKey, 'true');
         setOnboardingCompleto(true);
       } else {
-        // Conta nova / onboarding não concluído: mostra a missão do começo.
+        // Missão antiga desligada: o app abre normal. Contas novas passam pelo
+        // /onboarding-novo (Auth manda pra lá) e o resto do app não fica preso.
         setMissionStep(data?.onboarding_step ?? 0);
         setMissionNickname(data?.nickname ?? null);
-        setOnboardingCompleto(false);
+        setOnboardingCompleto(true);
       }
       setOnboardingChecked(true);
     })();
@@ -354,8 +355,9 @@ export default function Layout({ children }: LayoutProps) {
       <FloatingChatButton />
 
       {/* Missao de Boas-Vindas (onboarding gamificado): overlay sobre o app real */}
-      {/* Contas do Onboarding 2.0 (flag local) NÃO veem a missão antiga */}
-      {user && onboardingChecked && !onboardingCompleto && localStorage.getItem(`orbis_onboarding_novo_${user.id}`) !== "1" && (
+      {/* DESLIGADO (31/08): a missão antiga travava o dashboard ("Fase 2 de 2") e foi
+          substituída pelo Onboarding 2.0 (/onboarding-novo) + cards de 1ª vez por tela. */}
+      {false && user && onboardingChecked && !onboardingCompleto && (
         <MissionOrchestrator
           userId={user.id}
           nickname={missionNickname}
@@ -372,7 +374,8 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Coach por tela: explica cada tela na 1ª visita (onboarding natural) */}
-      {user && onboardingCompleto && <ScreenCoach userId={user.id} isAdmin={isAdmin} />}
+      {/* ScreenCoach DESLIGADO (31/08): substituído pelo FirstTimeCard em cada tela */}
+      {false && user && <ScreenCoach userId={user.id} isAdmin={isAdmin} />}
 
       {/* Morning Commit Modal */}
       {user && onboardingCompleto && (

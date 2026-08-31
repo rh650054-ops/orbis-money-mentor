@@ -445,7 +445,7 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+  return <div className="bg-background px-4 pt-3 pb-8 space-y-3.5 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
       {/* Cabeçalho 2.0: saudação + chip "N dias de Foco" */}
       <DashboardHeader nome={nickname || "vendedor"} diasFoco={activeDaysCount} />
 

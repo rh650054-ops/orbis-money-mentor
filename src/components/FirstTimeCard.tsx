@@ -18,6 +18,7 @@
    - Novas telas: é só adicionar uma entrada em TELAS_INTRO.
    ============================================================ */
 import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Home, Zap, Trophy, Wallet, BarChart3, Package } from "lucide-react";
 import { useReducedMotion } from "@/shared/motion";
 
@@ -125,7 +126,9 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
 
   const mostrando = reduced || entrando;
 
-  return (
+  // PORTAL no <body>: overlay "fixed" dentro de uma página com transform fica
+  // preso à página (foi o bug do card no fundo da tela). No body ele é livre.
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center"
       role="dialog" aria-modal="true" aria-label={c.titulo}>
       {/* véu escuro — fecha no toque (não prendemos ninguém) */}
@@ -179,6 +182,7 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
           Entendi
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

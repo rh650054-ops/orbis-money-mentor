@@ -2,15 +2,13 @@
    ORBIS DESIGN SYSTEM 2.0 — tokens + movimento
    Decisões tomadas com o Rick (set/2026):
    - Preto ABSOLUTO (#000) como palco; superfícies em cinza neutro
-   - Manrope para números/títulos, Inter para texto
+   - Fonte do Opal = SF Pro (nativa do iPhone); Android cai na Inter
    - Dourado = ação e conquista · verde = dinheiro que caiu
    - vermelho calmo = custos · vermelho vivo = calote
    - 4 durações de animação, 1 curva. Movimento com emprego.
    Importar no fim do index.css:  @import "./styles/orbis.css";
    ============================================================ */
 
-@import "@fontsource/manrope/700.css";
-@import "@fontsource/manrope/800.css";
 @import "@fontsource/inter/400.css";
 @import "@fontsource/inter/500.css";
 @import "@fontsource/inter/600.css";
@@ -43,8 +41,8 @@
 }
 
 /* ---- tipografia utilitária ---- */
-.font-display { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; }
-.orbis-num { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.font-display { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif; letter-spacing: -0.01em; }
+.orbis-num { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
 .orbis-label {
   color: var(--orbis-gold);
   font-size: 11px; font-weight: 800;
@@ -62,7 +60,7 @@
   color: #1a1200;
   border-radius: 16px;
   height: 54px;
-  font-family: "Manrope", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, sans-serif;
   font-weight: 800; font-size: 15.5px;
   display: flex; align-items: center; justify-content: center; gap: 9px;
   box-shadow: 0 5px 0 var(--orbis-gold-deep);
@@ -78,12 +76,12 @@
 /* ---- entrada de tela (PageTransition) ----
    A tela nova sobe 12px com fade; a volta desce. 250ms, sempre igual. */
 @keyframes orbis-page-in {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
 }
 @keyframes orbis-page-back {
-  from { opacity: 0; transform: translateY(-10px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
 }
 .orbis-page-enter { animation: orbis-page-in var(--dur-enter) var(--ease-orbis) both; }
 .orbis-page-back  { animation: orbis-page-back var(--dur-enter) var(--ease-orbis) both; }
@@ -91,7 +89,7 @@
 /* entrada de card individual (usar com moderação — listas grandes não) */
 @keyframes orbis-card-in {
   from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  to   { opacity: 1; transform: none; }
 }
 .orbis-card-in { animation: orbis-card-in var(--dur-enter) var(--ease-orbis) both; }
 

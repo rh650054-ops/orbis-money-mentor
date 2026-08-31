@@ -13,6 +13,7 @@
    é o Index (tem os hooks de metas/defcon/ranking) e passa por props.
    ============================================================ */
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { Check, X } from "lucide-react";
 
 export interface PassoItem {
@@ -36,7 +37,7 @@ export function primeirosPassosDispensado(userId: string): boolean {
 function TourConcluido({ onFechar }: { onFechar: () => void }) {
   const [aberto, setAberto] = useState(true); // fecha sozinho mesmo sem re-render do pai
   if (!aberto) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center" role="dialog" aria-modal="true">
       <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.72)", backdropFilter: "blur(2px)" }} />
       <div className="orbis-victory relative w-full max-w-md mx-6 rounded-[22px] border p-6 text-center"
@@ -61,7 +62,8 @@ function TourConcluido({ onFechar }: { onFechar: () => void }) {
           BORA VENDER
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
