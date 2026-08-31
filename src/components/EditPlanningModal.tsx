@@ -1,14 +1,10 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
-import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
-import { Label } from "@/shared/ui/label";
-import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
-import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import CampoHoraVenda from "@/components/CampoHoraVenda";
 
@@ -168,17 +164,6 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
   const weeklyGoal = calculateWeeklyGoal();
   const hourlyGoal = workHours > 0 ? dailyGoal / workHours : 0;
 
-  // Get title and description based on required reason
-  const getTitle = () => {
-    if (requiredReason === "first_time") {
-      return "🎯 Configure seu Planejamento";
-    }
-    if (requiredReason === "new_month") {
-      return "📅 Novo Mês - Atualize suas Metas";
-    }
-    return "✏️ Editar Planejamento";
-  };
-
   const getDescription = () => {
     if (requiredReason === "first_time") {
       return "Defina sua meta deste mês, suas horas de trabalho por dia e quantos dias irá trabalhar.";
@@ -204,25 +189,54 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
     }
   };
 
+  // ---- Orbis 2.0: chips pra dias/horas. Valor fora da lista (ex.: 13h) vira chip extra.
+  const opcoesDias = [4, 5, 6, 7].includes(workDaysPerWeek) ? [4, 5, 6, 7] : [...new Set([4, 5, 6, 7, workDaysPerWeek])].filter(Boolean).sort((a, b) => a - b);
+  const opcoesHoras = [6, 8, 10, 12].includes(workHours) ? [6, 8, 10, 12] : [...new Set([6, 8, 10, 12, workHours])].filter(Boolean).sort((a, b) => a - b);
+  const fmt0 = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
+
+  const Chip = ({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="orbis-press orbis-num flex-1 h-11 rounded-[13px] flex items-center justify-center text-[15px] font-extrabold"
+      style={ativo
+        ? { background: "linear-gradient(180deg,var(--orbis-gold-light,#FFC63A),var(--orbis-gold,#F5B800))", color: "#1A1200", boxShadow: "0 4px 0 var(--orbis-gold-deep,#B88700)" }
+        : { background: "#101010", border: "1px solid var(--orbis-line, rgba(255,255,255,.09))", color: "var(--orbis-fg-2, #B9B3A6)" }}
+    >
+      {children}
+    </button>
+  );
+  const Rotulo = ({ children }: { children: React.ReactNode }) => (
+    <p className="text-[10.5px] font-extrabold uppercase tracking-[.16em] text-left" style={{ color: "var(--orbis-fg-3, #7E7869)" }}>{children}</p>
+  );
+
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
-        className="w-[calc(100vw-1.5rem)] max-w-[420px] sm:max-w-[440px] p-0 gap-0 bg-card border border-border rounded-2xl overflow-hidden"
+        className="w-[calc(100vw-2rem)] max-w-[420px] p-0 gap-0 border rounded-[22px] overflow-hidden"
+        style={{
+          background: "linear-gradient(160deg,#17130A 0%,var(--orbis-surface,#111) 55%)",
+          borderColor: "rgba(245,184,0,.30)",
+          boxShadow: "0 24px 70px -24px rgba(245,184,0,.4)",
+        }}
       >
-        <DialogHeader className="px-5 pt-5 pb-3">
-          <DialogTitle className="text-lg font-bold text-primary leading-tight">
-            {getTitle()}
+        <DialogHeader className="px-5 pt-5 pb-1 text-left">
+          <p className="text-[10px] font-extrabold uppercase tracking-[.16em]" style={{ color: "var(--orbis-gold,#F5B800)" }}>
+            {requiredReason === "new_month" ? "Novo mês" : "Seu planejamento"}
+          </p>
+          <DialogTitle className="font-display text-[19px] font-extrabold leading-tight mt-0.5">
+            {requiredReason === "first_time" ? "Monte seu planejamento" : requiredReason === "new_month" ? "Atualize suas metas" : "Meta, ritmo e combinado"}
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground mt-1">
+          <DialogDescription className="text-[12px] mt-1" style={{ color: "var(--orbis-fg-2,#B9B3A6)" }}>
             {getDescription()}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="px-5 pb-5 space-y-3">
+        <div className="px-5 pb-5 pt-3 flex flex-col gap-3.5">
           {isRequired && (
-            <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/30 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-              <p className="text-xs text-primary/90">
+            <div className="rounded-xl px-3 py-2.5 flex items-start gap-2" style={{ background: "var(--orbis-gold-soft, rgba(245,184,0,.13))", border: "1px solid rgba(245,184,0,.35)" }}>
+              <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "var(--orbis-gold,#F5B800)" }} />
+              <p className="text-[12px]" style={{ color: "var(--orbis-fg,#F4F1EA)" }}>
                 {requiredReason === "first_time"
                   ? "Configure seu planejamento para começar."
                   : "Defina suas metas para este novo mês."}
@@ -230,79 +244,53 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
             </div>
           )}
 
-          {/* Inputs em grid compacto */}
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="monthlyGoal" className="flex items-center gap-1.5 text-xs">
-                <Target className="w-3.5 h-3.5 text-primary" />
-                Meta Mensal (R$)
-              </Label>
+          <div>
+            <Rotulo>Meta mensal</Rotulo>
+            <div className="mt-[6px] rounded-2xl px-4 py-1 flex items-center" style={{ background: "#101010", border: "1px solid rgba(245,184,0,.35)" }}>
               <MoneyInput
                 id="monthlyGoal"
                 value={monthlyGoal}
                 onChange={setMonthlyGoal}
                 decimals={0}
-                placeholder="Ex: 4.200"
-                className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
+                placeholder="Ex: 6.000"
+                className="orbis-num font-display h-11 border-0 bg-transparent px-0 text-[22px] font-extrabold focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="workDays" className="flex items-center gap-1.5 text-xs">
-                  <Calendar className="w-3.5 h-3.5 text-primary" />
-                  Dias/semana
-                </Label>
-                <Input
-                  id="workDays"
-                  type="number"
-                  inputMode="numeric"
-                  value={workDaysPerWeek || ''}
-                  onChange={(e) => setWorkDaysPerWeek(e.target.value === '' ? 0 : Number(e.target.value))}
-                  onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-                  min={1}
-                  max={7}
-                  placeholder="5"
-                  className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Rotulo>Dias/semana</Rotulo>
+              <div className="mt-[6px] flex gap-1.5">
+                {opcoesDias.map((d) => (
+                  <Chip key={d} ativo={workDaysPerWeek === d} onClick={() => setWorkDaysPerWeek(d)}>{d}</Chip>
+                ))}
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="workHours" className="flex items-center gap-1.5 text-xs">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  Horas/dia
-                </Label>
-                <Input
-                  id="workHours"
-                  type="number"
-                  inputMode="numeric"
-                  value={workHours || ''}
-                  onChange={(e) => setWorkHours(e.target.value === '' ? 0 : Number(e.target.value))}
-                  onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
-                  min={1}
-                  max={24}
-                  placeholder="8"
-                  className="h-10 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                />
+            </div>
+            <div>
+              <Rotulo>Horas/dia</Rotulo>
+              <div className="mt-[6px] flex gap-1.5">
+                {opcoesHoras.map((h) => (
+                  <Chip key={h} ativo={workHours === h} onClick={() => setWorkHours(h)}>{h}</Chip>
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Resumo compacto */}
-          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Semanal</p>
-                <p className="text-xs font-bold text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
-              </div>
-              <div className="min-w-0 border-x border-border">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Diária</p>
-                <p className="text-xs font-bold text-primary truncate">{formatCurrency(dailyGoal)}</p>
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Por Hora</p>
-                <p className="text-xs font-bold text-foreground truncate">{formatCurrency(hourlyGoal)}</p>
-              </div>
+          {/* Faixa gerada ao vivo — a mesma conta de sempre (mês ÷ 4) */}
+          <div className="rounded-2xl border px-3 py-3 grid grid-cols-3 text-center"
+            style={{ borderColor: "rgba(245,184,0,.4)", background: "var(--orbis-gold-soft, rgba(245,184,0,.10))" }}>
+            <div>
+              <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "var(--orbis-fg-3,#7E7869)" }}>Semanal</p>
+              <p className="orbis-num font-display text-[15px] font-extrabold mt-1">{fmt0(weeklyGoal)}</p>
+            </div>
+            <div style={{ borderLeft: "1px solid rgba(255,255,255,.10)", borderRight: "1px solid rgba(255,255,255,.10)" }}>
+              <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "var(--orbis-gold,#F5B800)" }}>Diária</p>
+              <p className="orbis-num font-display text-[15px] font-extrabold mt-1" style={{ color: "var(--orbis-gold,#F5B800)" }}>{fmt0(dailyGoal)}</p>
+            </div>
+            <div>
+              <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "var(--orbis-fg-3,#7E7869)" }}>Por hora</p>
+              <p className="orbis-num font-display text-[15px] font-extrabold mt-1">{fmt0(hourlyGoal)}</p>
             </div>
           </div>
 
@@ -310,24 +298,27 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
           <CampoHoraVenda userId={userId} />
 
           {/* Botões */}
-          <div className="flex gap-2 pt-1">
+          <div className="flex gap-2.5 pt-1">
             {!isRequired && (
-              <Button
+              <button
+                type="button"
                 onClick={onClose}
-                variant="outline"
-                className="flex-1 h-10 rounded-lg border-border"
                 disabled={loading}
+                className="orbis-press flex-1 h-[46px] rounded-2xl text-[14px] font-bold"
+                style={{ border: "1px solid var(--orbis-line, rgba(255,255,255,.12))", color: "var(--orbis-fg,#F4F1EA)" }}
               >
                 Cancelar
-              </Button>
+              </button>
             )}
-            <Button
+            <button
+              type="button"
               onClick={handleSave}
-              className="flex-1 h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               disabled={loading}
+              className="orbis-cta flex-1"
+              style={{ height: 46 }}
             >
               {loading ? "Salvando..." : isRequired ? "Começar" : "Salvar"}
-            </Button>
+            </button>
           </div>
         </div>
       </DialogContent>
