@@ -1,7 +1,8 @@
 /* ============================================================
    CAMPO "QUE HORAS VOCÊ COMEÇA A VENDER AMANHÃ?" — drop-in.
    O modal Editar Planejamento FICA COMO ERA (decisão do Rick);
-   este campo entra no FINAL dele, antes dos botões Cancelar/Salvar.
+   este campo entra no FINAL dele, antes dos botões Cancelar/Salvar,
+   com a cara do mock aprovado (bloco tracejado dourado + selo NOVO).
    Ele se vira sozinho: carrega a hora atual ao montar e grava ao
    tocar (salvarHoraInicio). Tocar de novo no mesmo chip desmarca
    — e sem hora marcada, a CobrancaDoCorre não cobra nada.
@@ -42,27 +43,33 @@ export default function CampoHoraVenda({ userId }: { userId?: string }) {
   };
 
   return (
-    <div className="mt-3">
-      <p className="text-[10.5px] font-extrabold uppercase tracking-[.16em]" style={{ color: "var(--orbis-fg-3, #7E7869)" }}>
-        Que horas você começa a vender amanhã?
+    <div className="relative rounded-2xl px-3 pt-3 pb-2.5" style={{ border: "1.5px dashed rgba(245,184,0,.5)" }}>
+      <span className="absolute -top-2 left-3 rounded-full px-2 py-[2px] text-[8.5px] font-extrabold tracking-[.08em]"
+        style={{ background: "#F5B800", color: "#1A1200" }}>
+        NOVO
+      </span>
+      <p className="flex items-center gap-1.5 text-sm font-bold leading-snug">
+        <span aria-hidden>⏰</span> Que horas você começa a vender amanhã?
       </p>
-      <div className="mt-1.5 flex gap-1.5">
+      <div className="mt-2 flex gap-1.5">
         {[7, 8, 9, 10].map((h) => (
           <button
             key={h}
             type="button"
             onClick={() => escolher(h)}
-            className="orbis-press orbis-num flex-1 h-11 rounded-[13px] flex items-center justify-center text-[15px] font-extrabold"
+            className="orbis-press orbis-num flex-1 h-11 rounded-[14px] flex items-center justify-center text-[15px] font-extrabold"
             style={hora === h
-              ? { background: "linear-gradient(180deg,var(--orbis-gold-light,#FFC63A),var(--orbis-gold,#F5B800))", color: "#1A1200", boxShadow: "0 4px 0 var(--orbis-gold-deep,#B88700)" }
-              : { background: "#101010", border: "1px solid var(--orbis-line, rgba(255,255,255,.09))", color: "var(--orbis-fg-2, #B9B3A6)" }}
+              ? { background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1A1200", boxShadow: "0 4px 0 #B88700" }
+              : { background: "#1E1E1E", border: "1px solid rgba(255,255,255,.10)", color: "#B9B3A6" }}
           >
             {h}h
           </button>
         ))}
       </div>
-      <p className="text-[11px] mt-1" style={{ color: "var(--orbis-fg-3, #7E7869)" }}>
-        {hora != null ? `Combinado: às ${hora}h a gente te espera.` : "Sem hora marcada, o Orbis não cobra."}
+      <p className="text-[11px] mt-1.5" style={{ color: "#7E7869" }}>
+        {hora != null
+          ? `Combinado: às ${hora}h a gente te espera. (tocar de novo desmarca — sem hora, sem cobrança)`
+          : "Sem hora marcada, o Orbis não cobra."}
       </p>
     </div>
   );
