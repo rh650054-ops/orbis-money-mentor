@@ -37,6 +37,8 @@ import {
 } from "@/utils/reportExport";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
 import { DefconShareCarousel } from "@/components/defcon/DefconShareCarousel";
+import { RelatorioShareCard } from "@/components/relatorio/RelatorioShareCard";
+import { fmtHorasCurto, type RecapStats } from "@/components/relatorio/recapCanvas";
 
 import { formatCurrency, cn } from "@/shared/lib/utils";
 import {
@@ -551,14 +553,53 @@ export default function Insights() {
     : period === "30d" ? "mês (últimos 30 dias)"
     : "período selecionado";
 
-  // Rótulo curto que vai impresso na arte de compartilhar
-  const shareLabel =
-    period === "today" ? `HOJE · ${fmtBR(range.start)}`
-    : period === "day" ? `DIA ${fmtBR(range.start)}`
-    : period === "7d" ? "ÚLTIMOS 7 DIAS"
-    : period === "30d" ? "ÚLTIMOS 30 DIAS"
-    : isSingleDay ? `DIA ${fmtBR(range.start)}`
-    : `${fmtBR(range.start)} → ${fmtBR(range.end)}`;
+  // Rótulo curto que vai impresso na arte diária (mesma arte do fim do DEFCON)
+  const shareLabel = period === "today" ? `HOJE · ${fmtBR(range.start)}` : `DIA ${fmtBR(range.start)}`;
+
+  // Dados da arte RECAP (semana / mês / intervalo) — barras dia a dia + grade de números
+  const recapStats: RecapStats = useMemo(() => {
+    const MESES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    const MESES_LONGO = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+    const DIAS_SEM = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+    const s = range.start, e = range.end;
+    let titulo: string;
+    let subtitulo: string | undefined;
+    if (period === "7d") {
+      titulo = s.getMonth() === e.getMonth()
+        ? `Semana ${s.getDate()} – ${e.getDate()} ${MESES[e.getMonth()]}`
+        : `Semana ${s.getDate()} ${MESES[s.getMonth()]} – ${e.getDate()} ${MESES[e.getMonth()]}`;
+      subtitulo = "últimos 7 dias";
+    } else if (period === "30d") {
+      titulo = `${MESES_LONGO[e.getMonth()]} ${e.getFullYear()}`;
+      subtitulo = "últimos 30 dias";
+    } else {
+      titulo = `${fmtBR(s)} → ${fmtBR(e)}`;
+      subtitulo = `${rangeDays} dias`;
+    }
+    const dias = chartData.map((d) => {
+      const dt = new Date(d.iso + "T12:00:00");
+      return {
+        label: chartData.length <= 7 ? DIAS_SEM[dt.getDay()]![0]!.toUpperCase() : String(dt.getDate()),
+        valor: d.valor,
+        iso: d.iso,
+      };
+    });
+    const best = bestWorstDay?.best;
+    const bestDt = best ? new Date(best.iso + "T12:00:00") : null;
+    return {
+      titulo,
+      subtitulo,
+      faturamento: summary.faturamento,
+      lucro: summary.lucro,
+      dias,
+      diasTrabalhados: sales.filter((d) => (d.total_profit || 0) > 0).length,
+      melhorDia: best && bestDt ? { label: `${DIAS_SEM[bestDt.getDay()]} ${fmtBR(bestDt)}`, valor: best.valor } : null,
+      vendas: summary.totalVendas,
+      ticketMedio: summary.ticketMedio,
+      horasMin: summary.horasTrabalhadasMin,
+      caiuPct: esperadoReceber > 0 ? pctRecebido : null,
+    };
+  }, [period, range.start, range.end, rangeDays, chartData, bestWorstDay, summary, sales, esperadoReceber, pctRecebido]);
 
   // Limpa a análise quando muda o período (pra não mostrar análise de outro range)
   useEffect(() => {
@@ -746,15 +787,19 @@ export default function Insights() {
           {/* Compartilhar o resultado do período (mesmas artes do fim do DEFCON, com o
               rótulo do período: dia, semana, mês ou o intervalo escolhido) */}
           {summary.faturamento > 0 && (
-            <DefconShareCarousel
-              stats={{
-                faturamento: summary.faturamento,
-                vendas: summary.totalVendas,
-                conversao: summary.conversao,
-                horas: horasLabel,
-                periodo: shareLabel,
-              }}
-            />
+            isSingleDay ? (
+              <DefconShareCarousel
+                stats={{
+                  faturamento: summary.faturamento,
+                  vendas: summary.totalVendas,
+                  conversao: summary.conversao,
+                  horas: fmtHorasCurto(summary.horasTrabalhadasMin),
+                  periodo: shareLabel,
+                }}
+              />
+            ) : (
+              <RelatorioShareCard stats={recapStats} />
+            )
           )}
 
           {/* Era pra cair × Caiu — só vendido vs recebido (o calote é a diferença) */}
