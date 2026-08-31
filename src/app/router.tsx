@@ -63,6 +63,7 @@ const TestRanking = lazyWithReload(() => import("@/pages/TestRanking"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
 const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
+const OnboardingNovo = lazyWithReload(() => import("@/pages/onboarding/OnboardingNovo"));
 const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
 const DailyGoals = lazyWithReload(() => import("@/pages/DailyGoals"));
 const Ranking = lazyWithReload(() => import("@/pages/Ranking"));
@@ -100,6 +101,8 @@ export function AppRouter() {
           <Route path="/payment" element={<Payment />} />
           <Route path="/benefits" element={<Benefits />} />
           <Route path="/install" element={<Install />} />
+          {/* Onboarding 2.0 (contas novas): fora do Layout — sem nav, tela cheia */}
+          <Route path="/onboarding-novo" element={<OnboardingNovo />} />
           <Route path="/defcon" element={<DefconChallenge />} />
           <Route path="/bilhete" element={<BilhetePreview />} />
           <Route

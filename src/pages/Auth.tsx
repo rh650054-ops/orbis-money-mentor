@@ -37,11 +37,14 @@ export default function Auth() {
   const { cities, loading: loadingCities } = useBrazilCities(state);
 
   useEffect(() => {
+    // Conta recém-criada vai pro Onboarding 2.0 (flag setada antes do signUp);
+    // login normal continua indo pro dashboard.
+    const destino = () => (sessionStorage.getItem("orbis_signup_novo") === "1" ? "/onboarding-novo" : "/");
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) navigate("/");
+      if (session) navigate(destino());
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate("/");
+      if (session) navigate(destino());
     });
     return () => subscription.unsubscribe();
   }, [navigate]);
@@ -129,6 +132,7 @@ export default function Auth() {
         const trialStart = new Date().toISOString().split('T')[0]!;
         const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!;
 
+        sessionStorage.setItem("orbis_signup_novo", "1"); // → Onboarding 2.0 após criar
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: internalEmail,
           password,
@@ -177,7 +181,11 @@ export default function Auth() {
           title: "Conta criada! 🎉",
           description: "Bem-vindo ao Orbis. Você ganhou 3 dias de teste grátis.",
         });
-        navigate("/", { replace: true });
+        // Marca a conta como "Onboarding 2.0" (o Layout não mostra a missão antiga pra ela)
+        if (signUpData?.user) {
+          try { localStorage.setItem(`orbis_onboarding_novo_${signUpData.user.id}`, "1"); } catch { /* nada */ }
+        }
+        navigate("/onboarding-novo", { replace: true });
       }
     } catch (error: any) {
       toast({

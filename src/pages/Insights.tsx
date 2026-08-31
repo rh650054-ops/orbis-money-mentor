@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
+  TrendingUp,
+  AlertTriangle,
   ChevronRight,
   Loader2,
   ArrowUpRight,
@@ -36,6 +38,8 @@ import {
   type ReportFormat,
 } from "@/utils/reportExport";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
+import { AnimatedCurrency, AnimatedNumber, FillBar } from "@/shared/motion";
+import FirstTimeCard from "@/components/FirstTimeCard";
 import { DefconShareCarousel } from "@/components/defcon/DefconShareCarousel";
 import { RelatorioShareCard } from "@/components/relatorio/RelatorioShareCard";
 import { fmtHorasCurto, type RecapStats } from "@/components/relatorio/recapCanvas";
@@ -663,15 +667,11 @@ export default function Insights() {
 
 
   return (
-    <div className="space-y-4 md:space-y-5 pb-4 md:pb-8 text-foreground">
-      {/* Header */}
+    <div className="space-y-4 pb-4 md:pb-8 text-foreground">
+      <FirstTimeCard tela="relatorio" userId={user?.id} />
+      {/* Header — Relatório v2 (design system Orbis: Manrope, preto absoluto) */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Relatório</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Decisões claras a partir do seu desempenho
-          </p>
-        </div>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight">Relatório</h1>
         <ExportReportDialog
           open={exportOpen}
           onOpenChange={setExportOpen}
@@ -695,7 +695,7 @@ export default function Insights() {
         />
       </div>
 
-      {/* Period filter */}
+      {/* Filtro de período — pílulas, dourado no ativo */}
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {(["today", "day", "7d", "30d", "custom"] as Period[]).map((p) => (
@@ -703,7 +703,7 @@ export default function Insights() {
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                "px-3.5 py-1.5 text-xs font-medium rounded-full border transition-[colors,transform,opacity]",
+                "orbis-press px-3.5 py-2 text-xs font-semibold rounded-full border transition-[colors]",
                 period === p
                   ? "bg-primary text-primary-foreground border-primary shadow-[0_4px_14px_-2px_hsl(var(--primary)/0.5)]"
                   : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",
@@ -728,13 +728,6 @@ export default function Insights() {
             <span className="text-[11px] text-muted-foreground">toque pra escolher o dia que quer rever</span>
           </div>
         )}
-
-        <p className="text-xs text-muted-foreground">
-          Período: <span className="text-foreground font-medium">
-            {fmtBR(range.start)} → {fmtBR(range.end)}
-          </span>{" "}
-          · {rangeDays} {rangeDays === 1 ? "dia" : "dias"}
-        </p>
       </div>
 
       {loading ? (
@@ -743,49 +736,53 @@ export default function Insights() {
         </div>
       ) : (
         <>
-          {/* HERO - destaque principal */}
-          <section className="relative overflow-hidden rounded-3xl border border-primary/30 p-5 bg-gradient-to-br from-primary/15 via-primary/5 to-transparent">
-            <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
-            <div className="relative space-y-1">
-              <p className="text-xs uppercase tracking-wider text-primary font-bold">
-                Faturamento do período
-              </p>
-              <p className="text-4xl font-bold tracking-tight text-foreground">
-                {formatCurrency(summary.faturamento)}
-              </p>
-              <div className="flex items-center gap-3 flex-wrap pt-1">
-                {(isSingleDay ? compareYesterday : comparePrev).valid && (
-                  <div className={cn(
-                    "inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border",
+          {/* HERÓI — faturamento do período (número conta, anel de contexto no chip) */}
+          <section
+            className="orbis-card-in rounded-[22px] border p-[17px]"
+            style={{
+              borderColor: "rgba(245,184,0,.28)",
+              background: "linear-gradient(160deg,#1C1608 0%, hsl(var(--card)) 60%)",
+              boxShadow: "0 20px 50px -30px rgba(245,184,0,.45)",
+            }}
+          >
+            <p className="orbis-label">
+              Faturamento · {fmtBR(range.start)}{isSingleDay ? "" : ` → ${fmtBR(range.end)}`}
+            </p>
+            <p className="font-display text-[34px] font-extrabold leading-none mt-2">
+              <AnimatedCurrency value={summary.faturamento} />
+            </p>
+            <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap mt-2.5 text-[12.5px] text-muted-foreground">
+              {(isSingleDay ? compareYesterday : comparePrev).valid && (
+                <span
+                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[11.5px] font-bold"
+                  style={
                     (isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
-                      ? "bg-primary/20 text-primary border-primary/40"
-                      : "bg-foreground/10 text-foreground/70 border-foreground/20"
-                  )}>
-                    {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0
-                      ? <ArrowUpRight className="w-3 h-3" />
-                      : <ArrowDownRight className="w-3 h-3" />}
-                    {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0 ? "+" : ""}
-                    {(isSingleDay ? compareYesterday.pct : comparePrev.pct).toFixed(0)}%{" "}
-                    {isSingleDay ? "vs ontem" : "vs anterior"}
-                  </div>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  Lucro líquido:{" "}
-                  <span className="font-bold text-primary">
-                    {formatCurrency(summary.lucro)}
-                  </span>
+                      ? { color: "var(--orbis-gold,#F5B800)", background: "rgba(245,184,0,.12)", borderColor: "rgba(245,184,0,.4)" }
+                      : { color: "hsl(var(--muted-foreground))", background: "rgba(255,255,255,.06)", borderColor: "rgba(255,255,255,.15)" }
+                  }
+                >
+                  {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0 ? (
+                    <ArrowUpRight className="w-3 h-3" />
+                  ) : (
+                    <ArrowDownRight className="w-3 h-3" />
+                  )}
+                  {(isSingleDay ? compareYesterday.pct : comparePrev.pct) >= 0 ? "+" : ""}
+                  {(isSingleDay ? compareYesterday.pct : comparePrev.pct).toFixed(0)}%{" "}
+                  {isSingleDay ? "vs ontem" : "vs anterior"}
                 </span>
-                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3 text-primary" />
-                  Horas trabalhadas:{" "}
-                  <span className="font-bold text-foreground">{horasLabel}</span>
+              )}
+              <span className="whitespace-nowrap">
+                Lucro <b className="text-foreground">{formatCurrency(summary.lucro)}</b>
+              </span>
+              {summary.horasTrabalhadasMin > 0 && (
+                <span className="whitespace-nowrap">
+                  <b className="text-foreground">{fmtHorasCurto(summary.horasTrabalhadasMin)}</b> na rua
                 </span>
-              </div>
+              )}
             </div>
           </section>
 
-          {/* Compartilhar o resultado do período (mesmas artes do fim do DEFCON, com o
-              rótulo do período: dia, semana, mês ou o intervalo escolhido) */}
+          {/* Compartilhar (arte diária do DEFCON pra 1 dia; recap pra períodos) */}
           {summary.faturamento > 0 && (
             isSingleDay ? (
               <DefconShareCarousel
@@ -802,56 +799,31 @@ export default function Insights() {
             )
           )}
 
-          {/* Era pra cair × Caiu — só vendido vs recebido (o calote é a diferença) */}
-          <section className="rounded-2xl border border-border/60 bg-gradient-to-br from-card via-card to-background p-5 space-y-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-success/10 border border-success/25 flex items-center justify-center shrink-0">
-                  <Wallet className="w-4 h-4 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground leading-tight">Era pra cair × Caiu</p>
-                  <p className="text-[11px] text-muted-foreground leading-tight">Do que você vendeu, quanto entrou</p>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Era pra cair</p>
-                <p className="text-sm font-bold text-foreground tabular-nums">{formatCurrency(esperadoReceber)}</p>
-              </div>
+          {/* CAIU NO BOLSO — verde herói, barra que enche, calote em vermelho vivo */}
+          <section className="orbis-card-in rounded-2xl border border-border/60 bg-card p-4 space-y-3">
+            <p className="orbis-label" style={{ color: "var(--orbis-ok,#3DD68C)" }}>Caiu no bolso</p>
+            <p className="font-display text-[30px] font-extrabold leading-none" style={{ color: "var(--orbis-ok,#3DD68C)" }}>
+              <AnimatedCurrency value={recebidoDeFato} />
+            </p>
+            <p className="text-[12.5px] text-muted-foreground -mt-1">
+              {pctRecebido.toFixed(0)}% de tudo que você vendeu já entrou
+            </p>
+            <div className="flex h-2 w-full rounded-full overflow-hidden bg-white/10">
+              <div
+                className="orbis-fill h-full"
+                style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%`, background: "var(--orbis-ok,#3DD68C)" }}
+              />
+              <div className="h-full flex-1" style={{ background: naoRecebido > 0 ? "var(--orbis-calote,#FF5C5C)" : "transparent" }} />
             </div>
-
-            {/* CAIU — destaque */}
-            <div>
-              <p className="text-[11px] text-muted-foreground">Caiu de verdade</p>
-              <p className="text-4xl font-black text-success tabular-nums tracking-tight">{formatCurrency(recebidoDeFato)}</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                {pctRecebido.toFixed(0)}% do que você vendeu entrou no bolso
-              </p>
-            </div>
-
-            {/* Barra dividida: verde = caiu, vermelho = calote */}
-            <div className="flex h-3 w-full rounded-full overflow-hidden bg-muted">
-              <div className="h-full bg-success transition-[width]" style={{ width: `${Math.min(100, Math.max(0, pctRecebido))}%` }} />
-              <div className="h-full bg-destructive transition-[width]" style={{ width: `${Math.min(100, Math.max(0, pctCalote))}%` }} />
-            </div>
-
-            {/* Calote — o que faltou cair */}
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-destructive/5 border border-destructive/25 px-3.5 py-3">
-              <div className="min-w-0">
-                <p className="text-[11px] uppercase tracking-wider text-destructive font-bold">Faltou cair</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {naoRecebido > 0 ? "vendido que ainda não entrou" : "tudo que vendeu já caiu 🎉"}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-xl font-black text-destructive tabular-nums">{formatCurrency(naoRecebido)}</p>
-                <p className="text-[11px] text-destructive/80 font-semibold">{pctCalote.toFixed(1)}% do total</p>
-              </div>
+            <div className="flex items-center justify-between text-[12px]">
+              <span className="text-muted-foreground">Vendido {formatCurrency(esperadoReceber)}</span>
+              <span className="font-bold" style={{ color: naoRecebido > 0 ? "var(--orbis-calote,#FF5C5C)" : "hsl(var(--muted-foreground))" }}>
+                {naoRecebido > 0 ? `Faltou cair ${formatCurrency(naoRecebido)}` : "caiu tudo 🎉"}
+              </span>
             </div>
           </section>
 
-          {/* FECHAMENTO DO DIA — só com um dia filtrado: rever o dia, lançar "caiu mais",
-              corrigir o dia e ver a frase direta do calote */}
+          {/* FECHAMENTO DO DIA — só com um dia filtrado */}
           {isSingleDay && (
             <FechamentoDoDia
               userId={user.id}
@@ -861,342 +833,288 @@ export default function Insights() {
             />
           )}
 
-          {/* Análise da IA — comprimida: só um botão quando não há análise ainda */}
-          {aiReport ? (
-            <div className="rounded-2xl border border-primary/25 bg-primary/5 p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
-                <p className="text-xs font-bold text-primary tracking-wide uppercase">Análise da IA · Mentor Orbis</p>
-              </div>
-              <p className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${aiExpanded ? "" : "line-clamp-4"}`}>
-                {aiReport.analise}
-              </p>
-              <div className="flex items-center gap-3 flex-wrap">
-                <button onClick={() => setAiExpanded((v) => !v)} className="text-xs font-semibold text-primary hover:underline">
-                  {aiExpanded ? "ver menos" : "ver mais"}
-                </button>
-                <button onClick={generateReportAnalysis} disabled={aiReportLoading} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60">
-                  {aiReportLoading ? "Atualizando..." : "Atualizar"}
-                </button>
-                <button onClick={() => navigate("/chat")} className="text-xs text-primary hover:underline inline-flex items-center gap-0.5 ml-auto">
-                  Conversar <ChevronRight className="w-3 h-3" />
-                </button>
-              </div>
-              {aiReportError && <p className="text-xs text-destructive whitespace-pre-line">{aiReportError}</p>}
-            </div>
-          ) : (
-            <Button
-              data-tour="conversar-ia"
-              onClick={generateReportAnalysis}
-              disabled={aiReportLoading}
-              variant="ghost"
-              className="w-full gap-2 h-11 text-sm font-bold bg-primary/10 hover:bg-primary/15 text-primary border border-primary/30"
+          {/* 4 números — cards gêmeos */}
+          <section className="grid grid-cols-2 gap-2.5">
+            <StatTile label="Ticket médio" sub={`${summary.totalVendas} ${summary.totalVendas === 1 ? "venda" : "vendas"}`}>
+              <AnimatedCurrency value={summary.ticketMedio} />
+            </StatTile>
+            <StatTile label="Conversão" sub={`${summary.totalAbordagens} abordagens`}>
+              <AnimatedNumber value={summary.conversao} format={(n) => `${Math.round(n)}%`} />
+            </StatTile>
+            <StatTile
+              label="Melhor dia"
+              sub={bestWorstDay?.best ? bestWorstDay.best.label : "—"}
             >
-              {aiReportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {aiReportLoading ? "Analisando seu corre..." : "Analisar meu desempenho com IA"}
-            </Button>
-          )}
-
-          {/* KPIs principais - paleta dourada/branca */}
-          <section className="grid grid-cols-2 gap-3">
-            <MetricCell
-              label="Ticket médio"
-              value={formatCurrency(summary.ticketMedio)}
-            />
-            <MetricCell
-              label="Conversão"
-              value={`${summary.conversao.toFixed(1)}%`}
-              accent="gold"
-            />
-            <MetricCell
-              label="Abordagens"
-              value={summary.totalAbordagens.toString()}
-            />
-            <MetricCell
-              label="Vendas"
-              value={summary.totalVendas.toString()}
-              accent="gold"
-            />
-            <MetricCell
-              label="Tempo ocioso"
-              value={ociosoLabel}
-            />
-            <MetricCell
-              label="Km andado"
-              value={kmLabel}
-              accent="gold"
-            />
+              <AnimatedCurrency value={bestWorstDay?.best?.valor ?? 0} />
+            </StatTile>
+            <StatTile label="Média por dia" sub={`${sales.length} ${sales.length === 1 ? "dia" : "dias"} na rua`}>
+              <AnimatedCurrency value={summary.mediaDiaria} />
+            </StatTile>
           </section>
 
-          {/* Detalhamento financeiro */}
-          <SectionTitle>Detalhamento financeiro</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
-            <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
-            <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
-            <FinanceRow label="Transporte" value={`- ${formatCurrency(summary.custoTransporte)}`} tone="muted" />
-            <FinanceRow label="Alimentação" value={`- ${formatCurrency(summary.custoAlimentacao)}`} tone="muted" />
-            {summary.custoOutros > 0 && (
-              <FinanceRow label="Outros custos" value={`- ${formatCurrency(summary.custoOutros)}`} tone="muted" />
-            )}
-            {summary.unidLevadas > 0 && (
-              <FinanceRow
-                label="Unidades levadas"
-                value={`${summary.unidLevadas} ${summary.unidLevadas === 1 ? "unidade" : "unidades"}`}
-                tone="muted"
-              />
-            )}
-            <FinanceRow
-              label="Unidades vendidas"
-              value={`${summary.totalVendas} ${summary.totalVendas === 1 ? "unidade" : "unidades"}`}
-              tone="muted"
-            />
-            {summary.unidLevadas > 0 && (
-              <FinanceRow
-                label="Sobrou (estoque)"
-                value={`${summary.unidSobrou} ${summary.unidSobrou === 1 ? "unidade" : "unidades"}`}
-                tone="muted"
-              />
-            )}
-            <FinanceRow
-              label="Unidades não pagas"
-              value={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"}`}
-              sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} não recebido · já no custo` : "já no custo"}
-              tone="muted"
-            />
-            <FinanceRow label="Média diária" value={formatCurrency(summary.mediaDiaria)} tone="muted" />
-            <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
-          </div>
-
-          {/* Recebido por forma de pagamento (somado no período) */}
-          <SectionTitle>Recebido por forma de pagamento</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
-            <FinanceRow label="💵 Dinheiro" value={formatCurrency(summary.dinheiro)} tone="white" />
-            <FinanceRow label="📱 Pix" value={formatCurrency(summary.pix)} tone="white" />
-            <FinanceRow label="💳 Cartão" value={formatCurrency(summary.cartao)} tone="white" />
-            {summary.gorjetas > 0 && (
-              <FinanceRow label="🎁 Gorjetas" value={formatCurrency(summary.gorjetas)} tone="muted" />
-            )}
-          </div>
-
-          {/* Calote e recuperação (período) */}
-          <SectionTitle>Calote e recuperação</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card divide-y divide-border/60 overflow-hidden">
-            <FinanceRow
-              label="Taxa de calote"
-              value={`${summary.calotePct.toFixed(1)}%`}
-              sub={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} · ${formatCurrency(summary.calotes)} não recebido`}
-              tone="white"
-            />
-            <FinanceRow
-              label="1 calote a cada"
-              value={summary.caloteACada > 0 ? `${summary.caloteACada.toFixed(0)} vendas` : "—"}
-              tone="muted"
-            />
-            <FinanceRow
-              label="Caiu depois (recuperado)"
-              value={formatCurrency(summary.pixRecuperado)}
-              sub={
-                summary.pixRecuperado > 0
-                  ? summary.calotes > 0
-                    ? `${summary.recuperadoPct.toFixed(0)}% do calote volta · ~${Math.round(summary.recuperadoUnid)} un`
-                    : `~${Math.round(summary.recuperadoUnid)} un recuperadas`
-                  : "ainda sem recuperação"
-              }
-              tone="white"
-            />
-            <FinanceRow
-              label="Calote médio por dia"
-              value={`${summary.mediaCaloteDiaUnid.toFixed(1)} un`}
-              tone="muted"
-            />
-            <FinanceRow
-              label="Ritmo de vendas"
-              value={summary.ritmoMin > 0 ? `1 a cada ${summary.ritmoMin.toFixed(0)} min` : "—"}
-              tone="muted"
-            />
-          </div>
-          {summary.sugestaoUnid > 0 && (
-            <div className="rounded-2xl border border-primary/30 bg-primary/10 p-3.5 flex items-start gap-2.5">
-              <span className="text-lg leading-none mt-0.5">💡</span>
-              <p className="text-sm text-foreground/90">
-                Leve{" "}
-                <span className="font-bold text-primary">
-                  +{summary.sugestaoUnid} {summary.sugestaoUnid === 1 ? "unidade" : "unidades"} por dia
-                </span>{" "}
-                pra cobrir seu calote médio.
-              </p>
-            </div>
+          {/* DIA A DIA — barras, melhor dia dourado com o valor em cima */}
+          {rangeDays > 1 && chartData.some((d) => d.valor > 0) && (
+            <section className="orbis-card-in rounded-2xl border border-border/60 bg-card p-4">
+              <p className="orbis-section mb-3">Dia a dia</p>
+              <BarsDiaADia data={chartData} />
+            </section>
           )}
 
-          {/* Breakdown de custos operacionais por categoria (CMV do dia + lançamentos manuais) */}
-          {custosPorCategoria.length > 0 && (
-            <>
-              <SectionTitle>Custos operacionais por categoria</SectionTitle>
-              <div className="rounded-2xl border border-border/60 bg-card p-4 space-y-2.5">
-                {custosPorCategoria.map((c) => {
-                  const pct = custosCategoriaTotal > 0 ? (c.total / custosCategoriaTotal) * 100 : 0;
-                  return (
-                    <div key={c.category} className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-base">{c.icon}</span>
-                        <span className="flex-1 text-foreground/90 font-medium">{c.category}</span>
-                        <span className="text-xs text-muted-foreground">{pct.toFixed(0)}%</span>
-                        <span className="font-bold text-primary w-24 text-right">
-                          {formatCurrency(c.total)}
-                        </span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden ml-7">
-                        <div
-                          className="h-full bg-primary/70 rounded-full"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+          {/* DETALHES — o resto mora recolhido (Miller: 5 blocos na tela) */}
+          <div className="space-y-2.5">
+            <Collapse
+              icon={<TrendingUp className="w-[18px] h-[18px]" style={{ color: "var(--orbis-gold,#F5B800)" }} />}
+              title="Detalhamento financeiro"
+              sub="custos e unidades"
+            >
+              <div className="divide-y divide-border/60">
+                <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
+                <FinanceRow label="Custo de mercadoria" value={`- ${formatCurrency(summary.custoMercadoria)}`} tone="muted" />
+                <FinanceRow label="Transporte" value={`- ${formatCurrency(summary.custoTransporte)}`} tone="muted" />
+                <FinanceRow label="Alimentação" value={`- ${formatCurrency(summary.custoAlimentacao)}`} tone="muted" />
+                {summary.custoOutros > 0 && (
+                  <FinanceRow label="Outros custos" value={`- ${formatCurrency(summary.custoOutros)}`} tone="muted" />
+                )}
+                {summary.unidLevadas > 0 && (
+                  <FinanceRow label="Unidades levadas" value={`${summary.unidLevadas}`} tone="muted" />
+                )}
+                <FinanceRow label="Unidades vendidas" value={`${summary.totalVendas}`} tone="muted" />
+                {summary.unidLevadas > 0 && (
+                  <FinanceRow label="Sobrou (estoque)" value={`${summary.unidSobrou}`} tone="muted" />
+                )}
+                {summary.gorjetas > 0 && (
+                  <FinanceRow label="Gorjetas" value={formatCurrency(summary.gorjetas)} tone="muted" />
+                )}
+                <FinanceRow label="Recebido em dinheiro" value={formatCurrency(summary.dinheiro)} tone="muted" />
+                <FinanceRow label="Recebido no Pix" value={formatCurrency(summary.pix)} tone="muted" />
+                <FinanceRow label="Recebido no cartão" value={formatCurrency(summary.cartao)} tone="muted" />
+                <FinanceRow label="Lucro líquido" value={formatCurrency(summary.lucro)} tone="gold" bold />
               </div>
-            </>
-          )}
-
-          {/* Análise narrativa */}
-          <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-transparent p-4">
-            <p className="text-xs uppercase tracking-wider text-primary font-bold mb-2">
-              Análise do período
-            </p>
-            <p className="text-sm text-foreground/90 leading-relaxed">
-              Entre <span className="font-semibold">{fmtBR(range.start)}</span> e{" "}
-              <span className="font-semibold">{fmtBR(range.end)}</span>:{" "}
-              {isSingleDay ? (
-                <>
-                  faturamento de{" "}
-                  <span className="text-primary font-semibold">
-                    {formatCurrency(summary.faturamento)}
-                  </span>.
-                </>
-              ) : (
-                <>
-                  total de{" "}
-                  <span className="text-primary font-semibold">
-                    {formatCurrency(summary.faturamento)}
-                  </span>, conversão{" "}
-                  <span className="text-primary font-semibold">
-                    {summary.conversao.toFixed(1)}%
-                  </span>.
-                  {bestWorstDay?.best && bestWorstDay?.worst && (
-                    <>
-                      {" "}Melhor dia:{" "}
-                      <span className="text-primary font-semibold">{bestWorstDay.best.label}</span>
-                      {" "}· Pior:{" "}
-                      <span className="text-foreground/60 font-semibold">{bestWorstDay.worst.label}</span>.
-                    </>
-                  )}
-                </>
+              {custosPorCategoria.length > 0 && (
+                <div className="px-4 py-3 space-y-2.5 border-t border-border/60">
+                  {custosPorCategoria.map((c) => {
+                    const pct = custosCategoriaTotal > 0 ? (c.total / custosCategoriaTotal) * 100 : 0;
+                    return (
+                      <div key={c.category} className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="flex-1 text-foreground/90 font-medium">{c.category}</span>
+                          <span className="text-xs text-muted-foreground">{pct.toFixed(0)}%</span>
+                          <span className="font-semibold text-primary w-24 text-right orbis-num">{formatCurrency(c.total)}</span>
+                        </div>
+                        <FillBar pct={pct} height={5} />
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-            </p>
-          </div>
+            </Collapse>
 
-          {/* Gráfico de faturamento */}
-          <SectionTitle>Faturamento</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card p-4">
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.6} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="hsl(var(--border))" strokeOpacity={0.2} vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={10}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v}`)}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "hsl(var(--card))",
-                      border: "1px solid hsl(var(--primary) / 0.4)",
-                      borderRadius: 12,
-                      fontSize: 12,
-                      color: "hsl(var(--foreground))",
-                    }}
-                    formatter={(v: number) => [formatCurrency(v), "Faturamento"]}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="valor"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={2.5}
-                    fill="url(#goldFill)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Performance */}
-          <SectionTitle>Performance</SectionTitle>
-          <div className="rounded-2xl border border-border/60 bg-card p-5 space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-              <MiniStat label="Abordagens" value={summary.totalAbordagens.toString()} />
-              <MiniStat label="Vendas" value={summary.totalVendas.toString()} highlight />
-              <MiniStat label="Conversão" value={`${summary.conversao.toFixed(0)}%`} highlight />
-            </div>
-            <div className="text-sm text-muted-foreground border-t border-border/60 pt-4 leading-relaxed">
-              {summary.abordagensPorVenda > 0 ? (
-                <>
-                  Você precisa de{" "}
-                  <span className="text-primary font-bold">
-                    {summary.abordagensPorVenda.toFixed(1)}
-                  </span>{" "}
-                  abordagens para gerar 1 venda · ticket médio{" "}
-                  <span className="text-foreground font-semibold">
-                    {formatCurrency(summary.ticketMedio)}
-                  </span>
-                </>
-              ) : (
-                "Registre suas abordagens no Ritmo para ver sua taxa de conversão."
+            <Collapse
+              icon={<AlertTriangle className="w-[18px] h-[18px]" style={{ color: "var(--orbis-calote,#FF5C5C)" }} />}
+              title="Calote e recuperação"
+              sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} · ${summary.caloteUnidades} un` : "sem calote 🎉"}
+            >
+              <div className="divide-y divide-border/60">
+                <FinanceRow
+                  label="Taxa de calote"
+                  value={`${summary.calotePct.toFixed(1)}%`}
+                  sub={`${summary.caloteUnidades} ${summary.caloteUnidades === 1 ? "unidade" : "unidades"} · ${formatCurrency(summary.calotes)} não recebido`}
+                  tone="white"
+                />
+                <FinanceRow
+                  label="1 calote a cada"
+                  value={summary.caloteACada > 0 ? `${summary.caloteACada.toFixed(0)} vendas` : "—"}
+                  tone="muted"
+                />
+                <FinanceRow
+                  label="Caiu depois (recuperado)"
+                  value={formatCurrency(summary.pixRecuperado)}
+                  sub={
+                    summary.pixRecuperado > 0
+                      ? summary.calotes > 0
+                        ? `${summary.recuperadoPct.toFixed(0)}% do calote volta`
+                        : `~${Math.round(summary.recuperadoUnid)} un recuperadas`
+                      : "ainda sem recuperação"
+                  }
+                  tone="white"
+                />
+                <FinanceRow label="Calote médio por dia" value={`${summary.mediaCaloteDiaUnid.toFixed(1)} un`} tone="muted" />
+              </div>
+              {summary.sugestaoUnid > 0 && (
+                <div className="mx-4 mb-3 rounded-xl border border-primary/30 bg-primary/10 p-3 text-sm text-foreground/90">
+                  Leve <b className="text-primary">+{summary.sugestaoUnid} {summary.sugestaoUnid === 1 ? "unidade" : "unidades"} por dia</b> pra cobrir seu calote médio.
+                </div>
               )}
-            </div>
-          </div>
+            </Collapse>
 
-          {/* Comparação */}
-          <SectionTitle>Comparação</SectionTitle>
-          <div className="grid grid-cols-2 gap-3">
-            {isSingleDay ? (
-              <>
-                <ComparisonCell
-                  label="Hoje vs ontem"
-                  pct={compareYesterday.pct}
-                  valid={compareYesterday.valid}
-                />
-                <MetricCell label="Faturamento ontem" value={formatCurrency(yesterdayProfit)} />
-              </>
-            ) : (
-              <>
-                <ComparisonCell
-                  label="Período vs anterior"
-                  pct={comparePrev.pct}
-                  valid={comparePrev.valid}
-                />
-                <MetricCell label="Média diária" value={formatCurrency(summary.mediaDiaria)} />
-              </>
-            )}
-          </div>
+            <Collapse
+              icon={<Clock className="w-[18px] h-[18px] text-muted-foreground" />}
+              title="Melhores horários"
+              sub={bestHours.length > 0 ? bestHours.slice(0, 3).map((h) => h.label).join(" · ") : "sem dados"}
+            >
+              <div className="divide-y divide-border/60">
+                {bestHours.slice(0, 6).map((h) => (
+                  <FinanceRow
+                    key={h.hour}
+                    label={h.label}
+                    value={formatCurrency(h.total)}
+                    sub={`${h.count} ${h.count === 1 ? "venda" : "vendas"} · média ${formatCurrency(h.avg)}`}
+                    tone="white"
+                  />
+                ))}
+                {bestHours.length === 0 && (
+                  <p className="px-4 py-3 text-sm text-muted-foreground">Use o Modo Foco pra registrar a hora real de cada venda.</p>
+                )}
+                {summary.ritmoMin > 0 && (
+                  <FinanceRow label="Ritmo de vendas" value={`1 a cada ${summary.ritmoMin.toFixed(0)} min`} tone="muted" />
+                )}
+                {summary.tempoOciosoMin > 0 && (
+                  <FinanceRow label="Tempo ocioso" value={ociosoLabel} tone="muted" />
+                )}
+                {summary.distanciaKm >= 0.01 && (
+                  <FinanceRow label="Km andado" value={kmLabel} tone="muted" />
+                )}
+              </div>
+            </Collapse>
 
+            <Collapse
+              icon={<Sparkles className="w-[18px] h-[18px]" style={{ color: "var(--orbis-gold,#F5B800)" }} />}
+              title="Analisar com o mentor (IA)"
+              sub={aiReport ? "análise pronta" : ""}
+              onOpen={() => { if (!aiReport && !aiReportLoading) generateReportAnalysis(); }}
+            >
+              <div className="px-4 pb-3">
+                {aiReportLoading && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Analisando seu corre...
+                  </p>
+                )}
+                {aiReport?.analise && (
+                  <>
+                    <p className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${aiExpanded ? "" : "line-clamp-6"}`}>
+                      {aiReport.analise}
+                    </p>
+                    <div className="flex items-center gap-3 flex-wrap mt-2">
+                      <button onClick={() => setAiExpanded((v) => !v)} className="text-xs font-semibold text-primary hover:underline">
+                        {aiExpanded ? "ver menos" : "ver mais"}
+                      </button>
+                      <button onClick={generateReportAnalysis} disabled={aiReportLoading} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60">
+                        Atualizar
+                      </button>
+                      <button onClick={() => navigate("/chat")} className="text-xs text-primary hover:underline inline-flex items-center gap-0.5 ml-auto">
+                        Conversar <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </>
+                )}
+                {aiReportError && <p className="text-xs text-destructive whitespace-pre-line mt-2">{aiReportError}</p>}
+              </div>
+            </Collapse>
+          </div>
         </>
       )}
+    </div>
+  );
+}
+
+function StatTile({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+      <p className="orbis-section">{label}</p>
+      <p className="font-display mt-1.5 text-[21px] font-extrabold leading-none">{children}</p>
+      {sub && <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>}
+    </div>
+  );
+}
+
+/** Barras dia a dia — melhor dia dourado com o valor em cima; barras crescem na entrada. */
+function BarsDiaADia({ data }: { data: { label: string; valor: number; iso: string }[] }) {
+  const [grow, setGrow] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setGrow(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  const max = Math.max(1, ...data.map((d) => d.valor));
+  const bestIdx = data.reduce((bi, d, i, arr) => (d.valor > (arr[bi]?.valor ?? -1) ? i : bi), 0);
+  const n = data.length;
+  const DIAS = ["D", "S", "T", "Q", "Q", "S", "S"];
+  const short = (v: number) => (v >= 10000 ? `R$ ${(v / 1000).toFixed(1).replace(".", ",")}k` : formatCurrency(v).replace(",00", ""));
+  return (
+    <div>
+      <div className="flex items-end gap-[6px]" style={{ height: 120 }}>
+        {data.map((d, i) => {
+          const isBest = i === bestIdx && d.valor > 0;
+          const hPct = d.valor > 0 ? Math.max(8, (d.valor / max) * 100) : 4;
+          return (
+            <div key={d.iso} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
+              {isBest && (
+                <span className="orbis-num text-[11px] font-extrabold mb-1 whitespace-nowrap" style={{ color: "var(--orbis-gold,#F5B800)" }}>
+                  {short(d.valor)}
+                </span>
+              )}
+              <div
+                className="w-full rounded-t-md"
+                style={{
+                  height: grow ? `${hPct}%` : "4%",
+                  transition: "height 600ms cubic-bezier(0.2,0,0,1)",
+                  background: isBest
+                    ? "linear-gradient(180deg,var(--orbis-gold,#F5B800),var(--orbis-gold-deep,#B88700))"
+                    : d.valor > 0
+                      ? "rgba(255,255,255,.22)"
+                      : "rgba(255,255,255,.08)",
+                  boxShadow: isBest ? "0 0 16px -4px rgba(245,184,0,.6)" : undefined,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-[6px] mt-1.5">
+        {data.map((d, i) => {
+          const isBest = i === bestIdx && d.valor > 0;
+          const show = n <= 14 || i === 0 || i === n - 1 || i % 5 === 0;
+          const lbl = n <= 7 ? DIAS[new Date(d.iso + "T12:00:00").getDay()] : String(new Date(d.iso + "T12:00:00").getDate());
+          return (
+            <span
+              key={d.iso}
+              className={`flex-1 text-center text-[10.5px] ${isBest ? "font-extrabold" : "font-semibold"}`}
+              style={{ color: isBest ? "var(--orbis-gold,#F5B800)" : "hsl(var(--muted-foreground))" }}
+            >
+              {show ? lbl : ""}
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** Seção recolhível — o "ver detalhes" do Relatório v2. */
+function Collapse({ icon, title, sub, children, onOpen }: {
+  icon: React.ReactNode;
+  title: string;
+  sub?: string;
+  children: React.ReactNode;
+  onOpen?: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
+      <button
+        type="button"
+        className="orbis-press w-full flex items-center gap-3 px-4 py-3.5 text-left"
+        onClick={() => {
+          const v = !open;
+          setOpen(v);
+          if (v) onOpen?.();
+        }}
+      >
+        <span className="shrink-0">{icon}</span>
+        <span className="flex-1 min-w-0 text-sm font-bold whitespace-nowrap overflow-hidden text-ellipsis">{title}</span>
+        {sub && !open && <span className="text-xs text-muted-foreground whitespace-nowrap">{sub}</span>}
+        <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
+      </button>
+      {open && <div className="orbis-card-in">{children}</div>}
     </div>
   );
 }

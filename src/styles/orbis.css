@@ -1,0 +1,115 @@
+/* ============================================================
+   ORBIS DESIGN SYSTEM 2.0 — tokens + movimento
+   Decisões tomadas com o Rick (set/2026):
+   - Preto ABSOLUTO (#000) como palco; superfícies em cinza neutro
+   - Manrope para números/títulos, Inter para texto
+   - Dourado = ação e conquista · verde = dinheiro que caiu
+   - vermelho calmo = custos · vermelho vivo = calote
+   - 4 durações de animação, 1 curva. Movimento com emprego.
+   Importar no fim do index.css:  @import "./styles/orbis.css";
+   ============================================================ */
+
+@import "@fontsource/manrope/700.css";
+@import "@fontsource/manrope/800.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+:root {
+  /* ---- cor ---- */
+  --orbis-bg: #000000;
+  --orbis-surface: #111111;
+  --orbis-surface-2: #181818;
+  --orbis-line: rgba(255, 255, 255, 0.09);
+  --orbis-gold: #f5b800;
+  --orbis-gold-light: #ffc63a;
+  --orbis-gold-deep: #b88700;
+  --orbis-gold-soft: rgba(245, 184, 0, 0.13);
+  --orbis-fg: #f4f1ea;
+  --orbis-fg-2: #b9b3a6;
+  --orbis-fg-3: #7e7869;
+  --orbis-ok: #3dd68c;         /* dinheiro que caiu */
+  --orbis-custo: #e5737f;      /* vermelho CALMO: custos normais */
+  --orbis-calote: #ff5c5c;     /* vermelho VIVO: só calote */
+  --orbis-liga: #5ac8fa;       /* cor da liga vem do tier; fallback Diamante */
+
+  /* ---- movimento: 4 durações, 1 curva ---- */
+  --dur-tap: 120ms;      /* toque */
+  --dur-state: 200ms;    /* troca de estado (chip, tab) */
+  --dur-enter: 250ms;    /* troca de tela / entrada de card */
+  --dur-win: 700ms;      /* celebração (rara) */
+  --ease-orbis: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ---- tipografia utilitária ---- */
+.font-display { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; }
+.orbis-num { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+.orbis-label {
+  color: var(--orbis-gold);
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.18em; text-transform: uppercase;
+}
+.orbis-section {
+  color: var(--orbis-fg-3);
+  font-size: 11px; font-weight: 800;
+  letter-spacing: 0.18em; text-transform: uppercase;
+}
+
+/* ---- botão primário 3D (Duolingo press) ---- */
+.orbis-cta {
+  background: linear-gradient(180deg, var(--orbis-gold-light), var(--orbis-gold));
+  color: #1a1200;
+  border-radius: 16px;
+  height: 54px;
+  font-family: "Manrope", sans-serif;
+  font-weight: 800; font-size: 15.5px;
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  box-shadow: 0 5px 0 var(--orbis-gold-deep);
+  transition: transform var(--dur-tap) var(--ease-orbis), box-shadow var(--dur-tap) var(--ease-orbis);
+  will-change: transform;
+}
+.orbis-cta:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--orbis-gold-deep); }
+
+/* toque genérico em linhas/cards clicáveis */
+.orbis-press { transition: transform var(--dur-tap) var(--ease-orbis), background-color var(--dur-tap); }
+.orbis-press:active { transform: scale(0.985); }
+
+/* ---- entrada de tela (PageTransition) ----
+   A tela nova sobe 12px com fade; a volta desce. 250ms, sempre igual. */
+@keyframes orbis-page-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes orbis-page-back {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.orbis-page-enter { animation: orbis-page-in var(--dur-enter) var(--ease-orbis) both; }
+.orbis-page-back  { animation: orbis-page-back var(--dur-enter) var(--ease-orbis) both; }
+
+/* entrada de card individual (usar com moderação — listas grandes não) */
+@keyframes orbis-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.orbis-card-in { animation: orbis-card-in var(--dur-enter) var(--ease-orbis) both; }
+
+/* ---- barras que enchem: transição no width/stroke ---- */
+.orbis-fill { transition: width 600ms var(--ease-orbis); }
+.orbis-ring-arc { transition: stroke-dashoffset 700ms var(--ease-orbis); }
+
+/* ---- VITÓRIA: pulso na cor da liga (subiu de patente / meta batida) ----
+   Usa a var --win-color definida inline pelo componente. */
+@keyframes orbis-victory {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; filter: brightness(1); }
+  35% { box-shadow: 0 0 28px 2px var(--win-color, rgba(245,184,0,.55)); filter: brightness(1.12); }
+  70% { box-shadow: 0 0 14px 0 var(--win-color, rgba(245,184,0,.35)); filter: brightness(1.05); }
+}
+.orbis-victory { animation: orbis-victory var(--dur-win) var(--ease-orbis) 3; }
+
+/* ---- acessibilidade: quem pediu menos movimento vê tudo instantâneo ---- */
+@media (prefers-reduced-motion: reduce) {
+  .orbis-page-enter, .orbis-page-back, .orbis-card-in, .orbis-victory { animation: none !important; }
+  .orbis-fill, .orbis-ring-arc, .orbis-cta, .orbis-press { transition: none !important; }
+}

@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent } from "@/shared/ui/card";
-import { Pencil, ChevronRight } from "lucide-react";
-import { Button } from "@/shared/ui/button";
+import { ChevronRight } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useDailyGoalPlan } from "@/hooks/useDailyGoalPlan";
@@ -22,6 +20,11 @@ import CompetitionCard from "@/components/CompetitionCard";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
+// Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
+import { DashboardHeader, HeroMes, HojeFoco, LucroCustos } from "@/components/dashboard/DashboardV8";
+import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
+import CobrancaDoCorre from "@/components/CobrancaDoCorre";
+import FirstTimeCard from "@/components/FirstTimeCard";
 
 const REWARD_TIERS = [
   { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
@@ -82,6 +85,26 @@ export default function Index() {
   const [isRestDay, setIsRestDay] = useState(false);
   // Segura o modal de "meta do mês" enquanto o bilhete do dia 1 não terminou.
   const [ticketPending, setTicketPending] = useState(() => isWeeklyTicketPending());
+  // Conta NOVA (passou pelo onboarding 2.0 → tem linha em onboarding_planos):
+  // vê o checklist "Seus primeiros passos". Contas antigas nunca veem.
+  const [contaNova, setContaNova] = useState(false);
+  const [temDefcon, setTemDefcon] = useState(false);
+  const [visitouRanking, setVisitouRanking] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    let cancel = false;
+    (async () => {
+      const [{ data: plano }, { data: planos }] = await Promise.all([
+        supabase.from("onboarding_planos").select("user_id").eq("user_id", user.id).maybeSingle(),
+        supabase.from("daily_goal_plans").select("id").eq("user_id", user.id).limit(1),
+      ]);
+      if (cancel) return;
+      setContaNova(Boolean(plano));
+      setTemDefcon(Boolean(planos && planos.length > 0));
+      try { setVisitouRanking(localStorage.getItem(`orbis_visitou_ranking_${user.id}`) === "1"); } catch { /* nada */ }
+    })();
+    return () => { cancel = true; };
+  }, [user]);
 
   // Fim do bilhete → libera e abre a tela de meta do mês (o "final do bilhete leva à meta").
   useEffect(() => {
@@ -398,6 +421,10 @@ export default function Index() {
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
   const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood + monthExpensesTotal;
+  // Ritmo: quanto precisa vender por dia até o fim do mês pra bater a meta
+  const _hoje = new Date();
+  const _diasRestantes = Math.max(1, new Date(_hoje.getFullYear(), _hoje.getMonth() + 1, 0).getDate() - _hoje.getDate() + 1);
+  const ritmoDia = Math.max(0, (monthlyGoal - faturamentoMes) / _diasRestantes);
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;
@@ -419,26 +446,31 @@ export default function Index() {
   const greeting = getGreeting();
 
   return <div className="bg-background px-5 pt-4 pb-8 space-y-3 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
-      {/* Greeting */}
-      <div className="flex items-center gap-3 py-2">
-        <img
-          src="/orbis-logo.png"
-          alt="Orbis"
-          className="w-11 h-11 object-contain shrink-0 animate-orbis-spin-in"
+      {/* Cabeçalho 2.0: saudação + chip "N dias de Foco" */}
+      <DashboardHeader nome={nickname || "vendedor"} diasFoco={activeDaysCount} />
+
+      {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
+      {contaNova && (
+        <PrimeirosPassos
+          userId={user.id}
+          passos={[
+            { id: "conta", titulo: "Criar sua conta", feito: true },
+            { id: "metas", titulo: "Definir sua meta mensal e diária",
+              dica: "Confere os valores do seu planejamento",
+              feito: monthlyGoal > 0 && dailyGoal > 0, onIr: () => setShowEditPlanning(true) },
+            { id: "defcon", titulo: "Iniciar um DEFCON 4 de teste",
+              dica: "Sente o placar funcionando — sem compromisso",
+              feito: temDefcon, onIr: () => navigate("/daily-goals") },
+            { id: "ranking", titulo: "Conhecer o ranking",
+              dica: "Vê as patentes e onde você entra",
+              feito: visitouRanking, onIr: () => navigate("/ranking") },
+          ]}
+          onDispensar={() => setContaNova(false)}
         />
-        <div className="min-w-0 flex-1">
-          <p className="text-xl font-semibold tracking-tight text-foreground truncate">
-            {greeting}, <span className="text-primary">{nickname || "vendedor"}</span>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {progressoMeta >= 100
-              ? "Meta do mês batida"
-              : faltaDia > 0
-              ? `Faltam ${formatCurrency(faltaDia)} para a meta diária`
-              : "Meta diária atingida hoje"}
-          </p>
-        </div>
-      </div>
+      )}
+
+      {/* Cobrança do horário combinado (só aparece se ele marcou hora e não vendeu) */}
+      <CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} />
 
       {isRestDay && (
         <div className="px-4 py-3 bg-card rounded-2xl text-center border border-border">
@@ -446,79 +478,17 @@ export default function Index() {
         </div>
       )}
 
-      {/* HERO: Faturamento do mês (single hero) */}
-      <Card className="bg-card border border-border rounded-2xl shadow-lg">
-        <CardContent className="p-6 space-y-5">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm text-muted-foreground mb-2">Faturamento do mês</p>
-              <p className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
-                {formatCurrency(faturamentoMes)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Meta {formatCurrency(monthlyGoal)} · <span className="text-primary font-semibold">{progressoMeta.toFixed(0)}%</span>
-              </p>
-            </div>
-            <button
-              data-tour="meta-input"
-              onClick={() => setShowEditPlanning(true)}
-              className="h-11 w-11 inline-flex items-center justify-center hover:bg-muted rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
-              aria-label="Editar planejamento"
-            >
-              <Pencil className="h-4 w-4 text-muted-foreground" />
-            </button>
-          </div>
+      {/* HERÓI 2.0: faturamento do MÊS com anel + Hoje → Modo Foco */}
+      <HeroMes
+        faturamento={faturamentoMes}
+        meta={monthlyGoal}
+        ritmoDia={ritmoDia}
+        onEditMeta={() => setShowEditPlanning(true)}
+      />
+      <HojeFoco vendidoHoje={dailyProfit} metaHoje={dailyGoal} onEntrar={() => navigate("/daily-goals")} />
 
-          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-[width] duration-300 ease-out"
-              style={{ width: `${progressoMeta}%` }}
-            />
-          </div>
-
-          {/* Today inline (demoted) */}
-          <div className="flex items-end justify-between pt-3 border-t border-border">
-            <div>
-              <p className="text-xs text-muted-foreground">Hoje</p>
-              <p className="text-2xl font-bold text-foreground tracking-tight">
-                {formatCurrency(dailyProfit)}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">{totalSalesToday} {totalSalesToday === 1 ? "venda" : "vendas"}</p>
-              <p className="text-xs text-muted-foreground">
-                {faltaDia > 0 ? `Faltam ${formatCurrency(faltaDia)}` : "Meta diária atingida"}
-              </p>
-            </div>
-          </div>
-
-          <Button
-            onClick={() => navigate('/daily-goals')}
-            className="w-full h-12 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold rounded-xl"
-          >
-            Ir para Ritmo
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* Financeiro — lucro e custos compactos, predominantemente cinza */}
-      <button
-        type="button"
-        onClick={() => setShowCustos(true)}
-        className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="Ver e editar os custos do mês"
-      >
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">Lucro líquido</p>
-          <p className="text-lg font-semibold text-success tabular-nums mt-0.5 whitespace-nowrap">{formatCurrency(lucroLiquido)}</p>
-        </div>
-        <div className="w-px self-stretch bg-border mx-4" />
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-muted-foreground">Custos</p>
-          <p className="text-lg font-semibold text-destructive tabular-nums mt-0.5 whitespace-nowrap">{formatCurrency(custosTotal)}</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0 ml-3" />
-      </button>
+      {/* Lucro (verde) e Custos (vermelho calmo) — custos abre o gerenciador */}
+      <LucroCustos lucro={lucroLiquido} custos={custosTotal} onCustos={() => setShowCustos(true)} />
 
       {/* Gerenciador de custos (mesmo do DEFCON): lista custos manuais E o CMV de
           cada dia, com apagar/zerar. Ao fechar, recarrega o painel — o lucro muda
@@ -536,6 +506,8 @@ export default function Index() {
 
       {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
       <WeeklyChallengeDashboardCard />
+
+      <p className="orbis-section pt-1">Seu jogo</p>
 
       {/* Próxima patente — contida, no mesmo sistema visual */}
       <button
@@ -613,5 +585,8 @@ export default function Index() {
           onEditPlanning={() => setShowEditPlanning(true)}
         />
       )}
+
+      {/* Direcionamento inicial: card de 1ª vez no dashboard (uma vez por usuário) */}
+      <FirstTimeCard tela="dashboard" userId={user.id} />
     </div>;
 }

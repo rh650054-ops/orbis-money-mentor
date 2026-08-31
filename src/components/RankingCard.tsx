@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Trophy, ChevronRight, Flame } from "lucide-react";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { getTier } from "@/components/ranking/tier";
@@ -7,9 +8,13 @@ interface RankingCardProps {
   onClick: () => void;
 }
 
-// Card do Ranking no dashboard — versão ORIGINAL (grande, com a cor da liga, brilho e
-// o foguinho de dias trabalhados). Foi simplificada em 29/08 e o Rick pediu de volta;
-// os outros cards (Competição etc.) seguem no estilo compacto novo.
+/**
+ * Card do Ranking no dashboard — card GRANDE com a IMAGEM da patente do usuário
+ * (tier.icon), na cor da liga dele. Novidade v8: quando a patente MUDA (subiu de
+ * liga), o card pulsa com brilho na cor da liga nova (animação de vitória do
+ * orbis.css) convidando o clique. A última patente vista fica no localStorage
+ * por usuário — o pulso só acontece uma vez por mudança.
+ */
 export default function RankingCard({ userId, onClick }: RankingCardProps) {
   const { currentUserStats, hasParticipated, isLoading } = useLeaderboard(userId);
 
@@ -20,12 +25,22 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
   const glow = tier?.glow ?? "rgba(176,124,240,0.5)";
   const loadingStats = isLoading && !currentUserStats;
 
-  // Enquanto carrega, mostra um esqueleto cinza neutro — evita o card aparecer
-  // ROXO (cor padrão) e depois trocar pra cor real da liga.
+  // Subiu (ou mudou) de patente? Pulsa na cor da liga nova.
+  const [celebrar, setCelebrar] = useState(false);
+  useEffect(() => {
+    if (!tier?.label || !userId) return;
+    try {
+      const key = `orbis_patente_vista_${userId}`;
+      const antes = localStorage.getItem(key);
+      if (antes && antes !== tier.label) setCelebrar(true);
+      localStorage.setItem(key, tier.label);
+    } catch { /* localStorage indisponível: sem pulso, sem quebra */ }
+  }, [tier?.label, userId]);
+
   if (loadingStats) {
     return (
       <div className="space-y-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Ranking</p>
+        <p className="orbis-section px-1">Ranking</p>
         <div className="w-full rounded-2xl border border-border bg-card/40 p-4 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-muted animate-pulse shrink-0" />
           <div className="flex-1 space-y-2">
@@ -39,14 +54,15 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Ranking</p>
+      <p className="orbis-section px-1">Ranking</p>
       <button
         onClick={onClick}
-        className="group relative w-full overflow-hidden rounded-2xl border p-4 flex items-center gap-4 text-left transition-transform active:scale-[0.99]"
+        className={`orbis-press group relative w-full overflow-hidden rounded-2xl border p-4 flex items-center gap-4 text-left ${celebrar ? "orbis-victory" : ""}`}
         style={{
           borderColor: `${accent}44`,
-          background: `linear-gradient(135deg, ${accent}14 0%, rgba(12,12,15,0.6) 55%)`,
+          background: `linear-gradient(135deg, ${accent}14 0%, rgba(8,8,8,0.6) 55%)`,
           boxShadow: `0 6px 24px -10px ${glow}, inset 0 1px 0 ${accent}22`,
+          ["--win-color" as never]: glow,
         }}
       >
         <div className="relative w-14 h-14 flex items-center justify-center shrink-0">
@@ -65,25 +81,25 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
                 <span className="text-[11px] font-black tracking-wider px-1.5 py-0.5 rounded" style={{ color: accent, background: `${accent}1f` }}>
                   {tier!.label}
                 </span>
-                {/* Foguinho = DIAS TRABALHADOS NO MÊS. Antes mostrava o streak
-                    (constancia_streak_atual), que vive zerando e travava no "1" —
-                    parecia bug. Dias do mês só cresce, que é a sensação certa. */}
+                {/* Foguinho = dias de Modo Foco no mês */}
                 {!!currentUserStats!.dias_trabalhados_mes && (
                   <span
                     className="inline-flex items-center gap-0.5 text-[11px] font-black"
                     style={{ color: accent }}
-                    title={`${currentUserStats!.dias_trabalhados_mes} dia${currentUserStats!.dias_trabalhados_mes === 1 ? "" : "s"} trabalhado${currentUserStats!.dias_trabalhados_mes === 1 ? "" : "s"} este mês`}
+                    title={`${currentUserStats!.dias_trabalhados_mes} ${currentUserStats!.dias_trabalhados_mes === 1 ? "dia" : "dias"} de Modo Foco este mês`}
                   >
                     <Flame className="w-3 h-3" /> {currentUserStats!.dias_trabalhados_mes}
                   </span>
                 )}
               </div>
-              <p className="text-sm font-bold text-foreground mt-0.5 truncate">Top {pos} vendedor</p>
+              <p className="font-display text-sm font-extrabold text-foreground mt-0.5 truncate">
+                {celebrar ? "Você subiu de patente! 🏆" : `Top ${pos} vendedor`}
+              </p>
             </>
           ) : (
             <>
               <p className="text-sm font-semibold text-foreground">Entre no ranking</p>
-              <p className="text-xs text-muted-foreground">Registre vendas e dispute o pódio 🏆</p>
+              <p className="text-xs text-muted-foreground">Registre vendas e dispute o pódio</p>
             </>
           )}
         </div>

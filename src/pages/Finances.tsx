@@ -43,6 +43,7 @@ import {
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
+import FirstTimeCard from "@/components/FirstTimeCard";
 
 interface PlannedBill {
   id: string;
@@ -1842,6 +1843,7 @@ export default function Finances() {
 
   return (
     <div className="space-y-4 md:space-y-6 pb-4 md:pb-8">
+      <FirstTimeCard tela="financas" userId={user?.id} />
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
           <Wallet className="w-5 h-5 text-primary" />

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import CampoHoraVenda from "@/components/CampoHoraVenda";
 
 interface EditPlanningModalProps {
   userId: string;
@@ -304,6 +305,9 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
               </div>
             </div>
           </div>
+
+          {/* Que horas começa a vender amanhã? — grava sozinho; a cobrança lê daqui */}
+          <CampoHoraVenda userId={userId} />
 
           {/* Botões */}
           <div className="flex gap-2 pt-1">

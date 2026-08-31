@@ -46,6 +46,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { generatePixPayload } from "@/shared/lib/pix-code";
 import { BRAZILIAN_BANKS, getBankById } from "@/shared/lib/brazilian-banks";
 import CalculadoraPreco from "@/components/estudio/CalculadoraPreco";
+import FirstTimeCard from "@/components/FirstTimeCard";
 
 interface Product {
   id: string;
@@ -443,6 +444,7 @@ export default function Products() {
 
   return (
     <div className="space-y-6 pb-4 md:pb-8 max-w-2xl mx-auto px-4">
+      <FirstTimeCard tela="catalogo" userId={user?.id} />
       <div className="flex items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>

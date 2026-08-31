@@ -20,6 +20,7 @@ import ScreenCoach from "@/components/onboarding/ScreenCoach";
 import MorningCommitModal from "@/components/MorningCommitModal";
 import AceiteTermosModal from "@/components/AceiteTermosModal";
 import BackButton from "@/shared/components/back-button";
+import { PageTransition } from "@/shared/motion";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -288,7 +289,7 @@ export default function Layout({ children }: LayoutProps) {
         )}
         {user && <WeeklyChallengeTicket />}
         {user && <DesafioFluxoBar />}
-        {children}
+        <PageTransition>{children}</PageTransition>
       </main>
 
       {/* Mobile bottom navigation — pill flutuante com cápsula deslizante (estilo Strava) */}
@@ -353,7 +354,8 @@ export default function Layout({ children }: LayoutProps) {
       <FloatingChatButton />
 
       {/* Missao de Boas-Vindas (onboarding gamificado): overlay sobre o app real */}
-      {user && onboardingChecked && !onboardingCompleto && (
+      {/* Contas do Onboarding 2.0 (flag local) NÃO veem a missão antiga */}
+      {user && onboardingChecked && !onboardingCompleto && localStorage.getItem(`orbis_onboarding_novo_${user.id}`) !== "1" && (
         <MissionOrchestrator
           userId={user.id}
           nickname={missionNickname}

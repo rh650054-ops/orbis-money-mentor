@@ -23,6 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
 import { RANKING_FIRE_GRADIENT, RANKING_TIER_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
+import FirstTimeCard from "@/components/FirstTimeCard";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -292,9 +293,16 @@ export default function Ranking() {
     );
   }
 
+  // Checklist "Conhecer o ranking": marca a visita (lido pelo dashboard)
+  useEffect(() => {
+    if (!user) return;
+    try { localStorage.setItem(`orbis_visitou_ranking_${user.id}`, "1"); } catch { /* nada */ }
+  }, [user]);
+
   return (
     <div className="pb-8 space-y-5">
       {user && <X1InvitePopup userId={user.id} />}
+      <FirstTimeCard tela="ranking" userId={user?.id} />
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">
