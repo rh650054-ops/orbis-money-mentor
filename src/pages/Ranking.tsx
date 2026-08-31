@@ -69,6 +69,12 @@ function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "
 
 export default function Ranking() {
   const { user } = useAuth();
+  // Checklist "Conhecer o ranking": marca a visita (lido pelo dashboard)
+  useEffect(() => {
+    if (!user) return;
+    try { localStorage.setItem(`orbis_visitou_ranking_${user.id}`, "1"); } catch { /* nada */ }
+  }, [user]);
+
   const {
     faturamentoRanking, constanciaRanking, currentUserStats,
     isLoading, hasParticipated, loadLeaderboard
@@ -292,12 +298,6 @@ export default function Ranking() {
       </div>
     );
   }
-
-  // Checklist "Conhecer o ranking": marca a visita (lido pelo dashboard)
-  useEffect(() => {
-    if (!user) return;
-    try { localStorage.setItem(`orbis_visitou_ranking_${user.id}`, "1"); } catch { /* nada */ }
-  }, [user]);
 
   return (
     <div className="pb-8 space-y-5">
