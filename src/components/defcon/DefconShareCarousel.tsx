@@ -11,6 +11,9 @@ export interface ShareStats {
   vendas: number;
   conversao: number; // em %
   horas: string;     // ex. "8h12"
+  // Rótulo do período na arte (ex.: "DIA 30/08", "ÚLTIMOS 7 DIAS"). Sem ele, a arte
+  // sai como sempre saiu no fim do DEFCON ("DEFCON 4").
+  periodo?: string;
 }
 
 // Ordem do carrossel. "post" = COM FUNDO (design escuro, ideal WhatsApp/feed/status).
@@ -181,6 +184,8 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
   const vendas = String(s.vendas);
   const conv = `${s.conversao.toFixed(0)}%`;
   const horas = s.horas;
+  // Rodapé da arte: período escolhido no Relatório, ou "DEFCON 4" (fim do modo foco)
+  const rodape = (s.periodo || "DEFCON 4").toUpperCase();
 
   if (template === "post") {
     // ===== COM FUNDO (retrato 4:5) — logo topo, faturamento, linha de números, ORBIS =====
@@ -201,7 +206,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     hline(80, W - 80, 1040);
 
     drawWordmark(W / 2, 1180, 230);
-    label("DEFCON 4", W / 2, 1270, 26, MUTED);
+    label(rodape, W / 2, 1270, 26, MUTED);
   } else if (template === "empilhada" || template === "empilhadaSemHoras") {
     // ===== Vertical empilhado (PADRÃO). "SemHoras" = mesma arte sem o bloco HORAS =====
     const semHoras = template === "empilhadaSemHoras";
@@ -217,6 +222,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       value(conv, W / 2, 1168, 142);
 
       drawLogo(W / 2, 1385, 195);
+      if (s.periodo) label(rodape, W / 2, 1530, 30, MUTED);
     } else {
       // 4 dados (com HORAS) — logo um pouco mais pra cima
       label("FATURAMENTO", W / 2, 340, 46, GOLD);
@@ -232,11 +238,13 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       value(horas, W / 2, 1270, 142);
 
       drawLogo(W / 2, 1505, 195);
+      if (s.periodo) label(rodape, W / 2, 1650, 30, MUTED);
     }
   } else if (template === "destaque") {
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
     value(fat, 92, 285, 138, "left");
+    if (s.periodo) label(rodape, 92, 385, 26, MUTED, "left");
     drawLogo(905, 265, 170);
 
     hline(70, W - 70, 460);
@@ -279,6 +287,12 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Gera as 3 artes só quando o usuário abre o compartilhamento
+  // Se os números/período mudarem (ex.: trocou o filtro no Relatório), joga os previews
+  // antigos fora pra gerar de novo com os dados certos.
+  useEffect(() => {
+    setPreviews({});
+  }, [stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo]);
+
   useEffect(() => {
     if (!open || Object.keys(previews).length === ORDER.length) return;
     let alive = true;
@@ -296,7 +310,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, stats.faturamento, stats.vendas, stats.conversao, stats.horas]);
+  }, [open, previews, stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo]);
 
   const onScroll = () => {
     const el = scrollRef.current;
@@ -322,7 +336,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
         await nav.share({
           files: [file],
           title: "Meu resultado no Orbis",
-          text: `${formatCurrency(stats.faturamento)} • ${stats.conversao.toFixed(0)}% de conversão`,
+          text: `${stats.periodo ? `${stats.periodo} • ` : ""}${formatCurrency(stats.faturamento)} • ${stats.conversao.toFixed(0)}% de conversão`,
         });
       } else {
         const url = URL.createObjectURL(blob);

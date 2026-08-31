@@ -15,6 +15,9 @@ interface Props {
   onOpenChange: (v: boolean) => void;
   userId: string;
   onSaved?: () => void;
+  // Abrir já em um dia específico (ex.: vindo do Relatório com o dia filtrado).
+  initialDate?: string;
+  title?: string;
 }
 
 // Estado dos campos do dia (tudo em número, 0 = vazio).
@@ -32,13 +35,18 @@ const zerado: Campos = { vendido: 0, cash: 0, pix: 0, card: 0, tip: 0, cost: 0, 
  * você digitar — é correção, não soma. Faturamento = dinheiro + pix + cartão (mesmo
  * critério do modo foco). Gorjeta e calote entram à parte.
  */
-export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: Props) {
+export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved, initialDate, title }: Props) {
   const { toast } = useToast();
   const hoje = getBrazilDate();
-  const [date, setDate] = useState<string>(getBrazilDateDaysAgo(1)); // padrão: ontem
+  const [date, setDate] = useState<string>(initialDate || getBrazilDateDaysAgo(1)); // padrão: ontem
   const [campos, setCampos] = useState<Campos>(zerado);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Se quem abriu pediu um dia específico, a data acompanha a cada abertura.
+  useEffect(() => {
+    if (open && initialDate) setDate(initialDate);
+  }, [open, initialDate]);
 
   // Ao abrir ou trocar a data, carrega o que já está gravado naquele dia pra você editar.
   useEffect(() => {
@@ -117,12 +125,14 @@ export function DefconAjustarDiaModal({ open, onOpenChange, userId, onSaved }: P
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6 max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Ajustar dia anterior</DialogTitle>
+          <DialogTitle>{title || "Ajustar dia anterior"}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4 pt-2">
           <p className="text-xs text-muted-foreground leading-relaxed">
-            Passou da meia-noite e faltou fechar o dia? Escolha a data e preencha. O que você digitar
-            <b className="text-foreground"> substitui</b> o dia (não soma). Já vem preenchido com o que houver.
+            {initialDate
+              ? <>Preencha quanto <b className="text-foreground">vendeu</b> e quanto <b className="text-foreground">caiu</b> em cada forma. O calote sai da diferença. O que você digitar <b className="text-foreground">substitui</b> o dia (não soma).</>
+              : <>Passou da meia-noite e faltou fechar o dia? Escolha a data e preencha. O que você digitar
+                <b className="text-foreground"> substitui</b> o dia (não soma). Já vem preenchido com o que houver.</>}
           </p>
 
           <div className="space-y-2">
