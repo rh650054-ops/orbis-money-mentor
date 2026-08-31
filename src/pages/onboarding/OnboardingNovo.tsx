@@ -19,11 +19,14 @@ import { useNavigate } from "react-router-dom";
 import { Share, PlusSquare, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { formatCurrency } from "@/shared/lib/utils";
-import { AnimatedCurrency, useCountUp, useReducedMotion } from "@/shared/motion";
+import { useCountUp, useReducedMotion } from "@/shared/motion";
 import { calcularPlano, salvarPlano, marcarPlanoRevelado, type PlanoDoCorre } from "@/shared/onboarding/plano";
 
 type Etapa = "ato1" | "ato2" | "ato3" | "fixar" | "meta";
+
+/* Sem centavos: "R$ 120.000" cabe na tela, "R$ 120.000,00" estoura (visto no ar). */
+const fmt0 = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
 
 /* ---------- fundo de "rochas" (mesmo dos mocks aprovados) ---------- */
 function Rochas() {
@@ -224,7 +227,7 @@ function Ato1({ onAvancar }: { onAvancar: () => void }) {
         <div className="absolute rounded-full" style={{ inset: 25, border: "3px solid #2C2A24" }} />
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: 32, height: 32, background: "#242219" }} />
       </div>
-      <h1 className="font-display text-[25px] font-extrabold leading-[1.35] tracking-[-.01em]">
+      <h1 className="font-display text-[23px] font-extrabold leading-[1.35] tracking-[-.02em]">
         Você acorda cedo, pega sol,<br />enfrenta rua o dia inteiro.
       </h1>
       <p className="text-[14.5px] leading-[1.55] mt-3" style={{ color: "#B9B3A6" }}>
@@ -297,7 +300,7 @@ function Ato2(props: {
             <button type="button" onClick={() => setEditandoMeta(true)}
               className="orbis-press mt-[7px] w-full rounded-2xl px-4 py-[13px] flex items-baseline gap-1.5 text-left"
               style={{ background: "#101010", border: "1px solid rgba(245,184,0,.35)" }}>
-              <span className="orbis-num font-display text-[28px] font-extrabold">{formatCurrency(metaMensal)}</span>
+              <span className="orbis-num font-display text-[28px] font-extrabold">{fmt0(metaMensal)}</span>
               <span className="ml-auto text-[12px]" style={{ color: "#5C574D" }}>toque pra mudar</span>
             </button>
           )}
@@ -346,7 +349,7 @@ function Ato3({ plano, onAvancar }: { plano: ReturnType<typeof calcularPlano>; o
      os 600ms padrão de propósito: este é O momento do onboarding).
      Os dois valores borrados atrás são "rastro" do odômetro (⅓ e ⅔). */
   const anoAnimado = useCountUp(plano.ano, 1400);
-  const fmt = (n: number) => formatCurrency(Math.round(n));
+  const fmt = (n: number) => fmt0(n);
 
   return (
     <button type="button" onClick={onAvancar} className="flex-1 w-full flex flex-col items-center justify-center pb-24 cursor-pointer">
@@ -378,7 +381,7 @@ function Ato3({ plano, onAvancar }: { plano: ReturnType<typeof calcularPlano>; o
       </div>
 
       <p className="text-[14.5px] leading-[1.55] mt-[18px]" style={{ color: "#B9B3A6" }}>
-        Sua hora na rua vale <b style={{ color: "#F4F1EA" }}>{formatCurrency(plano.hora)}</b>.<br />
+        Sua hora na rua vale <b style={{ color: "#F4F1EA" }}>{fmt0(plano.hora)}</b>.<br />
         Isso não é um corre. <b style={{ color: "#F4F1EA" }}>Isso é uma empresa.</b>
       </p>
       <ContinuarFantasma texto="COMEÇAR MEU NEGÓCIO" />
@@ -395,7 +398,7 @@ function CardValor({ rotulo, valor, destaque = false }: { rotulo: string; valor:
         {rotulo}
       </p>
       <p className="orbis-num font-display text-[18px] font-extrabold mt-[5px]" style={destaque ? { color: "#F5B800" } : undefined}>
-        {formatCurrency(valor)}
+        {fmt0(valor)}
       </p>
     </div>
   );
@@ -553,7 +556,7 @@ function MetaDeAmanha({ metaMensal, setMetaMensal, diasSemana, setDiasSemana, ho
             <button type="button" onClick={() => setEditandoMeta(true)}
               className="orbis-press mt-[7px] w-full rounded-2xl px-4 py-3 flex items-baseline gap-1.5 text-left"
               style={{ background: "#101010", border: "1px solid rgba(245,184,0,.35)" }}>
-              <span className="orbis-num font-display text-[24px] font-extrabold">{formatCurrency(metaMensal)}</span>
+              <span className="orbis-num font-display text-[24px] font-extrabold">{fmt0(metaMensal)}</span>
               <span className="ml-auto text-[12px]" style={{ color: "#5C574D" }}>toque pra mudar</span>
             </button>
           )}
@@ -583,15 +586,15 @@ function MetaDeAmanha({ metaMensal, setMetaMensal, diasSemana, setDiasSemana, ho
           style={{ borderColor: "rgba(245,184,0,.4)", background: "rgba(245,184,0,.07)" }}>
           <div>
             <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "#7E7869" }}>Semanal</p>
-            <p className="orbis-num font-display text-[16px] font-extrabold mt-1"><AnimatedCurrency value={plano.semana} /></p>
+            <p className="orbis-num font-display text-[16px] font-extrabold mt-1">{fmt0(plano.semana)}</p>
           </div>
           <div style={{ borderLeft: "1px solid rgba(255,255,255,.10)", borderRight: "1px solid rgba(255,255,255,.10)" }}>
             <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "#F5B800" }}>Diária</p>
-            <p className="orbis-num font-display text-[16px] font-extrabold mt-1" style={{ color: "#F5B800" }}><AnimatedCurrency value={plano.diaria} /></p>
+            <p className="orbis-num font-display text-[16px] font-extrabold mt-1" style={{ color: "#F5B800" }}>{fmt0(plano.diaria)}</p>
           </div>
           <div>
             <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "#7E7869" }}>Por hora</p>
-            <p className="orbis-num font-display text-[16px] font-extrabold mt-1"><AnimatedCurrency value={plano.hora} /></p>
+            <p className="orbis-num font-display text-[16px] font-extrabold mt-1">{fmt0(plano.hora)}</p>
           </div>
         </div>
 
