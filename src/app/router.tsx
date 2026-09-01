@@ -2,6 +2,7 @@ import { lazy, Suspense, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "@/app/layout";
 import PaywallGate from "@/components/PaywallGate";
+import OfflineGate from "@/components/OfflineGate";
 
 // Recarrega a página UMA vez se um chunk antigo sumiu após um deploy novo.
 // Corrige o bug de "cliquei no menu, ficou amarelo, mas a tela não trocou"
@@ -64,6 +65,7 @@ const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
 const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
 const OnboardingNovo = lazyWithReload(() => import("@/pages/onboarding/OnboardingNovo"));
+const ModoOffline = lazyWithReload(() => import("@/pages/ModoOffline"));
 const NotFound = lazyWithReload(() => import("@/pages/NotFound"));
 const DailyGoals = lazyWithReload(() => import("@/pages/DailyGoals"));
 const Ranking = lazyWithReload(() => import("@/pages/Ranking"));
@@ -90,6 +92,8 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <PaywallGate />
+      {/* Sem internet → painel com "Ativar modo offline" (cobre todas as telas) */}
+      <OfflineGate />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
@@ -103,6 +107,8 @@ export function AppRouter() {
           <Route path="/install" element={<Install />} />
           {/* Onboarding 2.0 (contas novas): fora do Layout — sem nav, tela cheia */}
           <Route path="/onboarding-novo" element={<OnboardingNovo />} />
+          {/* Placar Offline: fora do Layout — não depende de nada do servidor */}
+          <Route path="/offline" element={<ModoOffline />} />
           <Route path="/defcon" element={<DefconChallenge />} />
           <Route path="/bilhete" element={<BilhetePreview />} />
           <Route

@@ -24,6 +24,8 @@ const FREE_PATHS = [
   "/profile",
   "/my-account",
   "/settings",
+  // Placar offline: sem internet não dá pra checar assinatura — nunca bloqueia.
+  "/offline",
 ];
 
 export default function PaywallGate() {

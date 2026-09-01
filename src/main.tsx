@@ -37,3 +37,12 @@ if ("serviceWorker" in navigator) {
 
 
 createRoot(document.getElementById("root")!).render(<Root />);
+
+// PLACAR OFFLINE: pré-carrega o código da tela /offline enquanto há sinal, pra o
+// service worker guardar o arquivo. Sem isso, a tela só existiria no servidor —
+// e a primeira vez que o vendedor precisa dela é justamente SEM internet.
+if (typeof navigator === "undefined" || navigator.onLine !== false) {
+  const preload = () => { import("@/pages/ModoOffline").catch(() => {}); };
+  if ("requestIdleCallback" in window) (window as any).requestIdleCallback(preload, { timeout: 8000 });
+  else setTimeout(preload, 4000);
+}

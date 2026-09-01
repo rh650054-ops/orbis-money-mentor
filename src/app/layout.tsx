@@ -21,6 +21,7 @@ import MorningCommitModal from "@/components/MorningCommitModal";
 import AceiteTermosModal from "@/components/AceiteTermosModal";
 import BackButton from "@/shared/components/back-button";
 import { PageTransition } from "@/shared/motion";
+import NovidadesOrbis2 from "@/components/NovidadesOrbis2";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -384,6 +385,9 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* LGPD: aceite único dos Termos/Política no primeiro login após a publicação */}
       {user && <AceiteTermosModal userId={user.id} />}
+
+      {/* Lançamento 2.0 (01/09): o que mudou + o que vem — uma vez por usuário */}
+      {user && onboardingCompleto && <NovidadesOrbis2 userId={user.id} />}
 
       {/* OBS: o popup de teste expirado agora é renderizado pelo PaywallGate (router.tsx),
           pra aparecer igual em TODAS as telas, inclusive o DEFCON. */}

@@ -24,6 +24,7 @@ import { DashboardHeader, HeroMes, HojeFoco, LucroCustos, PatenteRow, Competicao
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
+import { lembrarMetaDia } from "@/shared/lib/offline-day";
 
 const REWARD_TIERS = [
   { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
@@ -386,6 +387,14 @@ export default function Index() {
     const progress = monthlyStats.balance / monthlyGoal * 100;
     return Math.min(progress, 100);
   };
+
+  // Placar offline: guarda a meta do dia no celular enquanto há sinal.
+  // (Hook ANTES de qualquer return — regra dos hooks.)
+  useEffect(() => {
+    if (!user?.id) return;
+    const meta = dailyGoalPlan > 0 ? dailyGoalPlan : (monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 0);
+    if (meta > 0) lembrarMetaDia(user.id, meta);
+  }, [user?.id, dailyGoalPlan, monthlyGoal]);
 
   if (loading || !user || (isLoadingData && !hasDashCache)) {
     // Esqueleto com o formato do dashboard — evita a tela "pular" do vazio pro design
