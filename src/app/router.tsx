@@ -61,6 +61,7 @@ const AdminAntiCheat = lazyWithReload(() => import("@/pages/AdminAntiCheat"));
 const AdminExtratoConfig = lazyWithReload(() => import("@/pages/AdminExtratoConfig"));
 const TesteExtrato = lazyWithReload(() => import("@/pages/TesteExtrato"));
 const TestRanking = lazyWithReload(() => import("@/pages/TestRanking"));
+const TesteDefcon = lazyWithReload(() => import("@/pages/TesteDefcon"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
 const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
@@ -145,6 +146,8 @@ export function AppRouter() {
                     <Route path="/admin/extrato-config" element={<AdminExtratoConfig />} />
                     <Route path="/admin/teste-extrato" element={<TesteExtrato />} />
                     <Route path="/admin/teste-ranking" element={<TestRanking />} />
+                    {/* DEFCON teste — protótipo do Foco 2.0, só admin, nada vai pro banco */}
+                    <Route path="/admin/defcon-teste" element={<TesteDefcon />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

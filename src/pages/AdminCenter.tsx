@@ -5,10 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
-import {
-  ArrowLeft, ShieldCheck, Trophy, Eye, Loader2, Sparkles, ChevronRight,
-  Users, CreditCard, Brain, ShieldAlert, FileCog, Swords,
-} from "lucide-react";
+import { ArrowLeft, ShieldCheck, Trophy, Eye, Loader2, Sparkles, ChevronRight, Users, CreditCard, Brain, ShieldAlert, FileCog, Swords, Zap } from "lucide-react";
 
 // ============================================================================
 // CENTRAL DE ADMINISTRAÇÃO DO ORBIS — acessível só pelo Perfil, só pra admins.
@@ -75,6 +72,7 @@ const TESTES = [
   { icon: FileCog, label: "Teste · Extrato", desc: "Simular upload de extrato", path: "/admin/teste-extrato" },
   { icon: Trophy, label: "Bilhete dourado", desc: "Testar o bilhete dourado", path: "/?bilhete-teste=1" },
   { icon: Eye, label: "Ranking (simulador)", desc: "Simular o ranking", path: "/admin/teste-ranking" },
+  { icon: Zap, label: "DEFCON teste", desc: "Protótipo do Foco 2.0: carga, tabela de preço, fechamento — nada vai pro banco", path: "/admin/defcon-teste" },
 ];
 
 export default function AdminCenter() {
