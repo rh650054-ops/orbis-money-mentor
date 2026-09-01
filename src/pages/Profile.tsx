@@ -189,25 +189,33 @@ export default function Profile() {
       <Button
         variant="ghost"
         onClick={async () => {
-          if (user) {
+          // REFAZER DO ZERO = Onboarding 2.0 completo: 3 atos → fixar → planejamento →
+          // cards de 1ª vez em cada tela → checklist "primeiros passos" → tour concluído.
+          const uid = user?.id;
+          if (uid) {
             await supabase
               .from("profiles")
               .update({ onboarding_completed: false, onboarding_step: 0 })
-              .eq("user_id", user.id);
+              .eq("user_id", uid);
           }
-          localStorage.removeItem(`orbis_mission_completed_${user?.id}`);
-          localStorage.setItem(`orbis_onboarding_step_${user?.id}`, "0");
-          // Reativa e zera os tutoriais por tela (pra ver todos de novo)
           try {
+            // zera TUDO que o onboarding 2.0 marca como "já visto/feito"
             Object.keys(localStorage)
-              .filter((k) => k.startsWith("orbis_screen_seen_"))
+              .filter((k) =>
+                k.startsWith("orbis_intro_vista_") ||        // cards de 1ª vez por tela
+                k.startsWith("orbis_screen_seen_") ||        // (legado)
+                k === `orbis_primeiros_passos_ok_${uid}` ||  // checklist
+                k === `orbis_tour_celebrado_${uid}` ||       // card "tour concluído"
+                k === `orbis_plano_revelado_${uid}` ||       // revelação do plano
+                k === `orbis_visitou_ranking_${uid}` ||      // passo "conhecer o ranking"
+                k === `orbis_mission_completed_${uid}`,      // (legado)
+              )
               .forEach((k) => localStorage.removeItem(k));
-            localStorage.removeItem("orbis_screen_tours_off");
-            localStorage.setItem(`orbis_screen_tours_enabled_${user?.id}`, "1");
+            localStorage.setItem(`orbis_onboarding_novo_${uid}`, "1"); // conta no fluxo 2.0
           } catch {
             /* ignore */
           }
-          window.location.assign("/");
+          window.location.assign("/onboarding-novo");
         }}
         className="w-full text-muted-foreground hover:text-foreground"
       >
