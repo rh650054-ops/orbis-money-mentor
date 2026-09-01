@@ -22,6 +22,7 @@ import {
   Package, Minus, Plus, Check, ArrowLeft, Trophy, MessageCircle, Flame,
   BarChart3, ShoppingCart, Info, Bus, Utensils, TrendingUp, RotateCcw,
   UserRound, Coins, FileText, UtensilsCrossed, BatteryFull, X,
+  CreditCard, Smartphone, Banknote, Trash2, Clock, ChevronRight, AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -39,7 +40,11 @@ const CATALOGO: Prod[] = [
   { id: "refri", nome: "Refrigerante lata", custo: 2.5, estoque: 48, levar: 0, vendido: 0, faixas: [{ qty: 1, price: 8 }, { qty: 2, price: 15 }] },
 ];
 
-type Passo = "desafio" | "carga" | "cadastro" | "rodando" | "custos" | "resultado" | "pontes";
+/* O fechamento aprovado no mockup tem 5 telas, não 3:
+   encerrar (modal) → recebimentos → custos editáveis → relatório premium
+   → o que esse dia mexeu → volta pro Foco com o dia encerrado. */
+type Passo = "desafio" | "carga" | "cadastro" | "rodando" | "fechamento" | "custos" | "relatorio" | "mexeu" | "foco";
+interface CustoLinha { id: string; nome: string; sub: string; valor: number; auto?: boolean }
 
 export default function TesteDefcon() {
   const navigate = useNavigate();
@@ -68,6 +73,12 @@ export default function TesteDefcon() {
   const [transporte, setTransporte] = useState(0);
   const [comida, setComida] = useState(0);
   const metaDia = 1000;
+
+  /* --- fechamento (telas novas) --- */
+  const [confirmarFim, setConfirmarFim] = useState(false);
+  const [rec, setRec] = useState({ dinheiro: "", pix: "", cartao: "" });
+  const [linhas, setLinhas] = useState<CustoLinha[] | null>(null);   // null = ainda não montou
+  const [novoCusto, setNovoCusto] = useState<{ nome: string; valor: string } | null>(null);
 
   useEffect(() => {
     if (passo !== "rodando" || !inicio) return;
@@ -150,6 +161,7 @@ export default function TesteDefcon() {
 
   const zerar = () => {
     setPasso("desafio"); setProds(CATALOGO); setVendas([]); setValor(""); setQtdManual(null);
+    setRec({ dinheiro: "", pix: "", cartao: "" }); setLinhas(null); setNovoCusto(null); setConfirmarFim(false);
     setTransporte(0); setComida(0); setAbordagens(0); setInicio(null); setConfirmando(false);
     setContaVazia(false); setNovo({ nome: "", custo: "", faixas: [{ qty: 1, price: 0 }] });
   };
@@ -470,7 +482,7 @@ export default function TesteDefcon() {
           <span className="text-foreground/10">|</span>
           <button className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5"><UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" /><span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Pausar</span></button>
           <span className="text-foreground/10">|</span>
-          <button onClick={() => setPasso("custos")} className="flex-1 h-9 rounded-lg flex items-center justify-center"><span className="text-xs font-mono text-destructive/80 tracking-wider uppercase font-bold">Encerrar</span></button>
+          <button onClick={() => setConfirmarFim(true)} className="flex-1 h-9 rounded-lg flex items-center justify-center"><span className="text-xs font-mono text-destructive/80 tracking-wider uppercase font-bold">Encerrar</span></button>
         </div>
 
         {/* folha de venda — o único lugar que mudou */}
@@ -520,158 +532,399 @@ export default function TesteDefcon() {
             </div>
           </div>
         )}
+        {/* ---- 6 · ENCERRAR O DIA (confirmação) ---- */}
+        {confirmarFim && (
+          <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 pb-8" style={{ background: "rgba(0,0,0,.86)" }} role="dialog" aria-modal="true">
+            <div className="w-full max-w-md rounded-[24px] border p-6" style={{ background: "var(--orbis-surface)", borderColor: "rgba(255,255,255,.12)" }}>
+              <p className="font-display text-[19px] font-extrabold text-center">Encerrar o desafio?</p>
+              <p className="text-[13px] text-center mt-2 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
+                Você fecha o dia e vê seu relatório completo. Dá pra reabrir depois.
+              </p>
+              <button onClick={() => { setConfirmarFim(false); setPasso("fechamento"); }}
+                className="w-full h-[52px] rounded-[16px] mt-5 font-extrabold text-[15px] active:scale-[.98] transition"
+                style={{ background: "#E5737F", color: "#1A0A0C" }}>SIM, ENCERRAR</button>
+              <button onClick={() => setConfirmarFim(false)} className="w-full h-11 mt-2 text-[13.5px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>Voltar</button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  /* ============ 5 · CUSTOS ============ */
-  if (passo === "custos") {
-    const unidades = vendas.reduce((s, v) => s + v.unidades, 0);
-    return (
-      <div className="orbis-stagger max-w-2xl mx-auto pb-10">
-        <Faixa>Fechamento de teste.</Faixa>
-        <p className="orbis-section">fechamento</p>
-        <h1 className="font-display text-[21px] font-extrabold mt-1 leading-tight">Vendeu {brl0(vendido)}.<br />Quanto sobrou pra você?</h1>
+  /* ---------- números do fechamento ---------- */
+  const nnum = (t: string) => Number(String(t).replace(/\./g, "").replace(",", ".")) || 0;
+  const recDin = nnum(rec.dinheiro), recPix = nnum(rec.pix), recCar = nnum(rec.cartao);
+  const recebido = recDin + recPix + recCar;
+  const fiado = Math.max(0, Math.round((vendido - recebido) * 100) / 100);
+  const semear = (): CustoLinha[] => [
+    { id: "mercadoria", nome: "Mercadoria", sub: "automático · o que saiu do estoque", valor: Math.round(cmv * 100) / 100, auto: true },
+    { id: "transporte", nome: "Transporte", sub: "ontem: R$ 20", valor: 0 },
+    { id: "comida", nome: "Comida", sub: "ontem: R$ 25", valor: 0 },
+  ];
+  const linhasCusto = linhas ?? semear();
+  const custoFinal = linhasCusto.reduce((t, l) => t + l.valor, 0);
+  const lucroFinal = vendido - custoFinal;
+  const margemFinal = vendido > 0 ? (lucroFinal / vendido) * 100 : 0;
+  const unidades = vendas.reduce((t, v) => t + v.unidades, 0);
+  const ticket = vendas.length ? vendido / vendas.length : 0;
+  const conversao = abordagens > 0 ? (vendas.length / abordagens) * 100 : 0;
+  const minutosRua = inicio ? Math.max(1, Math.round((agora - inicio.getTime()) / 60000)) : 0;
+  const naRua = `${Math.floor(minutosRua / 60)}h${String(minutosRua % 60).padStart(2, "0")}`;
+  const bateuMeta = vendido >= metaDia;
+  const pctMeta = metaDia > 0 ? Math.round((vendido / metaDia) * 100) : 0;
+  const setLinha = (id: string, v: number) => setLinhas(linhasCusto.map((l) => (l.id === id ? { ...l, valor: v } : l)));
 
-        <div className="rounded-[20px] border mt-4 px-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surface)" }}>
-          {temCarga && (
-            <div className="flex items-center gap-3 py-3.5">
-              <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.05)" }}><Package className="w-[17px] h-[17px]" style={{ color: "var(--orbis-ok)" }} /></span>
-              <span className="flex-1 min-w-0">
-                <b className="block text-[14px] font-semibold">Mercadoria <span className="ml-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[.06em]" style={{ background: "rgba(61,214,140,.13)", color: "var(--orbis-ok)" }}>automático</span></b>
-                <small className="block text-[11.5px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>{unidades} unidades vendidas × custo do catálogo</small>
+  const Passos = ({ n }: { n: 1 | 2 }) => (
+    <>
+      <p className="orbis-mini">Fechamento · passo {n} de 3</p>
+      <div className="flex gap-1.5 mt-3">
+        {[1, 2, 3].map((k) => (
+          <span key={k} className="h-[3px] flex-1 rounded-full" style={{ background: k <= n ? "var(--orbis-gold)" : "rgba(255,255,255,.10)" }} />
+        ))}
+      </div>
+    </>
+  );
+
+  /* ============ 8 · FECHAMENTO — de onde o dinheiro veio ============ */
+  if (passo === "fechamento") {
+    const campos: [keyof typeof rec, string, JSX.Element][] = [
+      ["dinheiro", "Dinheiro", <Banknote className="w-[17px] h-[17px]" strokeWidth={2.1} style={{ color: "var(--orbis-ok)" }} />],
+      ["pix", "Pix", <Smartphone className="w-[17px] h-[17px]" strokeWidth={2.1} style={{ color: "var(--orbis-gold)" }} />],
+      ["cartao", "Cartão", <CreditCard className="w-[17px] h-[17px]" strokeWidth={2.1} style={{ color: "var(--orbis-fg-2)" }} />],
+    ];
+    return (
+      <div className="px-1 pt-2 pb-10 max-w-md mx-auto orbis-stagger">
+        <Faixa>Fechamento de mentira — nada vai pro banco.</Faixa>
+        <Passos n={1} />
+        <h1 className="font-display text-[21px] font-extrabold leading-tight mt-4">Do que você vendeu,<br />quanto entrou?</h1>
+
+        <div className="mt-5 rounded-[20px] border overflow-hidden" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          {campos.map(([k, rot, ico], idx) => (
+            <div key={k} className="flex items-center gap-3 px-4 h-[62px]" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+              <span className="w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.05)" }}>{ico}</span>
+              <span className="flex-1 text-[14.5px] font-semibold">{rot}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-[12px] px-3 h-[38px]"
+                style={{ border: `1px solid ${rec[k] ? "rgba(245,184,0,.45)" : "rgba(255,255,255,.10)"}`, background: rec[k] ? "rgba(245,184,0,.06)" : "transparent" }}>
+                <small className="text-[12px]" style={{ color: "var(--orbis-fg-3)" }}>R$</small>
+                <input inputMode="decimal" value={rec[k]} placeholder="0,00"
+                  onChange={(e) => setRec({ ...rec, [k]: e.target.value })}
+                  className="orbis-num w-[74px] bg-transparent outline-none text-right text-[16px] font-bold" style={{ color: "var(--orbis-fg)" }} />
               </span>
-              <span className="rounded-full px-3 py-1.5 text-[12.5px] font-bold orbis-num shrink-0" style={{ background: "rgba(61,214,140,.10)", border: "1px solid rgba(61,214,140,.35)", color: "var(--orbis-ok)" }}>{brl0(cmv)}</span>
-            </div>
-          )}
-          {([["Transporte", Bus, transporte, setTransporte, 20], ["Comida", Utensils, comida, setComida, 25]] as const).map(([rot, Icone, val, setVal, sug], i) => (
-            <div key={rot} className="flex items-center gap-3 py-3.5" style={(i > 0 || temCarga) ? { borderTop: "1px solid rgba(255,255,255,.07)" } : undefined}>
-              <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.05)" }}><Icone className="w-[17px] h-[17px]" style={{ color: "var(--orbis-fg-2)" }} /></span>
-              <span className="flex-1 min-w-0">
-                <b className="block text-[14px] font-semibold">{rot}</b>
-                <small className="block text-[11.5px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>Ontem você gastou {brl0(sug)}</small>
-              </span>
-              <button onClick={() => setVal(val === sug ? 0 : sug)} className="rounded-full px-3 py-1.5 text-[12.5px] font-bold orbis-num shrink-0"
-                style={val === sug ? { background: "var(--orbis-gold)", color: "#1A1200" } : { background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.35)", color: "var(--orbis-gold)" }}>{brl0(sug)}</button>
             </div>
           ))}
         </div>
 
-        <button onClick={() => setPasso("resultado")} className="orbis-cta w-full mt-4">VER MEU LUCRO</button>
-        <p className="text-[12px] text-center mt-3 leading-[1.55]" style={{ color: "var(--orbis-fg-3)" }}>
-          Sem custo lançado, o lucro é chute.{temCarga && <><br />A mercadoria o Orbis já calcula sozinho pra você.</>}
-        </p>
+        {fiado > 0 && vendido > 0 && (
+          <div className="rounded-[16px] border mt-3 p-3.5 flex items-start gap-3" style={{ borderColor: "rgba(229,115,127,.32)", background: "rgba(229,115,127,.08)" }}>
+            <span className="w-7 h-7 rounded-[9px] flex items-center justify-center shrink-0" style={{ background: "rgba(229,115,127,.16)" }}>
+              <AlertTriangle className="w-4 h-4" style={{ color: "var(--orbis-custo)" }} strokeWidth={2.4} />
+            </span>
+            <span className="flex-1 min-w-0">
+              <b className="block text-[14px] font-semibold" style={{ color: "var(--orbis-custo)" }}>{brl(fiado)} ficaram de pagar</b>
+              <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>Vendeu {brl(vendido)} · recebeu {brl(recebido)}</small>
+            </span>
+          </div>
+        )}
+
+        <button onClick={() => { setLinhas(semear()); setPasso("custos"); }} className="orbis-cta w-full mt-5">CONTINUAR</button>
+        <p className="text-[11.5px] text-center mt-2.5" style={{ color: "var(--orbis-fg-3)" }}>O que faltar pro total o Orbis marca como fiado.</p>
+        <button onClick={() => setPasso("rodando")} className="w-full h-10 mt-1 text-[13px] font-semibold inline-flex items-center justify-center gap-1.5" style={{ color: "var(--orbis-fg-3)" }}>
+          <ArrowLeft className="w-3.5 h-3.5" /> voltar pro DEFCON
+        </button>
       </div>
     );
   }
 
-  /* ============ 6 · RESULTADO ============ */
-  if (passo === "resultado") {
-    const bateu = vendido >= metaDia;
+  /* ============ 9 · CUSTOS — editáveis, nada obrigatório ============ */
+  if (passo === "custos") {
+    const icone = (id: string) =>
+      id === "mercadoria" ? <ShoppingCart className="w-[17px] h-[17px]" strokeWidth={2.1} />
+      : id === "transporte" ? <Bus className="w-[17px] h-[17px]" strokeWidth={2.1} />
+      : id === "comida" ? <Utensils className="w-[17px] h-[17px]" strokeWidth={2.1} />
+      : <Package className="w-[17px] h-[17px]" strokeWidth={2.1} />;
     return (
-      <div className="orbis-stagger max-w-2xl mx-auto pb-10">
-        <Faixa>Resultado de teste.</Faixa>
-        <div className="text-center">
-          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10.5px] font-extrabold uppercase tracking-[.08em]"
-            style={{ border: `1px solid ${bateu ? "rgba(61,214,140,.35)" : "rgba(255,255,255,.14)"}`, background: bateu ? "rgba(61,214,140,.10)" : "rgba(255,255,255,.04)", color: bateu ? "var(--orbis-ok)" : "var(--orbis-fg-2)" }}>
-            {bateu ? <><Check className="w-3 h-3" strokeWidth={3} /> Meta batida · {Math.round(pct)}%</> : <>Dia encerrado · {Math.round(pct)}% da meta</>}
-          </span>
-        </div>
-        <div className="orbis-card-in rounded-[22px] border mt-3 p-5 text-center"
-          style={{ borderColor: bateu ? "rgba(61,214,140,.28)" : "rgba(245,184,0,.24)", background: bateu ? "linear-gradient(165deg,#0d1a12 0%,var(--orbis-surface) 55%)" : "linear-gradient(165deg,#181307 0%,var(--orbis-surface) 55%)" }}>
-          <p className="orbis-label" style={{ color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>Sobrou pra você</p>
-          <p className="orbis-num text-[38px] font-extrabold mt-2 leading-none">{brl(lucro)}</p>
-          <div className="flex mt-4 pt-3.5" style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
-            <div className="flex-1 text-left"><p className="text-[10.5px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Vendido</p><p className="orbis-num text-[16px] font-extrabold mt-1">{brl0(vendido)}</p></div>
-            <div className="flex-1 text-left pl-3" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}><p className="text-[10.5px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Custos</p><p className="orbis-num text-[16px] font-extrabold mt-1" style={{ color: "var(--orbis-custo)" }}>{brl0(custosTotal)}</p></div>
-            <div className="flex-1 text-left pl-3" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}><p className="text-[10.5px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Margem</p><p className="orbis-num text-[16px] font-extrabold mt-1" style={{ color: "var(--orbis-ok)" }}>{Math.round(margem)}%</p></div>
+      <div className="px-1 pt-2 pb-10 max-w-md mx-auto orbis-stagger">
+        <Faixa>Custos de mentira — nada vai pro banco.</Faixa>
+        <Passos n={2} />
+        <h1 className="font-display text-[21px] font-extrabold leading-tight mt-4">Os custos que eu já sei<br />são estes. Teve mais algum?</h1>
+
+        <div className="mt-5 rounded-[20px] border overflow-hidden" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          {linhasCusto.map((l, idx) => (
+            <div key={l.id} className="flex items-center gap-3 px-4 h-[64px]" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+              <span className="w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.09)", color: "var(--orbis-gold)" }}>{icone(l.id)}</span>
+              <span className="flex-1 min-w-0">
+                <b className="block text-[14.5px] font-semibold truncate">{l.nome}</b>
+                <small className="block text-[11.5px] truncate" style={{ color: l.auto ? "var(--orbis-ok)" : "var(--orbis-fg-3)" }}>{l.sub}</small>
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-[12px] px-3 h-[38px] shrink-0"
+                style={{ border: `1px solid ${l.valor > 0 ? "rgba(245,184,0,.45)" : "rgba(255,255,255,.10)"}`, background: l.valor > 0 ? "rgba(245,184,0,.06)" : "transparent" }}>
+                <small className="text-[12px]" style={{ color: "var(--orbis-fg-3)" }}>R$</small>
+                <input inputMode="decimal" value={l.valor ? String(l.valor).replace(".", ",") : ""} placeholder="0,00"
+                  onChange={(e) => setLinha(l.id, nnum(e.target.value))}
+                  className="orbis-num w-[70px] bg-transparent outline-none text-right text-[16px] font-bold" style={{ color: "var(--orbis-fg)" }} />
+              </span>
+              {!l.auto && (
+                <button onClick={() => setLinhas(linhasCusto.filter((x) => x.id !== l.id))} aria-label={`Remover ${l.nome}`} className="shrink-0 p-1">
+                  <Trash2 className="w-4 h-4" style={{ color: "var(--orbis-fg-3)" }} />
+                </button>
+              )}
+            </div>
+          ))}
+          <div className="flex items-center justify-between px-4 h-[52px]" style={{ borderTop: "1px solid var(--orbis-line)", background: "rgba(0,0,0,.25)" }}>
+            <span className="orbis-mini">Total de custos</span>
+            <span className="orbis-num text-[17px] font-extrabold" style={{ color: custoFinal > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{brl(custoFinal)}</span>
           </div>
         </div>
-        <div className="rounded-[18px] border mt-3 p-4 flex items-center gap-3" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surface)" }}>
-          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.12)" }}><TrendingUp className="w-[17px] h-[17px]" style={{ color: "var(--orbis-gold)" }} /></span>
-          <span className="flex-1">
-            <b className="block text-[14px] font-semibold">{vendas.length} vendas · {vendas.reduce((s, v) => s + v.unidades, 0)} unidades</b>
-            <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>Ticket médio {brl(vendas.length ? vendido / vendas.length : 0)}</small>
-          </span>
-        </div>
-        <button onClick={() => setPasso("pontes")} className="orbis-cta w-full mt-4">VER O QUE ISSO MEXEU</button>
+
+        {novoCusto ? (
+          <div className="rounded-[16px] border mt-3 p-3.5" style={{ borderColor: "rgba(245,184,0,.3)", background: "rgba(245,184,0,.05)" }}>
+            <input autoFocus value={novoCusto.nome} onChange={(e) => setNovoCusto({ ...novoCusto, nome: e.target.value })} placeholder="Do que foi esse custo?"
+              className="w-full bg-transparent outline-none text-[14.5px] font-semibold" />
+            <div className="flex gap-2 mt-3">
+              <span className="inline-flex items-center gap-1.5 rounded-[12px] px-3 h-[40px] flex-1" style={{ border: "1px solid rgba(255,255,255,.12)" }}>
+                <small className="text-[12px]" style={{ color: "var(--orbis-fg-3)" }}>R$</small>
+                <input inputMode="decimal" value={novoCusto.valor} onChange={(e) => setNovoCusto({ ...novoCusto, valor: e.target.value })} placeholder="0,00"
+                  className="orbis-num flex-1 bg-transparent outline-none text-[16px] font-bold" />
+              </span>
+              <button onClick={() => {
+                  const v = nnum(novoCusto.valor);
+                  if (v > 0) setLinhas([...linhasCusto, { id: `x${Date.now()}`, nome: novoCusto.nome.trim() || "Outro custo", sub: "você adicionou", valor: v }]);
+                  setNovoCusto(null);
+                }}
+                className="h-[40px] px-4 rounded-[12px] font-bold text-[13.5px]" style={{ background: "var(--orbis-gold)", color: "#1A1200" }}>ADICIONAR</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setNovoCusto({ nome: "", valor: "" })}
+            className="w-full h-[46px] rounded-[14px] mt-3 text-[13.5px] font-semibold inline-flex items-center justify-center gap-1.5"
+            style={{ border: "1px dashed rgba(245,184,0,.35)", color: "var(--orbis-gold)" }}>
+            <Plus className="w-4 h-4" /> adicionar outro custo
+          </button>
+        )}
+
+        <button onClick={() => setPasso("relatorio")} className="orbis-cta w-full mt-5">VER MEU RELATÓRIO</button>
+        <p className="text-[11.5px] text-center mt-2.5" style={{ color: "var(--orbis-fg-3)" }}>Deixou em R$ 0? Então não conta.</p>
       </div>
     );
   }
 
-  /* ============ 7 · PONTES + ESTOQUE ============ */
-  return (
-    <div className="orbis-stagger max-w-2xl mx-auto pb-10">
-      <Faixa>Pontes de teste.</Faixa>
-      <p className="orbis-section">fechamento</p>
-      <h1 className="font-display text-[21px] font-extrabold mt-1 leading-tight">O que o dia de hoje mexeu</h1>
+  /* ============ 10 · RELATÓRIO DO DIA (premium) ============ */
+  if (passo === "relatorio") {
+    const metodos: [string, number, string, JSX.Element][] = [
+      ["Dinheiro", recDin, "var(--orbis-ok)", <Banknote className="w-4 h-4" strokeWidth={2.1} />],
+      ["Pix", recPix, "var(--orbis-gold)", <Smartphone className="w-4 h-4" strokeWidth={2.1} />],
+      ["Cartão", recCar, "var(--orbis-fg-2)", <CreditCard className="w-4 h-4" strokeWidth={2.1} />],
+    ];
+    return (
+      <div className="px-1 pt-2 pb-10 max-w-md mx-auto orbis-stagger">
+        <Faixa>Relatório de mentira — nada vai pro banco.</Faixa>
+        <p className="orbis-mini">{new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").toUpperCase()} · {naRua} NA RUA</p>
+        <h1 className="font-display text-[22px] font-extrabold mt-1">Relatório do dia</h1>
 
-      {[
-        { Icone: Trophy, tom: "gold", t: "Subiu 2 lugares — agora é #3", s: "Faltam R$ 210 pro segundo lugar" },
-        { Icone: MessageCircle, tom: "red", t: "R$ 40 ficaram de pagar", s: "2 clientes · cobrar no WhatsApp agora" },
-        { Icone: Flame, tom: "gray", t: "4 dias seguidos", s: "Amanhã é folga — a sequência não quebra" },
-        { Icone: BarChart3, tom: "gray", t: "Ver este dia no relatório", s: "Hora a hora, o que vendeu mais" },
-      ].map(({ Icone, tom, t, s }) => (
-        <div key={t} className="rounded-[16px] border mt-2.5 p-3.5 flex items-center gap-3"
-          style={tom === "gold" ? { borderColor: "rgba(245,184,0,.28)", background: "rgba(245,184,0,.07)" }
-            : tom === "red" ? { borderColor: "rgba(229,115,127,.35)", background: "rgba(229,115,127,.07)" }
-            : { borderColor: "rgba(255,255,255,.10)", background: "rgba(255,255,255,.035)" }}>
-          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-            style={tom === "gold" ? { background: "linear-gradient(180deg,#FFC63A,#F5B800)", boxShadow: "0 3px 0 #B88700" }
-              : tom === "red" ? { background: "linear-gradient(180deg,#F08F99,#E5737F)", boxShadow: "0 3px 0 #8E3A42" }
-              : { background: "rgba(255,255,255,.07)" }}>
-            <Icone className="w-[17px] h-[17px]" style={{ color: tom === "gray" ? "var(--orbis-fg-2)" : "#1A1200" }} strokeWidth={2.2} />
+        {/* herói */}
+        <div className="rounded-[24px] border mt-4 p-5" style={{ borderColor: bateuMeta ? "rgba(61,214,140,.32)" : "rgba(245,184,0,.24)", background: "linear-gradient(165deg,#191308 0%,#101010 58%)", boxShadow: "0 24px 54px -32px rgba(245,184,0,.4)" }}>
+          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 h-[24px] text-[10.5px] font-extrabold tracking-[.1em] uppercase"
+            style={bateuMeta ? { background: "rgba(61,214,140,.14)", color: "var(--orbis-ok)", border: "1px solid rgba(61,214,140,.3)" } : { background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)", border: "1px solid rgba(245,184,0,.3)" }}>
+            {bateuMeta ? <><Check className="w-3 h-3" strokeWidth={3} /> Meta batida · {pctMeta}%</> : <>{pctMeta}% da meta</>}
           </span>
-          <span className="flex-1"><b className="block text-[14px] font-semibold">{t}</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>{s}</small></span>
-        </div>
-      ))}
-
-      {temCarga && (
-        <>
-          <p className="orbis-section mt-5">Seu estoque depois de hoje</p>
-          <div className="rounded-[20px] border mt-2 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surface)" }}>
-            {prods.filter((p) => p.levar > 0).map((p) => {
-              const voltou = Math.max(0, p.levar - p.vendido);
-              const restamCasa = p.estoque - p.vendido;
-              const pr = p.estoque > 0 ? (restamCasa / p.estoque) * 100 : 0;
-              const acabando = pr < 30;
-              return (
-                <div key={p.id} className="mb-3 last:mb-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13.5px] font-semibold">{p.nome}</span>
-                    <span className="orbis-num text-[14px] font-bold" style={{ color: acabando ? "var(--orbis-custo)" : "var(--orbis-ok)" }}>Restam {restamCasa}</span>
-                  </div>
-                  <small className="block text-[11.5px]" style={{ color: "var(--orbis-fg-3)" }}>Levou {p.levar} · vendeu {p.vendido} · voltou {voltou}</small>
-                  <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background: "rgba(255,255,255,.09)" }}>
-                    <i className="block h-full rounded-full" style={{ width: `${Math.max(3, pr)}%`, background: acabando ? "var(--orbis-custo)" : "var(--orbis-ok)" }} />
-                  </div>
-                </div>
-              );
-            })}
+          <div className="flex items-center gap-4 mt-4">
+            <div className="flex-1 min-w-0">
+              <p className="orbis-mini">Sobrou pra você</p>
+              <p className="orbis-num mt-2 whitespace-nowrap" style={{ fontSize: "clamp(30px,8.8vw,38px)", fontWeight: 700, letterSpacing: "-.025em", color: lucroFinal >= 0 ? "var(--orbis-fg)" : "var(--orbis-custo)" }}>{brl(lucroFinal)}</p>
+              <p className="text-[12px] mt-2.5" style={{ color: "var(--orbis-fg-2)" }}>De <b style={{ color: "var(--orbis-fg)" }}>{brl0(vendido)}</b> vendidos · margem <b style={{ color: "var(--orbis-ok)" }}>{Math.round(margemFinal)}%</b></p>
+            </div>
+            <div className="w-[74px] h-[74px] rounded-full shrink-0 flex items-center justify-center"
+              style={{ border: "7px solid rgba(255,255,255,.07)", boxShadow: bateuMeta ? "0 0 24px -4px rgba(61,214,140,.5), inset 0 0 0 3px rgba(61,214,140,.9)" : "inset 0 0 0 3px rgba(245,184,0,.9)" }}>
+              <span className="orbis-num text-[14px] font-extrabold">{pctMeta}%</span>
+            </div>
           </div>
-          {prods.some((p) => p.levar > 0 && (p.estoque - p.vendido) / p.estoque < 0.3) && (
-            <div className="rounded-[16px] border mt-3 p-3.5 flex items-center gap-3" style={{ borderColor: "rgba(229,115,127,.35)", background: "rgba(229,115,127,.07)" }}>
-              <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: "linear-gradient(180deg,#F08F99,#E5737F)", boxShadow: "0 3px 0 #8E3A42" }}>
-                <ShoppingCart className="w-[17px] h-[17px]" style={{ color: "#3A0F14" }} strokeWidth={2.3} />
-              </span>
-              <span className="flex-1">
-                <b className="block text-[14px] font-semibold">Precisa comprar mercadoria</b>
-                <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>
-                  {prods.filter((p) => p.levar > 0 && (p.estoque - p.vendido) / p.estoque < 0.3).map((p) => p.nome).join(", ")} está acabando
-                </small>
+          <div className="h-px my-[18px]" style={{ background: "var(--orbis-line)" }} />
+          <div className="flex">
+            <div className="flex-1"><p className="orbis-mini">Vendido</p><p className="orbis-num text-[16px] font-bold mt-1.5">{brl0(vendido)}</p></div>
+            <div className="flex-1 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Recebido</p><p className="orbis-num text-[16px] font-bold mt-1.5" style={{ color: "var(--orbis-ok)" }}>{brl0(recebido)}</p></div>
+            <div className="flex-1 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Fiado</p><p className="orbis-num text-[16px] font-bold mt-1.5" style={{ color: fiado > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{brl0(fiado)}</p></div>
+          </div>
+        </div>
+
+        {/* como o dinheiro entrou */}
+        <p className="orbis-section mt-6 px-1">Como o dinheiro entrou</p>
+        <div className="rounded-[20px] border mt-3 overflow-hidden" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          {metodos.map(([nome, v, cor, ico], idx) => (
+            <div key={nome} className="px-4 py-3.5" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+              <div className="flex items-center gap-3">
+                <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.05)", color: cor }}>{ico}</span>
+                <span className="flex-1 text-[14px] font-semibold">{nome}</span>
+                <span className="orbis-num text-[15px] font-bold" style={{ color: v > 0 ? cor : "var(--orbis-fg-3)" }}>{brl0(v)}</span>
+                <span className="orbis-num text-[11.5px] w-[34px] text-right" style={{ color: "var(--orbis-fg-3)" }}>{recebido > 0 ? Math.round((v / recebido) * 100) : 0}%</span>
+              </div>
+              <span className="block h-[3px] rounded-full mt-2.5" style={{ background: "rgba(255,255,255,.07)" }}>
+                <span className="block h-full rounded-full" style={{ width: `${recebido > 0 ? (v / recebido) * 100 : 0}%`, background: cor }} />
               </span>
             </div>
-          )}
-        </>
-      )}
+          ))}
+        </div>
 
-      <div className="rounded-[18px] border mt-4 p-4" style={{ borderColor: "rgba(245,184,0,.24)", background: "linear-gradient(165deg,#181307 0%,var(--orbis-surface) 55%)" }}>
-        <p className="orbis-section">Amanhã</p>
-        <p className="text-[13px] mt-1.5" style={{ color: "var(--orbis-fg-2)" }}>Você começa às <b style={{ color: "var(--orbis-fg)" }}>7h</b> · meta de <b style={{ color: "var(--orbis-fg)" }}>{brl0(metaDia)}</b></p>
-        <p className="text-[12.5px] mt-1.5" style={{ color: "var(--orbis-fg-3)" }}>Mantendo o ritmo de hoje, fecha o mês em <b style={{ color: "var(--orbis-gold)" }}>{brl0(vendido * 26)}</b></p>
+        {/* o seu dia */}
+        <p className="orbis-section mt-6 px-1">O seu dia</p>
+        <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          <div className="grid grid-cols-3 gap-y-4">
+            {([["Na rua", naRua, ""], ["Vendas", String(vendas.length), ""], ["Unidades", String(unidades), ""],
+               ["Ticket", brl0(ticket), ""], ["Abord.", String(abordagens), ""], ["Conv.", `${Math.round(conversao)}%`, "var(--orbis-gold)"]] as [string, string, string][])
+              .map(([rot, val, cor]) => (
+                <div key={rot} className="text-center">
+                  <p className="orbis-mini">{rot}</p>
+                  <p className="orbis-num text-[17px] font-bold mt-1.5" style={cor ? { color: cor } : undefined}>{val}</p>
+                </div>
+              ))}
+          </div>
+        </div>
+
+        <div className="rounded-[16px] border mt-3 p-3.5 flex items-center gap-3" style={{ borderColor: "rgba(245,184,0,.24)", background: "rgba(245,184,0,.05)" }}>
+          <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)" }}><Clock className="w-4 h-4" strokeWidth={2.2} /></span>
+          <span className="flex-1 min-w-0">
+            <b className="block text-[13.5px] font-semibold">Sua melhor hora: {inicio ? `${hhmm(inicio)} → ${hhmm(new Date(inicio.getTime() + 3600_000))}` : "—"}</b>
+            <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>{brl0(vendido)} num bloco só</small>
+          </span>
+        </div>
+
+        <button onClick={() => setPasso("mexeu")} className="orbis-cta w-full mt-5">VER O QUE ISSO MEXEU</button>
+      </div>
+    );
+  }
+
+  /* ============ 11 · O QUE ESSE DIA MEXEU ============ */
+  if (passo === "mexeu") {
+    const clientesFiado = fiado > 0 ? Math.max(1, Math.round(fiado / Math.max(1, ticket))) : 0;
+    return (
+      <div className="px-1 pt-2 pb-10 max-w-md mx-auto orbis-stagger">
+        <Faixa>Nada disso mexeu no ranking de verdade.</Faixa>
+        <p className="orbis-mini">{new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").toUpperCase()}</p>
+        <h1 className="font-display text-[21px] font-extrabold leading-tight mt-1">O que esse dia<br />mexeu no seu jogo</h1>
+
+        <div className="rounded-[20px] border mt-4 p-4" style={{ borderColor: "rgba(245,184,0,.3)", background: "linear-gradient(120deg,rgba(70,52,10,.5),#0d0d0d)" }}>
+          <div className="flex items-center gap-3.5">
+            <span className="w-[52px] h-[52px] rounded-[14px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.14)", color: "var(--orbis-gold)" }}><Trophy className="w-6 h-6" strokeWidth={2} /></span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-[10.5px] font-extrabold tracking-[.13em] uppercase" style={{ color: "var(--orbis-gold)" }}>Ranking do mês</span>
+              <b className="block text-[15.5px] font-semibold mt-1">Subiu 2 lugares — é o #3</b>
+              <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>Liga Bronze · 59 vendedores</small>
+            </span>
+          </div>
+          <div className="flex items-center justify-between mt-3.5 pt-3.5" style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
+            <span className="text-[12.5px]" style={{ color: "var(--orbis-fg-2)" }}>Faltam <b style={{ color: "var(--orbis-gold)" }}>{brl0(210)}</b> pro segundo</span>
+            <span className="text-[12.5px] font-semibold inline-flex items-center gap-0.5" style={{ color: "var(--orbis-fg-3)" }}>Ver <ChevronRight className="w-3.5 h-3.5" /></span>
+          </div>
+        </div>
+
+        {fiado > 0 && (
+          <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "rgba(229,115,127,.3)", background: "rgba(229,115,127,.07)" }}>
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(229,115,127,.16)" }}><Coins className="w-[18px] h-[18px]" style={{ color: "var(--orbis-custo)" }} strokeWidth={2.2} /></span>
+              <span className="flex-1 min-w-0">
+                <b className="block text-[16px] font-bold" style={{ color: "var(--orbis-custo)" }}>{brl(fiado)}</b>
+                <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>ficaram de pagar · {clientesFiado} cliente{clientesFiado > 1 ? "s" : ""}</small>
+              </span>
+            </div>
+            <button className="w-full h-[46px] rounded-[14px] mt-3.5 font-bold text-[14px] inline-flex items-center justify-center gap-2" style={{ background: "#E5737F", color: "#1A0A0C" }}>
+              <MessageCircle className="w-4 h-4" strokeWidth={2.4} /> COBRAR NO WHATSAPP
+            </button>
+          </div>
+        )}
+
+        <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-2 text-[14.5px] font-semibold">
+              <Flame className="w-[17px] h-[17px]" strokeWidth={2.3} style={{ color: "var(--orbis-gold)" }} /> 5 dias trabalhados
+            </span>
+            <span className="flex gap-[6px]">
+              {["S", "T", "Q", "Q", "S", "S", "D"].map((l, i) => (
+                <i key={i} className="w-[21px] h-[21px] rounded-full flex items-center justify-center text-[9.5px] font-bold not-italic"
+                  style={i < 5 ? { background: "var(--orbis-gold)", color: "#1A1200" } : { border: "1.5px solid rgba(255,255,255,.13)", color: "var(--orbis-fg-3)" }}>{l}</i>
+              ))}
+            </span>
+          </div>
+          <p className="text-[12px] mt-2.5" style={{ color: "var(--orbis-fg-3)" }}>Amanhã é folga — a sequência não quebra.</p>
+        </div>
+
+        <button onClick={() => setPasso("relatorio")} className="w-full rounded-[18px] border mt-3 p-4 flex items-center gap-3 text-left" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          <span className="w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}><BarChart3 className="w-[18px] h-[18px]" strokeWidth={2.1} /></span>
+          <span className="flex-1"><b className="block text-[14px] font-semibold">Ver este dia no relatório</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>hora a hora</small></span>
+          <ChevronRight className="w-4 h-4" style={{ color: "var(--orbis-fg-3)" }} />
+        </button>
+
+        <div className="rounded-[18px] border mt-3 p-4" style={{ borderColor: "rgba(245,184,0,.24)", background: "linear-gradient(165deg,#181307 0%,var(--orbis-surface) 55%)" }}>
+          <p className="orbis-section">Amanhã</p>
+          <div className="flex items-center justify-between mt-2.5">
+            <span className="text-[13px]" style={{ color: "var(--orbis-fg-2)" }}>Começa às</span>
+            <b className="orbis-num text-[14px]">7h00</b>
+          </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[13px]" style={{ color: "var(--orbis-fg-2)" }}>Meta</span>
+            <b className="orbis-num text-[14px]">{brl0(metaDia)}</b>
+          </div>
+          <div className="flex items-center justify-between mt-2 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,.07)" }}>
+            <span className="text-[13px]" style={{ color: "var(--orbis-fg-2)" }}>Nesse ritmo, o mês fecha em</span>
+            <b className="orbis-num text-[14px]" style={{ color: "var(--orbis-gold)" }}>{brl0(vendido * 26)}</b>
+          </div>
+        </div>
+
+        <button onClick={() => setPasso("foco")} className="orbis-cta w-full mt-5">FECHAR O DIA</button>
+      </div>
+    );
+  }
+
+  /* ============ 12 · VOLTA PRO FOCO — dia encerrado ============ */
+  const acabando = prods.filter((p) => p.levar > 0 && p.estoque > 0 && (p.estoque - p.vendido) / p.estoque < 0.3);
+  return (
+    <div className="px-1 pt-2 pb-10 max-w-md mx-auto orbis-stagger">
+      <Faixa>Fim do teste — nada foi gravado.</Faixa>
+      <p className="orbis-mini">{new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").toUpperCase()}</p>
+      <h1 className="font-display text-[22px] font-extrabold mt-1">Seu dia</h1>
+
+      <div className="rounded-[24px] border mt-4 p-5" style={{ borderColor: "rgba(61,214,140,.3)", background: "linear-gradient(165deg,#0B1711 0%,#101010 58%)" }}>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 h-[24px] text-[10.5px] font-extrabold tracking-[.1em] uppercase"
+          style={{ background: "rgba(61,214,140,.13)", color: "var(--orbis-ok)", border: "1px solid rgba(61,214,140,.3)" }}>
+          <Check className="w-3 h-3" strokeWidth={3} /> Dia encerrado · {naRua} na rua
+        </span>
+        <p className="orbis-mini mt-4">Sobrou pra você</p>
+        <p className="orbis-num mt-2 whitespace-nowrap" style={{ fontSize: "clamp(30px,8.8vw,38px)", fontWeight: 700, letterSpacing: "-.025em" }}>{brl(lucroFinal)}</p>
+        <p className="text-[12px] mt-2.5" style={{ color: "var(--orbis-fg-2)" }}>Vendeu <b style={{ color: "var(--orbis-fg)" }}>{brl0(vendido)}</b> · meta era <b style={{ color: "var(--orbis-fg)" }}>{brl0(metaDia)}</b></p>
+
+        <div className="flex mt-4 pt-4" style={{ borderTop: "1px solid var(--orbis-line)" }}>
+          <div className="flex-1"><p className="orbis-mini">Recebido</p><p className="orbis-num text-[15px] font-bold mt-1.5" style={{ color: "var(--orbis-ok)" }}>{brl0(recebido)}</p></div>
+          <div className="flex-1 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Fiado</p><p className="orbis-num text-[15px] font-bold mt-1.5" style={{ color: fiado > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{brl0(fiado)}</p></div>
+          <div className="flex-1 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Custos</p><p className="orbis-num text-[15px] font-bold mt-1.5" style={{ color: custoFinal > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{brl0(custoFinal)}</p></div>
+        </div>
+
+        <button onClick={() => setPasso("relatorio")} className="w-full h-[46px] rounded-[14px] mt-4 text-[13.5px] font-semibold" style={{ border: "1px solid rgba(255,255,255,.12)", color: "var(--orbis-fg-2)" }}>
+          Ver o relatório do dia
+        </button>
       </div>
 
-      <button onClick={zerar} className="w-full h-12 rounded-[15px] mt-4 text-[14px] font-bold inline-flex items-center justify-center gap-2"
+      {acabando.length > 0 && (
+        <div className="rounded-[18px] border mt-3 p-4 flex items-start gap-3" style={{ borderColor: "rgba(245,184,0,.28)", background: "rgba(245,184,0,.05)" }}>
+          <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)" }}><Package className="w-4 h-4" strokeWidth={2.2} /></span>
+          <span className="flex-1 min-w-0">
+            <b className="block text-[13.5px] font-semibold">Seu estoque está acabando</b>
+            <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>{acabando.map((p) => p.nome).join(", ")} · precisa comprar mercadoria</small>
+          </span>
+        </div>
+      )}
+
+      <div className="rounded-[18px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+        <p className="orbis-section">Amanhã</p>
+        <div className="flex items-center justify-between mt-2.5">
+          <span className="text-[13px]" style={{ color: "var(--orbis-fg-2)" }}>Começa às</span><b className="orbis-num text-[14px]">7h00</b>
+        </div>
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[13px]" style={{ color: "var(--orbis-fg-2)" }}>Meta</span><b className="orbis-num text-[14px]">{brl0(metaDia)}</b>
+        </div>
+      </div>
+
+      <button onClick={() => setPasso("rodando")} className="w-full h-[52px] rounded-[16px] mt-5 font-extrabold text-[15px] active:scale-[.98] transition"
+        style={{ background: "#E5737F", color: "#1A0A0C" }}>REABRIR E VENDER MAIS</button>
+
+      <button onClick={zerar} className="w-full h-12 rounded-[15px] mt-3 text-[14px] font-bold inline-flex items-center justify-center gap-2"
         style={{ background: "rgba(245,184,0,.10)", border: "1px solid rgba(245,184,0,.3)", color: "var(--orbis-gold)" }}>
         <RotateCcw className="w-4 h-4" /> Rodar o teste de novo
       </button>
