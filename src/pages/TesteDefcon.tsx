@@ -22,7 +22,7 @@ import {
   Package, Minus, Plus, Check, ArrowLeft, Trophy, MessageCircle, Flame,
   BarChart3, ShoppingCart, Info, Bus, Utensils, TrendingUp, RotateCcw,
   UserRound, Coins, FileText, UtensilsCrossed, BatteryFull, X,
-  CreditCard, Smartphone, Banknote, Trash2, Clock, ChevronRight, AlertTriangle,
+  CreditCard, Smartphone, Banknote, Trash2, Clock, ChevronRight, AlertTriangle, Zap,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -43,7 +43,7 @@ const CATALOGO: Prod[] = [
 /* O fechamento aprovado no mockup tem 5 telas, não 3:
    encerrar (modal) → recebimentos → custos editáveis → relatório premium
    → o que esse dia mexeu → volta pro Foco com o dia encerrado. */
-type Passo = "desafio" | "carga" | "cadastro" | "rodando" | "fechamento" | "custos" | "relatorio" | "mexeu" | "foco";
+type Passo = "inicio" | "desafio" | "carga" | "cadastro" | "rodando" | "fechamento" | "custos" | "relatorio" | "mexeu" | "foco";
 interface CustoLinha { id: string; nome: string; sub: string; valor: number; auto?: boolean }
 
 export default function TesteDefcon() {
@@ -52,7 +52,7 @@ export default function TesteDefcon() {
   const { whitelisted, role, loading: adminLoading } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
 
-  const [passo, setPasso] = useState<Passo>("desafio");
+  const [passo, setPasso] = useState<Passo>("inicio");   // começa na aba Foco, como no app
   const [contaVazia, setContaVazia] = useState(false); // simula "não cadastrou nada ainda"
   const [prods, setProds] = useState<Prod[]>(CATALOGO);
   const [vendas, setVendas] = useState<Venda[]>([]);
@@ -160,7 +160,7 @@ export default function TesteDefcon() {
   };
 
   const zerar = () => {
-    setPasso("desafio"); setProds(CATALOGO); setVendas([]); setValor(""); setQtdManual(null);
+    setPasso("inicio"); setProds(CATALOGO); setVendas([]); setValor(""); setQtdManual(null);
     setRec({ dinheiro: "", pix: "", cartao: "" }); setLinhas(null); setNovoCusto(null); setConfirmarFim(false);
     setTransporte(0); setComida(0); setAbordagens(0); setInicio(null); setConfirmando(false);
     setContaVazia(false); setNovo({ nome: "", custo: "", faixas: [{ qty: 1, price: 0 }] });
@@ -187,7 +187,67 @@ export default function TesteDefcon() {
     </div>
   );
 
-  /* ============ 1 · MODO DESAFIO (a tela que já existe) ============ */
+  /* ============ 1 · ABA FOCO — o dia não começou ============ */
+  if (passo === "inicio") {
+    return (
+      <div className="px-1 pt-2 pb-10 max-w-md mx-auto orbis-stagger">
+        <Faixa>Você está na aba Foco do teste. Nada aqui vai pro banco.</Faixa>
+
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p className="orbis-mini">{new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").toUpperCase()}</p>
+            <h1 className="font-display text-[22px] font-extrabold mt-1">Seu dia</h1>
+          </div>
+          <span className="w-[54px] h-[54px] rounded-full shrink-0 flex items-center justify-center"
+            style={{ border: "6px solid rgba(255,255,255,.07)" }}>
+            <span className="orbis-num text-[12.5px] font-bold" style={{ color: "var(--orbis-fg-3)" }}>0%</span>
+          </span>
+        </div>
+
+        <div className="rounded-[24px] border mt-4 p-5" style={{ borderColor: "rgba(229,115,127,.26)", background: "linear-gradient(165deg,#1A0D0F 0%,#101010 58%)", boxShadow: "0 24px 54px -32px rgba(229,115,127,.4)" }}>
+          <p className="orbis-mini" style={{ color: "var(--orbis-gold)" }}>Meta do dia</p>
+          <p className="orbis-num mt-2.5 whitespace-nowrap" style={{ fontSize: "clamp(30px,8.8vw,38px)", fontWeight: 700, letterSpacing: "-.025em" }}>
+            {brl0(metaDia)}<span style={{ fontSize: ".4em", color: "var(--orbis-fg-3)", fontWeight: 700 }}>,00</span>
+          </p>
+          <p className="text-[12px] mt-2.5" style={{ color: "var(--orbis-fg-2)" }}>Ainda não começou · <b style={{ color: "var(--orbis-fg)" }}>10 blocos de 1h</b></p>
+
+          <div className="flex mt-[18px] pt-[18px]" style={{ borderTop: "1px solid var(--orbis-line)" }}>
+            <div className="flex-1"><p className="orbis-mini">Vendido</p><p className="orbis-num text-[18px] font-bold mt-1.5">{brl(0)}</p></div>
+            <div className="flex-1 pl-4" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Falta</p><p className="orbis-num text-[18px] font-bold mt-1.5">{brl0(metaDia)}</p></div>
+          </div>
+
+          {/* vermelho absoluto (pedido do Rick) */}
+          <button onClick={() => setPasso("desafio")}
+            className="w-full h-[54px] rounded-[16px] mt-[18px] font-extrabold text-[15.5px] inline-flex items-center justify-center gap-2 active:scale-[.98] transition"
+            style={{ background: "#E5354A", color: "#FFF", boxShadow: "0 10px 26px -10px rgba(229,53,74,.85)" }}>
+            <Zap className="w-[18px] h-[18px]" strokeWidth={2.8} /> INICIAR DEFCON 4
+          </button>
+        </div>
+
+        <p className="orbis-section mt-6 px-1">Enquanto isso</p>
+        <div className="rounded-[20px] border mt-3 overflow-hidden" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+          {([["Lançar um custo", "mercadoria, transporte", <ShoppingCart className="w-[17px] h-[17px]" strokeWidth={2.1} key="a" />],
+             ["Pix que caiu depois", "lança no dia da venda", <Smartphone className="w-[17px] h-[17px]" strokeWidth={2.1} key="b" />]] as [string, string, JSX.Element][])
+            .map(([t, sub, ico], idx) => (
+              <div key={t} className="flex items-center gap-3 px-4 h-[62px]" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+                <span className="w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.09)", color: "var(--orbis-gold)" }}>{ico}</span>
+                <span className="flex-1 min-w-0">
+                  <b className="block text-[14px] font-semibold truncate">{t}</b>
+                  <small className="block text-[11.5px] truncate" style={{ color: "var(--orbis-fg-3)" }}>{sub}</small>
+                </span>
+                <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-fg-3)" }} />
+              </div>
+            ))}
+        </div>
+
+        <button onClick={() => navigate("/admin")} className="w-full h-10 mt-6 text-[13px] font-semibold inline-flex items-center justify-center gap-1.5" style={{ color: "var(--orbis-fg-3)" }}>
+          <ArrowLeft className="w-3.5 h-3.5" /> voltar pro painel
+        </button>
+      </div>
+    );
+  }
+
+  /* ============ 2 · MODO DESAFIO (a tela que já existe) ============ */
   if (passo === "desafio") {
     return (
       <div className="max-w-2xl mx-auto pb-10">
