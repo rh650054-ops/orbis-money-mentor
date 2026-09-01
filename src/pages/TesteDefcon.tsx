@@ -103,6 +103,41 @@ export default function TesteDefcon() {
   }, [valorNum, prods]);
   const temCarga = levando > 0;
 
+  /* Valor registrado 2+ vezes hoje vira botão de venda rápida — e fica fixo
+     até o fim do dia (contador só cresce). Guarda também o método mais usado
+     naquele valor, pra o toque rápido não gravar tudo como Pix. */
+  const rapidos = useMemo(() => {
+    const conta = new Map<number, { n: number; metodos: Record<string, number> }>();
+    for (const v of vendas) {
+      const at = conta.get(v.valor) ?? { n: 0, metodos: {} };
+      at.n += 1;
+      at.metodos[v.metodo] = (at.metodos[v.metodo] ?? 0) + 1;
+      conta.set(v.valor, at);
+    }
+    return Array.from(conta.entries())
+      .filter(([, c]) => c.n >= 2)
+      .sort((a, b) => b[1].n - a[1].n || a[0] - b[0])
+      .slice(0, 3)
+      .map(([valor, c]) => ({
+        valor,
+        metodo: Object.entries(c.metodos).sort((x, y) => y[1] - x[1])[0]![0],
+      }));
+  }, [vendas]);
+
+  const registrarDireto = (v: number, metodo: string) => {
+    const alvo = (() => {
+      for (const p of prods) {
+        if (p.levar <= 0) continue;
+        const f = p.faixas.find((x) => Math.abs(x.price - v) < 0.005);
+        if (f) return { prodId: p.id, unidades: f.qty };
+      }
+      return null;
+    })();
+    setVendas((vs) => [...vs, { id: Date.now(), valor: v, prodId: alvo?.prodId ?? null, unidades: alvo?.unidades ?? 0, metodo }]);
+    if (alvo) setProds((ps) => ps.map((p) => (p.id === alvo.prodId ? { ...p, vendido: p.vendido + alvo.unidades } : p)));
+    setAbordagens((a) => a + 1);
+  };
+
   const registrar = (metodo: string) => {
     if (!(valorNum > 0)) return;
     const un = casado?.unidades ?? qtdManual ?? 1;
@@ -388,24 +423,23 @@ export default function TesteDefcon() {
           <div style={{ borderLeft: "1px solid rgba(255,255,255,.1)", paddingLeft: 24 }}><p className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Abord.</p><p className="font-black text-[17px] font-mono tabular-nums mt-1">{abordagens}</p></div>
         </div>
 
-        {temCarga && (
-          <div className="rounded-[16px] border mt-6 p-3.5" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surface)" }}>
-            <p className="orbis-section">Restam hoje</p>
-            {prods.filter((p) => p.levar > 0).map((p) => {
-              const restam = Math.max(0, p.levar - p.vendido);
-              const pr = p.levar > 0 ? (restam / p.levar) * 100 : 0;
-              return (
-                <div key={p.id} className="mt-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[13px] font-semibold">{p.nome}</span>
-                    <span className="orbis-num text-[13.5px] font-bold" style={{ color: pr < 25 ? "var(--orbis-custo)" : "var(--orbis-ok)" }}>{restam}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background: "rgba(255,255,255,.09)" }}>
-                    <i className="block h-full rounded-full" style={{ width: `${pr}%`, background: pr < 25 ? "var(--orbis-custo)" : "var(--orbis-ok)" }} />
-                  </div>
-                </div>
-              );
-            })}
+        {/* Estoque NÃO aparece durante o corre (pedido do Rick, 01/09):
+            o DEFCON é só relógio e ação. Unidades e o que sobrou só no fechamento. */}
+
+        {/* VENDA RÁPIDA — valor que ele registrou 2 vezes no dia vira botão fixo
+            até o fim do dia. Um toque = mesma venda, mesmo método. */}
+        {rapidos.length > 0 && (
+          <div className="mt-7 text-center">
+            <p className="text-[10px] font-mono text-muted-foreground/70 tracking-[0.3em] uppercase">Venda rápida</p>
+            <div className="flex justify-center gap-3 mt-2.5 flex-wrap">
+              {rapidos.map((r) => (
+                <button key={r.valor} onClick={() => registrarDireto(r.valor, r.metodo)}
+                  className="h-12 px-5 rounded-2xl border-2 font-black text-[16px] orbis-num active:scale-95 transition"
+                  style={{ borderColor: "rgba(245,184,0,.45)", color: "var(--orbis-fg)", background: "rgba(245,184,0,.05)" }}>
+                  + {brl(r.valor)}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
