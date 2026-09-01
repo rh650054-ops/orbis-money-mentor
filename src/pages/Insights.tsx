@@ -698,7 +698,7 @@ export default function Insights() {
       {/* Filtro de período — pílulas, dourado no ativo */}
       <div className="space-y-3">
         <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-0.5 [scrollbar-width:none]">
-          {(["today", "day", "7d", "30d", "custom"] as Period[]).map((p) => (
+          {(["today", "7d", "30d", "custom"] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -1030,61 +1030,84 @@ function StatTile({ label, sub, children }: { label: string; sub?: string; child
 /** Barras dia a dia — melhor dia dourado com o valor em cima; barras crescem na entrada. */
 function BarsDiaADia({ data }: { data: { label: string; valor: number; iso: string }[] }) {
   const [grow, setGrow] = useState(false);
+  // Dia TOCADO pelo usuário: fica dourado e mostra o valor em cima.
+  // Sem toque, o destaque é o melhor dia (comportamento de antes).
+  const [tocado, setTocado] = useState<number | null>(null);
   useEffect(() => {
     const id = requestAnimationFrame(() => setGrow(true));
     return () => cancelAnimationFrame(id);
   }, []);
+  useEffect(() => { setTocado(null); }, [data]);
+
   const max = Math.max(1, ...data.map((d) => d.valor));
   const bestIdx = data.reduce((bi, d, i, arr) => (d.valor > (arr[bi]?.valor ?? -1) ? i : bi), 0);
+  const destaque = tocado != null ? tocado : bestIdx;
   const n = data.length;
   const DIAS = ["D", "S", "T", "Q", "Q", "S", "S"];
   const short = (v: number) => (v >= 10000 ? `R$ ${(v / 1000).toFixed(1).replace(".", ",")}k` : formatCurrency(v).replace(",00", ""));
+  const dataBR = (iso: string) => new Date(iso + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
   return (
     <div>
-      <div className="flex items-end gap-[6px]" style={{ height: 120 }}>
+      <div className="flex items-end gap-[6px]" style={{ height: 128 }}>
         {data.map((d, i) => {
-          const isBest = i === bestIdx && d.valor > 0;
+          const aceso = i === destaque && (d.valor > 0 || tocado === i);
           const hPct = d.valor > 0 ? Math.max(8, (d.valor / max) * 100) : 4;
           return (
-            <div key={d.iso} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
-              {isBest && (
-                <span className="orbis-num text-[11px] font-extrabold mb-1 whitespace-nowrap" style={{ color: "var(--orbis-gold,#F5B800)" }}>
-                  {short(d.valor)}
+            <button
+              type="button"
+              key={d.iso}
+              onClick={() => setTocado(tocado === i ? null : i)}
+              aria-label={`${dataBR(d.iso)}: ${formatCurrency(d.valor)}`}
+              className="orbis-press flex-1 flex flex-col items-center justify-end h-full min-w-0"
+            >
+              {aceso && (
+                <span className="orbis-num text-[11px] font-bold mb-1 whitespace-nowrap leading-tight text-center"
+                  style={{ color: "var(--orbis-gold,#F5B800)" }}>
+                  {d.valor > 0 ? short(d.valor) : "R$ 0"}
+                  {tocado === i && (
+                    <span className="block text-[9px] font-semibold" style={{ color: "var(--orbis-fg-3,#7E7869)" }}>
+                      {dataBR(d.iso)}
+                    </span>
+                  )}
                 </span>
               )}
               <div
                 className="w-full rounded-t-md"
                 style={{
                   height: grow ? `${hPct}%` : "4%",
-                  transition: "height 600ms cubic-bezier(0.2,0,0,1)",
-                  background: isBest
+                  transition: "height 600ms cubic-bezier(0.2,0,0,1), background 200ms, box-shadow 200ms",
+                  background: aceso
                     ? "linear-gradient(180deg,var(--orbis-gold,#F5B800),var(--orbis-gold-deep,#B88700))"
                     : d.valor > 0
                       ? "rgba(255,255,255,.22)"
                       : "rgba(255,255,255,.08)",
-                  boxShadow: isBest ? "0 0 16px -4px rgba(245,184,0,.6)" : undefined,
+                  boxShadow: aceso ? "0 0 16px -4px rgba(245,184,0,.6)" : undefined,
                 }}
               />
-            </div>
+            </button>
           );
         })}
       </div>
       <div className="flex gap-[6px] mt-1.5">
         {data.map((d, i) => {
-          const isBest = i === bestIdx && d.valor > 0;
+          const aceso = i === destaque && (d.valor > 0 || tocado === i);
           const show = n <= 14 || i === 0 || i === n - 1 || i % 5 === 0;
           const lbl = n <= 7 ? DIAS[new Date(d.iso + "T12:00:00").getDay()] : String(new Date(d.iso + "T12:00:00").getDate());
           return (
             <span
               key={d.iso}
-              className={`flex-1 text-center text-[10.5px] ${isBest ? "font-extrabold" : "font-semibold"}`}
-              style={{ color: isBest ? "var(--orbis-gold,#F5B800)" : "hsl(var(--muted-foreground))" }}
+              className={`flex-1 text-center text-[10.5px] ${aceso ? "font-bold" : "font-semibold"}`}
+              style={{ color: aceso ? "var(--orbis-gold,#F5B800)" : "hsl(var(--muted-foreground))" }}
             >
               {show ? lbl : ""}
             </span>
           );
         })}
       </div>
+      <p className="text-[10.5px] mt-2 text-center" style={{ color: "var(--orbis-fg-3,#7E7869)" }}>
+        {tocado != null ? "toque de novo pra voltar ao melhor dia" : "toque em um dia pra ver quanto você fez"}
+      </p>
     </div>
   );
 }
