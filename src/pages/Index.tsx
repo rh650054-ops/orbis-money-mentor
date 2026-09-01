@@ -497,15 +497,22 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="orbis-stagger bg-background px-1 pt-2 pb-6 space-y-4 overflow-x-hidden max-w-2xl mx-auto">
+  /* Respiro (pedido do Rick, 01/09 — "tá tudo muito junto"):
+     o ritmo vertical da Home agora tem UMA régua só — 28px entre blocos
+     (space-y-7). Saudação e constância viram um bloco só, com 14px entre
+     elas, porque são a mesma ideia ("quem é você / como está sua semana");
+     assim o olho lê 5 blocos separados em vez de 8 linhas grudadas. */
+  return <div className="orbis-stagger bg-background px-1 pt-3 pb-10 space-y-7 overflow-x-hidden max-w-2xl mx-auto">
       {/* v9: saudação + constância no topo (prioridade do Rick) */}
-      <HeaderV9 nome={nickname || "vendedor"} />
-      <ConstanciaRow
-        workingDays={workingDays}
-        diasTrabalhados={diasTrabalhados}
-        diasNoMes={diasTrabalhados.filter((d) => d.slice(0, 7) === getBrazilDate().slice(0, 7)).length}
-        onEditMeta={() => setShowEditPlanning(true)}
-      />
+      <div className="space-y-3.5">
+        <HeaderV9 nome={nickname || "vendedor"} />
+        <ConstanciaRow
+          workingDays={workingDays}
+          diasTrabalhados={diasTrabalhados}
+          diasNoMes={diasTrabalhados.filter((d) => d.slice(0, 7) === getBrazilDate().slice(0, 7)).length}
+          onEditMeta={() => setShowEditPlanning(true)}
+        />
+      </div>
 
       {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
       {contaNova && (

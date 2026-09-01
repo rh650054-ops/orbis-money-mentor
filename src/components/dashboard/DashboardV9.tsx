@@ -28,7 +28,7 @@ export function HeaderV9({ nome }: { nome: string }) {
   return (
     <div className="pt-1 min-w-0">
       <p className="orbis-section">{data}</p>
-      <p className="font-display font-extrabold leading-tight mt-0.5 truncate" style={{ fontSize: "clamp(19px,5.2vw,22px)" }}>
+      <p className="font-display font-extrabold leading-tight mt-1.5 truncate" style={{ fontSize: "clamp(19px,5.2vw,22px)" }}>
         {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
       </p>
     </div>
@@ -112,9 +112,9 @@ export function ConstanciaRow({ workingDays, diasTrabalhados, diasNoMes, onEditM
             {" "}{diasNoMes === 1 ? "dia trabalhado" : "dias trabalhados"}
           </span>
         </p>
-        <div className="flex gap-[5px] shrink-0" aria-label="Sua semana">
+        <div className="flex gap-[6px] shrink-0" aria-label="Sua semana">
           {semana.map((d) => {
-            const base = "w-[19px] h-[19px] rounded-full flex items-center justify-center text-[9px] font-bold not-italic";
+            const base = "w-[21px] h-[21px] rounded-full flex items-center justify-center text-[9.5px] font-bold not-italic";
             if (d.fez) return <i key={d.iso} className={base} style={{ background: "var(--orbis-gold)", color: "#1A1200" }}>{d.letra}</i>;
             if (d.ehHoje) return <i key={d.iso} className={base} style={{ border: "1.5px solid var(--orbis-gold)", color: "var(--orbis-gold)" }}>{d.letra}</i>;
             if (d.folga) return <i key={d.iso} className={base} style={{ border: "1.5px dashed rgba(255,255,255,.18)", color: "#4a4740" }}>{d.letra}</i>;
@@ -123,7 +123,7 @@ export function ConstanciaRow({ workingDays, diasTrabalhados, diasNoMes, onEditM
           })}
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 mt-1.5">
+      <div className="flex items-center justify-between gap-3 mt-2.5">
         <p className="text-[11.5px] leading-tight min-w-0 truncate" style={{ color: quebraRecente ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{apoio}</p>
         {onEditMeta && (
           <button type="button" onClick={onEditMeta} className="inline-flex items-center gap-1 text-[11.5px] font-medium shrink-0" style={{ color: "var(--orbis-fg-3)" }}>
@@ -178,18 +178,18 @@ export function HeroCard({ faturamento, meta, diaria, vendidoHoje, metaHoje, des
 
   return (
     <section
-      className="orbis-card-in rounded-[24px] border p-[18px] pb-[14px]"
+      className="orbis-card-in rounded-[24px] border p-[20px] pb-[18px]"
       style={{
         borderColor: "rgba(245,184,0,.22)",
         background: "linear-gradient(165deg,#181307 0%,var(--orbis-surface) 55%)",
         boxShadow: "0 20px 50px -30px rgba(245,184,0,.35)",
       }}
     >
-      <button type="button" onClick={onEditMeta} className="w-full text-left flex items-center gap-3.5 orbis-press">
+      <button type="button" onClick={onEditMeta} className="w-full text-left flex items-center gap-4 orbis-press">
         <div className="min-w-0 flex-1">
           <p className="orbis-label">Faturamento de {mes}</p>
-          <p className="font-display font-extrabold leading-none mt-2"><ValorGrande value={faturamento} /></p>
-          <p className="text-[12.5px] mt-2 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
+          <p className="font-display font-extrabold leading-none mt-3"><ValorGrande value={faturamento} /></p>
+          <p className="text-[12.5px] mt-2.5 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
             Meta <b style={{ color: "var(--orbis-fg)" }}>{fmtCurto(meta)}</b>
             {diaria > 0 && <> · <b style={{ color: "var(--orbis-fg)" }}>{fmtCurto(diaria)}</b>/dia</>}
           </p>
@@ -199,25 +199,25 @@ export function HeroCard({ faturamento, meta, diaria, vendidoHoje, metaHoje, des
         </div>
       </button>
 
-      <div className="h-px my-3.5" style={{ background: "rgba(255,255,255,.08)" }} />
+      <div className="h-px my-5" style={{ background: "rgba(255,255,255,.08)" }} />
 
       <div className="flex">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Hoje</p>
-          <p className="orbis-num font-extrabold mt-0.5" style={{ fontSize: "clamp(16px,4.6vw,19px)", color: vendidoHoje > 0 ? "var(--orbis-ok)" : "var(--orbis-fg)" }}>
+          <p className="orbis-num font-extrabold mt-1.5" style={{ fontSize: "clamp(16px,4.6vw,19px)", color: vendidoHoje > 0 ? "var(--orbis-ok)" : "var(--orbis-fg)" }}>
             <AnimatedCurrency value={vendidoHoje} />
           </p>
         </div>
-        <div className="flex-1 min-w-0 pl-3.5" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
+        <div className="flex-1 min-w-0 pl-4" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
           <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Meta do dia</p>
-          <p className="orbis-num font-extrabold mt-0.5" style={{ fontSize: "clamp(16px,4.6vw,19px)" }}>{fmtCurto(metaHoje)}</p>
+          <p className="orbis-num font-extrabold mt-1.5" style={{ fontSize: "clamp(16px,4.6vw,19px)" }}>{fmtCurto(metaHoje)}</p>
         </div>
       </div>
 
       <button
         type="button"
         onClick={onFoco}
-        className={forte ? "orbis-cta w-full mt-3.5 whitespace-nowrap" : "orbis-press w-full mt-3.5 h-[48px] rounded-[14px] border flex items-center justify-center gap-2 font-semibold whitespace-nowrap"}
+        className={forte ? "orbis-cta w-full mt-5 whitespace-nowrap" : "orbis-press w-full mt-5 h-[48px] rounded-[14px] border flex items-center justify-center gap-2 font-semibold whitespace-nowrap"}
         style={forte
           ? { height: 48, fontSize: "clamp(14px,3.9vw,15.5px)" }
           : { color: "var(--orbis-gold)", background: "rgba(245,184,0,.10)", borderColor: "rgba(245,184,0,.30)", fontSize: "clamp(13px,3.6vw,15px)" }}
@@ -232,7 +232,7 @@ export function HeroCard({ faturamento, meta, diaria, vendidoHoje, metaHoje, des
 export function Secao({ titulo, acao, onAcao, children }: { titulo: string; acao?: string; onAcao?: () => void; children: ReactNode }) {
   return (
     <div className="orbis-card-in">
-      <div className="flex items-baseline justify-between">
+      <div className="flex items-baseline justify-between mb-1">
         <p className="orbis-section">{titulo}</p>
         {acao && (
           <button type="button" onClick={onAcao} className="text-[12px] font-semibold inline-flex items-center gap-0.5" style={{ color: "var(--orbis-fg-3)" }}>
@@ -248,12 +248,12 @@ export function Secao({ titulo, acao, onAcao, children }: { titulo: string; acao
 /* ---------- Financeiro: dois números lado a lado, sem caixa ---------- */
 export function FinanceiroFlat({ lucro, custos }: { lucro: number; custos: number }) {
   return (
-    <div className="flex pt-3 pb-1">
+    <div className="flex pt-4 pb-2">
       <div className="flex-1 min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Lucro líquido</p>
         <p className="orbis-num font-extrabold mt-1" style={{ fontSize: "clamp(18px,5.2vw,22px)", color: "var(--orbis-ok)" }}><AnimatedCurrency value={lucro} /></p>
       </div>
-      <div className="flex-1 min-w-0 pl-4" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
+      <div className="flex-1 min-w-0 pl-5" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
         <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Custos</p>
         <p className="orbis-num font-extrabold mt-1" style={{ fontSize: "clamp(18px,5.2vw,22px)", color: "var(--orbis-custo)" }}><AnimatedCurrency value={custos} /></p>
       </div>
@@ -269,7 +269,7 @@ export function Linha({ icone, titulo, sub, direita, pct, ultima, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className="orbis-press w-full flex items-center gap-3.5 py-3.5 text-left"
+      className="orbis-press w-full flex items-center gap-4 py-[18px] text-left"
       style={ultima ? undefined : { borderBottom: "1px solid rgba(255,255,255,.07)" }}
     >
       <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 text-[16px] leading-none overflow-hidden"
@@ -278,8 +278,8 @@ export function Linha({ icone, titulo, sub, direita, pct, ultima, onClick }: {
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-[14.5px] font-semibold truncate">{titulo}</span>
-        <span className="block text-[12px] mt-0.5 truncate" style={{ color: "var(--orbis-fg-3)" }}>{sub}</span>
-        {typeof pct === "number" && <span className="block mt-1.5 pr-1"><FillBar pct={pct} color="var(--orbis-gold)" height={3} /></span>}
+        <span className="block text-[12px] mt-1 truncate" style={{ color: "var(--orbis-fg-3)" }}>{sub}</span>
+        {typeof pct === "number" && <span className="block mt-2.5 pr-1"><FillBar pct={pct} color="var(--orbis-gold)" height={3} /></span>}
       </span>
       {direita}
       <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-fg-3)" }} />
