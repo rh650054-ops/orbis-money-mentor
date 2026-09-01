@@ -7,7 +7,7 @@
 import { ReactNode } from "react";
 import { Zap, Flame, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
-import { AnimatedCurrency, AnimatedNumber, Ring, FillBar } from "@/shared/motion";
+import { AnimatedCurrency, AnimatedNumber, Ring, FillBar, useCountUp } from "@/shared/motion";
 
 /* Sem centavos nas linhas de apoio: "Meta R$ 30.000 · R$ 1.153/dia" cabe em
    uma linha; com centavos quebrava feio no meio ("ritmo / R$ 20.348,99/dia"). */
@@ -26,7 +26,7 @@ export function DashboardHeader({ nome, diasFoco }: { nome: string; diasFoco: nu
     <div className="flex items-center justify-between gap-2 pt-1">
       <div className="min-w-0 flex-1">
         <p className="orbis-section">{data}</p>
-        <p className="font-display text-[19px] font-extrabold leading-tight mt-0.5 truncate">
+        <p className="font-display text-[17px] font-extrabold leading-tight mt-0.5 truncate">
           {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
         </p>
       </div>
@@ -39,6 +39,22 @@ export function DashboardHeader({ nome, diasFoco }: { nome: string; diasFoco: nu
         </span>
       )}
     </div>
+  );
+}
+
+/* Valor grande do herói: inteiro grande + centavos pequenos (mock v8). O tamanho
+   da fonte ENCOLHE conforme o número cresce — "R$ 13.343,01" não pode atropelar o anel. */
+function ValorGrande({ value }: { value: number }) {
+  const n = useCountUp(value);
+  const inteiro = Math.floor(Math.abs(n));
+  const cents = Math.round((Math.abs(n) - inteiro) * 100);
+  const digitos = String(inteiro).length;
+  const size = digitos >= 6 ? "clamp(22px,6.2vw,30px)" : digitos >= 5 ? "clamp(24px,7vw,33px)" : "clamp(28px,9vw,38px)";
+  return (
+    <span className="orbis-num whitespace-nowrap" style={{ fontSize: size }}>
+      {n < 0 ? "-" : ""}R$ {inteiro.toLocaleString("pt-BR")}
+      <span style={{ fontSize: "0.45em", color: "var(--orbis-fg-3)", fontWeight: 700 }}>,{String(cents).padStart(2, "0")}</span>
+    </span>
   );
 }
 
@@ -63,10 +79,10 @@ export function HeroMes({ faturamento, meta, ritmoDia, onEditMeta }: {
         boxShadow: "0 20px 50px -30px rgba(245,184,0,.45)",
       }}
     >
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="orbis-label">Faturamento de {mes}</p>
-        <p className="font-display text-[clamp(28px,9vw,38px)] font-extrabold leading-none mt-2 orbis-num whitespace-nowrap">
-          <AnimatedCurrency value={faturamento} />
+        <p className="font-display font-extrabold leading-none mt-2">
+          <ValorGrande value={faturamento} />
         </p>
         <p className="text-[12.5px] mt-2 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
           Meta <b style={{ color: "var(--orbis-fg)" }}>{fmtCurto(meta)}</b>
@@ -75,7 +91,7 @@ export function HeroMes({ faturamento, meta, ritmoDia, onEditMeta }: {
           )}
         </p>
       </div>
-      <div className="ml-auto">
+      <div className="ml-auto shrink-0">
         <Ring pct={pct} size={80} stroke={8} label={<AnimatedNumber value={pct} format={(n) => `${Math.round(n)}%`} className="text-[16px]" />} />
       </div>
     </button>
