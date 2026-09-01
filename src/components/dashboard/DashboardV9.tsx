@@ -28,94 +28,103 @@ export function HeaderV9({ nome }: { nome: string }) {
   return (
     <div className="pt-1 min-w-0">
       <p className="orbis-section">{data}</p>
-      <p className="font-display text-[20px] font-extrabold leading-tight mt-0.5 truncate">
+      <p className="font-display font-extrabold leading-tight mt-0.5 truncate" style={{ fontSize: "clamp(19px,5.2vw,22px)" }}>
         {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
       </p>
     </div>
   );
 }
 
-/* ---------- Constância (regra do Rick, 01/09) ----------
-   Streak = dias de TRABALHO seguidos com venda, contados no app:
-   - folga (fora de profiles.working_days) NÃO quebra — é pulada;
-   - dia de trabalho SEM venda quebra — e a Home mostra qual dia foi;
-   - hoje ainda não conta contra ele (o dia está rolando).
-   Faixa da semana: dourado cheio = vendeu · anel = hoje · tracejado = folga ·
-   × vermelho = dia de trabalho que passou sem venda (a quebra).
-   Lápis pequeno "definir meta do mês" — presente, mas discreto. */
+/* ---------- Constância (regra do Rick, 01/09 — segunda versão) ----------
+   O que conta é DIA TRABALHADO: ele iniciou o DEFCON 4 e vendeu.
+   - 1 por dia, no máximo (vender 40 vezes num dia é 1 dia trabalhado);
+   - o número grande é ACUMULATIVO no mês (não zera por causa de um dia);
+   - a sequência (dias seguidos) vira apoio, porque folga não quebra;
+   - dia de trabalho sem venda quebra a sequência — e a Home mostra qual foi.
+   Fonte: os dias em que existe venda no DEFCON (defcon_sales), não o
+   daily_sales — ali entram lançamentos manuais e Pix atrasado, que não
+   são "dia trabalhado". */
 const DIAS_EN = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"] as const;
 const LETRAS = ["S", "T", "Q", "Q", "S", "S", "D"]; // segunda → domingo
 const NOME_DIA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 
 function isoLocal(d: Date) { return d.toLocaleDateString("en-CA"); }
 
-export function calcularConstancia(diasComVenda: string[], workingDays: string[] | null, hojeStr: string) {
-  const vendeu = new Set(diasComVenda);
+export function calcularConstancia(diasTrabalhados: string[], workingDays: string[] | null, hojeStr: string) {
+  const fez = new Set(diasTrabalhados);
   const trabalha = (d: Date) => !(Array.isArray(workingDays) && workingDays.length > 0 && !workingDays.includes(DIAS_EN[d.getDay()]!));
   const hoje = new Date(`${hojeStr}T12:00:00`);
   let streak = 0;
   let quebra: string | null = null;
-  // hoje conta a favor se já vendeu; nunca contra
-  if (vendeu.has(hojeStr)) streak++;
+  if (fez.has(hojeStr)) streak++;      // hoje só conta a favor; nunca contra
   const d = new Date(hoje);
   for (let i = 0; i < 90; i++) {
     d.setDate(d.getDate() - 1);
     const iso = isoLocal(d);
-    if (!trabalha(d)) continue;          // folga: pula, não quebra
-    if (vendeu.has(iso)) { streak++; continue; }
-    quebra = iso;                        // dia de trabalho sem venda: aqui quebrou
+    if (!trabalha(d)) continue;        // folga: pula, não quebra
+    if (fez.has(iso)) { streak++; continue; }
+    quebra = iso;
     break;
   }
   return { streak, quebra };
 }
 
-export function ConstanciaRow({ workingDays, diasComVenda, onEditMeta }: {
-  workingDays: string[] | null;     // profiles.working_days (en)
-  diasComVenda: string[];           // YYYY-MM-DD com venda (últimos ~60 dias)
+export function ConstanciaRow({ workingDays, diasTrabalhados, diasNoMes, onEditMeta }: {
+  workingDays: string[] | null;   // profiles.working_days (en)
+  diasTrabalhados: string[];      // YYYY-MM-DD com venda no DEFCON (~60 dias)
+  diasNoMes: number;              // acumulativo do mês corrente
   onEditMeta?: () => void;
 }) {
   const hojeStr = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-  const { streak, quebra } = calcularConstancia(diasComVenda, workingDays, hojeStr);
+  const { streak, quebra } = calcularConstancia(diasTrabalhados, workingDays, hojeStr);
   const hoje = new Date(`${hojeStr}T12:00:00`);
   const dow = (hoje.getDay() + 6) % 7; // 0 = segunda
-  const temHistorico = diasComVenda.length > 0;
+  const trabalhouHoje = diasTrabalhados.includes(hojeStr);
+  const temHistorico = diasTrabalhados.length > 0;
   const semana = LETRAS.map((letra, i) => {
     const d = new Date(hoje); d.setDate(hoje.getDate() - dow + i);
     const iso = isoLocal(d);
     const folga = Array.isArray(workingDays) && workingDays.length > 0 && !workingDays.includes(DIAS_EN[d.getDay()]!);
     const passou = iso < hojeStr;
-    const vendeu = diasComVenda.includes(iso);
-    // conta sem NENHUMA venda ainda (recém-criada): nada de × — não se cobra quem não começou
-    return { letra, iso, folga, vendeu, ehHoje: iso === hojeStr, perdeu: temHistorico && passou && !folga && !vendeu };
+    const fez = diasTrabalhados.includes(iso);
+    return { letra, iso, folga, fez, ehHoje: iso === hojeStr, perdeu: temHistorico && passou && !folga && !fez };
   });
-  // a quebra só é "notícia" se foi nesta semana, ele ainda não recomeçou (streak 0) e já vendeu alguma vez
   const quebraRecente = temHistorico && quebra && streak === 0 && semana.some((d) => d.iso === quebra);
   const nomeQuebra = quebra ? NOME_DIA[new Date(`${quebra}T12:00:00`).getDay()] : "";
+  const ativo = diasNoMes > 0;
+
+  // Linha de apoio, na ordem de importância: quebra > hoje ainda aberto > sequência > regra
+  const apoio = quebraRecente
+    ? `Sem venda na ${nomeQuebra}, dia de trabalho — a sequência recomeçou.`
+    : !trabalhouHoje && !semana.find((d) => d.ehHoje)?.folga
+      ? "Hoje ainda não contou — venda no DEFCON pra marcar o dia."
+      : streak > 1
+        ? `${streak} dias seguidos · folga não quebra`
+        : "Folga não quebra a sequência.";
 
   return (
     <div className="orbis-card-in">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-[14px] font-semibold whitespace-nowrap inline-flex items-center gap-1.5">
-          <Flame className="w-4 h-4" strokeWidth={2.4} style={{ color: streak > 0 ? "var(--orbis-gold)" : "var(--orbis-fg-3)" }} />
-          <span><b className="orbis-num" style={{ color: streak > 0 ? "var(--orbis-gold)" : "var(--orbis-fg-2)" }}>{streak} {streak === 1 ? "dia" : "dias"}</b> seguidos</span>
+        <p className="font-semibold whitespace-nowrap inline-flex items-center gap-1.5" style={{ fontSize: "clamp(13.5px,3.7vw,15px)" }}>
+          <Flame className="w-4 h-4 shrink-0" strokeWidth={2.4} style={{ color: ativo ? "var(--orbis-gold)" : "var(--orbis-fg-3)" }} />
+          <span>
+            <b className="orbis-num" style={{ color: ativo ? "var(--orbis-gold)" : "var(--orbis-fg-2)" }}>{diasNoMes}</b>
+            {" "}{diasNoMes === 1 ? "dia trabalhado" : "dias trabalhados"}
+          </span>
         </p>
         <div className="flex gap-[5px] shrink-0" aria-label="Sua semana">
           {semana.map((d) => {
             const base = "w-[19px] h-[19px] rounded-full flex items-center justify-center text-[9px] font-bold not-italic";
-            if (d.vendeu) return <i key={d.iso} className={base} style={{ background: "var(--orbis-gold)", color: "#1A1200" }}>{d.letra}</i>;
+            if (d.fez) return <i key={d.iso} className={base} style={{ background: "var(--orbis-gold)", color: "#1A1200" }}>{d.letra}</i>;
             if (d.ehHoje) return <i key={d.iso} className={base} style={{ border: "1.5px solid var(--orbis-gold)", color: "var(--orbis-gold)" }}>{d.letra}</i>;
             if (d.folga) return <i key={d.iso} className={base} style={{ border: "1.5px dashed rgba(255,255,255,.18)", color: "#4a4740" }}>{d.letra}</i>;
-            if (d.perdeu) return <i key={d.iso} className={base} title={`Sem venda na ${NOME_DIA[new Date(`${d.iso}T12:00:00`).getDay()]}`} style={{ border: "1.5px solid rgba(229,115,127,.7)", color: "var(--orbis-custo)" }}>×</i>;
+            if (d.perdeu) return <i key={d.iso} className={base} style={{ border: "1.5px solid rgba(229,115,127,.7)", color: "var(--orbis-custo)" }}>×</i>;
             return <i key={d.iso} className={base} style={{ border: "1.5px solid rgba(255,255,255,.14)", color: "var(--orbis-fg-3)" }}>{d.letra}</i>;
           })}
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3 mt-1.5 min-h-[16px]">
-        <p className="text-[11.5px] leading-tight" style={{ color: quebraRecente ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>
-          {quebraRecente
-            ? <>Sem venda na {nomeQuebra}, dia de trabalho — a sequência recomeçou. Bora hoje.</>
-            : streak > 0 ? "Folga não quebra a sequência." : ""}
-        </p>
+      <div className="flex items-center justify-between gap-3 mt-1.5">
+        <p className="text-[11.5px] leading-tight min-w-0 truncate" style={{ color: quebraRecente ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{apoio}</p>
         {onEditMeta && (
           <button type="button" onClick={onEditMeta} className="inline-flex items-center gap-1 text-[11.5px] font-medium shrink-0" style={{ color: "var(--orbis-fg-3)" }}>
             <Pencil className="w-3 h-3" /> definir meta do mês
@@ -132,7 +141,9 @@ function ValorGrande({ value }: { value: number }) {
   const inteiro = Math.floor(Math.abs(n));
   const cents = Math.round((Math.abs(n) - inteiro) * 100);
   const digitos = String(inteiro).length;
-  const size = digitos >= 6 ? "clamp(22px,6.2vw,30px)" : digitos >= 5 ? "clamp(24px,7vw,33px)" : "clamp(28px,9vw,36px)";
+  // fixo E adaptável: cresce com a tela, mas sempre dentro de um teto/piso —
+  // nunca minúsculo num iPhone grande, nunca estourando num 320px.
+  const size = digitos >= 6 ? "clamp(26px,7.4vw,34px)" : digitos >= 5 ? "clamp(28px,8.2vw,37px)" : "clamp(32px,9.6vw,42px)";
   return (
     <span className="orbis-num whitespace-nowrap" style={{ fontSize: size }}>
       {n < 0 ? "-" : ""}R$ {inteiro.toLocaleString("pt-BR")}
@@ -160,9 +171,9 @@ export function HeroCard({ faturamento, meta, diaria, vendidoHoje, metaHoje, des
   // discreto (ghost) quando o dia já está em movimento — o faturamento é o herói.
   const forte = vendidoHoje <= 0 && !descanso;
   const texto = descanso && vendidoHoje <= 0
-    ? "Dia de descanso · abrir o placar mesmo assim"
+    ? "Dia de descanso · abrir mesmo assim"
     : bateu ? "Meta do dia batida · ver placar"
-    : vendidoHoje > 0 ? `Voltar pro Modo Foco · faltam ${fmtCurto(falta)}`
+    : vendidoHoje > 0 ? `Voltar pro Foco · faltam ${fmtCurto(falta)}`
     : "Começar a vender";
 
   return (
@@ -193,21 +204,23 @@ export function HeroCard({ faturamento, meta, diaria, vendidoHoje, metaHoje, des
       <div className="flex">
         <div className="flex-1 min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Hoje</p>
-          <p className="orbis-num text-[17px] font-extrabold mt-0.5" style={{ color: vendidoHoje > 0 ? "var(--orbis-ok)" : "var(--orbis-fg)" }}>
+          <p className="orbis-num font-extrabold mt-0.5" style={{ fontSize: "clamp(16px,4.6vw,19px)", color: vendidoHoje > 0 ? "var(--orbis-ok)" : "var(--orbis-fg)" }}>
             <AnimatedCurrency value={vendidoHoje} />
           </p>
         </div>
         <div className="flex-1 min-w-0 pl-3.5" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
           <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Meta do dia</p>
-          <p className="orbis-num text-[17px] font-extrabold mt-0.5">{fmtCurto(metaHoje)}</p>
+          <p className="orbis-num font-extrabold mt-0.5" style={{ fontSize: "clamp(16px,4.6vw,19px)" }}>{fmtCurto(metaHoje)}</p>
         </div>
       </div>
 
       <button
         type="button"
         onClick={onFoco}
-        className={forte ? "orbis-cta w-full mt-3.5" : "orbis-press w-full mt-3.5 h-[46px] rounded-[14px] border flex items-center justify-center gap-2 text-[15px] font-semibold"}
-        style={forte ? { height: 46 } : { color: "var(--orbis-gold)", background: "rgba(245,184,0,.10)", borderColor: "rgba(245,184,0,.30)" }}
+        className={forte ? "orbis-cta w-full mt-3.5 whitespace-nowrap" : "orbis-press w-full mt-3.5 h-[48px] rounded-[14px] border flex items-center justify-center gap-2 font-semibold whitespace-nowrap"}
+        style={forte
+          ? { height: 48, fontSize: "clamp(14px,3.9vw,15.5px)" }
+          : { color: "var(--orbis-gold)", background: "rgba(245,184,0,.10)", borderColor: "rgba(245,184,0,.30)", fontSize: "clamp(13px,3.6vw,15px)" }}
       >
         <Zap className="w-[17px] h-[17px]" strokeWidth={2.6} /> {texto}
       </button>
@@ -238,11 +251,11 @@ export function FinanceiroFlat({ lucro, custos }: { lucro: number; custos: numbe
     <div className="flex pt-3 pb-1">
       <div className="flex-1 min-w-0">
         <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Lucro líquido</p>
-        <p className="orbis-num text-[20px] font-extrabold mt-1" style={{ color: "var(--orbis-ok)" }}><AnimatedCurrency value={lucro} /></p>
+        <p className="orbis-num font-extrabold mt-1" style={{ fontSize: "clamp(18px,5.2vw,22px)", color: "var(--orbis-ok)" }}><AnimatedCurrency value={lucro} /></p>
       </div>
       <div className="flex-1 min-w-0 pl-4" style={{ borderLeft: "1px solid rgba(255,255,255,.08)" }}>
         <p className="text-[11px] font-semibold uppercase tracking-[.06em]" style={{ color: "var(--orbis-fg-3)" }}>Custos</p>
-        <p className="orbis-num text-[20px] font-extrabold mt-1" style={{ color: "var(--orbis-custo)" }}><AnimatedCurrency value={custos} /></p>
+        <p className="orbis-num font-extrabold mt-1" style={{ fontSize: "clamp(18px,5.2vw,22px)", color: "var(--orbis-custo)" }}><AnimatedCurrency value={custos} /></p>
       </div>
     </div>
   );

@@ -296,13 +296,18 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile bottom navigation — pill flutuante com cápsula deslizante (estilo Strava) */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none"
+        className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
       >
         {/* v9 (01/09): barra CHAPADA, estilo Strava — sem ilha, sem cápsula deslizante.
             Fundo preto translúcido com fio fino em cima; o único destaque é o
             botão central dourado. A ilha ocupava espaço e "flutuava" (parecia subir). */}
-        <div className="w-full pointer-events-auto border-t border-white/10 bg-black/90 backdrop-blur-xl">
-          <div className="relative mx-auto max-w-lg grid grid-cols-5 items-start h-[62px] pt-2 px-2" style={{ marginBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}>
+        {/* Barra FIXA e SÓLIDA (01/09): antes o safe-area era margem embaixo da
+            barra — sobrava um vão transparente e o conteúdo passava por ali,
+            parecendo que a ilha "flutuava". Agora o safe-area é padding DENTRO
+            da barra, então ela encosta no fim da tela e nada aparece por baixo. */}
+        <div className="w-full border-t border-white/10 bg-black/95 backdrop-blur-xl"
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}>
+          <div className="relative mx-auto max-w-lg grid grid-cols-5 items-start h-[62px] pt-2 px-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const Icon = item.icon;

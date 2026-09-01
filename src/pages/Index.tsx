@@ -93,7 +93,9 @@ export default function Index() {
   const [visitouRanking, setVisitouRanking] = useState(false);
   // v9: faixa da semana (constância) — dias que ele trabalha + dias com venda
   const [workingDays, setWorkingDays] = useState<string[] | null>(null);
-  const [diasComVenda, setDiasComVenda] = useState<string[]>([]);
+  // Dias TRABALHADOS = teve venda no DEFCON (não vale lançamento manual nem Pix
+  // atrasado). É a fonte da constância — regra do Rick (01/09).
+  const [diasTrabalhados, setDiasTrabalhados] = useState<string[]>([]);
   useEffect(() => {
     if (!user) return;
     let cancel = false;
@@ -230,6 +232,7 @@ export default function Index() {
       { data: todayChallenge },
       { data: monthExpenses },
       { data: todayGoalPlan },
+      { data: defconSales },
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
@@ -238,7 +241,13 @@ export default function Index() {
       supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
       supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
       supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", today).maybeSingle(),
+      supabase.from("defcon_sales").select("created_at").eq("user_id", user.id).gte("created_at", `${sessentaDiasAtras}T00:00:00`).limit(3000),
     ]);
+
+    // Um dia entra na constância UMA vez, tendo 1 ou 40 vendas no DEFCON.
+    const diasDefcon = Array.from(new Set(((defconSales as { created_at: string }[]) || [])
+      .map((v) => new Date(v.created_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }))));
+    setDiasTrabalhados(diasDefcon);
 
     if (profile?.monthly_goal) {
       setMonthlyGoal(profile.monthly_goal);
@@ -261,9 +270,6 @@ export default function Index() {
     setDailyGoalPlan(Number((todayGoalPlan as any)?.daily_goal) || 0);
 
     if (weekData) {
-      // 60 dias com venda → a constância (streak) é calculada no app, com a regra
-      // do Rick: folga não quebra; dia de trabalho sem venda quebra (e aparece).
-      setDiasComVenda(weekData.filter((d) => (d.total_profit ?? 0) > 0).map((d) => String(d.date)));
       const formattedWeekData = weekData.filter((d) => String(d.date) >= sevenDaysAgo).map(day => ({
         name: new Date(day.date).toLocaleDateString("pt-BR", {
           weekday: "short"
@@ -478,10 +484,15 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="orbis-stagger bg-background px-5 pt-3 pb-8 space-y-4 overflow-x-hidden max-w-2xl mx-auto">
+  return <div className="orbis-stagger bg-background px-1 pt-2 pb-6 space-y-4 overflow-x-hidden max-w-2xl mx-auto">
       {/* v9: saudação + constância no topo (prioridade do Rick) */}
       <HeaderV9 nome={nickname || "vendedor"} />
-      <ConstanciaRow workingDays={workingDays} diasComVenda={diasComVenda} onEditMeta={() => setShowEditPlanning(true)} />
+      <ConstanciaRow
+        workingDays={workingDays}
+        diasTrabalhados={diasTrabalhados}
+        diasNoMes={diasTrabalhados.filter((d) => d.slice(0, 7) === getBrazilDate().slice(0, 7)).length}
+        onEditMeta={() => setShowEditPlanning(true)}
+      />
 
       {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
       {contaNova && (
@@ -547,8 +558,9 @@ export default function Index() {
       </Secao>
 
       {/* Ranking + Competição: formato ATUAL (decisão do Rick 01/09) — card com a
-          imagem da liga + pulso ao subir, e o quadrado dourado das espadas */}
-      <p className="orbis-section pt-1">Ranking</p>
+          imagem da liga + pulso ao subir, e o quadrado dourado das espadas.
+          O RankingCard já desenha o próprio título "Ranking" — não pode ter outro
+          por fora (aparecia duas vezes). */}
       <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />
       <CompeticaoRow onClick={() => navigate('/competitions')} />
 
