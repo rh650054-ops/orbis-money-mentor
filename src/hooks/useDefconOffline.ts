@@ -98,9 +98,22 @@ export function useDefconOffline(userId: string | null) {
     gravar({ ...dia, defcon_started_at: new Date().toISOString(), paused_until: null });
   };
 
+  /* Venda também conta ABORDAGEM — quem comprou foi abordado.
+     É a mesma regra do DEFCON com internet (useDefconChallenge.addSale).
+     Sem isso a conversão passava de 100% no offline: 12 vendas / 2 abordagens
+     tocadas à mão davam 600%. Com a correção, abordagens = toques manuais +
+     vendas, então 10 abordagens com 6 vendas = 60%, como o Rick descreveu.
+     Gorjeta NÃO conta abordagem nem venda (é um extra, não um atendimento). */
   const addSale = async (amount: number, method: MetodoVenda = "dinheiro") => {
     if (!(amount > 0)) return;
-    mudar((d) => ({ ...d, sales: [...d.sales, { id: novoId(), amount: r2(amount), method, at: new Date().toISOString(), block_index: currentBlockIndex }] }));
+    const agoraISO = new Date().toISOString();
+    const ehGorjeta = method === "gorjeta";
+    mudar((d) => ({
+      ...d,
+      sales: [...d.sales, { id: novoId(), amount: r2(amount), method, at: agoraISO, block_index: currentBlockIndex }],
+      approaches: ehGorjeta ? (d.approaches || 0) : (d.approaches || 0) + 1,
+      approaches_log: ehGorjeta ? (d.approaches_log ?? []) : [...(d.approaches_log ?? []), agoraISO],
+    }));
   };
   const addTip = async (amount: number) => addSale(amount, "gorjeta");
   const addApproach = () => {
