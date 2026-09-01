@@ -9,7 +9,7 @@ import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
 import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
 import { useDefconPresence } from "@/hooks/useDefconPresence";
 import { useX1DefconAlert } from "@/hooks/useX1DefconAlert";
-import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
+import DefconTour, { TreinoConcluido } from "@/components/defcon/DefconTour";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
@@ -27,6 +27,13 @@ export default function DefconChallenge() {
   const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
   const onbDefcon = useDefconOnboarding(user?.id);
   const defcon: any = treino ? onbDefcon : realDefcon;
+  // Treino guiado: quando o tour termina (ou o usuário ENCERRA no treino), mostra o
+  // card "treino concluído", marca o passo do checklist e volta pro início.
+  const [treinoConcluido, setTreinoConcluido] = useState(false);
+  const concluirTreino = () => {
+    try { if (user?.id) localStorage.setItem(`orbis_defcon_tour_ok_${user.id}`, "1"); } catch { /* nada */ }
+    navigate("/");
+  };
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -239,6 +246,7 @@ export default function DefconChallenge() {
 
     case "finished":
     case "abandoned":
+      if (treino) return null; // no treino, o card "treino concluído" cobre a tela
       return (
         <>
           <DefconEndScreen
@@ -321,8 +329,16 @@ export default function DefconChallenge() {
         </div>
       )}
       {screen}
-      {treino && user && (
-        <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />
+      {treino && user && !treinoConcluido && !["finished", "abandoned"].includes(defcon.phase) && (
+        <DefconTour
+          phase={defcon.phase}
+          totalApproaches={defcon.totalApproaches ?? 0}
+          totalSalesCount={defcon.totalSalesCount ?? 0}
+          onConcluir={() => setTreinoConcluido(true)}
+        />
+      )}
+      {treino && user && (treinoConcluido || ["finished", "abandoned"].includes(defcon.phase)) && (
+        <TreinoConcluido onVoltar={concluirTreino} />
       )}
       {/* Card de 1ª vez do DEFCON (rota fora do layout, então renderiza aqui):
           venda em 2 toques, offline continua registrando, encerrar o dia. */}

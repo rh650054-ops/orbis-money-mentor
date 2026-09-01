@@ -13,7 +13,7 @@ const BLOCK_DURATION = 60 * 60; // 60 min
  * O botao rapido ja vem com o valor do produto que o usuario cadastrou.
  */
 export function useDefconOnboarding(userId: string | undefined) {
-  const [phase, setPhase] = useState<"idle" | "running">("idle");
+  const [phase, setPhase] = useState<"idle" | "running" | "finished">("idle");
   const [quickSaleValue, setQuickSaleValue] = useState<number>(15);
   const [totalSold, setTotalSold] = useState(0);
   const [totalSalesCount, setTotalSalesCount] = useState(0);
@@ -129,7 +129,8 @@ export function useDefconOnboarding(userId: string | undefined) {
     addTip,
     addApproach,
     addOccurrence: noop,
-    endChallenge: noop,
+    // ENCERRAR no treino: vira "finished" → o DefconChallenge mostra "treino concluído"
+    endChallenge: async () => { setPhase("finished"); },
     savePaymentBreakdown: noop,
     startLunchPause: noop,
     skipLunchPause: () => {},

@@ -171,9 +171,9 @@ export async function syncOfflineDay(dia: DiaOffline): Promise<boolean> {
 
     const r2 = (n: number) => Math.round(n * 100) / 100;
     const soma = (m: string) => r2(dia.sales.filter((s) => s.method === m).reduce((a, s) => a + Number(s.amount || 0), 0));
-    const dinheiro = soma("dinheiro"), pix = soma("pix"), cartao = soma("cartao");
+    const dinheiro = soma("dinheiro"), pix = soma("pix"), cartao = soma("cartao"), gorjeta = soma("gorjeta");
     const calote = r2(Number(dia.calote || 0));
-    const total = r2(dinheiro + pix + cartao);
+    const total = r2(dinheiro + pix + cartao + gorjeta); // gorjeta conta no faturamento (igual ao DEFCON)
     if (total === 0 && calote === 0 && !dia.approaches) {
       marcarDiaSincronizado(userId, date);
       return true; // dia vazio: nada a subir
@@ -200,7 +200,7 @@ export async function syncOfflineDay(dia: DiaOffline): Promise<boolean> {
       .from("hourly_goal_blocks").select("id").eq("plan_id", plan.id).eq("hour_label", "OFFLINE").maybeSingle();
     const valores = {
       achieved_amount: total,
-      valor_dinheiro: dinheiro, valor_pix: pix, valor_cartao: cartao, valor_calote: calote,
+      valor_dinheiro: dinheiro, valor_pix: pix, valor_cartao: cartao, valor_calote: calote, valor_gorjeta: gorjeta,
       approaches_count: Number(dia.approaches || 0),
       is_completed: true,
     };

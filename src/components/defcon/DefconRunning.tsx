@@ -439,7 +439,7 @@ export function DefconRunning({
       </button>
 
       {/* Mission header — compacto para dar espaço ao timer */}
-      <div className="pt-7 pb-2 px-6 text-center">
+      <div data-tour="defcon-missao" className="pt-7 pb-2 px-6 text-center">
         <div className="text-xs font-mono text-muted-foreground tracking-[0.3em] uppercase mb-1">
           🔥 MISSÃO
         </div>
@@ -481,11 +481,13 @@ export function DefconRunning({
 
         {/* Timer — elemento dominante. Auto-suficiente: tem o próprio tick de 1s,
             então SÓ ele re-renderiza a cada segundo (não a tela inteira). */}
-        <BlockCountdown blockStartedAt={blockStartedAt} />
+        <div data-tour="defcon-timer" className="w-full flex justify-center">
+          <BlockCountdown blockStartedAt={blockStartedAt} />
+        </div>
 
         {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
             fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
-        <div className="w-full flex flex-nowrap items-center justify-center gap-x-2.5 px-1">
+        <div data-tour="defcon-placar" className="w-full flex flex-nowrap items-center justify-center gap-x-2.5 px-1">
           {/* Faturado */}
           <div className="flex flex-col items-center gap-0.5 min-w-0">
             <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Bloco</span>
@@ -545,6 +547,7 @@ export function DefconRunning({
         {/* Botão de custo rápido — discreto, alinhado ao tom DEFCON */}
         <div className="w-full flex justify-center px-1">
           <button
+            data-tour="defcon-custo"
             onClick={() => setShowExpense(true)}
             className="flex items-center justify-center gap-1.5 h-9 px-4 rounded-full bg-card border border-border active:scale-95 active:bg-secondary transition-[colors,transform,opacity]"
           >
@@ -585,6 +588,7 @@ export function DefconRunning({
 
           {/* Gorjeta — direita, mais baixo */}
           <button
+            data-tour="defcon-gorjeta"
             onClick={() => setShowAddTip(true)}
             className="flex-1 h-[56px] rounded-2xl bg-transparent border-2 border-primary/40 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-primary/10 transition-[colors,transform,opacity]"
           >
@@ -603,6 +607,7 @@ export function DefconRunning({
       <div className="pb-4 pt-2 px-4">
         <div className="flex items-center justify-between gap-2">
           <button
+            data-tour="defcon-ocorrencia"
             onClick={() => setShowOccurrence(true)}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
           >
@@ -612,6 +617,7 @@ export function DefconRunning({
           {/* Pausa (almoço) — sempre disponível durante o corre; pode pausar quantas vezes precisar. */}
           <span className="text-foreground/10">|</span>
           <button
+            data-tour="defcon-pausar"
             onClick={() => setShowLunchPicker(true)}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
           >
@@ -620,6 +626,7 @@ export function DefconRunning({
           </button>
           <span className="text-foreground/10">|</span>
           <button
+            data-tour="defcon-encerrar"
             onClick={() => setShowConfirmEnd(true)}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-destructive/10 transition-[colors,transform,opacity]"
           >

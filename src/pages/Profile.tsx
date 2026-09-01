@@ -208,6 +208,7 @@ export default function Profile() {
                 k === `orbis_tour_celebrado_${uid}` ||       // card "tour concluído"
                 k === `orbis_plano_revelado_${uid}` ||       // revelação do plano
                 k === `orbis_visitou_ranking_${uid}` ||      // passo "conhecer o ranking"
+                k === `orbis_defcon_tour_ok_${uid}` ||       // passo "DEFCON 4 de teste" (treino guiado)
                 k === `orbis_mission_completed_${uid}`,      // (legado)
               )
               .forEach((k) => localStorage.removeItem(k));

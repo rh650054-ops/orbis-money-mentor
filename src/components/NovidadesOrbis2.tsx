@@ -20,7 +20,7 @@ const FEITO = [
   ["Onboarding", "Quem chega agora monta o plano em 40 segundos e já sai com a meta do dia."],
   ["Cards de primeira vez", "Cada tela explica só o principal na primeira abertura — e nunca mais incomoda."],
   ["Hora combinada", "Marque que horas começa a vender; o Orbis te dá um toque se o dia começar sem você."],
-  ["DEFCON 4 offline", "Sem sinal? Continua registrando — e sem internet nenhuma, um botão abre o Placar Offline. Tudo sobe sozinho quando o sinal volta."],
+  ["DEFCON 4 offline", "Sem sinal? Continua registrando — e sem internet nenhuma, um botão abre o DEFCON 4 offline — a mesma tela, tudo salvo no celular. Sobe sozinho quando o sinal volta."],
   ["Dias de folga", "Marque no planejamento os dias que você trabalha: folga não quebra sua constância."],
 ];
 

@@ -13,13 +13,14 @@
    ============================================================ */
 import { addOfflineRecord } from "@/shared/lib/offline-db";
 
-export type MetodoVenda = "dinheiro" | "pix" | "cartao";
+export type MetodoVenda = "dinheiro" | "pix" | "cartao" | "gorjeta";
 
 export interface VendaOffline {
   id: string;
   amount: number;
   method: MetodoVenda;
   at: string; // ISO
+  block_index?: number; // bloco de 1h do DEFCON offline em que a venda caiu
 }
 
 export interface DiaOffline {
@@ -32,6 +33,11 @@ export interface DiaOffline {
   started_at: string;
   ended_at: string | null;
   synced_at: string | null;
+  // --- DEFCON 4 offline (a mesma tela do DEFCON, sem servidor) ---
+  defcon_started_at?: string | null;  // quando tocou em INICIAR (blocos de 1h contam daqui)
+  approaches_log?: string[];          // ISO de cada abordagem (pra contar por bloco)
+  occurrences?: { at: string; text: string }[];
+  paused_until?: string | null;       // pausa/almoço em andamento
 }
 
 const chave = (userId: string, date: string) => `orbis_dia_offline_${userId}_${date}`;
@@ -84,11 +90,10 @@ export async function salvarDiaOffline(dia: DiaOffline): Promise<void> {
 
 export function totaisDoDia(dia: DiaOffline) {
   const r2 = (n: number) => Math.round(n * 100) / 100;
-  const dinheiro = r2(dia.sales.filter((s) => s.method === "dinheiro").reduce((a, s) => a + s.amount, 0));
-  const pix = r2(dia.sales.filter((s) => s.method === "pix").reduce((a, s) => a + s.amount, 0));
-  const cartao = r2(dia.sales.filter((s) => s.method === "cartao").reduce((a, s) => a + s.amount, 0));
-  const total = r2(dinheiro + pix + cartao);
-  return { dinheiro, pix, cartao, total, vendas: dia.sales.length };
+  const soma = (m: MetodoVenda) => r2(dia.sales.filter((s) => s.method === m).reduce((a, s) => a + s.amount, 0));
+  const dinheiro = soma("dinheiro"), pix = soma("pix"), cartao = soma("cartao"), gorjeta = soma("gorjeta");
+  const total = r2(dinheiro + pix + cartao + gorjeta); // gorjeta conta no faturamento (igual ao DEFCON)
+  return { dinheiro, pix, cartao, gorjeta, total, vendas: dia.sales.filter((s) => s.method !== "gorjeta").length };
 }
 
 /** Todos os dias offline ainda não sincronizados (pra tela "pendente" e pro sync). */

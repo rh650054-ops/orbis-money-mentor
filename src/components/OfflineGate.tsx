@@ -46,14 +46,14 @@ export default function OfflineGate() {
         </span>
         <p className="mt-4 text-[10.5px] font-extrabold uppercase tracking-[.16em]" style={{ color: "var(--orbis-gold,#F5B800)" }}>Sem internet</p>
         <h2 className="font-display text-[21px] font-extrabold mt-1.5 leading-[1.3]">
-          O corre não para.<br /><span style={{ color: "var(--orbis-gold,#F5B800)" }}>Registra no placar offline.</span>
+          O corre não para.<br /><span style={{ color: "var(--orbis-gold,#F5B800)" }}>O DEFCON 4 funciona offline.</span>
         </h2>
         <p className="text-[13px] mt-2.5 leading-[1.5]" style={{ color: "#B9B3A6" }}>
-          Venda, abordagem e calote ficam salvos no celular e sobem sozinhos quando o sinal voltar.
+          A mesma tela do DEFCON: venda, abordagem, gorjeta, pausa e encerrar. Tudo fica salvo no celular e sobe sozinho quando o sinal voltar.
           {pendentes > 0 && <> Você tem <b style={{ color: "#F4F1EA" }}>{pendentes} {pendentes === 1 ? "dia" : "dias"}</b> esperando pra sincronizar.</>}
         </p>
         <button type="button" onClick={() => navigate("/offline")} className="orbis-cta w-full mt-5">
-          <Zap size={17} strokeWidth={2.6} /> ATIVAR MODO OFFLINE
+          <Zap size={17} strokeWidth={2.6} /> ABRIR DEFCON 4 OFFLINE
         </button>
         <button type="button" onClick={() => setDispensado(true)} className="mt-3 text-[13px] font-semibold" style={{ color: "#7E7869" }}>
           só olhar o app

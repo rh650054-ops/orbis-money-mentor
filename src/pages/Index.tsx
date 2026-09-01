@@ -94,14 +94,15 @@ export default function Index() {
     if (!user) return;
     let cancel = false;
     (async () => {
-      const [{ data: plano }, { data: planos }] = await Promise.all([
-        supabase.from("onboarding_planos").select("user_id").eq("user_id", user.id).maybeSingle(),
-        supabase.from("daily_goal_plans").select("id").eq("user_id", user.id).limit(1),
-      ]);
+      const { data: plano } = await supabase.from("onboarding_planos").select("user_id").eq("user_id", user.id).maybeSingle();
       if (cancel) return;
       setContaNova(Boolean(plano));
-      setTemDefcon(Boolean(planos && planos.length > 0));
-      try { setVisitouRanking(localStorage.getItem(`orbis_visitou_ranking_${user.id}`) === "1"); } catch { /* nada */ }
+      // Passo 3 = fez o TREINO GUIADO do DEFCON (/defcon?treino=1), não "tem algum plano
+      // no banco" — era isso que marcava o passo sozinho sem o usuário nunca ter entrado.
+      try {
+        setTemDefcon(localStorage.getItem(`orbis_defcon_tour_ok_${user.id}`) === "1");
+        setVisitouRanking(localStorage.getItem(`orbis_visitou_ranking_${user.id}`) === "1");
+      } catch { /* nada */ }
     })();
     return () => { cancel = true; };
   }, [user]);
@@ -482,8 +483,8 @@ export default function Index() {
               dica: "Confere os valores do seu planejamento",
               feito: monthlyGoal > 0 && dailyGoal > 0, onIr: () => setShowEditPlanning(true) },
             { id: "defcon", titulo: "Iniciar um DEFCON 4 de teste",
-              dica: "Sente o placar funcionando — sem compromisso",
-              feito: temDefcon, onIr: () => navigate("/daily-goals") },
+              dica: "Treino guiado — nada conta no ranking",
+              feito: temDefcon, onIr: () => navigate("/defcon?treino=1") },
             { id: "ranking", titulo: "Conhecer o ranking",
               dica: "Vê as patentes e onde você entra",
               feito: visitouRanking, onIr: () => navigate("/ranking") },
