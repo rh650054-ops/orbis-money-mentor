@@ -15,12 +15,13 @@ import { TrialNudge } from "@/components/TrialNudge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
-import RankingCard from "@/components/RankingCard";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 // Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
-import { DashboardHeader, HeroMes, HojeFoco, LucroCustos, PatenteRow, CompeticaoRow } from "@/components/dashboard/DashboardV8";
+import RankingCard from "@/components/RankingCard";
+import { CompeticaoRow } from "@/components/dashboard/DashboardV8";
+import { HeaderV9, ConstanciaRow, HeroCard, Secao, FinanceiroFlat, PatenteLinha } from "@/components/dashboard/DashboardV9";
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
@@ -90,6 +91,9 @@ export default function Index() {
   const [contaNova, setContaNova] = useState(false);
   const [temDefcon, setTemDefcon] = useState(false);
   const [visitouRanking, setVisitouRanking] = useState(false);
+  // v9: faixa da semana (constância) — dias que ele trabalha + dias com venda
+  const [workingDays, setWorkingDays] = useState<string[] | null>(null);
+  const [diasComVenda, setDiasComVenda] = useState<string[]>([]);
   useEffect(() => {
     if (!user) return;
     let cancel = false;
@@ -133,6 +137,7 @@ export default function Index() {
         .maybeSingle();
 
       if (profile?.working_days) {
+        setWorkingDays(profile.working_days as string[]);
         const dayOfWeek = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()]!;
         const isRest = !profile.working_days.includes(dayOfWeek);
         setIsRestDay(isRest);
@@ -204,6 +209,7 @@ export default function Index() {
 
     const today = getBrazilDate();
     const sevenDaysAgo = getBrazilDateDaysAgo(7);
+    const sessentaDiasAtras = getBrazilDateDaysAgo(60); // constância: precisa olhar pra trás do mês
 
     let dateStart: string;
     let dateEnd: string;
@@ -227,7 +233,7 @@ export default function Index() {
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
-      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sevenDaysAgo).order("date", { ascending: true }),
+      supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", sessentaDiasAtras).order("date", { ascending: true }),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd).order("date", { ascending: false }).limit(30),
       supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
       supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
@@ -255,7 +261,10 @@ export default function Index() {
     setDailyGoalPlan(Number((todayGoalPlan as any)?.daily_goal) || 0);
 
     if (weekData) {
-      const formattedWeekData = weekData.map(day => ({
+      // 60 dias com venda → a constância (streak) é calculada no app, com a regra
+      // do Rick: folga não quebra; dia de trabalho sem venda quebra (e aparece).
+      setDiasComVenda(weekData.filter((d) => (d.total_profit ?? 0) > 0).map((d) => String(d.date)));
+      const formattedWeekData = weekData.filter((d) => String(d.date) >= sevenDaysAgo).map(day => ({
         name: new Date(day.date).toLocaleDateString("pt-BR", {
           weekday: "short"
         }),
@@ -469,9 +478,10 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="orbis-stagger bg-background px-4 pt-3 pb-8 space-y-3.5 overflow-x-hidden max-w-2xl mx-auto">
-      {/* Cabeçalho 2.0: saudação + chip "N dias de Foco" */}
-      <DashboardHeader nome={nickname || "vendedor"} diasFoco={activeDaysCount} />
+  return <div className="orbis-stagger bg-background px-5 pt-3 pb-8 space-y-4 overflow-x-hidden max-w-2xl mx-auto">
+      {/* v9: saudação + constância no topo (prioridade do Rick) */}
+      <HeaderV9 nome={nickname || "vendedor"} />
+      <ConstanciaRow workingDays={workingDays} diasComVenda={diasComVenda} onEditMeta={() => setShowEditPlanning(true)} />
 
       {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
       {contaNova && (
@@ -496,23 +506,22 @@ export default function Index() {
       {/* Cobrança do horário combinado (só aparece se ele marcou hora e não vendeu) */}
       <CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} />
 
-      {isRestDay && (
-        <div className="px-4 py-3 bg-card rounded-2xl text-center border border-border">
-          <p className="text-sm text-muted-foreground">Hoje é seu dia de descanso</p>
-        </div>
-      )}
-
-      {/* HERÓI 2.0: faturamento do MÊS com anel + Hoje → Modo Foco */}
-      <HeroMes
+      {/* O CARD (único da Home, como a conta do banco): mês + anel + Hoje + Meta do dia + Foco */}
+      <HeroCard
         faturamento={faturamentoMes}
         meta={monthlyGoal}
-        ritmoDia={ritmoDia}
+        diaria={ritmoDia}
+        vendidoHoje={dailyProfit}
+        metaHoje={dailyGoal}
+        descanso={isRestDay}
         onEditMeta={() => setShowEditPlanning(true)}
+        onFoco={() => navigate("/daily-goals")}
       />
-      <HojeFoco vendidoHoje={dailyProfit} metaHoje={dailyGoal} onEntrar={() => navigate("/daily-goals")} />
 
-      {/* Lucro (verde) e Custos (vermelho calmo) — custos abre o gerenciador */}
-      <LucroCustos lucro={lucroLiquido} custos={custosTotal} onCustos={() => setShowCustos(true)} />
+      {/* Financeiro plano: dois números, sem caixa. "Ver detalhes" abre os custos */}
+      <Secao titulo="Financeiro" acao="Ver detalhes" onAcao={() => setShowCustos(true)}>
+        <FinanceiroFlat lucro={lucroLiquido} custos={custosTotal} />
+      </Secao>
 
       {/* Gerenciador de custos (mesmo do DEFCON): lista custos manuais E o CMV de
           cada dia, com apagar/zerar. Ao fechar, recarrega o painel — o lucro muda
@@ -531,17 +540,17 @@ export default function Index() {
       {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
       <WeeklyChallengeDashboardCard />
 
-      <p className="orbis-section pt-1">Seu jogo</p>
+      {/* Seu jogo: lista neutra (patente, ranking, competições) — a identidade forte
+          fica dentro de cada tela, a Home só aponta */}
+      <Secao titulo="Seu jogo">
+        <PatenteLinha nome={nextTier.name} pct={tierProgress} faltam={tierRestante} ultima onClick={() => navigate('/rewards')} />
+      </Secao>
 
-      {/* Próxima patente — ícone + barra (mock v8) */}
-      <PatenteRow
-        emoji={nextTier.emoji}
-        nome={nextTier.name}
-        pct={tierProgress}
-        faltam={tierRestante}
-        accentHsl={nextTier.accent}
-        onClick={() => navigate('/rewards')}
-      />
+      {/* Ranking + Competição: formato ATUAL (decisão do Rick 01/09) — card com a
+          imagem da liga + pulso ao subir, e o quadrado dourado das espadas */}
+      <p className="orbis-section pt-1">Ranking</p>
+      <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />
+      <CompeticaoRow onClick={() => navigate('/competitions')} />
 
       {user && faltaDia <= 0 && dailyProfit > 0 && (
         <TrialNudge
@@ -551,10 +560,6 @@ export default function Index() {
           benefit="Quem usa o Orbis todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
         />
       )}
-
-      {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
-
-      <CompeticaoRow onClick={() => navigate('/competitions')} />
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 

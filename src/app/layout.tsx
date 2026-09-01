@@ -297,20 +297,12 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile bottom navigation — pill flutuante com cápsula deslizante (estilo Strava) */}
       <nav
         className="fixed bottom-0 left-0 right-0 z-50 md:hidden pointer-events-none"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}
       >
-        <div className="mx-auto max-w-lg px-3 pt-1 pointer-events-auto">
-          <div className="relative grid grid-cols-5 items-center h-[74px] px-2.5 rounded-[30px] border border-white/10 bg-card/95 backdrop-blur-xl shadow-[0_16px_40px_-10px_rgba(0,0,0,0.8)]">
-            {/* Cápsula do item ativo — sempre montada pra animar o deslize */}
-            <div
-              className="pointer-events-none absolute top-2.5 bottom-2.5 rounded-[24px] bg-white/[0.1] border border-white/10 transition-[transform,opacity] duration-300 ease-out"
-              style={{
-                left: '0.625rem',
-                width: 'calc((100% - 1.25rem) / 5)',
-                transform: `translateX(calc(${Math.max(navActiveIndex, 0)} * 100%))`,
-                opacity: navActiveIndex >= 0 ? 1 : 0,
-              }}
-            />
+        {/* v9 (01/09): barra CHAPADA, estilo Strava — sem ilha, sem cápsula deslizante.
+            Fundo preto translúcido com fio fino em cima; o único destaque é o
+            botão central dourado. A ilha ocupava espaço e "flutuava" (parecia subir). */}
+        <div className="w-full pointer-events-auto border-t border-white/10 bg-black/90 backdrop-blur-xl">
+          <div className="relative mx-auto max-w-lg grid grid-cols-5 items-start h-[62px] pt-2 px-2" style={{ marginBottom: 'max(env(safe-area-inset-bottom), 0.5rem)' }}>
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               const Icon = item.icon;
@@ -325,7 +317,7 @@ export default function Layout({ children }: LayoutProps) {
                   {item.isCenter ? (
                     <div
                       className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center transition-transform active:scale-95",
+                        "w-11 h-11 -mt-3 rounded-full flex items-center justify-center transition-transform active:scale-95",
                         "bg-gradient-to-br from-primary to-[hsl(45_100%_40%)] shadow-[0_3px_12px_-2px_hsl(var(--primary)/0.6)]"
                       )}
                     >
