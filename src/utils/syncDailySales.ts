@@ -85,11 +85,13 @@ export async function syncLeaderboardRevenue(userId: string) {
     .gte("date", startOfMonth)
     .lte("date", today);
 
-  // A PARTIR DE 01/07/2026: dinheiro NÃO conta em NENHUM ranking (mensal, semanal,
-  // competições, X1) — só cartão + pix, porque precisa ser comprovável pelo extrato.
-  // O dinheiro continua salvo nos RELATÓRIOS do usuário; só não vale no ranking.
+  // A PARTIR DE 01/09/2026 (decisão do Rick): DINHEIRO CONTA no ranking.
+  // Motivo: a tela do ranking já mostrava o valor cheio (total_profit) enquanto a
+  // POSIÇÃO era calculada só com cartão+pix — o vendedor via um número e ganhava
+  // medalha por outro, e quem recebe em dinheiro era punido sem saber. Agora as
+  // duas pontas usam a MESMA conta: cartão + pix + dinheiro.
   const totalFaturamento = (monthlySales || []).reduce(
-    (sum, s) => sum + (s.card_sales || 0) + (s.pix_sales || 0),
+    (sum, s) => sum + (s.card_sales || 0) + (s.pix_sales || 0) + (s.cash_sales || 0),
     0
   );
 
@@ -113,9 +115,10 @@ export async function syncLeaderboardRevenue(userId: string) {
   const userName = profile?.nickname || profile?.email?.split('@')[0] || 'Usuário';
   const avatarUrl = profile?.avatar_url;
 
-  // Dias com venda que conta no ranking (card + pix), mesma base do faturamento acima.
+  // Dias com venda que contam no ranking — mesma base do faturamento acima
+  // (agora com dinheiro): quem só vendeu em dinheiro no dia também trabalhou.
   const daysWithSales = (monthlySales || []).filter(
-    s => ((s.card_sales || 0) + (s.pix_sales || 0)) > 0
+    s => ((s.card_sales || 0) + (s.pix_sales || 0) + (s.cash_sales || 0)) > 0
   ).length;
 
   // Get or create leaderboard entry

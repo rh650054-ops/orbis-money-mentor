@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -14,6 +14,10 @@ import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
+
+/* Travas de lançamento — ver comentário no estado do componente. */
+const CONFIRMA_ACIMA = 300;   // acima disso: pergunta antes
+const TETO_VENDA = 50_000;    // acima disso: não registra
 
 interface DefconRunningProps {
   userId: string;
@@ -89,6 +93,17 @@ export function DefconRunning({
   // mesmo quando a venda era de 2+ unidades).
   const [saleQty, setSaleQty] = useState(1);
   const [pixCharge, setPixCharge] = useState<{ key: string; name: string } | null>(null);
+  /* ---- TRAVAS DE LANÇAMENTO (01/09, pedido do Rick) ----
+     CONFIRMA_ACIMA: acima disso o app PERGUNTA antes de registrar (pode ser um zero a
+     mais). Hoje só 0,6% das vendas do app passam de R$ 300 — o vendedor comum nunca vê.
+     TETO: acima disso é erro de digitação com certeza (teve gente registrando
+     R$ 1,6 quatrilhão) — aí não passa. */
+  const [confirmarValor, setConfirmarValor] = useState<null | { amount: number; method: "dinheiro" | "pix" | "cartao" }>(null);
+  const [erroValor, setErroValor] = useState<string | null>(null);
+  // Rajada: guarda a hora de cada venda registrada pra perceber toque repetido rápido.
+  const rajadaRef = useRef<number[]>([]);
+  const [rajada, setRajada] = useState<number | null>(null); // nº de vendas na rajada
+  const [apagandoRajada, setApagandoRajada] = useState(false);
   const [saleMessage, setSaleMessage] = useState("");
   const [showChargePreview, setShowChargePreview] = useState(false);
   const [showBlockSales, setShowBlockSales] = useState(false);
@@ -187,6 +202,12 @@ export function DefconRunning({
     }
     // Onboarding: qualquer venda no DEFCON (rápida ou manual) avança a missão.
     emitMissionEvent("sale-registered");
+    // Rajada: 4+ vendas em 6 segundos = provável toque repetido sem querer.
+    // NÃO trava nada — só oferece desfazer (o vendedor pode estar mesmo vendendo
+    // 4 unidades de uma vez pra um grupo).
+    const agora = Date.now();
+    rajadaRef.current = [...rajadaRef.current, agora].filter((t) => agora - t <= 6000);
+    if (rajadaRef.current.length >= 4) setRajada(rajadaRef.current.length);
   };
 
   const resetSaleForm = () => {
@@ -201,14 +222,38 @@ export function DefconRunning({
     if (loadout.length > 1) setSelectedProductId(null);
   };
 
+  const confirmarVenda = (amount: number, method: "dinheiro" | "pix" | "cartao") => {
+    registerSale(amount, method, saleQty);
+    persistClient(amount, method);
+    resetSaleForm();
+    setConfirmarValor(null);
+    setErroValor(null);
+    setShowAddSale(false);
+  };
+
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     const amount = parseFloat(saleValue) || 0;
-    if (amount > 0) {
-      registerSale(amount, method, saleQty);
-      persistClient(amount, method);
-      resetSaleForm();
-      setShowAddSale(false);
+    if (!(amount > 0)) return;
+    if (amount > TETO_VENDA) {
+      setErroValor(`R$ ${amount.toLocaleString("pt-BR")} não passa. Confere se não sobrou um zero — o limite por venda é ${formatCurrency(TETO_VENDA)}.`);
+      return;
     }
+    if (amount > CONFIRMA_ACIMA) { setErroValor(null); setConfirmarValor({ amount, method }); return; }
+    confirmarVenda(amount, method);
+  };
+
+  // Apaga as últimas N vendas (uso do cartão de rajada). Uma de cada vez —
+  // cada exclusão ajusta o bloco no servidor.
+  const apagarUltimas = async (n: number) => {
+    if (!onDeleteSale) { setRajada(null); return; }
+    setApagandoRajada(true);
+    const ultimas = [...(sessionSales || [])]
+      .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
+      .slice(0, n);
+    for (const v of ultimas) { await onDeleteSale(v); }
+    rajadaRef.current = [];
+    setApagandoRajada(false);
+    setRajada(null);
   };
 
   // Mensagem padrao de cobranca: salva no aparelho e reusa. O valor fica como token
@@ -749,7 +794,7 @@ export function DefconRunning({
                 type="number"
                 inputMode="decimal"
                 value={saleValue}
-                onChange={(e) => setSaleValue(e.target.value)}
+                onChange={(e) => { setSaleValue(e.target.value); if (erroValor) setErroValor(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
                 placeholder="0"
                 autoFocus
@@ -814,6 +859,12 @@ export function DefconRunning({
                     </span>
                   </button>
                 )}
+              </div>
+            )}
+
+            {erroValor && (
+              <div className="rounded-xl px-3 py-2.5" style={{ background: "rgba(229,115,127,.12)", border: "1px solid rgba(229,115,127,.35)" }}>
+                <p className="text-[13px] font-semibold" style={{ color: "#E5737F" }}>{erroValor}</p>
               </div>
             )}
 
@@ -971,6 +1022,62 @@ export function DefconRunning({
           }}
           onClose={() => setShowOccurrence(false)}
         />
+      )}
+
+      {/* TRAVA DE VALOR ALTO: acima de R$ 300 pergunta antes de gravar.
+          Não perde o que ele digitou — dá pra corrigir com um toque. */}
+      {confirmarValor && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center px-6" style={{ background: "rgba(0,0,0,.85)" }} role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-2xl border p-5 text-center" style={{ background: "#111", borderColor: "rgba(245,184,0,.35)" }}>
+            <p className="text-[10.5px] font-extrabold uppercase tracking-[.16em]" style={{ color: "#F5B800" }}>Confere pra mim</p>
+            <h3 className="text-[22px] font-black mt-2 text-foreground">{formatCurrency(confirmarValor.amount)}</h3>
+            <p className="text-[13px] mt-2 leading-relaxed text-muted-foreground">
+              Essa venda é bem maior que o normal. Foi isso mesmo, ou sobrou um zero?
+            </p>
+            <button
+              type="button"
+              onClick={() => confirmarVenda(confirmarValor.amount, confirmarValor.method)}
+              className="w-full h-12 mt-4 rounded-xl font-black text-[15px]"
+              style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1A1200", boxShadow: "0 4px 0 #B88700" }}
+            >
+              SIM, FOI {formatCurrency(confirmarValor.amount)}
+            </button>
+            <button type="button" onClick={() => setConfirmarValor(null)} className="w-full h-11 mt-2 text-[13.5px] font-semibold text-muted-foreground">
+              corrigir o valor
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* RAJADA: 4+ vendas em poucos segundos. NÃO trava — só oferece desfazer. */}
+      {rajada && (
+        <div className="fixed inset-x-0 z-[65] flex justify-center px-4" style={{ bottom: "calc(env(safe-area-inset-bottom) + 96px)" }}>
+          <div className="w-full max-w-sm rounded-2xl border p-3.5" style={{ background: "rgba(17,17,17,.97)", borderColor: "rgba(245,184,0,.35)", boxShadow: "0 18px 50px -20px rgba(0,0,0,.9)" }}>
+            <p className="text-[13.5px] font-bold text-foreground">{rajada} vendas em poucos segundos</p>
+            <p className="text-[12.5px] mt-0.5 text-muted-foreground">
+              Se foi engano, dá pra apagar agora. Se vendeu pra um grupo de uma vez, está certo.
+            </p>
+            <div className="flex gap-2 mt-3">
+              <button
+                type="button"
+                disabled={apagandoRajada}
+                onClick={() => apagarUltimas(rajada)}
+                className="flex-1 h-10 rounded-xl text-[13px] font-bold disabled:opacity-50"
+                style={{ background: "rgba(229,115,127,.15)", border: "1px solid rgba(229,115,127,.4)", color: "#E5737F" }}
+              >
+                {apagandoRajada ? "Apagando…" : `Apagar as últimas ${rajada}`}
+              </button>
+              <button
+                type="button"
+                disabled={apagandoRajada}
+                onClick={() => { rajadaRef.current = []; setRajada(null); }}
+                className="flex-1 h-10 rounded-xl text-[13px] font-bold bg-card border border-border text-foreground disabled:opacity-50"
+              >
+                Está certo
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add tip modal */}
