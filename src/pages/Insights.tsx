@@ -79,10 +79,10 @@ interface HourBlock {
 
 const PERIOD_LABELS: Record<Period, string> = {
   today: "Hoje",
-  day: "Escolher dia",
+  day: "Dia",
   "7d": "7 dias",
   "30d": "30 dias",
-  custom: "Personalizado",
+  custom: "+",
 };
 
 function startOfDay(d: Date): Date {
@@ -667,7 +667,7 @@ export default function Insights() {
 
 
   return (
-    <div className="space-y-4 pb-4 md:pb-8 text-foreground">
+    <div className="orbis-stagger space-y-4 pb-4 md:pb-8 text-foreground">
       <FirstTimeCard tela="relatorio" userId={user?.id} />
       {/* Header — Relatório v2 (design system Orbis: Manrope, preto absoluto) */}
       <div className="flex items-start justify-between gap-3">
@@ -697,13 +697,13 @@ export default function Insights() {
 
       {/* Filtro de período — pílulas, dourado no ativo */}
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-0.5 [scrollbar-width:none]">
           {(["today", "day", "7d", "30d", "custom"] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                "orbis-press px-3.5 py-2 text-xs font-semibold rounded-full border transition-[colors]",
+                "orbis-press shrink-0 px-3.5 py-2 text-xs font-semibold rounded-full border transition-[colors]",
                 period === p
                   ? "bg-primary text-primary-foreground border-primary shadow-[0_4px_14px_-2px_hsl(var(--primary)/0.5)]"
                   : "bg-card border-border/60 text-muted-foreground hover:text-foreground hover:border-border",

@@ -7,7 +7,7 @@
 import { ReactNode } from "react";
 import { Zap, Flame, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
-import { AnimatedCurrency, AnimatedNumber, Ring } from "@/shared/motion";
+import { AnimatedCurrency, AnimatedNumber, Ring, FillBar } from "@/shared/motion";
 
 /* ---------- Cabeçalho: saudação + chip "N dias de Foco" ---------- */
 export function DashboardHeader({ nome, diasFoco }: { nome: string; diasFoco: number }) {
@@ -164,6 +164,39 @@ export function CompeticaoRow({ onClick }: { onClick?: () => void }) {
       <span className="flex-1 min-w-0">
         <span className="block text-[14.5px] font-bold">Competição</span>
         <span className="block text-[12px]" style={{ color: "var(--orbis-fg-2)" }}>Em breve — as guerras de vendas estão chegando</span>
+      </span>
+      <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-fg-3)" }} />
+    </button>
+  );
+}
+
+/* ---------- Patente (Seu jogo): ícone da patente + barra até a próxima ---------- */
+export function PatenteRow({ emoji, nome, pct, faltam, accentHsl, onClick }: {
+  emoji: string;
+  nome: string;
+  pct: number;          // 0–100 até a próxima patente
+  faltam: number;       // R$ que faltam
+  accentHsl?: string;   // "140 70% 45%" (cor da patente, vinda do REWARD_TIERS)
+  onClick?: () => void;
+}) {
+  const cor = accentHsl ? `hsl(${accentHsl})` : "var(--orbis-ok)";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="orbis-press w-full rounded-2xl border px-3.5 py-2.5 flex items-center gap-3 text-left"
+      style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surface)" }}
+    >
+      <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-[19px] leading-none"
+        style={{ background: `color-mix(in srgb, ${cor} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${cor} 32%, transparent)` }}>
+        {emoji}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[14.5px] font-bold truncate">Patente {nome} · {Math.round(pct)}%</span>
+        <span className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>
+          Faltam <b style={{ color: "var(--orbis-fg)" }}>{formatCurrency(faltam)}</b> pra subir
+        </span>
+        <span className="block mt-1.5"><FillBar pct={pct} color={cor} height={5} /></span>
       </span>
       <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-fg-3)" }} />
     </button>

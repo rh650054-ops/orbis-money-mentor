@@ -16,12 +16,11 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import RankingCard from "@/components/RankingCard";
-import CompetitionCard from "@/components/CompetitionCard";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 // Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
-import { DashboardHeader, HeroMes, HojeFoco, LucroCustos } from "@/components/dashboard/DashboardV8";
+import { DashboardHeader, HeroMes, HojeFoco, LucroCustos, PatenteRow, CompeticaoRow } from "@/components/dashboard/DashboardV8";
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
@@ -445,7 +444,7 @@ export default function Index() {
   };
   const greeting = getGreeting();
 
-  return <div className="bg-background px-4 pt-3 pb-8 space-y-3.5 animate-fade-in overflow-x-hidden max-w-2xl mx-auto">
+  return <div className="orbis-stagger bg-background px-4 pt-3 pb-8 space-y-3.5 overflow-x-hidden max-w-2xl mx-auto">
       {/* Cabeçalho 2.0: saudação + chip "N dias de Foco" */}
       <DashboardHeader nome={nickname || "vendedor"} diasFoco={activeDaysCount} />
 
@@ -509,27 +508,15 @@ export default function Index() {
 
       <p className="orbis-section pt-1">Seu jogo</p>
 
-      {/* Próxima patente — contida, no mesmo sistema visual */}
-      <button
+      {/* Próxima patente — ícone + barra (mock v8) */}
+      <PatenteRow
+        emoji={nextTier.emoji}
+        nome={nextTier.name}
+        pct={tierProgress}
+        faltam={tierRestante}
+        accentHsl={nextTier.accent}
         onClick={() => navigate('/rewards')}
-        className="w-full rounded-xl border border-border bg-card px-4 py-3.5 flex items-center gap-3 text-left hover:bg-muted/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        aria-label="Ver recompensas por conquista"
-      >
-        <div className="w-10 h-10 rounded-lg bg-muted/60 flex items-center justify-center shrink-0">
-          <span className="text-lg leading-none">{nextTier.emoji}</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-foreground truncate">Patente {nextTier.name}</p>
-          <div className="h-1 bg-muted rounded-full overflow-hidden mt-1.5">
-            <div
-              className="h-full rounded-full transition-[width] duration-300 ease-out"
-              style={{ width: `${tierProgress}%`, background: `hsl(${nextTier.accent})` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">Faltam {formatCurrency(tierRestante)} · {tierProgress.toFixed(0)}%</p>
-        </div>
-        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-      </button>
+      />
 
       {user && faltaDia <= 0 && dailyProfit > 0 && (
         <TrialNudge
@@ -542,7 +529,7 @@ export default function Index() {
 
       {user && <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />}
 
-      {user && <CompetitionCard userId={user.id} onClick={() => navigate('/competitions')} />}
+      <CompeticaoRow onClick={() => navigate('/competitions')} />
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 
