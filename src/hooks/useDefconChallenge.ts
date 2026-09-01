@@ -1219,6 +1219,15 @@ export function useDefconChallenge(userId: string | undefined) {
       await supabase.from("challenge_sessions").update({ worked_minutes: worked } as never).eq("id", sid);
     }
 
+    /* Dashboard v9.1 "padrão Opal" (Rick, 01/09): a chama de dias trabalhados
+       acende quando ele FECHA o DEFCON e a Home abre. Marcamos aqui; a Home lê
+       uma vez, roda a animação e apaga a chave — assim ninguém assiste de novo
+       dando refresh, e a chama nunca mente. Só marca se houve venda: dia sem
+       venda não é dia trabalhado. */
+    try {
+      if (userId && totalSoldRef.current > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, "1");
+    } catch { /* sem storage: sem animação, sem quebra */ }
+
     setPhase("abandoned");
   };
 

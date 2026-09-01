@@ -136,3 +136,45 @@
 .orbis-num.font-extrabold, .orbis-num .font-extrabold { font-weight: 700; }
 .orbis-section, .orbis-label { font-weight: 600; letter-spacing: 0.10em; }
 .orbis-cta { font-weight: 600; letter-spacing: 0.01em; }
+
+/* ============================================================
+   DASHBOARD v9.1 — "padrão Opal" (Rick, 01/09)
+   Tokens de superfície e a escala de rótulo miúdo. A régua de espaço
+   e os 6 tamanhos de fonte moram no DashboardV9.tsx; aqui ficam só os
+   valores que mais de um lugar usa.
+   ============================================================ */
+:root {
+  --orbis-line: rgba(255,255,255,.07);   /* borda de todo bloco */
+  --orbis-surf: rgba(255,255,255,.038);  /* fundo de todo bloco */
+}
+/* rótulo miúdo: 10,5px / 700 / .13em — o menor da escala */
+.orbis-mini {
+  color: var(--orbis-fg-3);
+  font-size: 10.5px; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase;
+}
+
+/* A chama acendendo. Roda UMA vez, quando o DEFCON 4 fecha e a Home abre.
+   O pulso é um anel que abre e some; o número entra deslizando de baixo. */
+@keyframes orbis-chama-pulso {
+  0%   { transform: scale(.86); }
+  45%  { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+@keyframes orbis-chama-halo {
+  0%   { box-shadow: 0 0 0 0 rgba(255,170,60,.45); }
+  100% { box-shadow: 0 0 0 22px rgba(255,170,60,0); }
+}
+.orbis-chama-pulso {
+  animation: orbis-chama-pulso 700ms var(--ease-orbis) both,
+             orbis-chama-halo  900ms var(--ease-orbis) both;
+  border-radius: 999px;
+}
+@keyframes orbis-chama-num {
+  0%   { transform: translateY(60%); opacity: 0; }
+  100% { transform: translateY(0);   opacity: 1; }
+}
+.orbis-chama-num { display: inline-block; animation: orbis-chama-num 320ms var(--ease-orbis) both; }
+@media (prefers-reduced-motion: reduce) {
+  .orbis-chama-pulso, .orbis-chama-num { animation: none !important; }
+}

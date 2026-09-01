@@ -21,7 +21,7 @@ import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 // Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
 import RankingCard from "@/components/RankingCard";
 import { CompeticaoRow } from "@/components/dashboard/DashboardV8";
-import { HeaderV9, ConstanciaRow, HeroCard, Secao, FinanceiroFlat, PatenteLinha } from "@/components/dashboard/DashboardV9";
+import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha } from "@/components/dashboard/DashboardV9";
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
@@ -502,17 +502,20 @@ export default function Index() {
      (space-y-7). Saudação e constância viram um bloco só, com 14px entre
      elas, porque são a mesma ideia ("quem é você / como está sua semana");
      assim o olho lê 5 blocos separados em vez de 8 linhas grudadas. */
+  const diasNoMes = diasTrabalhados.filter((d) => d.slice(0, 7) === getBrazilDate().slice(0, 7)).length;
+
+  /* v9.1 "padrão Opal" (Rick, 01/09):
+     - topo enxuto (data 10px, saudação 15px) com a CHAMA e o avatar à direita;
+     - a semana colada no card da meta, POR FORA dele;
+     - todo assunto num Bloco com a mesma borda — é a borda que dá contexto;
+     - régua: 28px entre blocos (space-y-7). */
   return <div className="orbis-stagger bg-background px-1 pt-3 pb-10 space-y-7 overflow-x-hidden max-w-2xl mx-auto">
-      {/* v9: saudação + constância no topo (prioridade do Rick) */}
-      <div className="space-y-3.5">
-        <HeaderV9 nome={nickname || "vendedor"} />
-        <ConstanciaRow
-          workingDays={workingDays}
-          diasTrabalhados={diasTrabalhados}
-          diasNoMes={diasTrabalhados.filter((d) => d.slice(0, 7) === getBrazilDate().slice(0, 7)).length}
-          onEditMeta={() => setShowEditPlanning(true)}
-        />
-      </div>
+      <HeaderV9
+        nome={nickname || "vendedor"}
+        diasTrabalhados={diasNoMes}
+        userId={user.id}
+        onPerfil={() => navigate("/profile")}
+      />
 
       {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
       {contaNova && (
@@ -537,7 +540,10 @@ export default function Index() {
       {/* Cobrança do horário combinado (só aparece se ele marcou hora e não vendeu) */}
       <CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} />
 
-      {/* O CARD (único da Home, como a conta do banco): mês + anel + Hoje + Meta do dia + Foco */}
+      {/* A semana encosta no card da meta, por fora dele (pedido do Rick) —
+          por isso os dois moram no MESMO filho do stagger, sem o gap de 28px. */}
+      <div>
+      <SemanaRow workingDays={workingDays} diasTrabalhados={diasTrabalhados} />
       <HeroCard
         faturamento={faturamentoMes}
         meta={monthlyGoal}
@@ -548,11 +554,12 @@ export default function Index() {
         onEditMeta={() => setShowEditPlanning(true)}
         onFoco={() => navigate("/daily-goals")}
       />
+      </div>
 
-      {/* Financeiro plano: dois números, sem caixa. "Ver detalhes" abre os custos */}
-      <Secao titulo="Financeiro" acao="Ver detalhes" onAcao={() => setShowCustos(true)}>
+      {/* Financeiro: bloco com borda própria — "Ver detalhes" abre os custos */}
+      <Bloco titulo="Financeiro" acao="Ver detalhes" onAcao={() => setShowCustos(true)}>
         <FinanceiroFlat lucro={lucroLiquido} custos={custosTotal} />
-      </Secao>
+      </Bloco>
 
       {/* Gerenciador de custos (mesmo do DEFCON): lista custos manuais E o CMV de
           cada dia, com apagar/zerar. Ao fechar, recarrega o painel — o lucro muda
@@ -573,9 +580,9 @@ export default function Index() {
 
       {/* Seu jogo: lista neutra (patente, ranking, competições) — a identidade forte
           fica dentro de cada tela, a Home só aponta */}
-      <Secao titulo="Seu jogo">
-        <PatenteLinha nome={nextTier.name} pct={tierProgress} faltam={tierRestante} ultima onClick={() => navigate('/rewards')} />
-      </Secao>
+      <Bloco titulo="Seu jogo">
+        <PatenteLinha nome={nextTier.name} pct={tierProgress} faltam={tierRestante} onClick={() => navigate('/rewards')} />
+      </Bloco>
 
       {/* Ranking + Competição: formato ATUAL (decisão do Rick 01/09) — card com a
           imagem da liga + pulso ao subir, e o quadrado dourado das espadas.
@@ -588,7 +595,7 @@ export default function Index() {
         <TrialNudge
           userId={user.id}
           momentKey="meta_dia"
-          title="Meta do dia batida! 🎯"
+          title="Meta do dia batida!"
           benefit="Quem usa o Orbis todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
         />
       )}

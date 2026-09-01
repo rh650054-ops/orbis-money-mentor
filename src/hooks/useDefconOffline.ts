@@ -131,7 +131,13 @@ export function useDefconOffline(userId: string | null) {
     mudar((d) => ({ ...d, paused_until: new Date(Date.now() + m * 60_000).toISOString() }));
   };
   const skipLunchPause = () => { mudar((d) => ({ ...d, paused_until: null })); setAgora(Date.now()); };
-  const endChallenge = async () => { mudar((d) => ({ ...d, ended_at: new Date().toISOString(), paused_until: null })); };
+  const endChallenge = async () => {
+    mudar((d) => ({ ...d, ended_at: new Date().toISOString(), paused_until: null }));
+    // Mesma regra do online: fechou com venda → a Home acende a chama uma vez.
+    try {
+      if (userId && t.total > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, "1");
+    } catch { /* sem storage: sem animação */ }
+  };
   const reabrir = () => { mudar((d) => ({ ...d, ended_at: null })); setAgora(Date.now()); };
 
   const workedMinutes = inicioMs ? Math.round(((dia?.ended_at ? new Date(dia.ended_at).getTime() : agora) - inicioMs) / 60_000) : 0;
