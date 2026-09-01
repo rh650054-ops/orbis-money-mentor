@@ -493,6 +493,10 @@ export default function TesteDefcon() {
           <div><p className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Bloco</p><p className="font-black text-success text-[17px] font-mono tabular-nums mt-1">{brl(vendido)}</p></div>
           <div style={{ borderLeft: "1px solid rgba(255,255,255,.1)", paddingLeft: 24 }}><p className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Vendas</p><p className="font-black text-[17px] font-mono tabular-nums mt-1">{vendas.length}</p></div>
           <div style={{ borderLeft: "1px solid rgba(255,255,255,.1)", paddingLeft: 24 }}><p className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Abord.</p><p className="font-black text-[17px] font-mono tabular-nums mt-1">{abordagens}</p></div>
+          {/* CONV. — o DEFCON real tem esta coluna; o protótipo estava sem (Rick, 01/09).
+             Conversão = vendas ÷ abordagens. Como toda venda também conta abordagem,
+             o número nunca passa de 100%. */}
+          <div style={{ borderLeft: "1px solid rgba(255,255,255,.1)", paddingLeft: 24 }}><p className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Conv.</p><p className="font-black text-primary text-[17px] font-mono tabular-nums mt-1">{abordagens > 0 ? Math.round((vendas.length / abordagens) * 100) : 0}%</p></div>
         </div>
 
         {/* Estoque NÃO aparece durante o corre (pedido do Rick, 01/09):
@@ -535,7 +539,14 @@ export default function TesteDefcon() {
           </button>
         </div>
 
-        <p className="text-[13px] text-foreground/70 font-mono text-center font-semibold mt-6">Sem ação, sem dinheiro.</p>
+        {/* Igual ao DEFCON real: quando já há um ticket médio, a frase vira conta. */}
+        {vendas.length > 0 && falta > 0 ? (
+          <p className="text-[13px] text-foreground/70 font-mono text-center font-semibold mt-6">
+            Faltam {Math.ceil(falta / (vendido / vendas.length))} vendas de {brl(vendido / vendas.length)}
+          </p>
+        ) : (
+          <p className="text-[13px] text-foreground/70 font-mono text-center font-semibold mt-6">Sem ação, sem dinheiro.</p>
+        )}
 
         <div className="flex items-center justify-between gap-2 mt-6 px-2">
           <button className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5"><FileText className="w-3 h-3 text-muted-foreground/60" /><span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Ocorrência</span></button>
@@ -544,6 +555,11 @@ export default function TesteDefcon() {
           <span className="text-foreground/10">|</span>
           <button onClick={() => setConfirmarFim(true)} className="flex-1 h-9 rounded-lg flex items-center justify-center"><span className="text-xs font-mono text-destructive/80 tracking-wider uppercase font-bold">Encerrar</span></button>
         </div>
+
+        {/* rodapé do DEFCON real */}
+        <p className="text-center text-[11px] font-mono tracking-[0.18em] uppercase mt-4" style={{ color: "var(--orbis-fg-3)" }}>
+          Bloco 1/10 · <span style={{ color: "var(--orbis-gold)" }}>ver blocos ›</span>
+        </p>
 
         {/* folha de venda — o único lugar que mudou */}
         {folha && (
