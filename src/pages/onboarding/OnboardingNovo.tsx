@@ -21,6 +21,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useCountUp, useReducedMotion } from "@/shared/motion";
 import { calcularPlano, salvarPlano, marcarPlanoRevelado, type PlanoDoCorre } from "@/shared/onboarding/plano";
+import { EditPlanningModal } from "@/components/EditPlanningModal";
 
 type Etapa = "ato1" | "ato2" | "ato3" | "fixar" | "meta";
 
@@ -187,12 +188,9 @@ export default function OnboardingNovo() {
       />
     ),
     meta: (
-      <MetaDeAmanha
-        metaMensal={metaMensal} setMetaMensal={setMetaMensal}
-        diasSemana={diasSemana} setDiasSemana={setDiasSemana}
-        horasDia={horasDia} setHorasDia={setHorasDia}
+      <UltimoPasso
         userId={user?.id}
-        onConcluir={() => void concluir()}
+        onConcluir={() => { if (user?.id) marcarPlanoRevelado(user.id); void concluir(); }}
       />
     ),
   };
@@ -474,152 +472,33 @@ function Fixar({ ehIOS, temPromptNativo, onInstalarNativo, onConcluir }: {
   );
 }
 
-/* ================= COMBINAR O AMANHÃ — formato do "Editar Planejamento" ================= */
-/* Mesmo formato do modal que JÁ EXISTE no dashboard (pedido do Rick):
-   os campos geram AO VIVO a faixa SEMANAL / DIÁRIA / POR HORA, e é aqui
-   que entra "que horas você vai começar a vender amanhã?". Vem tudo
-   pré-preenchido do Ato 2 — ele só confere, marca a hora e confirma.
-   O mesmo campo de hora deve entrar no modal Editar Planejamento do
-   dashboard (ver ORBIS-DEPLOY-NOTES) — um padrão só, dois lugares. */
-function MetaDeAmanha({ metaMensal, setMetaMensal, diasSemana, setDiasSemana, horasDia, setHorasDia, userId, onConcluir }: {
-  metaMensal: number; setMetaMensal: (n: number) => void;
-  diasSemana: number; setDiasSemana: (n: number) => void;
-  horasDia: number; setHorasDia: (n: number) => void;
-  userId?: string;
-  onConcluir: () => void;
-}) {
-  const [hora, setHora] = useState<number | null>(null);
-  const [editandoMeta, setEditandoMeta] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (editandoMeta) inputRef.current?.focus(); }, [editandoMeta]);
-
-  // a faixa é GERADA na hora, com a mesma conta do modal do dashboard
-  const plano = calcularPlano({ metaMensal, diasSemana, horasDia, horaInicio: hora });
-
-  const confirmar = () => {
-    if (userId) {
-      void salvarPlano(userId, { metaMensal, diasSemana, horasDia, horaInicio: hora });
-      try { localStorage.setItem(`orbis_meta_amanha_${userId}`, String(plano.diaria)); } catch { /* nada */ }
-      marcarPlanoRevelado(userId); // ele acabou de VER a diária virar meta
-    }
-    onConcluir();
-  };
-
-  const Rotulo = ({ children }: { children: React.ReactNode }) => (
-    <p className="text-[10.5px] font-extrabold uppercase tracking-[.16em] text-left" style={{ color: "#7E7869" }}>{children}</p>
-  );
-
-  const MiniChip = ({ ativo, onClick, children }: { ativo: boolean; onClick: () => void; children: React.ReactNode }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className="orbis-press orbis-num flex-1 h-11 rounded-[13px] flex items-center justify-center text-[15px] font-extrabold"
-      style={ativo
-        ? { background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1A1200", boxShadow: "0 4px 0 #B88700" }
-        : { background: "#101010", border: "1px solid rgba(255,255,255,.09)", color: "#B9B3A6" }}
-    >
-      {children}
-    </button>
-  );
-
+/* ================= ÚLTIMO PASSO — o modal "Editar Planejamento" DE VERDADE ================= */
+/* Decisão do Rick (31/08): depois do Ato 3 abre o MESMO modal que ele usa no
+   dashboard (meta mensal, dias, horas, faixa semanal/diária/hora e o bloco NOVO
+   da hora de começar). Salvar → dashboard. Cancelar/X → dashboard também
+   (o plano do Ato 2 já está gravado, ninguém fica preso). */
+function UltimoPasso({ userId, onConcluir }: { userId?: string; onConcluir: () => void }) {
   return (
-    <div className="w-full pt-20 pb-44 text-center relative z-[1]">
+    <div className="w-full pt-24 text-center relative z-[1]">
       <p className="text-[10.5px] font-extrabold uppercase tracking-[.18em]" style={{ color: "#B9B3A6" }}>
         Último passo
       </p>
       <h1 className="font-display text-[22px] font-extrabold leading-[1.35] mt-2">
         Confere <b style={{ color: "#F5B800" }}>seu planejamento</b>
       </h1>
-
-      <div className="mt-6 flex flex-col gap-[14px]">
-        <div>
-          <Rotulo>Meta mensal</Rotulo>
-          {editandoMeta ? (
-            <div className="mt-[7px] rounded-2xl px-4 py-3 flex items-baseline gap-1.5"
-              style={{ background: "#101010", border: "1px solid rgba(245,184,0,.55)" }}>
-              <span className="orbis-num font-display text-[24px] font-extrabold">R$</span>
-              <input
-                ref={inputRef}
-                type="text"
-                inputMode="numeric"
-                className="orbis-num font-display bg-transparent outline-none text-[24px] font-extrabold w-full"
-                defaultValue={String(metaMensal)}
-                onBlur={(e) => {
-                  const n = parseInt(e.target.value.replace(/\D/g, ""), 10);
-                  if (Number.isFinite(n) && n > 0) setMetaMensal(Math.min(n, 1_000_000));
-                  setEditandoMeta(false);
-                }}
-                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-              />
-            </div>
-          ) : (
-            <button type="button" onClick={() => setEditandoMeta(true)}
-              className="orbis-press mt-[7px] w-full rounded-2xl px-4 py-3 flex items-baseline gap-1.5 text-left"
-              style={{ background: "#101010", border: "1px solid rgba(245,184,0,.35)" }}>
-              <span className="orbis-num font-display text-[24px] font-extrabold">{fmt0(metaMensal)}</span>
-              <span className="ml-auto text-[12px]" style={{ color: "#5C574D" }}>toque pra mudar</span>
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Rotulo>Dias/semana</Rotulo>
-            <div className="mt-[7px] flex gap-1.5">
-              {[4, 5, 6, 7].map((d) => (
-                <MiniChip key={d} ativo={diasSemana === d} onClick={() => setDiasSemana(d)}>{d}</MiniChip>
-              ))}
-            </div>
-          </div>
-          <div>
-            <Rotulo>Horas/dia</Rotulo>
-            <div className="mt-[7px] flex gap-1.5">
-              {[6, 8, 10, 12].map((h) => (
-                <MiniChip key={h} ativo={horasDia === h} onClick={() => setHorasDia(h)}>{h}</MiniChip>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* A FAIXA — gerada ao vivo, igual ao modal do dashboard */}
-        <div className="rounded-2xl border px-3 py-3.5 grid grid-cols-3"
-          style={{ borderColor: "rgba(245,184,0,.4)", background: "rgba(245,184,0,.07)" }}>
-          <div>
-            <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "#7E7869" }}>Semanal</p>
-            <p className="orbis-num font-display text-[16px] font-extrabold mt-1">{fmt0(plano.semana)}</p>
-          </div>
-          <div style={{ borderLeft: "1px solid rgba(255,255,255,.10)", borderRight: "1px solid rgba(255,255,255,.10)" }}>
-            <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "#F5B800" }}>Diária</p>
-            <p className="orbis-num font-display text-[16px] font-extrabold mt-1" style={{ color: "#F5B800" }}>{fmt0(plano.diaria)}</p>
-          </div>
-          <div>
-            <p className="text-[9.5px] font-extrabold uppercase tracking-[.12em]" style={{ color: "#7E7869" }}>Por hora</p>
-            <p className="orbis-num font-display text-[16px] font-extrabold mt-1">{fmt0(plano.hora)}</p>
-          </div>
-        </div>
-
-        <div>
-          <Rotulo>Que horas você vai começar a vender amanhã?</Rotulo>
-          <div className="mt-[7px] flex gap-2">
-            {[7, 8, 9, 10].map((h) => (
-              <MiniChip key={h} ativo={hora === h} onClick={() => setHora(h)}>{h}h</MiniChip>
-            ))}
-          </div>
-          <p className="text-[11.5px] mt-1.5 text-left" style={{ color: "#7E7869" }}>
-            {hora != null
-              ? `Combinado: amanhã às ${hora}h a gente te espera.`
-              : "Se marcar, o Orbis te dá um toque caso o dia comece sem você."}
-          </p>
-        </div>
-      </div>
-
-      <div className="fixed left-8 right-8 bottom-[100px]">
-        <button type="button" onClick={confirmar} className="orbis-cta w-full">COMBINADO ✓</button>
-      </div>
-      <button type="button" onClick={onConcluir}
-        className="fixed left-0 right-0 bottom-14 text-[13px] font-semibold" style={{ color: "#7E7869" }}>
-        decidir isso depois
-      </button>
+      <p className="text-[13px] mt-2" style={{ color: "#7E7869" }}>
+        Ajusta se quiser e marca que horas você começa amanhã.
+      </p>
+      {userId && (
+        <EditPlanningModal
+          userId={userId}
+          isOpen
+          onClose={onConcluir}
+        />
+      )}
+      {!userId && (
+        <button type="button" onClick={onConcluir} className="orbis-cta w-full mt-8">CONTINUAR</button>
+      )}
     </div>
   );
 }
