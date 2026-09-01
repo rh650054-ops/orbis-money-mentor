@@ -10,7 +10,7 @@ import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
 import { useDefconPresence } from "@/hooks/useDefconPresence";
 import { useX1DefconAlert } from "@/hooks/useX1DefconAlert";
 import MissionOrchestrator from "@/components/onboarding/mission/MissionOrchestrator";
-import ScreenCoach from "@/components/onboarding/ScreenCoach";
+import FirstTimeCard from "@/components/FirstTimeCard";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
@@ -324,9 +324,9 @@ export default function DefconChallenge() {
       {treino && user && (
         <MissionOrchestrator userId={user.id} nickname={null} onCompleted={() => {}} />
       )}
-      {/* Coach por tela no DEFCON real (rota fica fora do layout, então renderiza aqui).
-          Explica as funções: iniciar, venda rápida, cobrança no WhatsApp e abordagem. */}
-      {!treino && user && <ScreenCoach userId={user.id} />}
+      {/* Card de 1ª vez do DEFCON (rota fora do layout, então renderiza aqui):
+          venda em 2 toques, offline continua registrando, encerrar o dia. */}
+      {!treino && user && <FirstTimeCard tela="defcon" userId={user.id} />}
     </>
   );
 }

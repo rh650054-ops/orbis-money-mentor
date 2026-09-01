@@ -20,7 +20,8 @@ const FEITO = [
   ["Onboarding", "Quem chega agora monta o plano em 40 segundos e já sai com a meta do dia."],
   ["Cards de primeira vez", "Cada tela explica só o principal na primeira abertura — e nunca mais incomoda."],
   ["Hora combinada", "Marque que horas começa a vender; o Orbis te dá um toque se o dia começar sem você."],
-  ["Placar offline", "Sem sinal? Um botão abre o placar; as vendas sobem sozinhas quando a internet volta."],
+  ["DEFCON 4 offline", "Sem sinal? Continua registrando — e sem internet nenhuma, um botão abre o Placar Offline. Tudo sobe sozinho quando o sinal volta."],
+  ["Dias de folga", "Marque no planejamento os dias que você trabalha: folga não quebra sua constância."],
 ];
 
 const VEM_AI = [
@@ -52,7 +53,11 @@ export default function NovidadesOrbis2({ userId }: { userId?: string }) {
   if (!aberto || !userId) return null;
   const mostrando = reduced || entrando;
   const fechar = () => {
-    try { localStorage.setItem(chave(userId), "1"); } catch { /* nada */ }
+    try {
+      localStorage.setItem(chave(userId), "1");
+      // Dia 1: depois das novidades, o dashboard abre o planejamento (metas + dias de folga)
+      localStorage.setItem(`orbis_abrir_planejamento_${userId}`, "1");
+    } catch { /* nada */ }
     if (reduced) { setAberto(false); return; }
     setEntrando(false);
     window.setTimeout(() => setAberto(false), 250);
@@ -61,7 +66,7 @@ export default function NovidadesOrbis2({ userId }: { userId?: string }) {
   return createPortal(
     <div className="fixed inset-0 z-[85] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Novidades do Orbis 2.0">
       <button type="button" aria-label="Fechar" onClick={fechar} className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,.78)", backdropFilter: "blur(3px)", opacity: mostrando ? 1 : 0, transition: reduced ? undefined : "opacity 250ms cubic-bezier(0.2,0,0,1)" }} />
+        style={{ background: "rgba(0,0,0,.82)", opacity: mostrando ? 1 : 0, transition: reduced ? undefined : "opacity 250ms cubic-bezier(0.2,0,0,1)" }} />
       <div className="relative w-full max-w-md mx-4 rounded-[22px] border flex flex-col"
         style={{
           maxHeight: "86dvh",
@@ -83,7 +88,7 @@ export default function NovidadesOrbis2({ userId }: { userId?: string }) {
           </div>
         </div>
 
-        <div className="px-5 overflow-y-auto" style={{ scrollbarWidth: "none" }}>
+        <div className="px-5 overflow-y-auto min-h-0 flex-1" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
           <p className="text-[13px] leading-[1.5]" style={{ color: "#F4F1EA" }}>
             Um mês de trabalho virou app hoje. Tudo que mudou — e o que vem antes do fim do mês.
           </p>

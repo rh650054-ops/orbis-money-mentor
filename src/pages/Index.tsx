@@ -396,6 +396,21 @@ export default function Index() {
     if (meta > 0) lembrarMetaDia(user.id, meta);
   }, [user?.id, dailyGoalPlan, monthlyGoal]);
 
+  // Dia 1 (01/09): depois do card de novidades, abre o planejamento pra ele
+  // revisar metas e marcar os dias de folga. A flag é setada pelo NovidadesOrbis2.
+  useEffect(() => {
+    if (!user?.id) return;
+    const k = `orbis_abrir_planejamento_${user.id}`;
+    const tick = () => {
+      try {
+        if (localStorage.getItem(k) === "1") { localStorage.removeItem(k); setShowEditPlanning(true); }
+      } catch { /* nada */ }
+    };
+    tick();
+    const id = window.setInterval(tick, 800); // o card fecha sem re-render do Index — sonda leve
+    return () => window.clearInterval(id);
+  }, [user?.id]);
+
   if (loading || !user || (isLoadingData && !hasDashCache)) {
     // Esqueleto com o formato do dashboard — evita a tela "pular" do vazio pro design
     return (

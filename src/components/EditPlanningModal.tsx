@@ -25,6 +25,21 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
   const [monthlyGoal, setMonthlyGoal] = useState(4200);
   const [workHours, setWorkHours] = useState(8);
   const [workDaysPerWeek, setWorkDaysPerWeek] = useState(5);
+  // Dias da semana que ele TRABALHA (folga = fora da lista). Alimenta profiles.working_days,
+  // que o streak/constância já lê: folga marcada não quebra a sequência.
+  const DIAS = [
+    { k: "monday", l: "S" }, { k: "tuesday", l: "T" }, { k: "wednesday", l: "Q" }, { k: "thursday", l: "Q" },
+    { k: "friday", l: "S" }, { k: "saturday", l: "S" }, { k: "sunday", l: "D" },
+  ] as const;
+  const [workingDays, setWorkingDays] = useState<string[]>(["monday", "tuesday", "wednesday", "thursday", "friday"]);
+  const toggleDia = (k: string) => {
+    setWorkingDays((prev) => {
+      const next = prev.includes(k) ? prev.filter((d) => d !== k) : [...prev, k];
+      if (next.length === 0) return prev; // pelo menos 1 dia de trabalho
+      setWorkDaysPerWeek(next.length);   // "Dias/semana" acompanha a escolha
+      return next;
+    });
+  };
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -36,7 +51,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
   const loadCurrentData = async () => {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("monthly_goal, goal_hours, weekly_work_days")
+      .select("monthly_goal, goal_hours, weekly_work_days, working_days")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -44,6 +59,8 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       setMonthlyGoal(profile.monthly_goal || 4200);
       setWorkHours(profile.goal_hours || 8);
       setWorkDaysPerWeek(profile.weekly_work_days || 5);
+      const wd = (profile as { working_days?: string[] | null }).working_days;
+      if (Array.isArray(wd) && wd.length > 0) setWorkingDays(wd);
     }
   };
 
@@ -79,6 +96,7 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
         monthly_goal: monthlyGoal,
         goal_hours: workHours,
         weekly_work_days: workDaysPerWeek,
+        working_days: workingDays,
         base_daily_goal: dailyGoal,
         weekly_goal: weeklyGoal,
         week_start_date: getBrazilDate(),
@@ -286,6 +304,36 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
                 />
               </div>
             </div>
+          </div>
+
+          {/* Quais dias ele trabalha — folga marcada NÃO quebra a constância */}
+          <div className="space-y-1.5">
+            <p className="flex items-center gap-1.5 text-xs">
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              Quais dias você trabalha? <span className="text-muted-foreground">(o resto é folga)</span>
+            </p>
+            <div className="flex gap-1.5">
+              {DIAS.map((d) => {
+                const on = workingDays.includes(d.k);
+                return (
+                  <button
+                    key={d.k}
+                    type="button"
+                    onClick={() => toggleDia(d.k)}
+                    aria-pressed={on}
+                    className="orbis-press flex-1 h-10 rounded-xl text-[13px] font-bold"
+                    style={on
+                      ? { background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1A1200", boxShadow: "0 3px 0 #B88700" }
+                      : { background: "#1E1E1E", border: "1px solid rgba(255,255,255,.10)", color: "#7E7869" }}
+                  >
+                    {d.l}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              {7 - workingDays.length === 0 ? "Sem folga marcada — cuidado com o fôlego 😅" : `${7 - workingDays.length} ${7 - workingDays.length === 1 ? "dia" : "dias"} de folga por semana. Folga não quebra sua sequência.`}
+            </p>
           </div>
 
           {/* Resumo compacto */}

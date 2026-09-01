@@ -38,7 +38,7 @@ export default function OfflineGate() {
 
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.78)", backdropFilter: "blur(3px)" }} />
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.84)" }} />
       <div className="orbis-card-in relative w-full max-w-md mx-5 rounded-[22px] border p-6 text-center"
         style={{ background: "linear-gradient(160deg,#17130A 0%,#111 55%)", borderColor: "rgba(245,184,0,.30)", boxShadow: "0 24px 70px -24px rgba(245,184,0,.4)" }}>
         <span className="mx-auto w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,.06)", border: "1px solid rgba(255,255,255,.12)" }}>

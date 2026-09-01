@@ -39,7 +39,7 @@ function TourConcluido({ onFechar }: { onFechar: () => void }) {
   if (!aberto) return null;
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.72)", backdropFilter: "blur(2px)" }} />
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.8)" }} />
       <div className="orbis-victory relative w-full max-w-md mx-6 rounded-[22px] border p-6 text-center"
         style={{
           "--win-color": "rgba(245,184,0,.55)",

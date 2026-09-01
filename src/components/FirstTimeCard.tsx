@@ -22,7 +22,7 @@ import { createPortal } from "react-dom";
 import { Home, Zap, Trophy, Wallet, BarChart3, Package } from "lucide-react";
 import { useReducedMotion } from "@/shared/motion";
 
-export type TelaIntro = "dashboard" | "foco" | "ranking" | "financas" | "relatorio" | "catalogo";
+export type TelaIntro = "dashboard" | "foco" | "defcon" | "ranking" | "financas" | "relatorio" | "catalogo";
 
 interface IntroConteudo {
   icone: ReactNode;
@@ -49,7 +49,17 @@ const TELAS_INTRO: Record<TelaIntro, IntroConteudo> = {
     pontos: [
       "Registrar venda leva 10 segundos — é só o valor.",
       "Bateu a meta do dia? O app comemora com você.",
-      "Quanto mais dias seguidos de Foco, maior sua sequência 🔥",
+      "Sem sinal? Continua registrando — sobe sozinho quando a internet voltar.",
+    ],
+  },
+  defcon: {
+    icone: <Zap size={22} strokeWidth={2.4} />,
+    titulo: "DEFCON 4 começou",
+    frase: "Uma hora de cada vez. Cada venda enche o bloco e o placar do dia.",
+    pontos: [
+      "Venda: toca no valor → confirma. Abordagem: um toque.",
+      "Caiu o sinal? Pode continuar — as vendas ficam no celular e sobem sozinhas depois.",
+      "Fechou o dia? Encerra o DEFCON e vê seu resumo.",
     ],
   },
   ranking: {
@@ -135,7 +145,7 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
       <button type="button" aria-label="Fechar" onClick={fechar}
         className="absolute inset-0"
         style={{
-          background: "rgba(0,0,0,.7)", backdropFilter: "blur(2px)",
+          background: "rgba(0,0,0,.78)",
           opacity: mostrando ? 1 : 0,
           transition: reduced ? undefined : "opacity 250ms cubic-bezier(0.2,0,0,1)",
         }} />
