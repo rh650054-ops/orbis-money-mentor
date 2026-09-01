@@ -420,10 +420,10 @@ export default function Index() {
   const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
   const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood + monthExpensesTotal;
-  // Ritmo: quanto precisa vender por dia até o fim do mês pra bater a meta
-  const _hoje = new Date();
-  const _diasRestantes = Math.max(1, new Date(_hoje.getFullYear(), _hoje.getMonth() + 1, 0).getDate() - _hoje.getDate() + 1);
-  const ritmoDia = Math.max(0, (monthlyGoal - faturamentoMes) / _diasRestantes);
+  // O que aparece ao lado da meta do mês é a DIÁRIA DO PLANO dele (a mesma do
+  // "Editar Planejamento": meta ÷ 4 ÷ dias por semana). Antes era "o que falta ÷
+  // dias restantes" — no dia 31 isso dava "R$ 20.348/dia", número que não ajuda.
+  const ritmoDia = dailyGoal;
 
   const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;

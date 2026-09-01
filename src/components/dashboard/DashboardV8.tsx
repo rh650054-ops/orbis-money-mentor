@@ -9,6 +9,11 @@ import { Zap, Flame, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { AnimatedCurrency, AnimatedNumber, Ring, FillBar } from "@/shared/motion";
 
+/* Sem centavos nas linhas de apoio: "Meta R$ 30.000 · R$ 1.153/dia" cabe em
+   uma linha; com centavos quebrava feio no meio ("ritmo / R$ 20.348,99/dia"). */
+const fmtCurto = (n: number) =>
+  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
+
 /* ---------- Cabeçalho: saudação + chip "N dias de Foco" ---------- */
 export function DashboardHeader({ nome, diasFoco }: { nome: string; diasFoco: number }) {
   const agora = new Date();
@@ -41,7 +46,8 @@ export function DashboardHeader({ nome, diasFoco }: { nome: string; diasFoco: nu
 export function HeroMes({ faturamento, meta, ritmoDia, onEditMeta }: {
   faturamento: number;
   meta: number;
-  ritmoDia: number; // quanto precisa vender por dia pra bater a meta
+  ritmoDia: number; // a DIÁRIA do plano dele (não "o que falta ÷ dias restantes":
+                    // no dia 31 isso virava "R$ 20.348/dia" — número inútil)
   onEditMeta?: () => void;
 }) {
   const pct = meta > 0 ? Math.min(100, (faturamento / meta) * 100) : 0;
@@ -62,9 +68,11 @@ export function HeroMes({ faturamento, meta, ritmoDia, onEditMeta }: {
         <p className="font-display text-[clamp(28px,9vw,38px)] font-extrabold leading-none mt-2 orbis-num whitespace-nowrap">
           <AnimatedCurrency value={faturamento} />
         </p>
-        <p className="text-[12px] mt-2 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
-          Meta <b style={{ color: "var(--orbis-fg)" }}>{formatCurrency(meta)}</b> · ritmo{" "}
-          <b style={{ color: "var(--orbis-fg)" }}>{formatCurrency(ritmoDia)}/dia</b>
+        <p className="text-[12.5px] mt-2 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
+          Meta <b style={{ color: "var(--orbis-fg)" }}>{fmtCurto(meta)}</b>
+          {ritmoDia > 0 && (
+            <> · <b style={{ color: "var(--orbis-fg)" }}>{fmtCurto(ritmoDia)}/dia</b></>
+          )}
         </p>
       </div>
       <div className="ml-auto">
