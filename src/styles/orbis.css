@@ -127,3 +127,12 @@
 .orbis-stagger > *:nth-child(10) { animation-delay: 360ms; }
 .orbis-stagger > *:nth-child(n+11) { animation-delay: 400ms; }
 @media (prefers-reduced-motion: reduce) { .orbis-stagger > * { animation: none !important; } }
+
+/* TIPOGRAFIA "Opal / C6" (pedido do Rick, 31/08): peso calmo.
+   Títulos e textos em SEMIBOLD (600), só os NÚMEROS de dinheiro em bold (700).
+   Rótulos com tracking menor — o .18em ficava "esticado" na SF Pro. */
+.font-display.font-extrabold:not(.orbis-num) { font-weight: 600; }
+.font-display.font-bold:not(.orbis-num) { font-weight: 600; }
+.orbis-num.font-extrabold, .orbis-num .font-extrabold { font-weight: 700; }
+.orbis-section, .orbis-label { font-weight: 600; letter-spacing: 0.10em; }
+.orbis-cta { font-weight: 600; letter-spacing: 0.01em; }

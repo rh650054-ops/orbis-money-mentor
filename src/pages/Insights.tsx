@@ -782,23 +782,6 @@ export default function Insights() {
             </div>
           </section>
 
-          {/* Compartilhar (arte diária do DEFCON pra 1 dia; recap pra períodos) */}
-          {summary.faturamento > 0 && (
-            isSingleDay ? (
-              <DefconShareCarousel
-                stats={{
-                  faturamento: summary.faturamento,
-                  vendas: summary.totalVendas,
-                  conversao: summary.conversao,
-                  horas: fmtHorasCurto(summary.horasTrabalhadasMin),
-                  periodo: shareLabel,
-                }}
-              />
-            ) : (
-              <RelatorioShareCard stats={recapStats} />
-            )
-          )}
-
           {/* CAIU NO BOLSO — verde herói, barra que enche, calote em vermelho vivo */}
           <section className="orbis-card-in rounded-2xl border border-border/60 bg-card p-4 space-y-3">
             <p className="orbis-label" style={{ color: "var(--orbis-ok,#3DD68C)" }}>Caiu no bolso</p>
@@ -858,6 +841,23 @@ export default function Insights() {
               <p className="orbis-section mb-3">Dia a dia</p>
               <BarsDiaADia data={chartData} />
             </section>
+          )}
+
+          {/* Compartilhar (arte diária do DEFCON pra 1 dia; recap pra períodos) */}
+          {summary.faturamento > 0 && (
+            isSingleDay ? (
+              <DefconShareCarousel
+                stats={{
+                  faturamento: summary.faturamento,
+                  vendas: summary.totalVendas,
+                  conversao: summary.conversao,
+                  horas: fmtHorasCurto(summary.horasTrabalhadasMin),
+                  periodo: shareLabel,
+                }}
+              />
+            ) : (
+              <RelatorioShareCard stats={recapStats} />
+            )
           )}
 
           {/* DETALHES — o resto mora recolhido (Miller: 5 blocos na tela) */}
