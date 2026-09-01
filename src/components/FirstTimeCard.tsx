@@ -21,6 +21,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { Home, Zap, Trophy, Wallet, BarChart3, Package } from "lucide-react";
 import { useReducedMotion } from "@/shared/motion";
+import { novidadesPendentes } from "@/components/NovidadesOrbis2";
 
 export type TelaIntro = "dashboard" | "foco" | "defcon" | "ranking" | "financas" | "relatorio" | "catalogo";
 
@@ -115,12 +116,32 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
 
   useEffect(() => {
     if (!userId || introJaVista(userId, tela)) return;
-    // meio segundo de respiro: deixa a tela nova assentar antes do cartão subir
-    const t = window.setTimeout(() => {
+    // FILA DE UM SÓ: este cartão NUNCA sobe em cima de outro diálogo
+    // (Novidades 2.0, modal Editar Planejamento do Radix, Placar Offline…).
+    // O Radix põe pointer-events:none no <body> enquanto está aberto — foi o
+    // bug do "Entendi" que não clicava. Então a gente espera a vez: sonda a
+    // cada 400ms e só abre quando a tela está limpa.
+    let aberto = false;
+    const livre = () => {
+      if (document.querySelector('[role="dialog"]')) return false;      // qualquer outro diálogo no ar
+      if (document.body.style.pointerEvents === "none") return false;  // Radix ainda segurando o body
+      try {
+        if (localStorage.getItem(`orbis_abrir_planejamento_${userId}`) === "1") return false; // planejamento vai abrir
+        if (novidadesPendentes(userId)) return false;                   // novidades ainda vão aparecer
+      } catch { /* nada */ }
+      return true;
+    };
+    let ok = 0; // precisa achar a tela livre 2 vezes seguidas (~meio segundo de respiro)
+    const id = window.setInterval(() => {
+      if (aberto) return;
+      ok = livre() ? ok + 1 : 0;
+      if (ok < 2) return;
+      aberto = true;
+      window.clearInterval(id);
       setAberto(true);
       requestAnimationFrame(() => requestAnimationFrame(() => setEntrando(true)));
-    }, 500);
-    return () => window.clearTimeout(t);
+    }, 400);
+    return () => window.clearInterval(id);
   }, [userId, tela]);
 
   if (!aberto || !userId) return null;
@@ -140,6 +161,7 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
   // preso à página (foi o bug do card no fundo da tela). No body ele é livre.
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center"
+      style={{ pointerEvents: "auto" }} // cinto de segurança: clicável mesmo se algo travar o <body>
       role="dialog" aria-modal="true" aria-label={c.titulo}>
       {/* véu escuro — fecha no toque (não prendemos ninguém) */}
       <button type="button" aria-label="Fechar" onClick={fechar}

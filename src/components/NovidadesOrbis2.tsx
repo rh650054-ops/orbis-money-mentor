@@ -33,16 +33,22 @@ const VEM_AI = [
 
 const chave = (uid: string) => `orbis_novidades_${VERSAO}_vista_${uid}`;
 
+/** true = o card de novidades AINDA vai aparecer pra este usuário (os outros
+ *  overlays — FirstTimeCard etc. — usam isso pra esperar a vez). */
+export function novidadesPendentes(uid: string | undefined): boolean {
+  if (!uid) return false;
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  if (hoje < A_PARTIR_DE) return false;
+  try { return localStorage.getItem(chave(uid)) !== "1"; } catch { return false; }
+}
+
 export default function NovidadesOrbis2({ userId }: { userId?: string }) {
   const reduced = useReducedMotion();
   const [aberto, setAberto] = useState(false);
   const [entrando, setEntrando] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
-    const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-    if (hoje < A_PARTIR_DE) return;
-    try { if (localStorage.getItem(chave(userId)) === "1") return; } catch { return; }
+    if (!userId || !novidadesPendentes(userId)) return;
     const t = window.setTimeout(() => {
       setAberto(true);
       requestAnimationFrame(() => requestAnimationFrame(() => setEntrando(true)));
