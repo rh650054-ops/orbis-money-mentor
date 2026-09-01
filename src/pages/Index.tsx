@@ -244,9 +244,22 @@ export default function Index() {
       supabase.from("defcon_sales").select("created_at").eq("user_id", user.id).gte("created_at", `${sessentaDiasAtras}T00:00:00`).limit(3000),
     ]);
 
-    // Um dia entra na constância UMA vez, tendo 1 ou 40 vendas no DEFCON.
+    /* ---- DIA TRABALHADO (constância) ----
+       Precisa das DUAS coisas ao mesmo tempo:
+       (1) teve venda no DEFCON naquele dia  → não vale lançamento manual
+           nem Pix atrasado; e
+       (2) o dinheiro AINDA está de pé no fechamento do dia (daily_sales
+           > 0) → se ele reiniciou/limpou o DEFCON (teste, engano), os
+           blocos zeram, o daily_sales zera e o dia SAI da conta sozinho.
+       Um dia conta UMA vez, tendo 1 ou 40 vendas. */
+    const diasComDinheiro = new Set(
+      ((weekData as { date: string; total_profit: number | null }[]) || [])
+        .filter((d) => (d.total_profit ?? 0) > 0)
+        .map((d) => String(d.date)),
+    );
     const diasDefcon = Array.from(new Set(((defconSales as { created_at: string }[]) || [])
-      .map((v) => new Date(v.created_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }))));
+      .map((v) => new Date(v.created_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }))))
+      .filter((dia) => diasComDinheiro.has(dia));
     setDiasTrabalhados(diasDefcon);
 
     if (profile?.monthly_goal) {
