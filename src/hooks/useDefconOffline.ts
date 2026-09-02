@@ -135,7 +135,7 @@ export function useDefconOffline(userId: string | null) {
     mudar((d) => ({ ...d, ended_at: new Date().toISOString(), paused_until: null }));
     // Mesma regra do online: fechou com venda → a Home acende a chama uma vez.
     try {
-      if (userId && t.total > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, "1");
+      if (userId && t.total > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, String(Date.now()));
     } catch { /* sem storage: sem animação */ }
   };
   const reabrir = () => { mudar((d) => ({ ...d, ended_at: null })); setAgora(Date.now()); };

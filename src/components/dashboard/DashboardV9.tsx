@@ -56,9 +56,20 @@ export function Chama({ size = 21, aceso = true }: { size?: number; aceso?: bool
    animação e apaga — não dá pra assistir de novo dando refresh, então a
    chama nunca mente. */
 export const CHAVE_ACENDER = (uid: string) => `orbis_chama_acender_${uid}`;
+const VALIDADE_MS = 12 * 60 * 60 * 1000; // a marca vale por 12h: fechou à noite, abriu de manhã, ainda acende
 export function pedirAcenderChama(uid: string | undefined) {
   if (!uid) return;
-  try { localStorage.setItem(CHAVE_ACENDER(uid), "1"); } catch { /* sem storage: sem animação */ }
+  try { localStorage.setItem(CHAVE_ACENDER(uid), String(Date.now())); } catch { /* sem storage: sem animação */ }
+}
+/* Lê a marca SEM apagar. Aceita "1" (versão antiga) ou um timestamp recente. */
+function marcaPendente(uid: string | undefined): boolean {
+  if (!uid) return false;
+  try {
+    const v = localStorage.getItem(CHAVE_ACENDER(uid));
+    if (!v) return false;
+    if (v === "1") return true;
+    return Date.now() - Number(v) < VALIDADE_MS;
+  } catch { return false; }
 }
 
 export function ChamaStreak({ dias, userId }: { dias: number; userId?: string }) {
@@ -68,14 +79,15 @@ export function ChamaStreak({ dias, userId }: { dias: number; userId?: string })
   const [aceso, setAceso] = useState(dias > 0);
 
   useEffect(() => {
-    let pedido = false;
-    try {
-      if (userId && localStorage.getItem(CHAVE_ACENDER(userId)) === "1") {
-        pedido = true;
-        localStorage.removeItem(CHAVE_ACENDER(userId));
-      }
-    } catch { /* nada */ }
-    if (!pedido || dias <= 0) { setMostra(dias); setAceso(dias > 0); return; }
+    /* BUG (Rick, 01/09 à noite): "terminei o DEFCON e não animou". A Home monta
+       com dias = 0 (os dados ainda estão carregando), o efeito rodava, CONSUMIA
+       a marca e desistia porque dias <= 0. Quando os dados chegavam (dias = 1),
+       a marca já tinha ido embora. Agora: com dias = 0 a marca fica intacta —
+       só é consumida no render em que existe um número pra subir. */
+    if (dias <= 0) { setMostra(0); setAceso(false); return; }
+    const pedido = marcaPendente(userId);
+    if (!pedido) { setMostra(dias); setAceso(true); return; }
+    try { if (userId) localStorage.removeItem(CHAVE_ACENDER(userId)); } catch { /* nada */ }
     setMostra(Math.max(0, dias - 1));
     setAceso(false);
     const t1 = window.setTimeout(() => { setAceso(true); setAcender(true); }, 300);

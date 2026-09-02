@@ -1225,7 +1225,7 @@ export function useDefconChallenge(userId: string | undefined) {
        dando refresh, e a chama nunca mente. Só marca se houve venda: dia sem
        venda não é dia trabalhado. */
     try {
-      if (userId && totalSoldRef.current > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, "1");
+      if (userId && totalSoldRef.current > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, String(Date.now()));
     } catch { /* sem storage: sem animação, sem quebra */ }
 
     setPhase("abandoned");
