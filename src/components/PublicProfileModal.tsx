@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
@@ -7,7 +7,8 @@ import { cn } from "@/shared/lib/utils";
 import { presenceInfo } from "@/shared/lib/presence";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
-import { Instagram, MessageCircle, MapPin, Package, Store, Loader2, Trophy, Flame, X, Swords, Medal } from "lucide-react";
+import { Instagram, MessageCircle, MapPin, Package, Store, Loader2, Trophy, Flame, X, Swords, Medal, ShieldAlert, Phone, Mail, CalendarDays, CreditCard, Ban } from "lucide-react";
+import { useToast } from "@/shared/hooks/use-toast";
 
 const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];
 const isEmojiAvatar = (a: string | null) => !!a && EXCLUSIVE_EMOJIS.includes(a);
@@ -51,6 +52,50 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
   const [winTotal, setWinTotal] = useState<number | null>(null);
   const [x1Hist, setX1Hist] = useState<Array<{ id: string; otherName: string; won: boolean; prize: number }>>([]);
   const [compWins, setCompWins] = useState<Array<{ id: string; label: string; value: number }>>([]);
+
+  /* ---- MODERAÇÃO (admin supremo) — pedido do Rick, 01/09 ----
+     Tocou no usuário no ranking → vê a ficha (sem CPF) → zera e exclui.
+     A verdade fica no banco: as RPCs recusam quem não é super admin. */
+  const { toast } = useToast();
+  const [supremo, setSupremo] = useState(false);
+  const [ficha, setFicha] = useState<any | null>(null);
+  const [fichaLoading, setFichaLoading] = useState(false);
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+
+  useEffect(() => {
+    if (!viewer?.id) { setSupremo(false); return; }
+    let vivo = true;
+    (supabase as any).rpc("is_orbis_super_admin").then((r: any) => { if (vivo) setSupremo(r?.data === true); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [viewer?.id]);
+
+  useEffect(() => {
+    if (!open || !userId || !supremo || viewer?.id === userId) { setFicha(null); setConfirmarExclusao(false); return; }
+    let vivo = true;
+    setFichaLoading(true);
+    (supabase as any).rpc("admin_ficha_usuario", { target: userId })
+      .then((r: any) => { if (vivo) setFicha(r?.error ? null : r?.data); })
+      .catch(() => { if (vivo) setFicha(null); })
+      .finally(() => { if (vivo) setFichaLoading(false); });
+    return () => { vivo = false; };
+  }, [open, userId, supremo, viewer?.id]);
+
+  const excluirDoRanking = async () => {
+    if (!userId) return;
+    setExcluindo(true);
+    try {
+      const { data, error } = await (supabase as any).rpc("admin_excluir_do_ranking", { target: userId, motivo: "nome/valor impróprio — moderação no ranking" });
+      if (error) throw error;
+      toast({ title: "Excluído do ranking", description: `Zerado: ${new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(data?.faturamento_zerado || 0))}. Ele não volta sozinho.` });
+      setFicha((f: any) => (f ? { ...f, ranking_hidden: true, ranking: null } : f));
+      setConfirmarExclusao(false);
+    } catch (e: any) {
+      toast({ title: "Não deu", description: e?.message || "Tenta de novo.", variant: "destructive" });
+    } finally {
+      setExcluindo(false);
+    }
+  };
 
   useEffect(() => {
     if (!open || !userId) return;
@@ -377,6 +422,62 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                 </div>
               )}
 
+              {/* ---- painel do admin supremo: ficha sem CPF + zerar/excluir ---- */}
+              {supremo && viewer?.id !== userId && (
+                <div className="px-5 mt-4">
+                  <div className="rounded-xl border p-3" style={{ borderColor: "rgba(229,115,127,.35)", background: "rgba(229,115,127,.06)" }}>
+                    <div className="flex items-center gap-1.5" style={{ color: "#E5737F" }}>
+                      <ShieldAlert className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-wider">Admin supremo</span>
+                      {fichaLoading && <Loader2 className="w-3 h-3 animate-spin ml-auto" />}
+                    </div>
+
+                    {ficha && (
+                      <div className="mt-2.5 space-y-1.5 text-xs">
+                        <Linha icone={<Mail className="w-3 h-3" />} rot="E-mail" val={ficha.email} copiar />
+                        <Linha icone={<Phone className="w-3 h-3" />} rot="Telefone" val={ficha.phone || ficha.whatsapp_public} copiar />
+                        <Linha icone={<MapPin className="w-3 h-3" />} rot="Cidade" val={[ficha.city, ficha.state].filter(Boolean).join(" / ")} />
+                        <Linha icone={<CalendarDays className="w-3 h-3" />} rot="Cadastro" val={ficha.cadastro_em ? new Date(ficha.cadastro_em).toLocaleDateString("pt-BR") : null} />
+                        <Linha icone={<CreditCard className="w-3 h-3" />} rot="Assinatura"
+                          val={ficha.assinatura?.status
+                            ? `${ficha.assinatura.status}${ficha.assinatura.fim_periodo ? " · até " + new Date(ficha.assinatura.fim_periodo).toLocaleDateString("pt-BR") : ""}`
+                            : ficha.is_trial_active ? `trial${ficha.trial_end ? " · até " + new Date(ficha.trial_end).toLocaleDateString("pt-BR") : ""}` : (ficha.plan_status || "sem assinatura")}
+                          destaque={ficha.assinatura?.status === "active" ? "ok" : "warn"} />
+                        <Linha icone={<Trophy className="w-3 h-3" />} rot="Ranking"
+                          val={ficha.ranking_hidden ? "EXCLUÍDO" : ficha.ranking ? `#${ficha.ranking.posicao ?? "—"} · ${formatCurrency(Number(ficha.ranking.faturamento_mes || 0))} · ${ficha.ranking.dias_mes} dias` : "fora este mês"}
+                          destaque={ficha.ranking_hidden ? "warn" : undefined} />
+                        <Linha icone={<Flame className="w-3 h-3" />} rot="Vendas DEFCON (mês)" val={String(ficha.vendas_defcon_mes ?? 0)} />
+                        {ficha.origem_ref && <Linha icone={<Store className="w-3 h-3" />} rot="Origem" val={ficha.origem_ref} />}
+                        {Array.isArray(ficha.moderacoes) && ficha.moderacoes.length > 0 && (
+                          <p className="text-[11px] pt-1" style={{ color: "#E5737F" }}>
+                            Já moderado {ficha.moderacoes.length}× · última: {new Date(ficha.moderacoes[0].em).toLocaleDateString("pt-BR")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {ficha && !ficha.ranking_hidden && (
+                      confirmarExclusao ? (
+                        <div className="mt-3 rounded-lg p-2.5" style={{ background: "rgba(229,115,127,.12)" }}>
+                          <p className="text-xs font-semibold text-foreground">Zerar {formatCurrency(Number(ficha.ranking?.faturamento_mes || 0))} e tirar do ranking pra sempre?</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">Ele continua usando o app; só some do ranking. Pra devolver: Admin → Assinaturas.</p>
+                          <div className="flex gap-2 mt-2">
+                            <Button onClick={excluirDoRanking} disabled={excluindo} className="flex-1 h-9 text-xs font-bold" style={{ background: "#E5737F", color: "#1A0A0C" }}>
+                              {excluindo ? <Loader2 className="w-3 h-3 animate-spin" /> : "SIM, EXCLUIR"}
+                            </Button>
+                            <Button onClick={() => setConfirmarExclusao(false)} variant="ghost" className="h-9 text-xs">Voltar</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button onClick={() => setConfirmarExclusao(true)} variant="outline" className="w-full h-9 mt-3 text-xs font-bold" style={{ borderColor: "rgba(229,115,127,.5)", color: "#E5737F" }}>
+                          <Ban className="w-3.5 h-3.5 mr-1.5" /> Zerar e excluir do ranking
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
               {!profile.what_i_sell && !profile.where_i_sell && !profile.bio && !igHandle && !waNumber && (
                 <div className="px-5 py-6 text-center">
                   <p className="text-sm text-muted-foreground">
@@ -399,5 +500,21 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/* Linha da ficha do admin: rótulo à esquerda, valor à direita, toque copia. */
+function Linha({ icone, rot, val, copiar, destaque }: { icone: ReactNode; rot: string; val: string | null | undefined; copiar?: boolean; destaque?: "ok" | "warn" }) {
+  const v = val && String(val).trim() ? String(val) : "—";
+  const cor = destaque === "ok" ? "#3DD68C" : destaque === "warn" ? "#E5737F" : undefined;
+  return (
+    <button
+      type="button"
+      onClick={() => { if (copiar && v !== "—") { try { void navigator.clipboard.writeText(v); } catch { /* sem clipboard */ } } }}
+      className="w-full flex items-center gap-2 text-left"
+    >
+      <span className="text-muted-foreground flex items-center gap-1 w-[118px] shrink-0">{icone}{rot}</span>
+      <span className="font-semibold truncate flex-1" style={cor ? { color: cor } : undefined}>{v}</span>
+    </button>
   );
 }
