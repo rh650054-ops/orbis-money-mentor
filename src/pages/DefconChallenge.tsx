@@ -14,7 +14,7 @@ import FirstTimeCard from "@/components/FirstTimeCard";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
-import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
+import { DefconFechamento } from "@/components/defcon/DefconFechamento";
 import ExtratoDailyModal from "@/components/competitions/ExtratoDailyModal";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
@@ -42,6 +42,8 @@ export default function DefconChallenge() {
   // Tick de 30s: faz a comparação "sessão é de ontem?" re-rodar e o modal da virada
   // aparecer NA HORA em que passa da meia-noite (não só num reload).
   const [, setMidnightTick] = useState(0);
+  // Etapa 1 da Onda 2: "Encerrar" pede confirmação antes de fechar o dia
+  const [confirmarFim, setConfirmarFim] = useState(false);
   useEffect(() => {
     const id = setInterval(() => setMidnightTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -202,7 +204,7 @@ export default function DefconChallenge() {
           onAddTip={defcon.addTip}
           onAddApproach={defcon.addApproach}
           onAddOccurrence={defcon.addOccurrence}
-          onEnd={defcon.endChallenge}
+          onEnd={treino ? defcon.endChallenge : () => setConfirmarFim(true)}
           onLunchPause={defcon.startLunchPause}
           sessionSales={defcon.sessionSales}
           onDeleteSale={defcon.deleteSale}
@@ -249,15 +251,17 @@ export default function DefconChallenge() {
       if (treino) return null; // no treino, o card "treino concluído" cobre a tela
       return (
         <>
-          <DefconEndScreen
+          {/* Etapa 1 da Onda 2 (Rick, 05/09): fechamento em 3 passos + relatório +
+              "o que mexeu". A DefconEndScreen antiga continua no repositório
+              (rollback = trocar o import). distanceMeters ficou de fora: o GPS agora é
+              opcional e o relatório já esconde a linha quando é zero. */}
+          <DefconFechamento
             phase={defcon.phase}
             totalSold={defcon.totalSold}
             dailyGoal={defcon.dailyGoal}
-            totalBlocks={defcon.currentBlockIndex + 1}
             workedMinutes={defcon.workedMinutes ?? (defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60))))}
             totalApproaches={defcon.totalApproaches}
             totalSalesCount={defcon.totalSalesCount}
-            distanceMeters={distToShow}
             userId={user.id}
             onSaveBreakdown={defcon.savePaymentBreakdown}
             onExit={handleExit}
@@ -291,6 +295,22 @@ export default function DefconChallenge() {
 
   return (
     <>
+      {/* Encerrar o dia — confirmação (tela 7 do fluxo aprovado) */}
+      {confirmarFim && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-center px-4 pb-8" style={{ background: "rgba(0,0,0,.86)" }} role="dialog" aria-modal="true">
+          <div className="w-full max-w-md rounded-[24px] border p-6" style={{ background: "var(--orbis-surface)", borderColor: "rgba(255,255,255,.12)" }}>
+            <p className="font-display text-[19px] font-extrabold text-center">Encerrar o desafio?</p>
+            <p className="text-[13px] text-center mt-2 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
+              Você fecha o dia e vê seu relatório completo. Dá pra reabrir depois.
+            </p>
+            <button onClick={() => { setConfirmarFim(false); void defcon.endChallenge(); }}
+              className="w-full h-[52px] rounded-[16px] mt-5 font-extrabold text-[15px] active:scale-[.98] transition"
+              style={{ background: "#E5737F", color: "#1A0A0C" }}>SIM, ENCERRAR</button>
+            <button onClick={() => setConfirmarFim(false)} className="w-full h-11 mt-2 text-[13.5px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>Voltar</button>
+          </div>
+        </div>
+      )}
+
       {/* Pergunta da virada: continuar no mesmo desafio ou encerrar de vez? */}
       {mostrarPergunta && (
         <div className="fixed inset-0 z-[70] bg-black/85 flex items-center justify-center px-6">
