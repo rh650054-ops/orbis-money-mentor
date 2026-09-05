@@ -15,6 +15,7 @@ import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
 import { DefconFechamento } from "@/components/defcon/DefconFechamento";
+import { DefconCargaDoDia } from "@/components/defcon/DefconCargaDoDia";
 import ExtratoDailyModal from "@/components/competitions/ExtratoDailyModal";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
@@ -44,6 +45,9 @@ export default function DefconChallenge() {
   const [, setMidnightTick] = useState(0);
   // Etapa 1 da Onda 2: "Encerrar" pede confirmação antes de fechar o dia
   const [confirmarFim, setConfirmarFim] = useState(false);
+  // Etapa 2: entre o Modo Desafio e o DEFCON entra a carga do dia (não no treino)
+  const [cargaAberta, setCargaAberta] = useState(false);
+  const [comecando, setComecando] = useState(false);
   useEffect(() => {
     const id = setInterval(() => setMidnightTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -173,11 +177,20 @@ export default function DefconChallenge() {
   const screen = (() => {
   switch (defcon.phase) {
     case "idle":
+      if (cargaAberta && !treino) {
+        return (
+          <DefconCargaDoDia
+            userId={user.id}
+            starting={comecando}
+            onComecar={async () => { setComecando(true); try { await handleStart(); } finally { setComecando(false); setCargaAberta(false); } }}
+          />
+        );
+      }
       return (
         <DefconStartScreen
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.blocks.length}
-          onStart={handleStart}
+          onStart={treino ? handleStart : () => setCargaAberta(true)}
           onExit={handleExit}
           onboardingMode={treino}
         />

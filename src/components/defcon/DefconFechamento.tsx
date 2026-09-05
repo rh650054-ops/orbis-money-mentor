@@ -96,6 +96,8 @@ export function DefconFechamento({
   const [blocos, setBlocos] = useState<{ i: number; sold: number; ini: string | null; fim: string | null }[]>([]);
   const [rank, setRank] = useState<{ posicao: number | null; faturamento: number; dias: number; acima: { nome: string; valor: number } | null; total: number } | null>(null);
   const [horaInicio, setHoraInicio] = useState<number | null>(null);
+  // carga do dia (Etapa 2): o que sobrou / o que acabou — unidades só aparecem AQUI, no fim
+  const [carga, setCarga] = useState<{ nome: string; levou: number; vendeu: number }[]>([]);
   const [mostrarShare, setMostrarShare] = useState(false);
   const [reabrindo, setReabrindo] = useState(false);
   const [confirmarDescartar, setConfirmarDescartar] = useState(false);
@@ -108,13 +110,14 @@ export function DefconFechamento({
     let vivo = true;
     (async () => {
       const startISO = new Date(`${hoje}T00:00:00-03:00`).toISOString();
-      const [ds, vd, pe, sess, lb, plano] = await Promise.all([
+      const [ds, vd, pe, sess, lb, plano, ld] = await Promise.all([
         supabase.from("daily_sales").select("id, cash_sales, card_sales, pix_sales, tip_sales, cost").eq("user_id", userId).eq("date", hoje).order("created_at", { ascending: true }).limit(1),
         supabase.from("defcon_sales").select("amount, method, late, created_at, block_index").eq("user_id", userId).gte("created_at", startISO).order("created_at", { ascending: true }),
         supabase.from("personal_expenses").select("id, name, amount, icon, category").eq("user_id", userId).eq("date", hoje).order("created_at", { ascending: true }),
         supabase.from("challenge_sessions").select("id").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
         supabase.from("leaderboard_stats").select("user_id, nome_usuario, faturamento_total_mes, dias_trabalhados_mes, posicao_faturamento").eq("mes_referencia", hoje.slice(0, 7)).gt("dias_trabalhados_mes", 0).order("posicao_faturamento", { ascending: true }).limit(200),
         supabase.from("onboarding_planos").select("hora_inicio").eq("user_id", userId).maybeSingle(),
+        supabase.from("defcon_daily_loadout").select("product_name, qty_initial, qty_sold").eq("user_id", userId).eq("date", hoje),
       ]);
       if (!vivo) return;
 
@@ -171,6 +174,7 @@ export function DefconFechamento({
       } else {
         setRank({ posicao: null, faturamento: 0, dias: 0, acima: null, total: lista.length });
       }
+      setCarga(((ld.data as any[]) || []).map((l) => ({ nome: String(l.product_name || "produto"), levou: Number(l.qty_initial) || 0, vendeu: Number(l.qty_sold) || 0 })));
       const hi = (plano.data as any)?.hora_inicio;
       setHoraInicio(hi == null ? null : Number(hi));
     })().catch(() => { if (vivo) setCustosCarregados(true); });
@@ -191,6 +195,9 @@ export function DefconFechamento({
   const ticket = vendasReais.length ? vendidoSemGorjeta / vendasReais.length : 0;
   const conversao = totalApproaches > 0 ? Math.min(100, (totalSalesCount / totalApproaches) * 100) : 0;
   const naRua = `${Math.floor(workedMinutes / 60)}h${String(workedMinutes % 60).padStart(2, "0")}`;
+  const unidadesVendidas = carga.reduce((t, c) => t + c.vendeu, 0);
+  const sobras = carga.filter((c) => c.levou > 0).map((c) => ({ ...c, sobrou: Math.max(0, c.levou - c.vendeu) }));
+  const acabou = sobras.filter((c) => c.sobrou === 0);
   const melhorBloco = useMemo(() => blocos.reduce<typeof blocos[number] | null>((m, b) => (b.sold > 0 && (!m || b.sold > m.sold) ? b : m), null), [blocos]);
   const porMetodo = useMemo(() => {
     const m = { dinheiro: recDin, pix: recPix, cartao: recCar };
@@ -312,6 +319,18 @@ export function DefconFechamento({
           <button onClick={() => setNovoCusto({ nome: "", valor: "" })} className="w-full h-[46px] rounded-[14px] mt-3 text-[13.5px] font-semibold inline-flex items-center justify-center gap-1.5" style={{ border: "1px dashed rgba(245,184,0,.35)", color: "var(--orbis-gold)" }}>
             <Plus className="w-4 h-4" /> adicionar outro custo
           </button>
+        )}
+
+        {sobras.length > 0 && (
+          <div className="rounded-[16px] border mt-3 p-3.5 flex items-start gap-3" style={{ borderColor: acabou.length ? "rgba(245,184,0,.28)" : "var(--orbis-line)", background: acabou.length ? "rgba(245,184,0,.05)" : "var(--orbis-surf)" }}>
+            <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)" }}><Package className="w-4 h-4" strokeWidth={2.2} /></span>
+            <span className="flex-1 min-w-0">
+              <b className="block text-[13.5px] font-semibold">Sobrou: {sobras.map((c) => `${c.sobrou} ${c.nome}`).join(" · ")}</b>
+              <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>
+                {acabou.length ? `${acabou.map((c) => c.nome).join(", ")} acabou — precisa comprar mercadoria` : `${unidadesVendidas} unidades vendidas hoje`}
+              </small>
+            </span>
+          </div>
         )}
 
         <button onClick={salvarCustos} disabled={salvandoCustos || !custosCarregados} className="orbis-cta w-full mt-5">
@@ -445,7 +464,7 @@ export function DefconFechamento({
         <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
           <div className="grid grid-cols-3 gap-y-4">
             {([["Na rua", naRua, ""], ["Vendas", String(totalSalesCount), ""], ["Ticket", brl0(ticket), ""],
-               ["Abord.", String(totalApproaches), ""], ["Conv.", `${Math.round(conversao)}%`, "var(--orbis-gold)"], ["Gorjetas", brl0(gorjetas), gorjetas > 0 ? "var(--orbis-ok)" : ""]] as [string, string, string][])
+               ["Abord.", String(totalApproaches), ""], ["Conv.", `${Math.round(conversao)}%`, "var(--orbis-gold)"], carga.length ? ["Unidades", String(unidadesVendidas), ""] : ["Gorjetas", brl0(gorjetas), gorjetas > 0 ? "var(--orbis-ok)" : ""]] as [string, string, string][])
               .map(([rot, val, cor]) => (
                 <div key={rot} className="text-center"><p className="orbis-mini">{rot}</p><p className="orbis-num text-[17px] font-bold mt-1.5" style={cor ? { color: cor } : undefined}>{val}</p></div>
               ))}

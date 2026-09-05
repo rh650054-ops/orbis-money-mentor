@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -82,6 +82,8 @@ export function DefconRunning({
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
   const [showOccurrence, setShowOccurrence] = useState(false);
   const [saleHistory, setSaleHistory] = useState<number[]>([]);
+  // método usado por valor — a venda rápida repete o MESMO método (antes forçava pix)
+  const metodoPorValorRef = useRef<Record<string, "dinheiro" | "pix" | "cartao">>({});
   const [showAddTip, setShowAddTip] = useState(false);
   const [tipValue, setTipValue] = useState("");
   const [showExpense, setShowExpense] = useState(false);
@@ -115,7 +117,51 @@ export function DefconRunning({
   >(null);
   const [loadingReport, setLoadingReport] = useState(false);
 
-  const { loadout, incrementSold } = useDefconLoadout(userId);
+  const { loadout, products: loadoutProducts, incrementSold } = useDefconLoadout(userId);
+
+  /* ---- TABELA DE PREÇO POR QUANTIDADE (Etapa 2, Rick 05/09) ----
+     Carrega as faixas (2 un R$ 30…) dos produtos da carga de hoje. A faixa de
+     1 un é o sale_price do produto. Na folha de venda, o VALOR digitado casa com
+     uma faixa → produto + quantidade certos → o estoque desconta o número certo. */
+  const [tiers, setTiers] = useState<{ product_id: string; qty: number; price: number }[]>([]);
+  useEffect(() => {
+    const ids = loadout.map((l) => l.product_id).filter(Boolean);
+    if (!ids.length) { setTiers([]); return; }
+    let vivo = true;
+    (supabase as any).from("product_price_tiers").select("product_id, qty, price").in("product_id", ids)
+      .then(({ data }: any) => { if (vivo) setTiers(((data as any[]) || []).map((t) => ({ product_id: t.product_id, qty: Number(t.qty), price: Number(t.price) }))); })
+      .catch(() => { if (vivo) setTiers([]); });
+    return () => { vivo = false; };
+  }, [loadout]);
+
+  // Quantas unidades um valor representa pela tabela (venda rápida também desconta certo)
+  const tiersQty = (amount: number): number => {
+    for (const l of loadout) {
+      const prod = loadoutProducts.find((p) => p.id === l.product_id);
+      if (Math.abs((Number(prod?.sale_price) || 0) - amount) < 0.005) return 1;
+      const t = tiers.find((x) => x.product_id === l.product_id && Math.abs(x.price - amount) < 0.005);
+      if (t) return t.qty;
+    }
+    return 1;
+  };
+  const saleValorNum = parseFloat(saleValue) || 0;
+  // Casa o valor com a tabela: [{product, qty}] — prioriza o produto já selecionado
+  const casado = useMemo(() => {
+    if (!(saleValorNum > 0) || loadout.length === 0) return null;
+    const cands: { product_id: string; nome: string; qty: number }[] = [];
+    for (const l of loadout) {
+      const prod = loadoutProducts.find((p) => p.id === l.product_id);
+      const p1 = Number(prod?.sale_price) || 0;
+      if (p1 > 0 && Math.abs(p1 - saleValorNum) < 0.005) cands.push({ product_id: l.product_id, nome: l.product_name, qty: 1 });
+      for (const t of tiers) if (t.product_id === l.product_id && Math.abs(t.price - saleValorNum) < 0.005) cands.push({ product_id: l.product_id, nome: l.product_name, qty: t.qty });
+    }
+    if (!cands.length) return null;
+    return cands.find((c) => c.product_id === selectedProductId) ?? cands[0]!;
+  }, [saleValorNum, loadout, loadoutProducts, tiers, selectedProductId]);
+  // Casou → produto e quantidade seguem a tabela
+  useEffect(() => {
+    if (casado) { setSelectedProductId(casado.product_id); setSaleQty(casado.qty); }
+  }, [casado]);
   const { theme, setTheme } = useTheme();
 
   // Chave Pix padrao do usuario (das configuracoes) -> entra na cobranca do WhatsApp
@@ -192,6 +238,7 @@ export function DefconRunning({
   const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro", qty = 1) => {
     onAddSale(amount, method);
     setSaleHistory((prev) => [...prev, amount]);
+    metodoPorValorRef.current[String(amount)] = method;
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
     // Debita do loadout/estoque na QUANTIDADE da venda (vendeu 2, baixa 2)
@@ -585,7 +632,7 @@ export function DefconRunning({
           <DefconQuickSaleButtons
             saleHistory={saleHistory}
             forcedValues={onboardingMode && quickSaleValue ? [quickSaleValue] : undefined}
-            onQuickSale={(amount) => registerSale(amount, "pix")}
+            onQuickSale={(amount) => registerSale(amount, metodoPorValorRef.current[String(amount)] ?? "dinheiro", tiersQty(amount))}
           />
         </div>
 
@@ -713,79 +760,6 @@ export function DefconRunning({
               </button>
             </div>
 
-            {/* Seletor de produto — só aparece se loadout tem 2+ produtos */}
-            {loadout.length >= 2 && (
-              <div className="space-y-2">
-                <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
-                  Qual produto?
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {loadout.map((item) => {
-                    const restante = Math.max(0, Number(item.qty_initial) - Number(item.qty_sold));
-                    const selected = selectedProductId === item.product_id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setSelectedProductId(item.product_id)}
-                        className={`p-3 rounded-xl border text-left active:scale-95 transition-[colors,transform,opacity] ${
-                          selected
-                            ? "bg-primary/15 border-primary text-foreground"
-                            : "bg-background/40 border-border text-foreground"
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <Package className={`w-3.5 h-3.5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
-                          <span className="text-xs font-bold truncate">{item.product_name}</span>
-                        </div>
-                        <p className={`text-xs mt-1 font-mono ${selected ? "text-primary" : "text-muted-foreground"}`}>
-                          {restante} restantes
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Mostra info do produto único */}
-            {loadout.length === 1 && selectedProductId && (
-              <div className="rounded-xl bg-primary/10 border border-primary/30 px-3 py-2 flex items-center gap-2">
-                <Package className="w-4 h-4 text-primary" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-bold text-foreground truncate">{loadout[0]!.product_name}</p>
-                  <p className="text-xs text-primary font-mono">
-                    {Math.max(0, Number(loadout[0]!.qty_initial) - Number(loadout[0]!.qty_sold))} restantes
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Quantas unidades saem nesta venda — corrige a baixa de estoque */}
-            {selectedProductId && (
-              <div className="flex items-center justify-between rounded-xl bg-background/40 border border-border px-3 py-2">
-                <p className="text-xs font-mono text-muted-foreground tracking-wider uppercase">
-                  Quantas unidades?
-                </p>
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setSaleQty((q) => Math.max(1, q - 1))}
-                    className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center active:scale-90"
-                    aria-label="Menos uma unidade"
-                  >
-                    <Minus className="w-4 h-4 text-foreground" />
-                  </button>
-                  <span className="text-xl font-black text-foreground tabular-nums w-8 text-center">{saleQty}</span>
-                  <button
-                    onClick={() => setSaleQty((q) => q + 1)}
-                    className="w-9 h-9 rounded-lg bg-primary/15 border border-primary/40 flex items-center justify-center active:scale-90"
-                    aria-label="Mais uma unidade"
-                  >
-                    <Plus className="w-4 h-4 text-primary" />
-                  </button>
-                </div>
-              </div>
-            )}
-
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-bold">
                 R$
@@ -801,6 +775,41 @@ export function DefconRunning({
                 className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-muted-foreground"
               />
             </div>
+
+            {/* O valor casou com a tabela de preço → produto + unidades certos, sem perguntar */}
+            {!onboardingMode && casado && (
+              <div className="rounded-[14px] border p-3.5 flex items-center gap-3" style={{ borderColor: "rgba(61,214,140,.30)", background: "rgba(61,214,140,.07)" }}>
+                <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(61,214,140,.16)" }}><Check className="w-4 h-4" style={{ color: "var(--orbis-ok)" }} strokeWidth={2.8} /></span>
+                <span className="flex-1 min-w-0">
+                  <b className="block text-[14px] font-semibold truncate">{casado.qty} × {casado.nome}</b>
+                  <small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>Está na sua tabela · sai {casado.qty} do estoque</small>
+                </span>
+              </div>
+            )}
+
+            {/* Não casou, mas tem carga hoje → pergunta quantas saíram (e de qual, se tiver mais de um) */}
+            {!onboardingMode && !casado && loadout.length > 0 && saleValorNum > 0 && (
+              <div className="rounded-[14px] border p-3.5" style={{ borderColor: "rgba(245,184,0,.30)", background: "rgba(245,184,0,.06)" }}>
+                <p className="text-[13.5px] font-semibold">Quantas unidades saíram?</p>
+                <div className="flex gap-2 mt-2.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" onClick={() => setSaleQty(n)} className="w-11 h-10 rounded-[10px] text-[15px] font-extrabold active:scale-95 transition"
+                      style={saleQty === n ? { background: "var(--orbis-gold)", color: "#1A1200" } : { border: "1px solid rgba(245,184,0,.3)", color: "var(--orbis-gold)" }}>{n}</button>
+                  ))}
+                </div>
+                {loadout.length >= 2 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {loadout.map((item) => (
+                      <button key={item.id} type="button" onClick={() => setSelectedProductId(item.product_id)}
+                        className="h-9 px-3 rounded-full text-[12.5px] font-semibold active:scale-95 transition"
+                        style={selectedProductId === item.product_id ? { background: "rgba(245,184,0,.18)", border: "1px solid var(--orbis-gold)", color: "var(--orbis-fg)" } : { border: "1px solid rgba(255,255,255,.14)", color: "var(--orbis-fg-2)" }}>
+                        {item.product_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Cliente — opcional */}
             {!showClientFields ? (
