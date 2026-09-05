@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { gpsTrackingEnabled } from "@/shared/hooks/use-gps-tracking";
 
 // Distância entre dois pontos (metros) — fórmula de Haversine.
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -41,6 +42,8 @@ export function useDistanceTracker(active: boolean) {
       setPermission("unsupported");
       return;
     }
+    // GPS desligado (padrão): não toca na geolocalização — e o iPhone não pergunta nada.
+    if (!gpsTrackingEnabled()) return;
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         setPermission("granted");

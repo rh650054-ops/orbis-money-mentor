@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { BatteryLow, BatteryFull } from "lucide-react";
+import { BatteryLow, BatteryFull, MapPin, MapPinOff } from "lucide-react";
+import { useGpsTracking } from "@/shared/hooks/use-gps-tracking";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useBatterySaver } from "@/shared/hooks/use-battery-saver";
 
@@ -13,6 +14,7 @@ interface DefconStartScreenProps {
 
 export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode }: DefconStartScreenProps) {
   const { enabled: battery, toggle: toggleBattery } = useBatterySaver();
+  const { enabled: gps, toggle: toggleGps } = useGpsTracking();
   const [confirming, setConfirming] = useState(false);
 
   return (
@@ -81,6 +83,28 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
               }`}
 
             />
+          </div>
+        </button>
+
+        {/* GPS opcional — desligado por padrão, pra o iPhone parar de perguntar */}
+        <button
+          type="button"
+          onClick={toggleGps}
+          className={`flex items-center justify-between gap-3 px-4 h-12 rounded-xl border transition-colors ${
+            gps ? "bg-success/10 border-success/30" : "bg-card/50 border-border"
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            {gps ? <MapPin className="w-4 h-4 text-success" /> : <MapPinOff className="w-4 h-4 text-muted-foreground" />}
+            <div className="text-left">
+              <p className="text-xs font-semibold text-foreground leading-tight">Medir distância por GPS</p>
+              <p className="text-xs text-muted-foreground leading-tight">
+                {gps ? "Km andados entram no relatório" : "Desligado · o celular não pergunta nada"}
+              </p>
+            </div>
+          </div>
+          <div className={`w-9 h-5 rounded-full transition-colors relative ${gps ? "bg-success" : "bg-muted"}`}>
+            <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${gps ? "translate-x-4" : "translate-x-0"}`} />
           </div>
         </button>
       </div>
