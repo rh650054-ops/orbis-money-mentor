@@ -24,6 +24,7 @@ export default function DefconChallenge() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const treino = params.get("treino") === "1";
+  const primeiroDia = params.get("primeiro") === "1"; // veio direto do onboarding
   const { user, loading: authLoading } = useAuth();
   const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
   const onbDefcon = useDefconOnboarding(user?.id);
@@ -48,6 +49,23 @@ export default function DefconChallenge() {
   // Etapa 2: entre o Modo Desafio e o DEFCON entra a carga do dia (não no treino)
   const [cargaAberta, setCargaAberta] = useState(false);
   const [comecando, setComecando] = useState(false);
+  // Primeiro DEFCON da vida + nenhum produto cadastrado → pula a carga do dia.
+  // Decisão (05/09): no acesso demonstrativo o cadastro de produto NÃO é exigido —
+  // a primeira venda tem que vir em minutos. A carga aparece a partir do 2º dia
+  // (com o convite pra cadastrar) ou assim que ele tiver um produto.
+  const [pulaCarga, setPulaCarga] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!user?.id || treino) { setPulaCarga(false); return; }
+    let vivo = true;
+    (async () => {
+      const [{ count: sessoes }, { count: produtos }] = await Promise.all([
+        supabase.from("challenge_sessions").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("products").select("id", { count: "exact", head: true }).eq("user_id", user.id).eq("is_active", true),
+      ]);
+      if (vivo) setPulaCarga((sessoes ?? 0) === 0 && (produtos ?? 0) === 0);
+    })().catch(() => { if (vivo) setPulaCarga(false); });
+    return () => { vivo = false; };
+  }, [user?.id, treino]);
   useEffect(() => {
     const id = setInterval(() => setMidnightTick((t) => t + 1), 30000);
     return () => clearInterval(id);
@@ -191,9 +209,10 @@ export default function DefconChallenge() {
         <DefconStartScreen
           dailyGoal={defcon.dailyGoal}
           totalBlocks={defcon.blocks.length}
-          onStart={treino ? handleStart : () => setCargaAberta(true)}
+          onStart={treino || pulaCarga || (pulaCarga === null && primeiroDia) ? handleStart : () => setCargaAberta(true)}
           onExit={handleExit}
           onboardingMode={treino}
+          primeiroDia={primeiroDia && !treino}
         />
       );
 

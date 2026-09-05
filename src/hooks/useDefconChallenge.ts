@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { getBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
@@ -455,6 +456,12 @@ export function useDefconChallenge(userId: string | undefined) {
           await fecharSessaoVelha(activeSession);
         }
       }
+    }
+
+    // Sem plano de hoje → cria na hora a partir do perfil (mesma regra do Hub).
+    // Conta nova chega aqui direto do onboarding; não pode ver "Sem plano hoje".
+    if (!planData && !carriedSession) {
+      planData = await garantirPlanoDoDia(userId, today);
     }
 
     if (!planData) {

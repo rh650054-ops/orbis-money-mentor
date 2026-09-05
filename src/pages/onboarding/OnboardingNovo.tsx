@@ -1,6 +1,8 @@
 /* ============================================================
    ONBOARDING NOVO — os 3 atos + "Leva o Orbis no bolso".
-   Fluxo aprovado: link → captura → criar conta → AQUI → dashboard.
+   Fluxo aprovado: link → captura → criar conta → AQUI → DEFCON.
+   (Rick, 05/09: 7 em 10 contas novas nunca chegavam ao primeiro DEFCON
+    passando pelo dashboard. Agora o onboarding termina no início do DEFCON.)
 
    Ato 1  DOR      "trabalhei tanto… cadê o dinheiro?" (toque avança)
    Ato 2  PLANO    logo P&B + meta do mês, dias/semana, horas/dia
@@ -22,6 +24,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCountUp, useReducedMotion } from "@/shared/motion";
 import { calcularPlano, salvarPlano, marcarPlanoRevelado, type PlanoDoCorre } from "@/shared/onboarding/plano";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
+import { marcarNovidadesVistas } from "@/components/NovidadesOrbis2";
 
 type Etapa = "ato1" | "ato2" | "ato3" | "fixar" | "meta";
 
@@ -149,13 +152,15 @@ export default function OnboardingNovo() {
 
   const concluir = async () => {
     if (user?.id) {
+      marcarNovidadesVistas(user.id); // conta nova não vê "o que mudou no 2.0"
       try {
         await supabase.from("profiles")
           .update({ onboarding_completed: true, onboarding_step: 6 })
           .eq("user_id", user.id);
       } catch { /* offline — o Layout revalida depois */ }
     }
-    navigate("/", { replace: true });
+    // Direto pro início do DEFCON: a ativação é o primeiro dia rodando, não o dashboard.
+    navigate("/defcon?primeiro=1", { replace: true });
   };
 
   /* Pular = concluir sem cerimônia: nunca prendemos ninguém.

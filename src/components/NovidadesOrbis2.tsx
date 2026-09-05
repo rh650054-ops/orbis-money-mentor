@@ -33,6 +33,13 @@ const VEM_AI = [
 
 const chave = (uid: string) => `orbis_novidades_${VERSAO}_vista_${uid}`;
 
+/** Conta NOVA nunca viu o 1.0 — não faz sentido mostrar "o que mudou".
+ *  O onboarding chama isso ao concluir, pra o card não pular na frente do
+ *  primeiro DEFCON (Rick, 05/09: cadastro → DEFCON, sem dashboard no meio). */
+export function marcarNovidadesVistas(uid: string) {
+  try { localStorage.setItem(chave(uid), "1"); } catch { /* sem storage */ }
+}
+
 /** true = o card de novidades AINDA vai aparecer pra este usuário (os outros
  *  overlays — FirstTimeCard etc. — usam isso pra esperar a vez). */
 export function novidadesPendentes(uid: string | undefined): boolean {

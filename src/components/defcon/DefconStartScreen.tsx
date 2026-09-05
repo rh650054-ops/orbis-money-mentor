@@ -10,9 +10,11 @@ interface DefconStartScreenProps {
   onStart: () => void;
   onExit: () => void;
   onboardingMode?: boolean;
+  /** Conta nova vindo direto do onboarding: pill de boas-vindas e inicia sem a confirmação dupla. */
+  primeiroDia?: boolean;
 }
 
-export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode }: DefconStartScreenProps) {
+export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onboardingMode, primeiroDia }: DefconStartScreenProps) {
   const { enabled: battery, toggle: toggleBattery } = useBatterySaver();
   const { enabled: gps, toggle: toggleGps } = useGpsTracking();
   const [confirming, setConfirming] = useState(false);
@@ -31,13 +33,19 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
       {/* Middle: hero + plan card */}
       <div className="flex-1 flex flex-col justify-center min-h-0 gap-6">
         <div className="text-center">
+          {primeiroDia && (
+            <span className="inline-flex items-center gap-1.5 rounded-full px-3 h-[26px] mb-3 text-[10.5px] font-extrabold tracking-[.1em] uppercase"
+              style={{ background: "rgba(61,214,140,.12)", color: "#3DD68C", border: "1px solid rgba(61,214,140,.35)" }}>
+              Seu primeiro dia com o Orbis
+            </span>
+          )}
           <h1 className="text-4xl font-black text-foreground tracking-tight leading-none">
             MODO
             <br />
             DESAFIO
           </h1>
           <p className="text-xs text-muted-foreground font-mono mt-3 max-w-[240px] mx-auto">
-            Blocos de 60min. Sem distrações. Apenas vendas.
+            {primeiroDia ? "A meta veio do seu plano. Registra cada venda com um toque — o resto o Orbis faz." : "Blocos de 60min. Sem distrações. Apenas vendas."}
           </p>
         </div>
 
@@ -113,7 +121,7 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
       <div className="pb-4 space-y-2">
         <button
           data-tour="defcon-iniciar"
-          onClick={() => (onboardingMode ? onStart() : confirming ? onStart() : setConfirming(true))}
+          onClick={() => (onboardingMode || primeiroDia ? onStart() : confirming ? onStart() : setConfirming(true))}
           className={`w-full h-14 rounded-2xl font-black text-base active:scale-[0.98] transition-[colors,transform,opacity] ${
             confirming
               ? "bg-destructive text-destructive-foreground shadow-[0_0_30px_-5px_hsl(var(--destructive)/0.6)]"
