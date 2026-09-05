@@ -25,7 +25,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSPropertie
 import { useNavigate } from "react-router-dom";
 import {
   Banknote, Smartphone, CreditCard, AlertTriangle, ShoppingCart, Bus, Utensils, Package, Plus, Trash2,
-  Check, Clock, Trophy, Loader2, Instagram, RotateCcw, ArrowLeft, Pencil, ChevronUp, Star,
+  Check, Clock, Trophy, Loader2, Instagram, RotateCcw, ArrowLeft, Star, PartyPopper, Target, Timer, UserRound, BarChart3, DollarSign, TrendingDown, HandCoins,
 } from "lucide-react";
 import { getTier, type Tier } from "@/components/ranking/tier";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -72,13 +72,13 @@ function Passos({ n }: { n: 1 | 2 }) {
     </>
   );
 }
-function CampoValor({ valor, onChange, destaque }: { valor: string; onChange: (v: string) => void; destaque?: boolean }) {
+function CampoValor({ valor, onChange, destaque, onBlur, largo }: { valor: string; onChange: (v: string) => void; destaque?: boolean; onBlur?: () => void; largo?: boolean }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-[12px] px-3 h-[38px] shrink-0"
-      style={{ border: `1px solid ${destaque ? "rgba(245,184,0,.45)" : "rgba(255,255,255,.10)"}`, background: destaque ? "rgba(245,184,0,.06)" : "transparent" }}>
+    <span className={`inline-flex items-center gap-1.5 rounded-[12px] px-3 shrink-0 ${largo ? "h-[42px]" : "h-[38px]"}`}
+      style={{ border: `1px solid ${destaque ? "rgba(245,184,0,.45)" : "rgba(255,255,255,.14)"}`, background: destaque ? "rgba(245,184,0,.06)" : "rgba(0,0,0,.35)" }}>
       <small className="text-[12px]" style={{ color: "var(--orbis-fg-3)" }}>R$</small>
-      <input inputMode="decimal" value={valor} placeholder="0,00" onChange={(e) => onChange(e.target.value)}
-        className="orbis-num w-[76px] bg-transparent outline-none text-right text-[16px] font-bold" style={{ color: "var(--orbis-fg)" }} />
+      <input inputMode="decimal" value={valor} placeholder="0,00" onChange={(e) => onChange(e.target.value)} onBlur={onBlur}
+        className={`orbis-num bg-transparent outline-none text-right font-bold ${largo ? "w-[88px] text-[17px] font-extrabold" : "w-[76px] text-[16px]"}`} style={{ color: "var(--orbis-fg)" }} />
     </span>
   );
 }
@@ -87,22 +87,21 @@ function Bloco({ children, style }: { children: ReactNode; style?: CSSProperties
 }
 
 export function DefconFechamento({
-  totalSold, dailyGoal, totalApproaches = 0, totalSalesCount = 0, workedMinutes = 0,
+  phase, totalSold, dailyGoal, totalApproaches = 0, totalSalesCount = 0, workedMinutes = 0,
   userId, onSaveBreakdown, onExit, onExtend, onRestart,
 }: Props) {
   const [passo, setPasso] = useState<Passo>("custos");
   const [rec, setRec] = useState({ dinheiro: "", pix: "", cartao: "" });
   const [salvandoRec, setSalvandoRec] = useState(false);
   const [recSujo, setRecSujo] = useState(false);
-  const [editandoRec, setEditandoRec] = useState(false);
   const [dsId, setDsId] = useState<string | null>(null);
   const [gorjetas, setGorjetas] = useState(0);
   const [linhas, setLinhas] = useState<CustoLinha[]>([]);
   const [custosCarregados, setCustosCarregados] = useState(false);
   const [novoCusto, setNovoCusto] = useState<{ nome: string; valor: string } | null>(null);
   const [salvandoCustos, setSalvandoCustos] = useState(false);
-  const [vendas, setVendas] = useState<{ amount: number; method: string; late: boolean; created_at: string; block_index: number | null }[]>([]);
-  const [blocos, setBlocos] = useState<{ i: number; sold: number; ini: string | null; fim: string | null }[]>([]);
+  const [vendas, setVendas] = useState<{ amount: number; method: string; late: boolean; created_at: string; block_index: number | null; session_id: string | null }[]>([]);
+  const [blocos, setBlocos] = useState<{ i: number; sold: number; n: number; ini: string | null; fim: string | null }[]>([]);
   const [rank, setRank] = useState<{ posicao: number | null; faturamento: number; dias: number; acima: { nome: string; valor: number } | null; total: number } | null>(null);
   // carga do dia (Etapa 2): o que sobrou / o que acabou — unidades só aparecem AQUI, no fim
   const [carga, setCarga] = useState<{ nome: string; levou: number; vendeu: number }[]>([]);
@@ -126,9 +125,10 @@ export function DefconFechamento({
       const startISO = new Date(`${hoje}T00:00:00-03:00`).toISOString();
       const [ds, vd, pe, sess, lb, ld, euRow, cnt] = await Promise.all([
         supabase.from("daily_sales").select("id, cash_sales, card_sales, pix_sales, tip_sales, cost").eq("user_id", userId).eq("date", hoje).order("created_at", { ascending: true }).limit(1),
-        supabase.from("defcon_sales").select("amount, method, late, created_at, block_index").eq("user_id", userId).gte("created_at", startISO).order("created_at", { ascending: true }),
+        supabase.from("defcon_sales").select("amount, method, late, created_at, block_index, session_id").eq("user_id", userId).gte("created_at", startISO).order("created_at", { ascending: true }),
         supabase.from("personal_expenses").select("id, name, amount, icon, category").eq("user_id", userId).eq("date", hoje).order("created_at", { ascending: true }),
-        supabase.from("challenge_sessions").select("id").eq("user_id", userId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        // TODAS as sessões de hoje (reiniciou / voltou mais uma hora): cada bloco é (sessão, índice)
+        supabase.from("challenge_sessions").select("id, started_at, ended_at").eq("user_id", userId).eq("date", hoje).order("started_at", { ascending: true }),
         supabase.from("leaderboard_stats").select("user_id, nome_usuario, faturamento_total_mes, dias_trabalhados_mes, posicao_faturamento").eq("mes_referencia", hoje.slice(0, 7)).gt("dias_trabalhados_mes", 0).order("posicao_faturamento", { ascending: true }).limit(200),
         supabase.from("defcon_daily_loadout").select("product_name, qty_initial, qty_sold").eq("user_id", userId).eq("date", hoje),
         // a MINHA linha (mesmo se eu estiver além dos 200 primeiros) e quantos somos — posição real e exata
@@ -148,7 +148,7 @@ export function DefconFechamento({
           cartao: row.card_sales ? String(Number(row.card_sales)).replace(".", ",") : "",
         });
       }
-      setVendas(((vd.data as any[]) || []).map((v) => ({ amount: Number(v.amount) || 0, method: String(v.method), late: !!v.late, created_at: v.created_at, block_index: v.block_index == null ? null : Number(v.block_index) })));
+      setVendas(((vd.data as any[]) || []).map((v) => ({ amount: Number(v.amount) || 0, method: String(v.method), late: !!v.late, created_at: v.created_at, block_index: v.block_index == null ? null : Number(v.block_index), session_id: v.session_id ?? null })));
 
       // custos: CMV automático no topo (daily_sales.cost), depois os manuais de hoje, depois sugestões em zero
       const cmv = Number(row?.cost || 0);
@@ -167,17 +167,32 @@ export function DefconFechamento({
       ]);
       setCustosCarregados(true);
 
-      // blocos da sessão (melhor hora)
-      const sid = (sess.data as any)?.id;
-      if (sid) {
-        const { data: bl } = await supabase.from("challenge_blocks").select("block_index, sold_amount, started_at, ended_at").eq("session_id", sid).order("block_index", { ascending: true });
+      // "Suas horas": blocos de TODAS as sessões de hoje, vendas casadas por (sessão, bloco).
+      // Bug antigo: pegava só a última sessão e somava as vendas de "bloco 0" de todas —
+      // uma sessão de 1 minuto aparecia com 15 vendas. Bloco sem ended_at (encerrou no
+      // meio) usa o fim da sessão ou a última venda dele como fim.
+      const sessoes = ((sess.data as any[]) || []);
+      const sids = sessoes.map((x) => x.id).filter(Boolean);
+      if (sids.length) {
+        const { data: bl } = await supabase.from("challenge_blocks").select("session_id, block_index, sold_amount, started_at, ended_at").in("session_id", sids).order("started_at", { ascending: true });
         if (!vivo) return;
-        const porBloco: Record<number, number> = {};
+        const soma: Record<string, number> = {}, cont: Record<string, number> = {}, ultima: Record<string, string> = {};
         for (const v of ((vd.data as any[]) || [])) {
-          if (v.method === "gorjeta" || v.block_index == null) continue;
-          porBloco[Number(v.block_index)] = (porBloco[Number(v.block_index)] || 0) + (Number(v.amount) || 0);
+          if (v.method === "gorjeta" || v.block_index == null || !v.session_id) continue;
+          const k = `${v.session_id}:${Number(v.block_index)}`;
+          soma[k] = (soma[k] || 0) + (Number(v.amount) || 0);
+          cont[k] = (cont[k] || 0) + 1;
+          ultima[k] = v.created_at;
         }
-        setBlocos(((bl as any[]) || []).map((b) => ({ i: Number(b.block_index) || 0, sold: porBloco[Number(b.block_index)] ?? (Number(b.sold_amount) || 0), ini: b.started_at || null, fim: b.ended_at || null })));
+        const lista = ((bl as any[]) || [])
+          .filter((b) => b.started_at)
+          .map((b) => {
+            const k = `${b.session_id}:${Number(b.block_index)}`;
+            const sessao = sessoes.find((x) => x.id === b.session_id);
+            return { sold: soma[k] ?? (Number(b.sold_amount) || 0), n: cont[k] || 0, ini: b.started_at as string, fim: (b.ended_at || sessao?.ended_at || ultima[k] || null) as string | null };
+          })
+          .sort((a, b) => new Date(a.ini).getTime() - new Date(b.ini).getTime());
+        setBlocos(lista.map((b, i) => ({ i, ...b })));
       }
 
       // ranking: eu, quem está logo acima, quantos somos
@@ -239,11 +254,6 @@ export function DefconFechamento({
   const sobras = carga.filter((c) => c.levou > 0).map((c) => ({ ...c, sobrou: Math.max(0, c.levou - c.vendeu) }));
   const acabou = sobras.filter((c) => c.sobrou === 0);
   const melhorBloco = useMemo(() => blocos.reduce<typeof blocos[number] | null>((m, b) => (b.sold > 0 && (!m || b.sold > m.sold) ? b : m), null), [blocos]);
-  const vendasPorBloco = useMemo(() => {
-    const m: Record<number, number> = {};
-    for (const v of vendas) { if (v.method === "gorjeta" || v.block_index == null) continue; m[v.block_index] = (m[v.block_index] || 0) + 1; }
-    return m;
-  }, [vendas]);
   const totalBlocos = blocos.reduce((t, b) => t + b.sold, 0);
   const maxBloco = blocos.reduce((t, b) => Math.max(t, b.sold), 0);
   const ligaAtual = rank?.posicao ? getTier(rank.posicao) : null;
@@ -259,7 +269,6 @@ export function DefconFechamento({
     try {
       await onSaveBreakdown(recDin, recCar, recPix);
       setRecSujo(false);
-      setEditandoRec(false);
       return true;
     } catch (e: any) {
       toast({ title: "Não deu pra salvar", description: e?.message || "Tenta de novo.", variant: "destructive" });
@@ -411,42 +420,42 @@ export function DefconFechamento({
   /* ============ 2 · RELATÓRIO ============ */
   if (passo === "relatorio") {
     const metodos: [string, number, string, ReactNode][] = [
-      ["Dinheiro", porMetodo.dinheiro, "var(--orbis-ok)", <Banknote key="d" className="w-4 h-4" strokeWidth={2.1} />],
-      ["Pix", porMetodo.pix, "var(--orbis-gold)", <Smartphone key="p" className="w-4 h-4" strokeWidth={2.1} />],
+      ["Pix", porMetodo.pix, "#00B1EA", <Smartphone key="p" className="w-4 h-4" strokeWidth={2.1} />],
       ["Cartão", porMetodo.cartao, "var(--orbis-fg-2)", <CreditCard key="c" className="w-4 h-4" strokeWidth={2.1} />],
+      ["Dinheiro", porMetodo.dinheiro, "var(--orbis-ok)", <Banknote key="d" className="w-4 h-4" strokeWidth={2.1} />],
     ];
     const dataLabel = new Date(`${hoje}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").toUpperCase();
     return (
       <div className="min-h-[100dvh] bg-background pt-safe pb-safe px-5 pt-4 pb-10 max-w-md mx-auto orbis-stagger">
-        <p className="orbis-mini">{dataLabel} · {naRua} NA RUA</p>
-        <h1 className="font-display text-[22px] font-extrabold mt-1">Relatório do dia</h1>
-
-        <div className="rounded-[24px] border mt-4 p-5" style={{ borderColor: bateu ? "rgba(61,214,140,.32)" : "rgba(245,184,0,.24)", background: "linear-gradient(165deg,#191308 0%,#101010 58%)", boxShadow: "0 24px 54px -32px rgba(245,184,0,.4)" }}>
-          <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 h-[24px] text-[10.5px] font-extrabold tracking-[.1em] uppercase"
-            style={bateu ? { background: "rgba(61,214,140,.14)", color: "var(--orbis-ok)", border: "1px solid rgba(61,214,140,.3)" } : { background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)", border: "1px solid rgba(245,184,0,.3)" }}>
-            {bateu ? <><Check className="w-3 h-3" strokeWidth={3} /> Meta batida · {pctMeta}%</> : <>{pctMeta}% da meta</>}
-          </span>
-          <div className="flex items-center gap-4 mt-4">
-            <div className="flex-1 min-w-0">
-              <p className="orbis-mini">Sobrou pra você</p>
-              <p className="orbis-num mt-2 whitespace-nowrap" style={{ fontSize: "clamp(30px,8.8vw,38px)", fontWeight: 700, letterSpacing: "-.025em", color: lucro >= 0 ? "var(--orbis-fg)" : "var(--orbis-custo)" }}>{formatCurrency(lucro)}</p>
-              <p className="text-[12px] mt-2.5" style={{ color: "var(--orbis-fg-2)" }}>De <b style={{ color: "var(--orbis-fg)" }}>{brl0(vendidoSemGorjeta)}</b> vendidos · margem <b style={{ color: margem >= 0 ? "var(--orbis-ok)" : "var(--orbis-custo)" }}>{Math.round(margem)}%</b></p>
-            </div>
-            <div className="w-[74px] h-[74px] rounded-full shrink-0 flex items-center justify-center" style={{ border: "7px solid rgba(255,255,255,.07)", boxShadow: bateu ? "0 0 24px -4px rgba(61,214,140,.5), inset 0 0 0 3px rgba(61,214,140,.9)" : "inset 0 0 0 3px rgba(245,184,0,.9)" }}>
-              <span className="orbis-num text-[14px] font-extrabold">{Math.min(999, pctMeta)}%</span>
-            </div>
-          </div>
-          <div className="h-px my-[18px]" style={{ background: "var(--orbis-line)" }} />
-          <div className="flex">
-            <div className="flex-1"><p className="orbis-mini">Vendido</p><p className="orbis-num text-[16px] font-bold mt-1.5">{brl0(vendidoSemGorjeta)}</p></div>
-            <div className="flex-1 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Recebido</p><p className="orbis-num text-[16px] font-bold mt-1.5" style={{ color: "var(--orbis-ok)" }}>{brl0(recebido)}</p></div>
-            <div className="flex-1 pl-3" style={{ borderLeft: "1px solid var(--orbis-line)" }}><p className="orbis-mini">Fiado</p><p className="orbis-num text-[16px] font-bold mt-1.5" style={{ color: fiado > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{brl0(fiado)}</p></div>
-          </div>
+        {/* ===== TOPO — estrutura do relatório antigo (Rick, 05/09): total grande, meta, share ===== */}
+        <div className="text-center mt-1">
+          <p className="orbis-mini">{dataLabel} · {naRua} na rua</p>
+          <p className="orbis-num mt-1.5 whitespace-nowrap" style={{ fontSize: "clamp(36px,11vw,46px)", fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.05, color: "var(--orbis-ok)" }}>{formatCurrency(vendidoSemGorjeta)}</p>
+          <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>{phase === "abandoned" ? "Desafio encerrado antes do tempo" : "Desafio concluído"}</p>
         </div>
 
-        {/* COMPARTILHAR — preto e dourado com o Instagram, logo acima de "como o dinheiro entrou" (Rick, 05/09) */}
+        <div className="rounded-[22px] border mt-4 px-4 pt-5 pb-[18px] text-center"
+          style={bateu
+            ? { borderColor: "rgba(61,214,140,.45)", background: "radial-gradient(90% 80% at 50% 0%, rgba(61,214,140,.22), transparent 65%), #0a140e" }
+            : { borderColor: "rgba(245,184,0,.4)", background: "radial-gradient(90% 80% at 50% 0%, rgba(245,184,0,.18), transparent 65%), #14110a" }}>
+          <span className="w-12 h-12 rounded-[16px] mx-auto flex items-center justify-center" style={{ background: bateu ? "rgba(61,214,140,.14)" : "rgba(245,184,0,.14)", color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>
+            {bateu ? <PartyPopper className="w-6 h-6" strokeWidth={2.2} /> : <Target className="w-6 h-6" strokeWidth={2.2} />}
+          </span>
+          <h2 className="text-[20px] font-extrabold tracking-wide mt-3" style={{ color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>
+            {dailyGoal <= 0 ? "DIA REGISTRADO" : pctMeta >= 150 ? "VOCÊ EXPLODIU A META!" : pctMeta >= 110 ? "ULTRAPASSOU A META!" : bateu ? "META BATIDA!" : `${pctMeta}% DA META`}
+          </h2>
+          {dailyGoal > 0 && (
+            <p className="text-[13px] mt-1.5" style={{ color: "var(--orbis-fg-2)" }}>
+              {bateu
+                ? <><b className="text-foreground">{pctMeta}%</b> · <b className="text-foreground">{formatCurrency(vendidoSemGorjeta - dailyGoal)}</b> acima da meta de {brl0(dailyGoal)}</>
+                : <>faltaram <b className="text-foreground">{formatCurrency(dailyGoal - vendidoSemGorjeta)}</b> pra meta de {brl0(dailyGoal)}</>}
+            </p>
+          )}
+        </div>
+
+        {/* COMPARTILHAR — preto e dourado com o Instagram */}
         <button onClick={() => setMostrarShare((v) => !v)}
-          className="w-full h-[54px] rounded-[16px] mt-5 font-extrabold text-[14.5px] inline-flex items-center justify-center gap-2.5 active:scale-[.98] transition"
+          className="w-full h-[54px] rounded-[16px] mt-3.5 font-extrabold text-[14.5px] inline-flex items-center justify-center gap-2.5 active:scale-[.98] transition"
           style={{ background: "#000", color: "var(--orbis-gold)", border: "1.5px solid var(--orbis-gold)", boxShadow: "0 10px 28px -14px rgba(245,184,0,.7)" }}>
           <Instagram className="w-5 h-5" strokeWidth={2.2} /> {mostrarShare ? "FECHAR ARTES" : "COMPARTILHAR RESULTADO"}
         </button>
@@ -456,68 +465,68 @@ export function DefconFechamento({
           </div>
         )}
 
-        {/* COMO O DINHEIRO ENTROU — editável: ele confere dinheiro / pix / cartão aqui,
-            depois do corre. O fiado é a diferença, nunca digitado. */}
-        <div className="flex items-center justify-between mt-6 px-1">
-          <p className="orbis-section">Como o dinheiro entrou</p>
-          {editandoRec ? (
-            <button onClick={() => void salvarRecebimentos()} disabled={salvandoRec} className="text-[12px] font-bold inline-flex items-center gap-1" style={{ color: "var(--orbis-gold)" }}>
-              {salvandoRec ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Check className="w-3.5 h-3.5" /> salvar</>}
-            </button>
-          ) : (
-            <button onClick={() => setEditandoRec(true)} className="text-[12px] font-semibold inline-flex items-center gap-1" style={{ color: "var(--orbis-fg-3)" }}>
-              <Pencil className="w-3 h-3" /> corrigir
-            </button>
-          )}
+        {/* ===== CONFIRA SEUS RECEBIMENTOS — sempre editável; salva ao sair do campo ===== */}
+        <p className="orbis-section mt-6 px-1">Confira seus recebimentos</p>
+        <div className="rounded-[18px] border mt-3 px-4 py-3 flex items-center gap-3" style={{ borderColor: "rgba(245,184,0,.4)", background: "rgba(245,184,0,.06)" }}>
+          <span className="w-[42px] h-[42px] rounded-[14px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.16)", color: "var(--orbis-gold)" }}><HandCoins className="w-5 h-5" strokeWidth={2.2} /></span>
+          <span className="flex-1 min-w-0">
+            <b className="block text-[12.5px] font-extrabold tracking-[.1em] uppercase" style={{ color: "var(--orbis-gold)" }}>Gorjetas</b>
+            <small className="block text-[12.5px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>Já incluídas no dinheiro</small>
+          </span>
+          <span className="orbis-num text-[19px] font-extrabold" style={{ color: "var(--orbis-gold)" }}>+{formatCurrency(gorjetas)}</span>
         </div>
-        <Bloco style={{ marginTop: 12 }}>
+        <Bloco style={{ marginTop: 12, padding: "0 16px" }}>
           {metodos.map(([nome, v, cor, ico], idx) => {
-            const k = nome === "Dinheiro" ? "dinheiro" : nome === "Pix" ? "pix" : "cartao";
+            const k = (nome === "Dinheiro" ? "dinheiro" : nome === "Pix" ? "pix" : "cartao") as keyof typeof rec;
             return (
-              <div key={nome} className="px-4 py-3.5" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
-                <div className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.05)", color: cor }}>{ico}</span>
-                  <span className="flex-1 text-[14px] font-semibold">{nome}</span>
-                  {editandoRec ? (
-                    <CampoValor valor={rec[k as keyof typeof rec]} onChange={(t) => { setRec({ ...rec, [k]: t }); setRecSujo(true); }} destaque={!!rec[k as keyof typeof rec]} />
-                  ) : (
-                    <>
-                      <span className="orbis-num text-[15px] font-bold" style={{ color: v > 0 ? cor : "var(--orbis-fg-3)" }}>{brl0(v)}</span>
-                      <span className="orbis-num text-[11.5px] w-[34px] text-right" style={{ color: "var(--orbis-fg-3)" }}>{recebido > 0 ? Math.round((v / recebido) * 100) : 0}%</span>
-                    </>
-                  )}
-                </div>
-                {!editandoRec && (
-                  <span className="block h-[3px] rounded-full mt-2.5" style={{ background: "rgba(255,255,255,.07)" }}>
-                    <span className="block h-full rounded-full" style={{ width: `${recebido > 0 ? (v / recebido) * 100 : 0}%`, background: cor }} />
-                  </span>
-                )}
+              <div key={nome} className="flex items-center gap-3 h-[62px]" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+                <span className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: cor }}>{ico}</span>
+                <span className="flex-1 text-[15px] font-semibold">{nome}</span>
+                <CampoValor largo valor={rec[k]} destaque={v > 0} onChange={(t) => { setRec({ ...rec, [k]: t }); setRecSujo(true); }} onBlur={() => void salvarRecebimentos()} />
               </div>
             );
           })}
-          <div className="flex items-center gap-3 px-4 py-3.5" style={{ borderTop: "1px solid var(--orbis-line)", background: fiado > 0 ? "rgba(229,115,127,.06)" : "rgba(0,0,0,.2)" }}>
-            <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: fiado > 0 ? "rgba(229,115,127,.16)" : "rgba(255,255,255,.05)", color: fiado > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}><AlertTriangle className="w-4 h-4" strokeWidth={2.2} /></span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-[14px] font-semibold">Fiado / calote</span>
-              <small className="block text-[11.5px]" style={{ color: "var(--orbis-fg-3)" }}>vendeu {brl0(vendidoSemGorjeta)} · entrou {brl0(recebido)}</small>
-            </span>
-            <span className="orbis-num text-[15px] font-bold" style={{ color: fiado > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)" }}>{brl0(fiado)}</span>
-          </div>
-          {recebido > vendidoSemGorjeta + 0.005 && (
-            <p className="text-[12px] px-4 py-2.5" style={{ color: "var(--orbis-custo)", borderTop: "1px solid var(--orbis-line)" }}>Entrou mais do que você vendeu — confere os valores.</p>
-          )}
         </Bloco>
-
-        <p className="orbis-section mt-6 px-1">O seu dia</p>
-        <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
-          <div className="grid grid-cols-3 gap-y-4">
-            {([["Na rua", naRua, ""], ["Vendas", String(totalSalesCount), ""], ["Ticket", brl0(ticket), ""],
-               ["Abord.", String(totalApproaches), ""], ["Conv.", `${Math.round(conversao)}%`, "var(--orbis-gold)"], carga.length ? ["Unidades", String(unidadesVendidas), ""] : ["Gorjetas", brl0(gorjetas), gorjetas > 0 ? "var(--orbis-ok)" : ""]] as [string, string, string][])
-              .map(([rot, val, cor]) => (
-                <div key={rot} className="text-center"><p className="orbis-mini">{rot}</p><p className="orbis-num text-[17px] font-bold mt-1.5" style={cor ? { color: cor } : undefined}>{val}</p></div>
-              ))}
-          </div>
+        <div className="rounded-[16px] border mt-3 px-4 py-3.5 flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,.10)", background: "var(--orbis-surf)" }}>
+          <span className="text-[11px] font-extrabold tracking-[.1em] uppercase whitespace-nowrap" style={{ color: "var(--orbis-fg-2)" }}>Total recebido</span>
+          <span className="orbis-num text-[16px] font-extrabold whitespace-nowrap"><b style={{ color: recebido >= vendidoSemGorjeta - 0.005 ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>{formatCurrency(recebido)}</b> <small className="text-[14px] font-semibold" style={{ color: "var(--orbis-fg-2)" }}>/ {formatCurrency(vendidoSemGorjeta)}</small></span>
         </div>
+        {salvandoRec ? (
+          <p className="text-[13px] font-bold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-fg-3)" }}><Loader2 className="w-4 h-4 animate-spin" /> salvando…</p>
+        ) : recebido > vendidoSemGorjeta + 0.005 ? (
+          <p className="text-[13.5px] font-bold mt-3 text-center" style={{ color: "var(--orbis-custo)" }}>Entrou mais do que você vendeu — confere os valores.</p>
+        ) : fiado > 0.005 ? (
+          <p className="text-[13.5px] font-bold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-custo)" }}><AlertTriangle className="w-4 h-4" strokeWidth={2.4} /> {formatCurrency(fiado)} não recebidos · fiado / calote</p>
+        ) : vendidoSemGorjeta > 0 ? (
+          <p className="text-[14px] font-extrabold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-ok)" }}><Check className="w-4 h-4" strokeWidth={3} /> 100% recebido</p>
+        ) : null}
+
+        {/* ===== RELATÓRIO DO DIA — em lista, como o antigo ===== */}
+        <p className="orbis-section mt-6 px-1">Relatório do dia</p>
+        <Bloco style={{ marginTop: 12, padding: "0 16px" }}>
+          {([
+            ["Horas trabalhadas", naRua, "", <Timer key="h" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+            ["Vendido", formatCurrency(vendidoSemGorjeta), "", <Banknote key="v" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+            ["Abordagens", String(totalApproaches), "", <UserRound key="a" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+            ["Vendas", String(totalSalesCount), "var(--orbis-ok)", <ShoppingCart key="s" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+            ["Conversão", `${Math.round(conversao)}%`, conversao >= 30 ? "var(--orbis-ok)" : conversao >= 15 ? "var(--orbis-gold)" : "var(--orbis-custo)", <BarChart3 key="c" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+            ["Ticket médio", brl0(ticket), "", <DollarSign key="t" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+            ...(carga.length ? [["Unidades vendidas", String(unidadesVendidas), "", <Package key="u" className="w-[15px] h-[15px]" strokeWidth={2.2} />] as [string, string, string, ReactNode]] : []),
+            ...(gorjetas > 0 ? [["Gorjetas", formatCurrency(gorjetas), "var(--orbis-gold)", <HandCoins key="g" className="w-[15px] h-[15px]" strokeWidth={2.2} />] as [string, string, string, ReactNode]] : []),
+            ["Custos", custoTotal > 0 ? `− ${formatCurrency(custoTotal)}` : formatCurrency(0), custoTotal > 0 ? "var(--orbis-custo)" : "var(--orbis-fg-3)", <TrendingDown key="k" className="w-[15px] h-[15px]" strokeWidth={2.2} />],
+          ] as [string, string, string, ReactNode][]).map(([rot, val, cor, ico], idx) => (
+            <div key={rot} className="flex items-center gap-3 h-[56px]" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+              <span className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: "var(--orbis-fg-2)" }}>{ico}</span>
+              <span className="flex-1 text-[15px] font-semibold" style={{ color: "var(--orbis-fg-2)" }}>{rot}</span>
+              <span className="orbis-num text-[18px] font-extrabold" style={cor ? { color: cor } : undefined}>{val}</span>
+            </div>
+          ))}
+          <div className="flex items-center gap-3 h-[56px] -mx-4 px-4" style={{ borderTop: "1px solid var(--orbis-line)", background: lucro >= 0 ? "rgba(61,214,140,.06)" : "rgba(229,115,127,.06)" }}>
+            <span className="w-[30px] h-[30px] rounded-[9px] flex items-center justify-center shrink-0" style={{ background: lucro >= 0 ? "rgba(61,214,140,.15)" : "rgba(229,115,127,.15)", color: lucro >= 0 ? "var(--orbis-ok)" : "var(--orbis-custo)" }}><DollarSign className="w-[15px] h-[15px]" strokeWidth={2.4} /></span>
+            <span className="flex-1 text-[15px] font-bold">Sobrou pra você</span>
+            <span className="orbis-num text-[18px] font-extrabold" style={{ color: lucro >= 0 ? "var(--orbis-ok)" : "var(--orbis-custo)" }}>{formatCurrency(lucro)}</span>
+          </div>
+        </Bloco>
 
         {/* ===== SUA LIGA NO RANKING — cor da liga, subiu de patente, ver ranking ===== */}
         <p className="orbis-section mt-6 px-1">Sua liga no ranking</p>
@@ -589,11 +598,11 @@ export function DefconFechamento({
             <Bloco style={{ marginTop: 12, padding: "4px 16px 14px" }}>
               {blocos.map((b, idx) => {
                 const melhor = melhorBloco && b.i === melhorBloco.i && b.sold > 0;
-                const n = vendasPorBloco[b.i] || 0;
+                const n = b.n;
                 return (
                   <div key={b.i} className="flex items-center gap-3 py-[11px]" style={idx ? { borderTop: "1px solid rgba(255,255,255,.06)" } : undefined}>
-                    <span className="orbis-num w-[78px] shrink-0 text-[12.5px] font-bold leading-tight" style={{ color: "var(--orbis-fg-2)" }}>
-                      {b.ini ? fmtH(b.ini) : `Bloco ${b.i + 1}`}{b.ini && b.fim ? ` – ${fmtH(b.fim)}` : b.ini ? " – …" : ""}
+                    <span className="orbis-num w-[100px] shrink-0 text-[12px] font-bold leading-tight" style={{ color: "var(--orbis-fg-2)" }}>
+                      {b.ini ? fmtH(b.ini) : `Bloco ${b.i + 1}`}{b.ini && b.fim ? ` – ${fmtH(b.fim)}` : ""}
                     </span>
                     <span className="flex-1 min-w-0">
                       {melhor && <span className="inline-flex items-center gap-1 text-[9.5px] font-extrabold tracking-[.1em] uppercase mb-1.5" style={{ color: "var(--orbis-gold)" }}><Star className="w-2.5 h-2.5" fill="currentColor" strokeWidth={0} /> sua melhor hora</span>}
@@ -601,8 +610,8 @@ export function DefconFechamento({
                         <span className="block h-full rounded-full" style={{ width: `${maxBloco > 0 ? (b.sold / maxBloco) * 100 : 0}%`, background: melhor ? "linear-gradient(90deg,#F5B800,#FFC63A)" : "rgba(255,255,255,.28)" }} />
                       </span>
                     </span>
-                    <span className="w-[98px] shrink-0 text-right">
-                      <span className="orbis-num block text-[14.5px] font-extrabold" style={{ color: melhor ? "var(--orbis-gold)" : b.sold > 0 ? "var(--orbis-fg)" : "var(--orbis-fg-3)" }}>{formatCurrency(b.sold)}</span>
+                    <span className="w-[92px] shrink-0 text-right">
+                      <span className="orbis-num block text-[14px] font-extrabold" style={{ color: melhor ? "var(--orbis-gold)" : b.sold > 0 ? "var(--orbis-fg)" : "var(--orbis-fg-3)" }}>{formatCurrency(b.sold)}</span>
                       <small className="block text-[10.5px] font-semibold mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>{b.sold > 0 ? `${n} ${n === 1 ? "venda" : "vendas"}` : "sem venda"}</small>
                     </span>
                   </div>
