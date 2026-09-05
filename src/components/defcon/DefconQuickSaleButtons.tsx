@@ -4,11 +4,14 @@ interface DefconQuickSaleButtonsProps {
   saleHistory: number[];
   onQuickSale: (amount: number) => void;
   forcedValues?: number[];
+  /** quantas unidades aquele valor representa (combo 2 un mostra "2 un" no botão) */
+  unidadesDe?: (amount: number) => number;
 }
 
-export function DefconQuickSaleButtons({ saleHistory, onQuickSale, forcedValues }: DefconQuickSaleButtonsProps) {
+export function DefconQuickSaleButtons({ saleHistory, onQuickSale, forcedValues, unidadesDe }: DefconQuickSaleButtonsProps) {
   const useForced = !!(forcedValues && forcedValues.length > 0);
-  if (!useForced && saleHistory.length < 2) return null;
+  // Aparece já na PRIMEIRA venda do dia (Rick, 05/09) — e fica até o fim do dia.
+  if (!useForced && saleHistory.length < 1) return null;
 
   // Count frequency of each value
   const freq = new Map<number, number>();
@@ -39,6 +42,9 @@ export function DefconQuickSaleButtons({ saleHistory, onQuickSale, forcedValues 
             className="h-11 px-3.5 min-w-[70px] bg-card border border-primary/25 rounded-xl text-foreground font-bold text-sm active:scale-90 active:bg-success active:border-success transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             + {formatCurrency(amount).replace('R$\u00a0', 'R$')}
+            {unidadesDe && unidadesDe(amount) > 1 && (
+              <span className="ml-1.5 text-[9.5px] font-extrabold tracking-wide text-primary">{unidadesDe(amount)} un</span>
+            )}
           </button>
         ))}
       </div>

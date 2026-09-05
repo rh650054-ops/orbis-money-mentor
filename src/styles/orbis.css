@@ -181,3 +181,25 @@
 
 /* trava de zoom (Rick, 05/09): o app rola, mas não dá zoom nem "encolhe" com dois dedos */
 html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
+
+/* ===== CENA "SUBIU DE PATENTE" (relatório do DEFCON, Rick 05/09) =====
+   Roda uma vez, quando o card entra na tela: escudo antigo tremula e some,
+   o novo cresce com halo, nome/linha/botão sobem em sequência (≈1,6s). */
+.orbis-patente-de { opacity: 1; filter: saturate(.35) brightness(.75); }
+.orbis-patente-para { opacity: 0; transform: scale(.9); }
+.orbis-patente-linha, .orbis-patente-nome, .orbis-patente-msg, .orbis-patente-btn { opacity: 0; transform: translateY(10px); }
+.orbis-patente-spark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #FFE08A; box-shadow: 0 0 10px #F5B800; opacity: 0; pointer-events: none; }
+.orbis-patente.on .orbis-patente-de { animation: orbis-pat-de 1s ease forwards; }
+.orbis-patente.on .orbis-patente-para { animation: orbis-pat-para 1.2s cubic-bezier(.2,.9,.3,1.3) forwards .35s; }
+.orbis-patente.on .orbis-patente-linha { animation: orbis-pat-sobe .5s ease forwards 1s; }
+.orbis-patente.on .orbis-patente-nome { animation: orbis-pat-sobe .55s ease forwards 1.1s; }
+.orbis-patente.on .orbis-patente-msg { animation: orbis-pat-sobe .5s ease forwards 1.3s; }
+.orbis-patente.on .orbis-patente-btn { animation: orbis-pat-sobe .5s ease forwards 1.45s; }
+.orbis-patente.on .orbis-patente-spark { animation: orbis-pat-spark 1.4s ease-out forwards .5s; }
+@keyframes orbis-pat-de { 0% { opacity: 1; transform: translateX(0); } 10% { transform: translateX(-2px); } 20% { transform: translateX(2px); } 30% { transform: translateX(-1px); } 40% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.25); } }
+@keyframes orbis-pat-para { 0% { opacity: 0; transform: scale(.9); } 55% { opacity: 1; transform: scale(1.25); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes orbis-pat-sobe { to { opacity: 1; transform: translateY(0); } }
+@keyframes orbis-pat-spark { 0% { opacity: 0; transform: scale(.4); } 30% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(.6) translateY(-14px); } }
+@media (prefers-reduced-motion: reduce) {
+  .orbis-patente.on * { animation-duration: .01s !important; animation-delay: 0s !important; }
+}

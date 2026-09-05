@@ -181,6 +181,7 @@ export default function DefconChallenge() {
         return (
           <DefconCargaDoDia
             userId={user.id}
+            dailyGoal={defcon.dailyGoal}
             starting={comecando}
             onComecar={async () => { setComecando(true); try { await handleStart(); } finally { setComecando(false); setCargaAberta(false); } }}
           />

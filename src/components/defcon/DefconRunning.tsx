@@ -13,6 +13,7 @@ import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
 
 /* Travas de lançamento — ver comentário no estado do componente. */
@@ -81,9 +82,24 @@ export function DefconRunning({
   const [showLunchPicker, setShowLunchPicker] = useState(false);
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
   const [showOccurrence, setShowOccurrence] = useState(false);
-  const [saleHistory, setSaleHistory] = useState<number[]>([]);
+  /* ---- VENDA RÁPIDA POR DIA (Rick, 05/09) ----
+     O histórico de valores vive no aparelho por usuário+dia: aparece já na
+     PRIMEIRA venda, fica em todos os blocos, sobrevive a sair e voltar do DEFCON
+     e zera sozinho no outro dia (a chave muda com a data). */
+  const chaveVendaRapida = `orbis_venda_rapida_${userId || "treino"}_${getBrazilDate()}`;
+  const [saleHistory, setSaleHistory] = useState<number[]>(() => {
+    if (onboardingMode) return [];
+    try { const v = JSON.parse(localStorage.getItem(chaveVendaRapida) || "[]"); return Array.isArray(v) ? v.map((x: any) => Number(x?.amount ?? x)).filter((n: number) => n > 0) : []; } catch { return []; }
+  });
   // método usado por valor — a venda rápida repete o MESMO método (antes forçava pix)
-  const metodoPorValorRef = useRef<Record<string, "dinheiro" | "pix" | "cartao">>({});
+  const metodoPorValorRef = useRef<Record<string, "dinheiro" | "pix" | "cartao">>((() => {
+    if (onboardingMode) return {};
+    try { const v = JSON.parse(localStorage.getItem(chaveVendaRapida) || "[]"); const m: Record<string, "dinheiro" | "pix" | "cartao"> = {}; if (Array.isArray(v)) for (const x of v) if (x?.amount && x?.method) m[String(Number(x.amount))] = x.method; return m; } catch { return {}; }
+  })());
+  const guardarVendaRapida = (lista: number[]) => {
+    if (onboardingMode) return;
+    try { localStorage.setItem(chaveVendaRapida, JSON.stringify(lista.slice(-200).map((a) => ({ amount: a, method: metodoPorValorRef.current[String(a)] ?? "dinheiro" })))); } catch { /* sem espaço: segue sem persistir */ }
+  };
   const [showAddTip, setShowAddTip] = useState(false);
   const [tipValue, setTipValue] = useState("");
   const [showExpense, setShowExpense] = useState(false);
@@ -134,16 +150,18 @@ export function DefconRunning({
     return () => { vivo = false; };
   }, [loadout]);
 
-  // Quantas unidades um valor representa pela tabela (venda rápida também desconta certo)
-  const tiersQty = (amount: number): number => {
+  // Casa um valor com a tabela: produto + quantas unidades (venda rápida desconta certo
+  // mesmo sem a folha de venda aberta: R$ 25 = 2 balas → baixa 2, conta 1 venda)
+  const casarValor = (amount: number): { product_id: string; qty: number } | null => {
     for (const l of loadout) {
       const prod = loadoutProducts.find((p) => p.id === l.product_id);
-      if (Math.abs((Number(prod?.sale_price) || 0) - amount) < 0.005) return 1;
+      if (Math.abs((Number(prod?.sale_price) || 0) - amount) < 0.005) return { product_id: l.product_id, qty: 1 };
       const t = tiers.find((x) => x.product_id === l.product_id && Math.abs(x.price - amount) < 0.005);
-      if (t) return t.qty;
+      if (t) return { product_id: l.product_id, qty: t.qty };
     }
-    return 1;
+    return null;
   };
+  const tiersQty = (amount: number): number => casarValor(amount)?.qty ?? 1;
   const saleValorNum = parseFloat(saleValue) || 0;
   // Casa o valor com a tabela: [{product, qty}] — prioriza o produto já selecionado
   const casado = useMemo(() => {
@@ -235,15 +253,16 @@ export function DefconRunning({
     }
   };
 
-  const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro", qty = 1) => {
-    onAddSale(amount, method);
-    setSaleHistory((prev) => [...prev, amount]);
+  const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro", qty = 1, productId?: string | null) => {
+    onAddSale(amount, method); // 1 venda, 1 abordagem — mesmo sendo combo de 2 unidades
     metodoPorValorRef.current[String(amount)] = method;
+    setSaleHistory((prev) => { const lista = [...prev, amount]; guardarVendaRapida(lista); return lista; });
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
     // Debita do loadout/estoque na QUANTIDADE da venda (vendeu 2, baixa 2)
-    if (!onboardingMode && selectedProductId) {
-      incrementSold(selectedProductId, Math.max(1, qty)).catch((e) =>
+    const pid = productId ?? selectedProductId;
+    if (!onboardingMode && pid) {
+      incrementSold(pid, Math.max(1, qty)).catch((e) =>
         console.warn("[defcon] failed to debit loadout", e)
       );
     }
@@ -632,7 +651,8 @@ export function DefconRunning({
           <DefconQuickSaleButtons
             saleHistory={saleHistory}
             forcedValues={onboardingMode && quickSaleValue ? [quickSaleValue] : undefined}
-            onQuickSale={(amount) => registerSale(amount, metodoPorValorRef.current[String(amount)] ?? "dinheiro", tiersQty(amount))}
+            unidadesDe={tiersQty}
+            onQuickSale={(amount) => { const c = casarValor(amount); registerSale(amount, metodoPorValorRef.current[String(amount)] ?? "dinheiro", c?.qty ?? 1, c?.product_id ?? null); }}
           />
         </div>
 
