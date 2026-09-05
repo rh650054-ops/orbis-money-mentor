@@ -88,6 +88,9 @@ const emptyForm = {
   batch_yield: 0,
   recipe_items: [] as RecipeItem[],
   low_stock_alerts_enabled: true,
+  // Tabela de preço por quantidade (Etapa 2, Rick 05/09): "2 un R$ 30, 3 un R$ 40".
+  // A faixa de 1 un é o próprio sale_price. No DEFCON, o valor da venda casa aqui.
+  tiers: [] as { qty: string; price: string }[],
 };
 
 const emptyPixForm = {
@@ -200,6 +203,12 @@ export default function Products() {
 
   const openEdit = (p: Product) => {
     setEditing(p);
+    // faixas de preço vêm depois (não travam a abertura do form)
+    supabase.from("product_price_tiers" as any).select("qty, price").eq("product_id", p.id).order("qty")
+      .then(({ data }) => {
+        const rows = ((data as any[]) || []).map((t) => ({ qty: String(t.qty), price: String(t.price) }));
+        setForm((f) => ({ ...f, tiers: rows }));
+      });
     setForm({
       name: p.name,
       description: p.description || "",
@@ -213,6 +222,7 @@ export default function Products() {
       recipe_mode: (p.recipe_mode ?? "none") as "none" | "per_unit" | "batch",
       batch_yield: Number(p.batch_yield ?? 0),
       recipe_items: [],
+      tiers: [],
       low_stock_alerts_enabled: p.low_stock_alerts_enabled ?? true,
     });
     setFormOpen(true);
@@ -289,6 +299,14 @@ export default function Products() {
       // Grava a receita junto com o produto (controlada pelo form): apaga a antiga e regrava a atual.
       const pid = (saved as any)?.id ?? editing?.id;
       if (pid) {
+        // Tabela de preço por quantidade: regrava as faixas válidas (qty >= 2, preço > 0)
+        await supabase.from("product_price_tiers" as any).delete().eq("product_id", pid);
+        const faixas = form.tiers
+          .map((t) => ({ qty: parseInt(t.qty) || 0, price: parseFloat(t.price) || 0 }))
+          .filter((t) => t.qty >= 2 && t.price > 0);
+        if (faixas.length && !form.open_price) {
+          await supabase.from("product_price_tiers" as any).insert(faixas.map((t) => ({ user_id: user.id, product_id: pid, qty: t.qty, price: t.price })));
+        }
         await supabase.from("product_recipes").delete().eq("product_id", pid);
         if (form.recipe_mode !== "none") {
           const rows = form.recipe_items
@@ -799,6 +817,46 @@ export default function Products() {
                   />
                 </div>
               </div>
+
+              {/* QUANTO VOCÊ COBRA POR QUANTIDADE — aparece uma vez, aqui (Rick, 01/09).
+                  No DEFCON, "R$ 30" casa com "2 un" e desconta 2 do estoque. */}
+              {!form.open_price && (
+                <Card className="border-primary/30 bg-primary/5">
+                  <CardContent className="p-3 space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-primary">Quanto você cobra</p>
+                    <p className="text-xs text-muted-foreground">
+                      Vende 2 por um preço fechado? Escreve aqui. No DEFCON, o valor da venda diz quantas unidades saíram do estoque.
+                    </p>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="w-14 shrink-0 rounded-md border border-primary/40 text-primary text-xs font-bold text-center py-1">1 un</span>
+                      <span className="text-muted-foreground">→</span>
+                      <span className="font-semibold">{form.sale_price ? `R$ ${(parseFloat(form.sale_price) || 0).toFixed(2).replace(".", ",")}` : "preço de venda acima"}</span>
+                    </div>
+                    {form.tiers.map((t, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <Input
+                          type="number" inputMode="numeric" min={2} max={50}
+                          value={t.qty} placeholder="2"
+                          onChange={(e) => setForm({ ...form, tiers: form.tiers.map((x, j) => (j === i ? { ...x, qty: e.target.value } : x)) })}
+                          className="w-14 shrink-0 text-center"
+                        />
+                        <span className="text-xs text-muted-foreground shrink-0">un →</span>
+                        <MoneyInput
+                          value={parseFloat(t.price) || 0}
+                          onChange={(n) => setForm({ ...form, tiers: form.tiers.map((x, j) => (j === i ? { ...x, price: n ? String(n) : "" } : x)) })}
+                        />
+                        <button type="button" onClick={() => setForm({ ...form, tiers: form.tiers.filter((_, j) => j !== i) })}
+                          className="shrink-0 text-muted-foreground text-lg px-1" aria-label="Remover faixa">×</button>
+                      </div>
+                    ))}
+                    <button type="button"
+                      onClick={() => setForm({ ...form, tiers: [...form.tiers, { qty: String((form.tiers.length ? Math.max(...form.tiers.map((t) => parseInt(t.qty) || 1)) : 1) + 1), price: "" }] })}
+                      className="w-full h-9 rounded-lg border border-dashed border-primary/40 text-primary text-xs font-semibold">
+                      + adicionar combo (2 un, 3 un…)
+                    </button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* ===== COMO O ESTOQUE BAIXA (receita) ===== */}

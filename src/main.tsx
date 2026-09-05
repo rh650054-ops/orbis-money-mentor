@@ -36,6 +36,26 @@ if ("serviceWorker" in navigator) {
 }
 
 
+
+/* TRAVA DE ZOOM (Rick, 05/09): no iPhone o viewport "user-scalable=no" não basta —
+   o Safari ainda faz zoom de pinça e o duplo-toque. Aqui a gente bloqueia os
+   gestos na raiz. touch-action no CSS cuida do Android. */
+if (typeof document !== "undefined") {
+  const bloquear = (e: Event) => e.preventDefault();
+  document.addEventListener("gesturestart", bloquear, { passive: false });
+  document.addEventListener("gesturechange", bloquear, { passive: false });
+  document.addEventListener("gestureend", bloquear, { passive: false });
+  // pinça em navegadores que mandam touchmove com 2 dedos
+  document.addEventListener("touchmove", (e) => { if ((e as TouchEvent).touches.length > 1) e.preventDefault(); }, { passive: false });
+  // duplo-toque = zoom no iOS Safari; segura o segundo toque muito rápido
+  let ultimoToque = 0;
+  document.addEventListener("touchend", (e) => {
+    const agora = Date.now();
+    if (agora - ultimoToque < 300) { e.preventDefault(); }
+    ultimoToque = agora;
+  }, { passive: false });
+}
+
 createRoot(document.getElementById("root")!).render(<Root />);
 
 // PLACAR OFFLINE: pré-carrega o código da tela /offline enquanto há sinal, pra o

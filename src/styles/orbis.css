@@ -178,3 +178,6 @@
 @media (prefers-reduced-motion: reduce) {
   .orbis-chama-pulso, .orbis-chama-num { animation: none !important; }
 }
+
+/* trava de zoom (Rick, 05/09): o app rola, mas não dá zoom nem "encolhe" com dois dedos */
+html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; overscroll-behavior-y: none; }
