@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, formatBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
-import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2, Trash2, ChevronDown } from "lucide-react";
+import { Zap, FileDown, Pencil, Plus, Banknote, CreditCard, Smartphone, TrendingDown, Coins, Sparkles, History, Loader2, Trash2, ChevronDown, ChevronRight, Package, Bus, Utensils, Play, FileText, ArrowRight, ShoppingCart, Clock } from "lucide-react";
+import { getTier } from "@/components/ranking/tier";
 import { useToast } from "@/shared/hooks/use-toast";
 import { generateDefconDayPDF } from "@/utils/generateDefconDayPDF";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
@@ -507,6 +508,39 @@ function CustoRapidoHistory({ onChanged }: { onChanged?: () => void }) {
   );
 }
 
+/* ---- peças da Foco v2 (FORA do componente: dentro, remontavam a cada tecla
+   e o input do custo rápido perdia o foco) ---- */
+function Trio({ itens }: { itens: [string, ReactNode][] }) {
+  return (
+    <div className="flex mt-4 pt-3.5 border-t" style={{ borderColor: "rgba(255,255,255,.09)" }}>
+      {itens.map(([k, v], i) => (
+        <div key={k} className={`flex-1 min-w-0 ${i ? "border-l pl-3" : ""}`} style={i ? { borderColor: "rgba(255,255,255,.09)" } : undefined}>
+          <p className="text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color: "var(--orbis-fg-3)" }}>{k}</p>
+          <p className="orbis-num text-[15px] font-bold mt-1 whitespace-nowrap truncate">{v}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+function Linha({ k, icone, titulo, sub, aberto, onToggle, onClick, children }: {
+  k: string; icone: ReactNode; titulo: string; sub?: string; aberto: string | null; onToggle: (k: string) => void; onClick?: () => void; children?: ReactNode;
+}) {
+  const expandido = aberto === k;
+  return (
+    <div className="border-t first:border-t-0" style={{ borderColor: "var(--orbis-line)" }}>
+      <button type="button" onClick={onClick ?? (() => onToggle(k))} className="w-full flex items-center gap-3 h-14 text-left">
+        <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: "var(--orbis-fg-2)" }}>{icone}</span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-[14px] font-semibold truncate">{titulo}</span>
+          {sub && <span className="block text-[11.5px] font-semibold truncate" style={{ color: "var(--orbis-fg-3)" }}>{sub}</span>}
+        </span>
+        {children ? <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: expandido ? "rotate(180deg)" : undefined }} /> : <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#5f5a50" }} />}
+      </button>
+      {children && expandido && <div className="pb-4">{children}</div>}
+    </div>
+  );
+}
+
 interface DayTotals {
   cash: number; card: number; pix: number; debt: number; profit: number; cost: number; tips: number;
   transport: number; food: number;
@@ -518,6 +552,7 @@ export default function DefconHub() {
   const { toast } = useToast();
   const [dailyGoal, setDailyGoal] = useState(0);
   const [planId, setPlanId] = useState<string | null>(null);
+  const [workHours, setWorkHours] = useState(8);
   const [totals, setTotals] = useState<DayTotals>({ cash: 0, card: 0, pix: 0, debt: 0, profit: 0, cost: 0, tips: 0, transport: 0, food: 0 });
   const [hasSession, setHasSession] = useState(false);
   // Sessão de ONTEM ainda aberta (virou meia-noite com o DEFCON rodando).
@@ -537,6 +572,19 @@ export default function DefconHub() {
   const [payPix, setPayPix] = useState("");
   const [savingPay, setSavingPay] = useState(false);
   const today = getBrazilDate();
+  /* ---- Foco v2 (Rick, 05/09): um card que muda com o momento do dia ---- */
+  const [sessao, setSessao] = useState<{ id: string; status: string; current_block_index: number; total_blocks: number; started_at: string | null; ended_at: string | null; worked_minutes: number | null } | null>(null);
+  const [blocoFimEm, setBlocoFimEm] = useState<number | null>(null); // ms: quando fecha a hora atual
+  const [contadores, setContadores] = useState({ vendas: 0, abord: 0 });
+  const [ontem, setOntem] = useState({ vendido: 0, meta: 0 });
+  const [semana, setSemana] = useState(0);
+  const [rank, setRank] = useState<{ pos: number | null; dias: number; acimaValor: number | null }>({ pos: null, dias: 0, acimaValor: null });
+  const [horaInicio, setHoraInicio] = useState<number | null>(null);
+  const [nome, setNome] = useState("");
+  const [carga, setCarga] = useState<{ nome: string; levou: number; vendeu: number; preco: number; custo: number }[]>([]);
+  const [aberto, setAberto] = useState<string | null>(null); // linha do "Mais" expandida
+  const [, setTick] = useState(0);
+  useEffect(() => { const id = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(id); }, []);
 
   useEffect(() => {
     if (!loading && !user) navigate("/auth");
@@ -560,10 +608,11 @@ export default function DefconHub() {
         .maybeSingle(),
       supabase
         .from("challenge_sessions")
-        .select("status")
+        .select("id, status, current_block_index, total_blocks, started_at, ended_at, worked_minutes")
         .eq("user_id", user.id)
         .eq("date", today)
-        .maybeSingle(),
+        .order("created_at", { ascending: false })
+        .limit(1),
       supabase
         .from("challenge_sessions")
         .select("date, distance_meters, worked_minutes")
@@ -620,10 +669,12 @@ export default function DefconHub() {
         await supabase.from("hourly_goal_blocks").insert(blocks);
         setDailyGoal(dg);
         setPlanId(newPlan.id);
+        setWorkHours(wh);
       }
     } else {
       setDailyGoal(Number(plan.daily_goal));
       setPlanId(plan.id);
+      setWorkHours(Number(plan.work_hours) || 8);
     }
 
     setTotals({
@@ -637,11 +688,65 @@ export default function DefconHub() {
       transport: Number((sales as any)?.transport_cost || 0),
       food: Number((sales as any)?.food_cost || 0),
     });
-    setHasSession(!!session);
+    const sessaoHoje = ((session as any[]) || [])[0] ?? null;
+    setHasSession(!!sessaoHoje);
+    setSessao(sessaoHoje);
     // Só oferece "continuar o de ontem" na MADRUGADA (até 6h). De manhã em diante a
     // sessão velha é fechada sozinha ao abrir o DEFCON — dia novo começa limpo.
     const horaBR = parseInt(getBrazilTime().slice(0, 2), 10) || 0;
     setOvernightOpen(!!overnightSession && horaBR < 6);
+
+    /* ---- Foco v2: bloco atual, contadores, ontem, semana, ranking, hora, carga ---- */
+    const ontemData = getBrazilDateDaysAgo(1);
+    const mes = today.slice(0, 7);
+    const [bl, ds7, planOntem, lb, plano, perfil, ld, prods] = await Promise.all([
+      sessaoHoje ? supabase.from("challenge_blocks").select("block_index, started_at, ended_at, status, approaches_count, sales_count").eq("session_id", sessaoHoje.id).order("block_index", { ascending: true }) : Promise.resolve({ data: [] as any[] }),
+      supabase.from("daily_sales").select("date, cash_sales, card_sales, pix_sales").eq("user_id", user.id).gte("date", weekStart).lte("date", today),
+      supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", ontemData).maybeSingle(),
+      supabase.from("leaderboard_stats").select("posicao_faturamento, faturamento_total_mes, dias_trabalhados_mes").eq("user_id", user.id).eq("mes_referencia", mes).maybeSingle(),
+      supabase.from("onboarding_planos").select("hora_inicio").eq("user_id", user.id).maybeSingle(),
+      supabase.from("profiles").select("nickname").eq("user_id", user.id).maybeSingle(),
+      supabase.from("defcon_daily_loadout").select("product_id, product_name, qty_initial, qty_sold").eq("user_id", user.id).eq("date", today),
+      supabase.from("products").select("id, sale_price, cost").eq("user_id", user.id).eq("is_active", true),
+    ]);
+    {
+      const blocos = ((bl.data as any[]) || []);
+      const vendas = blocos.reduce((t, b) => t + (Number(b.sales_count) || 0), 0);
+      const abord = blocos.reduce((t, b) => t + (Number(b.approaches_count) || 0), 0);
+      setContadores({ vendas, abord });
+      const rodando = blocos.find((b) => b.status === "running" || (b.started_at && !b.ended_at));
+      setBlocoFimEm(rodando?.started_at ? new Date(rodando.started_at).getTime() + 60 * 60000 : null);
+    }
+    {
+      let sem = 0, ont = 0;
+      for (const r of ((ds7.data as any[]) || [])) {
+        const v = (Number(r.cash_sales) || 0) + (Number(r.card_sales) || 0) + (Number(r.pix_sales) || 0);
+        sem += v;
+        if (r.date === ontemData) ont += v;
+      }
+      setSemana(sem);
+      setOntem({ vendido: ont, meta: Number((planOntem.data as any)?.daily_goal) || 0 });
+    }
+    {
+      const eu = lb.data as any;
+      const pos = eu ? Number(eu.posicao_faturamento) || null : null;
+      let acimaValor: number | null = null;
+      if (pos && pos > 1) {
+        const { data: ac } = await supabase.from("leaderboard_stats").select("faturamento_total_mes").eq("mes_referencia", mes).eq("posicao_faturamento", pos - 1).limit(1).maybeSingle();
+        acimaValor = ac ? Math.max(0, (Number((ac as any).faturamento_total_mes) || 0) - (Number(eu.faturamento_total_mes) || 0)) : null;
+      }
+      setRank({ pos, dias: eu ? Number(eu.dias_trabalhados_mes) || 0 : 0, acimaValor });
+    }
+    const hi = (plano.data as any)?.hora_inicio;
+    setHoraInicio(hi == null ? null : Number(hi));
+    setNome(String((perfil.data as any)?.nickname || "").trim());
+    {
+      const ps = ((prods.data as any[]) || []);
+      setCarga(((ld.data as any[]) || []).map((l) => {
+        const p = ps.find((x) => x.id === l.product_id);
+        return { nome: String(l.product_name || "produto"), levou: Number(l.qty_initial) || 0, vendeu: Number(l.qty_sold) || 0, preco: Number(p?.sale_price) || 0, custo: Number(p?.cost) || 0 };
+      }));
+    }
   };
 
   useEffect(() => {
@@ -794,308 +899,264 @@ export default function DefconHub() {
     }
   };
 
+  /* ---- Foco v2: derivados ---- */
+  const estado: "antes" | "rodando" | "encerrado" = sessao?.status === "active" ? "rodando" : sessao ? "encerrado" : "antes";
+  const agora = Date.now();
+  const minRestantes = blocoFimEm ? Math.max(0, Math.round((blocoFimEm - agora) / 60000)) : null;
+  const blocoN = (Number(sessao?.current_block_index) || 0) + 1;
+  const blocosTot = Number(sessao?.total_blocks) || 0;
+  const conv = contadores.abord > 0 ? Math.min(100, Math.round((contadores.vendas / contadores.abord) * 100)) : 0;
+  const pctOntem = ontem.meta > 0 ? Math.round((ontem.vendido / ontem.meta) * 100) : 0;
+  const liga = rank.pos ? getTier(rank.pos) : null;
+  const ligaLabel = liga ? liga.label.charAt(0) + liga.label.slice(1).toLowerCase() : "";
+  const naRua = (() => { const m = Number(sessao?.worked_minutes) || 0; return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`; })();
+  const projecao = estado === "rodando" && sessao?.started_at ? (() => { const h = Math.max(0.25, (agora - new Date(sessao.started_at).getTime()) / 3600000); return (totalVendido / h) * Math.max(h, blocosTot || workHours); })() : 0;
+  const cargaTot = carga.reduce((t, c) => t + c.levou, 0);
+  const cargaVend = carga.reduce((t, c) => t + c.vendeu, 0);
+  const cargaEntra = carga.reduce((t, c) => t + c.levou * c.preco, 0);
+  const cargaCusto = carga.reduce((t, c) => t + c.levou * c.custo, 0);
+  const sobras = carga.map((c) => ({ ...c, sobrou: Math.max(0, c.levou - c.vendeu) }));
+  const acabou = sobras.filter((c) => c.levou > 0 && c.sobrou === 0);
+  const brl0 = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
+  const dataLabel = new Date(`${today}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "short" }).replace(/\./g, "").replace("-feira", "");
+  const toggle = (k: string) => setAberto((v) => (v === k ? null : k));
+  const heroTom = estado === "rodando"
+    ? { borda: "rgba(61,214,140,.35)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(61,214,140,.18), transparent 60%), linear-gradient(170deg,#0a140e 0%,#0b0b0b 70%)", tag: "#3DD68C" }
+    : estado === "encerrado"
+    ? { borda: "rgba(245,184,0,.35)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(245,184,0,.18), transparent 60%), linear-gradient(170deg,#1a1408 0%,#0b0b0b 70%)", tag: "#F5B800" }
+    : { borda: "rgba(242,70,90,.35)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(242,70,90,.22), transparent 60%), linear-gradient(170deg,#170a0c 0%,#0b0b0b 70%)", tag: "#F2465A" };
   if (loading || !user) return null;
 
   return (
-    <div className="space-y-4 pb-8 max-w-2xl mx-auto px-1">
-      {/* HEADER discreto */}
-      <div className="pt-1 pb-1">
-        <p className="text-xs text-destructive/80 tracking-[0.25em] uppercase">⚡ Modo desafio</p>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight mt-0.5">DEFCON 4</h1>
-      </div>
+    <div className="pb-8 max-w-md mx-auto px-1 orbis-stagger">
+      {/* ===== CABEÇALHO ===== */}
+      <p className="orbis-mini pt-1">Foco · {dataLabel}</p>
+      <h1 className="font-display text-[24px] font-extrabold tracking-tight mt-1.5 leading-tight">
+        {estado === "rodando" ? "Tá rodando." : estado === "encerrado" ? "Dia fechado." : `Bora pro corre${nome ? `, ${nome.split(" ")[0]}` : ""}.`}
+      </h1>
+      <p className="text-[12.5px] mt-1.5" style={{ color: "var(--orbis-fg-2)" }}>
+        {estado === "rodando" && <>Bloco {blocoN}{blocosTot ? ` de ${blocosTot}` : ""}{minRestantes != null ? <> · <b className="text-foreground">{minRestantes} min</b> pra fechar essa hora</> : null}</>}
+        {estado === "encerrado" && <>{naRua} na rua · {contadores.vendas} {contadores.vendas === 1 ? "venda" : "vendas"}{rank.dias ? <> · <b className="text-foreground">{rank.dias} {rank.dias === 1 ? "dia" : "dias"}</b> vendendo este mês</> : null}</>}
+        {estado === "antes" && <>{horaInicio != null ? <>Você começa às <b className="text-foreground">{String(horaInicio).padStart(2, "0")}h</b></> : "Seu dia começa quando você apertar"}{rank.dias ? <> · {rank.dias} {rank.dias === 1 ? "dia" : "dias"} vendendo este mês</> : null}</>}
+      </p>
 
-      {/* BLOCO UNIFICADO — Meta + Botão */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card to-background border border-border p-5 space-y-5 shadow-[0_8px_30px_-12px_hsl(var(--primary)/0.25)]">
-        {/* glow sutil */}
-        <div className="absolute -top-20 -right-20 w-56 h-56 bg-primary/10 blur-3xl rounded-full pointer-events-none" />
+      {/* ===== CARD PRINCIPAL — muda de cor com o momento ===== */}
+      <div className="relative overflow-hidden rounded-[26px] border mt-[18px] px-5 pt-5 pb-[18px]" style={{ borderColor: heroTom.borda, background: heroTom.fundo }}>
+        <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[.2em] uppercase" style={{ color: heroTom.tag }}>
+          {estado === "rodando" ? <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#3DD68C", boxShadow: "0 0 0 4px rgba(61,214,140,.18)" }} /> : estado === "encerrado" ? <Check className="w-3 h-3" strokeWidth={3} /> : <Zap className="w-3 h-3" fill="currentColor" strokeWidth={0} />}
+          DEFCON 4 · {estado === "rodando" ? "ao vivo" : estado === "encerrado" ? "encerrado" : "Modo desafio"}
+        </span>
+        {estado === "antes" && (
+          <button onClick={() => setShowEdit(true)} aria-label="Editar meta" className="absolute right-[18px] top-[18px] w-[34px] h-[34px] rounded-[11px] flex items-center justify-center" style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}><Pencil className="w-3.5 h-3.5" /></button>
+        )}
+        <p className="orbis-mini mt-3.5">{estado === "rodando" ? "Vendido até agora" : estado === "encerrado" ? "Vendido hoje" : "Meta do dia"}</p>
+        <p className="orbis-num text-[40px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado !== "antes" ? { color: "var(--orbis-ok)" } : undefined}>
+          {brl0(estado === "antes" ? dailyGoal : totalVendido)}
+        </p>
+        <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>
+          {estado === "antes" && <><b className="text-foreground">{workHours} blocos</b> de 1h · ritmo de <b className="text-foreground">{brl0(dailyGoal / Math.max(1, workHours))}</b> por hora</>}
+          {estado === "rodando" && <>Meta <b className="text-foreground">{brl0(dailyGoal)}</b>{projecao > 0 ? <> · nesse ritmo você fecha em <b className="text-foreground">{brl0(projecao)}</b></> : null}</>}
+          {estado === "encerrado" && <><b className="text-foreground">{dailyGoal > 0 ? Math.round((totalVendido / dailyGoal) * 100) : 0}%</b> da meta{totals.profit > 0 ? <> · sobrou <b style={{ color: "var(--orbis-ok)" }}>{brl0(totals.profit)}</b> pra você</> : null}</>}
+        </p>
+        <div className="h-1.5 rounded-full mt-3.5 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+          <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${progresso}%`, background: goalReached || estado === "rodando" ? "linear-gradient(90deg,#3DD68C,#46E09A)" : "linear-gradient(90deg,#F5B800,#FFC63A)" }} />
+        </div>
+        <div className="flex justify-between text-[11px] font-semibold mt-1.5" style={{ color: "var(--orbis-fg-3)" }}>
+          {estado === "encerrado"
+            ? <><span>{goalReached ? `Meta ${brl0(dailyGoal)} batida` : `Meta ${brl0(dailyGoal)}`}</span><span>{goalReached ? `${brl0(totalVendido - dailyGoal)} acima` : `faltou ${brl0(falta)}`}</span></>
+            : <><span>{estado === "rodando" ? `${Math.round(progresso)}% da meta` : <>Vendido hoje <b className="text-foreground">{brl0(totalVendido)}</b></>}</span><span>{goalReached ? "meta batida" : `falta ${brl0(falta)}`}</span></>}
+        </div>
 
-        <div className="relative flex items-start justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground tracking-wider uppercase mb-1">Meta do dia</p>
-            <p className="text-3xl font-bold text-foreground tracking-tight tabular-nums">
-              {formatCurrency(dailyGoal)}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {goalReached ? (
-                <span className="text-success">🎉 Meta batida!</span>
-              ) : (
-                <>Vendido <span className="text-foreground font-medium">{formatCurrency(totalVendido)}</span> · falta <span className="text-primary">{formatCurrency(falta)}</span></>
-              )}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowEdit(true)}
-            className="w-8 h-8 rounded-lg bg-foreground/5 hover:bg-foreground/10 border border-border flex items-center justify-center text-muted-foreground active:scale-95 transition"
-            aria-label="Editar meta"
-          >
-            <Pencil className="w-3.5 h-3.5" />
+        {estado === "rodando" ? (
+          <button onClick={() => navigate("/defcon")} data-tour="defcon-banner" className="w-full h-[56px] rounded-[17px] mt-4 font-extrabold text-[16px] flex items-center justify-center gap-2 active:scale-[.98] transition" style={{ background: "linear-gradient(180deg,#46E09A,#3DD68C)", color: "#06170e", boxShadow: "0 12px 28px -12px rgba(61,214,140,.8)" }}>
+            <Play className="w-[18px] h-[18px]" fill="#06170e" strokeWidth={0} /> VOLTAR PRO DEFCON
           </button>
-        </div>
-
-        {/* Progress fino */}
-        <div className="relative h-1.5 bg-foreground/5 rounded-full overflow-hidden">
-          <div
-            className={`h-full transition-[colors,transform,opacity] duration-700 rounded-full ${
-              goalReached
-                ? "bg-gradient-to-r from-success to-success/80 shadow-[0_0_12px_hsl(var(--success)/0.6)]"
-                : "bg-gradient-to-r from-primary to-primary shadow-[0_0_12px_hsl(var(--primary)/0.5)]"
-            }`}
-            style={{ width: `${progresso}%` }}
-          />
-        </div>
-
-        {/* CTA — botão grande mas refinado */}
-        <button
-          onClick={() => navigate("/defcon")}
-          data-tour="defcon-banner"
-          className="relative w-full h-14 rounded-xl bg-gradient-to-r from-destructive to-destructive/85 text-destructive-foreground font-bold text-base tracking-wide flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform shadow-[0_8px_24px_-6px_hsl(var(--destructive)/0.55)] overflow-hidden group"
-        >
-          <span className="absolute inset-0 bg-foreground/10 opacity-0 group-active:opacity-100 transition" />
-          <Zap className="w-5 h-5 fill-white" />
-          {overnightOpen ? "Continuar o DEFCON de ontem" : hasSession ? "Continuar DEFCON 4" : "Iniciar DEFCON 4"}
-        </button>
-
-        {/* Virada de meia-noite: o DEFCON de ontem segue aberto até o vendedor encerrar. */}
-        {overnightOpen && (
-          <p className="mt-2 text-[11px] leading-relaxed text-center rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-300 px-3 py-2">
-            🕛 Seu DEFCON de <b>ontem</b> ainda está aberto — tudo que você vender continua contando pra ontem até você <b>encerrar</b>. Depois de encerrar, o de hoje começa do zero.
+        ) : estado === "encerrado" ? (
+          <>
+            <button onClick={() => navigate("/defcon")} data-tour="defcon-banner" className="orbis-cta w-full mt-4"><FileText className="w-4 h-4" strokeWidth={2.4} /> VER O RELATÓRIO DE HOJE</button>
+            <button onClick={handlePDF} disabled={exporting} className="w-full h-[50px] rounded-[16px] mt-2.5 text-[14px] font-bold inline-flex items-center justify-center gap-2" style={{ border: "1px solid rgba(245,184,0,.45)", color: "var(--orbis-gold)" }}>
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><FileDown className="w-4 h-4" /> Baixar PDF de hoje</>}
+            </button>
+          </>
+        ) : (
+          <button onClick={() => navigate("/defcon")} data-tour="defcon-banner" className="w-full h-[56px] rounded-[17px] mt-4 font-extrabold text-[16px] tracking-wide flex items-center justify-center gap-2 active:scale-[.98] transition" style={{ background: "linear-gradient(180deg,#F2465A,#E5354A)", color: "#FFF", boxShadow: "0 12px 28px -10px rgba(229,53,74,.9)" }}>
+            <Zap className="w-[18px] h-[18px]" fill="#fff" strokeWidth={0} /> {overnightOpen ? "CONTINUAR O DEFCON DE ONTEM" : "INICIAR DEFCON 4"}
+          </button>
+        )}
+        {overnightOpen && estado === "antes" && (
+          <p className="mt-2.5 text-[11.5px] leading-relaxed text-center rounded-[12px] px-3 py-2" style={{ border: "1px solid rgba(245,184,0,.35)", background: "rgba(245,184,0,.08)", color: "var(--orbis-fg-2)" }}>
+            Seu DEFCON de <b className="text-foreground">ontem</b> ainda está aberto — o que você vender continua contando pra ontem até você encerrar.
           </p>
         )}
 
-        {/* Fechar um dia que passou (ex.: virou a meia-noite antes de lançar) — SEM precisar
-            entrar no DEFCON. Fica logo abaixo do botão de iniciar. */}
-        <button
-          onClick={() => setAjustarDiaOpen(true)}
-          className="mt-2 w-full h-11 rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground font-semibold text-sm active:scale-[0.98] transition flex items-center justify-center gap-2"
-        >
-          <Calendar className="w-4 h-4" />
-          Ajustar dia anterior
-        </button>
-
-        {/* Extrato do dia (só pra quem está em competição/X1) — bem separado do botão. */}
-        <div className="mt-6">
-          <CompetitionStatementUpload userId={user.id} />
-        </div>
+        {estado === "rodando" ? (
+          <Trio itens={[["Vendas", contadores.vendas], ["Abord.", contadores.abord], ["Conv.", <span key="c" style={{ color: "var(--orbis-gold)" }}>{conv}%</span>]]} />
+        ) : estado === "encerrado" ? (
+          <Trio itens={[["Ranking", liga ? <span key="r" style={{ color: liga.color }}>#{rank.pos} · {ligaLabel}</span> : "—"], ["Semana", brl0(semana)], ["Amanhã", <span key="a" className="text-[14px]">{horaInicio != null ? `${String(horaInicio).padStart(2, "0")}h · ` : ""}{brl0(dailyGoal)}</span>]]} />
+        ) : (
+          <Trio itens={[["Ontem", ontem.vendido > 0 ? <>{brl0(ontem.vendido)} {pctOntem > 0 && <small className="text-[11px]" style={{ color: pctOntem >= 100 ? "var(--orbis-ok)" : "var(--orbis-fg-3)" }}>{pctOntem}%</small>}</> : "—"], ["Semana", semana > 0 ? brl0(semana) : "—"], ["Ranking", liga ? <span key="r" style={{ color: liga.color }}>#{rank.pos} · {ligaLabel}</span> : "—"]]} />
+        )}
       </div>
 
-      {/* DESAFIO DA SEMANA — ícone dourado que reabre o bilhete (semana toda) */}
-      <WeeklyChallengeIcon />
-
-      {/* LOADOUT */}
-      <DefconLoadoutManager userId={user.id} />
-
-      {/* DESLOCAMENTO (GPS) — km da semana, pace e velocidade real + total geral */}
-      {gps.kmTotal > 0 && (
-        <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-foreground">Deslocamento (GPS)</h3>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-xl font-black text-primary tabular-nums">
-                {gps.kmSemana < 1 ? `${Math.round(gps.kmSemana * 1000)} m` : `${gps.kmSemana.toFixed(1)} km`}
-              </p>
-              <p className="text-[11px] text-muted-foreground">na semana</p>
-            </div>
-            <div>
-              <p className="text-xl font-black text-foreground tabular-nums">{gpsPaceLabel ?? "—"}</p>
-              <p className="text-[11px] text-muted-foreground">pace /km</p>
-            </div>
-            <div>
-              <p className="text-xl font-black text-foreground tabular-nums">{gpsVelocidade.toFixed(1)}</p>
-              <p className="text-[11px] text-muted-foreground">km/h real</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-muted-foreground text-center">
-            Total geral: <b className="text-foreground">{gps.kmTotal.toFixed(1)} km</b>
-            {gps.diasSemana > 0 && <> · {gps.diasSemana} {gps.diasSemana === 1 ? "dia" : "dias"} com GPS na semana</>}
-          </p>
-        </div>
+      {/* ===== PONTE (dia encerrado): a linha do próximo passo ===== */}
+      {estado === "encerrado" && rank.pos && (
+        <button onClick={() => navigate("/ranking")} className="w-full mt-3.5 flex items-center gap-2.5 px-3.5 py-3 rounded-[14px] text-left text-[12.5px] leading-snug" style={{ border: "1px dashed rgba(245,184,0,.35)", color: "var(--orbis-fg-2)" }}>
+          <ArrowRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-gold)" }} strokeWidth={2.4} />
+          <span>Você está em <b style={{ color: "var(--orbis-gold)" }}>#{rank.pos}</b> este mês.{rank.acimaValor != null && rank.pos > 1 ? <> Faltam {brl0(rank.acimaValor)} pra passar o #{rank.pos - 1} — </> : " "}<b style={{ color: "var(--orbis-gold)" }}>ver o ranking</b></span>
+        </button>
       )}
 
-      {/* RESUMO POR PAGAMENTO — visual rico */}
-      {totalVendido > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-foreground">Como você recebeu</h3>
-              {!editingPay && (
-                <button
-                  onClick={openPayEditor}
-                  className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-primary/15 hover:bg-primary/25 border border-primary/40 text-primary text-xs font-semibold active:scale-95 transition"
-                  aria-label="Editar recebimentos"
-                >
-                  <Pencil className="w-3 h-3" /> Editar
-                </button>
-              )}
+      {/* ===== SUA MERCADORIA ===== */}
+      <div className="flex items-center justify-between mt-7 px-1">
+        <p className="orbis-mini">{estado === "encerrado" ? "Sua mercadoria" : "Sua mercadoria de hoje"}</p>
+        {estado === "antes" && carga.length > 0 && <button onClick={() => toggle("carga")} className="text-[11px] font-bold" style={{ color: "var(--orbis-gold)" }}>{aberto === "carga" ? "fechar" : "ajustar"}</button>}
+      </div>
+      <div className="rounded-[20px] border mt-3 px-4 py-3.5" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+        {carga.length === 0 ? (
+          <button onClick={() => navigate("/products")} className="w-full flex items-center gap-3 text-left">
+            <span className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)" }}><Package className="w-[18px] h-[18px]" strokeWidth={2} /></span>
+            <span className="flex-1 min-w-0"><b className="block text-[14px] font-bold">Quer que o Orbis controle seu estoque?</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>Cadastra o que você vende — desconta sozinho a cada venda.</small></span>
+            <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#5f5a50" }} />
+          </button>
+        ) : (
+          <>
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: "var(--orbis-fg-2)" }}><Package className="w-[18px] h-[18px]" strokeWidth={2} /></span>
+              <span className="flex-1 min-w-0">
+                {estado === "antes" ? (
+                  <><b className="block text-[14px] font-bold">{cargaTot} unidades na carga</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>{cargaEntra > 0 ? `Se vender tudo, entra ${brl0(cargaEntra)}` : "Preço por unidade ainda não cadastrado"}</small></>
+                ) : estado === "rodando" ? (
+                  <><b className="block text-[14px] font-bold">Saíram {cargaVend} de {cargaTot}</b><small className="block text-[12px] mt-0.5 truncate" style={{ color: "var(--orbis-fg-3)" }}>{carga.map((c) => `${c.nome} ${c.vendeu} de ${c.levou}`).join(" · ")}</small></>
+                ) : (
+                  <><b className="block text-[14px] font-bold">{sobras.some((c) => c.sobrou > 0) ? `Sobrou ${sobras.filter((c) => c.sobrou > 0).map((c) => `${c.sobrou} ${c.nome.toLowerCase()}`).join(" · ")}` : "Zerou tudo"}{acabou.length ? ` · ${acabou.map((c) => c.nome.toLowerCase()).join(", ")} acabou` : ""}</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>{acabou.length ? "Precisa comprar mercadoria pra amanhã." : `${cargaVend} unidades vendidas hoje.`}</small></>
+                )}
+              </span>
+              {estado === "antes" && cargaEntra - cargaCusto > 0 && <span className="text-right shrink-0"><b className="orbis-num block text-[15px] font-extrabold" style={{ color: "var(--orbis-ok)" }}>{brl0(cargaEntra - cargaCusto)}</b><small className="block text-[10.5px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>sobra pra você</small></span>}
+              {estado === "rodando" && <span className="text-right shrink-0"><b className="orbis-num block text-[15px] font-extrabold">{Math.max(0, cargaTot - cargaVend)}</b><small className="block text-[10.5px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>restam</small></span>}
             </div>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              Total <span className="text-primary font-bold">{formatCurrency(totalVendido)}</span>
-            </span>
-          </div>
-
-          {editingPay ? (
-            <div className="rounded-xl bg-card border border-primary/30 p-3 space-y-2.5">
-              <p className="text-xs text-muted-foreground">
-                Ajuste o que entrou em cada forma. O que faltar pro total vira <span className="text-destructive">não recebido</span>.
-              </p>
-              <PayEditRow icon={<Banknote className="w-4 h-4 text-success" />} label="Dinheiro" value={payCash} onChange={setPayCash} />
-              <PayEditRow icon={<CreditCard className="w-4 h-4" style={{ color: readThemeColor("--violet-soft") }} />} label="Cartão" value={payCard} onChange={setPayCard} />
-              <PayEditRow icon={<Smartphone className="w-4 h-4" style={{ color: BRAND_COLORS.PIX }} />} label="Pix" value={payPix} onChange={setPayPix} />
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-muted-foreground tabular-nums">
-                  Somado <span className="text-foreground font-semibold">{formatCurrency((parseFloat(payCash) || 0) + (parseFloat(payCard) || 0) + (parseFloat(payPix) || 0))}</span> / {formatCurrency(totalVendido)}
-                </span>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setEditingPay(false)}
-                    disabled={savingPay}
-                    className="h-9 px-3 rounded-lg bg-muted text-foreground text-xs font-semibold flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                  >
-                    <X className="w-3.5 h-3.5" /> Cancelar
-                  </button>
-                  <button
-                    onClick={savePayEdit}
-                    disabled={savingPay}
-                    className="h-9 px-3 rounded-lg bg-primary text-primary-foreground text-xs font-bold flex items-center gap-1 active:scale-95 disabled:opacity-50"
-                  >
-                    <Check className="w-3.5 h-3.5" /> {savingPay ? "Salvando..." : "Salvar"}
-                  </button>
-                </div>
+            {estado === "antes" && aberto !== "carga" && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {carga.map((c) => <span key={c.nome} className="rounded-full px-2.5 py-1.5 text-[12px] font-bold" style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(0,0,0,.35)" }}>{c.nome} <b style={{ color: "var(--orbis-gold)" }}>{c.levou}</b></span>)}
+                <button onClick={() => navigate("/products")} className="rounded-full px-2.5 py-1.5 text-[12px] font-bold" style={{ border: "1px dashed rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}>+ produto</button>
               </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 gap-2">
-              <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color={readThemeColor("--success")} />
-              <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color={readThemeColor("--violet-soft")} />
-              <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color={BRAND_COLORS.PIX} />
-            </div>
-          )}
+            )}
+            {estado === "rodando" && cargaTot > 0 && (
+              <div className="h-1.5 rounded-full mt-3 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}><div className="h-full rounded-full" style={{ width: `${Math.min(100, (cargaVend / cargaTot) * 100)}%`, background: "linear-gradient(90deg,#F5B800,#FFC63A)" }} /></div>
+            )}
+            {estado === "antes" && aberto === "carga" && <div className="mt-3"><DefconLoadoutManager userId={user.id} /></div>}
+          </>
+        )}
+      </div>
 
-          {/* Gorjeta — destaque dourado quando > 0 */}
-          {totals.tips > 0 && (
-            <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/15 via-primary/8 to-transparent border border-primary/30 px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
-                <Coins className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="text-xs uppercase tracking-wider text-primary font-semibold">Gorjetas</p>
-                  <Sparkles className="w-3 h-3 text-primary" />
-                </div>
-                <p className="text-xs text-muted-foreground">Já incluso no dinheiro recebido</p>
-              </div>
-              <p className="text-lg font-bold text-primary tabular-nums">+{formatCurrency(totals.tips)}</p>
-            </div>
-          )}
+      {/* DESAFIO DA SEMANA — bilhete dourado (só quando há desafio ativo) */}
+      <div className="mt-3"><WeeklyChallengeIcon /></div>
 
-          <div className={`grid gap-2 ${(totals.debt > 0 || (totals.cost + totals.transport + totals.food) > 0) ? "grid-cols-2" : "grid-cols-1"}`}>
-            <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
-            {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
-            {(totals.cost + totals.transport + totals.food) > 0 && <MiniStat label="Custos" value={formatCurrency(totals.cost + totals.transport + totals.food)} />}
-          </div>
-        </div>
-      )}
-
-
-      {/* COMPRA DE MERCADORIA — estoque + custo por produto automáticos */}
-      <DefconCompraMercadoria userId={user.id} onChanged={loadAll} />
-
-      {/* CUSTO RÁPIDO — responsivo */}
-      <div className="rounded-2xl bg-card border border-border p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <TrendingDown className="w-4 h-4 text-destructive" />
-          <h3 className="text-sm font-semibold text-foreground">Custo rápido</h3>
-        </div>
-        <p className="text-xs text-muted-foreground -mt-1">
-          Escolha o tipo, digite o valor. Entra no relatório e abate do líquido.
-        </p>
-        <div className="space-y-2">
+      {/* ===== MAIS — o que antes era uma pilha de cards ===== */}
+      <p className="orbis-mini mt-7 px-1">Mais</p>
+      <div className="rounded-[20px] border mt-3 px-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+        <Linha aberto={aberto} onToggle={toggle} k="custo" icone={<Plus className="w-4 h-4" strokeWidth={2.4} />} titulo="Custo rápido" sub={estado === "encerrado" ? "esqueceu algum custo de hoje?" : "mercadoria, transporte, almoço"}>
           <div className="grid grid-cols-3 gap-2">
-            {([
-              { id: "mercadoria", label: "Mercadoria", emoji: "📦" },
-              { id: "transporte", label: "Transporte", emoji: "🚌" },
-              { id: "alimentacao", label: "Almoço", emoji: "🍽️" },
-            ] as const).map((c) => {
-              const active = quickCostCat === c.id;
+            {([["mercadoria", "Mercadoria", <Package key="m" className="w-4 h-4" />], ["transporte", "Transporte", <Bus key="t" className="w-4 h-4" />], ["alimentacao", "Almoço", <Utensils key="a" className="w-4 h-4" />]] as const).map(([id, label, ico]) => {
+              const active = quickCostCat === id;
               return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setQuickCostCat(c.id)}
-                  className={`flex flex-col items-center justify-center gap-0.5 h-14 rounded-xl border text-xs font-medium transition active:scale-95 ${
-                    active
-                      ? "border-primary bg-primary/10 text-foreground"
-                      : "border-border/60 bg-background text-muted-foreground hover:bg-muted/40"
-                  }`}
-                >
-                  <span className="text-base leading-none">{c.emoji}</span>
-                  <span>{c.label}</span>
+                <button key={id} type="button" onClick={() => setQuickCostCat(id)} className="flex flex-col items-center justify-center gap-1 h-14 rounded-[12px] border text-[12px] font-semibold active:scale-95"
+                  style={active ? { borderColor: "rgba(245,184,0,.5)", background: "rgba(245,184,0,.08)", color: "var(--orbis-fg)" } : { borderColor: "rgba(255,255,255,.10)", color: "var(--orbis-fg-3)" }}>
+                  {ico}<span>{label}</span>
                 </button>
               );
             })}
           </div>
+          <div className="flex gap-2 mt-2">
+            <MoneyInput value={parseFloat(quickCost) || 0} onChange={(n) => setQuickCost(n ? String(n) : "")} placeholder="R$ 0,00"
+              className="flex-1 min-w-0 h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground" />
+            <button onClick={handleAddCost} disabled={!quickCost || parseFloat(quickCost) <= 0} className="shrink-0 h-11 px-4 rounded-xl font-extrabold text-[13px] flex items-center gap-1.5 disabled:opacity-40 active:scale-95" style={{ background: "var(--orbis-gold)", color: "#1A1200" }}><Plus className="w-4 h-4" /> Adicionar</button>
+          </div>
+          <div className="mt-3"><CustoRapidoHistory onChanged={loadAll} /></div>
+        </Linha>
+
+        {totalVendido > 0 && (
+          <Linha aberto={aberto} onToggle={toggle} k="recebeu" icone={<Banknote className="w-4 h-4" strokeWidth={2.2} />} titulo="Como você recebeu" sub={`${brl0(totals.cash)} dinheiro · ${brl0(totals.card)} cartão · ${brl0(totals.pix)} pix`}>
+            {editingPay ? (
+              <div className="rounded-xl border p-3 space-y-2.5" style={{ borderColor: "rgba(245,184,0,.3)" }}>
+                <p className="text-xs" style={{ color: "var(--orbis-fg-3)" }}>Ajuste o que entrou em cada forma. O que faltar pro total vira <span style={{ color: "var(--orbis-custo)" }}>não recebido</span>.</p>
+                <PayEditRow icon={<Banknote className="w-4 h-4 text-success" />} label="Dinheiro" value={payCash} onChange={setPayCash} />
+                <PayEditRow icon={<CreditCard className="w-4 h-4" style={{ color: readThemeColor("--violet-soft") }} />} label="Cartão" value={payCard} onChange={setPayCard} />
+                <PayEditRow icon={<Smartphone className="w-4 h-4" style={{ color: BRAND_COLORS.PIX }} />} label="Pix" value={payPix} onChange={setPayPix} />
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs tabular-nums" style={{ color: "var(--orbis-fg-3)" }}>Somado <span className="text-foreground font-semibold">{formatCurrency((parseFloat(payCash) || 0) + (parseFloat(payCard) || 0) + (parseFloat(payPix) || 0))}</span> / {formatCurrency(totalVendido)}</span>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditingPay(false)} disabled={savingPay} className="h-9 px-3 rounded-lg bg-muted text-foreground text-xs font-semibold flex items-center gap-1 active:scale-95 disabled:opacity-50"><X className="w-3.5 h-3.5" /> Cancelar</button>
+                    <button onClick={savePayEdit} disabled={savingPay} className="h-9 px-3 rounded-lg text-xs font-bold flex items-center gap-1 active:scale-95 disabled:opacity-50" style={{ background: "var(--orbis-gold)", color: "#1A1200" }}><Check className="w-3.5 h-3.5" /> {savingPay ? "Salvando..." : "Salvar"}</button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2">
+                  <PayCard icon={<Banknote className="w-4 h-4" />} label="Dinheiro" value={totals.cash} total={totalVendido} color={readThemeColor("--success")} />
+                  <PayCard icon={<CreditCard className="w-4 h-4" />} label="Cartão" value={totals.card} total={totalVendido} color={readThemeColor("--violet-soft")} />
+                  <PayCard icon={<Smartphone className="w-4 h-4" />} label="Pix" value={totals.pix} total={totalVendido} color={BRAND_COLORS.PIX} />
+                </div>
+                {totals.tips > 0 && (
+                  <div className="mt-2 rounded-xl px-4 py-3 flex items-center gap-3" style={{ border: "1px solid rgba(245,184,0,.3)", background: "rgba(245,184,0,.06)" }}>
+                    <Coins className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-gold)" }} />
+                    <span className="flex-1 text-[12px]" style={{ color: "var(--orbis-fg-2)" }}>Gorjetas · já inclusas no dinheiro</span>
+                    <span className="orbis-num text-[15px] font-bold" style={{ color: "var(--orbis-gold)" }}>+{formatCurrency(totals.tips)}</span>
+                  </div>
+                )}
+                <div className={`grid gap-2 mt-2 ${(totals.debt > 0 || (totals.cost + totals.transport + totals.food) > 0) ? "grid-cols-2" : "grid-cols-1"}`}>
+                  <MiniStat label="Lucro" value={formatCurrency(totals.profit)} highlight />
+                  {totals.debt > 0 && <MiniStat label="Calotes" value={formatCurrency(totals.debt)} danger />}
+                  {(totals.cost + totals.transport + totals.food) > 0 && <MiniStat label="Custos" value={formatCurrency(totals.cost + totals.transport + totals.food)} />}
+                </div>
+                <button onClick={openPayEditor} className="mt-2 inline-flex items-center gap-1 h-8 px-3 rounded-full text-[12px] font-bold" style={{ border: "1px solid rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}><Pencil className="w-3 h-3" /> Corrigir valores</button>
+              </>
+            )}
+          </Linha>
+        )}
+
+        <Linha aberto={aberto} onToggle={toggle} k="compra" icone={<ShoppingCart className="w-4 h-4" strokeWidth={2.2} />} titulo="Compra de mercadoria" sub="entra no estoque e no custo">
+          <DefconCompraMercadoria userId={user.id} onChanged={loadAll} />
+        </Linha>
+
+        <Linha aberto={aberto} onToggle={toggle} k="pixdepois" icone={<Clock className="w-4 h-4" strokeWidth={2.2} />} titulo="Pix que caiu depois" sub="lançar num dia anterior">
+          <LatePixSection />
+        </Linha>
+
+        <Linha aberto={aberto} onToggle={toggle} k="ajustar" icone={<Calendar className="w-4 h-4" strokeWidth={2.2} />} titulo="Ajustar dia anterior" sub="fechou depois da meia-noite?" onClick={() => setAjustarDiaOpen(true)} />
+
+        {gps.kmTotal > 0 && (
+          <Linha aberto={aberto} onToggle={toggle} k="gps" icone={<MapPin className="w-4 h-4" strokeWidth={2.2} />} titulo="Deslocamento" sub={`${gps.kmSemana < 1 ? `${Math.round(gps.kmSemana * 1000)} m` : `${gps.kmSemana.toFixed(1)} km`} na semana${gpsVelocidade > 0 ? ` · ${gpsVelocidade.toFixed(1)} km/h` : ""}`}>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div><p className="orbis-num text-xl font-black" style={{ color: "var(--orbis-gold)" }}>{gps.kmSemana < 1 ? `${Math.round(gps.kmSemana * 1000)} m` : `${gps.kmSemana.toFixed(1)} km`}</p><p className="text-[11px]" style={{ color: "var(--orbis-fg-3)" }}>na semana</p></div>
+              <div><p className="orbis-num text-xl font-black">{gpsPaceLabel ?? "—"}</p><p className="text-[11px]" style={{ color: "var(--orbis-fg-3)" }}>pace /km</p></div>
+              <div><p className="orbis-num text-xl font-black">{gpsVelocidade.toFixed(1)}</p><p className="text-[11px]" style={{ color: "var(--orbis-fg-3)" }}>km/h real</p></div>
+            </div>
+            <p className="text-[11px] text-center mt-2" style={{ color: "var(--orbis-fg-3)" }}>Total geral: <b className="text-foreground">{gps.kmTotal.toFixed(1)} km</b>{gps.diasSemana > 0 && <> · {gps.diasSemana} {gps.diasSemana === 1 ? "dia" : "dias"} com GPS na semana</>}</p>
+          </Linha>
+        )}
+
+        <Linha aberto={aberto} onToggle={toggle} k="extrato" icone={<FileText className="w-4 h-4" strokeWidth={2.2} />} titulo="Extrato da competição" sub="pra quem está em X1 ou competição">
+          <CompetitionStatementUpload userId={user.id} />
+        </Linha>
+
+        <Linha aberto={aberto} onToggle={toggle} k="pdf" icone={<FileDown className="w-4 h-4" strokeWidth={2.2} />} titulo="Baixar relatório em PDF" sub="de hoje ou de qualquer dia">
           <div className="flex gap-2">
-            <MoneyInput
-              value={parseFloat(quickCost) || 0}
-              onChange={(n) => setQuickCost(n ? String(n) : "")}
-              placeholder="R$ 0,00"
-              className="flex-1 min-w-0 h-11 bg-background border border-border rounded-xl px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary placeholder:text-muted-foreground"
-            />
-            <button
-              onClick={handleAddCost}
-              disabled={!quickCost || parseFloat(quickCost) <= 0}
-              className="shrink-0 h-11 px-4 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center gap-1.5 disabled:opacity-40 active:scale-95"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar
+            <input type="date" value={pdfDate} max={getBrazilDate()} onChange={(e) => setPdfDate(e.target.value)} className="h-11 w-36 shrink-0 bg-background border border-border rounded-xl px-3 text-sm text-foreground" />
+            <button onClick={handlePDF} disabled={exporting} className="flex-1 h-11 rounded-xl text-[13px] font-bold flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-50" style={{ border: "1px solid rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}>
+              <FileDown className="w-4 h-4" /> {exporting ? "Gerando..." : pdfDate === getBrazilDate() ? "Baixar PDF do dia" : "Baixar PDF do dia escolhido"}
             </button>
           </div>
-        </div>
-        <CustoRapidoHistory onChanged={loadAll} />
+        </Linha>
       </div>
 
-      {/* Pix que caiu depois — lançar num dia anterior */}
-      <LatePixSection />
-
-      {/* PDF do dia — escolha qual dia baixar */}
-      <div className="flex gap-2">
-        <input
-          type="date"
-          value={pdfDate}
-          max={getBrazilDate()}
-          onChange={(e) => setPdfDate(e.target.value)}
-          className="h-12 w-36 shrink-0 bg-card border border-border rounded-xl px-3 text-sm text-foreground"
-        />
-        <button
-          onClick={handlePDF}
-          disabled={exporting}
-          className="flex-1 h-12 rounded-xl bg-card border border-primary/30 hover:border-primary/60 text-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-50"
-        >
-          <FileDown className="w-4 h-4" />
-          {exporting ? "Gerando..." : pdfDate === getBrazilDate() ? "Baixar PDF do dia" : "Baixar PDF do dia escolhido"}
-        </button>
-      </div>
-
-      <p className="text-center text-xs text-muted-foreground">
-        Os relatórios completos e filtros do DEFCON 4 estão na aba <span className="text-primary">Relatório</span>.
-      </p>
+      <p className="text-center text-[11.5px] mt-4" style={{ color: "var(--orbis-fg-3)" }}>Relatórios completos e filtros ficam na aba <span style={{ color: "var(--orbis-gold)" }}>Relatório</span>.</p>
 
       {user && (
-        <EditPlanningModal
-          userId={user.id}
-          isOpen={showEdit}
-          onClose={() => { setShowEdit(false); loadAll(); }}
-        />
+        <EditPlanningModal userId={user.id} isOpen={showEdit} onClose={() => { setShowEdit(false); loadAll(); }} />
       )}
       {user && (
-        <DefconAjustarDiaModal
-          open={ajustarDiaOpen}
-          onOpenChange={setAjustarDiaOpen}
-          userId={user.id}
-          onSaved={loadAll}
-        />
+        <DefconAjustarDiaModal open={ajustarDiaOpen} onOpenChange={setAjustarDiaOpen} userId={user.id} onSaved={loadAll} />
       )}
     </div>
   );
