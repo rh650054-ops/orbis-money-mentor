@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
-import { avatarThumb } from "@/shared/lib/avatar";
+import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, ChevronUp, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -20,9 +20,18 @@ function RowAvatar({ url, name, color, icon, pres }: {
   url: string | null; name: string | null; color: string; icon: string;
   pres: { online: boolean };
 }) {
-  const inner = url
-    ? <img src={avatarThumb(url, 72)} alt={name || ""} loading="lazy" className="w-9 h-9 rounded-full object-cover border-2" style={{ borderColor: color }} />
-    : <img src={icon} alt={name || ""} className="w-9 h-9 object-contain" style={{ filter: `drop-shadow(0 0 5px ${color}99)` }} />;
+  const inner = (
+    <AvatarRanking
+      url={url}
+      name={name}
+      lazy
+      imgClassName="w-9 h-9 rounded-full object-cover border-2"
+      imgStyle={{ borderColor: color }}
+      icon={icon}
+      iconClassName="w-9 h-9 object-contain"
+      iconStyle={{ filter: `drop-shadow(0 0 5px ${color}99)` }}
+    />
+  );
   return (
     <div className="relative shrink-0">
       {inner}
@@ -64,6 +73,7 @@ function Row({ entry, position, isMe, subtitle, suspect, formatCurrency, onOpenP
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white truncate">
             {entry.nome_usuario || "Vendedor"}
+            {entry.verificado && <SeloVerificado className="ml-1" />}
             {pres.online && <span className="ml-1.5 align-middle text-[9px] font-black text-green-400">no DEFCON</span>}
             {isMe && <span className="ml-1.5 align-middle text-[9px] font-black px-1.5 py-0.5 rounded" style={{ background: tier.color, color: "#1a1305" }}>VOCÊ</span>}
           </p>

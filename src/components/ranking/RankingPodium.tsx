@@ -1,7 +1,7 @@
 import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
-import { avatarThumb } from "@/shared/lib/avatar";
+import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
 import { Crown, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -26,20 +26,16 @@ const EMERALD_GLOW = "rgba(52,211,153,0.55)";
 function PodAvatar({ url, name, size, color, glow, icon, online }: { url: string | null; name: string | null; size: number; color: string; glow: string; icon: string; online: boolean }) {
   const dot = Math.max(12, Math.round(size * 0.22));
   const inset = Math.round(size * 0.06);
-  const img = url ? (
-    <img
-      src={avatarThumb(url, 192)}
-      alt={name || ""}
-      className="rounded-full object-cover border-[3px] block"
-      style={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` }}
-    />
-  ) : (
-    // Sem foto -> escudo da liga
-    <img
-      src={icon}
-      alt={name || ""}
-      className="object-contain block"
-      style={{ width: size * 1.12, height: size * 1.12, filter: `drop-shadow(0 0 ${Math.round(size * 0.3)}px ${glow})` }}
+  // Sem foto (ou foto que falhou) -> escudo da liga
+  const img = (
+    <AvatarRanking
+      url={url}
+      name={name}
+      imgClassName="rounded-full object-cover border-[3px] block"
+      imgStyle={{ width: size, height: size, borderColor: color, boxShadow: `0 0 ${Math.round(size * 0.5)}px ${glow}` }}
+      icon={icon}
+      iconClassName="object-contain block"
+      iconStyle={{ width: size * 1.12, height: size * 1.12, filter: `drop-shadow(0 0 ${Math.round(size * 0.3)}px ${glow})` }}
     />
   );
   return (
@@ -82,7 +78,10 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
         <div className="flex items-center justify-center" style={{ height: avatarSize * 1.12 }}>
           <PodAvatar url={entry.avatar_url} name={entry.nome_usuario} size={avatarSize} color={avatarColor} glow={avatarGlow} icon={tier.icon} online={online} />
         </div>
-        <p className="text-[13px] font-black mt-2 truncate px-0.5" style={{ color: avatarColor }}>{entry.nome_usuario || "Vendedor"}</p>
+        <p className="text-[13px] font-black mt-2 truncate px-0.5" style={{ color: avatarColor }}>
+          {entry.nome_usuario || "Vendedor"}
+          {entry.verificado && <SeloVerificado className="ml-1" size={13} />}
+        </p>
         <p className="text-white text-[14px] font-black">{formatCurrency(entry.faturamento_total_mes || 0)}</p>
         <p className="text-[10px] font-black tracking-wider" style={{ color: avatarColor }}>{tier.label}</p>
       </button>

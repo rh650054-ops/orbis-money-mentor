@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Instagram, MessageCircle, MapPin, Package, Store, Loader2, Trophy, Flame, X, Swords, Medal, ShieldAlert, Phone, Mail, CalendarDays, CreditCard, Ban } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
+import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 
 const EXCLUSIVE_EMOJIS = ["🦁", "🐺", "🦅", "🔥", "⚡", "💎", "🚀", "👑", "🎯", "💪", "🏆", "⭐", "🐉", "🦈", "🐯", "🦊"];
 const isEmojiAvatar = (a: string | null) => !!a && EXCLUSIVE_EMOJIS.includes(a);
@@ -24,6 +25,7 @@ interface PublicProfile {
   state: string | null;
   instagram: string | null;
   whatsapp_public: string | null;
+  verificado?: boolean | null;
 }
 
 interface Stats {
@@ -241,6 +243,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                 </div>
                 <h2 className="text-xl font-black text-foreground tracking-tight">
                   {profile.nickname || "Usuário Orbis"}
+                  {profile.verificado && <SeloVerificado className="ml-1.5" size={18} />}
                 </h2>
                 {pres.label && (
                   <div className="flex items-center justify-center gap-1.5 mt-1.5 text-xs font-semibold" style={{ color: pres.online ? "#22c55e" : "#9ca3af" }}>

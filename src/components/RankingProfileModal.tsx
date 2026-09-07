@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { comprimirImagem } from "@/shared/lib/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -113,10 +114,12 @@ export function RankingProfileModal({
       setPhotoPreview(objectUrl); setSelectedEmoji("");
       setIsUploading(true);
       try {
-        const fileExt = file.name.split('.').pop() || 'jpg';
+        // Comprime no aparelho (512px JPEG): a foto original de 4 MB vira ~60 KB.
+        const blob = await comprimirImagem(file, 512);
+        const fileExt = blob === file ? (file.name.split('.').pop() || 'jpg') : 'jpg';
         const filePath = `${userId}/avatar.${fileExt}`;
         await supabase.storage.from('avatars').remove([filePath]);
-        const { error } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true, contentType: file.type });
+        const { error } = await supabase.storage.from('avatars').upload(filePath, blob, { upsert: true, contentType: blob === file ? file.type : 'image/jpeg' });
         if (error) throw error;
         const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
         setPhotoUrl(`${urlData.publicUrl}?t=${Date.now()}`);

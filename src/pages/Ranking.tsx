@@ -24,6 +24,8 @@ import { toast } from "@/shared/hooks/use-toast";
 import { RANKING_FIRE_GRADIENT, RANKING_TIER_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
+import { comprimirImagem, fotoValida } from "@/shared/lib/avatar";
+import { ConviteRanking } from "@/components/ranking/ConviteRanking";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -102,19 +104,25 @@ export default function Ranking() {
   const prevFaturamentoPosition = useRef<number | null>(null);
   const prevConstanciaPosition = useRef<number | null>(null);
 
-  const [userProfile, setUserProfile] = useState({ nickname: '', avatar: '' });
+  const [userProfile, setUserProfile] = useState({ nickname: '', avatar: '', instagram: '' });
+  const [perfilCarregado, setPerfilCarregado] = useState(false);
 
   const loadUserProfile = async () => {
     if (!user?.id) return;
     const { data } = await supabase
       .from("profiles")
-      .select("nickname, avatar_url, phone, whatsapp_public")
+      .select("nickname, avatar_url, phone, whatsapp_public, instagram, show_instagram")
       .eq("user_id", user.id)
       .maybeSingle();
     if (data) {
-      setUserProfile({ nickname: data.nickname || '', avatar: data.avatar_url || '' });
+      setUserProfile({
+        nickname: data.nickname || '',
+        avatar: data.avatar_url || '',
+        instagram: data.show_instagram === false ? '' : (data.instagram || ''),
+      });
       setUserPhone(data.phone || data.whatsapp_public || '');
     }
+    setPerfilCarregado(true);
   };
 
   useEffect(() => {
@@ -177,10 +185,12 @@ export default function Ranking() {
     }
     setQuickUploading(true);
     try {
-      const ext = file.name.split(".").pop() || "jpg";
+      // Comprime no aparelho (512px JPEG) — o ranking carrega rapido pra todo mundo.
+      const blob = await comprimirImagem(file, 512);
+      const ext = blob === file ? (file.name.split(".").pop() || "jpg") : "jpg";
       const filePath = `${user.id}/avatar.${ext}`;
       await supabase.storage.from("avatars").remove([filePath]);
-      const { error } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true, contentType: file.type });
+      const { error } = await supabase.storage.from("avatars").upload(filePath, blob, { upsert: true, contentType: blob === file ? file.type : "image/jpeg" });
       if (error) throw error;
       const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filePath);
       const url = `${urlData.publicUrl}?t=${Date.now()}`;
@@ -323,6 +333,18 @@ export default function Ranking() {
       <p className="text-center text-xs text-muted-foreground">
         Maiores vendedores do mês · ofensiva 🔥 incluída
       </p>
+
+      {/* Primeira visita: convida a colocar foto + Instagram (os concorrentes te veem) */}
+      {user && perfilCarregado && (
+        <ConviteRanking
+          userId={user.id}
+          temFoto={!!fotoValida(userProfile.avatar)}
+          instagram={userProfile.instagram}
+          onFoto={() => quickPhotoRef.current?.click()}
+          enviandoFoto={quickUploading}
+          onSalvou={loadUserProfile}
+        />
+      )}
 
       {isMensal ? (
         <>

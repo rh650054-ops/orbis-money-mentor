@@ -4,6 +4,7 @@ import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
 import { useNavigate } from "react-router-dom";
 import { Zap, Crown, Swords, TrendingUp, Clock, Target } from "lucide-react";
+import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
 
 interface Props {
   ranking: LeaderboardEntry[];
@@ -12,22 +13,15 @@ interface Props {
 }
 
 function DuelAvatar({ url, name, color, glow, icon }: { url: string | null; name: string | null; color: string; glow: string; icon: string }) {
-  if (url) {
-    return (
-      <img
-        src={url}
-        alt={name || ""}
-        className="w-[78px] h-[78px] rounded-full object-cover border-[3px] mx-auto block"
-        style={{ borderColor: color, boxShadow: `0 0 30px ${glow}` }}
-      />
-    );
-  }
   return (
-    <img
-      src={icon}
-      alt={name || ""}
-      className="w-[88px] h-[88px] object-contain mx-auto block"
-      style={{ filter: `drop-shadow(0 0 16px ${glow})` }}
+    <AvatarRanking
+      url={url}
+      name={name}
+      imgClassName="w-[78px] h-[78px] rounded-full object-cover border-[3px] mx-auto block"
+      imgStyle={{ borderColor: color, boxShadow: `0 0 30px ${glow}` }}
+      icon={icon}
+      iconClassName="w-[88px] h-[88px] object-contain mx-auto block"
+      iconStyle={{ filter: `drop-shadow(0 0 16px ${glow})` }}
     />
   );
 }
@@ -64,6 +58,7 @@ function DuelSide({
       </div>
       <p className="text-[14px] font-black mt-2 truncate px-1" style={{ color: tier.color }}>
         {entry.nome_usuario || "Vendedor"}
+        {entry.verificado && <SeloVerificado className="ml-1" />}
       </p>
       <p className="text-[11px] text-muted-foreground">
         #{position} · <span className="font-black tracking-wider" style={{ color: tier.color }}>{tier.label}</span>

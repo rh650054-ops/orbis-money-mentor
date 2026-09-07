@@ -16,6 +16,7 @@ export interface LeaderboardEntry {
   posicao_faturamento: number | null;
   posicao_constancia: number | null;
   last_active_at?: string | null;
+  verificado?: boolean;
 }
 
 export function useLeaderboard(userId: string | undefined) {
@@ -127,7 +128,7 @@ export function useLeaderboard(userId: string | undefined) {
       if (ids.length > 0) {
         // Em paralelo: foto/nome mais recentes + presença online (última atividade no DEFCON).
         const [profsRes, presenceRes] = await Promise.all([
-          supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", ids),
+          supabase.from("public_profiles").select("user_id, nickname, avatar_url, verificado").in("user_id", ids),
           supabase.from("user_presence").select("user_id, last_active_at").in("user_id", ids),
         ]);
         let changed = false;
@@ -139,6 +140,7 @@ export function useLeaderboard(userId: string | undefined) {
             if (p) {
               if (p.avatar_url) e.avatar_url = p.avatar_url;
               if (p.nickname) e.nome_usuario = p.nickname;
+              e.verificado = !!p.verificado;
             }
           });
           changed = true;
