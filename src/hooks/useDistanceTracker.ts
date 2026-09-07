@@ -1,3 +1,4 @@
+import { setUltimaPosicao } from "@/shared/lib/gps-last";
 import { useEffect, useRef, useState } from "react";
 import { gpsTrackingEnabled } from "@/shared/hooks/use-gps-tracking";
 
@@ -61,6 +62,7 @@ export function useDistanceTracker(active: boolean) {
           }
         }
         lastRef.current = { lat: latitude, lon: longitude, ts: now };
+        setUltimaPosicao(latitude, longitude);
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) setPermission("denied");

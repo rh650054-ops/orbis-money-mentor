@@ -19,6 +19,7 @@ import { DefconCargaDoDia } from "@/components/defcon/DefconCargaDoDia";
 import ExtratoDailyModal from "@/components/competitions/ExtratoDailyModal";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
+import { DefconSinalSheet } from "@/components/defcon/DefconSinalSheet";
 
 export default function DefconChallenge() {
   const navigate = useNavigate();
@@ -304,6 +305,10 @@ export default function DefconChallenge() {
           />
           {/* Popup do extrato do dia — ao terminar OU sair do DEFCON (não no treino). */}
           {["finished", "abandoned"].includes(defcon.phase) && !treino && <ExtratoDailyModal userId={user.id} />}
+          {/* Caça-Sinal: "seu ponto de hoje" — 1 toque, liga o DEFCON a um semáforo */}
+          {["finished", "abandoned"].includes(defcon.phase) && !treino && defcon.sessionId && (
+            <DefconSinalSheet sessionId={String(defcon.sessionId)} userId={user.id} totalSold={Number(defcon.totalSold) || 0} />
+          )}
         </>
       );
 
