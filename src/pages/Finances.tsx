@@ -9,11 +9,9 @@ import { MoneyInput } from "@/shared/ui/money-input";
 import { Textarea } from "@/shared/ui/textarea";
 import { Label } from "@/shared/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/shared/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 import { useToast } from "@/shared/hooks/use-toast";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { Progress } from "@/shared/ui/progress";
-import AutoDistribution from "@/components/AutoDistribution";
 import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import ImportPdfDialog from "@/components/ImportPdfDialog";
 import {
@@ -38,7 +36,10 @@ import {
   Loader2,
   CreditCard,
   ChevronDown,
-  Upload
+  Upload,
+  Lightbulb,
+  TrendingUp,
+  ChevronRight
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -164,7 +165,7 @@ export default function Finances() {
   const [contaAberta, setContaAberta] = useState<string | null>(null);
   // Editar meta (sem apagar/recriar).
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
-  const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "" });
+  const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "", percentual: "" });
   const [savingEditGoal, setSavingEditGoal] = useState(false);
 
   // Reusable "guardar" deposit dialog — shared por Contas a pagar (Guardei) e Metas (Guardar hoje)
@@ -966,6 +967,7 @@ export default function Finances() {
       target_amount: String(goal.target_amount),
       prazo: (goal.prazo as "curto" | "medio" | "longo") || "medio",
       deadline: goal.deadline ? goal.deadline.slice(0, 10) : "",
+      percentual: goal.percentual_distribuicao ? String(goal.percentual_distribuicao) : "",
     });
   };
 
@@ -985,6 +987,7 @@ export default function Finances() {
           target_amount: alvo,
           prazo: editGoalForm.prazo,
           deadline: editGoalForm.deadline || null,
+          percentual_distribuicao: Math.max(0, Math.min(100, parseFloat(editGoalForm.percentual.replace(",", ".")) || 0)),
         } as any)
         .eq("id", editGoal.id);
       if (error) throw error;
@@ -1257,7 +1260,16 @@ export default function Finances() {
   //  - modo "sobra" (padrão): R$0 aqui. O "a guardar hoje" é só das CONTAS (a obrigação).
   //    As metas ficam com o que SOBRAR do líquido do dia — mostrado na aba Metas.
   //  - modo "junto": cada meta pede falta ÷ dias úteis restantes do prazo, somado às contas.
-  const goalShareToday = metasModo === "junto" ? metasRitmoTotal : 0;
+  // CAIXINHAS COM % DO LUCRO: cada meta pode ter um % do líquido do dia (a antiga
+  // "distribuição automática", agora dentro da própria caixinha). Essas entram no
+  // "a guardar hoje" pelo %; as sem % seguem o modo escolhido (sobra × junto).
+  const lucroBase = Math.max(0, summary.netToday);
+  const pctDe = (g: Goal) => Math.max(0, Math.min(100, Number(g.percentual_distribuicao) || 0));
+  const caixinhaShareHoje = (g: Goal) => Math.min((lucroBase * pctDe(g)) / 100, faltaMeta(g));
+  const metasComPct = metasAtivasFila.filter((g) => pctDe(g) > 0);
+  const metasSemPct = metasAtivasFila.filter((g) => pctDe(g) <= 0);
+  const caixinhasShareToday = metasComPct.reduce((s, g) => s + caixinhaShareHoje(g), 0);
+  const goalShareToday = caixinhasShareToday + (metasModo === "junto" ? metasSemPct.reduce((s, g) => s + metaRitmoDia(g), 0) : 0);
   // Soma o "por dia" só das contas NÃO pagas e NÃO vencidas (recorrentes entram, pois rolam).
   // Vencida tem perDay = 0, mas filtramos explicitamente pra deixar claro.
   const billsShareToday = todayIsWorkDay
@@ -1589,10 +1601,12 @@ export default function Finances() {
       // do dia (falta ÷ dias úteis restantes do prazo), sem passar do que falta.
       // No modo "sobra" as metas NÃO entram aqui: elas ficam com o que sobrar do dia,
       // guardado pelo botão da aba Metas (contas primeiro).
-      if (metasModo === "junto") {
+      {
         const goalWrites: PromiseLike<unknown>[] = [];
         for (const goal of metasAtivasFila) {
-          const share = Math.min(metaRitmoDia(goal), faltaMeta(goal));
+          const temPct = pctDe(goal) > 0;
+          if (!temPct && metasModo !== "junto") continue;
+          const share = temPct ? caixinhaShareHoje(goal) : Math.min(metaRitmoDia(goal), faltaMeta(goal));
           if (share > 0.005) {
             const newAmount = Number(goal.current_amount) + share;
             goalWrites.push(
@@ -1844,219 +1858,161 @@ export default function Finances() {
   return (
     <div className="space-y-4 md:space-y-6 pb-4 md:pb-8">
       <FirstTimeCard tela="financas" userId={user?.id} />
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-          <Wallet className="w-5 h-5 text-primary" />
+
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "#1a1305", border: "1px solid #3a2f0c" }}>
+            <Wallet className="w-5 h-5" style={{ color: "#F5B800" }} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-black text-foreground tracking-tight leading-none">Finanças</h1>
+            <p className="text-xs text-muted-foreground mt-1 capitalize truncate">
+              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}
+            </p>
+          </div>
         </div>
-        <h1 className="text-3xl font-bold text-foreground tracking-tight">Minhas Finanças</h1>
+        {!isLoadingData && trabalhouHoje && (
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap" style={{ border: "1px solid rgba(61,214,140,.3)", color: "#3DD68C", background: "#0e0e10" }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3DD68C" }} />
+            vendeu hoje
+          </span>
+        )}
       </div>
 
-      {/* HERO: Hoje — lucro líquido do dia em destaque, vendido/custos demovidos */}
-      <Card className="bg-card border border-border rounded-2xl shadow-lg">
-        <CardContent className="p-6 space-y-4">
-          <div>
-            <p className="text-sm text-muted-foreground mb-2">Lucro líquido do dia</p>
-            {isLoadingData ? (
-              <Skeleton className="h-11 w-40" />
-            ) : (
-              <p className={`text-[clamp(1.75rem,8vw,2.25rem)] font-bold tracking-tight tabular-nums break-all ${summary.netToday >= 0 ? "text-primary" : "text-destructive"}`}>
-                {formatCurrency(summary.netToday)}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground mt-1">bruto − mercadoria − transporte − alimentação</p>
-          </div>
-
-          {/* Vendido / Custos do dia (demoted, inline) */}
-          <div className="flex items-end justify-between pt-3 border-t border-border">
-            <div className="min-w-0">
-              <p className="text-xs text-muted-foreground">Vendido hoje</p>
-              {isLoadingData ? (
-                <Skeleton className="h-7 w-24 mt-1" />
-              ) : (
-                <p className="text-lg font-bold text-foreground tracking-tight tabular-nums">
-                  {formatCurrency(summary.grossToday)}
-                </p>
-              )}
-            </div>
-            <div className="text-right min-w-0">
-              <p className="text-xs text-muted-foreground">Custos do dia</p>
-              {isLoadingData ? (
-                <Skeleton className="h-7 w-24 mt-1 ml-auto" />
-              ) : (
-                <p className="text-lg font-bold text-destructive tracking-tight tabular-nums">
-                  {formatCurrency(summary.costToday + summary.transportToday + summary.foodToday + summary.expensesToday)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Fiado / não pago — informativo, não entra no líquido */}
-          {!isLoadingData && summary.debtToday > 0 && (
-            <p className="text-xs text-muted-foreground">
-              Fiado/não pago: <strong className="text-warning font-semibold">{formatCurrency(summary.debtToday)}</strong> (não entra no líquido)
+      {/* 1. LUCRO LÍQUIDO DE HOJE */}
+      <Card className="rounded-[18px] border shadow-lg" style={{ background: "linear-gradient(170deg,#141006 0%,#0b0b0d 70%)", borderColor: "#3a2f0c", boxShadow: "0 0 30px rgba(245,184,0,.08)" }}>
+        <CardContent className="p-4">
+          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>LUCRO LÍQUIDO DE HOJE</p>
+          {isLoadingData ? (
+            <Skeleton className="h-11 w-44 mt-2" />
+          ) : (
+            <p className="text-[42px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.netToday >= 0 ? "#3DD68C" : "#F2465A" }}>
+              {formatCurrency(summary.netToday)}
             </p>
           )}
+          {!isLoadingData && (
+            <p className="text-xs text-muted-foreground mt-2">
+              vendido <b className="text-foreground">{formatCurrency(summary.grossToday)}</b> − custos{" "}
+              <b style={{ color: "#E5737F" }}>{formatCurrency(summary.costToday + summary.transportToday + summary.foodToday + summary.expensesToday)}</b>
+              {" "}· mercadoria, transporte e comida
+            </p>
+          )}
+          <div className="grid grid-cols-3 gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #2a2416" }}>
+            <div>
+              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">MÉDIA / DIA</p>
+              <p className="text-[15px] font-black tabular-nums mt-0.5 text-foreground">{isLoadingData ? "—" : formatCurrency(summary.mediaDiariaLiquida)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">MÊS</p>
+              <p className="text-[15px] font-black tabular-nums mt-0.5" style={{ color: "#3DD68C" }}>{isLoadingData ? "—" : formatCurrency(summary.monthlyNetProfit)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">FIADO</p>
+              <p className="text-[15px] font-black tabular-nums mt-0.5" style={{ color: summary.debtToday > 0 ? "#F2B43A" : undefined }}>{isLoadingData ? "—" : formatCurrency(summary.debtToday)}</p>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {/* A guardar hoje + Contas vencidas */}
-      {!isLoadingData && overdueBills.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3">
-          {/* A guardar hoje (accent primário) */}
-          <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between gap-1">
-                <p className="text-xs text-muted-foreground">A guardar hoje</p>
-                {diaGuardadoFechado && (
-                  <button
-                    onClick={handleDesfazerGuardei}
-                    title="Reverter o guardar de hoje"
-                    aria-label="Reverter o guardar de hoje"
-                    className="shrink-0 -mr-1 -mt-1 w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-primary active:scale-90 transition"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-              {diaGuardadoFechado ? (
-                <>
-                  <p className="text-base font-bold text-success mt-1 tracking-tight">
-                    {savedTodayAmount > 0 ? `✓ Guardou ${formatCurrency(savedTodayAmount)} hoje` : "✓ Já guardou hoje"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">Amanhã aparece o novo valor.</p>
-                </>
-              ) : (
-                <>
-                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight truncate">
-                    {formatCurrency(restanteGuardarHoje)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 truncate">
-                    {savedTodayAmount > 0
-                      ? `adiantado: ${formatCurrency(savedTodayAmount)}`
-                      : `metas ${formatCurrency(goalShareToday)} · contas ${formatCurrency(billsShareToday)}`}
-                  </p>
-                </>
-              )}
-            </CardContent>
-          </Card>
+      {/* 2. GUARDAR HOJE — um número, um botão */}
+      <Card className="rounded-[18px] border" style={{ background: "#0e0e10", borderColor: "#3a2f0c" }}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground">GUARDAR HOJE</p>
+            {!isLoadingData && !diaGuardadoFechado && summary.netToday > 0 && alvoHoje > 0 && (
+              <span className="text-xs text-muted-foreground tabular-nums">
+                <b className="text-foreground">{Math.min(999, Math.round((alvoHoje / summary.netToday) * 100))}%</b> do lucro de hoje
+              </span>
+            )}
+          </div>
 
-          {/* Contas vencidas (accent destrutivo) */}
-          <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
-            <CardContent className="p-4">
-              <p className="text-xs text-muted-foreground">Contas vencidas</p>
-              <p className="text-2xl font-bold text-destructive mt-1 tracking-tight truncate">
-                {formatCurrency(vencidasTotal)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
-                {overdueBills.length} {overdueBills.length === 1 ? "conta" : "contas"} — pague logo
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      ) : (
-        /* Sem contas vencidas: A guardar hoje em largura total */
-        <Card className="bg-primary/5 border border-primary/30 rounded-2xl">
-          <CardContent className="p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">A guardar hoje</p>
-                {isLoadingData ? (
-                  <Skeleton className="h-8 w-28 mt-1" />
-                ) : diaGuardadoFechado ? (
-                  <p className="text-xl font-bold text-success mt-1 tracking-tight">
-                    {savedTodayAmount > 0 ? `✓ Guardou ${formatCurrency(savedTodayAmount)} hoje` : "✓ Já guardou hoje"}
-                  </p>
-                ) : (
-                  <p className="text-2xl font-bold text-primary mt-1 tracking-tight tabular-nums">
-                    {formatCurrency(restanteGuardarHoje)}
-                  </p>
-                )}
-                {!isLoadingData && diaGuardadoFechado && (
-                  <p className="text-xs text-muted-foreground mt-1">Amanhã aparece o novo valor.</p>
-                )}
-                {!isLoadingData && !diaGuardadoFechado && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {savedTodayAmount > 0
-                      ? `adiantado: ${formatCurrency(savedTodayAmount)}`
-                      : `metas ${formatCurrency(goalShareToday)} · contas ${formatCurrency(billsShareToday)}`}
-                  </p>
-                )}
-                {!isLoadingData && !todayIsWorkDay && (
-                  <p className="text-xs text-muted-foreground mt-1">Hoje é seu descanso.</p>
-                )}
+          {isLoadingData ? (
+            <Skeleton className="h-10 w-40 mt-2" />
+          ) : diaGuardadoFechado ? (
+            <>
+              <div className="mt-2 flex items-end justify-between gap-3">
+                <p className="text-[26px] leading-none font-black tracking-tight tabular-nums flex items-center gap-2" style={{ color: "#3DD68C" }}>
+                  <Check className="w-6 h-6" strokeWidth={3} />
+                  {savedTodayAmount > 0 ? `Guardou ${formatCurrency(savedTodayAmount)}` : "Já guardou hoje"}
+                </p>
+                <button
+                  onClick={handleDesfazerGuardei}
+                  title="Reverter o guardar de hoje"
+                  aria-label="Reverter o guardar de hoje"
+                  className="w-9 h-9 rounded-xl border border-border bg-background flex items-center justify-center text-muted-foreground active:scale-90 transition shrink-0"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
               </div>
-              <div className="flex flex-col items-end gap-2 shrink-0">
-                {!isLoadingData && diaGuardadoFechado && (
-                  <button
-                    onClick={handleDesfazerGuardei}
-                    title="Reverter o guardar de hoje"
-                    aria-label="Reverter o guardar de hoje"
-                    className="w-9 h-9 rounded-xl border border-primary/30 bg-primary/10 flex items-center justify-center text-primary active:scale-90 transition"
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                )}
-                <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
-                  <PiggyBank className="w-5 h-5 text-primary" />
+              <p className="text-xs text-muted-foreground mt-2">Dia fechado. Amanhã aparece o novo valor.</p>
+            </>
+          ) : (
+            <>
+              <div className="mt-2 flex items-end justify-between gap-3">
+                <p className="text-[38px] leading-none font-black tracking-tight tabular-nums" style={{ color: "#F5B800" }}>
+                  {formatCurrency(restanteGuardarHoje)}
+                </p>
+                <div className="text-right text-xs text-muted-foreground leading-relaxed tabular-nums shrink-0">
+                  contas <b className="text-foreground">{formatCurrency(billsShareToday)}</b><br />
+                  caixinhas <b className="text-foreground">{formatCurrency(goalShareToday)}</b>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+              {savedTodayAmount > 0 && (
+                <p className="text-xs text-muted-foreground mt-1.5">já guardou {formatCurrency(savedTodayAmount)} hoje</p>
+              )}
+              {!todayIsWorkDay && (
+                <p className="text-xs text-muted-foreground mt-1.5">Hoje é seu descanso — nada a guardar.</p>
+              )}
+              {todayIsWorkDay && restanteGuardarHoje > 0 ? (
+                <button
+                  onClick={handleGuardeiTudo}
+                  className="w-full h-[52px] mt-3 rounded-[14px] font-black text-[15px] tracking-wide flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                  style={{ background: "#F5B800", color: "#1a1305", boxShadow: "0 8px 26px rgba(245,184,0,.2)" }}
+                >
+                  <Check className="w-5 h-5" strokeWidth={3} />
+                  GUARDEI {formatCurrency(restanteGuardarHoje)}
+                </button>
+              ) : todayIsWorkDay && bills.length === 0 && goals.length === 0 ? (
+                <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou uma caixinha e o Orbis calcula quanto separar por dia.</p>
+              ) : null}
+              <div className="flex items-center justify-center gap-1.5 mt-2.5 text-xs text-muted-foreground">
+                <button onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }} className="py-1 font-semibold text-foreground/70 active:text-foreground">guardei outro valor</button>
+                {bills.length > 0 && (
+                  <>
+                    <span>·</span>
+                    <button onClick={() => setShowProjecao((v) => !v)} className="py-1 font-semibold text-foreground/70 active:text-foreground">{showProjecao ? "fechar próximos dias" : "ver próximos dias"}</button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
-      {/* Contas urgentes (vencem HOJE + apertadas) — bloco ÚNICO, abre/fecha no botão */}
-      {!isLoadingData && contasUrgentes.length > 0 && (
-        <Card className={`rounded-2xl border ${venceHojeCount > 0 ? "bg-destructive/5 border-destructive/40" : "bg-warning/5 border-warning/30"}`}>
-          <CardContent className="p-0">
+          {!isLoadingData && ultimoGuardei && (
             <button
-              type="button"
-              onClick={() => setUrgentesAberto((v) => !v)}
-              className="w-full flex items-center gap-2 p-4 text-left"
+              onClick={handleDesfazerGuardei}
+              className="w-full h-10 mt-2 rounded-xl border border-border text-muted-foreground font-semibold text-xs active:scale-[0.98] transition flex items-center justify-center gap-2"
             >
-              <AlertTriangle className={`w-4 h-4 shrink-0 ${venceHojeCount > 0 ? "text-destructive" : "text-warning"}`} />
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-semibold ${venceHojeCount > 0 ? "text-destructive" : "text-foreground"}`}>
-                  {venceHojeCount > 0 ? "Contas pra pagar já" : "Contas apertadas"}
-                </p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                  {venceHojeCount > 0 ? `${venceHojeCount} vence${venceHojeCount === 1 ? "" : "m"} hoje` : ""}
-                  {venceHojeCount > 0 && contasUrgentes.length > venceHojeCount ? " · " : ""}
-                  {contasUrgentes.length > venceHojeCount ? `${contasUrgentes.length - venceHojeCount} apertada${contasUrgentes.length - venceHojeCount === 1 ? "" : "s"}` : ""}
-                  {" · toque pra ver"}
-                </p>
-              </div>
-              <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${urgentesAberto ? "rotate-180" : ""}`} />
+              <RotateCw className="w-3.5 h-3.5" /> Desfazer o último "Guardei"
             </button>
-            {urgentesAberto && (
-              <div className="px-4 pb-4 space-y-2">
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Vencem hoje: pague hoje pra evitar juros. Apertadas: faltam poucos dias úteis pra juntar.
+          )}
+
+          {!isLoadingData && (bills.length > 0 || goals.length > 0) && (
+            <div className="flex items-end justify-between gap-3 mt-3 pt-3 border-t border-border/60">
+              <div>
+                <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground uppercase">
+                  Guardado em {new Date().toLocaleDateString("pt-BR", { month: "long" })}
                 </p>
-                {contasUrgentes.map(({ b, wd, falta, venceHoje }) => (
-                  <div
-                    key={b.id}
-                    className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 ${venceHoje ? "bg-background border-destructive/30" : "bg-background/60 border-warning/30"}`}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">
-                        {b.name}
-                        {b.risco === "alto" && <span className="ml-1.5 text-[10px] font-bold uppercase text-destructive">· risco alto</span>}
-                      </p>
-                      <p className={`text-[11px] ${venceHoje ? "text-destructive font-semibold" : "text-warning"}`}>
-                        {venceHoje ? "vence HOJE · pague hoje" : `vence em ${wd} ${wd === 1 ? "dia útil" : "dias úteis"}`}
-                      </p>
-                    </div>
-                    <span className={`text-sm font-bold tabular-nums shrink-0 ${venceHoje ? "text-destructive" : "text-foreground"}`}>
-                      {formatCurrency(falta)}
-                    </span>
-                  </div>
-                ))}
+                <p className="text-[18px] font-black tabular-nums mt-0.5 text-foreground">{formatCurrency(contasGuardado + metasGuardado)}</p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              <p className="text-[11px] text-muted-foreground text-right tabular-nums leading-relaxed">
+                contas <b className="text-foreground">{formatCurrency(contasGuardado)}</b><br />
+                caixinhas <b className="text-foreground">{formatCurrency(metasGuardado)}</b>
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Vencidas — resumo expansível: detalhes e planejador só quando o usuário quiser */}
       {!isLoadingData && overdueBills.length > 0 && (
@@ -2152,36 +2108,8 @@ export default function Finances() {
         </Card>
       )}
 
-      {/* Botão "Guardei tudo" — guarda a parte de hoje de tudo de uma vez */}
-      {!isLoadingData && !diaGuardadoFechado && todayIsWorkDay && restanteGuardarHoje > 0 && (
-        <div className="space-y-2">
-          <button
-            onClick={handleGuardeiTudo}
-            className="w-full h-12 rounded-2xl bg-primary text-primary-foreground font-bold text-sm active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-          >
-            ✓ Guardei tudo — {formatCurrency(restanteGuardarHoje)}
-          </button>
-          <button
-            onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }}
-            className="w-full h-9 rounded-xl text-primary/80 font-semibold text-xs active:scale-[0.98] transition-transform flex items-center justify-center gap-1"
-          >
-            Guardei outro valor
-          </button>
-        </div>
-      )}
-
-      {/* Desfazer o último "Guardei tudo" (caso tenha apertado sem querer) */}
-      {!isLoadingData && ultimoGuardei && (
-        <button
-          onClick={handleDesfazerGuardei}
-          className="w-full h-11 rounded-2xl bg-card border border-border text-muted-foreground hover:text-foreground font-semibold text-sm active:scale-[0.98] transition flex items-center justify-center gap-2"
-        >
-          <RotateCw className="w-4 h-4" /> Desfazer "Guardei tudo"
-        </button>
-      )}
-
-      {/* Próximos dias — projeção de quanto guardar (contas) nos dias que vêm */}
-      {!isLoadingData && bills.length > 0 && (
+      {/* Próximos dias — projeção de quanto guardar (contas); abre pelo link do card "Guardar hoje" */}
+      {!isLoadingData && bills.length > 0 && showProjecao && (
         <Card className="bg-card border border-border/60 rounded-2xl">
           <CardContent className="p-4">
             <button
@@ -2383,43 +2311,386 @@ export default function Finances() {
         </DialogContent>
       </Dialog>
 
-      {/* Distribuição automática do líquido diário */}
-      <FeatureErrorBoundary title="A distribuição automática deu uma travada">
-        <AutoDistribution userId={user.id} onChanged={loadFinancialData} />
-      </FeatureErrorBoundary>
+        {/* 3. CAIXINHAS */}
+        <section className="space-y-3">
+            <div className="flex items-center justify-between px-0.5 pt-1">
+              <h2 className="text-[15px] font-black text-foreground tracking-tight">Caixinhas</h2>
+              <button onClick={() => setIsAddGoalOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
+                <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova
+              </button>
+              <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Criar Objetivo Financeiro</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div>
+                    <Label>Nome da Meta</Label>
+                    <Input
+                      value={newGoal.name}
+                      onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
+                      placeholder="Ex: Comprar moto, Juntar R$5.000..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Valor Alvo (R$)</Label>
+                    <MoneyInput
+                      value={parseFloat(newGoal.target_amount) || 0}
+                      onChange={(n) => setNewGoal({ ...newGoal, target_amount: n ? String(n) : "" })}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <Label>Prazo</Label>
+                    <div className="grid grid-cols-3 gap-2 mt-1.5">
+                      {([["curto", "Curto"], ["medio", "Médio"], ["longo", "Longo"]] as const).map(([val, lbl]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setNewGoal({ ...newGoal, prazo: val })}
+                          className={`h-9 rounded-lg border text-xs font-semibold transition-colors ${
+                            newGoal.prazo === val ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
+                          }`}
+                        >
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-      {/* Importar histórico de vendas por PDF (IA lê e você revisa) */}
-      <button
-        onClick={() => setImportOpen(true)}
-        className="w-full h-11 rounded-xl bg-card border border-primary/30 hover:border-primary/60 text-primary text-sm font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition"
-      >
-        <Upload className="w-4 h-4" />
-        Importar histórico (PDF)
-      </button>
-      <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
+                  {/* Prévia da recomendação — já avisa (em vermelho) se o prazo apertar */}
+                  {parseFloat(newGoal.target_amount) > 0 && (() => {
+                    const rec = recomendarMeta(parseFloat(newGoal.target_amount), 0, newGoal.prazo);
+                    return (
+                      <div className={`rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${
+                        rec.tom === "ok" ? "bg-success/5 border-success/25 text-foreground/90"
+                        : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35 text-destructive"
+                        : "bg-muted/40 border-border/50 text-muted-foreground"
+                      }`}>
+                        {rec.resumo}
+                      </div>
+                    );
+                  })()}
 
-      <Tabs defaultValue="bills" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="bills">Contas a pagar</TabsTrigger>
-          <TabsTrigger value="goals">Metas</TabsTrigger>
-        </TabsList>
+                  <div>
+                    <Label>Data limite (opcional)</Label>
+                    <Input
+                      type="date"
+                      value={newGoal.deadline}
+                      onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Imagem da meta (opcional)</Label>
+                    <label className="mt-1.5 flex items-center gap-3 cursor-pointer">
+                      {goalImagePreview ? (
+                        <img src={goalImagePreview} alt="" className="w-16 h-16 rounded-xl object-cover border border-border shrink-0" />
+                      ) : (
+                        <div className="w-16 h-16 rounded-xl border border-dashed border-border flex items-center justify-center bg-muted/40 shrink-0">
+                          <ImagePlus className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <span className="text-sm text-muted-foreground">
+                        {goalImagePreview ? "Trocar imagem" : "Adicione uma foto do que quer alcançar"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        hidden
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) { setGoalImage(f); setGoalImagePreview(URL.createObjectURL(f)); }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  <Button onClick={handleAddGoal} className="w-full">
+                    Criar Meta
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
 
-        {/* Contas a pagar — planejador (planned_bills) */}
-        <TabsContent value="bills" className="space-y-4">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <div>
-              <h2 className="text-xl font-semibold">Contas a pagar</h2>
-              <p className="text-sm text-muted-foreground">
-                Planeje quanto guardar por dia pra cada conta chegar paga.
-              </p>
+          {isLoadingData ? (
+            <Skeleton className="h-40 w-full" />
+          ) : goals.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro do dia vai pra ela.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {goalsOrdenadas.map(goal => {
+                const progress = (goal.current_amount / goal.target_amount) * 100;
+                const remaining = goal.target_amount - goal.current_amount;
+                const plano = planoMetas.get(goal.id);
+                const aberta = metaAberta === goal.id;
+
+                return (
+                  <Card key={goal.id} className="card-gradient-border">
+                    <CardContent className="p-3 space-y-2">
+                      {/* Bloco COMPACTO — toca pra abrir os detalhes */}
+                      <button
+                        type="button"
+                        onClick={() => setMetaAberta(aberta ? null : goal.id)}
+                        className="w-full flex items-center gap-3 text-left"
+                      >
+                        {plano?.ordem && (
+                          <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center shrink-0">
+                            {plano.ordem}º
+                          </span>
+                        )}
+                        {goal.icon && goal.icon.startsWith("http") ? (
+                          <img src={goal.icon} alt="" className="w-10 h-10 rounded-xl object-cover border border-primary/30 shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <Target className="w-5 h-5 text-primary" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold truncate">{goal.name}</p>
+                          <p className="text-xs text-muted-foreground tabular-nums">
+                            {formatCurrency(goal.current_amount)} de {formatCurrency(goal.target_amount)} · {progress.toFixed(0)}%
+                          </p>
+                          {goal.status === "active" && (
+                            <p className="text-[11px] mt-0.5 tabular-nums" style={{ color: pctDe(goal) > 0 ? "#F5B800" : undefined }}>
+                              {pctDe(goal) > 0
+                                ? <>{pctDe(goal)}% do lucro · hoje <b>{formatCurrency(caixinhaShareHoje(goal))}</b></>
+                                : <span className="text-muted-foreground">sem % — recebe o que sobrar · toque no lápis pra definir</span>}
+                            </p>
+                          )}
+                        </div>
+                        {goal.status === "completed" ? (
+                          <Check className="w-5 h-5 text-success shrink-0" />
+                        ) : (
+                          <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`} />
+                        )}
+                      </button>
+                      <Progress value={progress} className="h-1.5" />
+
+                      {aberta && (
+                        <div className="pt-2 space-y-3">
+                        {remaining > 0 && (
+                          <p className="text-sm text-muted-foreground">
+                            Faltam {formatCurrency(remaining)} para atingir sua meta
+                          </p>
+                        )}
+                        {goal.deadline && (
+                          <p className="text-xs text-muted-foreground flex items-center gap-1">
+                            {/* meio-dia local: sem isso o fuso jogava a data pro dia anterior */}
+                            <Calendar className="w-3 h-3" /> Data limite: {new Date(goal.deadline.slice(0, 10) + "T12:00:00").toLocaleDateString('pt-BR')}
+                          </p>
+                        )}
+                        {/* Como essa meta anda — UM bloco claro, sem número global repetido.
+                            "contas primeiro": mostra a fila e a sobra de hoje.
+                            "junto": mostra o valor por dia pra fechar no prazo. */}
+                        {remaining > 0 && goal.status === "active" && (() => {
+                          const fim = fimPrazoMeta(goal);
+                          const fimBR = fim ? new Date(fim + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null;
+                          const atrasada = Boolean(fim && fim < getBrazilDate());
+                          const ehPrioritaria = plano?.ordem === 1;
+                          return (
+                            <div className="rounded-xl bg-muted/40 border border-border/50 px-3 py-2 text-xs leading-relaxed flex items-start gap-2">
+                              <Sparkles className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${atrasada ? "text-warning" : "text-primary"}`} />
+                              <span className="text-foreground/90">
+                                {metasModo === "junto" ? (
+                                  atrasada
+                                    ? <>Prazo passou — junte os {formatCurrency(remaining)} que faltam o quanto puder.</>
+                                    : <>Guarde <b className="text-primary">{formatCurrency(metaRitmoDia(goal))}</b> por dia de trabalho{fimBR ? <> até {fimBR}</> : null} pra fechar no prazo.</>
+                                ) : ehPrioritaria ? (
+                                  sobraMetasHoje > 0.005
+                                    ? <>É a <b className="text-primary">próxima da fila</b>. Hoje sobra <b className="text-primary">{formatCurrency(sobraMetasHoje)}</b> pra ela, depois das contas.</>
+                                    : <>É a <b className="text-primary">próxima da fila</b>. Hoje as contas levaram a renda — ainda R$0 pra ela.</>
+                                ) : (
+                                  <>{plano?.ordem ?? ""}ª na fila — começa quando as metas acima fecharem{fimBR ? <> (~{fimBR})</> : null}.</>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                      {/* Depósito do dia — abre o diálogo "Guardar hoje" compartilhado */}
+                      {goal.status === "active" && (
+                        <div className="flex gap-2 pt-2 border-t">
+                          <Button
+                            onClick={() => openDeposit({ kind: "goal", goal })}
+                            className="flex-1"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Guardar hoje
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => openEditGoal(goal)}
+                            className="flex-shrink-0"
+                            aria-label="Editar meta"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            onClick={() => handleDeleteGoal(goal.id)}
+                            className="flex-shrink-0"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      )}
+
+                      {goal.status === "completed" && (
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-3 flex items-center justify-center gap-2">
+                          <Check className="w-4 h-4 text-success" />
+                          <p className="text-success font-semibold">Meta concluída</p>
+                        </div>
+                      )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
+          )}
+
+          {/* Como as metas entram no "a guardar hoje" — contas primeiro × junto */}
+          {!isLoadingData && goals.length > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4 space-y-2">
+                <p className="text-sm font-semibold text-foreground">Quando guardar pras metas?</p>
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMetasModo("sobra")}
+                    className={`py-2 rounded-lg text-xs font-semibold transition-colors ${metasModo === "sobra" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                  >
+                    Contas primeiro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveMetasModo("junto")}
+                    className={`py-2 rounded-lg text-xs font-semibold transition-colors ${metasModo === "junto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
+                  >
+                    Junto com as contas
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  {metasModo === "sobra" ? (
+                    <>
+                      O <b className="text-foreground">"a guardar hoje"</b> cobra só as contas. A meta fica com o que{" "}
+                      <b className="text-foreground">sobrar</b> do dia — dia apertado, R$0 pra meta, sem culpa.
+                    </>
+                  ) : (
+                    <>
+                      A meta pede um valor próprio todo dia (
+                      <b className="text-primary">{formatCurrency(metasRitmoTotal)}</b>), somado ao das contas no{" "}
+                      <b className="text-foreground">"a guardar hoje"</b>. Se você não guardar hoje, amanhã esse valor sobe.
+                    </>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Total guardado — confira se bate com o que você separou de fato */}
+          {!isLoadingData && goals.length > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground">Total guardado nas metas</p>
+                  <p className="text-[11px] text-muted-foreground">de {formatCurrency(metasTotal)} somando todas as metas</p>
+                </div>
+                <p className="text-lg font-bold text-primary text-right shrink-0 tabular-nums">{formatCurrency(metasGuardado)}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Calendário das metas — quanto guardar por dia útil, e pra qual meta cada dia vai */}
+          {!isLoadingData && goals.length > 0 && planoMetas.size > 0 && (
+            <Card className="bg-card border border-border/60 rounded-2xl">
+              <CardContent className="p-4">
+                <button
+                  onClick={() => setShowProjecaoMetas((v) => !v)}
+                  className="w-full flex items-center gap-3 text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                    <Calendar className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground">Calendário das metas</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {sobraMetasHoje > 0.005
+                        ? <>Hoje, depois das contas, sobra <span className="font-semibold text-primary">{formatCurrency(sobraMetasHoje)}</span> pra meta</>
+                        : "Depois de reservar as contas de hoje, ainda não sobra pra meta"}
+                    </p>
+                  </div>
+                  <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecaoMetas ? "rotate-180" : ""}`} />
+                </button>
+
+                {/* Guardar a sobra de hoje nas metas — distribui por prioridade (completa a 1ª,
+                    transborda pra próxima). Só no modo "contas primeiro". */}
+                {metasModo === "sobra" && sobraMetasHoje > 0.005 && metaPrioritaria && (
+                  <>
+                    <Button onClick={handleGuardarSobraMetas} className="w-full mt-3">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Guardar {formatCurrency(sobraMetasHoje)} nas metas
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                      Começa pela <b className="text-foreground">{metaPrioritaria.name}</b> (falta {formatCurrency(faltaMeta(metaPrioritaria))}); o que passar vai pra próxima da fila.
+                    </p>
+                  </>
+                )}
+
+                {showProjecaoMetas && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 overscroll-contain">
+                      {proximosDiasMetas.map((d) => {
+                        const sobrou = d.isWork && d.valor > 0.005;
+                        return (
+                          <div
+                            key={d.key}
+                            className="w-full flex items-center justify-between px-2 py-2 rounded-lg"
+                          >
+                            <div className="min-w-0">
+                              <span className="text-sm capitalize text-foreground">{d.label}</span>
+                              {sobrou && d.meta && (
+                                <span className="block text-[11px] text-muted-foreground truncate">→ {d.meta}</span>
+                              )}
+                              {d.isWork && !sobrou && (
+                                <span className="block text-[11px] text-muted-foreground truncate">tudo foi pras contas</span>
+                              )}
+                            </div>
+                            {d.isWork ? (
+                              <span className={`text-sm font-bold tabular-nums shrink-0 ${sobrou ? "text-primary" : "text-muted-foreground"}`}>{formatCurrency(d.valor)}</span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground shrink-0">descanso</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
+                      Contas primeiro: cada dia guarda a conta do dia e só a sobra do líquido vai pra meta prioritária (curto → médio → longo). Dia sem sobra fica em R$0 pra meta.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+        </section>
+
+        {/* 4. CONTAS A PAGAR */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between px-0.5 pt-1">
+            <h2 className="text-[15px] font-black text-foreground tracking-tight">Contas a pagar</h2>
+            <button onClick={() => setIsAddBillOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
+              <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova
+            </button>
             <Dialog open={isAddBillOpen} onOpenChange={setIsAddBillOpen}>
-              <DialogTrigger asChild>
-                <Button className="w-full sm:w-auto">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova conta
-                </Button>
-              </DialogTrigger>
               <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
                 <DialogHeader>
                   <DialogTitle>Nova conta a pagar</DialogTitle>
@@ -2627,6 +2898,24 @@ export default function Finances() {
             </Dialog>
           </div>
 
+          {/* Resumo do mês: total das contas abertas + ritmo por dia útil */}
+          {!isLoadingData && bills.length > 0 && (
+            <Card className="rounded-2xl border" style={{ background: "#0e0e10", borderColor: "#22201a" }}>
+              <CardContent className="p-4 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">EM ABERTO</p>
+                  <p className="text-[16px] font-black tabular-nums mt-0.5 text-foreground">
+                    {formatCurrency(contasTotal)} <span className="text-xs font-semibold text-muted-foreground">em {bills.filter((b) => !b.paid).length} conta{bills.filter((b) => !b.paid).length === 1 ? "" : "s"}</span>
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">GUARDAR POR DIA</p>
+                  <p className="text-[16px] font-black tabular-nums mt-0.5" style={{ color: "#F5B800" }}>{formatCurrency(ritmoSustentavel)}</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Total guardado — confira se bate com o que você separou de fato (lápis pra ajustar) */}
           {!isLoadingData && bills.length > 0 && (
             <Card className="bg-card border border-border/60 rounded-2xl">
@@ -2684,7 +2973,7 @@ export default function Finances() {
           ) : bills.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
-                Nenhuma conta cadastrada ainda. Toque em "Nova conta" pra planejar seus pagamentos.
+                Nenhuma conta ainda. Toque em "nova", cadastre aluguel, luz, cartão — e o Orbis diz quanto guardar por dia.
               </CardContent>
             </Card>
           ) : (
@@ -3061,375 +3350,90 @@ export default function Finances() {
               })}
             </div>
           )}
-        </TabsContent>
+        </section>
 
-        {/* Goals Tab */}
-        <TabsContent value="goals" className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <h2 className="text-xl font-semibold">Objetivos Financeiros</h2>
-              <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
-                <DialogTrigger asChild>
-                  <Button className="w-full sm:w-auto">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Nova Meta
-                  </Button>
-                </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Criar Objetivo Financeiro</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <Label>Nome da Meta</Label>
-                    <Input
-                      value={newGoal.name}
-                      onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
-                      placeholder="Ex: Comprar moto, Juntar R$5.000..."
-                    />
-                  </div>
-                  <div>
-                    <Label>Valor Alvo (R$)</Label>
-                    <MoneyInput
-                      value={parseFloat(newGoal.target_amount) || 0}
-                      onChange={(n) => setNewGoal({ ...newGoal, target_amount: n ? String(n) : "" })}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div>
-                    <Label>Prazo</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-1.5">
-                      {([["curto", "Curto"], ["medio", "Médio"], ["longo", "Longo"]] as const).map(([val, lbl]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setNewGoal({ ...newGoal, prazo: val })}
-                          className={`h-9 rounded-lg border text-xs font-semibold transition-colors ${
-                            newGoal.prazo === val ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
-                          }`}
-                        >
-                          {lbl}
-                        </button>
-                      ))}
+        {/* 5. DICAS — calculadas com os números da própria pessoa */}
+        {!isLoadingData && (bills.length > 0 || goals.length > 0 || summary.grossToday > 0) && (() => {
+          const media = summary.mediaDiariaLiquida;
+          const dicas: { tom: "ok" | "alerta" | "neutro"; titulo: string; texto: React.ReactNode; icone: React.ReactNode }[] = [];
+          if (overdueBills.length > 0) {
+            dicas.push({
+              tom: "alerta", titulo: `${formatCurrency(vencidasTotal)} em conta vencida`,
+              texto: <>Juros de conta atrasada comem mais que qualquer caixinha rende. Quite {overdueBillsOrdenadas[0]?.name ? <b className="text-foreground">{overdueBillsOrdenadas[0].name}</b> : "a mais antiga"} primeiro — use "Guardar pra quitar" logo acima.</>,
+              icone: <AlertTriangle className="w-4 h-4" style={{ color: "#F2465A" }} />,
+            });
+          }
+          if (ritmoSustentavel > 0 && media > 0) {
+            const pct = Math.round((ritmoSustentavel / media) * 100);
+            if (ritmoSustentavel > media) {
+              dicas.push({
+                tom: "alerta", titulo: `Suas contas pedem ${formatCurrency(ritmoSustentavel)}/dia. Você lucra ${formatCurrency(media)}.`,
+                texto: <>As contas estão maiores que o lucro médio por dia. Ou o faturamento sobe, ou alguma conta precisa cair — cartão e parcelas costumam ser o primeiro lugar pra olhar.</>,
+                icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
+              });
+            } else {
+              dicas.push({
+                tom: "ok", titulo: `Suas contas levam ${pct}% do seu lucro médio.`,
+                texto: <>Sobram <b className="text-foreground">{formatCurrency(sobraDiaMetas)}/dia</b> depois das contas. Se cada caixinha tiver um %, esse dinheiro sai sozinho no botão GUARDEI — sem depender de força de vontade.</>,
+                icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
+              });
+            }
+          }
+          if (summary.grossToday > 0 && summary.costToday > 0) {
+            const pctMerc = Math.round((summary.costToday / summary.grossToday) * 100);
+            dicas.push({
+              tom: pctMerc > 50 ? "alerta" : "neutro", titulo: `Mercadoria comeu ${pctMerc}% da venda de hoje.`,
+              texto: pctMerc > 50
+                ? <>Acima de 50% é sinal de margem apertada: comprar em maior volume ou subir R$ 1 no preço de 1 un. muda o lucro do mês.</>
+                : <>Boa margem. Mantenha o preço de 2 un. sempre cadastrado — combo vende mais e o custo por unidade cai.</>,
+              icone: <TrendingUp className="w-4 h-4" style={{ color: "#3DD68C" }} />,
+            });
+          } else if (summary.grossToday > 0 && summary.costToday === 0 && summary.expensesToday === 0) {
+            dicas.push({
+              tom: "neutro", titulo: "Hoje você vendeu mas não registrou nenhum custo.",
+              texto: <>Almoço, passagem, mercadoria — sem isso o lucro lá em cima fica maior do que é de verdade. No DEFCON é o botão <b className="text-foreground">Custo</b>.</>,
+              icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
+            });
+          }
+          if (summary.debtToday > 0) {
+            dicas.push({
+              tom: "neutro", titulo: `${formatCurrency(summary.debtToday)} de fiado hoje.`,
+              texto: <>Fiado não entra no lucro até cair. Cobre no WhatsApp ainda hoje — a chance de receber cai a cada dia que passa.</>,
+              icone: <Lightbulb className="w-4 h-4" style={{ color: "#F2B43A" }} />,
+            });
+          }
+          if (dicas.length === 0) return null;
+          return (
+            <section className="space-y-3">
+              <h2 className="text-[15px] font-black text-foreground tracking-tight px-0.5 pt-1">Dicas pra você</h2>
+              {dicas.slice(0, 3).map((d, i) => (
+                <Card key={i} className="rounded-[18px] border" style={
+                  d.tom === "alerta" ? { background: "linear-gradient(160deg,#1a0a0d,#0e0e10)", borderColor: "rgba(242,70,90,.4)" }
+                  : d.tom === "ok" ? { background: "#0e0e10", borderColor: "rgba(61,214,140,.25)" }
+                  : { background: "linear-gradient(160deg,#1a1305,#0e0e10)", borderColor: "rgba(245,184,0,.35)" }
+                }>
+                  <CardContent className="p-4 flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#16151a", border: "1px solid #22201a" }}>{d.icone}</div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-extrabold text-foreground leading-snug">{d.titulo}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{d.texto}</p>
                     </div>
-                  </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </section>
+          );
+        })()}
 
-                  {/* Prévia da recomendação — já avisa (em vermelho) se o prazo apertar */}
-                  {parseFloat(newGoal.target_amount) > 0 && (() => {
-                    const rec = recomendarMeta(parseFloat(newGoal.target_amount), 0, newGoal.prazo);
-                    return (
-                      <div className={`rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${
-                        rec.tom === "ok" ? "bg-success/5 border-success/25 text-foreground/90"
-                        : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35 text-destructive"
-                        : "bg-muted/40 border-border/50 text-muted-foreground"
-                      }`}>
-                        {rec.resumo}
-                      </div>
-                    );
-                  })()}
-
-                  <div>
-                    <Label>Data limite (opcional)</Label>
-                    <Input
-                      type="date"
-                      value={newGoal.deadline}
-                      onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Imagem da meta (opcional)</Label>
-                    <label className="mt-1.5 flex items-center gap-3 cursor-pointer">
-                      {goalImagePreview ? (
-                        <img src={goalImagePreview} alt="" className="w-16 h-16 rounded-xl object-cover border border-border shrink-0" />
-                      ) : (
-                        <div className="w-16 h-16 rounded-xl border border-dashed border-border flex items-center justify-center bg-muted/40 shrink-0">
-                          <ImagePlus className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        {goalImagePreview ? "Trocar imagem" : "Adicione uma foto do que quer alcançar"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) { setGoalImage(f); setGoalImagePreview(URL.createObjectURL(f)); }
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <Button onClick={handleAddGoal} className="w-full">
-                    Criar Meta
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-
-          {/* Como as metas entram no "a guardar hoje" — contas primeiro × junto */}
-          {!isLoadingData && goals.length > 0 && (
-            <Card className="bg-card border border-border/60 rounded-2xl">
-              <CardContent className="p-4 space-y-2">
-                <p className="text-sm font-semibold text-foreground">Quando guardar pras metas?</p>
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveMetasModo("sobra")}
-                    className={`py-2 rounded-lg text-xs font-semibold transition-colors ${metasModo === "sobra" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                  >
-                    Contas primeiro
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveMetasModo("junto")}
-                    className={`py-2 rounded-lg text-xs font-semibold transition-colors ${metasModo === "junto" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                  >
-                    Junto com as contas
-                  </button>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  {metasModo === "sobra" ? (
-                    <>
-                      O <b className="text-foreground">"a guardar hoje"</b> cobra só as contas. A meta fica com o que{" "}
-                      <b className="text-foreground">sobrar</b> do dia — dia apertado, R$0 pra meta, sem culpa.
-                    </>
-                  ) : (
-                    <>
-                      A meta pede um valor próprio todo dia (
-                      <b className="text-primary">{formatCurrency(metasRitmoTotal)}</b>), somado ao das contas no{" "}
-                      <b className="text-foreground">"a guardar hoje"</b>. Se você não guardar hoje, amanhã esse valor sobe.
-                    </>
-                  )}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Total guardado — confira se bate com o que você separou de fato */}
-          {!isLoadingData && goals.length > 0 && (
-            <Card className="bg-card border border-border/60 rounded-2xl">
-              <CardContent className="p-4 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Total guardado nas metas</p>
-                  <p className="text-[11px] text-muted-foreground">de {formatCurrency(metasTotal)} somando todas as metas</p>
-                </div>
-                <p className="text-lg font-bold text-primary text-right shrink-0 tabular-nums">{formatCurrency(metasGuardado)}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Calendário das metas — quanto guardar por dia útil, e pra qual meta cada dia vai */}
-          {!isLoadingData && goals.length > 0 && planoMetas.size > 0 && (
-            <Card className="bg-card border border-border/60 rounded-2xl">
-              <CardContent className="p-4">
-                <button
-                  onClick={() => setShowProjecaoMetas((v) => !v)}
-                  className="w-full flex items-center gap-3 text-left"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                    <Calendar className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground">Calendário das metas</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {sobraMetasHoje > 0.005
-                        ? <>Hoje, depois das contas, sobra <span className="font-semibold text-primary">{formatCurrency(sobraMetasHoje)}</span> pra meta</>
-                        : "Depois de reservar as contas de hoje, ainda não sobra pra meta"}
-                    </p>
-                  </div>
-                  <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecaoMetas ? "rotate-180" : ""}`} />
-                </button>
-
-                {/* Guardar a sobra de hoje nas metas — distribui por prioridade (completa a 1ª,
-                    transborda pra próxima). Só no modo "contas primeiro". */}
-                {metasModo === "sobra" && sobraMetasHoje > 0.005 && metaPrioritaria && (
-                  <>
-                    <Button onClick={handleGuardarSobraMetas} className="w-full mt-3">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Guardar {formatCurrency(sobraMetasHoje)} nas metas
-                    </Button>
-                    <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
-                      Começa pela <b className="text-foreground">{metaPrioritaria.name}</b> (falta {formatCurrency(faltaMeta(metaPrioritaria))}); o que passar vai pra próxima da fila.
-                    </p>
-                  </>
-                )}
-
-                {showProjecaoMetas && (
-                  <div className="mt-3 pt-3 border-t border-border/50">
-                    <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 overscroll-contain">
-                      {proximosDiasMetas.map((d) => {
-                        const sobrou = d.isWork && d.valor > 0.005;
-                        return (
-                          <div
-                            key={d.key}
-                            className="w-full flex items-center justify-between px-2 py-2 rounded-lg"
-                          >
-                            <div className="min-w-0">
-                              <span className="text-sm capitalize text-foreground">{d.label}</span>
-                              {sobrou && d.meta && (
-                                <span className="block text-[11px] text-muted-foreground truncate">→ {d.meta}</span>
-                              )}
-                              {d.isWork && !sobrou && (
-                                <span className="block text-[11px] text-muted-foreground truncate">tudo foi pras contas</span>
-                              )}
-                            </div>
-                            {d.isWork ? (
-                              <span className={`text-sm font-bold tabular-nums shrink-0 ${sobrou ? "text-primary" : "text-muted-foreground"}`}>{formatCurrency(d.valor)}</span>
-                            ) : (
-                              <span className="text-xs text-muted-foreground shrink-0">descanso</span>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
-                      Contas primeiro: cada dia guarda a conta do dia e só a sobra do líquido vai pra meta prioritária (curto → médio → longo). Dia sem sobra fica em R$0 pra meta.
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {isLoadingData ? (
-            <Skeleton className="h-40 w-full" />
-          ) : goals.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                Nenhuma meta financeira criada. Defina seus objetivos e acompanhe seu progresso!
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-4">
-              {goalsOrdenadas.map(goal => {
-                const progress = (goal.current_amount / goal.target_amount) * 100;
-                const remaining = goal.target_amount - goal.current_amount;
-                const plano = planoMetas.get(goal.id);
-                const aberta = metaAberta === goal.id;
-
-                return (
-                  <Card key={goal.id} className="card-gradient-border">
-                    <CardContent className="p-3 space-y-2">
-                      {/* Bloco COMPACTO — toca pra abrir os detalhes */}
-                      <button
-                        type="button"
-                        onClick={() => setMetaAberta(aberta ? null : goal.id)}
-                        className="w-full flex items-center gap-3 text-left"
-                      >
-                        {plano?.ordem && (
-                          <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-black flex items-center justify-center shrink-0">
-                            {plano.ordem}º
-                          </span>
-                        )}
-                        {goal.icon && goal.icon.startsWith("http") ? (
-                          <img src={goal.icon} alt="" className="w-10 h-10 rounded-xl object-cover border border-primary/30 shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                            <Target className="w-5 h-5 text-primary" />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold truncate">{goal.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {formatCurrency(goal.current_amount)} de {formatCurrency(goal.target_amount)} · {progress.toFixed(0)}%
-                          </p>
-                        </div>
-                        {goal.status === "completed" ? (
-                          <Check className="w-5 h-5 text-success shrink-0" />
-                        ) : (
-                          <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${aberta ? "rotate-180" : ""}`} />
-                        )}
-                      </button>
-                      <Progress value={progress} className="h-1.5" />
-
-                      {aberta && (
-                        <div className="pt-2 space-y-3">
-                        {remaining > 0 && (
-                          <p className="text-sm text-muted-foreground">
-                            Faltam {formatCurrency(remaining)} para atingir sua meta
-                          </p>
-                        )}
-                        {goal.deadline && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            {/* meio-dia local: sem isso o fuso jogava a data pro dia anterior */}
-                            <Calendar className="w-3 h-3" /> Data limite: {new Date(goal.deadline.slice(0, 10) + "T12:00:00").toLocaleDateString('pt-BR')}
-                          </p>
-                        )}
-                        {/* Como essa meta anda — UM bloco claro, sem número global repetido.
-                            "contas primeiro": mostra a fila e a sobra de hoje.
-                            "junto": mostra o valor por dia pra fechar no prazo. */}
-                        {remaining > 0 && goal.status === "active" && (() => {
-                          const fim = fimPrazoMeta(goal);
-                          const fimBR = fim ? new Date(fim + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null;
-                          const atrasada = Boolean(fim && fim < getBrazilDate());
-                          const ehPrioritaria = plano?.ordem === 1;
-                          return (
-                            <div className="rounded-xl bg-muted/40 border border-border/50 px-3 py-2 text-xs leading-relaxed flex items-start gap-2">
-                              <Sparkles className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${atrasada ? "text-warning" : "text-primary"}`} />
-                              <span className="text-foreground/90">
-                                {metasModo === "junto" ? (
-                                  atrasada
-                                    ? <>Prazo passou — junte os {formatCurrency(remaining)} que faltam o quanto puder.</>
-                                    : <>Guarde <b className="text-primary">{formatCurrency(metaRitmoDia(goal))}</b> por dia de trabalho{fimBR ? <> até {fimBR}</> : null} pra fechar no prazo.</>
-                                ) : ehPrioritaria ? (
-                                  sobraMetasHoje > 0.005
-                                    ? <>É a <b className="text-primary">próxima da fila</b>. Hoje sobra <b className="text-primary">{formatCurrency(sobraMetasHoje)}</b> pra ela, depois das contas.</>
-                                    : <>É a <b className="text-primary">próxima da fila</b>. Hoje as contas levaram a renda — ainda R$0 pra ela.</>
-                                ) : (
-                                  <>{plano?.ordem ?? ""}ª na fila — começa quando as metas acima fecharem{fimBR ? <> (~{fimBR})</> : null}.</>
-                                )}
-                              </span>
-                            </div>
-                          );
-                        })()}
-
-                      {/* Depósito do dia — abre o diálogo "Guardar hoje" compartilhado */}
-                      {goal.status === "active" && (
-                        <div className="flex gap-2 pt-2 border-t">
-                          <Button
-                            onClick={() => openDeposit({ kind: "goal", goal })}
-                            className="flex-1"
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Guardar hoje
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => openEditGoal(goal)}
-                            className="flex-shrink-0"
-                            aria-label="Editar meta"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            onClick={() => handleDeleteGoal(goal.id)}
-                            className="flex-shrink-0"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      )}
-
-                      {goal.status === "completed" && (
-                        <div className="bg-success/10 border border-success/20 rounded-lg p-3 flex items-center justify-center gap-2">
-                          <Check className="w-4 h-4 text-success" />
-                          <p className="text-success font-semibold">Meta concluída</p>
-                        </div>
-                      )}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        {/* Importar histórico de vendas por PDF (IA lê e você revisa) */}
+        <button
+          onClick={() => setImportOpen(true)}
+          className="w-full h-10 rounded-xl text-muted-foreground text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition"
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Importar histórico de vendas (PDF)
+        </button>
+        <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
 
       {/* Editar meta — muda nome, valor e prazo sem precisar apagar e recriar */}
       <Dialog open={editGoal !== null} onOpenChange={(o) => { if (!o) setEditGoal(null); }}>
@@ -3482,6 +3486,23 @@ export default function Finances() {
                 </div>
               );
             })()}
+            <div>
+              <Label>% do lucro do dia pra essa caixinha</Label>
+              <div className="flex items-center gap-2 mt-1.5">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={100}
+                  value={editGoalForm.percentual}
+                  onChange={(e) => setEditGoalForm({ ...editGoalForm, percentual: e.target.value })}
+                  placeholder="0"
+                  className="w-24"
+                />
+                <span className="text-sm text-muted-foreground">% · hoje seria {formatCurrency((Math.max(0, summary.netToday) * (parseFloat(editGoalForm.percentual) || 0)) / 100)}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-1">Entra no "Guardar hoje" automaticamente. 0 = só quando sobrar.</p>
+            </div>
             <div>
               <Label>Data limite (opcional)</Label>
               <Input

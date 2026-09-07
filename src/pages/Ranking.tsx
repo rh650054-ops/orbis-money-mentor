@@ -470,6 +470,29 @@ export default function Ranking() {
   );
 }
 
+/* Ponte Ranking → Finanças: o ranking mede VENDA; as Finanças mostram o LUCRO.
+   Aparece pra quem já tem faturamento no mês, logo abaixo da lista. */
+function PonteFinancas({ faturamento, formatCurrency }: { faturamento: number; formatCurrency: (v: number) => string }) {
+  const navigate = useNavigate();
+  if (faturamento <= 0) return null;
+  return (
+    <div className="orbis-card-in rounded-2xl p-4" style={{ background: "linear-gradient(160deg,#0d1f16,#0e0e10)", border: "1px solid rgba(61,214,140,.35)", boxShadow: "0 0 22px rgba(61,214,140,.1)" }}>
+      <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#3DD68C" }}>VOCÊ VENDEU {formatCurrency(faturamento).toUpperCase()} ESTE MÊS</p>
+      <p className="text-[19px] font-black leading-tight tracking-tight text-white mt-1.5">Mas quanto sobrou de verdade no seu bolso?</p>
+      <p className="text-xs mt-1.5" style={{ color: "#b3ab9c" }}>
+        O ranking mede venda. As Finanças mostram o lucro depois da mercadoria, transporte e comida — e quanto separar hoje pras suas contas.
+      </p>
+      <button
+        onClick={() => navigate("/finances")}
+        className="w-full h-[52px] mt-3.5 rounded-[14px] font-black text-[15px] tracking-wide flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+        style={{ background: "#3DD68C", color: "#0d1f16", boxShadow: "0 8px 26px rgba(61,214,140,.2)" }}
+      >
+        VER MEU LUCRO REAL <ChevronRight className="w-5 h-5" strokeWidth={3} />
+      </button>
+    </div>
+  );
+}
+
 interface LeagueProps {
   ranking: LeaderboardEntry[];
   currentUserStats: LeaderboardEntry | null;
@@ -515,6 +538,9 @@ function FaturamentoLeague({ ranking, currentUserStats, hasParticipated, formatC
       )}
 
       <RankingList ranking={ranking} me={currentUserStats} formatCurrency={formatCurrency} onOpenProfile={onOpenProfile} />
+      {hasParticipated && currentUserStats && (
+        <PonteFinancas faturamento={Number(currentUserStats.faturamento_total_mes) || 0} formatCurrency={formatCurrency} />
+      )}
     </div>
   );
 }
