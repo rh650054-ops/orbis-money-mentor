@@ -1,8 +1,8 @@
-// Orbis — nomear-sinais
-// Semáforos do OSM quase nunca têm nome. Esta função recebe até 40 semáforos
-// (osm_id, lat, lng) sem `vias`, faz UMA consulta na Overpass pelas ruas num
-// raio de 35 m de cada um e grava "Rua A × Rua B" em caca_sinais.vias.
-// Resultado fica salvo pra sempre — cada sinal é nomeado uma única vez.
+// Orbis — nomear-sinais (JOB de fundo, sem chave, sem API no app)
+// Semáforos do OSM quase nunca têm nome. Este job pega 40 semáforos sem `vias`
+// do banco, faz UMA consulta na Overpass pelas ruas num raio de 35 m de cada
+// um e grava "Rua A × Rua B" em caca_sinais.vias. Roda pelo pg_cron a cada
+// minuto até acabar; o app NUNCA chama isso — só lê o nome já salvo.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -31,12 +31,14 @@ function dist(a: { lat: number; lng: number }, b: { lat: number; lng: number }) 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
-    const { sinais } = await req.json().catch(() => ({ sinais: [] }));
-    const lista: { osm_id: number; lat: number; lng: number }[] = (Array.isArray(sinais) ? sinais : [])
-      .filter((s) => Number.isFinite(Number(s?.lat)) && Number.isFinite(Number(s?.lng)))
-      .slice(0, 40)
+    // MODO JOB (sem chave, sem corpo): pega os próximos 40 semáforos SEM nome do
+    // próprio banco, priorizando cidades onde há vendedores. Chamado pelo pg_cron
+    // a cada minuto até nomear tudo. Nada vem de fora: o corpo é ignorado.
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: rows } = await supabase.rpc("caca_sinais_sem_nome", { p_limit: 40 });
+    const lista: { osm_id: number; lat: number; lng: number }[] = ((rows as any[]) || [])
       .map((s) => ({ osm_id: Number(s.osm_id), lat: Number(s.lat), lng: Number(s.lng) }));
-    if (!lista.length) return json({ nomes: {} });
+    if (!lista.length) return json({ nomes: {}, done: true });
 
     // Uma consulta só: união de "ways com nome perto de cada ponto", com geometria.
     const partes = lista.map((s) => `way(around:35,${s.lat},${s.lng})["highway"]["name"];`).join("");
@@ -82,12 +84,13 @@ Deno.serve(async (req) => {
       if (unicos.length) nomes[String(s.osm_id)] = unicos.slice(0, 2).join(" × ");
     }
 
-    // Grava no banco (service role) — nunca sobrescreve um nome já existente.
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    for (const [osm, vias] of Object.entries(nomes)) {
-      await supabase.from("caca_sinais").update({ vias }).eq("osm_id", Number(osm)).is("vias", null);
+    // Grava no banco — nunca sobrescreve um nome já existente. Quem ficou sem rua
+    // com nome por perto recebe "" (vazio) pra não ser tentado de novo todo minuto.
+    for (const s of lista) {
+      const vias = nomes[String(s.osm_id)] ?? "";
+      await supabase.from("caca_sinais").update({ vias }).eq("osm_id", s.osm_id).is("vias", null);
     }
-    return json({ nomes, total: Object.keys(nomes).length });
+    return json({ nomes, total: Object.keys(nomes).length, tentados: lista.length });
   } catch (e) {
     return json({ nomes: {}, error: e instanceof Error ? e.message : "erro" }, 200);
   }

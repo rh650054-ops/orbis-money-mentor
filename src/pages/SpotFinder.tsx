@@ -2,8 +2,9 @@
    CAÇA-SINAL v2 (Rick, 07/09)
    - "Sinais perto de mim": GPS → RPC caca_sinais_quentes (semáforos reais +
      vendas reais compartilhadas, agregadas com 3+ vendedores).
-   - Sem GPS: cidade do perfil → find-good-spots (geocodifica + importa) → RPC.
-   - Nomes dos cruzamentos: função nomear-sinais (Overpass, salva 1x).
+   - Sem GPS: cidade do perfil → centro pela média dos semáforos JÁ no banco.
+   - Nomes dos cruzamentos: já vêm do banco (job de fundo nomear-sinais).
+   - ZERO chamada a serviço externo no app (Rick, 07/09): só banco + GPS do aparelho.
    - Inteligência: "agora" (melhor sinal pra hora atual), "seu melhor ponto"
      (histórico próprio via caca_sinal_meus), tempo do sinal pela comunidade.
    ============================================================ */
@@ -160,7 +161,6 @@ export default function SpotFinder() {
 
   const [city, setCity] = useState("");
   const [uf, setUf] = useState("");
-  const [editCidade, setEditCidade] = useState(false);
   const [raio, setRaio] = useState(5);
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [origem, setOrigem] = useState<"gps" | "cidade" | null>(null);
@@ -170,6 +170,8 @@ export default function SpotFinder() {
   const [naRua, setNaRua] = useState(0);
   const [nota, setNota] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [cidades, setCidades] = useState<{ cidade: string; uf: string; total: number }[]>([]);
+  const [mostrarCidades, setMostrarCidades] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -177,6 +179,7 @@ export default function SpotFinder() {
       if (data?.city) setCity(data.city);
       if (data?.state) setUf(data.state);
     });
+    (supabase as any).rpc("caca_cidades").then(({ data }: any) => setCidades((data as any[]) || []));
     (supabase as any).rpc("caca_sinal_meus").then(({ data }: any) => setMeus(((data as Meu[]) || []).map((m) => ({ ...m, rs_hora: m.rs_hora != null ? Number(m.rs_hora) : null, total: Number(m.total) }))));
     // quantos vendedores estão no DEFCON agora (últimos 15 min)
     supabase.from("user_presence").select("user_id", { count: "exact", head: true }).gte("last_active_at", new Date(Date.now() - 15 * 60000).toISOString())
@@ -187,31 +190,14 @@ export default function SpotFinder() {
     setLoading(true);
     setNota(null);
     try {
-      let { data } = await (supabase as any).rpc("caca_sinais_quentes", { p_lat: c.lat, p_lng: c.lng, p_raio_km: r });
+      const { data } = await (supabase as any).rpc("caca_sinais_quentes", { p_lat: c.lat, p_lng: c.lng, p_raio_km: r });
       let lista = ((data as any[]) || []) as Sinal[];
-      // Região ainda sem semáforo importado → importa pela cidade (find-good-spots) e tenta de novo.
-      if (lista.length < 3 && city && uf) {
-        const { data: fg } = await supabase.functions.invoke("find-good-spots", { body: { city, state: uf, radius_km: Math.max(r, 5) } });
-        if (fg?.note && !fg?.spots?.length) setNota(fg.note);
-        ({ data } = await (supabase as any).rpc("caca_sinais_quentes", { p_lat: c.lat, p_lng: c.lng, p_raio_km: r }));
-        lista = ((data as any[]) || []) as Sinal[];
-      }
       lista = lista.map((s) => ({
         ...s, distancia_km: Number(s.distancia_km), score: Number(s.score),
         rs_hora: s.rs_hora != null ? Number(s.rs_hora) : null, total: s.total != null ? Number(s.total) : null,
       }));
       setSinais(lista);
-      // Nomeia os cruzamentos sem nome (1 chamada, salva no banco pra sempre).
-      const semNome = lista.filter((s) => !s.vias).slice(0, 30);
-      if (semNome.length) {
-        supabase.functions.invoke("nomear-sinais", { body: { sinais: semNome.map((s) => ({ osm_id: s.osm_id, lat: s.lat, lng: s.lng })) } })
-          .then(({ data: nd }: any) => {
-            const nomes = (nd?.nomes || {}) as Record<string, string>;
-            if (Object.keys(nomes).length) setSinais((prev) => prev.map((s) => (nomes[String(s.osm_id)] ? { ...s, vias: nomes[String(s.osm_id)] } : s)));
-          })
-          .catch(() => {});
-      }
-      if (lista.length === 0 && !nota) setNota("Nenhum semáforo mapeado por aqui ainda. Tente um raio maior.");
+      if (lista.length === 0) setNota("Nenhum semáforo mapeado por aqui ainda. Tente um raio maior ou escolha uma cidade já mapeada.");
     } catch (e: any) {
       toast({ title: "Erro ao buscar sinais", description: e?.message ?? "Tente de novo.", variant: "destructive" });
     } finally {
@@ -240,17 +226,33 @@ export default function SpotFinder() {
     );
   };
 
-  const buscarPorCidade = async () => {
-    if (!city || !uf) { setEditCidade(true); toast({ title: "Diz sua cidade e UF" }); return; }
+  const buscarPorCidadeCom = async (c0: string, u0: string) => {
+    setCity(c0); setUf(u0);
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("find-good-spots", { body: { city, state: uf, radius_km: raio } });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const c = data?.center ? { lat: Number(data.center.lat), lng: Number(data.center.lng) } : null;
-      if (!c) throw new Error("Não achei essa cidade");
+      const { data } = await (supabase as any).rpc("caca_cidade_centro", { p_city: c0, p_uf: u0 });
+      const row = (data as any[])?.[0];
+      if (!row) { setLoading(false); setNota(`${c0} ainda não está mapeada.`); return; }
+      const c = { lat: Number(row.lat), lng: Number(row.lng) };
       setCenter(c); setOrigem("cidade");
-      if (data?.note && !(data?.spots?.length)) setNota(data.note);
+      await carregar(c, raio);
+    } catch { setLoading(false); }
+  };
+
+  const buscarPorCidade = async () => {
+    if (!city || !uf) { setMostrarCidades(true); toast({ title: "Escolhe uma cidade da lista ou usa o GPS" }); return; }
+    setLoading(true);
+    try {
+      const { data } = await (supabase as any).rpc("caca_cidade_centro", { p_city: city, p_uf: uf });
+      const row = (data as any[])?.[0];
+      if (!row) {
+        setLoading(false);
+        setNota(`${city} ainda não está mapeada no Caça-Sinal. Use o GPS ou escolha uma cidade da lista.`);
+        setMostrarCidades(true);
+        return;
+      }
+      const c = { lat: Number(row.lat), lng: Number(row.lng) };
+      setCenter(c); setOrigem("cidade");
       await carregar(c, raio);
     } catch (e: any) {
       setLoading(false);
@@ -284,7 +286,7 @@ export default function SpotFinder() {
   };
 
   const importSignals = async () => {
-    if (!city || !uf) { setEditCidade(true); return; }
+    if (!city || !uf) { setMostrarCidades(true); return; }
     setImporting(true);
     try {
       const { data, error } = await supabase.functions.invoke("importar-semaforos", { body: { city, state: uf, radius_km: Math.max(raio, 10) } });
@@ -336,17 +338,9 @@ export default function SpotFinder() {
       </button>
 
       <div className="flex items-center justify-center gap-1.5 flex-wrap">
-        {editCidade ? (
-          <div className="flex items-center gap-1.5">
-            <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="Cidade" className="h-8 w-36 rounded-full px-3 text-xs bg-background border border-border text-foreground" />
-            <input value={uf} onChange={(e) => setUf(e.target.value.toUpperCase())} maxLength={2} placeholder="UF" className="h-8 w-12 rounded-full px-2 text-xs bg-background border border-border text-foreground text-center" />
-            <button type="button" onClick={() => { setEditCidade(false); buscarPorCidade(); }} className="h-8 px-3 rounded-full text-xs font-black" style={{ background: GOLD, color: "#1a1305" }}>OK</button>
-          </div>
-        ) : (
-          <button type="button" onClick={() => setEditCidade(true)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-extrabold" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}>
-            <MapPin className="w-3 h-3" /> {city ? `${city}${uf ? ` · ${uf}` : ""}` : "escolher cidade"}
-          </button>
-        )}
+        <button type="button" onClick={() => setMostrarCidades((v) => !v)} className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-extrabold" style={{ background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD }}>
+          <MapPin className="w-3 h-3" /> {city ? `${city}${uf ? ` · ${uf}` : ""}` : "escolher cidade"}
+        </button>
         {RAIOS.map((r) => (
           <button key={r} type="button" onClick={() => mudarRaio(r)} className="rounded-full px-3 py-1.5 text-[11px] font-extrabold"
             style={raio === r ? { background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD } : { background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>
@@ -354,6 +348,21 @@ export default function SpotFinder() {
           </button>
         ))}
       </div>
+
+      {mostrarCidades && (
+        <div className="rounded-[18px] p-3" style={{ background: "#0e0e10", border: "1px solid #22201a" }}>
+          <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>CIDADES JÁ MAPEADAS ({cidades.length})</p>
+          <div className="flex flex-wrap gap-1.5 mt-2 max-h-40 overflow-y-auto">
+            {cidades.map((c) => (
+              <button key={`${c.cidade}-${c.uf}`} type="button" onClick={() => { setCity(c.cidade); setUf(c.uf); setMostrarCidades(false); setNota(null); setTimeout(() => buscarPorCidadeCom(c.cidade, c.uf), 0); }}
+                className="rounded-full px-2.5 py-1 text-[11px] font-bold" style={city === c.cidade ? { background: "#1a1305", border: `1px solid ${GOLD}`, color: GOLD } : { background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>
+                {c.cidade} · {c.uf}
+              </button>
+            ))}
+          </div>
+          <p className="text-[11px] mt-2" style={{ color: "#8a8378" }}>Sua cidade não está aqui? Toque em <b className="text-foreground">Sinais perto de mim</b> — o GPS resolve — ou peça pro suporte mapear.</p>
+        </div>
+      )}
 
       {/* inteligência: agora + seu melhor ponto */}
       {melhorAgora && (
