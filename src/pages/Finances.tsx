@@ -39,12 +39,16 @@ import {
   Upload,
   Lightbulb,
   TrendingUp,
-  ChevronRight
+  ChevronRight,
+  Flame,
+  ShieldCheck
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
+import { NovaContaSheet } from "@/components/financas/NovaContaSheet";
+import { ObjetivoConquistado } from "@/components/financas/ObjetivoConquistado";
 
 interface PlannedBill {
   id: string;
@@ -113,6 +117,11 @@ export default function Finances() {
     mediaDiariaLiquida: 0,
   });
   const [isLoadingData, setIsLoadingData] = useState(true);
+  // SEQUÊNCIA: memória por dia do "Guardei" (financas_dias) — últimos 90 dias.
+  const [diasGuardados, setDiasGuardados] = useState<Record<string, number>>({});
+  // Comemoração "objetivo conquistado": ids completados que já vimos (pra detectar o novo).
+  const completadosVistosRef = useRef<Set<string> | null>(null);
+  const [comemorar, setComemorar] = useState<Goal | null>(null);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   // Guarda o último "Guardei tudo" pra poder DESFAZER (reverte contas, metas e o guardado de hoje).
@@ -259,6 +268,21 @@ export default function Finances() {
         .order("created_at", { ascending: true });
 
       if (billsError) throw billsError;
+
+      // Dias guardados (sequência) — leve: 90 linhas no máximo.
+      {
+        const desde = new Date(getBrazilDate() + "T12:00:00");
+        desde.setDate(desde.getDate() - 90);
+        const desdeYmd = `${desde.getFullYear()}-${String(desde.getMonth() + 1).padStart(2, "0")}-${String(desde.getDate()).padStart(2, "0")}`;
+        const { data: fd } = await (supabase as any)
+          .from("financas_dias")
+          .select("data, guardado")
+          .eq("user_id", user.id)
+          .gte("data", desdeYmd);
+        const mapa: Record<string, number> = {};
+        for (const r of (fd as { data: string; guardado: number }[] | null) || []) mapa[r.data] = Number(r.guardado) || 0;
+        setDiasGuardados(mapa);
+      }
 
       // MODELO CONTÍNUO das recorrentes: uma conta recorrente NUNCA fica "paga parada".
       // Assim que é paga, ela reabre e volta a guardar um pouco por dia até o próximo
@@ -1231,6 +1255,27 @@ export default function Finances() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingData]);
 
+  // COMEMORAÇÃO: quando um objetivo passa a "completed" nesta sessão, mostra o card (1x por objetivo).
+  useEffect(() => {
+    if (isLoadingData) return;
+    const completados = new Set(goals.filter((g) => g.status === "completed").map((g) => g.id));
+    if (completadosVistosRef.current === null) {
+      completadosVistosRef.current = completados;
+      return;
+    }
+    for (const g of goals) {
+      if (g.status !== "completed" || completadosVistosRef.current.has(g.id)) continue;
+      let ja = false;
+      try { ja = localStorage.getItem(`orbis_obj_comemorado_${g.id}`) === "1"; } catch { /* nada */ }
+      if (!ja) {
+        try { localStorage.setItem(`orbis_obj_comemorado_${g.id}`, "1"); } catch { /* nada */ }
+        setComemorar(g);
+        break;
+      }
+    }
+    completadosVistosRef.current = completados;
+  }, [goals, isLoadingData]);
+
   // Carrega o "último guardei" salvo no aparelho (sobrevive a fechar/abrir o app),
   // pra o botão de desfazer continuar disponível mesmo depois de sair e voltar.
   useEffect(() => {
@@ -1281,14 +1326,87 @@ export default function Finances() {
     : 0;
   const totalGuardarHoje = goalShareToday + billsShareToday;
 
+  // SEQUÊNCIA DE DIAS GUARDANDO. Só dias de trabalho contam; descanso não quebra.
+  // Hoje entra se já guardou; se ainda não, a sequência é contada até ontem.
+  const sequencia = useMemo(() => {
+    const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const ehTrabalho = (d: Date) => (workingDays && workingDays.length > 0 ? workingDays.includes(nomes[d.getDay()]) : true);
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const hoje = new Date(getBrazilDate() + "T12:00:00");
+    const hojeYmd = ymd(hoje);
+    const guardouHoje = (diasGuardados[hojeYmd] || 0) > 0;
+    // atual: anda pra trás a partir de hoje (ou ontem se hoje ainda não guardou)
+    let atual = 0;
+    const d = new Date(hoje);
+    if (!guardouHoje) d.setDate(d.getDate() - 1);
+    for (let i = 0; i < 120; i++) {
+      const k = ymd(d);
+      if (ehTrabalho(d) || (diasGuardados[k] || 0) > 0) {
+        if ((diasGuardados[k] || 0) > 0) atual++;
+        else break;
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    // recorde: maior sequência nos 90 dias carregados (e o que já ficou salvo no aparelho)
+    let recorde = 0;
+    let corrida = 0;
+    const ini = new Date(hoje);
+    ini.setDate(ini.getDate() - 90);
+    for (const x = new Date(ini); x.getTime() <= hoje.getTime(); x.setDate(x.getDate() + 1)) {
+      const k = ymd(x);
+      if (!ehTrabalho(x) && !(diasGuardados[k] || 0)) continue;
+      if ((diasGuardados[k] || 0) > 0) { corrida++; recorde = Math.max(recorde, corrida); } else if (k !== hojeYmd) corrida = 0;
+    }
+    try {
+      const salvo = Number(localStorage.getItem(`orbis_fin_recorde_${user?.id}`) || 0);
+      recorde = Math.max(recorde, salvo, atual);
+      if (user?.id) localStorage.setItem(`orbis_fin_recorde_${user.id}`, String(recorde));
+    } catch { /* nada */ }
+    // últimos 7 dias de trabalho (inclui hoje por último)
+    const ultimos: { k: string; estado: "on" | "miss" | "hoje" }[] = [];
+    const y = new Date(hoje);
+    while (ultimos.length < 7) {
+      const k = ymd(y);
+      if (ehTrabalho(y) || (diasGuardados[k] || 0) > 0) {
+        const g = (diasGuardados[k] || 0) > 0;
+        ultimos.unshift({ k, estado: g ? "on" : k === hojeYmd ? "hoje" : "miss" });
+      }
+      y.setDate(y.getDate() - 1);
+      if (ultimos.length === 0 && hoje.getTime() - y.getTime() > 60 * 86400000) break;
+    }
+    return { atual, recorde, ultimos, guardouHoje };
+  }, [diasGuardados, workingDays, user?.id]);
+
+  // MÊS BLINDADO: quanto das contas em aberto já está coberto.
+  const blindado = useMemo(() => {
+    const abertas = bills.filter((b) => !b.paid && (Number(b.amount) || 0) > 0);
+    const total = abertas.reduce((s, b) => s + (Number(b.amount) || 0), 0);
+    const guardado = abertas.reduce((s, b) => s + Math.min(Number(b.saved_amount) || 0, Number(b.amount) || 0), 0);
+    const cobertas = abertas.filter((b) => (Number(b.saved_amount) || 0) >= (Number(b.amount) || 0)).length;
+    const pagasCiclo = bills.filter((b) => b.paid || (b.recurring && b.paid_cycle === getBrazilDate().slice(0, 7))).length;
+    const pct = total > 0 ? Math.min(100, Math.round((guardado / total) * 100)) : 0;
+    return { total, guardado, falta: Math.max(0, total - guardado), cobertas: cobertas + pagasCiclo, contas: abertas.length + pagasCiclo, pct };
+  }, [bills]);
+
   // Alimenta o ref com o alvo do dia. O snapshot é feito por um efeito lá em cima —
   // ANTES do early return — pra respeitar as regras de hooks.
   guardarTargetRef.current = totalGuardarHoje;
+
+  // Grava/atualiza o dia em financas_dias (sequência) — sem travar a tela se falhar.
+  const gravarDiaGuardado = (data: string, guardado: number) => {
+    if (!user) return;
+    setDiasGuardados((m) => ({ ...m, [data]: guardado }));
+    (supabase as any)
+      .from("financas_dias")
+      .upsert({ user_id: user.id, data, guardado: Math.round(guardado * 100) / 100, alvo: Math.round((guardarTargetRef.current || 0) * 100) / 100, updated_at: new Date().toISOString() }, { onConflict: "user_id,data" })
+      .then(() => {}, () => {});
+  };
 
   // Soma um depósito ao "guardado hoje" (persiste no fuso BR).
   const registrarGuardadoHoje = (valor: number) => {
     const novo = savedTodayAmount + Math.max(0, valor);
     setSavedTodayAmount(novo);
+    gravarDiaGuardado(getBrazilDate(), novo);
     try {
       localStorage.setItem("orbis_guardar_date", getBrazilDate());
       localStorage.setItem("orbis_guardar_saved", String(novo));
@@ -1674,6 +1792,7 @@ export default function Finances() {
         novoSaved = Math.max(0, savedTodayAmount - ultimoGuardei.savedHojeDelta);
       }
       setSavedTodayAmount(novoSaved);
+      gravarDiaGuardado(getBrazilDate(), novoSaved);
       try {
         localStorage.setItem("orbis_guardar_saved", String(novoSaved));
         localStorage.removeItem("orbis_last_save_date");
@@ -1920,11 +2039,16 @@ export default function Finances() {
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground">GUARDAR HOJE</p>
-            {!isLoadingData && !diaGuardadoFechado && summary.netToday > 0 && alvoHoje > 0 && (
+            {!isLoadingData && (sequencia.atual > 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black" style={{ background: "#2a1205", border: "1px solid rgba(255,122,26,.4)", color: "#ff9d4d" }}>
+                <Flame className="w-3.5 h-3.5" strokeWidth={2.5} />
+                {sequencia.atual} dia{sequencia.atual === 1 ? "" : "s"} seguido{sequencia.atual === 1 ? "" : "s"}
+              </span>
+            ) : !diaGuardadoFechado && summary.netToday > 0 && alvoHoje > 0 ? (
               <span className="text-xs text-muted-foreground tabular-nums">
                 <b className="text-foreground">{Math.min(999, Math.round((alvoHoje / summary.netToday) * 100))}%</b> do lucro de hoje
               </span>
-            )}
+            ) : null)}
           </div>
 
           {isLoadingData ? (
@@ -1955,7 +2079,7 @@ export default function Finances() {
                 </p>
                 <div className="text-right text-xs text-muted-foreground leading-relaxed tabular-nums shrink-0">
                   contas <b className="text-foreground">{formatCurrency(billsShareToday)}</b><br />
-                  caixinhas <b className="text-foreground">{formatCurrency(goalShareToday)}</b>
+                  objetivos <b className="text-foreground">{formatCurrency(goalShareToday)}</b>
                 </div>
               </div>
               {savedTodayAmount > 0 && (
@@ -1974,7 +2098,7 @@ export default function Finances() {
                   GUARDEI {formatCurrency(restanteGuardarHoje)}
                 </button>
               ) : todayIsWorkDay && bills.length === 0 && goals.length === 0 ? (
-                <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou uma caixinha e o Orbis calcula quanto separar por dia.</p>
+                <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou um objetivo e o Orbis calcula quanto separar por dia.</p>
               ) : null}
               <div className="flex items-center justify-center gap-1.5 mt-2.5 text-xs text-muted-foreground">
                 <button onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }} className="py-1 font-semibold text-foreground/70 active:text-foreground">guardei outro valor</button>
@@ -1998,18 +2122,31 @@ export default function Finances() {
           )}
 
           {!isLoadingData && (bills.length > 0 || goals.length > 0) && (
-            <div className="flex items-end justify-between gap-3 mt-3 pt-3 border-t border-border/60">
-              <div>
-                <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground uppercase">
-                  Guardado em {new Date().toLocaleDateString("pt-BR", { month: "long" })}
-                </p>
-                <p className="text-[18px] font-black tabular-nums mt-0.5 text-foreground">{formatCurrency(contasGuardado + metasGuardado)}</p>
+            <>
+              <div className="flex items-end justify-between gap-3 mt-3 pt-3 border-t border-border/60">
+                <div>
+                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground uppercase">Últimos 7 dias de trabalho</p>
+                  <div className="flex gap-1.5 mt-2">
+                    {sequencia.ultimos.map((d) => (
+                      <span
+                        key={d.k}
+                        title={d.k}
+                        className="w-3 h-3 rounded-[4px]"
+                        style={d.estado === "on" ? { background: "#3DD68C" } : d.estado === "hoje" ? { border: "2px solid #F5B800" } : { background: "#3a1a20" }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground uppercase">Recorde</p>
+                  <p className="text-[16px] font-black tabular-nums mt-0.5 text-foreground">{sequencia.recorde} dia{sequencia.recorde === 1 ? "" : "s"}</p>
+                </div>
               </div>
-              <p className="text-[11px] text-muted-foreground text-right tabular-nums leading-relaxed">
-                contas <b className="text-foreground">{formatCurrency(contasGuardado)}</b><br />
-                caixinhas <b className="text-foreground">{formatCurrency(metasGuardado)}</b>
+              <p className="text-[11px] text-muted-foreground mt-2 tabular-nums">
+                Guardado em {new Date().toLocaleDateString("pt-BR", { month: "long" })}: <b className="text-foreground">{formatCurrency(contasGuardado + metasGuardado)}</b>
+                {" "}· contas {formatCurrency(contasGuardado)} · objetivos {formatCurrency(metasGuardado)}
               </p>
-            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -2314,14 +2451,14 @@ export default function Finances() {
         {/* 3. CAIXINHAS */}
         <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5 pt-1">
-              <h2 className="text-[15px] font-black text-foreground tracking-tight">Caixinhas</h2>
+              <h2 className="text-[15px] font-black text-foreground tracking-tight">Objetivos</h2>
               <button onClick={() => setIsAddGoalOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
-                <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova
+                <Plus className="w-3.5 h-3.5" strokeWidth={3} /> novo
               </button>
               <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Criar Objetivo Financeiro</DialogTitle>
+                  <DialogTitle>Novo objetivo</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div>
@@ -2405,7 +2542,7 @@ export default function Finances() {
                     </label>
                   </div>
                   <Button onClick={handleAddGoal} className="w-full">
-                    Criar Meta
+                    Criar objetivo
                   </Button>
                 </div>
               </DialogContent>
@@ -2417,7 +2554,7 @@ export default function Finances() {
           ) : goals.length === 0 ? (
             <Card>
               <CardContent className="pt-6 text-center text-muted-foreground">
-Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro do dia vai pra ela.
+Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do dia vai pra ele.
               </CardContent>
             </Card>
           ) : (
@@ -2690,231 +2827,41 @@ Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro d
             <button onClick={() => setIsAddBillOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
               <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova
             </button>
-            <Dialog open={isAddBillOpen} onOpenChange={setIsAddBillOpen}>
-              <DialogContent className="w-[calc(100vw-2rem)] max-w-md p-4 sm:p-6">
-                <DialogHeader>
-                  <DialogTitle>Nova conta a pagar</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  {/* Tipo: conta normal ou cartão de crédito */}
-                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
-                    <button
-                      type="button"
-                      onClick={() => setNewBill({ ...newBill, isCreditCard: false })}
-                      className={`py-2 rounded-lg text-sm font-semibold transition-colors ${!newBill.isCreditCard ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                    >
-                      Conta normal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewBill({ ...newBill, isCreditCard: true, risco: "alto" })}
-                      className={`py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 ${newBill.isCreditCard ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                    >
-                      <CreditCard className="w-4 h-4" /> Cartão
-                    </button>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Nome da conta</Label>
-                    <Input
-                      value={newBill.name}
-                      onChange={(e) => setNewBill({ ...newBill, name: e.target.value })}
-                      placeholder={newBill.isCreditCard ? "Ex: Nubank, Itaú..." : "Ex: Aluguel, Luz, Internet..."}
-                    />
-                  </div>
-
-                  {/* Cartão: já tem compra lançada OU fatura aberta (fica em R$0 até surgir algo) */}
-                  {newBill.isCreditCard && (
-                    <div className="space-y-2">
-                      <Label>Já tem alguma compra nesse cartão?</Label>
-                      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
-                        <button
-                          type="button"
-                          onClick={() => setNewBill({ ...newBill, faturaAberta: false })}
-                          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${!newBill.faturaAberta ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                        >
-                          Sim, tem valor
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setNewBill({ ...newBill, faturaAberta: true })}
-                          className={`py-2 rounded-lg text-xs font-semibold transition-colors ${newBill.faturaAberta ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                        >
-                          Ainda não (R$0)
-                        </button>
-                      </div>
-                      {newBill.faturaAberta && (
-                        <p className="text-[11px] text-muted-foreground leading-relaxed">
-                          O cartão entra em <span className="font-semibold text-foreground">R$0</span> e fica parado: não pede pra guardar nem conta como vencido. Quando você comprar algo nele, é só lançar o valor.
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Cartão: digitar o total ou a parcela */}
-                  {newBill.isCreditCard && !newBill.faturaAberta && (
-                    <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-muted">
-                      <button
-                        type="button"
-                        onClick={() => setNewBill({ ...newBill, cardMode: "total" })}
-                        className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${newBill.cardMode === "total" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                      >
-                        Total da compra
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewBill({ ...newBill, cardMode: "parcela" })}
-                        className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${newBill.cardMode === "parcela" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                      >
-                        Valor da parcela
-                      </button>
-                    </div>
-                  )}
-
-                  {!(newBill.isCreditCard && newBill.faturaAberta) && (
-                    <div className={newBill.isCreditCard ? "flex gap-3" : "space-y-2"}>
-                      <div className="space-y-2 flex-1 min-w-0">
-                        <Label>{newBill.isCreditCard ? (newBill.cardMode === "total" ? "Total (R$)" : "Parcela (R$)") : "Valor (R$)"}</Label>
-                        <MoneyInput
-                          value={parseFloat(newBill.amount) || 0}
-                          onChange={(n) => setNewBill({ ...newBill, amount: n ? String(n) : "" })}
-                          placeholder="0,00"
-                        />
-                      </div>
-                      {newBill.isCreditCard && (
-                        <div className="space-y-2 w-24 shrink-0">
-                          <Label>Parcelas</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={newBill.installments}
-                            onChange={(e) => setNewBill({ ...newBill, installments: e.target.value })}
-                            placeholder="6"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Prévia do cartão */}
-                  {newBill.isCreditCard && !newBill.faturaAberta && parseFloat(newBill.amount) > 0 && (() => {
-                    const parc = parseInt(newBill.installments) || 0;
-                    const monthly = newBill.cardMode === "total" && parc > 0 ? parseFloat(newBill.amount) / parc : parseFloat(newBill.amount);
-                    return (
-                      <div className="rounded-lg bg-violet-500/10 border border-violet-500/30 px-3 py-2 text-xs text-foreground leading-relaxed">
-                        <span className="font-semibold text-violet-400">{parc > 0 ? `${parc}x de ` : ""}{formatCurrency(monthly)}</span> por mês{newBill.cardMode === "total" && parc > 0 ? ` (total ${formatCurrency(parseFloat(newBill.amount))})` : ""}. É recorrente — entra todo mês no planejamento.
-                      </div>
-                    );
-                  })()}
-
-                  <div className="space-y-2">
-                    <Label>{newBill.isCreditCard ? "Dia do vencimento" : "Data de vencimento"}</Label>
-                    <Input
-                      type="date"
-                      value={newBill.due_date}
-                      onChange={(e) => setNewBill({ ...newBill, due_date: e.target.value })}
-                    />
-                  </div>
-
-                  {/* Fixa / Com duração / Única — vale pra conta normal E cartão */}
-                  <div className="space-y-2">
-                    <Label>Essa conta se repete?</Label>
-                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
-                      {(["fixa", "duracao", "unica"] as const).map((t) => (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setNewBill({ ...newBill, tipoTempo: t })}
-                          className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${newBill.tipoTempo === t ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}
-                        >
-                          {t === "fixa" ? "Fixa (todo mês)" : t === "duracao" ? "Com duração" : "Única (1 vez)"}
-                        </button>
-                      ))}
-                    </div>
-                    {newBill.tipoTempo === "duracao" && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">Dura</span>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={newBill.durationMonths}
-                          onChange={(e) => setNewBill({ ...newBill, durationMonths: e.target.value })}
-                          placeholder="12"
-                          className="w-20"
-                        />
-                        <span className="text-sm text-muted-foreground">meses e acaba</span>
-                      </div>
-                    )}
-                    <p className="text-[11px] text-muted-foreground">
-                      Fixa = todo mês pra sempre. Com duração = acaba depois de X meses (financiamento). <b className="text-foreground">Única</b> = aparece só uma vez; depois de pagar, some (não volta no mês seguinte).
-                    </p>
-                  </div>
-
-                  {/* Risco se atrasar — orienta a urgência quando vence (cartão sugere Alto). */}
-                  <div className="space-y-2">
-                    <Label>Risco se atrasar</Label>
-                    <div className="grid grid-cols-3 gap-1 p-1 rounded-xl bg-muted">
-                      {(["baixo", "medio", "alto"] as const).map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setNewBill({ ...newBill, risco: r })}
-                          className={`py-2 rounded-lg text-xs font-semibold capitalize transition-colors ${
-                            newBill.risco === r
-                              ? r === "alto" ? "bg-background shadow-sm text-destructive"
-                                : r === "medio" ? "bg-background shadow-sm text-amber-500"
-                                : "bg-background shadow-sm text-foreground"
-                              : "text-muted-foreground"
-                          }`}
-                        >
-                          {r === "medio" ? "Médio" : r}
-                        </button>
-                      ))}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground">
-                      Alto = juros/negativação rápido (cartões). Usado pra priorizar e avisar quando vence.
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Código pra pagar (boleto ou Pix) — opcional</Label>
-                    <Textarea
-                      value={newBill.payment_code}
-                      onChange={(e) => setNewBill({ ...newBill, payment_code: e.target.value })}
-                      placeholder="Cole aqui a linha digitável do boleto ou a chave Pix"
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
-                    <Button variant="outline" onClick={() => setIsAddBillOpen(false)} className="w-full sm:flex-1">
-                      Voltar
-                    </Button>
-                    <Button onClick={handleAddBill} className="w-full sm:flex-1">
-                      Adicionar conta
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
           </div>
 
-          {/* Resumo do mês: total das contas abertas + ritmo por dia útil */}
-          {!isLoadingData && bills.length > 0 && (
-            <Card className="rounded-2xl border" style={{ background: "#0e0e10", borderColor: "#22201a" }}>
-              <CardContent className="p-4 flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">EM ABERTO</p>
-                  <p className="text-[16px] font-black tabular-nums mt-0.5 text-foreground">
-                    {formatCurrency(contasTotal)} <span className="text-xs font-semibold text-muted-foreground">em {bills.filter((b) => !b.paid).length} conta{bills.filter((b) => !b.paid).length === 1 ? "" : "s"}</span>
+          {/* MÊS BLINDADO: quanto das contas do mês já está coberto */}
+          {!isLoadingData && bills.length > 0 && (() => {
+            const diasFaltam = ritmoSustentavel > 0 ? Math.ceil(blindado.falta / ritmoSustentavel) : 0;
+            const quando = diasFaltam > 0 ? dataEmDiasUteis(diasFaltam) : null;
+            const fechado = blindado.total > 0 && blindado.falta <= 0.005;
+            return (
+              <Card className="rounded-[18px] border" style={{ background: fechado ? "linear-gradient(160deg,#0d1f16,#0e0e10)" : "#0e0e10", borderColor: fechado ? "rgba(61,214,140,.45)" : "#22201a" }}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="w-3.5 h-3.5" style={{ color: "#3DD68C" }} /> MÊS BLINDADO
+                    </p>
+                    <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#3DD68C" }}>
+                      {blindado.cobertas} DE {blindado.contas} CONTA{blindado.contas === 1 ? "" : "S"} COBERTA{blindado.cobertas === 1 ? "" : "S"}
+                    </p>
+                  </div>
+                  <div className="flex items-end justify-between gap-3 mt-1.5">
+                    <p className="text-[30px] leading-none font-black tracking-tight tabular-nums" style={{ color: "#3DD68C" }}>{blindado.pct}%</p>
+                    <p className="text-xs text-muted-foreground tabular-nums">{formatCurrency(blindado.guardado)} de {formatCurrency(blindado.total)}</p>
+                  </div>
+                  <div className="h-2.5 rounded-full overflow-hidden mt-2" style={{ background: "#1c1b20" }}>
+                    <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${blindado.pct}%`, background: "linear-gradient(90deg,#1f8f5c,#3DD68C)" }} />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
+                    {fechado
+                      ? <>Mês blindado: todas as contas em aberto já têm o dinheiro separado.</>
+                      : <>Faltam <b className="text-foreground">{formatCurrency(blindado.falta)}</b> pra fechar o mês sem dever nada.{ritmoSustentavel > 0 ? <> Guardando <b className="text-foreground">{formatCurrency(ritmoSustentavel)}/dia</b>{quando ? <>, dia {quando.data}</> : null}.</> : null}</>}
                   </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">GUARDAR POR DIA</p>
-                  <p className="text-[16px] font-black tabular-nums mt-0.5" style={{ color: "#F5B800" }}>{formatCurrency(ritmoSustentavel)}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Total guardado — confira se bate com o que você separou de fato (lápis pra ajustar) */}
           {!isLoadingData && bills.length > 0 && (
@@ -3051,6 +2998,11 @@ Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro d
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <p className="font-semibold truncate">{bill.name}</p>
+                              {quitada && !bill.paid && (
+                                <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-black tracking-[.08em]" style={{ background: "#0d1f16", border: "1px solid rgba(61,214,140,.4)", color: "#3DD68C" }}>
+                                  <ShieldCheck className="w-3 h-3" /> BLINDADA
+                                </span>
+                              )}
                               {bill.is_credit_card ? (
                                 <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/10 border border-violet-500/30 px-2 py-0.5 text-[10px] font-medium text-violet-400">
                                   <CreditCard className="w-3 h-3" />
@@ -3359,7 +3311,7 @@ Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro d
           if (overdueBills.length > 0) {
             dicas.push({
               tom: "alerta", titulo: `${formatCurrency(vencidasTotal)} em conta vencida`,
-              texto: <>Juros de conta atrasada comem mais que qualquer caixinha rende. Quite {overdueBillsOrdenadas[0]?.name ? <b className="text-foreground">{overdueBillsOrdenadas[0].name}</b> : "a mais antiga"} primeiro — use "Guardar pra quitar" logo acima.</>,
+              texto: <>Juros de conta atrasada comem mais que qualquer objetivo rende. Quite {overdueBillsOrdenadas[0]?.name ? <b className="text-foreground">{overdueBillsOrdenadas[0].name}</b> : "a mais antiga"} primeiro — use "Guardar pra quitar" logo acima.</>,
               icone: <AlertTriangle className="w-4 h-4" style={{ color: "#F2465A" }} />,
             });
           }
@@ -3374,7 +3326,7 @@ Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro d
             } else {
               dicas.push({
                 tom: "ok", titulo: `Suas contas levam ${pct}% do seu lucro médio.`,
-                texto: <>Sobram <b className="text-foreground">{formatCurrency(sobraDiaMetas)}/dia</b> depois das contas. Se cada caixinha tiver um %, esse dinheiro sai sozinho no botão GUARDEI — sem depender de força de vontade.</>,
+                texto: <>Sobram <b className="text-foreground">{formatCurrency(sobraDiaMetas)}/dia</b> depois das contas. Se cada objetivo tiver um %, esse dinheiro sai sozinho no botão GUARDEI — sem depender de força de vontade.</>,
                 icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
               });
             }
@@ -3435,6 +3387,16 @@ Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro d
         </button>
         <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
 
+      {comemorar && (
+        <ObjetivoConquistado
+          nome={comemorar.name}
+          valor={Number(comemorar.target_amount) || 0}
+          dias={comemorar.created_at ? Math.max(1, Math.round((Date.now() - new Date(comemorar.created_at).getTime()) / 86400000)) : 0}
+          onFechar={() => setComemorar(null)}
+          onNovo={() => { setComemorar(null); setIsAddGoalOpen(true); }}
+        />
+      )}
+
       {/* Editar meta — muda nome, valor e prazo sem precisar apagar e recriar */}
       <Dialog open={editGoal !== null} onOpenChange={(o) => { if (!o) setEditGoal(null); }}>
         <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
@@ -3487,7 +3449,7 @@ Nenhuma caixinha ainda. Crie uma (moto, reserva, viagem) e diga que % do lucro d
               );
             })()}
             <div>
-              <Label>% do lucro do dia pra essa caixinha</Label>
+              <Label>% do lucro do dia pra esse objetivo</Label>
               <div className="flex items-center gap-2 mt-1.5">
                 <Input
                   type="number"
