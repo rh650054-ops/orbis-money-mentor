@@ -391,13 +391,20 @@ export default function SpotFinder() {
         <div className="space-y-1.5">
           <SpotMap
             center={center}
-            spots={sinais.map((s) => ({ id: String(s.osm_id), name: nomeDoSinal(s), lat: s.lat, lng: s.lng, score: s.rs_hora != null ? Math.max(8, s.score) : s.vendedores > 0 ? 6 : 4 }))}
+            spots={[
+              ...(origem === "gps" ? [{ id: "eu", name: "Você", lat: center.lat, lng: center.lng, me: true }] : []),
+              ...sinais.map((s, i) => ({
+                id: String(s.osm_id), name: nomeDoSinal(s), lat: s.lat, lng: s.lng, pos: i + 1,
+                tom: (s.rs_hora != null && s.vendedores >= 3 ? "quente" : s.vendedores > 0 ? "testado" : "frio") as "quente" | "testado" | "frio",
+              })),
+            ]}
             signals={[]}
             onSelect={(id) => document.getElementById(`sinal-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
           />
           <p className="text-[11px] flex items-center gap-2 px-1 flex-wrap" style={{ color: "#8a8378" }}>
-            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full" style={{ background: OK }} /> quente = vendas reais ({hot})</span>
-            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#6b7280" }} /> cinza = só semáforo</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full" style={{ background: HOT }} /> quente = vendas reais ({hot})</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full" style={{ background: GOLD }} /> top 3</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full" style={{ background: "#3a3629" }} /> só semáforo</span>
             <span>· {origem === "gps" ? "pela sua posição" : `por ${city}`}</span>
           </p>
         </div>

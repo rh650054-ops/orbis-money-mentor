@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import confetti from "canvas-confetti";
 import { getTier } from "./tier";
 
@@ -42,9 +43,12 @@ export function LeagueTransition({ type, position, onClose }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
+  // PORTAL no body: dentro da página o "fixed" ficava preso num pai com animação
+  // (transform), aí o véu cobria a tela mas o conteúdo ia parar lá embaixo.
+  return createPortal(
     <div
       className="fixed inset-0 z-[120] flex items-center justify-center bg-black/85 backdrop-blur-sm orbis-fade-in"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       onClick={onClose}
     >
       <div className="text-center px-7 max-w-sm" onClick={(e) => e.stopPropagation()}>
@@ -69,9 +73,10 @@ export function LeagueTransition({ type, position, onClose }: Props) {
           className="mt-6 inline-flex items-center justify-center font-black text-sm px-8 py-3 rounded-xl active:scale-[0.97] transition-transform"
           style={{ background: tier.color, color: "#0a0a0d" }}
         >
-          {up ? "BORA! 🚀" : "VOU REAGIR 💪"}
+          {up ? "BORA!" : "VOU REAGIR"}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

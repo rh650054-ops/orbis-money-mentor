@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { readThemeColor } from "@/shared/lib/theme-colors";
 
 type Spot = {
   id: string;
@@ -7,6 +6,11 @@ type Spot = {
   lat: number;
   lng: number;
   score?: number;
+  /** "quente" = vendas reais; "testado" = alguém vendeu; "frio" = só semáforo */
+  tom?: "quente" | "testado" | "frio";
+  /** posição na lista (1, 2, 3…) — vira o número do pino nos 3 primeiros */
+  pos?: number;
+  me?: boolean;
 };
 
 // Camada opcional de semáforos reais (OSM) plotada junto dos spots.
@@ -48,14 +52,6 @@ function loadLeaflet(): Promise<void> {
   return leafletPromise;
 }
 
-function scoreColor(score?: number) {
-  if (score == null) return readThemeColor("--muted-foreground");
-  if (score >= 8) return readThemeColor("--success");
-  if (score >= 6) return readThemeColor("--primary");
-  if (score >= 4) return readThemeColor("--warning");
-  return readThemeColor("--destructive");
-}
-
 export default function SpotMap({ center, spots, signals, onSelect }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
@@ -72,30 +68,38 @@ export default function SpotMap({ center, spots, signals, onSelect }: Props) {
     group.clearLayers();
     const pts: [number, number][] = [];
 
-    // Semáforos REAIS (OSM): pontinhos pequenos.
+    // Semáforos REAIS (OSM) sem nota: pontinhos discretos.
     (signals ?? []).forEach((sig) => {
       if (!sig.lat || !sig.lng) return;
-      L.circleMarker([sig.lat, sig.lng], {
-        radius: 4,
-        color: readThemeColor("--background"),
-        weight: 1,
-        fillColor: readThemeColor("--warning"),
-        fillOpacity: 0.9,
-      }).addTo(group);
+      L.circleMarker([sig.lat, sig.lng], { radius: 3, color: "#0a0a0d", weight: 1, fillColor: "#6b7280", fillOpacity: 0.85 }).addTo(group);
       pts.push([sig.lat, sig.lng]);
     });
 
-    // Spots pontuados: círculo colorido com a nota.
-    spots.forEach((s) => {
+    // Sua posição: bolinha azul com halo.
+    const eu = spots.find((s) => s.me);
+    if (eu) {
+      L.circleMarker([eu.lat, eu.lng], { radius: 7, color: "#ffffff", weight: 3, fillColor: "#7FD3FF", fillOpacity: 1 }).addTo(group);
+      L.circleMarker([eu.lat, eu.lng], { radius: 16, color: "#7FD3FF", weight: 1, opacity: 0.35, fillColor: "#7FD3FF", fillOpacity: 0.12, interactive: false }).addTo(group);
+    }
+
+    // Sinais: pino dourado/laranja numerado nos 3 primeiros; os outros, pontos menores.
+    // Ordem de desenho: frios primeiro, quentes por cima.
+    const ordem = [...spots.filter((s) => !s.me)].sort((a, b) => (a.tom === "quente" ? 1 : 0) - (b.tom === "quente" ? 1 : 0) || (b.pos ?? 99) - (a.pos ?? 99));
+    ordem.forEach((s) => {
       if (!s.lat || !s.lng) return;
-      const color = scoreColor(s.score);
-      const bg = readThemeColor("--background");
+      const quente = s.tom === "quente";
+      const testado = s.tom === "testado";
+      const top3 = s.pos != null && s.pos <= 3;
+      const cor = quente ? "#ff7a1a" : testado || top3 ? "#F5B800" : "#3a3629";
+      const tam = top3 ? 26 : quente ? 22 : 16;
+      const halo = quente ? "0 0 0 8px rgba(255,122,26,.18)" : top3 ? "0 0 0 6px rgba(245,184,0,.16)" : "none";
+      const label = top3 ? String(s.pos) : "";
       const html =
-        `<div style="width:30px;height:30px;border-radius:50%;background:${color};` +
-        `border:2px solid ${bg};display:flex;align-items:center;justify-content:center;` +
-        `color:${bg};font-weight:700;font-size:11px;">${s.score != null ? s.score.toFixed(1) : "?"}</div>`;
-      const icon = L.divIcon({ html, className: "", iconSize: [30, 30], iconAnchor: [15, 15] });
-      const marker = L.marker([s.lat, s.lng], { icon, title: s.name }).addTo(group);
+        `<div style="width:${tam}px;height:${tam}px;border-radius:50%;background:${cor};box-shadow:${halo};` +
+        `border:2px solid #0a0a0d;display:flex;align-items:center;justify-content:center;` +
+        `color:#1a1305;font-weight:900;font-size:11px;font-family:inherit">${label}</div>`;
+      const icon = L.divIcon({ html, className: "", iconSize: [tam, tam], iconAnchor: [tam / 2, tam / 2] });
+      const marker = L.marker([s.lat, s.lng], { icon, title: s.name, zIndexOffset: quente ? 1000 : top3 ? 500 : 0 }).addTo(group);
       marker.on("click", () => onSelectRef.current?.(s.id));
       pts.push([s.lat, s.lng]);
     });
@@ -121,10 +125,13 @@ export default function SpotMap({ center, spots, signals, onSelect }: Props) {
           [center.lat, center.lng],
           13,
         );
-        // Tiles escuros (CartoDB) — gratuitos, combinam com o tema do app.
-        L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
-          attribution: "&copy; OpenStreetMap &copy; CARTO",
+        // Tiles do OpenStreetMap — SEM chave, sem billing (o CARTO passou a exigir
+        // API key e carimbava "API KEY REQUIRED" no mapa). O tema escuro vem de um
+        // filtro CSS em cima dos tiles (classe .orbis-map-dark), não de outro servidor.
+        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "&copy; OpenStreetMap",
           maxZoom: 19,
+          className: "orbis-map-dark",
         }).addTo(mapRef.current);
         layerRef.current = L.layerGroup().addTo(mapRef.current);
         drawMarkers();
@@ -152,9 +159,15 @@ export default function SpotMap({ center, spots, signals, onSelect }: Props) {
   }, [center.lat, center.lng, spots, signals]);
 
   return (
-    <div
-      ref={ref}
-      className="w-full h-64 rounded-xl overflow-hidden border border-border bg-card"
-    />
+    <>
+      <style>{`
+        .orbis-map-dark { filter: invert(1) hue-rotate(180deg) brightness(.78) contrast(.92) saturate(.35); }
+        .leaflet-container { background: #0b0b0e; font-family: inherit; }
+        .leaflet-control-zoom a { background: #16151a !important; color: #e9e4d8 !important; border-color: #2a2823 !important; }
+        .leaflet-control-attribution { background: rgba(10,10,13,.75) !important; color: #8a8378 !important; font-size: 9px !important; }
+        .leaflet-control-attribution a { color: #b3ab9c !important; }
+      `}</style>
+      <div ref={ref} className="w-full h-64 rounded-[14px] overflow-hidden" style={{ border: "1px solid #22201a", background: "#0b0b0e" }} />
+    </>
   );
 }
