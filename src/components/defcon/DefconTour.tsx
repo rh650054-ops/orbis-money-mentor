@@ -22,7 +22,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 
-type Espera = "inicio" | "abordagem" | "venda";
+type Espera = "inicio" | "abordagem" | "venda" | "custo" | "encerrar";
 
 interface Passo {
   anchor: string;
@@ -30,7 +30,9 @@ interface Passo {
   titulo: string;
   texto: string;
   espera?: Espera;    // passo interativo: avança quando a ação acontece
+  meta?: number;      // quantas vezes a ação precisa acontecer (padrão 1)
   dica?: string;      // o que o usuário precisa tocar
+  dicas?: string[];   // dica por etapa (0 feitas, 1 feita...) quando meta > 1
   cta?: string;       // texto do botão (padrão "Próximo")
 }
 
@@ -43,29 +45,24 @@ const PASSO_INICIO: Passo = {
 const PASSOS: Passo[] = [
   { anchor: "defcon-missao", rotulo: "Missão", titulo: "Sua missão de hoje",
     texto: "Quanto falta pra meta do dia. Cada venda que você registra diminui esse número na hora." },
-  { anchor: "defcon-timer", rotulo: "Relógio", titulo: "O relógio do bloco",
-    texto: "O dia é dividido em blocos de 1 hora. O relógio mostra quanto falta nesta hora — é o seu ritmo, não uma pressão." },
-  { anchor: "defcon-placar", rotulo: "Placar", titulo: "Placar da hora",
-    texto: "Quanto vendeu, quantas vendas e quantas abordagens neste bloco. Tocando em Vendas você vê a lista e corrige o que precisar." },
+  { anchor: "defcon-placar", rotulo: "Placar", titulo: "Relógio e placar da hora",
+    texto: "O dia é dividido em blocos de 1 hora. Aqui você vê quanto falta nesta hora, quanto vendeu, quantas vendas e quantas abordagens." },
   { anchor: "defcon-abordagem", rotulo: "Abordagem", titulo: "Abordagem = um toque",
     texto: "Chamou alguém pra oferecer? Toca aqui. Abordagem conta mesmo sem venda — é ela que mostra seu esforço e sua conversão.",
     espera: "abordagem", dica: "Toca em Abordagem pra continuar" },
   { anchor: "defcon-venda", rotulo: "Venda", titulo: "Vendeu? Registra em 2 toques",
-    texto: "Toca em Venda, digita o valor e escolhe como recebeu: Dinheiro, Pix ou Cartão. Faz uma venda de teste agora — aqui é treino, nada vai pro ranking.",
-    espera: "venda", dica: "Registra uma venda de teste" },
-  { anchor: "defcon-venda", rotulo: "Anti-calote", titulo: "Modo anti-calote",
-    texto: "Cliente vai pagar depois? Dentro de Venda, toca em “Adicionar cliente”, põe o WhatsApp e usa “Registrar e cobrar no WhatsApp”. A cobrança sai pronta com sua chave Pix e a venda fica marcada como “Pix depois” até cair." },
+    texto: "Toca em Venda, digita o valor e escolhe como recebeu: Dinheiro, Pix ou Cartão. Faz 2 vendas de teste agora — aqui é treino, nada vai pro ranking.",
+    espera: "venda", meta: 2, dicas: ["Registra a 1ª venda de teste (0 de 2)", "Boa! Agora a 2ª venda (1 de 2)"] },
+  { anchor: "defcon-custo", rotulo: "Custo", titulo: "Você gastou com o quê hoje?",
+    texto: "Almoço, passagem, mercadoria… Anota aqui. É isso que faz o Orbis te mostrar o LUCRO de verdade no fim do dia — não só o que entrou.",
+    espera: "custo", dica: "Toca em Custo e registra o almoço, por exemplo" },
   { anchor: "defcon-gorjeta", rotulo: "Gorjeta", titulo: "Ganhou um extra?",
     texto: "Registra a gorjeta aqui. Ela entra no faturamento do dia, separada das vendas." },
-  { anchor: "defcon-custo", rotulo: "Custo", titulo: "Anota o que gastou",
-    texto: "Mercadoria, transporte, comida. É assim que o Orbis mostra seu lucro de verdade — não só o que entrou." },
-  { anchor: "defcon-ocorrencia", rotulo: "Ocorrência", titulo: "Aconteceu algo?",
-    texto: "Chuva, calote tentado, ponto fraco de movimento. Marca aqui e fica no seu histórico pra você entender seus dias." },
   { anchor: "defcon-pausar", rotulo: "Pausa", titulo: "Hora do almoço",
     texto: "Pausa quantas vezes precisar. Você escolhe os minutos e o Orbis te chama de volta." },
-  { anchor: "defcon-encerrar", rotulo: "Encerrar", titulo: "Fechou o corre?",
-    texto: "Toca em Encerrar e o Orbis mostra seu resumo: vendido, recebido, lucro e o que ficou pra receber. Aqui no treino, é só concluir.",
-    cta: "Concluir treino" },
+  { anchor: "defcon-encerrar", rotulo: "Encerrar", titulo: "Fechou o corre? Encerra o dia",
+    texto: "No fim do dia você toca em Encerrar e o Orbis fecha seu relatório: vendido, custos, lucro e sua posição no ranking. Faz isso agora.",
+    espera: "encerrar", dica: "Toca em Encerrar e confirma pra fechar o dia" },
 ];
 
 interface Rect { top: number; left: number; width: number; height: number }
@@ -78,10 +75,11 @@ function medir(anchor: string): Rect | null {
   return { top: r.top, left: r.left, width: r.width, height: r.height };
 }
 
-export default function DefconTour({ phase, totalApproaches, totalSalesCount, onConcluir }: {
+export default function DefconTour({ phase, totalApproaches, totalSalesCount, totalCost = 0, onConcluir }: {
   phase: string;
   totalApproaches: number;
   totalSalesCount: number;
+  totalCost?: number;
   onConcluir: () => void;
 }) {
   const rodando = phase === "running";
@@ -95,14 +93,23 @@ export default function DefconTour({ phase, totalApproaches, totalSalesCount, on
   const passo: Passo | null = rodando ? (PASSOS[idx] ?? null) : phase === "idle" ? PASSO_INICIO : null;
 
   // marca de onde partimos nos passos interativos (avança quando o contador cresce)
-  const [base, setBase] = useState<{ ab: number; vd: number }>({ ab: 0, vd: 0 });
-  useEffect(() => { setBase({ ab: totalApproaches, vd: totalSalesCount }); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [base, setBase] = useState<{ ab: number; vd: number; ct: number }>({ ab: 0, vd: 0, ct: 0 });
+  useEffect(() => { setBase({ ab: totalApproaches, vd: totalSalesCount, ct: totalCost }); }, [idx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // quantas vezes a ação do passo já aconteceu desde que ele abriu
+  const feitas = !passo ? 0
+    : passo.espera === "abordagem" ? totalApproaches - base.ab
+    : passo.espera === "venda" ? totalSalesCount - base.vd
+    : passo.espera === "custo" ? (totalCost > base.ct ? 1 : 0)
+    : 0;
 
   useEffect(() => {
-    if (!passo) return;
-    if (passo.espera === "abordagem" && totalApproaches > base.ab) setTimeout(() => setIdx((i) => i + 1), 450);
-    if (passo.espera === "venda" && totalSalesCount > base.vd) setTimeout(() => setIdx((i) => i + 1), 650);
-  }, [totalApproaches, totalSalesCount, passo, base]);
+    if (!passo || !passo.espera || passo.espera === "inicio" || passo.espera === "encerrar") return;
+    const meta = passo.meta ?? 1;
+    if (feitas >= meta) setTimeout(() => setIdx((i) => i + 1), passo.espera === "venda" ? 650 : 450);
+  }, [feitas, passo]);
+
+  const dicaAtual = passo?.dicas ? (passo.dicas[Math.min(feitas, passo.dicas.length - 1)] ?? passo.dica) : passo?.dica;
 
   // mede a âncora do passo atual (a tela muda de tamanho, rola, anima…)
   useEffect(() => {
@@ -155,7 +162,7 @@ export default function DefconTour({ phase, totalApproaches, totalSalesCount, on
         <div className="rounded-full px-4 py-2 text-[12.5px] font-semibold flex items-center gap-2"
           style={{ background: "rgba(23,19,10,.96)", border: "1px solid rgba(245,184,0,.35)", color: "#F5B800" }}>
           <span className="w-2 h-2 rounded-full" style={{ background: "#F5B800", animation: "orbis-tour-pulse 1.2s ease-in-out infinite" }} />
-          {passo.dica}
+          {dicaAtual}
         </div>
         <style>{`@keyframes orbis-tour-pulse{0%,100%{opacity:1}50%{opacity:.45}}`}</style>
       </div>,
@@ -204,7 +211,7 @@ export default function DefconTour({ phase, totalApproaches, totalSalesCount, on
         {interativo ? (
           <div className="mt-3 flex items-center gap-2 rounded-xl px-3 py-2" style={{ background: "rgba(245,184,0,.10)", border: "1px solid rgba(245,184,0,.25)" }}>
             <span className="w-2 h-2 rounded-full" style={{ background: "#F5B800", animation: "orbis-tour-pulse 1.2s ease-in-out infinite" }} />
-            <p className="text-[12.5px] font-semibold" style={{ color: "#F5B800" }}>{passo.dica}</p>
+            <p className="text-[12.5px] font-semibold" style={{ color: "#F5B800" }}>{dicaAtual}</p>
           </div>
         ) : (
           <button type="button" onClick={() => setIdx((i) => i + 1)} className="orbis-cta w-full mt-3" style={{ height: 46 }}>
@@ -219,25 +226,47 @@ export default function DefconTour({ phase, totalApproaches, totalSalesCount, on
   );
 }
 
-/* --- Card final: "Treino concluído — agora é de verdade" --- */
-export function TreinoConcluido({ onVoltar }: { onVoltar: () => void }) {
+/* --- Card final: o "primeiro relatório" do treino + ponte pro ranking/painel --- */
+export function TreinoConcluido({ vendido, vendas, custo, onRanking, onPainel }: {
+  vendido: number; vendas: number; custo: number; onRanking: () => void; onPainel: () => void;
+}) {
+  const lucro = vendido - custo;
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   return createPortal(
     <div className="fixed inset-0 z-[85] flex items-center justify-center" role="dialog" aria-modal="true" style={{ pointerEvents: "auto" }}>
-      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.84)" }} />
-      <div className="orbis-victory relative w-full max-w-md mx-6 rounded-[22px] border p-6 text-center"
+      <div className="absolute inset-0" style={{ background: "rgba(0,0,0,.88)" }} />
+      <div className="orbis-victory relative w-full max-w-md mx-5 rounded-[22px] border p-5 text-center"
         style={{ "--win-color": "rgba(245,184,0,.55)", background: "linear-gradient(160deg,#1C1608 0%,#111 60%)", borderColor: "rgba(245,184,0,.4)", boxShadow: "0 24px 70px -24px rgba(245,184,0,.5)" } as React.CSSProperties}>
-        <div className="mx-auto w-14 h-14 rounded-full flex items-center justify-center"
+        <div className="mx-auto w-12 h-12 rounded-full flex items-center justify-center"
           style={{ background: "linear-gradient(180deg,#FFC63A,#F5B800)", boxShadow: "0 4px 0 #B88700" }}>
-          <Check size={28} strokeWidth={3.2} color="#1A1200" />
+          <Check size={24} strokeWidth={3.2} color="#1A1200" />
         </div>
-        <p className="mt-4 text-[10.5px] font-extrabold uppercase tracking-[.18em]" style={{ color: "#F5B800" }}>Treino concluído</p>
-        <h2 className="font-display text-[22px] font-extrabold mt-1.5 leading-[1.3]" style={{ color: "#F4F1EA" }}>
-          Você já sabe usar o DEFCON 4.<br /><span style={{ color: "#F5B800" }}>Nada disso foi pro ranking.</span>
+        <p className="mt-3 text-[10.5px] font-extrabold uppercase tracking-[.18em]" style={{ color: "#F5B800" }}>Treino concluído</p>
+        <h2 className="font-display text-[21px] font-extrabold mt-1 leading-[1.25]" style={{ color: "#F4F1EA" }}>
+          Isso é o que você vai ver<br />todo fim de dia
         </h2>
-        <p className="text-[13px] mt-2.5 leading-[1.5]" style={{ color: "#B9B3A6" }}>
-          Quando for de verdade, é o mesmo caminho: <b style={{ color: "#F4F1EA" }}>Foco → Iniciar DEFCON 4</b>. Sem sinal? Funciona igual — sobe sozinho depois.
+
+        {/* mini relatório do treino */}
+        <div className="mt-4 rounded-2xl text-left overflow-hidden" style={{ background: "#0b0b0d", border: "1px solid rgba(245,184,0,.2)" }}>
+          <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid #22201a" }}>
+            <span className="text-[13px]" style={{ color: "#B9B3A6" }}>Vendido <span className="text-[11px]">· {vendas} venda{vendas === 1 ? "" : "s"}</span></span>
+            <span className="text-[15px] font-black tabular-nums" style={{ color: "#F4F1EA" }}>{fmt(vendido)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-2.5" style={{ borderBottom: "1px solid #22201a" }}>
+            <span className="text-[13px]" style={{ color: "#B9B3A6" }}>Custos</span>
+            <span className="text-[15px] font-black tabular-nums" style={{ color: "#E5737F" }}>− {fmt(custo)}</span>
+          </div>
+          <div className="flex items-center justify-between px-4 py-3" style={{ background: "rgba(61,214,140,.06)" }}>
+            <span className="text-[13px] font-bold" style={{ color: "#F4F1EA" }}>Lucro de verdade</span>
+            <span className="text-[20px] font-black tabular-nums" style={{ color: lucro >= 0 ? "#3DD68C" : "#F2465A" }}>{fmt(lucro)}</span>
+          </div>
+        </div>
+
+        <p className="text-[12.5px] mt-3 leading-[1.5]" style={{ color: "#B9B3A6" }}>
+          Nada disso foi pro ranking — era treino. No dia de verdade, o caminho é o mesmo: <b style={{ color: "#F4F1EA" }}>Foco → Iniciar DEFCON 4</b>, e o que você vender já sobe no ranking na hora.
         </p>
-        <button type="button" onClick={onVoltar} className="orbis-cta w-full mt-5">VOLTAR PRO INÍCIO</button>
+        <button type="button" onClick={onRanking} className="orbis-cta w-full mt-4">VER O RANKING</button>
+        <button type="button" onClick={onPainel} className="w-full mt-2 h-11 rounded-xl text-[13px] font-bold" style={{ color: "#B9B3A6", border: "1px solid #2a2416" }}>Ir pro painel</button>
       </div>
     </div>,
     document.body,

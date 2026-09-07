@@ -160,7 +160,7 @@ export default function OnboardingNovo() {
       } catch { /* offline — o Layout revalida depois */ }
     }
     // Direto pro início do DEFCON: a ativação é o primeiro dia rodando, não o dashboard.
-    navigate("/defcon?primeiro=1", { replace: true });
+    navigate("/defcon?treino=1&primeiro=1", { replace: true });
   };
 
   /* Pular = concluir sem cerimônia: nunca prendemos ninguém.

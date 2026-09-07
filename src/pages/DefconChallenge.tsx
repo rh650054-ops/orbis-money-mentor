@@ -32,9 +32,9 @@ export default function DefconChallenge() {
   // Treino guiado: quando o tour termina (ou o usuário ENCERRA no treino), mostra o
   // card "treino concluído", marca o passo do checklist e volta pro início.
   const [treinoConcluido, setTreinoConcluido] = useState(false);
-  const concluirTreino = () => {
+  const concluirTreino = (rota: string = "/") => {
     try { if (user?.id) localStorage.setItem(`orbis_defcon_tour_ok_${user.id}`, "1"); } catch { /* nada */ }
-    navigate("/");
+    navigate(rota, { replace: true });
   };
 
   useEffect(() => {
@@ -242,6 +242,7 @@ export default function DefconChallenge() {
           sessionSales={defcon.sessionSales}
           onDeleteSale={defcon.deleteSale}
           onboardingMode={treino}
+          onTreinoCusto={treino ? defcon.addCost : undefined}
           quickSaleValue={defcon.quickSaleValue}
           x1Live={treino ? undefined : x1Live}
         />
@@ -387,11 +388,18 @@ export default function DefconChallenge() {
           phase={defcon.phase}
           totalApproaches={defcon.totalApproaches ?? 0}
           totalSalesCount={defcon.totalSalesCount ?? 0}
+          totalCost={defcon.totalCost ?? 0}
           onConcluir={() => setTreinoConcluido(true)}
         />
       )}
       {treino && user && (treinoConcluido || ["finished", "abandoned"].includes(defcon.phase)) && (
-        <TreinoConcluido onVoltar={concluirTreino} />
+        <TreinoConcluido
+          vendido={defcon.totalSold ?? 0}
+          vendas={defcon.totalSalesCount ?? 0}
+          custo={defcon.totalCost ?? 0}
+          onRanking={() => concluirTreino("/ranking")}
+          onPainel={() => concluirTreino("/")}
+        />
       )}
       {/* Card de 1ª vez do DEFCON (rota fora do layout, então renderiza aqui):
           venda em 2 toques, offline continua registrando, encerrar o dia. */}

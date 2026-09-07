@@ -44,6 +44,8 @@ interface DefconRunningProps {
   sessionSales?: any[];
   onDeleteSale?: (sale: any) => void;
   onboardingMode?: boolean;
+  /** Treino: custo registrado fica em memoria (nao grava no banco). */
+  onTreinoCusto?: (value: number, name: string) => void;
   quickSaleValue?: number;
   /** X1 do dia (se houver): faixa de placar ao vivo + banner de virada na tela */
   x1Live?: X1LiveState;
@@ -73,6 +75,7 @@ export function DefconRunning({
   sessionSales = [],
   onDeleteSale,
   onboardingMode,
+  onTreinoCusto,
   quickSaleValue,
   x1Live,
 }: DefconRunningProps) {
@@ -672,6 +675,7 @@ export function DefconRunning({
           open={showExpense}
           onOpenChange={setShowExpense}
           hideFab
+          onSaveOverride={onboardingMode && onTreinoCusto ? (v, name) => onTreinoCusto(v, name) : undefined}
         />
 
         {/* Botões de ação — venda elevada acima dos laterais */}

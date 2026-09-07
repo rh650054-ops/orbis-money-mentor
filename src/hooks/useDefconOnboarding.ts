@@ -17,6 +17,9 @@ export function useDefconOnboarding(userId: string | undefined) {
   const [quickSaleValue, setQuickSaleValue] = useState<number>(15);
   const [totalSold, setTotalSold] = useState(0);
   const [totalSalesCount, setTotalSalesCount] = useState(0);
+  // Custo do treino (ex.: almoco) — so em memoria, pra o relatorio final mostrar o lucro.
+  const [totalCost, setTotalCost] = useState(0);
+  const [costCount, setCostCount] = useState(0);
   const [blockSalesCount, setBlockSalesCount] = useState(0);
   const [blockApproaches, setBlockApproaches] = useState(0);
   const [totalApproaches, setTotalApproaches] = useState(0);
@@ -92,6 +95,10 @@ export function useDefconOnboarding(userId: string | undefined) {
     setTotalApproaches((a) => a + 1);
   };
 
+  const addCost = (amount: number) => {
+    if (amount > 0) { setTotalCost((c) => c + amount); setCostCount((n) => n + 1); }
+  };
+
   const addTip = async (amount: number) => {
     if (amount > 0) setTotalSold((s) => s + amount);
   };
@@ -122,6 +129,9 @@ export function useDefconOnboarding(userId: string | undefined) {
     blockSalesCount,
     totalApproaches,
     totalSalesCount,
+    totalCost,
+    costCount,
+    addCost,
     blockReportData: null,
     quickSaleValue,
     startChallenge,

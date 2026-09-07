@@ -47,6 +47,8 @@ interface QuickExpenseButtonProps {
   onOpenChange?: (open: boolean) => void;
   hideFab?: boolean;
   initialCategoryKey?: string;
+  /** Treino do DEFCON: em vez de gravar no banco, entrega o custo pra quem chamou. */
+  onSaveOverride?: (value: number, name: string, icon: string) => void;
 }
 
 export default function QuickExpenseButton({
@@ -54,6 +56,7 @@ export default function QuickExpenseButton({
   onOpenChange,
   hideFab = false,
   initialCategoryKey,
+  onSaveOverride,
 }: QuickExpenseButtonProps = {}) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -143,6 +146,14 @@ export default function QuickExpenseButton({
     const name = selected.key === "outro"
       ? (customName.trim() || "Outro custo")
       : selected.label;
+
+    if (onSaveOverride) {
+      onSaveOverride(value, name, selected.icon);
+      toast({ title: `${selected.icon} ${name}`, description: `${formatCurrency(value)} registrado (treino)` });
+      reset();
+      setIsOpen(false);
+      return;
+    }
 
     setSaving(true);
     const { error } = await supabase.from("personal_expenses").insert({
