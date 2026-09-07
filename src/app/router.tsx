@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "@/app/layout";
+import RankingAlertas from "@/components/ranking/RankingAlertas";
 import PaywallGate from "@/components/PaywallGate";
 import OfflineGate from "@/components/OfflineGate";
 
@@ -95,6 +96,8 @@ export function AppRouter() {
       <PaywallGate />
       {/* Sem internet → painel com "Ativar modo offline" (cobre todas as telas) */}
       <OfflineGate />
+      {/* Ranking: "fulano te ultrapassou" / "você passou fulano" — em qualquer tela, inclusive no DEFCON */}
+      <RankingAlertas />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />

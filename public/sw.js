@@ -198,6 +198,19 @@ async function showX1Alert(d) {
   });
 }
 
+// "🔻 Lucas te ultrapassou" / "🔺 Você passou Ana" — alerta do ranking. Toque abre /ranking.
+async function showRankingAlert(d) {
+  return self.registration.showNotification((d && d.title) || "Ranking", {
+    body: (d && d.body) || "",
+    icon: ICON,
+    badge: ICON,
+    silent: false,
+    tag: "orbis-ranking-alert",
+    renotify: true,
+    data: { kind: "ranking" },
+  });
+}
+
 self.addEventListener("message", (event) => {
   const msg = event.data || {};
   if (msg.type === "orbis-defcon-show") {
@@ -208,6 +221,8 @@ self.addEventListener("message", (event) => {
     event.waitUntil(showVendaRealizada(msg.data && msg.data.amount));
   } else if (msg.type === "orbis-x1-alert") {
     event.waitUntil(showX1Alert(msg.data));
+  } else if (msg.type === "orbis-ranking-alert") {
+    event.waitUntil(showRankingAlert(msg.data));
   }
 });
 
@@ -221,6 +236,13 @@ self.addEventListener("notificationclick", (event) => {
     const clientsList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const orbis = clientsList.find((c) => c.url.includes("/defcon")) || clientsList[0];
 
+    // Alerta do ranking: abre a aba do ranking.
+    if (which === "ranking") {
+      const win = clientsList.find((c) => "focus" in c);
+      if (win) { await win.focus(); try { win.navigate && (await win.navigate("/ranking")); } catch (e) { /* nada */ } }
+      else await self.clients.openWindow("/ranking");
+      return;
+    }
     // Alerta de X1: só traz o app pra frente (ou abre o X1 se estiver fechado).
     if (which === "x1") {
       const win = clientsList.find((c) => "focus" in c);
