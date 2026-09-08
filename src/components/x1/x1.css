@@ -1,0 +1,99 @@
+/* ============================================================
+   ARENA X1 — animações do "jogo de luta" (Rick, 08/09/2026).
+   Tudo CSS puro: leve pra celular fraco, sem biblioteca.
+   ============================================================ */
+
+/* card entra com "soco": vem grande e assenta com uma sacudida curta */
+@keyframes x1-slam {
+  0%   { opacity: 0; transform: scale(1.18) translateY(-10px); }
+  60%  { opacity: 1; transform: scale(.98) translateY(2px); }
+  78%  { transform: scale(1.01) translateX(-2px); }
+  90%  { transform: scale(1) translateX(2px); }
+  100% { transform: none; }
+}
+.x1-slam { animation: x1-slam .55s cubic-bezier(.2, 1.2, .4, 1) both; }
+
+/* cascata: cada item sobe com atraso (--i) */
+@keyframes x1-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.x1-up { animation: x1-up .45s ease-out both; animation-delay: calc(var(--i, 0) * 70ms); }
+
+/* VS bate no meio da tela */
+@keyframes x1-vs {
+  0%   { opacity: 0; transform: scale(3) rotate(-14deg); }
+  55%  { opacity: 1; transform: scale(.9) rotate(4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-6deg); }
+}
+.x1-vs { animation: x1-vs .5s cubic-bezier(.2, 1.4, .4, 1) both; display: inline-block; }
+@keyframes x1-vs-glow { 0%, 100% { text-shadow: 0 0 18px #F5B80088, 0 3px 0 #7a5a00; } 50% { text-shadow: 0 0 34px #F5B800dd, 0 3px 0 #7a5a00; } }
+.x1-vs-glow { animation: x1-vs-glow 1.8s ease-in-out infinite; }
+
+/* golpe: barra sacode e número pula */
+@keyframes x1-hit { 0% { transform: none; } 25% { transform: translateX(-4px); } 50% { transform: translateX(4px); } 75% { transform: translateX(-2px); } 100% { transform: none; } }
+.x1-hit { animation: x1-hit .35s ease-out; }
+@keyframes x1-pop { 0% { transform: scale(1); } 40% { transform: scale(1.28); } 100% { transform: scale(1); } }
+.x1-pop { animation: x1-pop .45s cubic-bezier(.2, 1.4, .4, 1); display: inline-block; }
+
+/* raios dourados girando (fundo da vitória) */
+@keyframes x1-spin { to { transform: rotate(360deg); } }
+.x1-rays {
+  position: absolute; left: 50%; top: 30%; width: 1200px; height: 1200px; margin: -600px 0 0 -600px; pointer-events: none;
+  background: conic-gradient(from 0deg, transparent 0 12deg, rgba(245,184,0,.09) 12deg 20deg, transparent 20deg 42deg, rgba(245,184,0,.07) 42deg 50deg, transparent 50deg 78deg, rgba(245,184,0,.09) 78deg 86deg, transparent 86deg 120deg, rgba(245,184,0,.06) 120deg 128deg, transparent 128deg 160deg, rgba(245,184,0,.09) 160deg 168deg, transparent 168deg 200deg, rgba(245,184,0,.07) 200deg 208deg, transparent 208deg 240deg, rgba(245,184,0,.09) 240deg 248deg, transparent 248deg 290deg, rgba(245,184,0,.06) 290deg 298deg, transparent 298deg 330deg, rgba(245,184,0,.09) 330deg 338deg, transparent 338deg 360deg);
+  animation: x1-spin 18s linear infinite;
+}
+.x1-rays.vermelho {
+  background: conic-gradient(from 0deg, transparent 0 12deg, rgba(242,70,90,.08) 12deg 20deg, transparent 20deg 60deg, rgba(242,70,90,.06) 60deg 68deg, transparent 68deg 120deg, rgba(242,70,90,.08) 120deg 128deg, transparent 128deg 190deg, rgba(242,70,90,.06) 190deg 198deg, transparent 198deg 250deg, rgba(242,70,90,.08) 250deg 258deg, transparent 258deg 310deg, rgba(242,70,90,.06) 310deg 318deg, transparent 318deg 360deg);
+}
+
+/* letras estourando (VITÓRIA) */
+@keyframes x1-letter { from { opacity: 0; transform: scale(2.2) translateY(-10px); } to { opacity: 1; transform: none; } }
+.x1-letter { display: inline-block; animation: x1-letter .5s cubic-bezier(.2, 1.4, .4, 1) both; animation-delay: calc(.35s + var(--i, 0) * 90ms); }
+
+/* faixa CAMPEÃO DO DUELO girando ao redor da foto (pedido do Rick) */
+@keyframes x1-orbit { to { transform: rotate(360deg); } }
+.x1-orbit { animation: x1-orbit 9s linear infinite; transform-origin: 50% 50%; }
+
+/* brilho passando no card */
+@keyframes x1-shine { 0% { left: -60%; } 40%, 100% { left: 130%; } }
+.x1-shine { position: absolute; top: 0; left: -60%; width: 40%; height: 100%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.16), transparent); transform: skewX(-20deg); animation: x1-shine 2.6s 1.6s infinite; pointer-events: none; }
+
+/* confete */
+@keyframes x1-fall { 0% { opacity: 0; transform: translateY(0) rotate(0); } 8% { opacity: 1; } 100% { opacity: 0; transform: translateY(100vh) rotate(720deg); } }
+.x1-confetti { position: absolute; top: -20px; width: 8px; height: 14px; border-radius: 2px; opacity: 0; animation: x1-fall 3s ease-in both; pointer-events: none; }
+
+/* faíscas do soco */
+@keyframes x1-spark { 0% { opacity: 0; transform: translate(0, 0) scale(.4); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(1.2); } }
+.x1-spark { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #FFC63A; box-shadow: 0 0 10px #FFC63A; opacity: 0; animation: x1-spark 1.1s ease-out both; pointer-events: none; }
+
+/* XP enchendo + "+X" flutuando */
+.x1-xp-fill { transition: width 1.2s cubic-bezier(.2, .8, .2, 1); }
+@keyframes x1-float { 0% { opacity: 0; transform: translateY(8px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translateY(-26px); } }
+.x1-float { animation: x1-float 1.6s ease-out both; }
+
+/* botão principal pulsando */
+@keyframes x1-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
+.x1-pulse { animation: x1-pulse 1.6s ease-in-out infinite; }
+
+/* rodada entrando de lado */
+@keyframes x1-round { 0% { opacity: 0; transform: translateX(-40px); } 20% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateX(40px); } }
+.x1-round { animation: x1-round 2.4s ease-in-out both; }
+
+/* derrota: card treme e escurece */
+@keyframes x1-lose { 0% { filter: none; transform: none; } 20% { transform: translateX(-6px) rotate(-1deg); } 40% { transform: translateX(6px) rotate(1deg); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } 100% { transform: none; filter: saturate(.5) brightness(.75); } }
+.x1-lose { animation: x1-lose .9s ease-out both; }
+
+/* ponto "ao vivo" */
+@keyframes x1-live { 0%, 100% { box-shadow: 0 0 0 0 rgba(242,70,90,.7); } 70% { box-shadow: 0 0 0 7px rgba(242,70,90,0); } }
+.x1-live { animation: x1-live 1.4s infinite; }
+
+/* botão com "peso" (3D) */
+.x1-btn { height: 56px; border-radius: 16px; font-weight: 900; font-size: 16px; letter-spacing: .06em; font-style: italic; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; transition: transform .08s; }
+.x1-btn:active { transform: translateY(3px); }
+.x1-btn.ouro { background: linear-gradient(180deg, #FFC63A, #F5B800); color: #1a1305; box-shadow: 0 6px 0 #B88700, 0 14px 30px rgba(245,184,0,.2); }
+.x1-btn.vermelho { background: linear-gradient(180deg, #ff5a6e, #c8172f); color: #fff; box-shadow: 0 6px 0 #7a0a1a, 0 14px 30px rgba(242,70,90,.27); }
+.x1-btn.fantasma { background: #16151a; color: #e9e4d8; border: 1px solid #2a2823; font-style: normal; font-size: 13px; height: 46px; box-shadow: none; }
+.x1-btn:disabled { opacity: .5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .x1-slam, .x1-up, .x1-vs, .x1-letter, .x1-lose, .x1-round { animation-duration: .01s; }
+  .x1-rays, .x1-orbit, .x1-shine, .x1-pulse, .x1-vs-glow, .x1-confetti, .x1-spark { animation: none; }
+}

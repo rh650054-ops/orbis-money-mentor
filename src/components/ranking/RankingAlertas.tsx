@@ -36,7 +36,7 @@ export default function RankingAlertas() {
               </button>
               {caiu && a.outro_user_id ? (
                 // Te passaram → "Chama pro X1" (Rick, 08/09): a arena abre já com ele selecionado.
-                <button type="button" onClick={() => { void dispensar(a.id); navigate(`/x1?desafiar=${a.outro_user_id}`); }} aria-label="Chamar pro X1" className="shrink-0 h-9 px-2.5 rounded-[11px] inline-flex items-center gap-1 text-[11px] font-extrabold" style={{ background: cor, color: "#fff" }}>
+                <button type="button" onClick={() => { void dispensar(a.id); navigate(`/x1/escolher?alvo=${a.outro_user_id}`); }} aria-label="Chamar pro X1" className="shrink-0 h-9 px-2.5 rounded-[11px] inline-flex items-center gap-1 text-[11px] font-extrabold" style={{ background: cor, color: "#fff" }}>
                   <Swords className="w-3.5 h-3.5" strokeWidth={2.8} /> X1
                 </button>
               ) : (

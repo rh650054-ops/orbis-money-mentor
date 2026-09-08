@@ -1,34 +1,37 @@
 /* ============================================================
-   CARD DA ARENA X1 NO DASHBOARD — 1º card depois do Foco. Mostra UMA coisa:
-     1) alguém te chamou → TOPO / ver
-     2) duelo rolando hoje → placar ao vivo + VENDER AGORA
-     3) senão → rival logo acima no ranking ("resolve isso hoje?") ou,
-        sem ranking, o convite pro 1º amistoso.
-   Fotos reais (pedido do Rick). Sem API externa — só Supabase.
+   CARD DA ARENA X1 NO DASHBOARD — mesma linguagem do "jogo de luta"
+   (foto com anel, VS dourado, barra de energia, botão com peso).
+   Mostra UMA coisa por vez:
+     1) luta rolando hoje  → placar ao vivo + DAR UM GOLPE
+     2) alguém te desafiou → LUTAR (abre a luta)
+     3) sem luta           → rival na sua altura + LUTAR COM ELE
+     4) nunca lutou        → convite pra primeira luta (amistoso)
+   Fotos reais. Só Supabase, sem API externa.
    ============================================================ */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Swords, Flame, Check } from "lucide-react";
+import { Swords, Flame, Check, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import "@/components/x1/x1.css";
 import { X1Avatar } from "@/components/x1/X1Avatar";
-import { carregarPessoas, carregarRecorde, fmt, primeiroNome, type Pessoa } from "@/components/x1/x1-lib";
+import { carregarPessoas, carregarRecorde, fmt, primeiroNome, patenteCor, proximaPatente, voltaPraVoce, xpPct, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
 const OK = "#3DD68C";
+const HOT = "#ff7a1a";
 
 type Estado =
-  | { tipo: "convite"; id: string; ele: Pessoa; stakes: number; quando: string }
-  | { tipo: "ativo"; ele: Pessoa; my: number; opp: number; stakes: number }
-  | { tipo: "rival"; ele: Pessoa; posicao: number; diferenca: number; abertas: number }
-  | { tipo: "primeiro"; abertas: number };
-
-const fundo = "radial-gradient(120% 90% at 15% 0%,#2a0c11 0%,#140508 45%,#0b0b0d 100%)";
+  | { tipo: "luta"; id: string; ele: Pessoa; meu: number; dele: number; stakes: number }
+  | { tipo: "desafio"; id: string; ele: Pessoa; stakes: number; quando: string }
+  | { tipo: "rival"; ele: Pessoa; posicao: number | null; diferenca: number; vivas: number }
+  | { tipo: "primeira"; vivas: number };
 
 export function X1HomeBanner({ userId }: { userId: string | undefined }) {
   const navigate = useNavigate();
-  const [eu, setEu] = useState<{ p: Pessoa; vitorias: number; patente: string } | null>(null);
+  const [eu, setEu] = useState<Pessoa | null>(null);
+  const [r, setR] = useState<Recorde>(RECORDE_VAZIO);
   const [estado, setEstado] = useState<Estado | null>(null);
 
   useEffect(() => {
@@ -36,117 +39,183 @@ export function X1HomeBanner({ userId }: { userId: string | undefined }) {
     let vivo = true;
     (async () => {
       const hoje = getBrazilDate();
-      const [{ data }, rec, meMap, ab] = await Promise.all([
+      const [{ data: rows }, rec, meMap, lv] = await Promise.all([
         supabase.from("x1_challenges" as any)
           .select("id, challenger_id, opponent_id, status, scheduled_date, stakes_amount, last_proposed_by")
           .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
           .in("status", ["pending", "active"]).order("created_at", { ascending: false }).limit(10),
         carregarRecorde(userId),
         carregarPessoas([userId]),
-        (supabase as any).rpc("x1_chamadas_abertas"),
+        (supabase as any).rpc("x1_lutas_ao_vivo"),
       ]);
       if (!vivo) return;
-      setEu({ p: meMap[userId] || { user_id: userId, nome: "Você", avatar_url: null }, vitorias: rec.vitorias, patente: rec.patente });
-      const abertas = ((ab.data as any[]) || []).filter((a) => a.challenger_id !== userId).length;
-      const rows = (data as any[]) || [];
-      const ativo = rows.find((c) => c.status === "active" && c.scheduled_date === hoje);
-      const convite = rows.find((c) => c.status === "pending" && c.last_proposed_by !== userId);
+      setR(rec);
+      setEu(meMap[userId] || { user_id: userId, nome: "Você", avatar_url: null });
+      const vivas = ((lv.data as any[]) || []).filter((v) => !v.minha_luta).length;
+      const lista = (rows as any[]) || [];
+      const ativa = lista.find((c) => c.status === "active" && c.scheduled_date === hoje);
+      const desafio = lista.find((c) => c.status === "pending" && c.last_proposed_by !== userId);
       const outroId = (c: any) => (c.challenger_id === userId ? c.opponent_id : c.challenger_id);
-      if (ativo) {
-        const [m, { data: pl }] = await Promise.all([carregarPessoas([outroId(ativo)]), (supabase as any).rpc("x1_placar", { p_id: ativo.id })]);
-        const row = ((pl as any[]) || [])[0];
-        const iAmCh = ativo.challenger_id === userId;
-        if (vivo) setEstado({ tipo: "ativo", ele: m[outroId(ativo)] || { user_id: outroId(ativo), nome: "Rival", avatar_url: null }, stakes: Number(ativo.stakes_amount) || 0, my: row ? Number(iAmCh ? row.challenger_total : row.opponent_total) || 0 : 0, opp: row ? Number(iAmCh ? row.opponent_total : row.challenger_total) || 0 : 0 });
+
+      if (ativa) {
+        const { data } = await (supabase as any).rpc("x1_luta", { p_id: ativa.id });
+        const row = ((data as any[]) || [])[0];
+        if (!vivo || !row) return;
+        const souCh = ativa.challenger_id === userId;
+        setEstado({
+          tipo: "luta", id: ativa.id,
+          ele: { user_id: outroId(ativa), nome: souCh ? row.op_nome : row.ch_nome, avatar_url: souCh ? row.op_avatar : row.ch_avatar },
+          meu: Number(souCh ? row.ch_total : row.op_total) || 0,
+          dele: Number(souCh ? row.op_total : row.ch_total) || 0,
+          stakes: Number(ativa.stakes_amount) || 0,
+        });
         return;
       }
-      if (convite) {
-        const m = await carregarPessoas([outroId(convite)]);
-        if (vivo) setEstado({ tipo: "convite", id: convite.id, ele: m[outroId(convite)] || { user_id: outroId(convite), nome: "Alguém", avatar_url: null }, stakes: Number(convite.stakes_amount) || 0, quando: convite.scheduled_date === hoje ? "hoje" : "amanhã" });
+      if (desafio) {
+        const m = await carregarPessoas([outroId(desafio)]);
+        if (!vivo) return;
+        setEstado({ tipo: "desafio", id: desafio.id, ele: m[outroId(desafio)] || { user_id: outroId(desafio), nome: "Vendedor", avatar_url: null }, stakes: Number(desafio.stakes_amount) || 0, quando: desafio.scheduled_date === hoje ? "hoje" : "amanhã" });
         return;
       }
-      const { data: rv } = await (supabase as any).rpc("x1_rivais");
-      const rivais = ((rv as any[]) || []).map((r) => ({ ...r, diferenca: Number(r.diferenca) || 0 }));
-      const acima = rivais.filter((r) => r.diferenca > 0).sort((a, b) => a.diferenca - b.diferenca)[0] || rivais[0];
+      const { data: op } = await (supabase as any).rpc("x1_oponentes", { p_filtro: "liga", p_busca: null });
+      const cands = ((op as any[]) || []).map((o) => ({ ...o, diferenca: Number(o.diferenca) || 0 }));
+      const alvo = cands.find((o) => o.na_arena) || cands.find((o) => o.diferenca > 0) || cands[0];
       if (!vivo) return;
-      if (acima) setEstado({ tipo: "rival", ele: { user_id: acima.user_id, nome: acima.nome, avatar_url: acima.avatar_url }, posicao: acima.posicao, diferenca: acima.diferenca, abertas });
-      else setEstado({ tipo: "primeiro", abertas });
+      if (alvo) setEstado({ tipo: "rival", ele: { user_id: alvo.user_id, nome: alvo.nome, avatar_url: alvo.avatar_url }, posicao: alvo.posicao ?? null, diferenca: alvo.diferenca, vivas });
+      else setEstado({ tipo: "primeira", vivas });
     })().catch(() => { /* offline: sem card */ });
     return () => { vivo = false; };
   }, [userId]);
 
   if (!userId || !estado || !eu) return null;
 
-  const Topo = ({ direita }: { direita: React.ReactNode }) => (
-    <div className="flex items-center justify-between relative z-[1]">
-      <span className="inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-extrabold border" style={{ background: "#1a1305", borderColor: "#3a2f0c", color: GOLD }}>ARENA X1</span>
-      {direita}
-    </div>
-  );
-  const Faces = ({ ele, sub, subEle }: { ele: Pessoa; sub: string; subEle: string }) => (
-    <div className="flex items-center gap-2 mt-3 relative z-[1]">
-      <div className="flex-1 flex items-center gap-2.5 min-w-0">
-        <X1Avatar url={eu.p.avatar_url} nome={eu.p.nome} size={44} cor={GOLD} />
-        <div className="min-w-0"><p className="text-[10px] font-black tracking-[.14em]" style={{ color: GOLD }}>VOCÊ</p><p className="text-[12px] font-bold truncate" style={{ color: "#e9e4d8" }}>{sub}</p></div>
-      </div>
-      <span className="text-[18px] font-black italic" style={{ color: GOLD, textShadow: `0 0 14px ${GOLD}88` }}>VS</span>
-      <div className="flex-1 flex items-center gap-2.5 justify-end text-right min-w-0">
-        <div className="min-w-0"><p className="text-[10px] font-black tracking-[.14em] truncate" style={{ color: "#ff7d8c" }}>{primeiroNome(ele.nome).toUpperCase()}</p><p className="text-[12px] font-bold truncate" style={{ color: "#e9e4d8" }}>{subEle}</p></div>
-        <X1Avatar url={ele.avatar_url} nome={ele.nome} size={44} cor={RED} />
-      </div>
-    </div>
-  );
+  const prox = proximaPatente(r.patente);
+  const corPat = patenteCor(r.patente);
+  const fundo = estado.tipo === "luta"
+    ? "radial-gradient(120% 90% at 50% 0%,#2a0c11 0%,#140508 45%,#0b0b0d 100%)"
+    : "radial-gradient(120% 90% at 15% 0%,#1f1706 0%,#140b06 45%,#0b0b0d 100%)";
+  const borda = estado.tipo === "luta" ? `${RED}77` : `${GOLD}66`;
 
   return (
-    <div className="orbis-card-in rounded-[22px] p-4 relative overflow-hidden" style={{ background: fundo, border: `1px solid ${RED}55` }}>
-      {estado.tipo === "ativo" && (() => {
-        const lidero = estado.my > estado.opp; const atras = estado.opp > estado.my;
-        const pct = estado.my + estado.opp > 0 ? Math.round((estado.my / (estado.my + estado.opp)) * 100) : 50;
+    <button type="button"
+      onClick={() => navigate(estado.tipo === "luta" || estado.tipo === "desafio" ? `/x1/luta/${estado.id}` : estado.tipo === "rival" ? `/x1/escolher?alvo=${estado.ele.user_id}` : "/x1")}
+      className="w-full text-left rounded-[24px] p-4 relative overflow-hidden active:scale-[0.99] transition-transform"
+      style={{ background: fundo, border: `1.5px solid ${borda}`, boxShadow: `0 26px 60px -34px ${estado.tipo === "luta" ? RED : GOLD}cc` }}>
+      <span className="x1-shine" />
+
+      {/* cabeçalho: selo + patente/XP */}
+      <div className="flex items-center justify-between relative z-[1]">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black tracking-[.14em]"
+          style={estado.tipo === "luta"
+            ? { background: "#2a0c11", border: `1px solid ${RED}66`, color: "#ff7d8c" }
+            : { background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>
+          {estado.tipo === "luta" ? <><i className="w-[6px] h-[6px] rounded-full x1-live" style={{ background: RED }} /> AO VIVO</> : "ARENA X1"}
+        </span>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black" style={{ background: `${corPat}1a`, border: `1px solid ${corPat}66`, color: corPat }}>
+          {r.patente} · {r.pontos} XP
+        </span>
+      </div>
+
+      {/* ===== LUTA AO VIVO ===== */}
+      {estado.tipo === "luta" && (() => {
+        const lidero = estado.meu > estado.dele; const atras = estado.dele > estado.meu;
+        const soma = estado.meu + estado.dele;
+        const pct = soma > 0 ? Math.round((estado.meu / soma) * 100) : 50;
         return (
           <>
-            <Topo direita={<span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold border" style={{ background: "#2a0c11", borderColor: `${RED}66`, color: "#ff7d8c" }}><i className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: RED }} /> AO VIVO{estado.stakes > 0 ? ` · POTE ${fmt(estado.stakes * 2)}` : " · AMISTOSO"}</span>} />
-            <Faces ele={estado.ele} sub={fmt(estado.my)} subEle={fmt(estado.opp)} />
-            <div className="h-2 rounded-full mt-2.5 overflow-hidden" style={{ background: "#2a1418" }}><i className="block h-full rounded-full" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#1f8f5c,#3DD68C)" }} /></div>
-            <p className="text-[11.5px] font-extrabold mt-1.5" style={{ color: lidero ? OK : atras ? "#ff7d8c" : "#b3ab9c" }}>{lidero ? `Você lidera por ${fmt(estado.my - estado.opp)}` : atras ? `${primeiroNome(estado.ele.nome)} lidera por ${fmt(estado.opp - estado.my)} · uma venda vira` : "Empatados — a próxima venda decide"} <span style={{ color: "#8a8378", fontWeight: 500 }}>· fecha 23:59</span></p>
-            <button type="button" onClick={() => navigate("/defcon")} className="w-full h-[46px] rounded-[13px] mt-3 inline-flex items-center justify-center gap-2 text-[13.5px] font-black" style={{ background: "linear-gradient(160deg,#7f1d1d,#450a0a)", color: "#fecaca", border: "1px solid #ef444499" }}><Flame className="w-4 h-4" strokeWidth={2.6} /> VENDER AGORA · DEFCON</button>
+            <div className="flex items-center gap-2 mt-3.5 relative z-[1]">
+              <div className="flex-1 flex items-center gap-2.5 min-w-0">
+                <X1Avatar url={eu.avatar_url} nome={eu.nome} size={52} cor={GOLD} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${GOLD}1a, 0 0 26px ${GOLD}55` }} />
+                <div className="min-w-0"><p className="text-[22px] font-black tabular-nums leading-none" style={{ color: lidero ? OK : "#fff" }}>{fmt(estado.meu)}</p><p className="text-[10px] font-black tracking-[.12em] mt-1" style={{ color: GOLD }}>VOCÊ</p></div>
+              </div>
+              <span className="x1-vs-glow text-[26px] font-black italic shrink-0" style={{ color: GOLD }}>VS</span>
+              <div className="flex-1 flex items-center gap-2.5 justify-end text-right min-w-0">
+                <div className="min-w-0"><p className="text-[22px] font-black tabular-nums leading-none" style={{ color: atras ? "#ff7d8c" : "#fff" }}>{fmt(estado.dele)}</p><p className="text-[10px] font-black tracking-[.12em] mt-1 truncate" style={{ color: "#ff7d8c" }}>{primeiroNome(estado.ele.nome).toUpperCase()}</p></div>
+                <X1Avatar url={estado.ele.avatar_url} nome={estado.ele.nome} size={52} cor={RED} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${RED}1a, 0 0 26px ${RED}55` }} />
+              </div>
+            </div>
+            <div className="flex gap-1.5 mt-3 relative z-[1]">
+              <div className="flex-1 h-[12px] rounded-[6px] overflow-hidden" style={{ background: "#1a0a0e", border: "1px solid rgba(255,255,255,.08)" }}><i className="block h-full rounded-[6px] transition-all duration-700" style={{ width: `${pct}%`, background: "linear-gradient(90deg,#1f8f5c,#3DD68C)", boxShadow: "0 0 12px #3DD68C88" }} /></div>
+              <div className="flex-1 h-[12px] rounded-[6px] overflow-hidden" style={{ background: "#1a0a0e", border: "1px solid rgba(255,255,255,.08)" }}><i className="block h-full rounded-[6px] ml-auto transition-all duration-700" style={{ width: `${100 - pct}%`, background: "linear-gradient(90deg,#c8172f,#ff5a6e)", boxShadow: "0 0 12px #F2465A88" }} /></div>
+            </div>
+            <p className="text-[12px] font-black mt-2 relative z-[1]" style={{ color: lidero ? OK : atras ? "#ff7d8c" : "#b3ab9c" }}>
+              {lidero ? `Você lidera por ${fmt(estado.meu - estado.dele)}` : atras ? `Uma venda de ${fmt(Math.ceil(estado.dele - estado.meu))} vira o jogo` : "Empatados — a próxima venda decide"}
+              <span className="font-medium" style={{ color: "#8a8378" }}> · fecha 23:59{estado.stakes > 0 ? ` · volta ${fmt(voltaPraVoce(estado.stakes))}` : ""}</span>
+            </p>
+            <span className="x1-btn vermelho x1-pulse mt-3 relative z-[1]" style={{ height: 48 }}><Flame className="w-4 h-4" strokeWidth={2.6} /> DAR UM GOLPE · VENDER</span>
           </>
         );
       })()}
 
-      {estado.tipo === "convite" && (
+      {/* ===== DESAFIO RECEBIDO ===== */}
+      {estado.tipo === "desafio" && (
         <>
-          <Topo direita={<span className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>VOCÊ FOI DESAFIADO</span>} />
-          <Faces ele={estado.ele} sub={`${eu.vitorias}V · ${eu.patente}`} subEle={`${estado.quando} · ${estado.stakes > 0 ? `${fmt(estado.stakes)} cada` : "amistoso"}`} />
-          <p className="text-[17px] font-black leading-tight mt-3 relative z-[1]">{primeiroNome(estado.ele.nome)} quer saber quem vende mais {estado.quando}.<br /><span style={{ color: GOLD }}>Topa?</span></p>
-          <div className="flex gap-2 mt-3">
-            <button type="button" onClick={() => navigate("/x1")} className="orbis-cta flex-[1.4] h-[46px]"><Check className="w-4 h-4" strokeWidth={3} /> TOPO · ACEITAR</button>
-            <button type="button" onClick={() => navigate("/x1")} className="flex-1 h-[46px] rounded-[13px] text-[12.5px] font-black" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>ver arena</button>
+          <div className="flex items-center gap-3 mt-3.5 relative z-[1]">
+            <X1Avatar url={estado.ele.avatar_url} nome={estado.ele.nome} size={56} cor={RED} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${RED}1a, 0 0 26px ${RED}55` }} />
+            <span className="x1-vs-glow text-[22px] font-black italic" style={{ color: GOLD }}>VS</span>
+            <X1Avatar url={eu.avatar_url} nome={eu.nome} size={56} cor={GOLD} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${GOLD}1a, 0 0 26px ${GOLD}55` }} />
+            <div className="flex-1 min-w-0 text-right">
+              <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>TE DESAFIOU</p>
+              <p className="text-[11.5px] mt-0.5" style={{ color: "#b3ab9c" }}>{estado.quando} · {estado.stakes > 0 ? `${fmt(estado.stakes)} · volta ${fmt(voltaPraVoce(estado.stakes))}` : "amistoso"}</p>
+            </div>
           </div>
+          <p className="text-[17px] font-black leading-tight mt-3 relative z-[1]">{primeiroNome(estado.ele.nome)} quer saber quem vende mais {estado.quando}.<br /><span style={{ color: GOLD }}>Topa a luta?</span></p>
+          <span className="x1-btn ouro x1-pulse mt-3 relative z-[1]" style={{ height: 48 }}><Check className="w-5 h-5" strokeWidth={3} /> LUTAR · ACEITAR</span>
         </>
       )}
 
+      {/* ===== RIVAL ===== */}
       {estado.tipo === "rival" && (
         <>
-          <Topo direita={estado.abertas > 0 ? <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold border" style={{ background: "#0d1f16", borderColor: `${OK}55`, color: OK }}><i className="w-1.5 h-1.5 rounded-full" style={{ background: OK }} /> {estado.abertas} {estado.abertas === 1 ? "chamada aberta" : "chamadas abertas"}</span> : <span className="text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>{eu.vitorias}V · {eu.patente}</span>} />
-          <Faces ele={estado.ele} sub={`${eu.vitorias}V · ${eu.patente}`} subEle={estado.diferenca > 0 ? `#${estado.posicao} · ${fmt(estado.diferenca)} na frente` : `#${estado.posicao} · ${fmt(Math.abs(estado.diferenca))} atrás`} />
-          <p className="text-[17px] font-black leading-tight mt-3 relative z-[1]">{estado.diferenca > 0 ? "Ele tá logo acima de você no ranking." : "Ele tá colado atrás de você no ranking."}<br /><span style={{ color: GOLD }}>Resolve isso hoje?</span></p>
-          <div className="flex gap-2 mt-3">
-            <button type="button" onClick={() => navigate(`/x1?desafiar=${estado.ele.user_id}`)} className="orbis-cta flex-[1.4] h-[46px]"><Swords className="w-4 h-4" strokeWidth={2.6} /> CHAMAR {primeiroNome(estado.ele.nome).toUpperCase()}</button>
-            <button type="button" onClick={() => navigate("/x1")} className="flex-1 h-[46px] rounded-[13px] text-[12.5px] font-black" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>ver arena</button>
+          <div className="flex items-center gap-2 mt-3.5 relative z-[1]">
+            <div className="flex-1 flex items-center gap-2.5 min-w-0">
+              <X1Avatar url={eu.avatar_url} nome={eu.nome} size={52} cor={GOLD} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${GOLD}1a, 0 0 26px ${GOLD}55` }} />
+              <div className="min-w-0"><p className="text-[13.5px] font-black truncate">{primeiroNome(eu.nome)}</p><p className="text-[10.5px]" style={{ color: "#8a8378" }}>{r.vitorias}V {r.derrotas}D{r.sequencia >= 2 ? ` · ${r.sequencia} seguidas` : ""}</p></div>
+            </div>
+            <span className="x1-vs-glow text-[26px] font-black italic shrink-0" style={{ color: GOLD }}>VS</span>
+            <div className="flex-1 flex items-center gap-2.5 justify-end text-right min-w-0">
+              <div className="min-w-0"><p className="text-[13.5px] font-black truncate">{primeiroNome(estado.ele.nome)}</p><p className="text-[10.5px] truncate" style={{ color: "#ff7d8c" }}>{estado.posicao ? `#${estado.posicao}` : "na arena"}{estado.diferenca > 0 ? ` · ${fmt(estado.diferenca)} na frente` : ""}</p></div>
+              <X1Avatar url={estado.ele.avatar_url} nome={estado.ele.nome} size={52} cor={RED} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${RED}1a, 0 0 26px ${RED}55` }} />
+            </div>
           </div>
+          {/* XP */}
+          <div className="mt-3 relative z-[1]">
+            <div className="flex items-center justify-between text-[9.5px] font-black tracking-[.14em]" style={{ color: GOLD }}>
+              <span>XP · {r.pontos}{r.pontos_proxima != null ? ` / ${r.pontos_proxima}` : ""}</span>
+              <span>{prox ? `→ ${prox}` : "LENDA"}</span>
+            </div>
+            <div className="h-[9px] rounded-full overflow-hidden mt-1" style={{ background: "rgba(0,0,0,.5)", border: "1px solid rgba(255,255,255,.08)" }}>
+              <i className="block h-full rounded-full" style={{ width: `${Math.round(xpPct(r) * 100)}%`, background: "linear-gradient(90deg,#B88700,#FFC63A)", boxShadow: "0 0 10px #F5B800" }} />
+            </div>
+          </div>
+          <p className="text-[16px] font-black leading-tight mt-2.5 relative z-[1]">
+            {estado.diferenca > 0 ? <>Ele tá na sua frente no ranking.<br /><span style={{ color: GOLD }}>Resolve isso hoje?</span></> : <>Quem vende mais até 23:59?<br /><span style={{ color: GOLD }}>Chama ele pra luta.</span></>}
+          </p>
+          <span className="x1-btn ouro x1-pulse mt-3 relative z-[1]" style={{ height: 48 }}><Swords className="w-5 h-5" strokeWidth={2.6} /> LUTAR COM {primeiroNome(estado.ele.nome).toUpperCase()}</span>
+          {estado.vivas > 0 && (
+            <p className="text-[11px] mt-2 relative z-[1] flex items-center justify-center gap-1" style={{ color: "#8a8378" }}>
+              <i className="w-[6px] h-[6px] rounded-full x1-live" style={{ background: RED }} /> {estado.vivas} {estado.vivas === 1 ? "luta rolando" : "lutas rolando"} agora <ChevronRight className="w-3 h-3" />
+            </p>
+          )}
         </>
       )}
 
-      {estado.tipo === "primeiro" && (
+      {/* ===== PRIMEIRA LUTA ===== */}
+      {estado.tipo === "primeira" && (
         <>
-          <Topo direita={estado.abertas > 0 ? <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-extrabold border" style={{ background: "#0d1f16", borderColor: `${OK}55`, color: OK }}><i className="w-1.5 h-1.5 rounded-full" style={{ background: OK }} /> {estado.abertas} {estado.abertas === 1 ? "chamada aberta" : "chamadas abertas"}</span> : null} />
-          <div className="flex items-center gap-3 mt-3 relative z-[1]">
-            <X1Avatar url={eu.p.avatar_url} nome={eu.p.nome} size={48} cor={GOLD} />
-            <p className="text-[17px] font-black leading-tight">Seu primeiro amistoso.<br /><span style={{ color: GOLD }}>Quem vende mais no dia leva.</span></p>
+          <div className="flex items-center gap-3 mt-3.5 relative z-[1]">
+            <X1Avatar url={eu.avatar_url} nome={eu.nome} size={56} cor={GOLD} style={{ borderWidth: 3, boxShadow: `0 0 0 5px ${GOLD}1a, 0 0 26px ${GOLD}55` }} />
+            <p className="text-[17px] font-black leading-tight">Sua primeira luta.<br /><span style={{ color: GOLD }}>Quem vende mais no dia leva.</span></p>
           </div>
-          <p className="text-[12px] mt-2 relative z-[1]" style={{ color: "#b3ab9c" }}>Sem dinheiro, só honra. Vale patente e recorde. {estado.abertas > 0 ? "Tem gente esperando alguém topar agora." : "Abra uma chamada geral e espere alguém topar."}</p>
-          <button type="button" onClick={() => navigate("/x1")} className="orbis-cta w-full h-[46px] mt-3"><Swords className="w-4 h-4" strokeWidth={2.6} /> {estado.abertas > 0 ? "VER QUEM TÁ CHAMANDO" : "ENTRAR NA ARENA"}</button>
+          <p className="text-[12px] mt-2 relative z-[1]" style={{ color: "#b3ab9c" }}>Amistoso, sem dinheiro. Vale XP e patente. {estado.vivas > 0 ? `${estado.vivas} ${estado.vivas === 1 ? "luta rolando" : "lutas rolando"} agora.` : ""}</p>
+          <span className="x1-btn ouro x1-pulse mt-3 relative z-[1]" style={{ height: 48 }}><Swords className="w-5 h-5" strokeWidth={2.6} /> ENTRAR NA ARENA</span>
         </>
       )}
-    </div>
+
+      {/* sequência em chamas */}
+      {r.sequencia >= 2 && estado.tipo !== "luta" && (
+        <p className="text-[10.5px] font-black mt-2 relative z-[1] text-center" style={{ color: HOT }}>{r.sequencia} vitórias seguidas · não deixa esfriar</p>
+      )}
+    </button>
   );
 }

@@ -2,7 +2,7 @@
    "VOCÊ FOI DESAFIADO" — tela cheia, 1 toque (Rick, 08/09/2026).
    Aparece ao abrir o app quando há convite esperando a SUA resposta
    (status='pending' e a última proposta não foi sua). Fotos reais.
-     TOPO · ACEITAR   → x1_negotiate(accept)  (aposta sai da carteira na hora)
+     LUTAR · ACEITAR   → x1_negotiate(accept)  (aposta sai da carteira na hora)
      honra só         → x1_negotiate(counter, stakes 0)  (só quando tem dinheiro)
      ✕                → x1_negotiate(decline)
    Anti-spam: o MESMO convite não reabre antes de 10 min (localStorage).
@@ -107,8 +107,8 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
         </p>
 
         <div className="flex gap-2 mt-4">
-          <button type="button" disabled={!!agindo || semSaldo} onClick={() => rpc("ok", "accept", null, "Fechado! Vai vender.", () => navigate("/x1"))} className="orbis-cta flex-[1.5] h-[48px] disabled:opacity-50">
-            {agindo === "ok" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" strokeWidth={3} />} TOPO · ACEITAR
+          <button type="button" disabled={!!agindo || semSaldo} onClick={() => rpc("ok", "accept", null, "Luta aberta! Vai vender.", () => navigate(`/x1/luta/${convite.id}`))} className="orbis-cta flex-[1.5] h-[48px] disabled:opacity-50">
+            {agindo === "ok" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" strokeWidth={3} />} LUTAR · ACEITAR
           </button>
           {aposta > 0 && (
             <button type="button" disabled={!!agindo} onClick={() => rpc("honra", "counter", 0, "Proposta de amistoso enviada")} className="flex-1 h-[48px] rounded-[13px] text-[11.5px] font-black inline-flex items-center justify-center gap-1" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>

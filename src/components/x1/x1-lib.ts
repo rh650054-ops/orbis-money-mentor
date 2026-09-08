@@ -19,16 +19,36 @@ export interface Pessoa { user_id: string; nome: string; avatar_url: string | nu
 export interface Recorde {
   vitorias: number; derrotas: number; empates: number; sequencia: number;
   patente: string; nivel: number; aposta_max: number; proxima: number | null; duelos: number;
+  /** XP: vitória = 10 pts, missão da semana = 2 pts. Patente sobe por pontos. */
+  pontos: number; pontos_proxima: number | null;
+  /** média vendida por dia trabalhado (30 dias) */
+  potencia: number;
 }
-export const RECORDE_VAZIO: Recorde = { vitorias: 0, derrotas: 0, empates: 0, sequencia: 0, patente: "NOVATO", nivel: 1, aposta_max: 0, proxima: 5, duelos: 0 };
+export const RECORDE_VAZIO: Recorde = { vitorias: 0, derrotas: 0, empates: 0, sequencia: 0, patente: "NOVATO", nivel: 1, aposta_max: 0, proxima: 5, duelos: 0, pontos: 0, pontos_proxima: 50, potencia: 0 };
+export const PONTOS_BASE: Record<string, number> = { NOVATO: 0, BRIGÃO: 50, DUELISTA: 100, CAMPEÃO: 250, LENDA: 500 };
+export const proximaPatente = (p: string) => (p === "NOVATO" ? "BRIGÃO" : p === "BRIGÃO" ? "DUELISTA" : p === "DUELISTA" ? "CAMPEÃO" : p === "CAMPEÃO" ? "LENDA" : null);
+/** 0..1 do progresso dentro da patente atual */
+export const xpPct = (r: Recorde) => {
+  if (r.pontos_proxima == null) return 1;
+  const base = PONTOS_BASE[r.patente] ?? 0;
+  return Math.max(0, Math.min(1, (r.pontos - base) / Math.max(1, r.pontos_proxima - base)));
+};
 
 export const PATENTES: { nome: string; min: number; aposta: string }[] = [
   { nome: "NOVATO", min: 0, aposta: "só honra" },
-  { nome: "BRIGÃO", min: 5, aposta: "até R$ 50" },
-  { nome: "DUELISTA", min: 10, aposta: "até R$ 100" },
-  { nome: "CAMPEÃO", min: 25, aposta: "até R$ 200" },
-  { nome: "LENDA", min: 50, aposta: "livre" },
+  { nome: "BRIGÃO", min: 50, aposta: "até R$ 50" },
+  { nome: "DUELISTA", min: 100, aposta: "até R$ 100" },
+  { nome: "CAMPEÃO", min: 250, aposta: "até R$ 200" },
+  { nome: "LENDA", min: 500, aposta: "livre" },
 ];
+/** "R$ 50 → volta 90": o que volta pro vencedor (aposta dos dois menos 10%) */
+export const voltaPraVoce = (aposta: number) => Math.round(aposta * 2 * 0.9);
+/** rodada do dia (6 rodadas de 3h a partir das 6h) */
+export const rodadaAgora = () => {
+  const h = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).getHours();
+  return Math.max(1, Math.min(6, Math.floor((h - 6) / 3) + 1));
+};
+export const horaBR = (iso: string) => { try { return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }); } catch { return ""; } };
 export const patenteCor = (nome: string) =>
   nome === "LENDA" ? "#B47CFF" : nome === "CAMPEÃO" ? "#F5B800" : nome === "DUELISTA" ? "#7FD3FF" : nome === "BRIGÃO" ? "#ff7a1a" : "#b3ab9c";
 
@@ -75,6 +95,7 @@ export async function carregarRecorde(uid: string): Promise<Recorde> {
     vitorias: Number(r.vitorias) || 0, derrotas: Number(r.derrotas) || 0, empates: Number(r.empates) || 0,
     sequencia: Number(r.sequencia) || 0, patente: String(r.patente || "NOVATO"), nivel: Number(r.nivel) || 1,
     aposta_max: Number(r.aposta_max) || 0, proxima: r.proxima == null ? null : Number(r.proxima), duelos: Number(r.duelos) || 0,
+    pontos: Number(r.pontos) || 0, pontos_proxima: r.pontos_proxima == null ? null : Number(r.pontos_proxima), potencia: Number(r.potencia) || 0,
   };
 }
 

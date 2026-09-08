@@ -52,12 +52,12 @@ export function VizinhosCard({ userId, totalSold }: { userId: string | undefined
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-black leading-tight">{nome} vendeu {fmt(alvo.vendido_hoje)}. Você, {fmt(totalSold)}.</p>
           <p className="text-[11.5px] mt-0.5" style={{ color: "#8a8378" }}>
-            {venci ? "Teria ganhado um X1 hoje. Chama ele pra amanhã." : `Faltou ${fmt(alvo.vendido_hoje - totalSold)}. Amanhã é outro dia — chama ele.`}
+            {venci ? "Teria ganhado um X1 hoje. Chama ele pra luta." : `Faltou ${fmt(alvo.vendido_hoje - totalSold)}. Chama ele pra revanche.`}
           </p>
         </div>
       </div>
-      <button type="button" onClick={() => navigate(`/x1?desafiar=${alvo.user_id}&quando=amanha`)} className="orbis-cta w-full mt-3">
-        <Swords className="w-4 h-4" strokeWidth={2.6} /> DESAFIAR {nome.toUpperCase()} PRA AMANHÃ
+      <button type="button" onClick={() => navigate(`/x1/escolher?alvo=${alvo.user_id}`)} className="orbis-cta w-full mt-3">
+        <Swords className="w-4 h-4" strokeWidth={2.6} /> DESAFIAR {nome.toUpperCase()}
       </button>
     </div>
   );
