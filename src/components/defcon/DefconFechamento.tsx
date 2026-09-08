@@ -35,7 +35,7 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { VizinhosCard } from "@/components/x1/VizinhosCard";
-import { MercadoPagoCard } from "@/components/financas/MercadoPagoCard";
+import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
 
 type Passo = "custos" | "relatorio";
 interface CustoLinha { id: string; nome: string; sub: string; valor: number; texto?: string; auto?: boolean; origem: "cmv" | "manual" | "sugestao" | "novo"; categoria?: string; icone?: string }
@@ -530,8 +530,9 @@ export function DefconFechamento({
           </div>
         </Bloco>
 
-        {/* Vendas que o Mercado Pago viu e não foram lançadas (só aparece se conectado) */}
-        <div className="mt-4"><MercadoPagoCard userId={userId} compacto /></div>
+        {/* Conciliação: o que você lançou × o que caiu de verdade no Mercado Pago */}
+        <p className="orbis-section mt-6 px-1">Caiu na conta</p>
+        <div className="mt-3"><ConciliacaoDia userId={userId} /></div>
 
         {/* ===== SUA LIGA NO RANKING — cor da liga, subiu de patente, ver ranking ===== */}
         <p className="orbis-section mt-6 px-1">Sua liga no ranking</p>
