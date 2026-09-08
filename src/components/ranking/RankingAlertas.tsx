@@ -6,7 +6,7 @@
    Toque em "Ver ranking" leva pro /ranking e marca como visto.
    ============================================================ */
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, TrendingDown, TrendingUp, X } from "lucide-react";
+import { ChevronRight, Swords, TrendingDown, TrendingUp, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRankingAlertas, textoAlerta } from "@/hooks/useRankingAlertas";
 
@@ -34,9 +34,16 @@ export default function RankingAlertas() {
                 <b className="block text-[14.5px] font-extrabold leading-tight mt-0.5 text-white truncate">{titulo}</b>
                 <small className="block text-[12px] mt-0.5 leading-snug" style={{ color: "rgba(255,255,255,.72)" }}>{corpo}</small>
               </button>
-              <button type="button" onClick={() => { void dispensar(a.id); navigate("/ranking"); }} aria-label="Ver ranking" className="shrink-0 h-9 px-2.5 rounded-[11px] inline-flex items-center gap-0.5 text-[11.5px] font-extrabold" style={{ background: cor, color: caiu ? "#fff" : "#1A1200" }}>
-                Ver <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
-              </button>
+              {caiu && a.outro_user_id ? (
+                // Te passaram → "Chama pro X1" (Rick, 08/09): a arena abre já com ele selecionado.
+                <button type="button" onClick={() => { void dispensar(a.id); navigate(`/x1?desafiar=${a.outro_user_id}`); }} aria-label="Chamar pro X1" className="shrink-0 h-9 px-2.5 rounded-[11px] inline-flex items-center gap-1 text-[11px] font-extrabold" style={{ background: cor, color: "#fff" }}>
+                  <Swords className="w-3.5 h-3.5" strokeWidth={2.8} /> X1
+                </button>
+              ) : (
+                <button type="button" onClick={() => { void dispensar(a.id); navigate("/ranking"); }} aria-label="Ver ranking" className="shrink-0 h-9 px-2.5 rounded-[11px] inline-flex items-center gap-0.5 text-[11.5px] font-extrabold" style={{ background: cor, color: caiu ? "#fff" : "#1A1200" }}>
+                  Ver <ChevronRight className="w-3.5 h-3.5" strokeWidth={3} />
+                </button>
+              )}
               <button type="button" onClick={() => void dispensar(a.id)} aria-label="Fechar" className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center" style={{ color: "rgba(255,255,255,.55)" }}><X className="w-4 h-4" /></button>
             </div>
           );

@@ -34,6 +34,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
+import { VizinhosCard } from "@/components/x1/VizinhosCard";
 
 type Passo = "custos" | "relatorio";
 interface CustoLinha { id: string; nome: string; sub: string; valor: number; texto?: string; auto?: boolean; origem: "cmv" | "manual" | "sugestao" | "novo"; categoria?: string; icone?: string }
@@ -590,6 +591,9 @@ export function DefconFechamento({
             </>
           )}
         </div>
+
+        {/* Arena X1: "você vendeu mais que N vizinhos" + desafiar o mais próximo pra amanhã */}
+        <VizinhosCard userId={userId} totalSold={totalSold} />
 
         {/* ===== SUAS HORAS — bloco a bloco, valor real e exato ===== */}
         {blocos.length > 0 && (

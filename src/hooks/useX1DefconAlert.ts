@@ -18,6 +18,9 @@ export interface X1LiveState {
   /** true quando existe duelo ATIVO hoje (mostra o widget) */
   hasDuel: boolean;
   oppName: string;
+  oppAvatar: string | null;
+  myAvatar: string | null;
+  myName: string;
   my: number;
   opp: number;
   stakes: number;
@@ -30,6 +33,9 @@ export interface X1LiveState {
 const EMPTY: X1LiveState = {
   hasDuel: false,
   oppName: "",
+  oppAvatar: null,
+  myAvatar: null,
+  myName: "",
   my: 0,
   opp: 0,
   stakes: 0,
@@ -54,7 +60,7 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
       return;
     }
     let alive = true;
-    let duel: { id: string; iAmCh: boolean; oppName: string; stakes: number } | null = null;
+    let duel: { id: string; iAmCh: boolean; oppName: string; oppAvatar: string | null; myAvatar: string | null; myName: string; stakes: number } | null = null;
 
     const notify = (title: string, body: string) => {
       if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
@@ -79,15 +85,18 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
       }
       const iAmCh = c.challenger_id === userId;
       const oppId = iAmCh ? c.opponent_id : c.challenger_id;
-      const { data: ls } = await supabase
-        .from("leaderboard_stats")
-        .select("nome_usuario")
-        .eq("user_id", oppId)
-        .maybeSingle();
+      // Fotos reais dos dois (pedido do Rick) — public_profiles.
+      const { data: pp } = await supabase.from("public_profiles").select("user_id, nickname, avatar_url").in("user_id", [oppId, userId]);
+      const arr = (pp as any[]) || [];
+      const opp = arr.find((x) => x.user_id === oppId);
+      const me = arr.find((x) => x.user_id === userId);
       duel = {
         id: c.id,
         iAmCh,
-        oppName: ((ls as any)?.nome_usuario as string) || "Seu oponente",
+        oppName: (opp?.nickname as string) || "Seu oponente",
+        oppAvatar: (opp?.avatar_url as string) || null,
+        myAvatar: (me?.avatar_url as string) || null,
+        myName: (me?.nickname as string) || "Você",
         stakes: Number(c.stakes_amount) || 0,
       };
     };
@@ -128,6 +137,9 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
       setState((s) => ({
         hasDuel: true,
         oppName: duel!.oppName,
+        oppAvatar: duel!.oppAvatar,
+        myAvatar: duel!.myAvatar,
+        myName: duel!.myName,
         my,
         opp,
         stakes: duel!.stakes,

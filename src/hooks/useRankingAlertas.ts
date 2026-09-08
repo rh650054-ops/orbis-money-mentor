@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 export interface RankingAlerta {
   id: string;
   tipo: "ultrapassou" | "foi_ultrapassado";
+  outro_user_id: string | null;
   outro_nome: string | null;
   outro_avatar: string | null;
   posicao_antes: number | null;
@@ -42,7 +43,7 @@ export function useRankingAlertas(userId: string | undefined) {
       const desde = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
       const { data } = await supabase
         .from("ranking_eventos" as any)
-        .select("id, tipo, outro_nome, outro_avatar, posicao_antes, posicao_depois, created_at")
+        .select("id, tipo, outro_user_id, outro_nome, outro_avatar, posicao_antes, posicao_depois, created_at")
         .eq("user_id", userId).is("visto_em", null).gte("created_at", desde)
         .order("created_at", { ascending: false }).limit(3);
       if (vivo) setAlertas(((data as any[]) || []) as RankingAlerta[]);
