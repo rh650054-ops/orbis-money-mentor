@@ -135,7 +135,7 @@ export function ConciliacaoDia({ userId, data }: { userId: string | undefined; d
   if (!userId || carregando) return null;
   if (!d?.conectado) {
     if (num(d?.total_declarado) <= 0) return null;
-    return <Convite texto="Conecte o Mercado Pago e o Orbis confere quanto do seu Pix caiu de verdade — sem você digitar nada." />;
+    return <Convite texto="Conecte onde você recebe e o Orbis confere quanto do seu Pix caiu de verdade — sem você digitar nada." />;
   }
 
   const digitalDeclarado = d.pix_declarado + d.cartao_declarado;

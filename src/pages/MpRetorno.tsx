@@ -1,12 +1,12 @@
 /* ============================================================
-   /mp/retorno — o Mercado Pago devolve o vendedor aqui depois que ele autoriza.
-   A tela pega o "code" e o "state" do endereço, manda pra função mp-callback
-   (que troca por um token no servidor) e leva de volta pra Finanças.
+   /mp/retorno e /pb/retorno — a carteira devolve o vendedor aqui depois que ele
+   autoriza. A tela pega o "code" e o "state" do endereço, manda pra função que
+   troca por um token NO SERVIDOR, e leva de volta pra Finanças.
    O code não serve pra nada sozinho: só vale com o segredo que fica no servidor.
    Todo hook acima do primeiro return.
    ============================================================ */
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, Check, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,9 @@ export default function MpRetorno() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { pathname } = useLocation();
+  const pagbank = pathname.startsWith("/pb");
+  const nomeCarteira = pagbank ? "PagBank" : "Mercado Pago";
   const [estado, setEstado] = useState<"ligando" | "ok" | "erro">("ligando");
   const [msg, setMsg] = useState("");
   const [vendas, setVendas] = useState(0);
@@ -28,17 +31,17 @@ export default function MpRetorno() {
     const code = params.get("code");
     const state = params.get("state");
     const erroMp = params.get("error");
-    if (erroMp) { setEstado("erro"); setMsg("Você cancelou a autorização no Mercado Pago."); return; }
-    if (!code || !state) { setEstado("erro"); setMsg("O Mercado Pago não devolveu o código. Tenta conectar de novo."); return; }
+    if (erroMp) { setEstado("erro"); setMsg(`Você cancelou a autorização no ${nomeCarteira}.`); return; }
+    if (!code || !state) { setEstado("erro"); setMsg(`O ${nomeCarteira} não devolveu o código. Tenta conectar de novo.`); return; }
     if (!user) { setEstado("erro"); setMsg("Entre na sua conta do Orbis e conecte de novo."); return; }
     let vivo = true;
     (async () => {
-      const { data, error } = await (supabase as any).functions.invoke("mp-callback", { body: { code, state } });
+      const { data, error } = await (supabase as any).functions.invoke(pagbank ? "pb-callback" : "mp-callback", { body: { code, state } });
       if (!vivo) return;
       if (error || data?.error) {
         setEstado("erro");
         setMsg(
-          data?.error === "mp_nao_configurado" ? "O Orbis ainda não está configurado pra isso. Avisa o suporte."
+          data?.error === "mp_nao_configurado" || data?.error === "pb_nao_configurado" ? "O Orbis ainda não está configurado pra isso. Avisa o suporte."
           : data?.error === "state_invalido" ? "Esse link já foi usado. Toque em conectar de novo."
           : data?.error === "expirou" ? "A autorização demorou demais. Tenta de novo."
           : "Não deu pra fechar a conexão. Tenta de novo em instantes.",
@@ -50,7 +53,7 @@ export default function MpRetorno() {
       setTimeout(() => navigate("/finances", { replace: true }), 2200);
     })();
     return () => { vivo = false; };
-  }, [loading, user, params, navigate]);
+  }, [loading, user, params, navigate, pagbank, nomeCarteira]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-8 text-center" style={{ background: "#000" }}>
@@ -68,7 +71,7 @@ export default function MpRetorno() {
           <span className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: `${OK}1a`, border: `2px solid ${OK}`, boxShadow: `0 0 40px ${OK}44` }}>
             <Check className="w-8 h-8" style={{ color: OK }} strokeWidth={3} />
           </span>
-          <p className="text-[20px] font-black mt-5">Mercado Pago conectado</p>
+          <p className="text-[20px] font-black mt-5">{nomeCarteira} conectado</p>
           <p className="text-[12.5px] mt-1.5" style={{ color: "var(--orbis-fg-2)" }}>
             {vendas > 0 ? `Já encontrei ${vendas} ${vendas === 1 ? "venda" : "vendas"} pra você conferir.` : "A partir de agora suas vendas aparecem sozinhas."}
           </p>

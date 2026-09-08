@@ -19,7 +19,13 @@ const GOLD = "#F5B800";
 const OK = "#3DD68C";
 const MP_AZUL = "#00B1EA";
 
-interface Status { conectado: boolean; apelido: string | null; conectado_em: string | null; ultima_sync_em: string | null; recebido_hoje: number; vendas_hoje: number; pendentes: number; pendentes_valor: number; erro: string | null }
+interface Status { conectado: boolean; apelido: string | null; conectado_em: string | null; ultima_sync_em: string | null; recebido_hoje: number; vendas_hoje: number; pendentes: number; pendentes_valor: number; erro: string | null; provedores: string[] | null }
+
+/** Carteiras que o vendedor pode ligar. Todas de graça, todas só leitura. */
+const CARTEIRAS: { id: string; nome: string; fn: string; cor: string }[] = [
+  { id: "mercadopago", nome: "Mercado Pago", fn: "mp-connect", cor: "#00B1EA" },
+  { id: "pagbank", nome: "PagBank", fn: "pb-connect", cor: "#3DD68C" },
+];
 interface Pendente { payment_id: string; valor: number; metodo: string; origem: string; descricao: string | null; pago_em: string }
 
 const horaBR = (iso: string | null) => {
@@ -39,7 +45,7 @@ export function MercadoPagoCard({ userId, compacto = false }: { userId: string |
     if (!userId) return;
     const { data } = await (supabase as any).rpc("mp_status");
     const s = ((data as any[]) || [])[0];
-    const status: Status | null = s ? { ...s, recebido_hoje: Number(s.recebido_hoje) || 0, pendentes_valor: Number(s.pendentes_valor) || 0 } : null;
+    const status: Status | null = s ? { ...s, recebido_hoje: Number(s.recebido_hoje) || 0, pendentes_valor: Number(s.pendentes_valor) || 0, provedores: (s.provedores as string[] | null) ?? [] } : null;
     setSt(status);
     if (status?.pendentes) {
       const { data: p } = await (supabase as any).rpc("mp_vendas_pendentes", { p_dias: 1 });
@@ -49,12 +55,12 @@ export function MercadoPagoCard({ userId, compacto = false }: { userId: string |
   }, [userId]);
   useEffect(() => { void carregar(); }, [carregar]);
 
-  const conectar = async () => {
-    setOcupado("conectar");
-    const { data, error } = await (supabase as any).functions.invoke("mp-connect");
+  const conectar = async (c: { id: string; nome: string; fn: string }) => {
+    setOcupado(c.id);
+    const { data, error } = await (supabase as any).functions.invoke(c.fn);
     setOcupado(null);
     if (error || !data?.url) {
-      toast({ title: "Não deu pra abrir o Mercado Pago", description: data?.dica || "Tenta de novo em instantes.", variant: "destructive" });
+      toast({ title: `Não deu pra abrir o ${c.nome}`, description: data?.dica || "Tenta de novo em instantes.", variant: "destructive" });
       return;
     }
     window.location.href = data.url as string;
@@ -79,7 +85,7 @@ export function MercadoPagoCard({ userId, compacto = false }: { userId: string |
   };
   const desconectar = async () => {
     setOcupado("off");
-    await (supabase as any).rpc("mp_desconectar");
+    await (supabase as any).rpc("mp_desconectar", { p_provedor: null });
     setOcupado(null);
     toast({ title: "Mercado Pago desconectado" });
     void carregar();
@@ -97,17 +103,21 @@ export function MercadoPagoCard({ userId, compacto = false }: { userId: string |
             <Link2 className="w-5 h-5" style={{ color: MP_AZUL }} strokeWidth={2.4} />
           </span>
           <div className="min-w-0">
-            <p className="text-[14.5px] font-black leading-tight">Conecte seu Mercado Pago</p>
-            <p className="text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>O Orbis passa a ver suas vendas de Pix e maquininha sozinho. Chega de digitar.</p>
+            <p className="text-[14.5px] font-black leading-tight">Conecte onde você recebe</p>
+            <p className="text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>O Orbis confere sozinho o que caiu de Pix e maquininha — e mostra o que não caiu.</p>
           </div>
         </div>
-        <button type="button" onClick={conectar} disabled={ocupado === "conectar"}
-          className="w-full h-11 rounded-[13px] mt-3 inline-flex items-center justify-center gap-2 text-[13.5px] font-black active:scale-[0.98] transition-transform disabled:opacity-60"
-          style={{ background: MP_AZUL, color: "#03212b" }}>
-          {ocupado === "conectar" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" strokeWidth={2.6} />} CONECTAR MERCADO PAGO
-        </button>
+        <div className="flex gap-2 mt-3">
+          {CARTEIRAS.map((c) => (
+            <button key={c.id} type="button" onClick={() => conectar(c)} disabled={!!ocupado}
+              className="flex-1 h-11 rounded-[13px] inline-flex items-center justify-center gap-2 text-[13px] font-black active:scale-[0.98] transition-transform disabled:opacity-60"
+              style={{ background: c.cor, color: "#03212b" }}>
+              {ocupado === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" strokeWidth={2.6} />} {c.nome}
+            </button>
+          ))}
+        </div>
         <p className="text-[11px] mt-2 leading-snug" style={{ color: "var(--orbis-fg-3)" }}>
-          Você autoriza dentro do próprio Mercado Pago. O Orbis só <b>lê</b> o que entrou — não move dinheiro, não pega senha, e você desliga quando quiser.
+          Você autoriza dentro da própria carteira. O Orbis só <b>lê</b> o que entrou — não move dinheiro, não pega senha, e você desliga quando quiser.
         </p>
       </div>
     );
@@ -121,7 +131,7 @@ export function MercadoPagoCard({ userId, compacto = false }: { userId: string |
           <Check className="w-5 h-5" style={{ color: OK }} strokeWidth={3} />
         </span>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-black tracking-[.14em]" style={{ color: OK }}>MERCADO PAGO CONECTADO</p>
+          <p className="text-[10px] font-black tracking-[.14em] truncate" style={{ color: OK }}>{(st.provedores ?? []).map((p) => (CARTEIRAS.find((c) => c.id === p)?.nome ?? p).toUpperCase()).join(" · ")} CONECTADO</p>
           <p className="text-[15px] font-black leading-tight mt-0.5 tabular-nums">{formatCurrency(st.recebido_hoje)} <span className="text-[12px] font-bold" style={{ color: "var(--orbis-fg-2)" }}>entraram hoje{st.vendas_hoje > 0 ? ` · ${st.vendas_hoje} ${st.vendas_hoje === 1 ? "venda" : "vendas"}` : ""}</span></p>
         </div>
         <button type="button" onClick={atualizar} disabled={ocupado === "sync"} aria-label="Atualizar" className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#16151a", border: "1px solid #2a2823", color: "var(--orbis-fg-2)" }}>
@@ -162,9 +172,17 @@ export function MercadoPagoCard({ userId, compacto = false }: { userId: string |
       )}
       {st.erro && <p className="text-[11.5px] mt-2" style={{ color: "#ff7d8c" }}>A conexão precisa ser refeita — toque em conectar de novo.</p>}
 
+      {!compacto && CARTEIRAS.filter((c) => !(st.provedores ?? []).includes(c.id)).map((c) => (
+        <button key={c.id} type="button" onClick={() => conectar(c)} disabled={!!ocupado}
+          className="w-full h-10 rounded-[12px] mt-2.5 inline-flex items-center justify-center gap-2 text-[12.5px] font-black"
+          style={{ background: "#16151a", border: `1px solid ${c.cor}55`, color: c.cor }}>
+          {ocupado === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" strokeWidth={2.6} />} Ligar também o {c.nome}
+        </button>
+      ))}
+
       {!compacto && (
         <button type="button" onClick={desconectar} disabled={ocupado === "off"} className="mt-3 text-[11.5px] font-bold inline-flex items-center gap-1.5" style={{ color: "var(--orbis-fg-3)" }}>
-          <Unlink className="w-3.5 h-3.5" /> Desconectar o Mercado Pago
+          <Unlink className="w-3.5 h-3.5" /> Desconectar tudo
         </button>
       )}
     </div>

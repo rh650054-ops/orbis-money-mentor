@@ -138,6 +138,7 @@ export function AppRouter() {
                     <Route path="/x1" element={<X1 />} />
                     <Route path="/x1/carteira" element={<X1Carteira />} />
                     <Route path="/mp/retorno" element={<MpRetorno />} />
+                    <Route path="/pb/retorno" element={<MpRetorno />} />
                     <Route path="/x1/escolher" element={<X1Escolher />} />
                     <Route path="/x1/luta/:id" element={<X1Luta />} />
                     <Route path="/rewards" element={<Rewards />} />
