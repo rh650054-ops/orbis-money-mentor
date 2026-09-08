@@ -35,6 +35,7 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { VizinhosCard } from "@/components/x1/VizinhosCard";
+import { MercadoPagoCard } from "@/components/financas/MercadoPagoCard";
 
 type Passo = "custos" | "relatorio";
 interface CustoLinha { id: string; nome: string; sub: string; valor: number; texto?: string; auto?: boolean; origem: "cmv" | "manual" | "sugestao" | "novo"; categoria?: string; icone?: string }
@@ -528,6 +529,9 @@ export function DefconFechamento({
             <span className="orbis-num text-[18px] font-extrabold" style={{ color: lucro >= 0 ? "var(--orbis-ok)" : "var(--orbis-custo)" }}>{formatCurrency(lucro)}</span>
           </div>
         </Bloco>
+
+        {/* Vendas que o Mercado Pago viu e não foram lançadas (só aparece se conectado) */}
+        <div className="mt-4"><MercadoPagoCard userId={userId} compacto /></div>
 
         {/* ===== SUA LIGA NO RANKING — cor da liga, subiu de patente, ver ranking ===== */}
         <p className="orbis-section mt-6 px-1">Sua liga no ranking</p>
