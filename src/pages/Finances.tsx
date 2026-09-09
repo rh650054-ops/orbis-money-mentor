@@ -49,8 +49,6 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { NovaContaSheet } from "@/components/financas/NovaContaSheet";
-import { MercadoPagoCard } from "@/components/financas/MercadoPagoCard";
-import { ConciliacaoMes } from "@/components/financas/MercadoPagoConciliacao";
 import { ObjetivoConquistado } from "@/components/financas/ObjetivoConquistado";
 
 interface PlannedBill {
@@ -3372,9 +3370,10 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
           );
         })()}
 
-        {/* Mercado Pago conectado: vendas de Pix e maquininha entram sozinhas */}
-        <MercadoPagoCard userId={user?.id} />
-        <ConciliacaoMes userId={user?.id} />
+        {/* Open Finance saiu daqui (Rick, 09/09): conciliação e carteiras vivem na
+            tela Vender (/verificar), junto do resto da conexão bancária.
+            Finanças é sobre CONTROLAR DESPESA e BATER META — não sobre conferir
+            o que caiu. */}
 
         {/* Importar histórico de vendas por PDF (IA lê e você revisa) */}
         <button

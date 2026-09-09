@@ -24,6 +24,7 @@ import {
   Check, Plus, AlertTriangle, RefreshCw, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ConciliacaoMes } from "@/components/financas/MercadoPagoConciliacao";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { Selo, Raios, Grao, LogoCarteira, CARTEIRAS, type Carteira } from "@/components/conectar/Selo";
@@ -413,6 +414,10 @@ export default function Verificar() {
       </button>
 
       {blocoCarteiras}
+
+      {/* Conciliação do mês: veio da tela de Finanças (Rick, 09/09). O lugar dela
+          é aqui, junto das conexões que produzem esse número. */}
+      <div className="mt-3"><ConciliacaoMes userId={user.id} /></div>
 
       <button type="button" onClick={() => navigate("/cobrar")}
         className="w-full flex items-center gap-3 mt-3 rounded-[20px] border p-[15px] text-left active:opacity-70"
