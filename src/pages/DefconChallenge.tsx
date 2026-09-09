@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDistanceTracker } from "@/hooks/useDistanceTracker";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
-import { useDefconQuickNotification } from "@/hooks/useDefconQuickNotification";
 import { useDefconPresence } from "@/hooks/useDefconPresence";
 import { useX1DefconAlert } from "@/hooks/useX1DefconAlert";
 import DefconTour, { TreinoConcluido } from "@/components/defcon/DefconTour";
@@ -14,7 +13,7 @@ import FirstTimeCard from "@/components/FirstTimeCard";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconBreak } from "@/components/defcon/DefconBreak";
-import { DefconFechamento } from "@/components/defcon/DefconFechamento";
+import { DefconEndScreen } from "@/components/defcon/DefconEndScreen";
 import { DefconCargaDoDia } from "@/components/defcon/DefconCargaDoDia";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
 import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
@@ -110,9 +109,14 @@ export default function DefconChallenge() {
   // da venda anterior). Vale pra venda no app e pra venda rápida pela notificação.
   const handleAddSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
     defcon.addSale(amount, method);
+    // Só avisa quando o app NÃO está na frente. Com a tela aberta o vendedor
+    // já viu a venda entrar — a notificação por cima era barulho em cima do
+    // que ele acabou de fazer. Fora do app, ela continua útil.
+    const appEscondido = typeof document === "undefined" || document.visibilityState === "hidden";
     if (
       !treino &&
       amount > 0 &&
+      appEscondido &&
       defcon.phase === "running" &&
       typeof navigator !== "undefined" &&
       "serviceWorker" in navigator
@@ -136,15 +140,20 @@ export default function DefconChallenge() {
   // widget DENTRO da tela (faixa de placar + banner de virada com vibração).
   const x1Live = useX1DefconAlert(user?.id, defconAtivo);
 
+  /* NOTIFICAÇÃO DE VENDA RÁPIDA / ABORDAGEM — DESLIGADA (Rick, 09/09).
+     Ela aparecia sozinha toda vez que o app abria e virou barulho: o vendedor
+     não pediu, não escolheu a hora, e ela competia com o que ele estava fazendo.
+     O hook continua no repositório; religar é descomentar este bloco.
   useDefconQuickNotification(defconAtivo, {
     totalSales: defcon.totalSalesCount ?? 0,
     totalApproaches: defcon.totalApproaches ?? 0,
     quickValue: quickSaleAmount,
-    onVenda: () => {
-      if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "pix");
-    },
+    onVenda: () => { if (quickSaleAmount > 0) handleAddSale(quickSaleAmount, "pix"); },
     onAbordagem: () => defcon.addApproach(),
-  });
+  }); */
+  // quickSaleAmount segue calculado: a venda rápida ainda é usada dentro do DEFCON,
+  // e religar a notificação é só descomentar o bloco acima.
+  void quickSaleAmount;
 
   if (authLoading || defcon.loading || !user) {
     return (
@@ -285,12 +294,13 @@ export default function DefconChallenge() {
       if (treino) return null; // no treino, o card "treino concluído" cobre a tela
       return (
         <>
-          {/* Etapa 1 da Onda 2 (Rick, 05/09): fechamento em 3 passos + relatório +
-              "o que mexeu". A DefconEndScreen antiga continua no repositório
-              (rollback = trocar o import). distanceMeters ficou de fora: o GPS agora é
-              opcional e o relatório já esconde a linha quando é zero. */}
-          <DefconFechamento
+          {/* RELATÓRIO ANTIGO DE VOLTA (Rick, 09/09): o fechamento em 3 passos
+              (DefconFechamento) ficou estranho pra ele. Voltamos pro padrão antigo,
+              que segue no repositório — rollback é trocar o import de novo.
+              O Cobrador de Calote e a conciliação foram portados pra cá. */}
+          <DefconEndScreen
             phase={defcon.phase}
+            totalBlocks={defcon.blocks.length}
             totalSold={defcon.totalSold}
             dailyGoal={defcon.dailyGoal}
             workedMinutes={defcon.workedMinutes ?? (defcon.currentBlockIndex * 60 + Math.min(60, Math.max(0, Math.round((60 * 60 - defcon.remainingSeconds) / 60))))}

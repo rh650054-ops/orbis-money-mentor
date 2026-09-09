@@ -10,7 +10,6 @@ import { Button } from "@/shared/ui/button";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import FloatingChatButton from "@/components/FloatingChatButton";
-import { ExtratoReminder } from "@/components/competitions/ExtratoReminder";
 import { WeeklyChallengeTicket, DesafioFluxoBar } from "@/components/competitions/WeeklyChallenge";
 import TrialExpiredModal from "@/components/TrialExpiredModal";
 import OfflineIndicator from "@/components/OfflineIndicator";
@@ -286,9 +285,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
         )}
-        {user && !["/meu-extrato", "/defcon"].includes(location.pathname) && (
-          <ExtratoReminder userId={user.id} />
-        )}
+        {/* Lembrete de extrato removido (Rick, 09/09): a competição não usa mais extrato. */}
         {user && <WeeklyChallengeTicket />}
         {user && <DesafioFluxoBar />}
         <PageTransition>{children}</PageTransition>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
+import { CobradorCard } from "@/components/cobranca/CobradorCard";
+import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate, getBrazilDateLabel, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
@@ -11,7 +13,6 @@ import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
-import { WeeklyChallengeExtratoNudge } from "@/components/competitions/WeeklyChallenge";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -920,8 +921,11 @@ export function DefconEndScreen({
           </div>
         </div>
 
-        {/* DESAFIO DA SEMANA — lembrete: manda o extrato pra contar no ranking */}
-        <WeeklyChallengeExtratoNudge />
+        {/* COBRADOR DE CALOTE + CONCILIAÇÃO — portados do fechamento novo quando
+            o Rick pediu o relatório antigo de volta (09/09). Os dois somem sozinhos
+            quando não há nada a cobrar nem carteira ligada. */}
+        <CobradorCard userId={userId} faltouCair={calote} />
+        <ConciliacaoDia userId={userId} />
 
         {/* Celebração — bateu/ultrapassou a meta */}
         {goalReached && (

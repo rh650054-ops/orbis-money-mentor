@@ -16,7 +16,6 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
-import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 // Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
@@ -557,7 +556,8 @@ export default function Index() {
       />
       </div>
 
-      <X1InvitePopup userId={user.id} />
+      {/* X1 saiu do Dashboard (Rick, 09/09): a Home responde "como estou hoje",
+          e convite de duelo vive na tela de Competições. */}
 
       {/* Financeiro: bloco com borda própria — "Ver detalhes" abre os custos */}
       <Bloco titulo="Financeiro" acao="Ver detalhes" onAcao={() => setShowCustos(true)}>
