@@ -24,8 +24,8 @@ interface DefconSmartNotificationProps {
 
 const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
-const COACH_DAILY_CAP = 5;            // teto de mensagens por dia (4-5, escolha do usuario)
-const COACH_COOLDOWN_APPROACHES = 4;  // intervalo minimo de abordagens entre mensagens (anti-spam)
+const COACH_DAILY_CAP = 8;            // ~1 por bloco num dia de 8 blocos (Rick, 09/09: quer o Orbis presente no meio do corre)
+const COACH_COOLDOWN_APPROACHES = 3;  // nunca duas seguidas numa rajada de abordagem (anti-spam)
 const COACH_AI_TIMEOUT_MS = 6000;     // tempo p/ a IA enriquecer (o template já apareceu na hora)
 
 // Escolhe um item aleatório — garante variedade mesmo quando a IA não reescreve.
@@ -204,6 +204,43 @@ export function DefconSmartNotification({
     });
   }, [aiRewrite]);
 
+  /* ------------------------------------------------------------------
+     O DIAGNÓSTICO (09/09/2026, pedido do Rick).
+
+     Antes, o coach mostrava a conversão e mandava "capricha na abordagem".
+     Mostrar o número é fácil; dizer O QUE FAZER exige saber a CAUSA — e
+     vender pouco tem causas com conselhos opostos: abordou pouco (é volume),
+     abordou muito e não fechou (é a abertura), vendeu igual mas o ticket caiu
+     (está dando desconto). O raciocínio mora no banco (defcon_diagnostico),
+     em SQL, sobre os números reais dele — barato e sem depender de IA.
+     A IA só reescreve o texto depois; se ela falhar, o conselho continua certo.
+  ------------------------------------------------------------------ */
+  const diagnosticar = useCallback(async (qual: string) => {
+    try {
+      const { data, error } = await (supabase as any).rpc("defcon_diagnostico", {
+        p_bloco: currentBlockIndex,
+        p_abordagens_bloco: blockApproaches,
+        p_vendas_bloco: blockSalesCount,
+        p_valor_bloco: 0,
+      });
+      const d = data as { conselho?: string; veredito?: string; causa?: string } | null;
+      const texto = String(d?.conselho ?? "").trim();
+      if (error || !texto) return false;
+      const cara =
+        d?.veredito === "otimo" ? "🔥" :
+        d?.veredito === "bom" ? "📈" :
+        d?.veredito === "atencao" ? "💰" :
+        d?.veredito === "devagar" ? "⚡" :
+        d?.veredito === "ruim" ? "🎯" : "📊";
+      // o rótulo no pulso carrega a CAUSA — é assim que dá pra descobrir depois
+      // qual tipo de conselho segurou o vendedor no app e qual espantou.
+      showNotification(cara, texto, `diag_${d?.causa ?? qual}`);
+      return true;
+    } catch {
+      return false; // diagnóstico é melhoria, nunca obrigação
+    }
+  }, [currentBlockIndex, blockApproaches, blockSalesCount, showNotification]);
+
   const dismissNotification = useCallback((id: string) => {
     const timer = timersRef.current.get(id);
     if (timer) clearTimeout(timer);
@@ -261,72 +298,43 @@ export function DefconSmartNotification({
 
       approachesSinceLastSaleRef.current = 0;
 
-      // TRIGGER 2/3 — Conversão real do dia
+      // TRIGGER 2 — a partir da 2a venda, o Orbis DIAGNOSTICA em vez de só elogiar.
+      // O texto vem de defcon_diagnostico: causa + conselho concreto.
       if (totalSalesCount >= 2) {
-        const triggerKey = `perf_check_${totalSalesCount}`;
+        const triggerKey = `diag_venda_${totalSalesCount}`;
         if (!shownTriggersRef.current.has(triggerKey)) {
           shownTriggersRef.current.add(triggerKey);
-          if (hasRealHistory && convPct >= realConvPct) {
-            showNotification("🔥", pick([
-              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do teu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`,
-              `${convPct}% de conversão (${totalSalesCount}/${totalApproaches}).\nMelhor que o teu padrão de ${realConvPct}%. Não muda nada, segue assim! 🔥`,
-              `${totalSalesCount} vendas, ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Dia de cobrar caro de si mesmo! 💪`,
-            ]), "coach_acima_do_normal");
-          } else if (hasRealHistory) {
-            showNotification("🎯", pick([
-              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTeu normal é ${realConvPct}%. Capricha na abordagem que tu vira o jogo.`,
-              `${convPct}% de conversão até agora (${totalSalesCount}/${totalApproaches}).\nDá pra subir — teu padrão é ${realConvPct}%. Sorri mais e vai com firmeza.`,
-              `${totalSalesCount} vendas, ${convPct}%.\nTá abaixo do teu ${realConvPct}%. Respira, escolhe melhor a abordagem e ataca.`,
-            ]), "coach_abaixo_do_normal");
-          } else {
-            showNotification("📈", pick([
-              `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o teu ritmo. Cada abordagem conta — segue firme!`,
-              `Já são ${totalSalesCount} vendas (${convPct}%).\nTá construindo o teu padrão. Mantém a constância! 📈`,
-              `${totalSalesCount} vendas, ${convPct}% de conversão.\nDia tá tomando forma. Não afrouxa o ritmo! 💪`,
-            ]), "coach_sem_historico");
-          }
+          void diagnosticar("venda");
         }
       }
     }
 
-    // TRIGGER 4 — Marco a cada 10 abordagens (conversão real)
-    if (totalApproaches > 0 && totalApproaches % 10 === 0 && newApproach) {
-      const triggerKey = `milestone_${totalApproaches}`;
+    // TRIGGER 3 — marco a cada 8 abordagens. É o "entrar com inteligência no meio
+    // do corre" que o Rick pediu: no meio do bloco, com a conversão na mão e um
+    // conselho do que mudar — não no fim, quando já não dá pra corrigir o bloco.
+    if (totalApproaches > 0 && totalApproaches % 8 === 0 && newApproach) {
+      const triggerKey = `diag_marco_${totalApproaches}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        if (hasRealHistory && convPct >= realConvPct) {
-          showNotification("📊", pick([
-            `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do teu normal (${realConvPct}%). Não para agora!`,
-            `Marco de ${totalApproaches} abordagens! ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Tá no modo elite. 🔥`,
-          ]), "coach_marco_bom");
-        } else {
-          showNotification("📊", pick([
-            `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`,
-            `${totalApproaches} abordagens já! ${totalSalesCount} vendas no bolso.\nConstância é tudo — segue empilhando. 📊`,
-            `Bateu ${totalApproaches} abordagens. ${convPct}% de conversão.\nNão afrouxa agora, o dia tá rendendo. 💪`,
-          ]), "coach_marco");
-        }
+        void diagnosticar("marco");
       }
     }
 
-    // TRIGGER 5 — sequência sem vender
+    // TRIGGER 4 — sequência sem vender: também vira diagnóstico. O conselho
+    // muda conforme a causa real (volume x abertura x preço), em vez do
+    // "a próxima é tua" genérico de antes.
     if (approachesSinceLastSaleRef.current >= 5 && newApproach) {
       const dryCount = approachesSinceLastSaleRef.current;
-      const triggerKey = `dry_${Math.floor(dryCount / 5) * 5}`;
+      const triggerKey = `diag_seca_${Math.floor(dryCount / 5) * 5}`;
       if (!shownTriggersRef.current.has(triggerKey)) {
         shownTriggersRef.current.add(triggerKey);
-        showNotification("💪", pick([
-          `${dryCount} abordagens sem vender.\nFicou frio, mas a próxima tá logo ali. Vai com tudo!`,
-          `${dryCount} sem fechar. Acontece.\nTroca a abordagem, sorri, oferece o kit. A virada vem!`,
-          `${dryCount} abordagens secas.\nQuem insiste fura a seca. A próxima é tua! 💪`,
-          `Sequência de ${dryCount} sem venda.\nRespira, muda o script e ataca a próxima com tudo.`,
-        ]), "coach_seca");
+        void diagnosticar("seca");
       }
     }
 
     prevSalesRef.current = totalSalesCount;
     prevApproachesRef.current = totalApproaches;
-  }, [totalApproaches, totalSalesCount, phase, historicalLoaded]);
+  }, [totalApproaches, totalSalesCount, phase, historicalLoaded, diagnosticar]);
 
   if (notifications.length === 0) return null;
 
