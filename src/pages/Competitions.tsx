@@ -11,6 +11,7 @@ import { LeaderboardEntry } from "@/hooks/useLeaderboard";
 import { GoldenTicket } from "@/components/competitions/GoldenTicket";
 import { X1Andamento } from "@/components/competitions/X1Andamento";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
+import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
 import { ArrowLeft, ChevronRight, Calendar, Lock, CheckCircle2, Swords, Plus } from "lucide-react";
 
 interface Comp {
@@ -156,6 +157,10 @@ export default function Competitions() {
           <Swords className="w-4 h-4" /> X1
         </button>
       </div>
+
+      {/* Arena X1: o card que mostra uma coisa por vez (convite, luta ao vivo
+          ou o rival na sua altura). Saiu do Dashboard e mora aqui (Rick, 09/09). */}
+      {user && <X1HomeBanner userId={user.id} />}
 
       {/* X1 em andamento dos usuários (espectador) — junto das competições dos admins */}
       <X1Andamento onOpen={() => navigate("/x1")} />

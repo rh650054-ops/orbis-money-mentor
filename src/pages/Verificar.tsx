@@ -212,7 +212,7 @@ export default function Verificar() {
           </div>
 
           <div className="mt-auto pt-2">
-            <BotaoOuro azul onClick={() => setPasso(2)}><Selo size={22} /> QUERO SER VERIFICADO</BotaoOuro>
+            <div data-tour="conectar-banco"><BotaoOuro azul onClick={() => setPasso(2)}><Selo size={22} /> QUERO SER VERIFICADO</BotaoOuro></div>
             <p className="text-[11.5px] text-center mt-2.5" style={{ color: "#7b766e" }}>Leva 30 segundos · não custa nada</p>
           </div>
         </div>

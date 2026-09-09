@@ -16,7 +16,6 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
-import { X1HomeBanner } from "@/components/competitions/X1HomeBanner";
 import X1InvitePopup from "@/components/competitions/X1InvitePopup";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
@@ -558,9 +557,6 @@ export default function Index() {
       />
       </div>
 
-      {/* Arena X1: 1º card depois do Foco (Rick, 08/09). Uma coisa por vez:
-          convite recebido, duelo ao vivo, ou o rival logo acima no ranking. */}
-      <X1HomeBanner userId={user.id} />
       <X1InvitePopup userId={user.id} />
 
       {/* Financeiro: bloco com borda própria — "Ver detalhes" abre os custos */}

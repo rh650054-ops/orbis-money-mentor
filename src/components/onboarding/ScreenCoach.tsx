@@ -93,13 +93,13 @@ const SCREENS: Record<string, ScreenDef> = {
       },
     ],
   },
-  "/bank-connections": {
+  "/verificar": {
     key: "vender",
     steps: [
       {
         selector: '[data-tour="conectar-banco"]',
-        title: "Vender no automático 🏦",
-        text: "Toque em 'Conectar Banco' (Open Finance, seguro e regulado). O Orbis detecta suas vendas sozinho — você só confirma o que é venda.",
+        title: "Vire vendedor verificado",
+        text: "Ligue onde você recebe (Mercado Pago, PagBank) e o Orbis passa a ver suas vendas sozinho. Você ganha o selo azul e entra nas competições valendo dinheiro.",
       },
     ],
   },
