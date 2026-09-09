@@ -25,6 +25,7 @@ import {
   Pencil,
   Sparkles,
   PiggyBank,
+  Receipt,
   AlertTriangle,
   RotateCw,
   RotateCcw,
@@ -105,6 +106,8 @@ export default function Finances() {
   const { toast } = useToast();
   const [bills, setBills] = useState<PlannedBill[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  /** Qual porta está aberta (Rick, 09/09). null = nenhuma; uma por vez. */
+  const [porta, setPorta] = useState<"contas" | "objetivos" | null>(null);
   const [summary, setSummary] = useState<FinancialSummary>({
     totalProfit: 0,
     totalReinvestment: 0,
@@ -2006,29 +2009,25 @@ export default function Finances() {
       {/* 1. LUCRO LÍQUIDO DE HOJE */}
       <Card className="rounded-[18px] border shadow-lg" style={{ background: "linear-gradient(170deg,#141006 0%,#0b0b0d 70%)", borderColor: "#3a2f0c", boxShadow: "0 0 30px rgba(245,184,0,.08)" }}>
         <CardContent className="p-4">
-          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>LUCRO LÍQUIDO DE HOJE</p>
+          {/* O MÊS é o número grande (Rick, 09/09). "Quanto sobrou pra mim" é a
+              pergunta que ele faz; o dia isolado não responde ela. Hoje continua
+              aqui, do lado, junto da média e do fiado. */}
+          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>SOBROU PRA VOCÊ ESSE MÊS</p>
           {isLoadingData ? (
             <Skeleton className="h-11 w-44 mt-2" />
           ) : (
-            <p className="text-[42px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.netToday >= 0 ? "#3DD68C" : "#F2465A" }}>
-              {formatCurrency(summary.netToday)}
+            <p className="text-[42px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.monthlyNetProfit >= 0 ? "#3DD68C" : "#F2465A" }}>
+              {formatCurrency(summary.monthlyNetProfit)}
             </p>
           )}
-          {!isLoadingData && (
-            <p className="text-xs text-muted-foreground mt-2">
-              vendido <b className="text-foreground">{formatCurrency(summary.grossToday)}</b> − custos{" "}
-              <b style={{ color: "#E5737F" }}>{formatCurrency(summary.costToday + summary.transportToday + summary.foodToday + summary.expensesToday)}</b>
-              {" "}· mercadoria, transporte e comida
-            </p>
-          )}
-          <div className="grid grid-cols-3 gap-2 mt-3 pt-3" style={{ borderTop: "1px solid #2a2416" }}>
+          <div className="grid grid-cols-3 gap-2 mt-4 pt-3" style={{ borderTop: "1px solid #2a2416" }}>
+            <div>
+              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">HOJE</p>
+              <p className="text-[15px] font-black tabular-nums mt-0.5" style={{ color: summary.netToday >= 0 ? undefined : "#F2465A" }}>{isLoadingData ? "—" : formatCurrency(summary.netToday)}</p>
+            </div>
             <div>
               <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">MÉDIA / DIA</p>
               <p className="text-[15px] font-black tabular-nums mt-0.5 text-foreground">{isLoadingData ? "—" : formatCurrency(summary.mediaDiariaLiquida)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">MÊS</p>
-              <p className="text-[15px] font-black tabular-nums mt-0.5" style={{ color: "#3DD68C" }}>{isLoadingData ? "—" : formatCurrency(summary.monthlyNetProfit)}</p>
             </div>
             <div className="text-right">
               <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">FIADO</p>
@@ -2453,7 +2452,36 @@ export default function Finances() {
         </DialogContent>
       </Dialog>
 
+        {/* AS PORTAS (Rick, 09/09): a tela de fora vira mapa. Cada porta abre
+            uma coisa por vez — e fechada, ela ainda diz o que tem dentro. */}
+        <div className="rounded-[18px] border overflow-hidden" style={{ background: "#0e0e10", borderColor: "#1e1d21" }}>
+          {([
+            { k: "contas" as const, titulo: "Contas a pagar", icone: <Receipt className="w-4 h-4" />, sub: `${bills.length} no mês`, badge: overdueBills.length > 0 ? `${overdueBills.length} vencida${overdueBills.length === 1 ? "" : "s"}` : null },
+            { k: "objetivos" as const, titulo: "Objetivos", icone: <PiggyBank className="w-4 h-4" />, sub: goals.length > 0 ? `${goals.length} ativo${goals.length === 1 ? "" : "s"}` : "nenhum ainda", badge: null },
+          ]).map((d, i) => {
+            const aberta = porta === d.k;
+            return (
+              <button key={d.k} type="button" onClick={() => setPorta(aberta ? null : d.k)}
+                className="w-full flex items-center gap-3 h-[58px] px-4 text-left"
+                style={i ? { borderTop: "1px solid #1e1d21" } : undefined}>
+                <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
+                  style={{ background: aberta ? "rgba(245,184,0,.14)" : "rgba(255,255,255,.06)", color: aberta ? "#F5B800" : "#a9a49c" }}>{d.icone}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-[14px] font-extrabold truncate">{d.titulo}</span>
+                  <span className="block text-[11.5px] font-semibold truncate" style={{ color: "#7b766e" }}>{d.sub}</span>
+                </span>
+                {d.badge && (
+                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black"
+                    style={{ background: "rgba(242,70,90,.1)", border: "1px solid rgba(242,70,90,.4)", color: "#ff8a97" }}>{d.badge}</span>
+                )}
+                <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: aberta ? "rotate(180deg)" : undefined }} />
+              </button>
+            );
+          })}
+        </div>
+
         {/* 3. CAIXINHAS */}
+        {porta === "objetivos" && (
         <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5 pt-1">
               <h2 className="text-[15px] font-black text-foreground tracking-tight">Objetivos</h2>
@@ -2824,8 +2852,12 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
           )}
 
         </section>
+        )}
 
         {/* 4. CONTAS A PAGAR */}
+        {/* PORTA: contas a pagar. A lista só existe quando ele abre — antes,
+            400 linhas de conta ficavam empilhadas com o mesmo peso de tudo. */}
+        {porta === "contas" && (
         <section className="space-y-3">
           <div className="flex items-center justify-between px-0.5 pt-1">
             <h2 className="text-[15px] font-black text-foreground tracking-tight">Contas a pagar</h2>
@@ -3265,6 +3297,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
             </div>
           )}
         </section>
+        )}
 
         {/* 5. DICAS — calculadas com os números da própria pessoa */}
         {!isLoadingData && (bills.length > 0 || goals.length > 0 || summary.grossToday > 0) && (() => {
