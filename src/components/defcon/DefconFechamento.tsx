@@ -36,6 +36,7 @@ import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { VizinhosCard } from "@/components/x1/VizinhosCard";
 import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
+import { CobradorCard } from "@/components/cobranca/CobradorCard";
 
 type Passo = "custos" | "relatorio";
 interface CustoLinha { id: string; nome: string; sub: string; valor: number; texto?: string; auto?: boolean; origem: "cmv" | "manual" | "sugestao" | "novo"; categoria?: string; icone?: string }
@@ -529,6 +530,11 @@ export function DefconFechamento({
             <span className="orbis-num text-[18px] font-extrabold" style={{ color: lucro >= 0 ? "var(--orbis-ok)" : "var(--orbis-custo)" }}>{formatCurrency(lucro)}</span>
           </div>
         </Bloco>
+
+        {/* Cobrador de calote: gera o Pix de quem ficou devendo e abre o WhatsApp.
+            O card some sozinho quando não há nada pra cobrar — por isso o título
+            vive dentro dele, senão sobrava um cabeçalho órfão no fechamento. */}
+        <CobradorCard userId={userId} faltouCair={fiado} />
 
         {/* Conciliação: o que você lançou × o que caiu de verdade no Mercado Pago */}
         <p className="orbis-section mt-6 px-1">Caiu na conta</p>
