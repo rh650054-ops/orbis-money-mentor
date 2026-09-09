@@ -7,7 +7,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-orbis-cron",
 };
 const UA = "OrbisCacaSinal/1.0 (https://orbis.app; contato@orbis.app)";
 const ENDPOINTS = [
@@ -28,9 +28,29 @@ function dist(a: { lat: number; lng: number }, b: { lat: number; lng: number }) 
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 
+/** compara sem vazar por tempo */
+function mesmo(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  let dif = 0;
+  for (let i = 0; i < a.length; i++) dif |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return dif === 0;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
+    // SEGURANCA (09/09/2026): antes isso rodava pra qualquer um que batesse aqui.
+    // Um curl em looping fazia o Orbis martelar a Overpass (que e de graca e
+    // mantida por voluntarios) ate levar bloqueio de IP, e ainda escrevia no
+    // banco com a service key. Agora so o cron entra: a chave mora em
+    // painel_tokens (tabela sem RLS pra cliente nenhum) e vem no cabecalho.
+    const guarda = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: chave } = await guarda.from("painel_tokens").select("token").eq("nome", "cron").maybeSingle();
+    const esperado = String((chave as any)?.token ?? "");
+    if (!esperado || !mesmo((req.headers.get("x-orbis-cron") ?? "").trim(), esperado)) {
+      return json({ error: "nao_autorizado" }, 401);
+    }
+
     // MODO JOB (sem chave, sem corpo): pega os próximos 40 semáforos SEM nome do
     // próprio banco, priorizando cidades onde há vendedores. Chamado pelo pg_cron
     // a cada minuto até nomear tudo. Nada vem de fora: o corpo é ignorado.

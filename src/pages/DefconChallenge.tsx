@@ -336,7 +336,14 @@ export default function DefconChallenge() {
     ? new Date(defcon.sessionDate + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
     : "";
   const askKey = user && defcon.sessionDate ? `orbis_midnight_ask_${user.id}_${defcon.sessionDate}` : null;
-  const jaPerguntou = askKey ? localStorage.getItem(askKey) === "1" : true;
+  // O try/catch não é frescura: em navegador com dados do site bloqueados
+  // (iOS no modo restrito, webview de dentro do Instagram) o localStorage
+  // ESTOURA em vez de devolver null — e isso aqui roda no meio do render,
+  // então a tela inteira do DEFCON virava tela branca.
+  const jaPerguntou = (() => {
+    if (!askKey) return true;
+    try { return localStorage.getItem(askKey) === "1"; } catch { return true; }
+  })();
   const mostrarPergunta = Boolean(overnight && !jaPerguntou);
   const marcarPerguntado = () => { try { if (askKey) localStorage.setItem(askKey, "1"); } catch { /* ignore */ } setMidnightTick((t) => t + 1); };
 

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
+import { reaisDeDigitos, textoDeDigitos, soDigitosValor } from "@/shared/lib/dinheiro";
 import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2 } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
@@ -170,7 +171,10 @@ export function DefconRunning({
     return null;
   };
   const tiersQty = (amount: number): number => casarValor(amount)?.qty ?? 1;
-  const saleValorNum = parseFloat(saleValue) || 0;
+  // saleValue guarda SÓ DÍGITOS ("1250"); os dois últimos são os centavos.
+  // Era type="number" e a vírgula do teclado brasileiro zerava o campo —
+  // o vendedor digitava "12," e os botões de venda ficavam apagados.
+  const saleValorNum = reaisDeDigitos(saleValue);
   // Casa o valor com a tabela: [{product, qty}] — prioriza o produto já selecionado
   const casado = useMemo(() => {
     if (!(saleValorNum > 0) || loadout.length === 0) return null;
@@ -312,7 +316,7 @@ export function DefconRunning({
   };
 
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
-    const amount = parseFloat(saleValue) || 0;
+    const amount = reaisDeDigitos(saleValue);
     if (!(amount > 0)) return;
     if (amount > TETO_VENDA) {
       setErroValor(`R$ ${amount.toLocaleString("pt-BR")} não passa. Confere se não sobrou um zero — o limite por venda é ${formatCurrency(TETO_VENDA)}.`);
@@ -396,7 +400,7 @@ export function DefconRunning({
      Se a carteira não estiver ligada (ou a criação falhar), cai no jeito antigo:
      a mensagem vai com a chave Pix dele. Nada quebra pra quem não conectou. */
   const openChargePreview = async () => {
-    const amount = parseFloat(saleValue) || 0;
+    const amount = reaisDeDigitos(saleValue);
     if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
 
     const base = buildChargeMessage(amount, saleName);
@@ -432,7 +436,7 @@ export function DefconRunning({
   };
 
   const confirmCharge = async () => {
-    const amount = parseFloat(saleValue) || 0;
+    const amount = reaisDeDigitos(saleValue);
     const digits = sanitizePhone(salePhone);
     if (amount <= 0 || digits.length < 10) return;
     const phone = digits.startsWith("55") ? digits : `55${digits}`;
@@ -854,10 +858,10 @@ export function DefconRunning({
                 R$
               </span>
               <input
-                type="number"
-                inputMode="decimal"
-                value={saleValue}
-                onChange={(e) => { setSaleValue(e.target.value); if (erroValor) setErroValor(null); }}
+                type="text"
+                inputMode="numeric"
+                value={textoDeDigitos(saleValue)}
+                onChange={(e) => { setSaleValue(soDigitosValor(e.target.value)); if (erroValor) setErroValor(null); }}
                 onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
                 placeholder="0"
                 autoFocus
@@ -944,7 +948,7 @@ export function DefconRunning({
                   />
                 </div>
 
-                {sanitizePhone(salePhone).length >= 10 && parseFloat(saleValue) > 0 && (
+                {sanitizePhone(salePhone).length >= 10 && saleValorNum > 0 && (
                   <button
                     onClick={openChargePreview}
                     style={{ backgroundColor: BRAND_COLORS.WHATSAPP, boxShadow: "0 10px 28px -8px rgba(37,211,102,0.7)" }}
@@ -969,7 +973,7 @@ export function DefconRunning({
             <div className="flex gap-2">
               <button
                 onClick={() => handleAddSale("dinheiro")}
-                disabled={!saleValue || parseFloat(saleValue) <= 0}
+                disabled={saleValorNum <= 0}
                 className="flex-1 h-16 bg-success text-success-foreground font-black text-sm rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-1"
               >
                 <Coins className="w-5 h-5" strokeWidth={2.5} />
@@ -977,7 +981,7 @@ export function DefconRunning({
               </button>
               <button
                 onClick={() => handleAddSale("pix")}
-                disabled={!saleValue || parseFloat(saleValue) <= 0}
+                disabled={saleValorNum <= 0}
                 className="flex-1 h-16 bg-primary text-primary-foreground font-black text-sm rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-1"
               >
                 <Smartphone className="w-5 h-5" strokeWidth={2.5} />
@@ -985,7 +989,7 @@ export function DefconRunning({
               </button>
               <button
                 onClick={() => handleAddSale("cartao")}
-                disabled={!saleValue || parseFloat(saleValue) <= 0}
+                disabled={saleValorNum <= 0}
                 className="flex-1 h-16 bg-foreground text-background font-black text-sm rounded-xl disabled:opacity-30 active:scale-95 transition-transform flex flex-col items-center justify-center gap-1"
               >
                 <CreditCard className="w-5 h-5" strokeWidth={2.5} />

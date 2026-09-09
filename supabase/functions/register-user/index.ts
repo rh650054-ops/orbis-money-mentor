@@ -53,10 +53,14 @@ Deno.serve(async (req) => {
     // NEVER logged in (cleanup of an abandoned/failed signup). If a real account
     // already exists for this CPF we must refuse — otherwise anyone who knows a
     // CPF (semi-public in Brazil) could wipe and take over that account.
-    const { data: existing } = await supabase.auth.admin.listUsers({ page: 1, perPage: 200 });
-    const existingUser = existing?.users?.find((u) => u.email === internalEmail);
+    // BUG CORRIGIDO (09/09/2026): antes isso listava os usuarios de 200 em 200 e
+    // olhava SO a primeira pagina. Com 684 contas, quem estava da 201 em diante
+    // nunca era encontrado — a pessoa nao via "Este CPF ja possui uma conta",
+    // via o erro cru do banco em ingles. Agora a pergunta vai direto no auth.users.
+    const { data: achado } = await supabase.rpc("orbis_conta_por_cpf", { p_cpf: cleanedCpf });
+    const existingUser = ((achado as { user_id: string; confirmada: boolean }[]) ?? [])[0] ?? null;
     if (existingUser) {
-      const isConfirmed = !!(existingUser.email_confirmed_at || existingUser.last_sign_in_at);
+      const isConfirmed = !!existingUser.confirmada;
       if (isConfirmed) {
         return new Response(
           JSON.stringify({ error: "Este CPF já possui uma conta. Faça login ou recupere a senha." }),
@@ -64,7 +68,7 @@ Deno.serve(async (req) => {
         );
       }
       // Unconfirmed leftover from a failed signup — safe to clean up.
-      await supabase.auth.admin.deleteUser(existingUser.id);
+      await supabase.auth.admin.deleteUser(existingUser.user_id);
     }
 
     // Create user with email already confirmed (bypasses email confirmation requirement)
@@ -81,8 +85,13 @@ Deno.serve(async (req) => {
     });
 
     if (createError) {
+      // nao devolve o texto cru do banco (vaza detalhe interno e vem em ingles)
+      console.error("register-user createUser:", createError.message);
+      const jaExiste = /already|exists|duplicate|registered/i.test(createError.message || "");
       return new Response(
-        JSON.stringify({ error: createError.message }),
+        JSON.stringify({ error: jaExiste
+          ? "Este CPF já possui uma conta. Faça login ou recupere a senha."
+          : "Não deu pra criar sua conta agora. Tenta de novo em instantes." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -162,8 +171,10 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err: any) {
+    // o texto cru do erro so vai pro log; pro usuario, portugues de gente
+    console.error("register-user:", String(err?.message ?? err).slice(0, 300));
     return new Response(
-      JSON.stringify({ error: err.message || "Erro interno." }),
+      JSON.stringify({ error: "Não deu pra criar sua conta agora. Tenta de novo em instantes." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

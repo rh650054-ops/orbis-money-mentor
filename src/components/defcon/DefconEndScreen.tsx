@@ -13,6 +13,7 @@ import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
+import { faltou, sobra } from "@/shared/lib/dinheiro";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -57,6 +58,9 @@ export function DefconEndScreen({
   const [pix, setPix] = useState("");
   const [cartao, setCartao] = useState("");
   const [dinheiro, setDinheiro] = useState("");
+  // O vendedor encostou nos campos de recebimento? Sem isso não dá pra
+  // diferenciar "ainda não carregou" de "ele zerou porque ninguém pagou".
+  const [mexeu, setMexeu] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [caloteAcknowledged, setCaloteAcknowledged] = useState(false);
@@ -495,9 +499,12 @@ export function DefconEndScreen({
   const cartaoNum = parseFloat(cartao) || 0;
   const dinheiroNum = parseFloat(dinheiro) || 0;
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
-  const calote = Math.max(0, totalSold - totalRecebido);
-  const hasCalote = calote > 0 && totalRecebido > 0;
-  const fullyReceived = totalRecebido >= totalSold && totalSold > 0;
+  // Meio centavo de margem: 10,70 + 5,60 dá 16,299999999999997 em ponto
+  // flutuante. Sem isso o app inventava um calote de R$ 0,000000000000004,
+  // nunca mostrava "100% recebido" e ainda travava o fechamento do dia.
+  const calote = faltou(totalSold, totalRecebido);
+  const hasCalote = calote > 0 && (totalRecebido > 0 || mexeu);
+  const fullyReceived = totalSold > 0 && calote === 0;
 
   // Salva a CONTAGEM de kits não pagos na linha do dia (mesma data do sync do DEFCON).
   // O valor do calote já está em total_debt; aqui guardamos só a quantidade pro relatório.
@@ -869,7 +876,7 @@ export function DefconEndScreen({
   };
 
   const handleFinalize = async () => {
-    if (totalRecebido > totalSold) {
+    if (sobra(totalRecebido, totalSold) > 0) {
       toast({
         title: "Valor inválido",
         description: "O total recebido excede o vendido.",
@@ -886,7 +893,10 @@ export function DefconEndScreen({
     }
     setSaving(true);
     try {
-      if (totalRecebido > 0) {
+      // Salva também quando ele zerou tudo de propósito ("ninguém pagou hoje").
+      // Antes só gravava com totalRecebido > 0: o dia inteiro fiado era salvo
+      // como se tivesse sido recebido, e a dívida sumia sem ninguém ver.
+      if (totalRecebido > 0 || mexeu) {
         await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
       }
       onExit();
@@ -1018,9 +1028,9 @@ export function DefconEndScreen({
               )}
             </div>
 
-            <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={setPix} accent="text-muted-foreground" />
-            <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={setCartao} accent="text-muted-foreground" />
-            <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={setDinheiro} accent="text-muted-foreground" />
+            <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
+            <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
+            <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={(v) => { setMexeu(true); setDinheiro(v); }} accent="text-muted-foreground" />
 
             {/* Resumo total recebido vs vendido */}
             {totalRecebido > 0 && (

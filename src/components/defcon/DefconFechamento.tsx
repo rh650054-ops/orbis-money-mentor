@@ -26,6 +26,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Banknote, Smartphone, CreditCard, AlertTriangle, ShoppingCart, Bus, Utensils, Package, Plus, Trash2,
   Check, Clock, Trophy, Loader2, Instagram, RotateCcw, ArrowLeft, Star, PartyPopper, Target, Timer, UserRound, BarChart3, DollarSign, TrendingDown, HandCoins,
+  ChevronRight,
 } from "lucide-react";
 import { getTier, type Tier } from "@/components/ranking/tier";
 import { formatCurrency } from "@/shared/lib/utils";

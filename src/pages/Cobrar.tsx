@@ -15,6 +15,7 @@ import {
   ChevronRight, AlertTriangle, HandCoins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { reaisDeDigitos, textoDeDigitos, soDigitosValor } from "@/shared/lib/dinheiro";
 import { toast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -136,10 +137,11 @@ export default function Cobrar() {
     return () => clearInterval(t);
   }, [cob]);
 
-  const valorNum = useMemo(() => {
-    const n = Number(String(valor).replace(/\./g, "").replace(",", "."));
-    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
-  }, [valor]);
+  // `valor` guarda SÓ DÍGITOS ("1250"); os dois últimos são os centavos.
+  // Antes isso apagava todo ponto achando que era separador de milhar: quem
+  // digitasse 12.50 gerava uma cobrança REAL de R$ 1.250,00 no WhatsApp de um
+  // cliente de verdade. Agora não tem como digitar ponto nem vírgula.
+  const valorNum = useMemo(() => reaisDeDigitos(valor), [valor]);
 
   const texto = useMemo(() => mensagemCobranca({
     clienteNome: cob?.cliente_nome ?? nome,
@@ -339,7 +341,7 @@ export default function Cobrar() {
       <div className="flex flex-col gap-2 mt-3">
         <Campo rotulo="QUEM" valor={nome} onChange={setNome} placeholder="Nome do cliente" />
         <Campo rotulo="WHATSAPP" valor={tel} onChange={setTel} placeholder="(11) 9 0000-0000" inputMode="tel" />
-        <Campo rotulo="QUANTO" valor={valor} onChange={setValor} placeholder="0,00" inputMode="decimal" />
+        <Campo rotulo="QUANTO" valor={textoDeDigitos(valor)} onChange={(v) => setValor(soDigitosValor(v))} placeholder="0,00" inputMode="numeric" />
         <Campo rotulo="DO QUÊ" valor={oque} onChange={setOque} placeholder="2 camisetas" />
       </div>
 
