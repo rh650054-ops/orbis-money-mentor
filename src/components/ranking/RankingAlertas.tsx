@@ -9,11 +9,28 @@ import { useNavigate } from "react-router-dom";
 import { ChevronRight, Swords, TrendingDown, TrendingUp, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRankingAlertas, textoAlerta } from "@/hooks/useRankingAlertas";
+import { useEffect, useRef } from "react";
+import { pulsoFala } from "@/shared/lib/pulso";
 
 export default function RankingAlertas() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { alertas, dispensar, dispensarTodos } = useRankingAlertas(user?.id);
+
+  // Anota no pulso quando um alerta APARECE de verdade (uma vez por alerta).
+  // A ultrapassagem é, na sua leitura, o maior motor de motivação do DEFCON —
+  // então é a fala que mais interessa medir: prendeu ou espantou?
+  const jaAnotados = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    for (const a of alertas.slice(0, 2)) {
+      if (jaAnotados.current.has(a.id)) continue;
+      jaAnotados.current.add(a.id);
+      try {
+        pulsoFala(a.tipo === "foi_ultrapassado" ? "ranking_te_passaram" : "ranking_voce_subiu");
+      } catch { /* sensor nunca atrapalha */ }
+    }
+  }, [alertas]);
+
   if (!user || alertas.length === 0) return null;
 
   return (

@@ -2,6 +2,7 @@ import { lazy, Suspense, type ComponentType } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "@/app/layout";
 import RankingAlertas from "@/components/ranking/RankingAlertas";
+import PulsoOrbis from "@/components/PulsoOrbis";
 import PaywallGate from "@/components/PaywallGate";
 import OfflineGate from "@/components/OfflineGate";
 
@@ -104,6 +105,10 @@ export function AppRouter() {
       <OfflineGate />
       {/* Ranking: "fulano te ultrapassou" / "você passou fulano" — em qualquer tela, inclusive no DEFCON */}
       <RankingAlertas />
+      {/* Pulso: anota por onde ele andou e quanto tempo ficou. Não desenha nada.
+          Fica aqui fora do Layout porque o DEFCON não passa pelo Layout — e é lá
+          que a retenção mais importa. */}
+      <PulsoOrbis />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />

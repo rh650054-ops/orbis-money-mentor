@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { X } from "lucide-react";
+import { pulsoFala } from "@/shared/lib/pulso";
 
 interface SmartNotification {
   id: string;
@@ -171,13 +172,18 @@ export function DefconSmartNotification({
     }
   }, [historicalAvg, hasRealHistory, realConvPct]);
 
-  const showNotification = useCallback((icon: string, message: string) => {
+  const showNotification = useCallback((icon: string, message: string, qual = "coach") => {
     // Anti-spam: teto por sessao + intervalo minimo entre mensagens
     if (coachShownRef.current >= COACH_DAILY_CAP) return;
     if (lastMsgApproachesRef.current >= 0 &&
         (liveApproachesRef.current - lastMsgApproachesRef.current) < COACH_COOLDOWN_APPROACHES) return;
     lastMsgApproachesRef.current = liveApproachesRef.current;
     coachShownRef.current += 1;
+
+    // Anota no pulso SÓ aqui — depois das travas acima. Se a mensagem foi
+    // barrada pelo teto, ela não apareceu, e registrar mesmo assim
+    // envenenaria justamente a conta de "essa fala segurou ou espantou".
+    try { pulsoFala(qual); } catch { /* sensor nunca atrapalha */ }
 
     // Mostra NA HORA com o template (garante que sempre aparece, sem depender da rede)
     const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);
@@ -243,13 +249,13 @@ export function DefconSmartNotification({
             `Primeira venda em ${totalApproaches} abordagens!\nMais rápido que o teu normal. Mantém esse pique. 🔥`,
             `Boom! Primeira em ${totalApproaches} abordagens.\nSaiu mais rápido que de costume. Emenda a próxima! ⚡`,
             `${totalApproaches} abordagens e já fechou a primeira!\nAcima do teu ritmo. Bora surfar essa onda. 🔥`,
-          ]));
+          ]), "coach_1a_venda_rapida");
         } else {
           showNotification("⚡", pick([
             `Primeira venda em ${totalApproaches} abordagens!\nO jogo abriu — agora é emendar a próxima. 🔥`,
             `Fechou a primeira em ${totalApproaches} abordagens!\nQuebrou o gelo. A próxima vem mais fácil. 💪`,
             `Primeira do dia em ${totalApproaches} abordagens!\nEngata a segunda sem dar pausa. ⚡`,
-          ]));
+          ]), "coach_1a_venda");
         }
       }
 
@@ -265,19 +271,19 @@ export function DefconSmartNotification({
               `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nAcima do teu normal (${realConvPct}%). Tá voando! Repete o que tá dando certo.`,
               `${convPct}% de conversão (${totalSalesCount}/${totalApproaches}).\nMelhor que o teu padrão de ${realConvPct}%. Não muda nada, segue assim! 🔥`,
               `${totalSalesCount} vendas, ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Dia de cobrar caro de si mesmo! 💪`,
-            ]));
+            ]), "coach_acima_do_normal");
           } else if (hasRealHistory) {
             showNotification("🎯", pick([
               `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTeu normal é ${realConvPct}%. Capricha na abordagem que tu vira o jogo.`,
               `${convPct}% de conversão até agora (${totalSalesCount}/${totalApproaches}).\nDá pra subir — teu padrão é ${realConvPct}%. Sorri mais e vai com firmeza.`,
               `${totalSalesCount} vendas, ${convPct}%.\nTá abaixo do teu ${realConvPct}%. Respira, escolhe melhor a abordagem e ataca.`,
-            ]));
+            ]), "coach_abaixo_do_normal");
           } else {
             showNotification("📈", pick([
               `${totalSalesCount} vendas em ${totalApproaches} abordagens — ${convPct}% de conversão.\nTá montando o teu ritmo. Cada abordagem conta — segue firme!`,
               `Já são ${totalSalesCount} vendas (${convPct}%).\nTá construindo o teu padrão. Mantém a constância! 📈`,
               `${totalSalesCount} vendas, ${convPct}% de conversão.\nDia tá tomando forma. Não afrouxa o ritmo! 💪`,
-            ]));
+            ]), "coach_sem_historico");
           }
         }
       }
@@ -292,13 +298,13 @@ export function DefconSmartNotification({
           showNotification("📊", pick([
             `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}%.\nAcima do teu normal (${realConvPct}%). Não para agora!`,
             `Marco de ${totalApproaches} abordagens! ${convPct}% de conversão.\nAcima do teu ${realConvPct}%. Tá no modo elite. 🔥`,
-          ]));
+          ]), "coach_marco_bom");
         } else {
           showNotification("📊", pick([
             `${totalApproaches} abordagens, ${totalSalesCount} vendas — ${convPct}% de conversão.\nMantém o ritmo que a meta vem. 💪`,
             `${totalApproaches} abordagens já! ${totalSalesCount} vendas no bolso.\nConstância é tudo — segue empilhando. 📊`,
             `Bateu ${totalApproaches} abordagens. ${convPct}% de conversão.\nNão afrouxa agora, o dia tá rendendo. 💪`,
-          ]));
+          ]), "coach_marco");
         }
       }
     }
@@ -314,7 +320,7 @@ export function DefconSmartNotification({
           `${dryCount} sem fechar. Acontece.\nTroca a abordagem, sorri, oferece o kit. A virada vem!`,
           `${dryCount} abordagens secas.\nQuem insiste fura a seca. A próxima é tua! 💪`,
           `Sequência de ${dryCount} sem venda.\nRespira, muda o script e ataca a próxima com tudo.`,
-        ]));
+        ]), "coach_seca");
       }
     }
 
