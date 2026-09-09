@@ -75,6 +75,7 @@ const Competitions = lazyWithReload(() => import("@/pages/Competitions"));
 const X1 = lazyWithReload(() => import("@/pages/X1"));
 const X1Carteira = lazyWithReload(() => import("@/pages/X1Carteira"));
 const MpRetorno = lazyWithReload(() => import("@/pages/MpRetorno"));
+const Verificar = lazyWithReload(() => import("@/pages/Verificar"));
 const X1Escolher = lazyWithReload(() => import("@/pages/X1Escolher"));
 const X1Luta = lazyWithReload(() => import("@/pages/X1Luta"));
 const Rewards = lazyWithReload(() => import("@/pages/Rewards"));
@@ -137,6 +138,7 @@ export function AppRouter() {
                     <Route path="/competitions" element={<Competitions />} />
                     <Route path="/x1" element={<X1 />} />
                     <Route path="/x1/carteira" element={<X1Carteira />} />
+                    <Route path="/verificar" element={<Verificar />} />
                     <Route path="/mp/retorno" element={<MpRetorno />} />
                     <Route path="/pb/retorno" element={<MpRetorno />} />
                     <Route path="/x1/escolher" element={<X1Escolher />} />

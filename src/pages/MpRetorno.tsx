@@ -50,7 +50,7 @@ export default function MpRetorno() {
       }
       setVendas(Number(data?.vendas) || 0);
       setEstado("ok");
-      setTimeout(() => navigate("/finances", { replace: true }), 2200);
+      setTimeout(() => navigate("/verificar", { replace: true }), 2000);
     })();
     return () => { vivo = false; };
   }, [loading, user, params, navigate, pagbank, nomeCarteira]);

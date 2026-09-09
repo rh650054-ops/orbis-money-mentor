@@ -23,7 +23,7 @@ const RED = "#F2465A";
 const OK = "#3DD68C";
 const APOSTAS = [0, 10, 20, 50];
 
-interface Oponente { user_id: string; nome: string; avatar_url: string | null; patente: string; vitorias: number; derrotas: number; posicao: number | null; diferenca: number; potencia: number; na_arena: boolean; vitorias_contra: number; derrotas_contra: number; revanche: boolean; o_que_vende: string | null }
+interface Oponente { user_id: string; nome: string; avatar_url: string | null; patente: string; vitorias: number; derrotas: number; posicao: number | null; diferenca: number; potencia: number; na_arena: boolean; vitorias_contra: number; derrotas_contra: number; revanche: boolean; o_que_vende: string | null; verificado: boolean }
 type Filtro = "liga" | "acima" | "revanche" | "todos";
 const FILTROS: { k: Filtro; t: string }[] = [{ k: "liga", t: "Na sua liga" }, { k: "acima", t: "Acima de você" }, { k: "revanche", t: "Revanche" }, { k: "todos", t: "Todos" }];
 
@@ -88,7 +88,7 @@ export default function X1Escolher() {
     Promise.all([carregarPessoas([alvo]), carregarRecorde(alvo)]).then(([m, r]) => {
       if (!vivo) return;
       const p = m[alvo] || { user_id: alvo, nome: "Vendedor", avatar_url: null };
-      setSel({ user_id: alvo, nome: p.nome, avatar_url: p.avatar_url, patente: r.patente, vitorias: r.vitorias, derrotas: r.derrotas, posicao: null, diferenca: 0, potencia: r.potencia, na_arena: false, vitorias_contra: 0, derrotas_contra: 0, revanche: false, o_que_vende: null });
+      setSel({ user_id: alvo, nome: p.nome, avatar_url: p.avatar_url, patente: r.patente, vitorias: r.vitorias, derrotas: r.derrotas, posicao: null, diferenca: 0, potencia: r.potencia, na_arena: false, vitorias_contra: 0, derrotas_contra: 0, revanche: false, o_que_vende: null, verificado: false });
     });
     return () => { vivo = false; };
   }, [params, uid, lista, sel?.user_id]);
@@ -183,7 +183,11 @@ export default function X1Escolher() {
                 </button>
               ); })}
             </div>
-            {limite <= 0 && <p className="text-[10.5px] mt-1.5" style={{ color: "#8a8378" }}>Aposta em dinheiro libera em BRIGÃO (50 XP). Honra vale XP igual.</p>}
+            {limite <= 0 ? (
+              <p className="text-[10.5px] mt-1.5" style={{ color: "#8a8378" }}>Aposta em dinheiro libera em BRIGÃO (50 XP). Honra vale XP igual.</p>
+            ) : aposta > 0 && !sel.verificado ? (
+              <p className="text-[10.5px] mt-1.5" style={{ color: "#ff7d8c" }}>{primeiroNome(sel.nome)} ainda não conectou a conta dele — valendo dinheiro só entre contas verificadas. Chama na honra.</p>
+            ) : null}
             <button type="button" onClick={lutar} disabled={enviando} className="x1-btn vermelho mt-2.5">
               {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Swords className="w-5 h-5" strokeWidth={2.6} />} LUTAR HOJE
             </button>
