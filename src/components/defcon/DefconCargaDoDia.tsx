@@ -26,6 +26,23 @@ type Tier = { qty: number; price: number };
 type Ontem = { qty_initial: number; qty_sold: number };
 
 /* ---------- campo de preço: digita só números, os 2 últimos viram centavos ---------- */
+/** "Batida" -> "Batidas", "Água" -> "Águas", "Pão" -> "Pães" nao: fica "Pães" fora
+ *  do alcance. Regra simples de portugues que cobre quase todo produto de rua;
+ *  quando erra, erra num plural feio, nunca num numero errado. */
+function plural(nome: string) {
+  const n = (nome || "").trim();
+  if (!n) return n;
+  const f = n.slice(-1).toLowerCase();
+  if (n.toLowerCase().endsWith("ao")) return n.slice(0, -2) + "oes";
+  if (n.toLowerCase().endsWith("\u00e3o")) return n.slice(0, -2) + "\u00f5es";
+  if ("aeiou\u00e1\u00e9\u00ed\u00f3\u00fa\u00e2\u00ea\u00f4\u00e3\u00f5".includes(f)) return n + "s";
+  if (f === "m") return n.slice(0, -1) + "ns";
+  if (f === "r" || f === "z") return n + "es";
+  if (f === "l") return n.slice(0, -1) + "is";
+  if (f === "s") return n;
+  return n + "s";
+}
+
 function PrecoBox({ rotulo, valor, destaque, onCommit, onRemover, autoFocus }: {
   rotulo: string; valor: number; destaque?: boolean; onCommit: (n: number) => void; onRemover?: () => void; autoFocus?: boolean;
 }) {
@@ -184,13 +201,13 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
 
   return (
     <div className="min-h-[100dvh] bg-background pt-safe pb-safe px-5 pt-4 pb-10 max-w-md mx-auto orbis-stagger">
-      <p className="orbis-mini">Antes de começar</p>
-      <h1 className="font-display text-[24px] font-extrabold leading-[1.2] mt-1.5 tracking-tight">Sua mercadoria<br />de hoje.</h1>
-      <p className="text-[12.5px] mt-2 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>Tudo que sai daqui vira dinheiro no bolso. O Orbis desconta sozinho a cada venda e no fim te mostra o que sobrou.</p>
+      {/* Sem título e sem parágrafo (Rick, 09/09): o número grande já diz o que é.
+          O card sobe centralizado, na altura do olho, em vez de colado no topo. */}
 
-      {/* HERO */}
+      {/* HERO — mt-[7vh] tira ele do topo e joga pra altura do olho (Rick, 09/09).
+          Continua rolando normal quando a lista de produtos é longa. */}
       {resumo.itens > 0 && (
-        <div className="relative overflow-hidden rounded-[26px] border mt-4 px-5 pt-5 pb-[18px]"
+        <div className="relative overflow-hidden rounded-[26px] border mt-[7vh] px-5 pt-5 pb-[18px]"
           style={{ borderColor: "rgba(245,184,0,.30)", background: "radial-gradient(120% 90% at 50% -10%, rgba(245,184,0,.18), transparent 60%), linear-gradient(170deg,#1a1408 0%,#0c0c0c 70%)" }}>
           <div className="absolute right-[18px] top-[18px] w-14 h-14 rounded-[18px] flex items-center justify-center" style={{ background: "rgba(245,184,0,.12)", border: "1px solid rgba(245,184,0,.25)" }}>
             <Box className="w-6 h-6" style={{ color: "var(--orbis-gold)" }} strokeWidth={2} />
@@ -206,23 +223,20 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
             <div className="flex-1"><p className="text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color: "var(--orbis-fg-3)" }}>Levando</p><p className="text-[16px] font-bold mt-1 tabular-nums">{resumo.itens} un</p></div>
             <div className="flex-1 border-l pl-3" style={{ borderColor: "rgba(255,255,255,.09)" }}><p className="text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color: "var(--orbis-fg-3)" }}>Custo</p><p className="text-[16px] font-bold mt-1 tabular-nums" style={{ color: "#E5737F" }}>{brl0(resumo.custo)}</p></div>
             <div className="flex-1 border-l pl-3" style={{ borderColor: "rgba(255,255,255,.09)" }}><p className="text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color: "var(--orbis-fg-3)" }}>Meta do dia</p><p className="text-[16px] font-bold mt-1 tabular-nums" style={{ color: "var(--orbis-gold)" }}>{dailyGoal > 0 ? brl0(dailyGoal) : "—"}</p></div>
+            {dailyGoal > 0 && resumo.bateMeta && (
+              <div className="flex-1 border-l pl-3" style={{ borderColor: "rgba(255,255,255,.09)" }}><p className="text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color: "var(--orbis-fg-3)" }}>Pra bater</p><p className="text-[16px] font-bold mt-1 tabular-nums" style={{ color: "#3DD68C" }}>{resumo.unidadesMeta} un</p></div>
+            )}
           </div>
-          {dailyGoal > 0 && (
-            <>
-              <div className="h-1.5 rounded-full mt-3 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
-                <div className="h-full rounded-full" style={{ width: `${resumo.bateMeta ? resumo.pctMeta : 100}%`, background: resumo.bateMeta ? "linear-gradient(90deg,#F5B800,#FFC63A)" : "linear-gradient(90deg,#E5737F,#F2465A)" }} />
-              </div>
-              <div className="flex justify-between text-[11px] font-semibold mt-1.5" style={{ color: "var(--orbis-fg-3)" }}>
-                {resumo.bateMeta
-                  ? <><span>Meta bate com <b className="text-foreground">{resumo.unidadesMeta} unidades</b></span><span>{resumo.pctMeta}% da carga</span></>
-                  : <span>Essa carga rende {brl0(resumo.potencial)} — abaixo da meta. Leva mais ou vende combo.</span>}
-              </div>
-            </>
+          {dailyGoal > 0 && !resumo.bateMeta && (
+            <p className="text-[11.5px] font-semibold mt-3" style={{ color: "#E5737F" }}>
+              Essa carga rende {brl0(resumo.potencial)} — abaixo da meta. Leva mais ou vende combo.
+            </p>
           )}
         </div>
       )}
 
-      <p className="orbis-mini mt-7">O que você vai levar</p>
+      <p className="font-display text-[22px] font-extrabold leading-[1.15] mt-7 tracking-tight">Quanto custa<br />seus produtos?</p>
+      <p className="text-[12.5px] mt-1.5" style={{ color: "var(--orbis-fg-2)" }}>É esse preço que aparece na hora da venda.</p>
 
       {loading ? (
         <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--orbis-fg-3)" }} /></div>
@@ -239,46 +253,41 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
             const p = products.find((x) => x.id === l.product_id);
             const preco1 = precoDe(p);
             const faixas = tiers[l.product_id] ?? [];
-            const o = ontem[l.product_id];
-            const combo2 = faixas.find((f) => f.qty === 2);
             const proximaQtd = (faixas.length ? Math.max(...faixas.map((f) => f.qty)) : 1) + 1;
             const abrindo = novoTier[l.product_id];
             return (
               <div key={l.id} className="rounded-[20px] border mt-2.5 px-3.5 pt-3.5 pb-3" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
+                {/* Só o essencial (Rick, 09/09): nome, quanto vai levar e o custo.
+                    O ícone, o "ontem vendeu" e o parágrafo do combo saíram — aqui
+                    ele decide PREÇO, não olha histórico. */}
                 <div className="flex items-center gap-3">
-                  <span className="w-[38px] h-[38px] rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: "var(--orbis-fg-2)" }}><Package className="w-[18px] h-[18px]" strokeWidth={2} /></span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-bold truncate">{l.product_name}</p>
+                    <p className="text-[17px] font-extrabold truncate tracking-tight">{l.product_name}</p>
                     <p className="text-[11.5px] font-semibold mt-0.5 truncate" style={{ color: "var(--orbis-fg-3)" }}>
-                      {Number(p?.cost) > 0 ? `Custa R$ ${brl2(Number(p!.cost))} cada` : "Sem custo cadastrado"}
-                      {o && o.qty_initial > 0 ? ` · ontem vendeu ${o.qty_sold} de ${o.qty_initial}` : ""}
+                      levando {Number(l.qty_initial)}
+                      {Number(p?.cost) > 0 ? ` · custa R$ ${brl2(Number(p!.cost))} cada` : ""}
                     </p>
                   </div>
                   <Stepper valor={Number(l.qty_initial)} onCommit={(q) => updateQty(l.id, q)} />
                 </div>
 
                 <div className="flex gap-2 mt-3">
-                  <PrecoBox rotulo="1 unidade" valor={preco1} onCommit={(n) => salvarPreco1(l.product_id, n)} />
+                  <PrecoBox rotulo={`1 ${l.product_name}`} valor={preco1} onCommit={(n) => salvarPreco1(l.product_id, n)} />
                   {faixas.map((f) => (
-                    <PrecoBox key={f.qty} rotulo={`${f.qty} unidades`} valor={f.price} destaque onCommit={(n) => (n > 0 ? salvarTier(l.product_id, f.qty, n) : removerTier(l.product_id, f.qty))} onRemover={() => removerTier(l.product_id, f.qty)} />
+                    <PrecoBox key={f.qty} rotulo={`${f.qty} ${plural(l.product_name)}`} valor={f.price} destaque onCommit={(n) => (n > 0 ? salvarTier(l.product_id, f.qty, n) : removerTier(l.product_id, f.qty))} onRemover={() => removerTier(l.product_id, f.qty)} />
                   ))}
                   {abrindo ? (
-                    <PrecoBox rotulo={`${abrindo} unidades`} valor={0} destaque autoFocus onCommit={(n) => salvarTier(l.product_id, abrindo, n)} onRemover={() => setNovoTier((m) => ({ ...m, [l.product_id]: undefined }))} />
+                    <PrecoBox rotulo={`${abrindo} ${plural(l.product_name)}`} valor={0} destaque autoFocus onCommit={(n) => salvarTier(l.product_id, abrindo, n)} onRemover={() => setNovoTier((m) => ({ ...m, [l.product_id]: undefined }))} />
                   ) : faixas.length < 3 ? (
                     <button type="button" onClick={() => setNovoTier((m) => ({ ...m, [l.product_id]: proximaQtd }))}
                       className="rounded-[13px] border border-dashed px-2.5 text-[12px] font-bold shrink-0" style={{ borderColor: "rgba(245,184,0,.32)", color: "var(--orbis-gold)", flex: faixas.length ? ".55" : "1" }}>
-                      {faixas.length ? `+ ${proximaQtd} un` : "+ preço de 2 un"}
+                      {faixas.length ? `+ ${proximaQtd}` : `+ ${plural(l.product_name)}`}
                     </button>
                   ) : null}
                 </div>
 
-                <div className="flex items-center justify-between mt-2.5">
-                  <p className="text-[11.5px] leading-snug flex-1" style={{ color: "var(--orbis-fg-3)" }}>
-                    {combo2
-                      ? <>No DEFCON, a venda de <b style={{ color: "var(--orbis-fg-2)" }}>{brl0(combo2.price)}</b> já desconta <b style={{ color: "var(--orbis-fg-2)" }}>2 unidades</b> e conta como <b style={{ color: "var(--orbis-fg-2)" }}>1 venda</b>.</>
-                      : <>Cadastre o preço de 2 un: no DEFCON a venda de combo desconta 2 e conta 1 venda.</>}
-                  </p>
-                  <button type="button" onClick={() => updateQty(l.id, 0)} className="text-[11px] font-semibold ml-3 shrink-0" style={{ color: "var(--orbis-fg-3)" }}>tirar</button>
+                <div className="flex justify-end mt-2">
+                  <button type="button" onClick={() => updateQty(l.id, 0)} className="text-[11px] font-semibold" style={{ color: "var(--orbis-fg-3)" }}>tirar</button>
                 </div>
               </div>
             );
@@ -286,13 +295,23 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
 
           {disponiveis.length > 0 && (
             <button type="button" onClick={() => setEscolher(true)} data-tour="loadout-add"
-              className="w-full h-[46px] rounded-[14px] border border-dashed mt-2.5 flex items-center justify-center gap-2 text-[13.5px] font-bold active:scale-[.98]"
-              style={{ borderColor: "rgba(245,184,0,.35)", color: "var(--orbis-gold)" }}>
-              <Plus className="w-4 h-4" strokeWidth={2.5} /> {loadout.length ? "adicionar outro produto" : "escolher o que vou levar"}
+              className="w-full h-[52px] rounded-[16px] border border-dashed mt-3 flex items-center justify-center gap-2 text-[13.5px] font-black tracking-[.02em] active:scale-[.98]"
+              style={{ borderColor: "rgba(245,184,0,.4)", color: "var(--orbis-gold)", background: "rgba(245,184,0,.04)" }}>
+              <Plus className="w-[18px] h-[18px]" strokeWidth={3} /> {loadout.length ? "ADICIONAR MAIS PRODUTO" : "ESCOLHER O QUE VOU LEVAR"}
             </button>
           )}
           {loadout.length === 0 && disponiveis.length === 0 && (
             <p className="text-[12.5px] mt-3 text-center" style={{ color: "var(--orbis-fg-3)" }}>Todos os produtos já estão na carga.</p>
+          )}
+
+          {/* O combo explicado UMA vez, no fim — antes essa frase se repetia
+              dentro de cada produto e era metade do barulho da tela. */}
+          {loadout.length > 0 && (
+            <div className="rounded-[18px] border mt-3 px-4 py-3" style={{ borderColor: "rgba(61,214,140,.22)", background: "linear-gradient(180deg,#0b1a14,#0a0a0c)" }}>
+              <p className="text-[12px] leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
+                Cadastrou o preço de 2? No DEFCON, essa venda baixa 2 do estoque e conta como 1 venda.
+              </p>
+            </div>
           )}
         </>
       )}

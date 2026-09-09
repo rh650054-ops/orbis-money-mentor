@@ -522,17 +522,26 @@ function Trio({ itens }: { itens: [string, ReactNode][] }) {
     </div>
   );
 }
-function Linha({ k, icone, titulo, sub, aberto, onToggle, onClick, children }: {
+function Linha({ k, icone, titulo, sub, aberto, onToggle, onClick, children, destaque, alerta }: {
   k: string; icone: ReactNode; titulo: string; sub?: string; aberto: string | null; onToggle: (k: string) => void; onClick?: () => void; children?: ReactNode;
+  /** dourado: a linha vira ação principal em vez de item de lista (Rick, 09/09) */
+  destaque?: boolean;
+  /** laranja: tem algo pedindo atenção agora (ex: produto acabou) */
+  alerta?: boolean;
 }) {
   const expandido = aberto === k;
+  const cor = alerta ? "#ff7a1a" : destaque ? "var(--orbis-gold)" : undefined;
   return (
     <div className="border-t first:border-t-0" style={{ borderColor: "var(--orbis-line)" }}>
-      <button type="button" onClick={onClick ?? (() => onToggle(k))} className="w-full flex items-center gap-3 h-14 text-left">
-        <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: "var(--orbis-fg-2)" }}>{icone}</span>
+      <button type="button" onClick={onClick ?? (() => onToggle(k))} className="w-full flex items-center gap-3 text-left"
+        style={destaque || alerta ? { height: 66, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16, background: alerta ? "rgba(255,122,26,.07)" : "rgba(245,184,0,.05)" } : { height: 56 }}>
+        <span className="rounded-[10px] flex items-center justify-center shrink-0"
+          style={destaque || alerta
+            ? { width: 38, height: 38, background: alerta ? "rgba(255,122,26,.14)" : "rgba(245,184,0,.14)", border: `1px solid ${alerta ? "rgba(255,122,26,.4)" : "rgba(245,184,0,.35)"}`, color: cor }
+            : { width: 32, height: 32, background: "rgba(255,255,255,.06)", color: "var(--orbis-fg-2)" }}>{icone}</span>
         <span className="flex-1 min-w-0">
-          <span className="block text-[14px] font-semibold truncate">{titulo}</span>
-          {sub && <span className="block text-[11.5px] font-semibold truncate" style={{ color: "var(--orbis-fg-3)" }}>{sub}</span>}
+          <span className="block truncate" style={destaque || alerta ? { fontSize: 15, fontWeight: 800, letterSpacing: "-.01em" } : { fontSize: 14, fontWeight: 600 }}>{titulo}</span>
+          {sub && <span className="block text-[11.5px] font-semibold truncate" style={{ color: cor ?? "var(--orbis-fg-3)" }}>{sub}</span>}
         </span>
         {children ? <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: expandido ? "rotate(180deg)" : undefined }} /> : <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#5f5a50" }} />}
       </button>
@@ -1115,7 +1124,13 @@ export default function DefconHub() {
           </Linha>
         )}
 
-        <Linha aberto={aberto} onToggle={toggle} k="compra" icone={<ShoppingCart className="w-4 h-4" strokeWidth={2.2} />} titulo="Compra de mercadoria" sub="entra no estoque e no custo">
+        {/* Compra de mercadoria em destaque (Rick, 09/09): é ação que o vendedor
+            PRECISA usar. Quando algum produto acabou, ela fica laranja e diz isso —
+            aí ele tem motivo pra tocar, não só um item a mais na lista. */}
+        <Linha aberto={aberto} onToggle={toggle} k="compra" destaque alerta={acabou.length > 0}
+          icone={<ShoppingCart className="w-[18px] h-[18px]" strokeWidth={2.3} />}
+          titulo={acabou.length > 0 ? `${acabou.map((c) => c.nome).join(", ")} acabou` : "Comprou hoje? Lança aqui"}
+          sub={acabou.length > 0 ? "repõe pra não perder venda amanhã" : "entra no estoque e no custo do dia"}>
           <DefconCompraMercadoria userId={user.id} onChanged={loadAll} />
         </Linha>
 
