@@ -6,6 +6,15 @@
 // e aprende fatos novos apos cada resposta, em segundo plano.
 // FASE 2 do AGENTE: ferramentas — consulta vendas/estoque/financeiro/ranking com o token
 // do proprio vendedor e executa acoes (meta do dia, gasto) APOS confirmacao na conversa.
+// v70 (25/08/2026) — qualidade maxima, custo minimo:
+//   1. cache de 1h (era 5min): a gravacao do cerebro custa 12x a leitura
+//   2. Opus so em criacao de verdade (a palavra "marca" solta nao conta mais)
+//   3. teto de resposta 1600 -> 900 tokens (saida e o token mais caro)
+//   4. SO CLAUDE no chat: sem reserva gratuita escrevendo pro vendedor
+// v71 (25/08/2026): limites saem dos "secrets" e vao pra tabela ai_limites, e o
+//   chat finalmente ganha DISJUNTOR GLOBAL (so o Estudio tinha).
+// v73 (27/08/2026): COFRE DE CONHECIMENTO — notas da tabela ai_conhecimento
+//   entram no cerebro cacheado; o time afia o mentor sem deploy.
 // v52: criar_adesivo gera a arte NA HORA e mostra no chat ([[adesivo:URL]]); cache do
 // prompt do Claude (menos 429 em conta nova + ~90% mais barato); Opus nas conversas de
 // marca/nome; rede de seguranca gera a arte mesmo se um modelo reserva vazar JSON.
@@ -660,8 +669,12 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           trava_gasto_conta: "Ele já usou bastante o desenhista hoje — por segurança, libera de novo amanhã. Avise com leveza.",
           trava_gasto_global: "O Estúdio está em pausa técnica agora — peça pra ele tentar mais tarde.",
           limite_mensal: "Ele atingiu o teto de artes do mês. Libera de novo no dia 1º.",
+          // 25/08/2026: no teste e' 1 arte por dia DE PROPOSITO. A segunda arte e' o
+          // momento de maior desejo — ele acabou de ver a marca dele bonita na tela.
+          // Aqui o mentor faz a oferta com convicção (nao e' pop-up, e' quem acredita
+          // no produto), sem mentir e sem insistir se ele disser nao.
           limite_diario: ehTrial
-            ? "Ele já usou as artes grátis de hoje (são 2 por dia no teste). Diga isso com leveza e conte que assinando ele passa a ter 4 por dia E baixa sem a marca d'água — sem pressionar."
+            ? "Ele usou a arte grátis do dia (é 1 por dia no teste). Elogie o que saiu, e diga direto: com o Orbis Pro ele faz 4 artes por dia, baixa sem marca d'água e leva o mentor completo junto. Ofereça o link. Se ele disser que não agora, aceite numa boa e siga ajudando."
             : "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
           assinatura_necessaria: "O teste grátis dele acabou. Convide pra assinar, em 1 frase, sem sermão.",
           sem_chave: "Nenhum provedor de imagem está configurado no servidor.",
@@ -905,25 +918,57 @@ Deno.serve(async (req) => {
         // 200/dia não é "sem limite": é alto demais pra um humano encostar, e existe
         // só pra um bug em loop não virar uma fatura de mil dólares.
         // Pra apertar de novo depois: secrets CHAT_LIMITE_TRIAL / CHAT_LIMITE_PAGANTE.
-        let limiteChat = Number(Deno.env.get("CHAT_LIMITE_TRIAL") ?? "200");
+        // ===== LIMITES VINDOS DO BANCO (25/08/2026) =====
+        // Antes cada teto era um "secret" do painel do Supabase: mexer exigia entrar
+        // la' no meio de um pico, e so' o dono conseguia. Agora vem da tabela
+        // ai_limites — um UPDATE ja' vale, e fica gravado quando mudou.
+        const adminT = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+        let lim: Record<string, number> = {};
         try {
-          const adminP = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-          const { data: prof } = await adminP.from("profiles")
+          const { data: L } = await adminT.rpc("orbis_limites");
+          lim = (L ?? {}) as Record<string, number>;
+        } catch { /* banco fora: valem os padroes abaixo */ }
+        const limNum = (chave: string, padrao: number) => {
+          const v = Number(lim?.[chave]);
+          return Number.isFinite(v) && v > 0 ? v : padrao;
+        };
+
+        let limiteChat = limNum("chat_limite_trial", 25);
+        try {
+          const { data: prof } = await adminT.from("profiles")
             .select("plan_status,billing_exempt,is_demo").eq("user_id", chatUserId).maybeSingle();
-          const pagante = !!prof && ((prof as any).billing_exempt || (prof as any).is_demo || (prof as any).plan_status === "active");
-          if (pagante) limiteChat = Number(Deno.env.get("CHAT_LIMITE_PAGANTE") ?? "200");
-        } catch { /* na dúvida, vale o limite menor */ }
-        // TRAVA POR CONTA em dólar/dia (17/08/2026): mesmo com limite de mensagens
-        // alto na fase de teste, ninguém consegue drenar o crédito das APIs.
+          const pagante = !!prof && (prof.billing_exempt || prof.is_demo || prof.plan_status === "active");
+          if (pagante) limiteChat = limNum("chat_limite_pagante", 80);
+        } catch { /* na duvida, vale o limite menor */ }
+
+        // ===== DISJUNTOR GLOBAL — ESTAVA FALTANDO NO CHAT (25/08/2026) =====
+        // O Estudio de imagens tinha esta trava desde 17/08; o CHAT nao tinha
+        // NENHUMA. Ou seja: o lugar pra onde um video manda todo mundo era
+        // justamente o unico sem teto coletivo. Se 300 pessoas entrassem juntas,
+        // o credito da Anthropic ia embora sem nada segurar.
         try {
-          const travaUser = Number(Deno.env.get("AI_TRAVA_USER_DIA_USD") ?? "1.5");
-          const adminT = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+          const travaGlobal = limNum("trava_global_dia_usd", 12);
+          const { data: gastoG } = await adminT.rpc("orbis_gasto_global_hoje");
+          if (Number(gastoG) >= travaGlobal) {
+            console.error("DISJUNTOR GLOBAL do chat acionado", gastoG, ">=", travaGlobal);
+            return json({
+              success: true,
+              message: "O mentor bateu o limite de uso de hoje do app inteiro — muita gente usando junto agora. Ele volta amanhã cedo. Enquanto isso, teu app continua todo funcionando: registra tua venda e bora pra rua!",
+              degradado: true,
+            });
+          }
+        } catch (e) { console.error("checagem do disjuntor global falhou (seguindo):", String(e).slice(0, 150)); }
+
+        // ===== TRAVA POR CONTA em dolar/dia =====
+        // Mesmo com o teto de mensagens, ninguem consegue drenar o credito sozinho.
+        try {
+          const travaUser = limNum("trava_user_dia_usd", 0.40);
           const { data: gastoU } = await adminT.rpc("orbis_gasto_usuario_hoje", { p_user: chatUserId });
           if (Number(gastoU) >= travaUser) {
             console.error("trava de gasto POR CONTA acionada no chat", chatUserId, gastoU);
             return json({ success: true, message: "Tu usou MUITO o mentor hoje — pra manter o app de pé pra todo mundo, ele volta amanhã. Bora pra rua vender!" });
           }
-        } catch { /* na dúvida, deixa passar: trava nunca derruba usuário honesto */ }
+        } catch { /* na duvida, deixa passar: trava nunca derruba usuario honesto */ }
         const { data: usage, error: usageErr } = await supa.rpc("bump_ai_usage", { p_feature: "chat", p_limit: limiteChat });
         if (usageErr) {
           return json({ success: false, message: "Deu um tropeço aqui, tenta de novo daqui a pouco." }, 503);
@@ -951,6 +996,20 @@ Deno.serve(async (req) => {
           memFacts.map((f) => `- [${f.tipo}] ${f.fato}`).join("\n");
       }
     } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
+
+    // ===== COFRE DE CONHECIMENTO (27/08/2026) =====
+    // O "Obsidian do Orbis": notas curadas pelo time na tabela ai_conhecimento.
+    // Entram no bloco CACHEADO do cerebro — custo quase zero por mensagem — e
+    // editar uma nota muda o mentor no minuto seguinte, sem deploy. O teto de
+    // 24k caracteres e' cortado no banco pra ninguem inflar o custo sem ver.
+    let cofre = "";
+    try {
+      const adminK = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+      const { data: kb } = await adminK.rpc("orbis_conhecimento");
+      if (kb && String(kb).trim()) {
+        cofre = "\n\n===== COFRE DE CONHECIMENTO DO ORBIS (notas do time: fatos do produto, taticas de rua e objecoes — trate como verdade e use com naturalidade) =====\n" + String(kb);
+      }
+    } catch (e) { console.error("cofre load falhou", String(e).slice(0, 120)); }
     // Foto anexada pelo vendedor NA PRÓPRIA CONVERSA, como referência de estilo.
     const refChat = (typeof body?.ref_b64 === "string" && body.ref_b64.length > 100 && body.ref_b64.length < 3_000_000)
       ? { b64: body.ref_b64 as string, mime: String(body?.ref_mime ?? "image/jpeg").split(";")[0] || "image/jpeg" }
@@ -977,7 +1036,42 @@ Deno.serve(async (req) => {
     const refBlock = refChat
       ? "\n\nO VENDEDOR ACABOU DE ANEXAR UMA FOTO DE REFERÊNCIA NESTA MENSAGEM. Ela já está no servidor e vai junto automaticamente quando você chamar criar_adesivo — você NÃO precisa vê-la e NUNCA deve pedir que ele mande de novo, nem dizer que não consegue ver imagem. Trate como um adesivo que ele curtiu e quer no mesmo espírito, e chame criar_adesivo NESTA resposta, aproveitando tudo que a conversa já deu — o que faltar, você decide e avisa em meia frase o que assumiu. A ÚNICA coisa que autoriza uma pergunta antes de gerar é o nome da marca não existir em mensagem nenhuma. Nada além disso."
       : "";
-    const fullCtx = userCtx + memBlock + refBlock;
+    // ===== O COFRE (09/09/2026) =====
+    // A ficha DESTE vendedor (conversão, ticket, melhor hora e dia, gargalo,
+    // calote, trajetória no ranking) + o que o Orbis aprendeu com a base inteira.
+    // Recalculados toda madrugada em SQL puro, custo zero de IA.
+    //
+    // Antes disso o mentor falava igual com quem tem 70 dias de rua e com quem
+    // chegou ontem, porque não sabia a diferença. Agora sabe.
+    //
+    // Vai em fullCtx (a parte NÃO cacheada) de propósito: são ~350 letras que
+    // mudam por vendedor, enquanto o ORBIS_BRAIN fixo continua cacheado.
+    let cofreBlock = "";
+    try {
+      if (chatUserId) {
+        const adminC = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+        const [ficha, padroes] = await Promise.all([
+          adminC.from("orbis_ficha").select("resumo").eq("user_id", chatUserId).maybeSingle(),
+          adminC.from("ai_conhecimento").select("titulo, conteudo")
+                .eq("categoria", "padroes").eq("ativo", true).order("ordem"),
+        ]);
+        const meu = String((ficha.data as { resumo?: string } | null)?.resumo ?? "").trim();
+        const base = ((padroes.data as { titulo: string; conteudo: string }[]) ?? [])
+          .map((r) => `- ${r.titulo}: ${r.conteudo}`).join("\n");
+        if (meu) {
+          cofreBlock += "\n\n# QUEM É ESTE VENDEDOR (números dele, atualizados hoje de madrugada)\n" + meu
+            + "\nFale COM ELE sobre O NÚMERO DELE. Compare ele com ele mesmo — nunca com outros vendedores.";
+        }
+        if (base) {
+          cofreBlock += "\n\n# O QUE O ORBIS APRENDEU COM TODOS OS VENDEDORES\n" + base
+            + "\nIsto é pra VOCÊ saber o que costuma funcionar. Não jogue a média na cara dele.";
+        }
+      }
+    } catch (e) {
+      console.error("cofre: nao carregou, segue sem ele —", String(e).slice(0, 160));
+    }
+
+    const fullCtx = userCtx + memBlock + refBlock + cofreBlock;
 
     // Ação pro app executar junto com a resposta (ex.: abrir o Estúdio com o briefing do adesivo).
     let acaoChat: unknown = null;
@@ -1028,7 +1122,14 @@ Deno.serve(async (req) => {
         // Conversa de MARCA/ADESIVO usa o Claude mais forte (Opus): criar nome e arte merece
         // o melhor modelo. O dia a dia do mentor segue no Sonnet (bem mais barato).
         const conversaTxt = messages.slice(-6).map((m: any) => String(m?.content ?? "")).join(" ").toLowerCase();
-        const criativa = /adesivo|marca|logo|r[óo]tulo|criar nome|nome pra|nome para/.test(conversaTxt);
+        // Opus (2,5x mais caro) SÓ quando é de fato trabalho de criação visual/identidade.
+        // Antes bastava a palavra "marca" — e ela aparece em "marcar a meta", "marca de
+        // 100 reais", "que marca de copo". Cada falso positivo custava 2,5x à toa.
+        // Agora: adesivo/logo/rótulo/panfleto sempre contam (só existem em design);
+        // "marca"/"nome" só contam junto de um verbo de criar.
+        const criativa =
+          /adesivo|logo|r[óo]tulo|panfleto|flyer/.test(conversaTxt) ||
+          /(cri(?:ar|a|e)|faz(?:er)?|monta(?:r)?|desenh|gera(?:r)?|quero|preciso de|pensa(?:r)?)\s+(?:um |uma |o |a |meu |minha |uns |umas )?(?:nome|marca|identidade)/.test(conversaTxt);
         // MODO VOZ: o vendedor está PARADO esperando o som sair. Cada segundo pesa
         // dez vezes mais do que no texto, onde ele lê no próprio ritmo. Por isso a
         // voz NUNCA usa o Opus (o modelo mais lento), nem em conversa de marca.
@@ -1052,14 +1153,26 @@ Deno.serve(async (req) => {
             for (let tent = 0; tent < 3; tent++) {
               aRes = await fetch("https://api.anthropic.com/v1/messages", {
                 method: "POST",
-                headers: { "content-type": "application/json", "x-api-key": akey, "anthropic-version": "2023-06-01" },
+                headers: {
+                  "content-type": "application/json",
+                  "x-api-key": akey,
+                  "anthropic-version": "2023-06-01",
+                  // Cache de 1 hora: só é aceito com este cabeçalho beta.
+                  "anthropic-beta": "extended-cache-ttl-2025-04-11",
+                },
                 signal: AbortSignal.timeout(45000),
                 body: JSON.stringify({
                   model: amodel,
                   // Sobra pro raciocinio interno do Opus (thinking) + a resposta.
                   // No modo voz o teto é menor: texto longo = espera longa, porque
                   // cada frase ainda precisa virar áudio depois.
-                  max_tokens: modoVoz ? 500 : 1600,
+                  // Saída é o token mais caro (Opus US$ 25/M). 1600 permitia respostas de
+                  // 3 telas — ruim pro vendedor na rua E cara pra nós. 900 dá ~12 linhas,
+                  // que é o tamanho certo pra ler no celular entre um cliente e outro.
+                  // Secrets: CHAT_MAX_TOKENS / CHAT_MAX_TOKENS_VOZ.
+                  max_tokens: modoVoz
+                    ? Number(Deno.env.get("CHAT_MAX_TOKENS_VOZ") ?? "400")
+                    : Number(Deno.env.get("CHAT_MAX_TOKENS") ?? "900"),
                   // NAO mandar "temperature": os modelos claude-sonnet-5/opus-5 rejeitam
                   // com 400 ("temperature is deprecated for this model"). Era ISSO que
                   // derrubava TODA conversa pro reserva gratuito (que inventava nome e
@@ -1068,7 +1181,19 @@ Deno.serve(async (req) => {
                   // ~85% dos tokens de entrada por mensagem. Menos estouro de limite de
                   // conta nova (429) e ~90% mais barato. Só o contexto do vendedor varia.
                   system: [
-                    { type: "text", text: ORBIS_BRAIN + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES, cache_control: { type: "ephemeral" } },
+                    // ===== ONDE O DINHEIRO ESTAVA INDO (25/08/2026) =====
+                    // O cérebro + ferramentas somam ~5.600 tokens enviados em TODA mensagem.
+                    // Gravar esse bloco no cache custa US$ 0,035 (Opus); LER do cache custa
+                    // US$ 0,0028 — 12x menos. Com o cache padrão de 5 minutos e movimento
+                    // espaçado (4 a 6 pessoas/dia), quase toda mensagem pagava a GRAVAÇÃO.
+                    // Com TTL de 1 hora, a primeira mensagem da hora paga e todas as outras
+                    // leem barato — e num pico de vídeo isso vira 1 gravação e centenas de
+                    // leituras. Secret ANTHROPIC_CACHE_TTL: "1h" (padrão) ou "5m".
+                    {
+                      type: "text",
+                      text: ORBIS_BRAIN + cofre + CEREBRAS_CHAT_EXTRA + AGENT_TOOLS_RULES,
+                      cache_control: { type: "ephemeral", ttl: (Deno.env.get("ANTHROPIC_CACHE_TTL") ?? "1h") },
+                    },
                     ...(fullCtx ? [{ type: "text", text: fullCtx }] : []),
                     ...(modoVoz ? [{ type: "text", text: VOZ_EXTRA }] : []),
                   ],
@@ -1145,83 +1270,19 @@ Deno.serve(async (req) => {
       } catch { /* noop */ }
     }
 
-    // ===== TEXTO: tenta Cerebras (gratis, 1M tokens/dia); cai no Gemini se faltar chave/erro. =====
-    try {
-      const ckey = Deno.env.get("CEREBRAS_API_KEY");
-      if (ckey) {
-        const cmodel = Deno.env.get("CEREBRAS_MODEL") ?? "gpt-oss-120b";
-        // Historico ENXUTO pra caber sempre no teto de 8K do gratis (cerebro ~3K + estas msgs
-        // + a resposta). Mantem so as ultimas 6 trocas, cada uma capada — evita estourar e
-        // cair no Gemini (lento) nos follow-ups.
-        const hist = messages.slice(-6).map((m: any) => ({
-          role: m?.role === "assistant" ? "assistant" : "user",
-          content: String(m?.content ?? "").slice(0, 1000),
-        }));
-        const cRes = await fetch("https://api.cerebras.ai/v1/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json", "authorization": `Bearer ${ckey}` },
-          signal: AbortSignal.timeout(20000),
-          body: JSON.stringify({
-            model: cmodel,
-            messages: [{ role: "system", content: ORBIS_BRAIN + fullCtx + CEREBRAS_CHAT_EXTRA }, ...hist],
-            temperature: 0.8,
-            max_tokens: 400,
-            top_p: 0.95,
-          }),
-        });
-        if (cRes.ok) {
-          const cj = await cRes.json();
-          const ctext = (cj?.choices?.[0]?.message?.content?.toString() ?? "").replace(/\*\*/g, "").trim();
-          if (ctext) return await finishChat(ctext);
-        } else {
-          console.error("Cerebras chat erro", cRes.status);
-        }
-      }
-    } catch (e) {
-      console.error("Cerebras chat exceção (cai pro Gemini)", e);
-    }
-
-    const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key) return json({ success: false, error: "GEMINI_API_KEY ausente nos secrets" });
-
-    const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
-
-    // Converte o historico pro formato do Gemini (assistant -> model).
-    const contents = messages.slice(-30).map((m: any) => ({
-      role: m?.role === "assistant" ? "model" : "user",
-      parts: [{ text: String(m?.content ?? "").slice(0, 4000) }],
-    }));
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
-    const payload = JSON.stringify({
-      systemInstruction: { parts: [{ text: ORBIS_BRAIN + fullCtx }] },
-      contents,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 800, topP: 0.95 },
+    // ===== SÓ CLAUDE (25/08/2026, decisão do Rick) =====
+    // Antes, se o Claude falhasse, respondiam Cerebras/Gemini gratuitos. Parecia
+    // rede de segurança, mas na prática era rede de VERGONHA: eles inventavam nome
+    // de marca, escreviam JSON no meio do chat e mudavam o tom do mentor. O vendedor
+    // não sabia que estava falando com outro modelo — só achava que a IA piorou.
+    // Agora o Orbis fala com UMA voz só. Se o Claude não responder, o app diz a
+    // verdade em vez de entregar uma resposta pior fingindo ser a mesma IA.
+    console.error("Claude indisponivel e sem reserva (modo so-Claude)");
+    return json({
+      success: true,
+      message: "Opa, meu cérebro tá fora do ar nesse instante — não é problema no teu aparelho. Tenta de novo em 1 minuto que eu volto. Se continuar, avisa o suporte do Orbis.",
+      degradado: true,
     });
-
-    // Tenta ate' 3 vezes: o Flash as vezes devolve 429/500/503 (sobrecarga).
-    let gRes: Response | null = null;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      gRes = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(20000),
-        body: payload,
-      });
-      if (gRes.ok) break;
-      if (![429, 500, 502, 503].includes(gRes.status) || attempt === 3) {
-        const errText = await gRes.text().catch(() => "");
-        console.error("Gemini erro", gRes.status, errText);
-        return json({ success: false, error: `gemini_${gRes.status}` });
-      }
-      await new Promise((r) => setTimeout(r, attempt * 600));
-    }
-
-    const data = await gRes!.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "";
-    const text = raw.replace(/\*\*/g, "").trim(); // tira negrito que escapar
-    if (!text) return json({ success: false, error: "resposta_vazia" });
-
     return await finishChat(text);
   } catch (e) {
     console.error("bright-action erro", e);
