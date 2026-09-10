@@ -6,6 +6,15 @@
      • ConciliacaoMes → entra na Finanças: quanto caiu no mês e quanto não caiu.
    Só aparece com a conta conectada; sem conexão vira o convite pra conectar.
    Todo hook acima do primeiro return.
+
+   DESCOBERTA (10/09/2026): a API de pagamentos do Mercado Pago SÓ enxerga o
+   que passou pelo próprio MP — QR gerado por ele, link, maquininha Point. Pix
+   que o cliente manda DIRETO pra chave do vendedor, de outro banco, cai na
+   conta mas NÃO aparece em /v1/payments. O João Bosco recebeu R$ 620 no dia 9
+   e a API devolveu zero; o último registro dele lá é de 2/9. Esta tela dizia
+   "R$ 776 ainda não caíram… isso é calote" pra dinheiro que tinha caído.
+   Regra daqui pra frente: o MP é TESTEMUNHA PARCIAL. Nunca afirmar "não caiu"
+   nem "calote" com base nele. O que ele não viu é "não viu", e ponto.
    ============================================================ */
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, Link2, Check, AlertTriangle, TrendingUp } from "lucide-react";
@@ -15,7 +24,6 @@ import { formatCurrency } from "@/shared/lib/utils";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
-const RED = "#F2465A";
 const MP_AZUL = "#00B1EA";
 
 interface Dia {
@@ -79,7 +87,7 @@ function Linha({ nome, declarado, caiu, so }: { nome: string; declarado: number;
         {so ? so : <>lançou <b className="text-foreground">{formatCurrency(declarado)}</b> · caiu <b style={{ color: caiu && caiu > 0 ? OK : "var(--orbis-fg-3)" }}>{formatCurrency(caiu ?? 0)}</b></>}
       </p>
       {so ? null : falta > 0 ? (
-        <span className="shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold tabular-nums" style={{ background: "#2a0c11", border: `1px solid ${RED}55`, color: "#ff7d8c" }}>faltam {formatCurrency(falta)}</span>
+        <span className="shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold tabular-nums" style={{ background: "#16151a", border: "1px solid #2a2823", color: "var(--orbis-fg-2)" }}>não viu {formatCurrency(falta)}</span>
       ) : sobra > 0 ? (
         <span className="shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold tabular-nums" style={{ background: "#1a1305", border: "1px solid #3a2f0c", color: GOLD }}>+{formatCurrency(sobra)}</span>
       ) : (
@@ -142,9 +150,9 @@ export function ConciliacaoDia({ userId, data }: { userId: string | undefined; d
   const pct = digitalDeclarado > 0 ? Math.min(100, Math.round((d.total_caiu / digitalDeclarado) * 100)) : 100;
 
   return (
-    <div className="rounded-[20px] border p-4" style={{ background: "#0e0e10", borderColor: d.nao_caiu > 0 ? `${RED}44` : `${OK}33` }}>
+    <div className="rounded-[20px] border p-4" style={{ background: "#0e0e10", borderColor: `${OK}33` }}>
       <div className="flex items-center justify-between">
-        <p className="text-[10px] font-black tracking-[.16em]" style={{ color: d.nao_caiu > 0 ? "#ff7d8c" : OK }}>O QUE CAIU DE VERDADE</p>
+        <p className="text-[10px] font-black tracking-[.16em]" style={{ color: OK }}>O QUE O MERCADO PAGO VIU</p>
         <button type="button" onClick={atualizar} disabled={sincronizando} aria-label="Conferir de novo" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "#16151a", border: "1px solid #2a2823", color: "var(--orbis-fg-3)" }}>
           {sincronizando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
         </button>
@@ -162,14 +170,14 @@ export function ConciliacaoDia({ userId, data }: { userId: string | undefined; d
 
       {d.nao_caiu > 0 ? (
         <div className="flex items-start gap-2.5 mt-3">
-          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#ff7d8c" }} strokeWidth={2.4} />
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "var(--orbis-fg-3)" }} strokeWidth={2.4} />
           <p className="text-[12px] leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
-            <b style={{ color: "#ff7d8c" }}>{formatCurrency(d.nao_caiu)} ainda não caíram.</b> É Pix que o cliente disse que mandou. Pode cair ainda hoje — o Orbis fica conferindo sozinho. Se não cair, isso é calote e aparece no seu mês.
+            <b style={{ color: "var(--orbis-fg)" }}>{formatCurrency(d.nao_caiu)} o Mercado Pago não enxergou.</b> Ele só vê Pix pago pelo QR ou link dele mesmo. Pix que o cliente manda direto pra sua chave, de outro banco, cai na conta normal — só não aparece aqui. Seu dia continua valendo o que você lançou.
           </p>
         </div>
       ) : (
         <p className="text-[12px] mt-3" style={{ color: "var(--orbis-fg-2)" }}>
-          Tudo que você lançou caiu na conta. {d.ultima_sync_em ? `Conferido às ${horaBR(d.ultima_sync_em)}.` : ""}
+          O Mercado Pago viu tudo que você lançou. {d.ultima_sync_em ? `Conferido às ${horaBR(d.ultima_sync_em)}.` : ""}
         </p>
       )}
 
@@ -232,14 +240,14 @@ export function ConciliacaoMes({ userId }: { userId: string | undefined }) {
       </div>
 
       {m.nao_caiu > 0 ? (
-        <div className="rounded-[14px] p-3 mt-3" style={{ background: "linear-gradient(160deg,#1a0a0d,#0e0e10)", border: `1px solid ${RED}44` }}>
-          <p className="text-[13px] font-extrabold" style={{ color: "#ff7d8c" }}>{formatCurrency(m.nao_caiu)} lançados que nunca caíram</p>
+        <div className="rounded-[14px] p-3 mt-3" style={{ background: "#16151a", border: "1px solid #2a2823" }}>
+          <p className="text-[13px] font-extrabold" style={{ color: "var(--orbis-fg)" }}>{formatCurrency(m.nao_caiu)} que o Mercado Pago não enxergou</p>
           <p className="text-[11.5px] mt-1 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
-            Espalhados em {m.dias_com_furo} {m.dias_com_furo === 1 ? "dia" : "dias"}{m.pior_dia ? `, o pior foi ${diaBR(m.pior_dia)} (${formatCurrency(m.pior_valor ?? 0)})` : ""}. Isso é fiado ou calote — não é lucro. Cobra hoje: quanto mais tempo passa, menor a chance.
+            Em {m.dias_com_furo} {m.dias_com_furo === 1 ? "dia" : "dias"}. O Mercado Pago só vê o que passou pelo QR, link ou maquininha dele — Pix mandado direto pra sua chave não aparece aqui, mas conta no seu mês do mesmo jeito. Quem manda aqui é o que você lançou.
           </p>
         </div>
       ) : (
-        <p className="text-[11.5px] mt-3" style={{ color: "var(--orbis-fg-3)" }}>Nenhum furo no mês: tudo que você lançou entrou na conta.</p>
+        <p className="text-[11.5px] mt-3" style={{ color: "var(--orbis-fg-3)" }}>O Mercado Pago viu tudo que você lançou este mês.</p>
       )}
     </div>
   );
