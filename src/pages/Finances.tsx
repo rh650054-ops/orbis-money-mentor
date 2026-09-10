@@ -25,7 +25,7 @@ import {
   Pencil,
   Sparkles,
   PiggyBank,
-  Receipt,
+ 
   AlertTriangle,
   RotateCw,
   RotateCcw,
@@ -49,6 +49,41 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { NovaContaSheet } from "@/components/financas/NovaContaSheet";
+
+/* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
+   componente pra não remontar a cada tecla. */
+function Anel({ pct, size = 56, stroke = 7, cor = "#F5B800", children }: { pct: number; size?: number; stroke?: number; cor?: string; children?: React.ReactNode }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const p = Math.max(0, Math.min(100, pct));
+  return (
+    <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={cor} strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={c} strokeDashoffset={c * (1 - p / 100)} className="orbis-ring-arc" style={{ transition: "stroke-dashoffset 600ms cubic-bezier(.2,0,0,1)" }} />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center">{children}</span>
+    </span>
+  );
+}
+
+/** dias até a data (Brasília). negativo = já venceu */
+function diasAte(iso: string | null): number | null {
+  if (!iso) return null;
+  const hoje = new Date(`${getBrazilDate()}T12:00:00`);
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  return Math.round((d.getTime() - hoje.getTime()) / 86400000);
+}
+function rotuloVencimento(iso: string | null): string {
+  const n = diasAte(iso);
+  if (n == null) return "sem data";
+  if (n < 0) return `venceu há ${-n} ${-n === 1 ? "dia" : "dias"}`;
+  if (n === 0) return "vence hoje";
+  if (n === 1) return "vence amanhã";
+  if (n <= 7) return `vence em ${n} dias`;
+  return `dia ${iso!.slice(8, 10)}/${iso!.slice(5, 7)}`;
+}
 import { ObjetivoConquistado } from "@/components/financas/ObjetivoConquistado";
 
 interface PlannedBill {
@@ -2018,20 +2053,26 @@ export default function Finances() {
               {formatCurrency(summary.monthlyNetProfit)}
             </p>
           )}
-          <div className="grid grid-cols-3 gap-2 mt-4 pt-3" style={{ borderTop: "1px solid #2a2416" }}>
-            <div>
-              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">HOJE</p>
-              <p className="text-[15px] font-black tabular-nums mt-0.5" style={{ color: summary.netToday >= 0 ? undefined : "#F2465A" }}>{isLoadingData ? "—" : formatCurrency(summary.netToday)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">MÉDIA / DIA</p>
-              <p className="text-[15px] font-black tabular-nums mt-0.5 text-foreground">{isLoadingData ? "—" : formatCurrency(summary.mediaDiariaLiquida)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-[10px] font-black tracking-[.14em] text-muted-foreground">FIADO</p>
-              <p className="text-[15px] font-black tabular-nums mt-0.5" style={{ color: summary.debtToday > 0 ? "#F2B43A" : undefined }}>{isLoadingData ? "—" : formatCurrency(summary.debtToday)}</p>
-            </div>
-          </div>
+          {/* (Rick, 10/09) um herói só: quanto sobrou, de quanto vendeu, e o anel de
+              margem — de cada R$ 10 vendidos, quanto ficou. Hoje/média viram uma linha. */}
+          {!isLoadingData && (() => {
+            const vendido = Number(summary.totalProfit) || 0;
+            const margem = vendido > 0 ? Math.max(0, Math.min(100, (summary.monthlyNetProfit / vendido) * 100)) : 0;
+            return (
+              <div className="flex items-center justify-between gap-3 mt-3">
+                <div className="min-w-0">
+                  <p className="text-[13px]" style={{ color: "#a9a49c" }}>de <b className="text-foreground tabular-nums">{formatCurrency(vendido)}</b> vendidos</p>
+                  <p className="text-[12px] mt-1 tabular-nums" style={{ color: "#7b766e" }}>
+                    hoje <b className="text-foreground">{formatCurrency(summary.netToday)}</b> · média <b className="text-foreground">{formatCurrency(summary.mediaDiariaLiquida)}</b>/dia
+                    {summary.debtToday > 0 && <> · fiado <b style={{ color: "#F2B43A" }}>{formatCurrency(summary.debtToday)}</b></>}
+                  </p>
+                </div>
+                <Anel pct={margem} size={60} stroke={7} cor={margem >= 50 ? "#3DD68C" : "#F5B800"}>
+                  <span className="text-[13px] font-black tabular-nums">{Math.round(margem)}%</span>
+                </Anel>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -2450,33 +2491,83 @@ export default function Finances() {
         </DialogContent>
       </Dialog>
 
-        {/* AS PORTAS (Rick, 09/09): a tela de fora vira mapa. Cada porta abre
-            uma coisa por vez — e fechada, ela ainda diz o que tem dentro. */}
-        <div className="rounded-[18px] border overflow-hidden" style={{ background: "#0e0e10", borderColor: "#1e1d21" }}>
-          {([
-            { k: "contas" as const, titulo: "Contas a pagar", icone: <Receipt className="w-4 h-4" />, sub: `${bills.length} no mês`, badge: overdueBills.length > 0 ? `${overdueBills.length} vencida${overdueBills.length === 1 ? "" : "s"}` : null },
-            { k: "objetivos" as const, titulo: "Objetivos", icone: <PiggyBank className="w-4 h-4" />, sub: goals.length > 0 ? `${goals.length} ativo${goals.length === 1 ? "" : "s"}` : "nenhum ainda", badge: null },
-          ]).map((d, i) => {
-            const aberta = porta === d.k;
-            return (
-              <button key={d.k} type="button" onClick={() => setPorta(aberta ? null : d.k)}
-                className="w-full flex items-center gap-3 h-[58px] px-4 text-left"
-                style={i ? { borderTop: "1px solid #1e1d21" } : undefined}>
-                <span className="w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0"
-                  style={{ background: aberta ? "rgba(245,184,0,.14)" : "rgba(255,255,255,.06)", color: aberta ? "#F5B800" : "#a9a49c" }}>{d.icone}</span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-[14px] font-extrabold truncate">{d.titulo}</span>
-                  <span className="block text-[11.5px] font-semibold truncate" style={{ color: "#7b766e" }}>{d.sub}</span>
-                </span>
-                {d.badge && (
-                  <span className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-black"
-                    style={{ background: "rgba(242,70,90,.1)", border: "1px solid rgba(242,70,90,.4)", color: "#ff8a97" }}>{d.badge}</span>
+        {/* RESUMOS SEMPRE VISÍVEIS (Rick, 10/09): o que importa de contas e caixinhas
+            aparece sem tocar em nada — 3 linhas cada. O toque abre a seção completa
+            logo abaixo (edição, nova conta, novo objetivo). */}
+        {!isLoadingData && (() => {
+          const abertas = bills.filter((b) => !b.paid);
+          const totalContas = abertas.reduce((t, b) => t + (Number(b.amount) || 0), 0);
+          const guardadoContas = abertas.reduce((t, b) => t + Math.min(Number(b.saved_amount) || 0, Number(b.amount) || 0), 0);
+          const top3 = billsOrdenadas.filter((b) => !b.paid).slice(0, 3);
+          const ativas = goalsOrdenadas.filter((g) => g.status !== "completed" && g.status !== "concluida").slice(0, 3);
+          const pctContas = totalContas > 0 ? (guardadoContas / totalContas) * 100 : 0;
+          return (
+            <>
+              <button type="button" onClick={() => setPorta(porta === "contas" ? null : "contas")}
+                className="w-full text-left rounded-[18px] border px-4 pt-3.5 pb-3 active:opacity-80"
+                style={{ background: "#0e0e10", borderColor: overdueBills.length > 0 ? "rgba(242,70,90,.35)" : "#1e1d21" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground uppercase">Contas a pagar · {abertas.length} no mês</p>
+                  <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: porta === "contas" ? "rotate(180deg)" : undefined }} />
+                </div>
+                {abertas.length === 0 ? (
+                  <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}>Nenhuma conta cadastrada. Toque pra adicionar.</p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-[12px] mt-2 tabular-nums"><span style={{ color: "#a9a49c" }}>Já guardado</span><span><b className="text-foreground">{formatCurrency(guardadoContas)}</b> <span style={{ color: "#7b766e" }}>de {formatCurrency(totalContas)}</span></span></div>
+                    <div className="h-2 rounded-full overflow-hidden mt-1.5" style={{ background: "rgba(255,255,255,.08)" }}><div className="h-full rounded-full" style={{ width: `${Math.min(100, pctContas)}%`, background: "#3DD68C", transition: "width 600ms cubic-bezier(.2,0,0,1)" }} /></div>
+                    <div className="mt-2.5 flex flex-col">
+                      {top3.map((b, i) => {
+                        const n = diasAte(b.due_date);
+                        const urgente = n != null && n <= 3;
+                        const pct = Number(b.amount) > 0 ? Math.min(100, ((Number(b.saved_amount) || 0) / Number(b.amount)) * 100) : 0;
+                        return (
+                          <div key={b.id} className="flex items-center gap-3 h-11" style={i ? { borderTop: "1px solid #1e1d21" } : undefined}>
+                            <span className="flex-1 min-w-0">
+                              <span className="block text-[13.5px] font-bold truncate">{b.name}</span>
+                              <span className="block text-[11px] font-semibold" style={{ color: n != null && n < 0 ? "#ff8a97" : urgente ? "#F5B800" : "#7b766e" }}>{rotuloVencimento(b.due_date)}{pct >= 100 ? " · guardado" : pct > 0 ? ` · ${Math.round(pct)}% guardado` : ""}</span>
+                            </span>
+                            <span className="text-[14px] font-black tabular-nums shrink-0">{formatCurrency(Number(b.amount) || 0)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {abertas.length > 3 && <p className="text-[11.5px] font-bold mt-1.5" style={{ color: "#F5B800" }}>ver todas as {abertas.length} ›</p>}
+                  </>
                 )}
-                <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: aberta ? "rotate(180deg)" : undefined }} />
               </button>
-            );
-          })}
-        </div>
+
+              <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")}
+                className="w-full text-left rounded-[18px] border px-4 pt-3.5 pb-3 active:opacity-80"
+                style={{ background: "#0e0e10", borderColor: "#1e1d21" }}>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground uppercase">Caixinhas · {goals.filter((g) => g.status !== "completed" && g.status !== "concluida").length} ativa{goals.length === 1 ? "" : "s"}</p>
+                  <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
+                </div>
+                {ativas.length === 0 ? (
+                  <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}>Nenhum objetivo ainda. Toque pra criar o primeiro.</p>
+                ) : (
+                  <div className="mt-1 flex flex-col">
+                    {ativas.map((g, i) => {
+                      const alvo = Number(g.target_amount) || 0;
+                      const tem = Number(g.current_amount) || 0;
+                      const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
+                      return (
+                        <div key={g.id} className="flex items-center gap-3 h-[52px]" style={i ? { borderTop: "1px solid #1e1d21" } : undefined}>
+                          <Anel pct={pct} size={40} stroke={5} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}><span className="text-[10px] font-black tabular-nums">{Math.round(pct)}%</span></Anel>
+                          <span className="flex-1 min-w-0">
+                            <span className="block text-[13.5px] font-bold truncate">{g.name}</span>
+                            <span className="block text-[11px] font-semibold tabular-nums" style={{ color: "#7b766e" }}>{formatCurrency(tem)} de {formatCurrency(alvo)}{alvo > tem ? ` · faltam ${formatCurrency(alvo - tem)}` : " · conquistado"}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </button>
+            </>
+          );
+        })()}
 
         {/* 3. CAIXINHAS */}
         {porta === "objetivos" && (

@@ -436,14 +436,36 @@ export default function SpotFinder() {
         {origemLabel && <span className="rounded-full px-3 py-1.5 text-[11px] font-bold" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#b3ab9c" }}>· {origemLabel}</span>}
       </div>
 
-      {/* inteligência */}
-      {melhorAgora && (
-        <div className="rounded-[18px] p-3.5" style={{ background: "linear-gradient(160deg,#2a1205,#0e0e10)", border: `1px solid ${HOT}66` }}>
-          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#ff9d4d" }}>AGORA · {DIAS_SEM[agora.getDay()].toUpperCase()} {h}H</p>
-          <p className="text-sm font-black text-foreground mt-1">{nomeDoSinal(melhorAgora)} é o que mais rende nesse horário</p>
-          <p className="text-[11px] mt-0.5" style={{ color: "#b3ab9c" }}>{formatCurrency(melhorAgora.rs_hora!)}/h de média · {melhorAgora.distancia_km.toFixed(1).replace(".", ",")} km de você</p>
-        </div>
-      )}
+      {/* inteligência — HERÓI "o sinal de agora" (Rick, 10/09 — prancha "Caça-Sinal"):
+          o melhor semáforo pra esta hora, com os três números que decidem (R$/h,
+          quantos vendedores testaram, distância), as horas de pico e a rota. */}
+      {melhorAgora && (() => {
+        const s0 = melhorAgora;
+        const pk = picos(s0.horas);
+        const rota = `https://www.google.com/maps/dir/?api=1&destination=${s0.lat},${s0.lng}&travelmode=transit`;
+        return (
+          <div className="rounded-[22px] p-4" style={{ background: "linear-gradient(160deg,#2a1205 0%,#0e0e10 60%)", border: `1px solid ${HOT}66`, boxShadow: "0 20px 50px -30px rgba(255,122,26,.5)" }}>
+            <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#ff9d4d" }}>O SINAL DE AGORA · {DIAS_SEM[agora.getDay()].toUpperCase()} {h}H</p>
+            <p className="text-[20px] font-black text-foreground leading-tight mt-1.5">{nomeDoSinal(s0)}</p>
+            <div className="grid grid-cols-3 gap-2 mt-3">
+              {([
+                ["Rende", s0.rs_hora != null ? `${formatCurrency(s0.rs_hora).replace(",00", "")}/h` : "—", HOT],
+                ["Vendedores", String(s0.vendedores), undefined],
+                ["De você", `${s0.distancia_km.toFixed(1).replace(".", ",")} km`, undefined],
+              ] as [string, string, string | undefined][]).map(([l, v, cor]) => (
+                <div key={l} className="rounded-[12px] px-3 py-2" style={{ background: "rgba(255,255,255,.04)", border: "1px solid #22201a" }}>
+                  <p className="text-[9.5px] font-black tracking-[.14em] uppercase" style={{ color: "#8a8378" }}>{l}</p>
+                  <p className="orbis-num text-[17px] font-extrabold mt-0.5 leading-none" style={cor ? { color: cor } : undefined}>{v}</p>
+                </div>
+              ))}
+            </div>
+            {pk && <p className="text-[12px] mt-2.5" style={{ color: "#b3ab9c" }}>Melhores horas: <b className="text-foreground">{pk}</b></p>}
+            <a href={rota} target="_blank" rel="noreferrer" className="orbis-cta w-full mt-3 flex items-center justify-center gap-2" style={{ height: 50, fontSize: 14 }}>
+              <Navigation className="w-4 h-4" strokeWidth={2.6} /> IR PRA ESSE SINAL
+            </a>
+          </div>
+        );
+      })()}
       {melhorMeu && melhorMeu.rs_hora != null && (
         <div className="rounded-[18px] p-3.5" style={{ background: "linear-gradient(160deg,#1a1305,#0e0e10)", border: `1px solid ${GOLD}55` }}>
           <div className="flex items-center justify-between gap-2">

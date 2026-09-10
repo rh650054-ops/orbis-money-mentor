@@ -584,6 +584,8 @@ export default function DefconHub() {
   /* ---- Foco v2 (Rick, 05/09): um card que muda com o momento do dia ---- */
   const [sessao, setSessao] = useState<{ id: string; status: string; current_block_index: number; total_blocks: number; started_at: string | null; ended_at: string | null; worked_minutes: number | null } | null>(null);
   const [blocoFimEm, setBlocoFimEm] = useState<number | null>(null); // ms: quando fecha a hora atual
+  // trilha de blocos (Rick, 10/09 — prancha "Foco"): cada hora do dia como um degrau
+  const [blocosHoje, setBlocosHoje] = useState<{ i: number; vendido: number; vendas: number; rodando: boolean; feito: boolean }[]>([]);
   const [contadores, setContadores] = useState({ vendas: 0, abord: 0 });
   const [ontem, setOntem] = useState({ vendido: 0, meta: 0 });
   const [semana, setSemana] = useState(0);
@@ -709,7 +711,7 @@ export default function DefconHub() {
     const ontemData = getBrazilDateDaysAgo(1);
     const mes = today.slice(0, 7);
     const [bl, ds7, planOntem, lb, plano, perfil, ld, prods] = await Promise.all([
-      sessaoHoje ? supabase.from("challenge_blocks").select("block_index, started_at, ended_at, status, approaches_count, sales_count").eq("session_id", sessaoHoje.id).order("block_index", { ascending: true }) : Promise.resolve({ data: [] as any[] }),
+      sessaoHoje ? supabase.from("challenge_blocks").select("block_index, started_at, ended_at, status, approaches_count, sales_count, sold_amount").eq("session_id", sessaoHoje.id).order("block_index", { ascending: true }) : Promise.resolve({ data: [] as any[] }),
       supabase.from("daily_sales").select("date, cash_sales, card_sales, pix_sales").eq("user_id", user.id).gte("date", weekStart).lte("date", today),
       supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", ontemData).maybeSingle(),
       supabase.from("leaderboard_stats").select("posicao_faturamento, faturamento_total_mes, dias_trabalhados_mes").eq("user_id", user.id).eq("mes_referencia", mes).maybeSingle(),
@@ -720,6 +722,13 @@ export default function DefconHub() {
     ]);
     {
       const blocos = ((bl.data as any[]) || []);
+      setBlocosHoje(blocos.map((b) => ({
+        i: Number(b.block_index) || 0,
+        vendido: Number(b.sold_amount) || 0,
+        vendas: Number(b.sales_count) || 0,
+        rodando: b.status === "running" || (!!b.started_at && !b.ended_at),
+        feito: !!b.ended_at,
+      })));
       const vendas = blocos.reduce((t, b) => t + (Number(b.sales_count) || 0), 0);
       const abord = blocos.reduce((t, b) => t + (Number(b.approaches_count) || 0), 0);
       setContadores({ vendas, abord });
@@ -958,10 +967,41 @@ export default function DefconHub() {
         {estado === "antes" && (
           <button onClick={() => setShowEdit(true)} aria-label="Editar meta" className="absolute right-[18px] top-[18px] w-[34px] h-[34px] rounded-[11px] flex items-center justify-center" style={{ border: "1px solid rgba(255,255,255,.10)", background: "rgba(255,255,255,.05)", color: "var(--orbis-fg-2)" }}><Pencil className="w-3.5 h-3.5" /></button>
         )}
-        <p className="orbis-mini mt-3.5">{estado === "rodando" ? "Vendido até agora" : estado === "encerrado" ? "Vendido hoje" : "Meta do dia"}</p>
-        <p className="orbis-num text-[40px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado !== "antes" ? { color: "var(--orbis-ok)" } : undefined}>
-          {brl0(estado === "antes" ? dailyGoal : totalVendido)}
-        </p>
+        {estado === "rodando" ? (() => {
+          const size = 116, stroke = 10, r = (size - stroke) / 2, c = 2 * Math.PI * r;
+          const pct = Math.max(0, Math.min(100, progresso));
+          return (
+            <div className="flex items-center gap-4 mt-3.5">
+              <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
+                <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
+                  <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
+                  <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={goalReached ? "#3DD68C" : "#F5B800"} strokeWidth={stroke} strokeLinecap="round"
+                    strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} style={{ transition: "stroke-dashoffset 700ms cubic-bezier(.2,0,0,1)" }} />
+                </svg>
+                <span className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="orbis-num text-[22px] font-extrabold leading-none tracking-[-.02em]" style={{ color: "var(--orbis-ok)" }}>{brl0(totalVendido)}</span>
+                  <span className="text-[11px] font-bold mt-1" style={{ color: "var(--orbis-fg-3)" }}>{Math.round(pct)}% da meta</span>
+                </span>
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="orbis-mini">Meta de hoje</p>
+                <p className="orbis-num text-[22px] font-extrabold leading-none mt-1">{brl0(dailyGoal)}</p>
+                <p className="text-[11.5px] mt-1" style={{ color: "var(--orbis-fg-3)" }}>{brl0(dailyGoal / Math.max(1, blocosTot || workHours))} por bloco</p>
+                <div className="mt-2.5 pt-2.5" style={{ borderTop: "1px solid rgba(255,255,255,.08)" }}>
+                  <p className="orbis-mini">{goalReached ? "Meta batida" : "Falta"}</p>
+                  <p className="orbis-num text-[20px] font-extrabold leading-none mt-1" style={goalReached ? { color: "var(--orbis-ok)" } : undefined}>{goalReached ? `+${brl0(totalVendido - dailyGoal)}` : brl0(falta)}</p>
+                </div>
+              </div>
+            </div>
+          );
+        })() : (
+          <>
+            <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : "Meta do dia"}</p>
+            <p className="orbis-num text-[40px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado !== "antes" ? { color: "var(--orbis-ok)" } : undefined}>
+              {brl0(estado === "antes" ? dailyGoal : totalVendido)}
+            </p>
+          </>
+        )}
         <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>
           {estado === "antes" && <><b className="text-foreground">{workHours} blocos</b> de 1h · ritmo de <b className="text-foreground">{brl0(dailyGoal / Math.max(1, workHours))}</b> por hora</>}
           {estado === "rodando" && <>Meta <b className="text-foreground">{brl0(dailyGoal)}</b>{projecao > 0 ? <> · nesse ritmo você fecha em <b className="text-foreground">{brl0(projecao)}</b></> : null}</>}
@@ -1006,6 +1046,61 @@ export default function DefconHub() {
           <Trio itens={[["Ontem", ontem.vendido > 0 ? <>{brl0(ontem.vendido)} {pctOntem > 0 && <small className="text-[11px]" style={{ color: pctOntem >= 100 ? "var(--orbis-ok)" : "var(--orbis-fg-3)" }}>{pctOntem}%</small>}</> : "—"], ["Semana", semana > 0 ? brl0(semana) : "—"], ["Ranking", liga ? <span key="r" style={{ color: liga.color }}>#{rank.pos} · {ligaLabel}</span> : "—"]]} />
         )}
       </div>
+
+      {/* ===== TRILHA DOS BLOCOS (Rick, 10/09): cada hora é um degrau — feito, agora, a fazer ===== */}
+      {estado !== "antes" && blocosHoje.length > 0 && (() => {
+        const tot = Math.max(blocosHoje.length, blocosTot || workHours);
+        const metaBloco = dailyGoal / Math.max(1, tot);
+        const porIndice = new Map(blocosHoje.map((b) => [b.i, b]));
+        const linhas = Array.from({ length: tot }, (_, i) => porIndice.get(i) ?? { i, vendido: 0, vendas: 0, rodando: false, feito: false });
+        return (
+          <div className="mt-4">
+            <p className="orbis-mini px-1">Blocos de hoje</p>
+            <div className="mt-2 flex flex-col">
+              {linhas.map((b, idx) => {
+                const pct = metaBloco > 0 ? Math.min(100, (b.vendido / metaBloco) * 100) : 0;
+                const agora = b.rodando && estado === "rodando";
+                const pendente = !b.feito && !b.rodando;
+                return (
+                  <div key={b.i} className="flex items-stretch gap-3">
+                    <div className="flex flex-col items-center w-8 shrink-0">
+                      <span className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-black shrink-0"
+                        style={b.feito
+                          ? { background: "rgba(61,214,140,.16)", border: "1px solid rgba(61,214,140,.5)", color: "var(--orbis-ok)" }
+                          : agora ? { background: "rgba(245,184,0,.18)", border: "1px solid rgba(245,184,0,.6)", color: "var(--orbis-gold)" }
+                          : { background: "rgba(255,255,255,.04)", border: "1px dashed rgba(255,255,255,.18)", color: "var(--orbis-fg-3)" }}>
+                        {b.feito ? <Check className="w-4 h-4" strokeWidth={3} /> : b.i + 1}
+                      </span>
+                      {idx < linhas.length - 1 && <span className="flex-1 w-px my-1" style={{ background: b.feito ? "rgba(61,214,140,.45)" : "rgba(255,255,255,.12)", minHeight: 14 }} />}
+                    </div>
+                    <div className="flex-1 min-w-0 pb-2.5">
+                      <div className="rounded-[14px] px-3.5 py-2.5"
+                        style={agora
+                          ? { border: "1px solid rgba(245,184,0,.34)", background: "linear-gradient(180deg,#171203, var(--orbis-surface, #111))" }
+                          : { border: "1px solid var(--orbis-line)", background: "var(--orbis-surf)" }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[13px] font-extrabold" style={pendente ? { color: "var(--orbis-fg-3)" } : undefined}>
+                            Bloco {b.i + 1}{agora && <span className="ml-2 text-[10px] font-black tracking-[.14em] uppercase" style={{ color: "var(--orbis-gold)" }}>agora</span>}
+                          </span>
+                          <span className="orbis-num text-[14px] font-extrabold" style={{ color: b.feito ? "var(--orbis-ok)" : agora ? "var(--orbis-gold)" : "var(--orbis-fg-3)" }}>
+                            {pendente ? `${brl0(metaBloco)} a fazer` : `${brl0(b.vendido)}${metaBloco > 0 ? ` de ${brl0(metaBloco)}` : ""}`}
+                          </span>
+                        </div>
+                        {!pendente && (
+                          <div className="h-1.5 rounded-full mt-2 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+                            <div className="h-full rounded-full" style={{ width: `${pct}%`, background: b.feito ? "#3DD68C" : "#F5B800", transition: "width 600ms cubic-bezier(.2,0,0,1)" }} />
+                          </div>
+                        )}
+                        {!pendente && b.vendas > 0 && <p className="text-[11px] mt-1.5" style={{ color: "var(--orbis-fg-3)" }}>{b.vendas} {b.vendas === 1 ? "venda" : "vendas"} · {Math.round(pct)}% do bloco</p>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ===== PONTE (dia encerrado): a linha do próximo passo ===== */}
       {estado === "encerrado" && rank.pos && (
