@@ -38,6 +38,9 @@ import {
   type ReportFormat,
 } from "@/utils/reportExport";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
+import { ContaDoPeriodo } from "@/components/relatorio/ContaDoPeriodo";
+import { HoraAHora, montarHoraAHora } from "@/components/relatorio/HoraAHora";
+import { OrbisViu, type FichaResumo } from "@/components/relatorio/OrbisViu";
 import { AnimatedCurrency, AnimatedNumber, FillBar } from "@/shared/motion";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { DefconShareCarousel } from "@/components/defcon/DefconShareCarousel";
@@ -122,7 +125,9 @@ export default function Insights() {
 
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
-  const [challengeBlocks, setChallengeBlocks] = useState<{ approaches_count: number; sales_count: number }[]>([]);
+  const [challengeBlocks, setChallengeBlocks] = useState<{ approaches_count: number; sales_count: number; started_at?: string | null; created_at?: string | null }[]>([]);
+  // a ficha do cofre: gargalo, melhor hora, conversão normal — pras dicas de "O que o Orbis viu"
+  const [ficha, setFicha] = useState<FichaResumo | null>(null);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
   const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
   const [yesterdayProfit, setYesterdayProfit] = useState(0);
@@ -233,7 +238,7 @@ export default function Insights() {
           .lte("date", endISO),
         supabase
           .from("challenge_blocks")
-          .select("approaches_count,sales_count,created_at")
+          .select("approaches_count,sales_count,created_at,started_at")
           .eq("user_id", user.id)
           .gte("created_at", range.start.toISOString())
           .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString()),
@@ -663,6 +668,21 @@ export default function Insights() {
     }
   }
 
+  useEffect(() => {
+    if (!user?.id) return;
+    let vivo = true;
+    (supabase as any).from("orbis_ficha").select("melhor_hora,gargalo,conversao,dias_de_rua").eq("user_id", user.id).maybeSingle()
+      .then(({ data }: { data: FichaResumo | null }) => { if (vivo) setFicha(data ?? null); })
+      .catch(() => { /* sem ficha: as dicas usam só o período */ });
+    return () => { vivo = false; };
+  }, [user?.id]);
+
+  // melhor hora de HOJE (pra dica), reaproveitando a conta do Hora a hora
+  const melhorHoraHoje = useMemo(() => {
+    const d = montarHoraAHora(defconSales, challengeBlocks);
+    return d ? { hora: d.melhor.hora, total: d.melhor.total } : null;
+  }, [defconSales, challengeBlocks]);
+
   if (authLoading || !user) return null;
 
 
@@ -771,16 +791,29 @@ export default function Insights() {
                   {isSingleDay ? "vs ontem" : "vs anterior"}
                 </span>
               )}
-              <span className="whitespace-nowrap">
-                Lucro <b className="text-foreground">{formatCurrency(summary.lucro)}</b>
-              </span>
               {summary.horasTrabalhadasMin > 0 && (
                 <span className="whitespace-nowrap">
                   <b className="text-foreground">{fmtHorasCurto(summary.horasTrabalhadasMin)}</b> na rua
                 </span>
               )}
+              {summary.totalVendas > 0 && (
+                <span className="whitespace-nowrap">
+                  <b className="text-foreground">{summary.totalVendas}</b> {summary.totalVendas === 1 ? "venda" : "vendas"}
+                </span>
+              )}
             </div>
           </section>
+
+          {/* A CONTA — Vendeu → Gastou → Sobrou pra você. Sempre visível (Higor, 10/09). */}
+          <ContaDoPeriodo
+            titulo={isSingleDay ? "A conta do dia" : period === "7d" ? "A conta da semana" : period === "30d" ? "A conta do mês" : "A conta do período"}
+            vendeu={summary.faturamento}
+            mercadoria={summary.custoMercadoria}
+            transporte={summary.custoTransporte}
+            comida={summary.custoAlimentacao}
+            outros={summary.custoOutros}
+            sobrou={summary.lucro}
+          />
 
           {/* CAIU NO BOLSO — verde herói, barra que enche, calote em vermelho vivo */}
           <section className="orbis-card-in rounded-2xl border border-border/60 bg-card p-4 space-y-3">
@@ -816,24 +849,44 @@ export default function Insights() {
             />
           )}
 
-          {/* 4 números — cards gêmeos */}
+          {/* A GRADE DE NÚMEROS — a que a galera posta no story (Emerson, 10/09).
+              Dia único: 6 números. Período: 4. Dourado alternado, como era. */}
           <section className="grid grid-cols-2 gap-2.5">
             <StatTile label="Ticket médio" sub={`${summary.totalVendas} ${summary.totalVendas === 1 ? "venda" : "vendas"}`}>
               <AnimatedCurrency value={summary.ticketMedio} />
             </StatTile>
-            <StatTile label="Conversão" sub={`${summary.totalAbordagens} abordagens`}>
+            <StatTile gold label="Conversão" sub={`${summary.totalAbordagens} abordagens`}>
               <AnimatedNumber value={summary.conversao} format={(n) => `${Math.round(n)}%`} />
             </StatTile>
-            <StatTile
-              label="Melhor dia"
-              sub={bestWorstDay?.best ? bestWorstDay.best.label : "—"}
-            >
-              <AnimatedCurrency value={bestWorstDay?.best?.valor ?? 0} />
-            </StatTile>
-            <StatTile label="Média por dia" sub={`${sales.length} ${sales.length === 1 ? "dia" : "dias"} na rua`}>
-              <AnimatedCurrency value={summary.mediaDiaria} />
-            </StatTile>
+            {isSingleDay ? (
+              <>
+                <StatTile label="Abordagens" sub={summary.horasTrabalhadasMin >= 60 ? `${Math.round(summary.totalAbordagens / (summary.horasTrabalhadasMin / 60))} por hora` : "no dia"}>
+                  <AnimatedNumber value={summary.totalAbordagens} format={(n) => String(Math.round(n))} />
+                </StatTile>
+                <StatTile gold label="Vendas" sub={summary.horasTrabalhadasMin >= 60 ? `${(summary.totalVendas / (summary.horasTrabalhadasMin / 60)).toFixed(1).replace(".", ",")} por hora` : "no dia"}>
+                  <AnimatedNumber value={summary.totalVendas} format={(n) => String(Math.round(n))} />
+                </StatTile>
+                <StatTile label="Tempo ocioso" sub="sem abordar">
+                  {ociosoLabel}
+                </StatTile>
+                <StatTile gold label="Tempo por venda" sub={summary.ritmoMin > 0 ? "entre uma venda e outra" : "sem dado"}>
+                  {summary.ritmoMin > 0 ? `${Math.floor(summary.ritmoMin)}:${String(Math.round((summary.ritmoMin % 1) * 60)).padStart(2, "0")}` : "—"}
+                </StatTile>
+              </>
+            ) : (
+              <>
+                <StatTile label="Melhor dia" sub={bestWorstDay?.best ? bestWorstDay.best.label : "—"}>
+                  <AnimatedCurrency value={bestWorstDay?.best?.valor ?? 0} />
+                </StatTile>
+                <StatTile gold label="Média por dia" sub={`${sales.length} ${sales.length === 1 ? "dia" : "dias"} na rua`}>
+                  <AnimatedCurrency value={summary.mediaDiaria} />
+                </StatTile>
+              </>
+            )}
           </section>
+
+          {/* HORA A HORA (dia) — voltou com a conversão por hora */}
+          {isSingleDay && <HoraAHora vendas={defconSales} blocos={challengeBlocks} />}
 
           {/* DIA A DIA — barras, melhor dia dourado com o valor em cima */}
           {rangeDays > 1 && chartData.some((d) => d.valor > 0) && (
@@ -842,6 +895,18 @@ export default function Insights() {
               <BarsDiaADia data={chartData} />
             </section>
           )}
+
+          {/* O QUE O ORBIS VIU — dicas de graça, da ficha + do período */}
+          <OrbisViu
+            conversao={summary.conversao}
+            abordagens={summary.totalAbordagens}
+            vendas={summary.totalVendas}
+            ritmoMin={summary.ritmoMin}
+            melhorHoraHoje={isSingleDay ? melhorHoraHoje : null}
+            variacaoPct={comparePrev.valid ? comparePrev.pct : null}
+            isSingleDay={isSingleDay}
+            ficha={ficha}
+          />
 
           {/* Compartilhar (arte diária do DEFCON pra 1 dia; recap pra períodos) */}
           {summary.faturamento > 0 && (
@@ -864,8 +929,8 @@ export default function Insights() {
           <div className="space-y-2.5">
             <Collapse
               icon={<TrendingUp className="w-[18px] h-[18px]" style={{ color: "var(--orbis-gold,#F5B800)" }} />}
-              title="Detalhamento financeiro"
-              sub="custos e unidades"
+              title="Ver a conta completa"
+              sub="dinheiro · pix · cartão · unidades · gorjetas"
             >
               <div className="divide-y divide-border/60">
                 <FinanceRow label="Faturamento bruto" value={formatCurrency(summary.faturamento)} tone="white" />
@@ -947,6 +1012,8 @@ export default function Insights() {
               )}
             </Collapse>
 
+            {/* num dia único o Hora a hora já mostra tudo isso, aberto */}
+            {!isSingleDay && (
             <Collapse
               icon={<Clock className="w-[18px] h-[18px] text-muted-foreground" />}
               title="Melhores horários"
@@ -976,6 +1043,7 @@ export default function Insights() {
                 )}
               </div>
             </Collapse>
+            )}
 
             <Collapse
               icon={<Sparkles className="w-[18px] h-[18px]" style={{ color: "var(--orbis-gold,#F5B800)" }} />}
@@ -1017,11 +1085,16 @@ export default function Insights() {
   );
 }
 
-function StatTile({ label, sub, children }: { label: string; sub?: string; children: React.ReactNode }) {
+function StatTile({ label, sub, children, gold = false }: { label: string; sub?: string; children: React.ReactNode; gold?: boolean }) {
   return (
-    <div className="rounded-2xl border border-border/60 bg-card px-3.5 py-3">
+    <div
+      className="rounded-2xl border px-3.5 py-3"
+      style={gold
+        ? { borderColor: "rgba(245,184,0,.35)", background: "linear-gradient(180deg,#171203, hsl(var(--card)))" }
+        : { borderColor: "hsl(var(--border) / 0.6)", background: "hsl(var(--card))" }}
+    >
       <p className="orbis-section">{label}</p>
-      <p className="font-display mt-1.5 text-[21px] font-extrabold leading-none">{children}</p>
+      <p className="font-display orbis-num mt-1.5 text-[21px] font-extrabold leading-none" style={gold ? { color: "var(--orbis-gold)" } : undefined}>{children}</p>
       {sub && <p className="text-[11px] text-muted-foreground mt-1">{sub}</p>}
     </div>
   );
