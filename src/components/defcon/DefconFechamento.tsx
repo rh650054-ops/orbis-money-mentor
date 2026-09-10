@@ -29,11 +29,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Banknote, Smartphone, CreditCard, AlertTriangle, ShoppingCart, Bus, Utensils, Package, Plus, Trash2,
-  Check, Clock, Trophy, Loader2, Instagram, RotateCcw, ArrowLeft, Star, PartyPopper, Target, Timer, UserRound, BarChart3, DollarSign, TrendingDown, HandCoins,
+  Banknote, Smartphone, CreditCard, ShoppingCart, Bus, Utensils, Package, Plus, Trash2,
+  Clock, Trophy, Loader2, Instagram, RotateCcw, ArrowLeft, Star, PartyPopper, Target, Timer, UserRound, BarChart3, DollarSign, TrendingDown, HandCoins,
   ChevronRight, Landmark,
 } from "lucide-react";
 import { getTier, type Tier } from "@/components/ranking/tier";
+import { AnimatedCurrency } from "@/shared/motion";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -487,31 +488,73 @@ export function DefconFechamento({
     const dataLabel = new Date(`${hoje}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").toUpperCase();
     return (
       <div className="min-h-[100dvh] bg-background pt-safe pb-safe px-5 pt-4 pb-10 max-w-md mx-auto orbis-stagger">
-        {/* ===== TOPO — estrutura do relatório antigo (Rick, 05/09): total grande, meta, share ===== */}
-        <div className="text-center mt-1">
-          <p className="orbis-mini">{dataLabel} · {naRua} na rua</p>
-          <p className="orbis-num mt-1.5 whitespace-nowrap" style={{ fontSize: "clamp(36px,11vw,46px)", fontWeight: 800, letterSpacing: "-.03em", lineHeight: 1.05, color: "var(--orbis-ok)" }}>{formatCurrency(vendidoSemGorjeta)}</p>
-          <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>{phase === "abandoned" ? "Desafio encerrado antes do tempo" : "Desafio concluído"}</p>
-        </div>
-
-        <div className="rounded-[22px] border mt-4 px-4 pt-5 pb-[18px] text-center"
-          style={bateu
-            ? { borderColor: "rgba(61,214,140,.45)", background: "radial-gradient(90% 80% at 50% 0%, rgba(61,214,140,.22), transparent 65%), #0a140e" }
-            : { borderColor: "rgba(245,184,0,.4)", background: "radial-gradient(90% 80% at 50% 0%, rgba(245,184,0,.18), transparent 65%), #14110a" }}>
-          <span className="w-12 h-12 rounded-[16px] mx-auto flex items-center justify-center" style={{ background: bateu ? "rgba(61,214,140,.14)" : "rgba(245,184,0,.14)", color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>
-            {bateu ? <PartyPopper className="w-6 h-6" strokeWidth={2.2} /> : <Target className="w-6 h-6" strokeWidth={2.2} />}
-          </span>
-          <h2 className="text-[20px] font-extrabold tracking-wide mt-3" style={{ color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>
-            {dailyGoal <= 0 ? "DIA REGISTRADO" : pctMeta >= 150 ? "VOCÊ EXPLODIU A META!" : pctMeta >= 110 ? "ULTRAPASSOU A META!" : bateu ? "META BATIDA!" : `${pctMeta}% DA META`}
-          </h2>
-          {dailyGoal > 0 && (
-            <p className="text-[13px] mt-1.5" style={{ color: "var(--orbis-fg-2)" }}>
-              {bateu
-                ? <><b className="text-foreground">{pctMeta}%</b> · <b className="text-foreground">{formatCurrency(vendidoSemGorjeta - dailyGoal)}</b> acima da meta de {brl0(dailyGoal)}</>
-                : <>faltaram <b className="text-foreground">{formatCurrency(dailyGoal - vendidoSemGorjeta)}</b> pra meta de {brl0(dailyGoal)}</>}
+        {/* ===== O PRÊMIO — o total do dia, grande e dourado (Rick, 10/09):
+            "o resultado total aparece como premiação, com animação". Conta de 0 até o
+            valor (AnimatedCurrency) e pulsa 3x (orbis-victory). Roda uma vez, na entrada. ===== */}
+        <section className="orbis-victory relative overflow-hidden rounded-[26px] border text-center mt-1"
+          style={{
+            ["--win-color" as string]: bateu ? "rgba(61,214,140,.55)" : "rgba(245,184,0,.55)",
+            padding: "26px 18px 20px",
+            borderColor: bateu ? "rgba(61,214,140,.45)" : "rgba(245,184,0,.4)",
+            background: bateu
+              ? "radial-gradient(120% 85% at 50% -10%,#0f3a22 0%,#0a1a10 40%,#0a0a0c 82%)"
+              : "radial-gradient(120% 85% at 50% -10%,#4a3405 0%,#241a02 40%,#0a0a0c 82%)",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,.08), 0 26px 60px -30px rgba(245,184,0,.5)",
+          }}>
+          <span className="absolute pointer-events-none" style={{
+            left: "50%", top: -150, width: 540, height: 540, marginLeft: -270,
+            background: "conic-gradient(from 200deg,transparent 0 18deg,rgba(245,184,0,.13) 18deg 24deg,transparent 24deg 46deg,rgba(245,184,0,.08) 46deg 52deg,transparent 52deg 74deg,rgba(245,184,0,.13) 74deg 80deg,transparent 80deg 360deg)",
+          }} />
+          <div className="relative">
+            <p className="orbis-mini">{dataLabel} · {naRua} na rua · {totalSalesCount} {totalSalesCount === 1 ? "venda" : "vendas"}</p>
+            <p className="orbis-label mt-3" style={{ color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>Você fez hoje</p>
+            <p className="orbis-num mt-1.5 whitespace-nowrap" style={{ fontSize: "clamp(40px,12vw,52px)", fontWeight: 800, letterSpacing: "-.035em", lineHeight: 1.02, color: bateu ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>
+              <AnimatedCurrency value={vendidoSemGorjeta} />
             </p>
-          )}
-        </div>
+            <div className="inline-flex items-center gap-2 mt-3.5 h-8 px-3 rounded-full text-[11.5px] font-black tracking-[.08em] uppercase"
+              style={bateu
+                ? { color: "var(--orbis-ok)", background: "rgba(61,214,140,.14)", border: "1px solid rgba(61,214,140,.45)" }
+                : { color: "var(--orbis-gold)", background: "rgba(245,184,0,.14)", border: "1px solid rgba(245,184,0,.45)" }}>
+              {bateu ? <PartyPopper className="w-4 h-4" strokeWidth={2.4} /> : <Target className="w-4 h-4" strokeWidth={2.4} />}
+              {dailyGoal <= 0 ? "Dia registrado" : pctMeta >= 150 ? "Explodiu a meta" : pctMeta >= 110 ? "Ultrapassou a meta" : bateu ? "Meta batida" : `${pctMeta}% da meta`}
+            </div>
+            {dailyGoal > 0 && (
+              <p className="text-[13px] mt-2.5" style={{ color: "var(--orbis-fg-2)" }}>
+                {bateu
+                  ? <><b className="text-foreground">{formatCurrency(vendidoSemGorjeta - dailyGoal)}</b> acima da meta de {brl0(dailyGoal)}</>
+                  : <>faltaram <b className="text-foreground">{formatCurrency(dailyGoal - vendidoSemGorjeta)}</b> pra meta de {brl0(dailyGoal)}</>}
+              </p>
+            )}
+            {phase === "abandoned" && <p className="text-[12px] mt-1.5" style={{ color: "var(--orbis-fg-3)" }}>Desafio encerrado antes do tempo</p>}
+          </div>
+        </section>
+
+        {/* ===== CAIU ATÉ AGORA × FALTA CAIR — o calote sai sozinho (Rick, 10/09) ===== */}
+        <Bloco style={{ marginTop: 12, padding: "14px 16px 14px" }}>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="orbis-section" style={{ color: "var(--orbis-ok)" }}>Caiu até agora</p>
+              <p className="orbis-num text-[24px] font-extrabold leading-none mt-1.5" style={{ color: "var(--orbis-ok)" }}>{formatCurrency(recebido)}</p>
+            </div>
+            <div className="text-right">
+              <p className="orbis-section" style={{ color: fiado > 0.005 ? "var(--orbis-calote)" : "var(--orbis-fg-3)" }}>Falta cair</p>
+              <p className="orbis-num text-[24px] font-extrabold leading-none mt-1.5" style={{ color: fiado > 0.005 ? "var(--orbis-calote)" : "var(--orbis-fg-3)" }}>
+                {recebido > vendidoSemGorjeta + 0.005 ? "—" : formatCurrency(fiado)}
+              </p>
+            </div>
+          </div>
+          <div className="flex h-2 w-full rounded-full overflow-hidden mt-3 bg-white/10">
+            <div className="orbis-fill h-full" style={{ width: `${vendidoSemGorjeta > 0 ? Math.min(100, (recebido / vendidoSemGorjeta) * 100) : 0}%`, background: "var(--orbis-ok)" }} />
+            <div className="h-full flex-1" style={{ background: fiado > 0.005 ? "var(--orbis-calote)" : "transparent" }} />
+          </div>
+          <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>
+            {salvandoRec ? "salvando…"
+              : recebido > vendidoSemGorjeta + 0.005 ? "Entrou mais do que você vendeu — confere os valores abaixo."
+              : fiado > 0.005 ? <>{Math.round(vendidoSemGorjeta > 0 ? (recebido / vendidoSemGorjeta) * 100 : 0)}% do vendido já entrou · <b style={{ color: "var(--orbis-calote)" }}>{formatCurrency(fiado)}</b> {banco?.tem ? "não caíram na conta" : "não recebidos"} · fiado / calote</>
+              : vendidoSemGorjeta > 0 ? <b style={{ color: "var(--orbis-ok)" }}>100% recebido</b>
+              : "sem venda registrada hoje"}
+          </p>
+        </Bloco>
 
         {/* COMPARTILHAR — preto e dourado com o Instagram */}
         <button onClick={() => setMostrarShare((v) => !v)}
@@ -570,19 +613,9 @@ export function DefconFechamento({
             );
           })}
         </Bloco>
-        <div className="rounded-[16px] border mt-3 px-4 py-3.5 flex items-center justify-between" style={{ borderColor: "rgba(255,255,255,.10)", background: "var(--orbis-surf)" }}>
-          <span className="text-[11px] font-extrabold tracking-[.1em] uppercase whitespace-nowrap" style={{ color: "var(--orbis-fg-2)" }}>Total recebido</span>
-          <span className="orbis-num text-[16px] font-extrabold whitespace-nowrap"><b style={{ color: recebido >= vendidoSemGorjeta - 0.005 ? "var(--orbis-ok)" : "var(--orbis-gold)" }}>{formatCurrency(recebido)}</b> <small className="text-[14px] font-semibold" style={{ color: "var(--orbis-fg-2)" }}>/ {formatCurrency(vendidoSemGorjeta)}</small></span>
-        </div>
-        {salvandoRec ? (
+        {salvandoRec && (
           <p className="text-[13px] font-bold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-fg-3)" }}><Loader2 className="w-4 h-4 animate-spin" /> salvando…</p>
-        ) : recebido > vendidoSemGorjeta + 0.005 ? (
-          <p className="text-[13.5px] font-bold mt-3 text-center" style={{ color: "var(--orbis-custo)" }}>Entrou mais do que você vendeu — confere os valores.</p>
-        ) : fiado > 0.005 ? (
-          <p className="text-[13.5px] font-bold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-custo)" }}><AlertTriangle className="w-4 h-4" strokeWidth={2.4} /> {formatCurrency(fiado)} {banco?.tem ? "não caíram na conta · fiado / calote" : "não recebidos · fiado / calote"}</p>
-        ) : vendidoSemGorjeta > 0 ? (
-          <p className="text-[14px] font-extrabold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-ok)" }}><Check className="w-4 h-4" strokeWidth={3} /> 100% recebido</p>
-        ) : null}
+        )}
 
         {/* ===== RELATÓRIO DO DIA — em lista, como o antigo ===== */}
         <p className="orbis-section mt-6 px-1">Relatório do dia</p>
