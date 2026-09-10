@@ -47,8 +47,13 @@ function carregarScript(): Promise<void> {
 export type ErroPluggy = "precisa_pro" | "pluggy_nao_configurado" | "sem_internet" | "cancelou" | "erro";
 
 /** Pede o token curto ao servidor (que confere o Pro), abre o widget e devolve
- *  o item_id do banco conectado. Devolve null quando o vendedor desiste. */
-export async function ligarBanco(): Promise<{ itemId: string } | { erro: ErroPluggy }> {
+ *  o item_id do banco conectado, ou { erro: "cancelou" } quando o vendedor desiste.
+ *
+ *  `aoAbrir` avisa que a tela da Pluggy está na frente. A partir daí o botão do
+ *  Orbis pode voltar ao normal: quem manda é o widget. (10/09/2026: o botão
+ *  ficava preso em "ABRINDO…" pra sempre quando o widget não respondia — OAuth
+ *  em outra aba no celular, init que falha, onClose que nunca dispara.) */
+export async function ligarBanco(aoAbrir?: () => void): Promise<{ itemId: string } | { erro: ErroPluggy }> {
   const { data, error } = await (supabase as any).functions.invoke("pluggy-connect-token");
   if (error || data?.error) {
     const e = String(data?.error ?? "erro");
@@ -68,25 +73,37 @@ export async function ligarBanco(): Promise<{ itemId: string } | { erro: ErroPlu
       respondeu = true;
       resolve(r);
     };
-    const widget = new Ctor({
-      connectToken: token,
-      includeSandbox: false,
-      onSuccess: (d) => {
-        const id = String(d?.item?.id ?? "");
-        responder(id ? { itemId: id } : { erro: "erro" });
-      },
-      onError: () => responder({ erro: "erro" }),
-      onClose: () => responder({ erro: "cancelou" }),
-    });
-    widget.init();
+    try {
+      const widget = new Ctor({
+        connectToken: token,
+        includeSandbox: false,
+        onSuccess: (d) => {
+          const id = String(d?.item?.id ?? "");
+          responder(id ? { itemId: id } : { erro: "erro" });
+        },
+        onError: () => responder({ erro: "erro" }),
+        onClose: () => responder({ erro: "cancelou" }),
+      });
+      widget.init();
+      aoAbrir?.();
+    } catch {
+      // o widget não abriu: o botão tem que voltar, nunca ficar "abrindo…"
+      responder({ erro: "erro" });
+    }
   });
 }
 
 /** Confere o banco no servidor, salva a conexão e concede o selo. */
 export async function salvarBanco(itemId: string) {
   const { data, error } = await (supabase as any).functions.invoke("pluggy-item", { body: { item_id: itemId } });
-  if (error || data?.error) return { ok: false, erro: String(data?.error ?? "erro") };
-  return { ok: true, banco: String(data?.banco ?? "Banco"), verificado: !!data?.verificado };
+  if (error || data?.error) return { ok: false as const, erro: String(data?.error ?? "erro") };
+  return {
+    ok: true as const,
+    banco: String(data?.banco ?? "Banco"),
+    verificado: !!data?.verificado,
+    /** entradas dos últimos 7 dias que já vieram do banco */
+    entradas: Number(data?.entradas) || 0,
+  };
 }
 
 export interface BancoLigado {
@@ -109,8 +126,13 @@ export async function carregarBancos(): Promise<BancoLigado[]> {
 export interface StatusPro { pro: boolean; origem: string | null; ate: string | null; bancos: number; verificado: boolean }
 
 export async function carregarPro(): Promise<StatusPro> {
-  const { data } = await (supabase as any).rpc("orbis_pro_status");
-  const r = ((data as any[]) || [])[0];
+  // nunca lança: sem resposta = "não é Pro" e a tela mostra a oferta, em vez de
+  // ficar girando pra sempre atrás de um `pro` que nunca chega
+  let r: any = null;
+  try {
+    const { data } = await (supabase as any).rpc("orbis_pro_status");
+    r = ((data as any[]) || [])[0];
+  } catch { /* segue como "não é Pro" */ }
   return {
     pro: !!r?.pro,
     origem: (r?.origem as string) ?? null,

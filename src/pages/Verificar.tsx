@@ -142,30 +142,52 @@ export default function Verificar() {
 
   const recarregar = useCallback(async () => {
     if (!user?.id) return;
-    const [p, b, s] = await Promise.all([
-      carregarPro(),
-      carregarBancos().catch(() => [] as BancoLigado[]),
-      (supabase as any).rpc("mp_status"),
-    ]);
-    setPro(p);
-    setBancos(b);
-    const r = ((s?.data as any[]) || [])[0];
-    setCart({
-      conectado: !!r?.conectado,
-      provedores: (r?.provedores as string[] | null) ?? [],
-      recebido_hoje: Number(r?.recebido_hoje) || 0,
-    });
-    setCarregando(false);
+    try {
+      const [p, b, s] = await Promise.all([
+        carregarPro(),
+        carregarBancos().catch(() => [] as BancoLigado[]),
+        Promise.resolve((supabase as any).rpc("mp_status")).catch(() => ({ data: null })),
+      ]);
+      setPro(p);
+      setBancos(b);
+      const r = ((s?.data as any[]) || [])[0];
+      setCart({
+        conectado: !!r?.conectado,
+        provedores: (r?.provedores as string[] | null) ?? [],
+        recebido_hoje: Number(r?.recebido_hoje) || 0,
+      });
+    } catch {
+      // sem resposta nenhuma: mostra a oferta em vez de girar pra sempre
+      setPro((atual) => atual ?? { pro: false, origem: null, ate: null, bancos: 0, verificado: false });
+    } finally {
+      setCarregando(false);
+    }
   }, [user?.id]);
 
-  useEffect(() => { void recarregar().catch(() => setCarregando(false)); }, [recarregar]);
+  useEffect(() => { void recarregar(); }, [recarregar]);
+
+  // Voltou pro app (fechou a aba do banco, destravou o celular): confere de novo.
+  // No celular o OAuth do banco abre em outra aba e o widget pode nunca avisar o
+  // Orbis — mas o servidor (webhook da Pluggy) já criou a conexão sozinho.
+  useEffect(() => {
+    const aoVoltar = () => { if (document.visibilityState === "visible") void recarregar(); };
+    document.addEventListener("visibilitychange", aoVoltar);
+    return () => document.removeEventListener("visibilitychange", aoVoltar);
+  }, [recarregar]);
 
   const abrirBanco = useCallback(async () => {
     setLigando(true);
-    const r = await ligarBanco();
-    if ("erro" in r) {
+    let r: Awaited<ReturnType<typeof ligarBanco>>;
+    try {
+      // quando a tela da Pluggy aparece, o botão do Orbis volta ao normal
+      r = await ligarBanco(() => setLigando(false));
+    } catch {
+      r = { erro: "erro" };
+    } finally {
       setLigando(false);
-      if (r.erro === "cancelou") return;
+    }
+    if ("erro" in r) {
+      if (r.erro === "cancelou") { void recarregar(); return; }
       toast({
         title: "Não deu certo",
         description: r.erro === "precisa_pro" ? "Assine o Orbis Pro pra ligar seu banco."
@@ -176,10 +198,21 @@ export default function Verificar() {
       });
       return;
     }
-    const salvo = await salvarBanco(r.itemId);
+    setLigando(true);
+    const salvo = await salvarBanco(r.itemId).catch(() => ({ ok: false as const, erro: "erro" }));
     setLigando(false);
-    if (!salvo.ok) { toast({ title: "Não deu pra salvar", description: "Tenta de novo.", variant: "destructive" }); return; }
-    toast({ title: `${salvo.banco} conectado`, description: salvo.verificado ? "Você agora é verificado." : "Estamos puxando seus recebimentos." });
+    if (!salvo.ok) {
+      // o webhook da Pluggy pode ter salvo por conta própria — confere antes de assustar
+      await recarregar();
+      toast({ title: "Não deu pra salvar", description: "Tenta de novo.", variant: "destructive" });
+      return;
+    }
+    toast({
+      title: `${salvo.banco} conectado`,
+      description: salvo.entradas > 0
+        ? `${salvo.entradas} ${salvo.entradas === 1 ? "entrada" : "entradas"} dos últimos 7 dias já estão aqui.`
+        : salvo.verificado ? "Você agora é verificado." : "Estamos puxando seus recebimentos.",
+    });
     void recarregar();
   }, [recarregar]);
 
@@ -333,6 +366,11 @@ export default function Verificar() {
             {ligando ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Landmark className="w-[18px] h-[18px]" strokeWidth={2.4} />}
             {ligando ? "ABRINDO…" : "LIGAR MEU BANCO"}
           </BotaoOuro>
+          <button type="button" onClick={() => void recarregar()}
+            className="w-full h-10 mt-2 inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold"
+            style={{ color: "#7b766e" }}>
+            <RefreshCw className="w-3.5 h-3.5" /> já liguei — conferir de novo
+          </button>
         </div>
 
         <Cartao className="mt-3">
