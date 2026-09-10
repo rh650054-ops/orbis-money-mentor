@@ -42,13 +42,17 @@ import {
   TrendingUp,
   ChevronRight,
   Flame,
-  ShieldCheck
+  ShieldCheck,
+  Receipt
 } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { NovaContaSheet } from "@/components/financas/NovaContaSheet";
+import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
+import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
+import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
 
 /* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
    componente pra não remontar a cada tecla. */
@@ -211,6 +215,9 @@ export default function Finances() {
   const [metaAberta, setMetaAberta] = useState<string | null>(null);
   // Qual conta a pagar está expandida.
   const [contaAberta, setContaAberta] = useState<string | null>(null);
+  /** Folha da conta (Paguei / código / boleto / editar) — id da conta aberta. Rick, 10/09. */
+  const [contaSheet, setContaSheet] = useState<string | null>(null);
+  const [contasTodas, setContasTodas] = useState(false);
   // Editar meta (sem apagar/recriar).
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "", percentual: "" });
@@ -1778,7 +1785,12 @@ export default function Finances() {
         }
         await Promise.all(goalWrites);
       }
-      const savedHojeDelta = restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje;
+      // (Rick, 10/09) "Guardou X" é o que REALMENTE entrou nas contas e caixinhas —
+      // antes somava o alvo do dia (ex.: R$ 1.280) mesmo quando uma conta vencida
+      // ficava de fora e só R$ 380 eram creditados. Se nada entrou, fecha o dia
+      // com o alvo (comportamento antigo) pra não travar o botão.
+      const entrouDeVerdade = billDeltas.reduce((s, d) => s + d.delta, 0) + goalDeltas.reduce((s, d) => s + d.delta, 0);
+      const savedHojeDelta = entrouDeVerdade > 0.005 ? entrouDeVerdade : (restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje);
       registrarGuardadoHoje(savedHojeDelta);
       const guardeiInfo = { billDeltas, goalDeltas, savedHojeDelta };
       try {
@@ -1788,7 +1800,7 @@ export default function Finances() {
       } catch { /* ignore */ }
       setSavedToday(true);
       setUltimoGuardei(guardeiInfo);
-      toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(totalGuardarHoje)} guardado.` });
+      toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(savedHojeDelta)} guardado.` });
       loadFinancialData();
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
@@ -2127,6 +2139,40 @@ export default function Finances() {
               {savedTodayAmount > 0 && (
                 <p className="text-xs text-muted-foreground mt-1.5">já guardou {formatCurrency(savedTodayAmount)} hoje</p>
               )}
+              {/* (Rick, 10/09) de onde vem o número: uma linha por conta */}
+              {todayIsWorkDay && bills.length > 0 && (() => {
+                const cicloAtual = getBrazilDate().slice(0, 7);
+                const linhas = billsOrdenadas
+                  .filter((b) => !b.paid && !(b.recurring && b.paid_cycle === cicloAtual))
+                  .map((b) => {
+                    const quitada = Number(b.saved_amount) >= Number(b.amount) && Number(b.amount) > 0;
+                    const nd = nextDueDate(b);
+                    const dias = workingDaysUntil(nd ? toYMD(nd) : null);
+                    return { b, quitada, over: isOverdue(b), dias, porDia: perDay(b), falta: remaining(b) };
+                  })
+                  .filter((l) => l.porDia > 0 || l.quitada)
+                  .sort((a, z) => z.porDia - a.porDia);
+                if (linhas.length === 0) return null;
+                const mostrar = linhas.slice(0, 4);
+                return (
+                  <div className="mt-3 flex flex-col" style={{ borderTop: "1px solid #1e1d21" }}>
+                    {mostrar.map((l) => (
+                      <div key={l.b.id} className="flex items-center justify-between gap-2.5 h-[34px] text-[12.5px]" style={{ borderTop: "1px solid rgba(255,255,255,.04)" }}>
+                        <span className="min-w-0 truncate" style={{ color: "#a9a49c" }}>
+                          {l.b.name}{" "}
+                          {l.quitada
+                            ? <span style={{ color: "#3DD68C" }}>· já coberta</span>
+                            : <span style={{ color: "#7b766e" }}>· faltam {formatCurrency(l.falta)} em {l.dias} {l.dias === 1 ? "dia" : "dias"}</span>}
+                        </span>
+                        <span className="tabular-nums font-extrabold shrink-0" style={{ color: l.quitada ? "#7b766e" : undefined }}>{formatCurrency(l.quitada ? 0 : l.porDia)}</span>
+                      </div>
+                    ))}
+                    {linhas.length > mostrar.length && (
+                      <p className="text-[11.5px] h-7 flex items-center" style={{ color: "#7b766e" }}>+ {linhas.length - mostrar.length} {linhas.length - mostrar.length === 1 ? "conta" : "contas"}</p>
+                    )}
+                  </div>
+                );
+              })()}
               {!todayIsWorkDay && (
                 <p className="text-xs text-muted-foreground mt-1.5">
                   Hoje é seu descanso.
@@ -2491,80 +2537,216 @@ export default function Finances() {
         </DialogContent>
       </Dialog>
 
-        {/* RESUMOS SEMPRE VISÍVEIS (Rick, 10/09): o que importa de contas e caixinhas
-            aparece sem tocar em nada — 3 linhas cada. O toque abre a seção completa
-            logo abaixo (edição, nova conta, novo objetivo). */}
+        {/* CONTAS + CAIXINHAS (Rick, 10/09): tudo vive nestes dois cards. O "Paguei"
+            mora em cada linha e abre a folha da conta; a seção duplicada de baixo
+            (Mês blindado + acordeão) saiu. */}
         {!isLoadingData && (() => {
+          const cicloAtual = getBrazilDate().slice(0, 7);
           const abertas = bills.filter((b) => !b.paid);
           const totalContas = abertas.reduce((t, b) => t + (Number(b.amount) || 0), 0);
           const guardadoContas = abertas.reduce((t, b) => t + Math.min(Number(b.saved_amount) || 0, Number(b.amount) || 0), 0);
-          const top3 = billsOrdenadas.filter((b) => !b.paid).slice(0, 3);
-          const ativas = goalsOrdenadas.filter((g) => g.status !== "completed" && g.status !== "concluida").slice(0, 3);
           const pctContas = totalContas > 0 ? (guardadoContas / totalContas) * 100 : 0;
+          const cobertas = abertas.filter((b) => (Number(b.amount) > 0 && Number(b.saved_amount) >= Number(b.amount)) || (b.recurring && b.paid_cycle === cicloAtual)).length;
+          const lista = billsOrdenadas.filter((b) => !b.paid);
+          const visiveis = contasTodas ? lista : lista.slice(0, 6);
+          const ativas = goalsOrdenadas.filter((g) => g.status !== "completed" && g.status !== "concluida");
+          const juntou = goals.reduce((t, g) => t + (Number(g.current_amount) || 0), 0);
+          const diasFaltam = ritmoSustentavel > 0 ? Math.ceil(blindado.falta / ritmoSustentavel) : 0;
           return (
             <>
-              <button type="button" onClick={() => setPorta(porta === "contas" ? null : "contas")}
-                className="w-full text-left rounded-[18px] border px-4 pt-3.5 pb-3 active:opacity-80"
-                style={{ background: "#0e0e10", borderColor: overdueBills.length > 0 ? "rgba(242,70,90,.35)" : "#1e1d21" }}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground uppercase">Contas a pagar · {abertas.length} no mês</p>
-                  <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: porta === "contas" ? "rotate(180deg)" : undefined }} />
+              {/* ===== CONTAS A PAGAR ===== */}
+              <div className="flex flex-col gap-2.5">
+                <div className="flex items-center justify-between gap-2 px-1">
+                  <p className="orbis-section">Contas a pagar{abertas.length > 0 ? ` · ${abertas.length} no mês` : ""}</p>
+                  <button type="button" onClick={() => setIsAddBillOpen(true)} className="inline-flex items-center gap-1 h-8 text-[12px] font-extrabold" style={{ color: "#F5B800" }}>
+                    <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova conta
+                  </button>
                 </div>
-                {abertas.length === 0 ? (
-                  <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}>Nenhuma conta cadastrada. Toque pra adicionar.</p>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between text-[12px] mt-2 tabular-nums"><span style={{ color: "#a9a49c" }}>Já guardado</span><span><b className="text-foreground">{formatCurrency(guardadoContas)}</b> <span style={{ color: "#7b766e" }}>de {formatCurrency(totalContas)}</span></span></div>
-                    <div className="h-2 rounded-full overflow-hidden mt-1.5" style={{ background: "rgba(255,255,255,.08)" }}><div className="h-full rounded-full" style={{ width: `${Math.min(100, pctContas)}%`, background: "#3DD68C", transition: "width 600ms cubic-bezier(.2,0,0,1)" }} /></div>
-                    <div className="mt-2.5 flex flex-col">
-                      {top3.map((b, i) => {
-                        const n = diasAte(b.due_date);
-                        const urgente = n != null && n <= 3;
-                        const pct = Number(b.amount) > 0 ? Math.min(100, ((Number(b.saved_amount) || 0) / Number(b.amount)) * 100) : 0;
-                        return (
-                          <div key={b.id} className="flex items-center gap-3 h-11" style={i ? { borderTop: "1px solid #1e1d21" } : undefined}>
-                            <span className="flex-1 min-w-0">
-                              <span className="block text-[13.5px] font-bold truncate">{b.name}</span>
-                              <span className="block text-[11px] font-semibold" style={{ color: n != null && n < 0 ? "#ff8a97" : urgente ? "#F5B800" : "#7b766e" }}>{rotuloVencimento(b.due_date)}{pct >= 100 ? " · guardado" : pct > 0 ? ` · ${Math.round(pct)}% guardado` : ""}</span>
-                            </span>
-                            <span className="text-[14px] font-black tabular-nums shrink-0">{formatCurrency(Number(b.amount) || 0)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {abertas.length > 3 && <p className="text-[11.5px] font-bold mt-1.5" style={{ color: "#F5B800" }}>ver todas as {abertas.length} ›</p>}
-                  </>
-                )}
-              </button>
-
-              <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")}
-                className="w-full text-left rounded-[18px] border px-4 pt-3.5 pb-3 active:opacity-80"
-                style={{ background: "#0e0e10", borderColor: "#1e1d21" }}>
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground uppercase">Caixinhas · {goals.filter((g) => g.status !== "completed" && g.status !== "concluida").length} ativa{goals.length === 1 ? "" : "s"}</p>
-                  <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
-                </div>
-                {ativas.length === 0 ? (
-                  <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}>Nenhum objetivo ainda. Toque pra criar o primeiro.</p>
-                ) : (
-                  <div className="mt-1 flex flex-col">
-                    {ativas.map((g, i) => {
-                      const alvo = Number(g.target_amount) || 0;
-                      const tem = Number(g.current_amount) || 0;
-                      const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
-                      return (
-                        <div key={g.id} className="flex items-center gap-3 h-[52px]" style={i ? { borderTop: "1px solid #1e1d21" } : undefined}>
-                          <Anel pct={pct} size={40} stroke={5} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}><span className="text-[10px] font-black tabular-nums">{Math.round(pct)}%</span></Anel>
-                          <span className="flex-1 min-w-0">
-                            <span className="block text-[13.5px] font-bold truncate">{g.name}</span>
-                            <span className="block text-[11px] font-semibold tabular-nums" style={{ color: "#7b766e" }}>{formatCurrency(tem)} de {formatCurrency(alvo)}{alvo > tem ? ` · faltam ${formatCurrency(alvo - tem)}` : " · conquistado"}</span>
+                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: overdueBills.length > 0 ? "rgba(255,92,92,.35)" : "rgba(255,255,255,.07)" }}>
+                  {abertas.length === 0 ? (
+                    <button type="button" onClick={() => setIsAddBillOpen(true)} className="w-full text-left py-4">
+                      <p className="text-[14px] font-bold text-foreground">Nenhuma conta ainda.</p>
+                      <p className="text-[12.5px] mt-1" style={{ color: "#a9a49c" }}>Aluguel, luz, cartão — cadastra e o Orbis diz quanto guardar por dia.</p>
+                    </button>
+                  ) : (
+                    <>
+                      {/* já guardado */}
+                      <div className="flex flex-col gap-2 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}>
+                        <div className="flex items-center justify-between gap-2.5">
+                          <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "#b9b3a6" }}>
+                            <ShieldCheck className="w-[15px] h-[15px]" style={{ color: "#3DD68C" }} strokeWidth={2.2} /> Já guardado
                           </span>
+                          <span className="orbis-num text-[12.5px] whitespace-nowrap" style={{ color: "#7e7869" }}><b className="text-[14px]" style={{ color: "#3DD68C" }}>{formatCurrency(guardadoContas)}</b> de {formatCurrency(totalContas)}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </button>
+                        <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.1)" }}>
+                          <div className="orbis-fill h-full rounded-full" style={{ width: `${Math.min(100, pctContas)}%`, background: "#3DD68C" }} />
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11.5px] min-w-0 truncate" style={{ color: "#7e7869" }}>
+                            {cobertas} de {abertas.length} {cobertas === 1 ? "coberta" : "cobertas"}
+                            {blindado.falta <= 0.005 ? " · mês blindado" : diasFaltam > 0 ? <> · fecha o mês sem dever em <b className="tabular-nums" style={{ color: "#b9b3a6" }}>{diasFaltam} {diasFaltam === 1 ? "dia" : "dias"}</b></> : null}
+                          </p>
+                          <button type="button" onClick={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }} aria-label="Ajustar total guardado" className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ border: "1px solid rgba(255,255,255,.1)", color: "#7e7869" }}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* uma linha por conta, com o Paguei */}
+                      <div className="flex flex-col py-1">
+                        {visiveis.map((b) => {
+                          const amount = Number(b.amount) || 0;
+                          const saved = Number(b.saved_amount) || 0;
+                          const pct = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
+                          const quitada = amount > 0 && saved >= amount;
+                          const pagoCiclo = Boolean(b.recurring) && b.paid_cycle === cicloAtual;
+                          const over = isOverdue(b);
+                          const nd = nextDueDate(b);
+                          const n = nd ? diasAte(toYMD(nd)) : null;
+                          const faturaAberta = Boolean(b.is_credit_card) && amount <= 0;
+                          const urgente = n != null && n <= 3 && !pagoCiclo;
+                          const destaque = !pagoCiclo && !over && quitada && urgente;
+                          const cor = pagoCiclo ? "#3DD68C" : over ? "#FF5C5C" : urgente ? "#F5B800" : "#7e7869";
+                          const rotulo = pagoCiclo
+                            ? <>paga este mês · <span style={{ color: "#7e7869" }}>volta {nd ? nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : ""}</span></>
+                            : faturaAberta ? "fatura aberta · lance a compra"
+                            : over ? `venceu há ${Math.abs(n ?? 0)} ${Math.abs(n ?? 0) === 1 ? "dia" : "dias"}`
+                            : n == null ? "sem vencimento"
+                            : n === 0 ? "vence hoje"
+                            : n === 1 ? "vence amanhã"
+                            : n <= 7 ? `vence em ${n} dias`
+                            : `dia ${toYMD(nd!).slice(8, 10)}`;
+                          return (
+                            <div
+                              key={b.id}
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => setContaSheet(b.id)}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setContaSheet(b.id); } }}
+                              className="flex items-center gap-3 min-h-[66px] py-2.5 cursor-pointer"
+                              style={destaque
+                                ? { margin: "6px -4px 0", padding: "10px 12px", borderRadius: 13, border: "1px solid rgba(245,184,0,.34)", background: "linear-gradient(180deg,#171203,#131211)" }
+                                : { borderTop: "1px solid rgba(255,255,255,.06)", opacity: pagoCiclo ? 0.85 : 1 }}
+                            >
+                              <span className="inline-flex items-center justify-center w-9 h-9 rounded-[11px] shrink-0" style={{ background: pagoCiclo ? "rgba(61,214,140,.12)" : destaque ? "rgba(245,184,0,.12)" : "rgba(255,255,255,.06)" }}>
+                                {pagoCiclo ? <Check className="w-[18px] h-[18px]" style={{ color: "#3DD68C" }} strokeWidth={3} />
+                                  : b.is_credit_card ? <CreditCard className="w-[17px] h-[17px]" style={{ color: destaque ? "#F5B800" : "#b9b3a6" }} strokeWidth={2.1} />
+                                  : <Receipt className="w-[17px] h-[17px]" style={{ color: destaque ? "#F5B800" : "#b9b3a6" }} strokeWidth={2.1} />}
+                              </span>
+                              <span className="flex-1 min-w-0 flex flex-col gap-1">
+                                <span className="flex items-baseline gap-2 min-w-0">
+                                  <span className="text-[15px] font-bold truncate" style={{ color: pagoCiclo ? "#b9b3a6" : undefined }}>{b.name}</span>
+                                  <span className="orbis-num text-[13px] font-extrabold shrink-0" style={{ color: pagoCiclo ? "#7e7869" : undefined }}>{formatCurrency(amount)}</span>
+                                </span>
+                                {pagoCiclo || quitada || over || faturaAberta ? (
+                                  <span className="text-[12px] font-extrabold whitespace-nowrap truncate" style={{ color: cor }}>
+                                    {rotulo}{quitada && !pagoCiclo && !over ? <span style={{ color: "#3DD68C" }}> · coberta</span> : null}
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-2">
+                                    <span className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.1)" }}>
+                                      <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: "#3DD68C" }} />
+                                    </span>
+                                    <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: cor }}>{urgente ? rotulo : `${formatCurrency(saved)} guardado`}</span>
+                                  </span>
+                                )}
+                              </span>
+                              {pagoCiclo ? (
+                                <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleBillPaid(b); }} className="inline-flex items-center gap-1 h-10 px-2.5 text-[12px] font-bold shrink-0" style={{ color: "#7e7869" }}>
+                                  <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.4} /> desfazer
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setContaSheet(b.id); }}
+                                  className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-[13px] font-black shrink-0 whitespace-nowrap active:scale-95 transition-transform"
+                                  style={destaque
+                                    ? { background: "linear-gradient(180deg,#ffc63a,#F5B800)", color: "#1a1200", boxShadow: "0 3px 0 #b88700" }
+                                    : quitada
+                                    ? { border: "1.5px solid rgba(245,184,0,.5)", color: "#F5B800" }
+                                    : { border: "1.5px solid rgba(255,255,255,.16)", color: "#b9b3a6" }}
+                                >
+                                  {destaque && <Check className="w-[15px] h-[15px]" strokeWidth={3} />}
+                                  Paguei
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                        {lista.length > visiveis.length && (
+                          <button type="button" onClick={() => setContasTodas(true)} className="h-10 text-left text-[12px] font-extrabold" style={{ color: "#F5B800" }}>ver todas as {lista.length} ›</button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </section>
+              </div>
+
+              {/* ===== CAIXINHAS ===== */}
+              <div className="flex flex-col gap-2.5">
+                <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")} className="flex items-center justify-between gap-2 px-1 w-full text-left">
+                  <p className="orbis-section">Caixinhas{ativas.length > 0 ? ` · ${ativas.length} ${ativas.length === 1 ? "ativa" : "ativas"}` : ""}</p>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap" style={{ color: "#7e7869" }}>
+                    {juntou > 0 && <>juntou <b className="text-foreground tabular-nums">{formatCurrency(juntou)}</b></>}
+                    <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
+                  </span>
+                </button>
+                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+                  {ativas.map((g) => {
+                    const alvo = Number(g.target_amount) || 0;
+                    const tem = Number(g.current_amount) || 0;
+                    const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
+                    const ritmo = metaRitmoDia(g);
+                    const falta = Math.max(0, alvo - tem);
+                    const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
+                    const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
+                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null : meses < 1 ? "~ 1 mês" : `~ ${Math.round(meses)} ${Math.round(meses) === 1 ? "mês" : "meses"}`;
+                    const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => { setPorta("objetivos"); setMetaAberta(g.id); }}
+                        className="w-full flex items-center gap-3.5 min-h-[72px] py-3 text-left"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                      >
+                        <Anel pct={pct} size={50} stroke={6} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}>
+                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-[30px] h-[30px] rounded-full object-cover" /> : <span className="text-[16px] leading-none">{g.icon && !/^https?:/.test(g.icon) ? g.icon : "🎯"}</span>}
+                        </Anel>
+                        <span className="flex-1 min-w-0 flex flex-col gap-1">
+                          <span className="text-[15px] font-bold truncate">{g.name}</span>
+                          <span className="orbis-num text-[12.5px]" style={{ color: "#7e7869" }}><b className="text-foreground">{formatCurrency(tem)}</b> de {formatCurrency(alvo)}</span>
+                        </span>
+                        <span className="flex flex-col items-end gap-[3px] shrink-0">
+                          <span className="orbis-num text-[21px] font-extrabold leading-none" style={{ color: pct >= 100 ? "#3DD68C" : "#F5B800" }}>{Math.round(pct)}%</span>
+                          <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: "#7e7869" }}>
+                            {pct >= 100 ? "conquistada" : ritmo > 0 ? `${formatCurrency(ritmo)}/dia${mesesLabel ? ` · ${mesesLabel}` : ""}` : `faltam ${formatCurrency(falta)}`}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {/* CRIAR CAIXINHA — o convite, sempre visível */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGoalOpen(true)}
+                    className="w-full flex items-center gap-3.5 min-h-[78px] px-3 py-3 my-3 rounded-[14px] text-left active:scale-[0.99] transition-transform"
+                    style={{ border: "1.5px dashed rgba(245,184,0,.45)", background: "rgba(245,184,0,.05)" }}
+                  >
+                    <span className="inline-flex items-center justify-center w-[50px] h-[50px] rounded-full shrink-0" style={{ background: "linear-gradient(180deg,#ffc63a,#F5B800)", boxShadow: "0 4px 0 #b88700" }}>
+                      <Plus className="w-6 h-6" style={{ color: "#1a1200" }} strokeWidth={3} />
+                    </span>
+                    <span className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
+                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e o Orbis diz quanto por dia.</span>
+                    </span>
+                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
+                  </button>
+                </section>
+              </div>
+
+              <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
             </>
           );
         })()}
@@ -2577,98 +2759,6 @@ export default function Finances() {
               <button onClick={() => setIsAddGoalOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
                 <Plus className="w-3.5 h-3.5" strokeWidth={3} /> novo
               </button>
-              <Dialog open={isAddGoalOpen} onOpenChange={setIsAddGoalOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Novo objetivo</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-4">
-                  <div>
-                    <Label>Nome da Meta</Label>
-                    <Input
-                      value={newGoal.name}
-                      onChange={(e) => setNewGoal({ ...newGoal, name: e.target.value })}
-                      placeholder="Ex: Comprar moto, Juntar R$5.000..."
-                    />
-                  </div>
-                  <div>
-                    <Label>Valor Alvo (R$)</Label>
-                    <MoneyInput
-                      value={parseFloat(newGoal.target_amount) || 0}
-                      onChange={(n) => setNewGoal({ ...newGoal, target_amount: n ? String(n) : "" })}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div>
-                    <Label>Prazo</Label>
-                    <div className="grid grid-cols-3 gap-2 mt-1.5">
-                      {([["curto", "Curto"], ["medio", "Médio"], ["longo", "Longo"]] as const).map(([val, lbl]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => setNewGoal({ ...newGoal, prazo: val })}
-                          className={`h-9 rounded-lg border text-xs font-semibold transition-colors ${
-                            newGoal.prazo === val ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:border-primary/40"
-                          }`}
-                        >
-                          {lbl}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Prévia da recomendação — já avisa (em vermelho) se o prazo apertar */}
-                  {parseFloat(newGoal.target_amount) > 0 && (() => {
-                    const rec = recomendarMeta(parseFloat(newGoal.target_amount), 0, newGoal.prazo);
-                    return (
-                      <div className={`rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${
-                        rec.tom === "ok" ? "bg-success/5 border-success/25 text-foreground/90"
-                        : rec.tom === "alerta" ? "bg-destructive/5 border-destructive/35 text-destructive"
-                        : "bg-muted/40 border-border/50 text-muted-foreground"
-                      }`}>
-                        {rec.resumo}
-                      </div>
-                    );
-                  })()}
-
-                  <div>
-                    <Label>Data limite (opcional)</Label>
-                    <Input
-                      type="date"
-                      value={newGoal.deadline}
-                      onChange={(e) => setNewGoal({ ...newGoal, deadline: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Imagem da meta (opcional)</Label>
-                    <label className="mt-1.5 flex items-center gap-3 cursor-pointer">
-                      {goalImagePreview ? (
-                        <img src={goalImagePreview} alt="" className="w-16 h-16 rounded-xl object-cover border border-border shrink-0" />
-                      ) : (
-                        <div className="w-16 h-16 rounded-xl border border-dashed border-border flex items-center justify-center bg-muted/40 shrink-0">
-                          <ImagePlus className="w-5 h-5 text-muted-foreground" />
-                        </div>
-                      )}
-                      <span className="text-sm text-muted-foreground">
-                        {goalImagePreview ? "Trocar imagem" : "Adicione uma foto do que quer alcançar"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        hidden
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) { setGoalImage(f); setGoalImagePreview(URL.createObjectURL(f)); }
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <Button onClick={handleAddGoal} className="w-full">
-                    Criar objetivo
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
           </div>
 
           {isLoadingData ? (
@@ -2943,62 +3033,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
         </section>
         )}
 
-        {/* 4. CONTAS A PAGAR */}
-        {/* PORTA: contas a pagar. A lista só existe quando ele abre — antes,
-            400 linhas de conta ficavam empilhadas com o mesmo peso de tudo. */}
-        {porta === "contas" && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between px-0.5 pt-1">
-            <h2 className="text-[15px] font-black text-foreground tracking-tight">Contas a pagar</h2>
-            <button onClick={() => setIsAddBillOpen(true)} className="text-xs font-extrabold flex items-center gap-0.5" style={{ color: "#F5B800" }}>
-              <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova
-            </button>
-            <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
-          </div>
-
-          {/* MÊS BLINDADO: quanto das contas do mês já está coberto */}
-          {!isLoadingData && bills.length > 0 && (() => {
-            const diasFaltam = ritmoSustentavel > 0 ? Math.ceil(blindado.falta / ritmoSustentavel) : 0;
-            const quando = diasFaltam > 0 ? dataEmDiasUteis(diasFaltam) : null;
-            const fechado = blindado.total > 0 && blindado.falta <= 0.005;
-            return (
-              <Card className="rounded-[18px] border" style={{ background: fechado ? "linear-gradient(160deg,#0d1f16,#0e0e10)" : "#0e0e10", borderColor: fechado ? "rgba(61,214,140,.45)" : "#22201a" }}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-black tracking-[.16em] text-muted-foreground flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5" style={{ color: "#3DD68C" }} /> MÊS BLINDADO
-                    </p>
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#3DD68C" }}>
-                        {blindado.cobertas} DE {blindado.contas} CONTA{blindado.contas === 1 ? "" : "S"} COBERTA{blindado.cobertas === 1 ? "" : "S"}
-                      </p>
-                      <button
-                        onClick={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
-                        aria-label="Ajustar total guardado"
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground active:scale-90 transition"
-                        style={{ border: "1px solid #22201a" }}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-end justify-between gap-3 mt-1.5">
-                    <p className="text-[30px] leading-none font-black tracking-tight tabular-nums" style={{ color: "#3DD68C" }}>{blindado.pct}%</p>
-                    <p className="text-xs text-muted-foreground tabular-nums">{formatCurrency(blindado.guardado)} de {formatCurrency(blindado.total)}</p>
-                  </div>
-                  <div className="h-2.5 rounded-full overflow-hidden mt-2" style={{ background: "#1c1b20" }}>
-                    <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${blindado.pct}%`, background: "linear-gradient(90deg,#1f8f5c,#3DD68C)" }} />
-                  </div>
-                  <p className="text-[11px] text-muted-foreground mt-2 leading-relaxed">
-                    {fechado
-                      ? <>Mês blindado: todas as contas em aberto já têm o dinheiro separado.</>
-                      : <>Faltam <b className="text-foreground">{formatCurrency(blindado.falta)}</b> pra fechar o mês sem dever nada.{ritmoSustentavel > 0 ? <> Guardando <b className="text-foreground">{formatCurrency(ritmoSustentavel)}/dia</b>{quando ? <>, dia {quando.data}</> : null}.</> : null}</>}
-                  </p>
-                </CardContent>
-              </Card>
-            );
-          })()}
-
+        {/* Ajustar o total guardado nas contas (abre pelo lápis do card Contas) */}
           {/* Dialog: ajustar o total guardado nas contas pro valor real */}
           <Dialog open={ajusteGuardadoOpen} onOpenChange={setAjusteGuardadoOpen}>
             <DialogContent className="w-[calc(100vw-2rem)] max-w-sm p-4 sm:p-6">
@@ -3026,438 +3061,61 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
             </DialogContent>
           </Dialog>
 
-          {isLoadingData ? (
-            <div className="space-y-2">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ) : bills.length === 0 ? (
-            <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                Nenhuma conta ainda. Toque em "nova", cadastre aluguel, luz, cartão — e o Orbis diz quanto guardar por dia.
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-3">
-              {billsOrdenadas.map((bill) => {
-                const ordemConta = contasOrdem.get(bill.id);
-                const amount = Number(bill.amount) || 0;
-                const saved = Number(bill.saved_amount) || 0;
-                const remainingValue = remaining(bill);
-                const progress = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
-                // Cartão em "fatura aberta": está em R$0 esperando você lançar uma compra.
-                // NÃO é conta quitada — fica parado, sem pedir pra guardar e sem vencer.
-                const faturaAberta = Boolean(bill.is_credit_card) && amount <= 0 && !bill.paid;
-                const quitada = bill.paid || (amount > 0 && saved >= amount);
-                // "Pode pagar": já guardou tudo, mas ainda não marcou como paga.
-                const canPay = !bill.paid && amount > 0 && saved >= amount;
-                const hasFile = Boolean(bill.file_path && bill.file_path.trim() !== "");
-                const isUploading = uploadingBillId === bill.id;
-                const overdue = isOverdue(bill);
-                const isRecurring = Boolean(bill.recurring);
-                // Recorrente já paga NESTE ciclo (mês) — já está juntando pro próximo vencimento.
-                const pagoEsteCiclo = isRecurring && bill.paid_cycle === getBrazilDate().slice(0, 7);
-                // Conta com duração: mostra progresso das parcelas (X/N).
-                const temDuracao = bill.duration_months != null && bill.duration_months > 0;
-                const ciclosPagos = bill.cycles_paid || 0;
-
-                // Próximo vencimento efetivo (recorrente rola pro próximo mês)
-                const nextDue = nextDueDate(bill);
-                const nextDueLabel = nextDue
-                  ? nextDue.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-                  : null;
-
-                // Dias corridos até o vencimento (só pra rótulo "vence hoje/venceu")
-                let daysLeft: number | null = null;
-                if (bill.due_date) {
-                  const msPerDay = 1000 * 60 * 60 * 24;
-                  const todayMs = new Date(getBrazilDate() + "T12:00:00Z").getTime();
-                  const dueMs = new Date(bill.due_date + "T12:00:00Z").getTime();
-                  daysLeft = Math.ceil((dueMs - todayMs) / msPerDay);
-                }
-                const overdueDays = daysLeft !== null && daysLeft < 0 ? Math.abs(daysLeft) : 0;
-                // Guardar por DIA DE TRABALHO (vencida = 0; recorrente usa o próximo vencimento)
-                const workDaysLeft = workingDaysUntil(nextDue ? toYMD(nextDue) : null);
-                const perDayValue = perDay(bill);
-                // "Apertada": vence em poucos dias úteis e ainda falta bastante — é o que
-                // faz o "a guardar hoje" subir. Avisa em vez de só empilhar o valor num dia.
-                const apertada = !overdue && !quitada && remainingValue > 20 && workDaysLeft <= 2;
-                // Vence HOJE — precisa pagar hoje pra não pegar juros/multa.
-                const venceHoje = !overdue && !quitada && !faturaAberta && nextDue != null && toYMD(nextDue) === getBrazilDate();
-
-                const venceuLabel = bill.due_date ? new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : null;
-                const diaVenc = nextDue ? nextDue.getDate() : null;
-                const corBarra = quitada ? "#3DD68C" : overdue ? "#F2465A" : "#F5B800";
-                const statusEsq = bill.paid
-                  ? `paga${isRecurring && nextDueLabel ? ` · volta ${nextDueLabel}` : ""}`
-                  : faturaAberta
-                  ? "fatura aberta · lance a compra"
-                  : overdue
-                  ? `venceu ${venceuLabel ?? ""} · guardado ${formatCurrency(saved)}`
-                  : pagoEsteCiclo
-                  ? `paga este mês · próxima ${nextDueLabel ?? ""}`
-                  : `${venceHoje ? "vence HOJE" : diaVenc ? `vence dia ${diaVenc}` : "sem vencimento"} · guardado ${formatCurrency(saved)}`;
-                const statusDir = bill.paid || faturaAberta || pagoEsteCiclo
-                  ? ""
-                  : quitada
-                  ? "pronta pra pagar"
-                  : overdue
-                  ? `quitar ${formatCurrency(remainingValue)}`
-                  : perDayValue > 0
-                  ? `${formatCurrency(perDayValue)}/dia · ${workDaysLeft} dia${workDaysLeft === 1 ? "" : "s"}`
-                  : "";
-                return (
-                  <Card
-                    key={bill.id}
-                    className="rounded-[18px] border"
-                    style={{ background: "#0e0e10", borderColor: overdue && !quitada ? "rgba(242,70,90,.45)" : quitada ? "rgba(61,214,140,.35)" : "#22201a" }}
-                  >
-                    <CardContent className="p-3.5">
-                      {/* Bloco COMPACTO — número, nome, valor, barra e 1 linha de status */}
-                      <button
-                        type="button"
-                        onClick={() => setContaAberta(contaAberta === bill.id ? null : bill.id)}
-                        className="w-full text-left"
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <span
-                            className="w-[22px] h-[22px] rounded-[7px] flex items-center justify-center text-[11px] font-black shrink-0 mt-0.5"
-                            style={quitada
-                              ? { background: "#0d1f16", border: "1px solid rgba(61,214,140,.4)", color: "#3DD68C" }
-                              : overdue
-                              ? { background: "#2a0c11", border: "1px solid rgba(242,70,90,.4)", color: "#F2465A" }
-                              : { background: "#1a1305", border: "1px solid #3a2f0c", color: "#F5B800" }}
-                          >
-                            {quitada ? <Check className="w-3 h-3" strokeWidth={3} /> : ordemConta?.ordem ?? "·"}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="text-[14px] font-extrabold leading-tight truncate flex items-center gap-1.5 min-w-0" style={{ color: bill.paid ? "#8a8378" : undefined, textDecoration: bill.paid ? "line-through" : undefined }}>
-                                <span className="truncate">{bill.name}</span>
-                                {bill.is_credit_card && <CreditCard className="w-3.5 h-3.5 shrink-0 text-violet-400" />}
-                                {quitada && !bill.paid && (
-                                  <span className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black tracking-[.08em] shrink-0" style={{ background: "#0d1f16", border: "1px solid rgba(61,214,140,.4)", color: "#3DD68C" }}>
-                                    <ShieldCheck className="w-3 h-3" /> BLINDADA
-                                  </span>
-                                )}
-                                {venceHoje && (
-                                  <span className="rounded-full px-1.5 py-0.5 text-[9px] font-black tracking-[.06em] shrink-0" style={{ background: "#2a0c11", border: "1px solid rgba(242,70,90,.5)", color: "#F2465A" }}>VENCE HOJE</span>
-                                )}
-                                {overdue && !quitada && (
-                                  <span className="rounded-full px-1.5 py-0.5 text-[9px] font-black tracking-[.06em] shrink-0" style={{ background: "#2a0c11", border: "1px solid rgba(242,70,90,.5)", color: "#F2465A" }}>VENCIDA</span>
-                                )}
-                              </p>
-                              <p className="text-[14px] font-black tabular-nums shrink-0" style={{ color: quitada ? "#3DD68C" : bill.paid ? "#8a8378" : undefined }}>{formatCurrency(amount)}</p>
-                            </div>
-                            <div className="h-1.5 rounded-full overflow-hidden mt-2" style={{ background: "#1c1b20" }}>
-                              <div className="h-full rounded-full" style={{ width: `${bill.paid ? 100 : progress}%`, background: corBarra }} />
-                            </div>
-                            <div className="flex items-center justify-between gap-2 mt-1.5 text-[11px]">
-                              <span className="truncate" style={{ color: "#8a8378" }}>{statusEsq}</span>
-                              {statusDir && (
-                                <span className="shrink-0 font-extrabold tabular-nums" style={{ color: overdue && !quitada ? "#F2465A" : quitada ? "#3DD68C" : "#e9e4d8" }}>{statusDir}</span>
-                              )}
-                            </div>
-                          </div>
-                          <ChevronDown className={`w-4 h-4 shrink-0 mt-1 transition-transform ${contaAberta === bill.id ? "rotate-180" : ""}`} style={{ color: "#8a8378" }} />
-                        </div>
-                      </button>
-
-                      {contaAberta === bill.id && (
-                        <div className="pt-1 space-y-3">
-                        <p className="text-xs text-muted-foreground">{formatCurrency(saved)} guardado</p>
-
-                      {bill.paid ? (
-                        <div className="bg-success/10 border border-success/20 rounded-lg p-2.5 flex items-center justify-center gap-2">
-                          <Check className="w-4 h-4 text-success" />
-                          <p className="text-success font-semibold text-sm">Quitada ✓</p>
-                        </div>
-                      ) : faturaAberta ? (
-                        <div className="rounded-lg bg-muted/50 border border-border px-3 py-3 space-y-2.5">
-                          <div className="flex items-start gap-2">
-                            <CreditCard className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-foreground">Fatura aberta — R$ 0,00</p>
-                              <p className="text-xs text-muted-foreground mt-0.5">
-                                Está parado: não pede pra guardar nem conta como vencido. Comprou algo nesse cartão? Lance o valor que ele entra no planejamento.
-                              </p>
-                            </div>
-                          </div>
-                          <Button size="sm" onClick={() => openEditBill(bill)} className="w-full">
-                            <Plus className="w-4 h-4 mr-1.5" />
-                            Lançar valor da fatura
-                          </Button>
-                        </div>
-                      ) : canPay ? (
-                        <div className="rounded-lg bg-success/10 border border-success/30 px-3 py-3 space-y-2.5">
-                          <div className="flex items-start gap-2">
-                            <PartyPopper className="w-4 h-4 text-success shrink-0 mt-0.5" />
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-success">Você já guardou tudo! 🎉</p>
-                              <p className="text-xs text-success/80 mt-0.5">Agora é só pagar.</p>
-                            </div>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {bill.payment_code && bill.payment_code.trim() !== "" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCopyPaymentCode(bill)}
-                                className="border-success/40 text-success hover:bg-success/10"
-                              >
-                                <Copy className="w-4 h-4 mr-1.5" />
-                                Copiar código
-                              </Button>
-                            )}
-                            {hasFile && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleViewBillFile(bill)}
-                                className="border-success/40 text-success hover:bg-success/10"
-                              >
-                                <FileText className="w-4 h-4 mr-1.5" />
-                                Ver boleto
-                              </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              onClick={() => handleToggleBillPaid(bill)}
-                              className="bg-success text-success-foreground hover:bg-success/90"
-                            >
-                              <Check className="w-4 h-4 mr-1.5" />
-                              Marcar como paga
-                            </Button>
-                          </div>
-                        </div>
-                      ) : overdue ? (
-                        <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/30 px-3 py-2">
-                          <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-destructive">
-                              {overdueDays === 0
-                                ? "Venceu hoje"
-                                : `Venceu há ${overdueDays} ${overdueDays === 1 ? "dia" : "dias"}`}
-                            </p>
-                            <p className="text-xs text-destructive/80 mt-0.5">
-                              {formatCurrency(remainingValue)} em aberto
-                            </p>
-                          </div>
-                        </div>
-                      ) : isRecurring ? (
-                        <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-primary">
-                              Guardar {formatCurrency(perDayValue)} por dia de trabalho
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {`${workDaysLeft} ${workDaysLeft === 1 ? "dia" : "dias"} de trabalho${
-                                nextDueLabel ? ` até a próxima (${nextDueLabel})` : ""
-                              }`}
-                            </p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <span className="inline-block text-xs font-bold text-primary bg-primary/15 rounded-full px-2.5 py-1 whitespace-nowrap">
-                              {workDaysLeft} {workDaysLeft === 1 ? "dia útil" : "dias úteis"}
-                            </span>
-                            <p className="text-[11px] text-muted-foreground mt-1">ajusta sozinho</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-3 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold text-primary">
-                              Guardar {formatCurrency(perDayValue)} por dia de trabalho
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              {daysLeft === 0
-                                ? "vence hoje"
-                                : `${workDaysLeft} ${workDaysLeft === 1 ? "dia" : "dias"} de trabalho${
-                                    bill.due_date
-                                      ? ` até ${new Date(bill.due_date + "T12:00:00Z").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`
-                                      : ""
-                                  }`}
-                            </p>
-                          </div>
-                          {daysLeft !== 0 && (
-                            <div className="text-right shrink-0">
-                              <span className="inline-block text-xs font-bold text-primary bg-primary/15 rounded-full px-2.5 py-1 whitespace-nowrap">
-                                {workDaysLeft} {workDaysLeft === 1 ? "dia útil" : "dias úteis"}
-                              </span>
-                              <p className="text-[11px] text-muted-foreground mt-1">ajusta sozinho</p>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Boleto: anexar/trocar, ver e remover (bucket privado bill-files) */}
-                      <div className="flex flex-wrap items-center gap-2 pt-1">
-                        <input
-                          id={`bill-file-${bill.id}`}
-                          type="file"
-                          accept="application/pdf,image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0] ?? null;
-                            handleUploadBillFile(bill, f);
-                            e.target.value = "";
-                          }}
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={isUploading}
-                          onClick={() => document.getElementById(`bill-file-${bill.id}`)?.click()}
-                          aria-label={hasFile ? "Trocar boleto" : "Anexar boleto"}
-                        >
-                          {isUploading ? (
-                            <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                          ) : (
-                            <Paperclip className="w-4 h-4 text-primary" />
-                          )}
-                          <span className="ml-1.5 text-xs text-primary">
-                            {isUploading ? "Enviando..." : hasFile ? "Trocar boleto" : "Anexar boleto"}
-                          </span>
-                        </Button>
-                        {hasFile && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewBillFile(bill)}
-                              aria-label="Ver boleto"
-                            >
-                              <Download className="w-4 h-4 text-primary" />
-                              <span className="ml-1.5 text-xs text-primary">Ver boleto</span>
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveBillFile(bill)}
-                              aria-label="Remover boleto"
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                        {!quitada && (
-                          <Button
-                            variant="outline"
-                            onClick={() => openDeposit({ kind: "bill", bill })}
-                            className="w-full sm:flex-1"
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Guardei
-                          </Button>
-                        )}
-                        <Button
-                          variant={bill.paid ? "outline" : "default"}
-                          onClick={() => handleToggleBillPaid(bill)}
-                          className="w-full sm:flex-1"
-                        >
-                          <Check className="w-4 h-4 mr-2" />
-                          {bill.paid ? "Reabrir" : "Marcar paga"}
-                        </Button>
-                      </div>
-
-                      {/* Editar / excluir a conta */}
-                      <div className="flex gap-2">
-                        {bill.payment_code && bill.payment_code.trim() !== "" && (
-                          <Button variant="outline" size="sm" onClick={() => handleCopyPaymentCode(bill)} className="flex-1">
-                            <Copy className="w-4 h-4 mr-1.5 text-primary" /> Copiar código
-                          </Button>
-                        )}
-                        <Button variant="outline" size="sm" onClick={() => openEditBill(bill)} className="flex-1" aria-label="Editar conta">
-                          <Pencil className="w-4 h-4 mr-1.5" /> Editar
-                        </Button>
-                        <Button variant="outline" size="icon" onClick={() => handleDeleteBill(bill)} className="shrink-0" aria-label="Excluir conta">
-                          <Trash2 className="w-4 h-4 text-destructive" />
-                        </Button>
-                      </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </section>
-        )}
-
-        {/* 5. DICAS — calculadas com os números da própria pessoa */}
+        {/* 5. DICA DO ORBIS — IA com os números da pessoa (Rick, 10/09). A dica local
+            (sem IA) vira reserva: aparece enquanto a IA pensa e se ela falhar. */}
         {!isLoadingData && (bills.length > 0 || goals.length > 0 || summary.grossToday > 0) && (() => {
           const media = summary.mediaDiariaLiquida;
-          const dicas: { tom: "ok" | "alerta" | "neutro"; titulo: string; texto: React.ReactNode; icone: React.ReactNode }[] = [];
+          let fallback: { titulo: string; texto: string } | null = null;
           if (overdueBills.length > 0) {
-            dicas.push({
-              tom: "alerta", titulo: `${formatCurrency(vencidasTotal)} em conta vencida`,
-              texto: <>Juros de conta atrasada comem mais que qualquer objetivo rende. Quite {overdueBillsOrdenadas[0]?.name ? <b className="text-foreground">{overdueBillsOrdenadas[0].name}</b> : "a mais antiga"} primeiro — use "Guardar pra quitar" logo acima.</>,
-              icone: <AlertTriangle className="w-4 h-4" style={{ color: "#F2465A" }} />,
-            });
-          }
-          if (ritmoSustentavel > 0 && media > 0) {
-            const pct = Math.round((ritmoSustentavel / media) * 100);
-            if (ritmoSustentavel > media) {
-              dicas.push({
-                tom: "alerta", titulo: `Suas contas pedem ${formatCurrency(ritmoSustentavel)}/dia. Você lucra ${formatCurrency(media)}.`,
-                texto: <>As contas estão maiores que o lucro médio por dia. Ou o faturamento sobe, ou alguma conta precisa cair — cartão e parcelas costumam ser o primeiro lugar pra olhar.</>,
-                icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
-              });
-            } else {
-              dicas.push({
-                tom: "ok", titulo: `Suas contas levam ${pct}% do seu lucro médio.`,
-                texto: <>Sobram <b className="text-foreground">{formatCurrency(sobraDiaMetas)}/dia</b> depois das contas. Se cada objetivo tiver um %, esse dinheiro sai sozinho no botão GUARDEI — sem depender de força de vontade.</>,
-                icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
-              });
-            }
-          }
-          if (summary.grossToday > 0 && summary.costToday > 0) {
-            const pctMerc = Math.round((summary.costToday / summary.grossToday) * 100);
-            dicas.push({
-              tom: pctMerc > 50 ? "alerta" : "neutro", titulo: `Mercadoria comeu ${pctMerc}% da venda de hoje.`,
-              texto: pctMerc > 50
-                ? <>Acima de 50% é sinal de margem apertada: comprar em maior volume ou subir R$ 1 no preço de 1 un. muda o lucro do mês.</>
-                : <>Boa margem. Mantenha o preço de 2 un. sempre cadastrado — combo vende mais e o custo por unidade cai.</>,
-              icone: <TrendingUp className="w-4 h-4" style={{ color: "#3DD68C" }} />,
-            });
+            fallback = { titulo: `${formatCurrency(vencidasTotal)} em conta vencida`, texto: `Juros de conta atrasada comem mais que qualquer caixinha rende. Quite ${overdueBillsOrdenadas[0]?.name ?? "a mais antiga"} primeiro.` };
+          } else if (ritmoSustentavel > 0 && media > 0 && ritmoSustentavel > media) {
+            fallback = { titulo: `Suas contas pedem ${formatCurrency(ritmoSustentavel)}/dia. Você lucra ${formatCurrency(media)}.`, texto: "As contas estão maiores que o lucro médio por dia. Ou o faturamento sobe, ou alguma conta precisa cair — cartão e parcelas costumam ser o primeiro lugar pra olhar." };
+          } else if (ritmoSustentavel > 0 && media > 0) {
+            fallback = { titulo: `Suas contas levam ${Math.round((ritmoSustentavel / media) * 100)}% do seu lucro médio.`, texto: `Sobram ${formatCurrency(sobraDiaMetas)}/dia depois das contas. Com um % em cada caixinha, esse dinheiro sai sozinho no botão GUARDEI.` };
           } else if (summary.grossToday > 0 && summary.costToday === 0 && summary.expensesToday === 0) {
-            dicas.push({
-              tom: "neutro", titulo: "Hoje você vendeu mas não registrou nenhum custo.",
-              texto: <>Almoço, passagem, mercadoria — sem isso o lucro lá em cima fica maior do que é de verdade. No DEFCON é o botão <b className="text-foreground">Custo</b>.</>,
-              icone: <Lightbulb className="w-4 h-4" style={{ color: "#F5B800" }} />,
-            });
+            fallback = { titulo: "Hoje você vendeu mas não registrou nenhum custo.", texto: "Almoço, passagem, mercadoria — sem isso o lucro lá em cima fica maior do que é de verdade. No DEFCON é o botão Custo." };
+          } else if (summary.debtToday > 0) {
+            fallback = { titulo: `${formatCurrency(summary.debtToday)} de fiado hoje.`, texto: "Fiado não entra no lucro até cair. Cobre no WhatsApp ainda hoje — a chance de receber cai a cada dia que passa." };
           }
-          if (summary.debtToday > 0) {
-            dicas.push({
-              tom: "neutro", titulo: `${formatCurrency(summary.debtToday)} de fiado hoje.`,
-              texto: <>Fiado não entra no lucro até cair. Cobre no WhatsApp ainda hoje — a chance de receber cai a cada dia que passa.</>,
-              icone: <Lightbulb className="w-4 h-4" style={{ color: "#F2B43A" }} />,
-            });
-          }
-          if (dicas.length === 0) return null;
+          const cicloAtual = getBrazilDate().slice(0, 7);
+          const contexto: DicaContexto = {
+            hoje: getBrazilDate(),
+            mediaDia: media,
+            sobrouMes: summary.monthlyNetProfit,
+            vendidoMes: Number(summary.totalProfit) || 0,
+            lucroHoje: summary.netToday,
+            fiadoHoje: summary.debtToday,
+            guardarHoje: totalGuardarHoje,
+            guardouHoje: savedTodayAmount,
+            sequencia: sequencia.atual,
+            vencidasTotal,
+            contas: billsOrdenadas.filter((b) => !b.paid).slice(0, 8).map((b) => {
+              const nd = nextDueDate(b);
+              return {
+                nome: b.name,
+                valor: Number(b.amount) || 0,
+                guardado: Number(b.saved_amount) || 0,
+                diasAteVencer: nd ? diasAte(toYMD(nd)) : null,
+                porDia: perDay(b),
+                vencida: isOverdue(b),
+                paga: Boolean(b.recurring) && b.paid_cycle === cicloAtual,
+              };
+            }),
+            caixinhas: goals.filter((g) => g.status === "active").slice(0, 6).map((g) => ({
+              nome: g.name,
+              alvo: Number(g.target_amount) || 0,
+              tem: Number(g.current_amount) || 0,
+              porDia: metaRitmoDia(g),
+            })),
+          };
           return (
-            <section className="space-y-3">
-              <h2 className="text-[15px] font-black text-foreground tracking-tight px-0.5 pt-1">Dicas pra você</h2>
-              {dicas.slice(0, 3).map((d, i) => (
-                <Card key={i} className="rounded-[18px] border" style={
-                  d.tom === "alerta" ? { background: "linear-gradient(160deg,#1a0a0d,#0e0e10)", borderColor: "rgba(242,70,90,.4)" }
-                  : d.tom === "ok" ? { background: "#0e0e10", borderColor: "rgba(61,214,140,.25)" }
-                  : { background: "linear-gradient(160deg,#1a1305,#0e0e10)", borderColor: "rgba(245,184,0,.35)" }
-                }>
-                  <CardContent className="p-4 flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "#16151a", border: "1px solid #22201a" }}>{d.icone}</div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-extrabold text-foreground leading-snug">{d.titulo}</p>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{d.texto}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </section>
+            <DicaDoOrbis
+              userId={user.id}
+              contexto={contexto}
+              fallback={fallback}
+              pronto={bills.length > 0 || goals.length > 0}
+              onConversar={() => navigate("/chat")}
+            />
           );
         })()}
 
@@ -3475,6 +3133,80 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
           Importar histórico de vendas (PDF)
         </button>
         <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
+
+      {/* Folha da conta (Paguei) + Nova caixinha — Rick, 10/09 */}
+      {(() => {
+        const b = contaSheet ? bills.find((x) => x.id === contaSheet) ?? null : null;
+        let info: ContaInfo | null = null;
+        if (b) {
+          const cicloAtual = getBrazilDate().slice(0, 7);
+          const amount = Number(b.amount) || 0;
+          const saved = Number(b.saved_amount) || 0;
+          const pagoCiclo = Boolean(b.recurring) && b.paid_cycle === cicloAtual;
+          const nd = nextDueDate(b);
+          const n = nd ? diasAte(toYMD(nd)) : null;
+          const over = isOverdue(b);
+          const dataLabel = nd ? nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "";
+          const venceLabel = over
+            ? `venceu há ${Math.abs(n ?? 0)} ${Math.abs(n ?? 0) === 1 ? "dia" : "dias"}`
+            : n == null ? "sem vencimento"
+            : n === 0 ? `vence hoje · ${dataLabel}`
+            : n === 1 ? `vence amanhã · ${dataLabel}`
+            : n <= 7 ? `vence em ${n} dias · ${dataLabel}`
+            : `vence ${dataLabel}`;
+          // Depois de pagar uma recorrente, quanto por dia até o próximo vencimento (30 dias à frente)
+          let porDiaDepois = 0;
+          if (b.recurring && nd) {
+            const prox = new Date(nd); prox.setMonth(prox.getMonth() + 1);
+            const dias = workingDaysUntil(toYMD(prox));
+            porDiaDepois = dias > 0 ? amount / dias : 0;
+          }
+          const proximoLabel = b.recurring && nd ? (() => { const p = new Date(nd); if (pagoCiclo) return p.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); p.setMonth(p.getMonth() + 1); return p.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }); })() : null;
+          const codigo = (b.payment_code ?? "").trim();
+          info = {
+            nome: b.name,
+            valor: amount,
+            guardado: saved,
+            quitada: amount > 0 && saved >= amount,
+            paga: b.paid || pagoCiclo,
+            recorrente: Boolean(b.recurring),
+            cartao: Boolean(b.is_credit_card),
+            vencida: over,
+            venceLabel,
+            proximoLabel,
+            porDiaDepois,
+            temCodigo: codigo.length > 0,
+            codigoResumo: codigo.length > 34 ? `${codigo.slice(0, 34)}…` : codigo,
+            temBoleto: Boolean(b.file_path && b.file_path.trim() !== ""),
+            enviandoBoleto: uploadingBillId === b.id,
+          };
+        }
+        return (
+          <ContaSheet
+            open={contaSheet !== null}
+            onOpenChange={(o) => { if (!o) setContaSheet(null); }}
+            info={info}
+            onPagar={() => { if (b) { setContaSheet(null); handleToggleBillPaid(b); } }}
+            onDesfazer={() => { if (b) { setContaSheet(null); handleToggleBillPaid(b); } }}
+            onCopiarCodigo={() => { if (b) handleCopyPaymentCode(b); }}
+            onVerBoleto={() => { if (b) handleViewBillFile(b); }}
+            onAnexarBoleto={(f) => { if (b) handleUploadBillFile(b, f); }}
+            onRemoverBoleto={() => { if (b) handleRemoveBillFile(b); }}
+            onGuardei={() => { if (b) { setContaSheet(null); openDeposit({ kind: "bill", bill: b }); } }}
+            onEditar={() => { if (b) { setContaSheet(null); openEditBill(b); } }}
+            onExcluir={() => { if (b) { setContaSheet(null); handleDeleteBill(b); } }}
+          />
+        );
+      })()}
+      <NovaCaixinhaSheet
+        open={isAddGoalOpen}
+        onOpenChange={setIsAddGoalOpen}
+        userId={user.id}
+        workingDays={workingDays}
+        sobraDia={sobraDiaMetas}
+        ritmoOutras={metasAtivasFila.reduce((t, g) => t + metaRitmoDia(g), 0)}
+        onCreated={loadFinancialData}
+      />
 
       {comemorar && (
         <ObjetivoConquistado

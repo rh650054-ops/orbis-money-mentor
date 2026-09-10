@@ -172,6 +172,8 @@ serve(async (req) => {
           return new Response(JSON.stringify({ tip: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         if (t === "report_analysis")
           return new Response(JSON.stringify({ analise: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (t === "financas_dica")
+          return new Response(JSON.stringify({ titulo: "A IA já trabalhou bastante hoje", texto: msg, limite: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
         return new Response(JSON.stringify({ message: msg }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
@@ -258,6 +260,55 @@ Não use asteriscos, markdown nem outros títulos além desses cinco.`;
         userPrompt,
       );
       return new Response(JSON.stringify({ analise }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // Dica do Orbis — tela Finanças (Rick, 10/09): uma dica por dia, com os números
+    // de contas, guardar-por-dia e caixinhas da própria pessoa. Devolve {titulo, texto}.
+    if (body?.type === "financas_dica") {
+      const n = (v: unknown) => Number(v ?? 0).toFixed(0);
+      const contas = Array.isArray(body.contas) ? body.contas : [];
+      const caixinhas = Array.isArray(body.caixinhas) ? body.caixinhas : [];
+      const contasLinhas = contas.length
+        ? contas.slice(0, 8).map((c: { nome?: string; valor?: number; guardado?: number; diasAteVencer?: number | null; porDia?: number; vencida?: boolean; paga?: boolean }) =>
+            `  - ${c.nome ?? "conta"}: R$ ${n(c.valor)} | guardado R$ ${n(c.guardado)} | ${c.paga ? "PAGA este mês" : c.vencida ? "VENCIDA" : c.diasAteVencer == null ? "sem data" : `vence em ${c.diasAteVencer} dias`} | precisa R$ ${n(c.porDia)}/dia`).join("\n")
+        : "  - (nenhuma conta cadastrada)";
+      const caixinhasLinhas = caixinhas.length
+        ? caixinhas.slice(0, 6).map((g: { nome?: string; alvo?: number; tem?: number; porDia?: number }) =>
+            `  - ${g.nome ?? "caixinha"}: R$ ${n(g.tem)} de R$ ${n(g.alvo)} | ritmo R$ ${n(g.porDia)}/dia`).join("\n")
+        : "  - (nenhuma caixinha)";
+      const userPrompt = `Situação financeira do vendedor HOJE (${body.hoje ?? ""}):
+- Lucro líquido médio por dia de rua: R$ ${n(body.mediaDia)}
+- Sobrou pra ele este mês: R$ ${n(body.sobrouMes)} (de R$ ${n(body.vendidoMes)} vendidos)
+- Lucro de hoje: R$ ${n(body.lucroHoje)} | fiado hoje: R$ ${n(body.fiadoHoje)}
+- Precisa guardar hoje (contas + caixinhas): R$ ${n(body.guardarHoje)} | já guardou hoje: R$ ${n(body.guardouHoje)}
+- Dias seguidos guardando: ${body.sequencia ?? 0}
+- Contas vencidas em aberto: R$ ${n(body.vencidasTotal)}
+CONTAS A PAGAR:
+${contasLinhas}
+CAIXINHAS (objetivos):
+${caixinhasLinhas}
+
+Escreva UMA dica pra ele, específica, citando os números acima. Prioridade: conta vencida > conta que vence nos próximos 5 dias e ainda falta dinheiro > contas maiores que o lucro > caixinha. Se está tudo em dia, elogia e aponta o próximo passo concreto.
+Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres", "texto": "2 ou 3 frases, até 320 caracteres, sem markdown"}.`;
+      const raw = await callAI(
+        ORBIS_COACH + "\nAgora você é o mentor FINANCEIRO dele: contas primeiro, caixinha depois. Nunca sugira crédito/empréstimo. Responda só o JSON pedido.",
+        userPrompt,
+      );
+      let titulo = "";
+      let texto = "";
+      try {
+        const m = raw.match(/\{[\s\S]*\}/);
+        const j = m ? JSON.parse(m[0]) : null;
+        titulo = String(j?.titulo ?? "").trim();
+        texto = String(j?.texto ?? "").trim();
+      } catch { /* cai no texto puro */ }
+      if (!texto) {
+        const limpo = raw.replace(/[*_#`]/g, "").trim();
+        const partes = limpo.split(/(?<=[.!?])\s+/);
+        titulo = (partes.shift() ?? limpo).slice(0, 90);
+        texto = partes.join(" ").slice(0, 400) || limpo.slice(0, 400);
+      }
+      return new Response(JSON.stringify({ titulo: titulo.slice(0, 120), texto: texto.slice(0, 500) }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Buscar dados dos últimos 7 dias
