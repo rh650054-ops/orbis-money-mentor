@@ -1,89 +1,68 @@
+// Orbis — pluggy-connect-token: token curto pro widget da Pluggy abrir.
+// TRAVA DO PRO: conectar banco pelo Open Finance custa (+R$ 10/mes), porque a
+// Pluggy cobra do Orbis por isso. Sem Pro, nem gera o token.
+// O client_secret da Pluggy nunca sai do servidor.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
+const cors = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+  const json = (o: unknown, s = 200) =>
+    new Response(JSON.stringify(o), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
   try {
-    // Verify Supabase user JWT
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const URL_SUPA = Deno.env.get("SUPABASE_URL") ?? "";
+    const auth = req.headers.get("Authorization") ?? "";
+    if (!auth) return json({ error: "sem_login" }, 401);
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
+    const supa = createClient(URL_SUPA, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: u } = await supa.auth.getUser();
+    const uid = u?.user?.id;
+    if (!uid) return json({ error: "sem_login" }, 401);
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // ---- trava do Pro
+    const { data: ehPro } = await supa.rpc("orbis_pro_ativo", { p_user: uid });
+    if (ehPro !== true) return json({ error: "precisa_pro" });
 
-    const pluggyClientId = Deno.env.get("PLUGGY_CLIENT_ID");
-    const pluggyClientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+    const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
+    const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+    if (!clientId || !clientSecret) return json({ error: "pluggy_nao_configurado" });
 
-    if (!pluggyClientId || !pluggyClientSecret) {
-      return new Response(
-        JSON.stringify({ error: "Integração bancária não configurada. Entre em contato com o suporte." }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    // Step 1: Authenticate with Pluggy to get API key
-    const authResponse = await fetch("https://api.pluggy.ai/auth", {
+    // 1) autentica no Pluggy pra pegar a apiKey (curta)
+    const authRes = await fetch("https://api.pluggy.ai/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId: pluggyClientId, clientSecret: pluggyClientSecret }),
+      body: JSON.stringify({ clientId, clientSecret }),
+      signal: AbortSignal.timeout(20000),
     });
-
-    if (!authResponse.ok) {
-      const errorText = await authResponse.text();
-      console.error("Pluggy auth failed:", errorText);
-      throw new Error("Falha na autenticação com a plataforma bancária");
+    if (!authRes.ok) {
+      console.error("pluggy auth falhou", authRes.status, (await authRes.text()).slice(0, 200));
+      return json({ error: "pluggy_auth" });
     }
+    const { apiKey } = await authRes.json();
 
-    const { apiKey } = await authResponse.json();
-
-    // Step 2: Generate a short-lived connect token for the widget
-    const connectTokenResponse = await fetch("https://api.pluggy.ai/connect_token", {
+    // 2) token do widget — amarrado a ESTE vendedor (clientUserId)
+    const ctRes = await fetch("https://api.pluggy.ai/connect_token", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-API-KEY": apiKey,
-      },
+      headers: { "Content-Type": "application/json", "X-API-KEY": apiKey },
+      body: JSON.stringify({ options: { clientUserId: uid } }),
+      signal: AbortSignal.timeout(20000),
     });
-
-    if (!connectTokenResponse.ok) {
-      const errorText = await connectTokenResponse.text();
-      console.error("Pluggy connect_token failed:", errorText);
-      throw new Error("Falha ao gerar token de conexão bancária");
+    if (!ctRes.ok) {
+      console.error("pluggy connect_token falhou", ctRes.status, (await ctRes.text()).slice(0, 200));
+      return json({ error: "pluggy_token" });
     }
+    const { accessToken } = await ctRes.json();
 
-    const { accessToken } = await connectTokenResponse.json();
-
-    return new Response(JSON.stringify({ accessToken }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (error) {
-    console.error("pluggy-connect-token error:", error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ ok: true, accessToken });
+  } catch (e) {
+    console.error("pluggy-connect-token", e);
+    return json({ error: "erro_interno" }, 500);
   }
 });

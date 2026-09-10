@@ -1,0 +1,6 @@
+-- BUG (10/09/2026): profiles.id NAO e o id do usuario — profiles.user_id e.
+-- banco_conceder_selo, conexao_revisar_selo, orbis_pro_status, mp_status e x1_lutar
+-- comparavam profiles.id = auth.uid()/p_user: selo nunca concedido pelo banco e
+-- verificado=false pra todo mundo na tela. Aplicada direto no projeto
+-- (migration "selo_profiles_user_id_v1"); este arquivo e o registro.
+-- Corpo completo: ver o historico de migrations do Supabase.

@@ -16,6 +16,11 @@
       animação quando subiu de patente, botão pra ver o ranking e, por
       último, "Suas horas" — cada bloco com o valor REAL e exato.)
 
+   OPEN FINANCE (Rick, 10/09): quem tem banco ligado (Orbis Pro) vê o Pix já
+   preenchido com o que caiu na conta (banco_pix_do_dia + pluggy-sync). Digita
+   só cartão e dinheiro; o calote é a diferença; o recebido vai pro ranking.
+   Quem não tem banco continua lançando tudo na mão, como sempre.
+
    Por baixo é tudo o que já existia: onSaveBreakdown (divide os blocos e
    grava daily_sales + total_debt), personal_expenses, daily_sales.cost (CMV),
    leaderboard_stats, DefconShareCarousel. Nenhuma tabela nova.
@@ -26,7 +31,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Banknote, Smartphone, CreditCard, AlertTriangle, ShoppingCart, Bus, Utensils, Package, Plus, Trash2,
   Check, Clock, Trophy, Loader2, Instagram, RotateCcw, ArrowLeft, Star, PartyPopper, Target, Timer, UserRound, BarChart3, DollarSign, TrendingDown, HandCoins,
-  ChevronRight,
+  ChevronRight, Landmark,
 } from "lucide-react";
 import { getTier, type Tier } from "@/components/ranking/tier";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -98,6 +103,13 @@ export function DefconFechamento({
   const [rec, setRec] = useState({ dinheiro: "", pix: "", cartao: "" });
   const [salvandoRec, setSalvandoRec] = useState(false);
   const [recSujo, setRecSujo] = useState(false);
+  // OPEN FINANCE (Rick, 10/09): quem tem banco ligado vê o Pix já preenchido com o
+  // que caiu de verdade na conta. Cartão e dinheiro ele digita; o calote sai da
+  // conta (vendido − recebido) e é ESSE valor que vai pro ranking.
+  const [banco, setBanco] = useState<{ tem: boolean; nome: string; total: number; qtd: number; ultima: string | null } | null>(null);
+  const [bancoBuscando, setBancoBuscando] = useState(false);
+  // o vendedor mexeu no Pix com a própria mão? então o banco não sobrescreve mais
+  const pixEditadoRef = useRef(false);
   const [dsId, setDsId] = useState<string | null>(null);
   const [gorjetas, setGorjetas] = useState(0);
   const [linhas, setLinhas] = useState<CustoLinha[]>([]);
@@ -228,6 +240,50 @@ export function DefconFechamento({
     })().catch(() => { if (vivo) setCustosCarregados(true); });
     return () => { vivo = false; };
   }, [userId, hoje]);
+
+  /* ---- banco (Open Finance): o que caiu de Pix hoje, direto da conta ---- */
+  useEffect(() => {
+    if (!userId) return;
+    let vivo = true;
+    const ler = async (): Promise<boolean> => {
+      try {
+        const { data } = await (supabase as any).rpc("banco_pix_do_dia", { p_dia: hoje });
+        const r = ((data as any[]) || [])[0];
+        if (!vivo) return false;
+        if (!r?.tem_banco) { setBanco({ tem: false, nome: "", total: 0, qtd: 0, ultima: null }); return false; }
+        setBanco({ tem: true, nome: String(r.banco || ""), total: Number(r.total) || 0, qtd: Number(r.qtd) || 0, ultima: r.ultima_sync ?? null });
+        return true;
+      } catch { return false; }
+    };
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    (async () => {
+      if (!(await ler())) return;
+      // pede o extrato fresco. A Pluggy responde pelo webhook, então relê duas vezes depois.
+      setBancoBuscando(true);
+      try { await (supabase as any).functions.invoke("pluggy-sync"); } catch { /* sem banco fresco: fica o que tem */ }
+      await ler();
+      if (vivo) setBancoBuscando(false);
+      timers.push(setTimeout(() => { if (vivo) void ler(); }, 20_000));
+      timers.push(setTimeout(() => { if (vivo) void ler(); }, 50_000));
+    })();
+    return () => { vivo = false; timers.forEach(clearTimeout); };
+  }, [userId, hoje]);
+
+  // Pix vem preenchido do banco — só enquanto o vendedor não mexer nele com a mão.
+  // Espera a carga do dia terminar (custosCarregados) pra não ser atropelado pelo
+  // valor antigo do daily_sales.
+  useEffect(() => {
+    if (!banco?.tem || !custosCarregados || pixEditadoRef.current) return;
+    // banco ainda sem nenhum Pix de hoje = provavelmente atrasado, não "zero":
+    // não apaga o que o vendedor lançou. Só preenche quando o banco viu algo.
+    if (banco.qtd <= 0) return;
+    const texto = banco.total.toFixed(2).replace(".", ",");
+    setRec((r) => {
+      if (r.pix === texto) return r;
+      return { ...r, pix: texto };
+    });
+    setRecSujo(true);
+  }, [banco, custosCarregados]);
 
   /* ---- cena de patente: dispara quando o card entra na tela, uma vez só ---- */
   useEffect(() => {
@@ -482,11 +538,34 @@ export function DefconFechamento({
         <Bloco style={{ marginTop: 12, padding: "0 16px" }}>
           {metodos.map(([nome, v, cor, ico], idx) => {
             const k = (nome === "Dinheiro" ? "dinheiro" : nome === "Pix" ? "pix" : "cartao") as keyof typeof rec;
+            const ehPix = k === "pix";
+            const pixDoBanco = ehPix && !!banco?.tem;
+            const pixDivergente = pixDoBanco && Math.abs(recPix - (banco?.total ?? 0)) >= 0.005;
             return (
-              <div key={nome} className="flex items-center gap-3 h-[62px]" style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
-                <span className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: cor }}>{ico}</span>
-                <span className="flex-1 text-[15px] font-semibold">{nome}</span>
-                <CampoValor largo valor={rec[k]} destaque={v > 0} onChange={(t) => { setRec({ ...rec, [k]: t }); setRecSujo(true); }} onBlur={() => void salvarRecebimentos()} />
+              <div key={nome} style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
+                <div className="flex items-center gap-3 h-[62px]">
+                  <span className="w-[34px] h-[34px] rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "rgba(255,255,255,.06)", color: cor }}>{ico}</span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-semibold">{nome}</span>
+                    {pixDoBanco && (
+                      <span className="block text-[11px] font-bold mt-0.5 truncate" style={{ color: pixDivergente ? "var(--orbis-fg-3)" : "#00B1EA" }}>
+                        {bancoBuscando ? "conferindo no banco…"
+                          : (banco?.qtd ?? 0) > 0 ? `${banco?.qtd} Pix ${banco?.qtd === 1 ? "caiu" : "caíram"} na conta · ${formatCurrency(banco?.total ?? 0)}`
+                          : "nada caiu na conta hoje ainda"}
+                      </span>
+                    )}
+                  </span>
+                  <CampoValor largo valor={rec[k]} destaque={v > 0}
+                    onChange={(t) => { if (ehPix) pixEditadoRef.current = true; setRec({ ...rec, [k]: t }); setRecSujo(true); }}
+                    onBlur={() => void salvarRecebimentos()} />
+                </div>
+                {pixDivergente && !bancoBuscando && (
+                  <button type="button"
+                    onClick={() => { pixEditadoRef.current = false; setRec({ ...rec, pix: (banco?.total ?? 0) > 0 ? (banco?.total ?? 0).toFixed(2).replace(".", ",") : "" }); setRecSujo(true); }}
+                    className="w-full -mt-2 pb-3 inline-flex items-center justify-center gap-1.5 text-[12px] font-extrabold" style={{ color: "#00B1EA" }}>
+                    <Landmark className="w-3.5 h-3.5" strokeWidth={2.4} /> usar o que caiu na conta ({formatCurrency(banco?.total ?? 0)})
+                  </button>
+                )}
               </div>
             );
           })}
@@ -500,7 +579,7 @@ export function DefconFechamento({
         ) : recebido > vendidoSemGorjeta + 0.005 ? (
           <p className="text-[13.5px] font-bold mt-3 text-center" style={{ color: "var(--orbis-custo)" }}>Entrou mais do que você vendeu — confere os valores.</p>
         ) : fiado > 0.005 ? (
-          <p className="text-[13.5px] font-bold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-custo)" }}><AlertTriangle className="w-4 h-4" strokeWidth={2.4} /> {formatCurrency(fiado)} não recebidos · fiado / calote</p>
+          <p className="text-[13.5px] font-bold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-custo)" }}><AlertTriangle className="w-4 h-4" strokeWidth={2.4} /> {formatCurrency(fiado)} {banco?.tem ? "não caíram na conta · fiado / calote" : "não recebidos · fiado / calote"}</p>
         ) : vendidoSemGorjeta > 0 ? (
           <p className="text-[14px] font-extrabold mt-3 flex items-center justify-center gap-2" style={{ color: "var(--orbis-ok)" }}><Check className="w-4 h-4" strokeWidth={3} /> 100% recebido</p>
         ) : null}
