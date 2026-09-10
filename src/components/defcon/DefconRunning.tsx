@@ -3,7 +3,7 @@ import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
 import { reaisDeTexto, limparDinheiro, arrumarDinheiro } from "@/shared/lib/dinheiro";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2, Timer } from "lucide-react";
+import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2 } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
@@ -658,86 +658,65 @@ export function DefconRunning({
           ))}
         </div>
 
-        {/* ===== HERÓI (Rick, 10/09 — prancha "DEFCON · o corre"): um anel Opal com o
-            vendido do bloco contra a meta da hora, o que falta em vendas, o cronômetro
-            compacto e o dia inteiro numa linha. O timer continua com o próprio tick. ===== */}
-        {(() => {
-          const meta = Math.max(0, Number(currentBlock?.target_amount) || 0);
-          const pctBloco = meta > 0 ? Math.min(100, (blockSold / meta) * 100) : 0;
-          const faltaBloco = Math.max(0, meta - blockSold);
-          const tk = avgTicket > 0 ? avgTicket : 0;
-          const vendasFaltam = tk > 0 && faltaBloco > 0 ? Math.ceil(faltaBloco / tk) : 0;
-          const faltaDia = Math.max(0, dailyGoal - totalSold);
-          const size = 128, stroke = 11, r = (size - stroke) / 2, c = 2 * Math.PI * r;
-          return (
-            <section data-tour="defcon-timer" className="w-full rounded-[22px] border" style={{
-              borderColor: "rgba(245,184,0,.28)",
-              background: "linear-gradient(160deg,#1c1608 0%, hsl(var(--card)) 60%)",
-              boxShadow: "0 20px 50px -30px rgba(245,184,0,.45)",
-              padding: "16px 16px 12px",
-            }}>
-              <p className="orbis-label">Defcon · bloco {currentBlockIndex + 1} de {totalBlocks}</p>
-              <p className="text-[13px] font-bold mt-0.5" style={{ color: "var(--orbis-fg-2)" }}>
-                {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
-              </p>
-              <div data-tour="defcon-placar" className="flex items-center gap-4 mt-3">
-                <span className="relative inline-flex items-center justify-center shrink-0" style={{ width: size, height: size }}>
-                  <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: "rotate(-90deg)" }}>
-                    <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,.08)" strokeWidth={stroke} />
-                    <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={pctBloco >= 100 ? "var(--orbis-ok)" : "var(--orbis-gold)"} strokeWidth={stroke} strokeLinecap="round"
-                      strokeDasharray={c} strokeDashoffset={c * (1 - pctBloco / 100)} style={{ transition: "stroke-dashoffset 600ms cubic-bezier(.2,0,0,1)" }} />
-                  </svg>
-                  <span className="absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="orbis-num text-[26px] font-extrabold leading-none tracking-[-.02em]">{formatCurrency(blockSold).replace(",00", "")}</span>
-                    <span className="text-[11px] font-bold mt-1" style={{ color: "var(--orbis-fg-3)" }}>no bloco</span>
-                  </span>
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="orbis-section">Meta da hora</p>
-                  <p className="orbis-num text-[24px] font-extrabold leading-none mt-1" style={{ color: "var(--orbis-gold)" }}>{meta > 0 ? formatCurrency(meta).replace(",00", "") : "—"}</p>
-                  {meta > 0 && <p className="text-[12.5px] mt-1" style={{ color: "var(--orbis-fg-2)" }}><b className="text-foreground">{Math.round(pctBloco)}%</b> feita</p>}
-                  <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--orbis-line)" }}>
-                    <p className="orbis-section">{faltaBloco > 0 ? "Falta" : "Bloco batido"}</p>
-                    <p className="orbis-num text-[20px] font-extrabold leading-none mt-1">{faltaBloco > 0 ? formatCurrency(faltaBloco).replace(",00", "") : "✓"}</p>
-                    {vendasFaltam > 0 && <p className="text-[12px] mt-1" style={{ color: "var(--orbis-fg-3)" }}>{vendasFaltam} {vendasFaltam === 1 ? "venda" : "vendas"} de {formatCurrency(Math.round(tk)).replace(",00", "")}</p>}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between gap-3 mt-3 pt-3" style={{ borderTop: "1px solid var(--orbis-line)" }}>
-                <BlockCountdown blockStartedAt={blockStartedAt} compact />
-                <p className="text-right text-[12.5px] leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
-                  Dia: <b className="orbis-num" style={{ color: "var(--orbis-ok)" }}>{formatCurrency(totalSold).replace(",00", "")}</b>{dailyGoal > 0 && <> de {formatCurrency(dailyGoal).replace(",00", "")}</>}
-                  {dailyGoal > 0 && <><br />{faltaDia > 0 ? <>faltam <b className="text-foreground orbis-num">{formatCurrency(faltaDia).replace(",00", "")}</b> pra meta</> : <b style={{ color: "var(--orbis-ok)" }}>meta do dia batida</b>}</>}
-                </p>
-              </div>
-            </section>
-          );
-        })()}
-
-        {/* Coach — a frase de impacto vira card, acima dos contadores */}
-        <div className="w-full flex items-start gap-2.5 rounded-[14px] px-3.5 py-3" style={{ border: "1px solid rgba(245,184,0,.35)", background: "var(--orbis-surf)" }}>
-          <Coins className="w-[18px] h-[18px] shrink-0 mt-0.5" style={{ color: "var(--orbis-gold)" }} strokeWidth={2} />
-          <p className="text-[13.5px] leading-[1.45] text-foreground">{impactPhrase}</p>
+        {/* Block label */}
+        <div className="text-xs font-mono text-muted-foreground/70 tracking-[0.3em] uppercase">
+          Bloco #{currentBlockIndex + 1} • {formatTime(blockStartedAt)} → {formatTime(blockEndTime)}
         </div>
 
-        {/* Contadores do bloco — três cards, "hoje" embaixo */}
-        <div className="w-full grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => { setViewBlockIndex(currentBlockIndex); setShowBlockSales(true); }} aria-label="Ver vendas deste bloco"
-            className="rounded-[14px] border px-3 py-2.5 text-left active:scale-95 transition-transform" style={{ borderColor: "var(--orbis-line)", background: "hsl(var(--card))" }}>
-            <p className="orbis-section">Vendas</p>
-            <p className="orbis-num text-[22px] font-extrabold leading-none mt-1">{blockSalesCount}</p>
-            <p className="text-[11px] mt-1" style={{ color: "var(--orbis-fg-3)" }}>hoje {totalSalesCount}</p>
+        {/* Timer — elemento dominante. Auto-suficiente: tem o próprio tick de 1s,
+            então SÓ ele re-renderiza a cada segundo (não a tela inteira). */}
+        <div data-tour="defcon-timer" className="w-full flex justify-center">
+          <BlockCountdown blockStartedAt={blockStartedAt} />
+        </div>
+
+        {/* Bloco info — métricas em colunas com label. flex-wrap + gaps menores +
+            fonte fluida: em telas estreitas (320–360px) nada estoura pro lado. */}
+        <div data-tour="defcon-placar" className="w-full flex flex-nowrap items-center justify-center gap-x-2.5 px-1">
+          {/* Faturado */}
+          <div className="flex flex-col items-center gap-0.5 min-w-0">
+            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Bloco</span>
+            <span className="font-black text-success text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
+              {formatCurrency(blockSold)}
+            </span>
+          </div>
+
+          <span className="w-px h-7 bg-border shrink-0" />
+
+          {/* Vendas — tocável: abre o detalhe por venda do bloco */}
+          <button
+            type="button"
+            onClick={() => { setViewBlockIndex(currentBlockIndex); setShowBlockSales(true); }}
+            aria-label="Ver vendas deste bloco"
+            className="flex flex-col items-center gap-0.5 active:scale-95 transition-transform"
+          >
+            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Vendas</span>
+            <span className="font-black text-foreground text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none underline decoration-dotted decoration-foreground/30 underline-offset-4">
+              {blockSalesCount}
+            </span>
           </button>
-          <div className={`rounded-[14px] border px-3 py-2.5 transition-transform ${approachPulse ? "scale-105" : ""}`} style={{ borderColor: "var(--orbis-line)", background: "hsl(var(--card))" }}>
-            <p className="orbis-section">Abord.</p>
-            <p className="orbis-num text-[22px] font-extrabold leading-none mt-1">{blockApproaches}</p>
-            <p className="text-[11px] mt-1" style={{ color: "var(--orbis-fg-3)" }}>hoje {totalApproaches}</p>
+
+          <span className="w-px h-7 bg-border shrink-0" />
+
+          {/* Abordagens */}
+          <div className={`flex flex-col items-center gap-0.5 transition-transform ${approachPulse ? "scale-110" : ""}`}>
+            <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Abord.</span>
+            <span className="font-black text-foreground text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
+              {blockApproaches}
+            </span>
           </div>
-          <div className="rounded-[14px] border px-3 py-2.5" style={{ borderColor: "rgba(245,184,0,.35)", background: "linear-gradient(180deg,#171203, hsl(var(--card)))" }}>
-            <p className="orbis-section">Conv.</p>
-            <p className="orbis-num text-[22px] font-extrabold leading-none mt-1" style={{ color: "var(--orbis-gold)" }}>{blockApproaches > 0 ? `${conversionRate}%` : "—"}</p>
-            <p className="text-[11px] mt-1" style={{ color: "var(--orbis-fg-3)" }}>hoje {totalApproaches > 0 ? `${Math.round((totalSalesCount / totalApproaches) * 100)}%` : "—"}</p>
-          </div>
+
+          {blockApproaches > 0 && (
+            <>
+              <span className="w-px h-7 bg-border shrink-0" />
+              {/* Conversão */}
+              <div className="flex flex-col items-center gap-0.5">
+                <span className="text-[9px] font-mono text-muted-foreground/70 tracking-[0.1em] uppercase">Conv.</span>
+                <span className="font-black text-primary text-[clamp(13px,3.8vw,17px)] font-mono tabular-nums leading-none">
+                  {conversionRate}%
+                </span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Quick sale buttons */}
@@ -769,35 +748,45 @@ export function DefconRunning({
           onSaveOverride={onboardingMode && onTreinoCusto ? (v, name) => onTreinoCusto(v, name) : undefined}
         />
 
-        {/* Botões de ação (Rick, 10/09): venda em 3D (padrão .orbis-cta, Duolingo press),
-            abordagem e gorjeta embaixo em 44px. Os data-tour continuam os mesmos. */}
-        <div className="w-full flex flex-col gap-2.5 px-1">
+        {/* Botões de ação — venda elevada acima dos laterais */}
+        <div className="w-full flex items-end justify-center gap-2.5 px-1">
+          {/* Abordagem — esquerda, mais baixo */}
+          <button
+            data-tour="defcon-abordagem"
+            onClick={handleApproachClick}
+            className={`flex-1 h-[56px] rounded-2xl bg-card border border-border flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-secondary transition-[colors,transform,opacity] ${
+              approachPulse ? "ring-2 ring-foreground/30 bg-secondary" : ""
+            }`}
+          >
+            <UserRound className="w-4 h-4 text-foreground/80" strokeWidth={2.5} />
+            <span className="text-xs font-bold text-foreground/80 leading-none">Abordagem</span>
+          </button>
+
+          {/* Venda — centro, elevado e destacado */}
           <button
             data-tour="defcon-venda"
             onClick={() => setShowAddSale(true)}
-            className="orbis-cta w-full h-[60px] rounded-[16px] inline-flex items-center justify-center gap-2 text-[17px] font-black tracking-wide"
+            className="flex-[1.25] h-[72px] rounded-2xl bg-primary flex items-center justify-center gap-2 active:scale-95 transition-[colors,transform,opacity] shadow-[0_12px_40px_-6px_hsl(var(--primary)/0.85)]"
           >
-            <Plus className="w-6 h-6" strokeWidth={3.5} /> REGISTRAR VENDA
+            <Plus className="w-7 h-7 text-primary-foreground" strokeWidth={3.5} />
+            <span className="text-[18px] font-black text-primary-foreground tracking-tight">Venda</span>
           </button>
-          <div className="flex gap-2.5">
-            <button
-              data-tour="defcon-abordagem"
-              onClick={handleApproachClick}
-              className={`flex-1 h-11 rounded-[13px] inline-flex items-center justify-center gap-2 text-[14px] font-extrabold active:scale-95 transition-transform ${approachPulse ? "ring-2 ring-foreground/30" : ""}`}
-              style={{ background: "#131316", border: "1px solid #232327", color: "#d9d4cc" }}
-            >
-              <UserRound className="w-4 h-4" strokeWidth={2.5} /> +1 Abordagem
-            </button>
-            <button
-              data-tour="defcon-gorjeta"
-              onClick={() => setShowAddTip(true)}
-              className="flex-1 h-11 rounded-[13px] inline-flex items-center justify-center gap-2 text-[14px] font-extrabold active:scale-95 transition-transform"
-              style={{ background: "#131316", border: "1px solid rgba(245,184,0,.4)", color: "var(--orbis-gold)" }}
-            >
-              <Coins className="w-4 h-4" strokeWidth={2.5} /> Gorjeta
-            </button>
-          </div>
+
+          {/* Gorjeta — direita, mais baixo */}
+          <button
+            data-tour="defcon-gorjeta"
+            onClick={() => setShowAddTip(true)}
+            className="flex-1 h-[56px] rounded-2xl bg-transparent border-2 border-primary/40 flex flex-col items-center justify-center gap-0.5 active:scale-95 active:bg-primary/10 transition-[colors,transform,opacity]"
+          >
+            <Coins className="w-4 h-4 text-primary" strokeWidth={2.5} />
+            <span className="text-xs font-bold text-primary leading-none">Gorjeta</span>
+          </button>
         </div>
+
+        {/* Frase de impacto — acionável */}
+        <p className="text-[13px] text-foreground/70 font-mono text-center font-semibold">
+          {impactPhrase}
+        </p>
       </div>
 
       {/* Footer — discreto, não compete com ações */}
@@ -1395,7 +1384,7 @@ export function DefconRunning({
 // próprio tick de 1s. Antes o hook atualizava o estado da página inteira a cada
 // segundo — todo o DEFCON re-renderizava 60x/min (bateria + travadinhas em celular
 // fraco). Agora só este componente re-renderiza por segundo.
-function BlockCountdown({ blockStartedAt, compact = false }: { blockStartedAt: Date | null; compact?: boolean }) {
+function BlockCountdown({ blockStartedAt }: { blockStartedAt: Date | null }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
@@ -1407,17 +1396,6 @@ function BlockCountdown({ blockStartedAt, compact = false }: { blockStartedAt: D
   const seconds = remainingSeconds % 60;
   const progress = ((60 * 60 - remainingSeconds) / (60 * 60)) * 100;
   const isUrgent = remainingSeconds < 300; // últimos 5 minutos
-
-  if (compact) {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <Timer className="w-4 h-4" style={{ color: isUrgent ? "hsl(var(--destructive))" : "var(--orbis-gold)" }} strokeWidth={2.4} />
-        <span className={`orbis-num text-[30px] font-extrabold leading-none tracking-[-.02em] ${isUrgent ? "text-destructive animate-pulse" : "text-foreground"}`}>
-          {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-        </span>
-      </span>
-    );
-  }
 
   return (
     <div className="flex flex-col items-center gap-3 -my-1">
