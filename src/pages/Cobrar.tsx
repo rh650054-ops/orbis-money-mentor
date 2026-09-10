@@ -15,7 +15,7 @@ import {
   ChevronRight, AlertTriangle, HandCoins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { reaisDeDigitos, textoDeDigitos, soDigitosValor } from "@/shared/lib/dinheiro";
+import { reaisDeTexto, limparDinheiro, textoDeReais, arrumarDinheiro } from "@/shared/lib/dinheiro";
 import { toast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -30,9 +30,10 @@ const RED = "#F2465A";
 const ZAP = "#25D366";
 
 /* ---------- campos: FORA do componente, senão o teclado fecha a cada tecla ---------- */
-function Campo({ rotulo, valor, onChange, placeholder, tipo = "text", inputMode }: {
+function Campo({ rotulo, valor, onChange, placeholder, tipo = "text", inputMode, onBlur }: {
   rotulo: string; valor: string; onChange: (v: string) => void;
   placeholder?: string; tipo?: string; inputMode?: "text" | "numeric" | "tel" | "decimal";
+  onBlur?: () => void;
 }) {
   return (
     <label className="block rounded-[14px] px-3.5 py-2.5" style={{ background: "#0e0e10", border: "1px solid #232327" }}>
@@ -43,6 +44,7 @@ function Campo({ rotulo, valor, onChange, placeholder, tipo = "text", inputMode 
         value={valor}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         className="w-full bg-transparent outline-none text-[15px] font-extrabold mt-0.5 tracking-[-.02em]"
         style={{ color: "#fff" }}
       />
@@ -125,7 +127,7 @@ export default function Cobrar() {
     setClientId(c.client_id);
     setNome(c.nome || "");
     setTel(telefoneBonito(c.telefone));
-    setValor(c.valor > 0 ? String(c.valor).replace(".", ",") : "");
+    setValor(textoDeReais(c.valor));
   }, [clienteParam, cobrancaParam, clientes]);
 
   /* ---- enquanto espera, confere de tempos em tempos se já caiu ---- */
@@ -137,11 +139,11 @@ export default function Cobrar() {
     return () => clearInterval(t);
   }, [cob]);
 
-  // `valor` guarda SÓ DÍGITOS ("1250"); os dois últimos são os centavos.
-  // Antes isso apagava todo ponto achando que era separador de milhar: quem
-  // digitasse 12.50 gerava uma cobrança REAL de R$ 1.250,00 no WhatsApp de um
-  // cliente de verdade. Agora não tem como digitar ponto nem vírgula.
-  const valorNum = useMemo(() => reaisDeDigitos(valor), [valor]);
+  // `valor` guarda O QUE ELE DIGITOU ("20", "20,50"). Aqui o separador é SEMPRE
+  // decimal, nunca milhar: é o que mata de vez o acidente antigo em que digitar
+  // 12.50 gerava uma cobrança REAL de R$ 1.250,00 no WhatsApp de um cliente de
+  // verdade. Quem cobra R$ 1.250 digita 1250. Ver shared/lib/dinheiro.ts.
+  const valorNum = useMemo(() => reaisDeTexto(valor), [valor]);
 
   const texto = useMemo(() => mensagemCobranca({
     clienteNome: cob?.cliente_nome ?? nome,
@@ -322,7 +324,7 @@ export default function Cobrar() {
           <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "var(--orbis-fg-3)" }}>CLIENTES DE HOJE</p>
           {semCobranca.slice(0, 5).map((c) => (
             <button key={c.client_id} type="button"
-              onClick={() => { setClientId(c.client_id); setNome(c.nome || ""); setTel(telefoneBonito(c.telefone)); setValor(c.valor > 0 ? String(c.valor).replace(".", ",") : ""); }}
+              onClick={() => { setClientId(c.client_id); setNome(c.nome || ""); setTel(telefoneBonito(c.telefone)); setValor(textoDeReais(c.valor)); }}
               className="w-full text-left flex items-center gap-3 py-2.5 active:opacity-70" style={{ borderTop: "1px solid var(--orbis-line)" }}>
               <span className="w-[34px] h-[34px] rounded-[11px] shrink-0 flex items-center justify-center text-[11.5px] font-black"
                 style={{ background: "#16151a", border: "1px solid #2a2823", color: "#d9d4cc" }}>{iniciais(c.nome)}</span>
@@ -341,7 +343,7 @@ export default function Cobrar() {
       <div className="flex flex-col gap-2 mt-3">
         <Campo rotulo="QUEM" valor={nome} onChange={setNome} placeholder="Nome do cliente" />
         <Campo rotulo="WHATSAPP" valor={tel} onChange={setTel} placeholder="(11) 9 0000-0000" inputMode="tel" />
-        <Campo rotulo="QUANTO" valor={textoDeDigitos(valor)} onChange={(v) => setValor(soDigitosValor(v))} placeholder="0,00" inputMode="numeric" />
+        <Campo rotulo="QUANTO" valor={valor} onChange={(v) => setValor(limparDinheiro(v))} onBlur={() => setValor(arrumarDinheiro)} placeholder="0,00" inputMode="decimal" />
         <Campo rotulo="DO QUÊ" valor={oque} onChange={setOque} placeholder="2 camisetas" />
       </div>
 

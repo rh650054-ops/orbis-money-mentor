@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
-import { reaisDeDigitos, textoDeDigitos, soDigitosValor } from "@/shared/lib/dinheiro";
+import { reaisDeTexto, limparDinheiro, arrumarDinheiro } from "@/shared/lib/dinheiro";
 import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2 } from "lucide-react";
 import { DefconBlock } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
@@ -171,10 +171,11 @@ export function DefconRunning({
     return null;
   };
   const tiersQty = (amount: number): number => casarValor(amount)?.qty ?? 1;
-  // saleValue guarda SÓ DÍGITOS ("1250"); os dois últimos são os centavos.
-  // Era type="number" e a vírgula do teclado brasileiro zerava o campo —
-  // o vendedor digitava "12," e os botões de venda ficavam apagados.
-  const saleValorNum = reaisDeDigitos(saleValue);
+  // saleValue guarda O QUE ELE DIGITOU ("20", "20,50"), não dígitos crus.
+  // Digitou 20 = R$ 20. A vírgula é dele, quando ele quiser (Lucas, 10/09).
+  // Nunca type="number": a vírgula do teclado BR zerava o campo e os botões
+  // de venda apagavam. Ver o histórico completo em shared/lib/dinheiro.ts.
+  const saleValorNum = reaisDeTexto(saleValue);
   // Casa o valor com a tabela: [{product, qty}] — prioriza o produto já selecionado
   const casado = useMemo(() => {
     if (!(saleValorNum > 0) || loadout.length === 0) return null;
@@ -316,7 +317,7 @@ export function DefconRunning({
   };
 
   const handleAddSale = (method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
-    const amount = reaisDeDigitos(saleValue);
+    const amount = reaisDeTexto(saleValue);
     if (!(amount > 0)) return;
     if (amount > TETO_VENDA) {
       setErroValor(`R$ ${amount.toLocaleString("pt-BR")} não passa. Confere se não sobrou um zero — o limite por venda é ${formatCurrency(TETO_VENDA)}.`);
@@ -400,7 +401,7 @@ export function DefconRunning({
      Se a carteira não estiver ligada (ou a criação falhar), cai no jeito antigo:
      a mensagem vai com a chave Pix dele. Nada quebra pra quem não conectou. */
   const openChargePreview = async () => {
-    const amount = reaisDeDigitos(saleValue);
+    const amount = reaisDeTexto(saleValue);
     if (amount <= 0 || sanitizePhone(salePhone).length < 10) return;
 
     const base = buildChargeMessage(amount, saleName);
@@ -436,7 +437,7 @@ export function DefconRunning({
   };
 
   const confirmCharge = async () => {
-    const amount = reaisDeDigitos(saleValue);
+    const amount = reaisDeTexto(saleValue);
     const digits = sanitizePhone(salePhone);
     if (amount <= 0 || digits.length < 10) return;
     const phone = digits.startsWith("55") ? digits : `55${digits}`;
@@ -859,11 +860,12 @@ export function DefconRunning({
               </span>
               <input
                 type="text"
-                inputMode="numeric"
-                value={textoDeDigitos(saleValue)}
-                onChange={(e) => { setSaleValue(soDigitosValor(e.target.value)); if (erroValor) setErroValor(null); }}
+                inputMode="decimal"
+                value={saleValue}
+                onChange={(e) => { setSaleValue(limparDinheiro(e.target.value)); if (erroValor) setErroValor(null); }}
+                onBlur={() => setSaleValue((v) => arrumarDinheiro(v))}
                 onKeyDown={(e) => e.key === "Enter" && handleAddSale("dinheiro")}
-                placeholder="0"
+                placeholder="0,00"
                 autoFocus
                 className="w-full h-20 bg-background border-2 border-border rounded-xl text-center text-4xl font-black text-foreground pl-16 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success transition-colors placeholder:text-muted-foreground"
               />
