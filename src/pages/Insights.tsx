@@ -143,6 +143,7 @@ export default function Insights() {
   const [aiReportLoading, setAiReportLoading] = useState(false);
   const [aiReportError, setAiReportError] = useState<string | null>(null);
   const [aiExpanded, setAiExpanded] = useState(false);
+  const [aiOpen, setAiOpen] = useState(false);
 
   // Computed range
   const range = useMemo(() => {
@@ -908,22 +909,51 @@ export default function Insights() {
             ficha={ficha}
           />
 
-          {/* Compartilhar (arte diária do DEFCON pra 1 dia; recap pra períodos) */}
-          {summary.faturamento > 0 && (
-            isSingleDay ? (
-              <DefconShareCarousel
-                stats={{
-                  faturamento: summary.faturamento,
-                  vendas: summary.totalVendas,
-                  conversao: summary.conversao,
-                  horas: fmtHorasCurto(summary.horasTrabalhadasMin),
-                  periodo: shareLabel,
-                }}
-              />
-            ) : (
-              <RelatorioShareCard stats={recapStats} />
-            )
-          )}
+          {/* ANALISAR COM IA — botão dourado (canvas aprovado 10/09), painel inline */}
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                const abrindo = !aiOpen;
+                setAiOpen(abrindo);
+                if (abrindo && !aiReport && !aiReportLoading) generateReportAnalysis();
+              }}
+              className="orbis-cta w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-[15px] font-extrabold"
+              style={{ background: "var(--orbis-gold)", color: "#0d0c0b" }}
+              aria-expanded={aiOpen}
+            >
+              <Sparkles className="w-[18px] h-[18px]" strokeWidth={2.4} />
+              {aiOpen ? "Fechar análise" : "Analisar meu desempenho com IA"}
+            </button>
+            {aiOpen && (
+              <div className="orbis-card-in rounded-2xl border border-border/60 bg-card mt-2.5 px-4 py-3.5">
+                {aiReportLoading && (
+                  <p className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                    <Loader2 className="w-4 h-4 animate-spin" /> Analisando seu corre...
+                  </p>
+                )}
+                {aiReport?.analise && (
+                  <>
+                    <p className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${aiExpanded ? "" : "line-clamp-6"}`}>
+                      {aiReport.analise}
+                    </p>
+                    <div className="flex items-center gap-3 flex-wrap mt-2">
+                      <button onClick={() => setAiExpanded((v) => !v)} className="text-xs font-semibold text-primary hover:underline">
+                        {aiExpanded ? "ver menos" : "ver mais"}
+                      </button>
+                      <button onClick={generateReportAnalysis} disabled={aiReportLoading} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60">
+                        Atualizar
+                      </button>
+                      <button onClick={() => navigate("/chat")} className="text-xs text-primary hover:underline inline-flex items-center gap-0.5 ml-auto">
+                        Conversar <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </>
+                )}
+                {aiReportError && <p className="text-xs text-destructive whitespace-pre-line mt-2">{aiReportError}</p>}
+              </div>
+            )}
+          </div>
 
           {/* DETALHES — o resto mora recolhido (Miller: 5 blocos na tela) */}
           <div className="space-y-2.5">
@@ -1045,40 +1075,24 @@ export default function Insights() {
             </Collapse>
             )}
 
-            <Collapse
-              icon={<Sparkles className="w-[18px] h-[18px]" style={{ color: "var(--orbis-gold,#F5B800)" }} />}
-              title="Analisar com o mentor (IA)"
-              sub={aiReport ? "análise pronta" : ""}
-              onOpen={() => { if (!aiReport && !aiReportLoading) generateReportAnalysis(); }}
-            >
-              <div className="px-4 pb-3">
-                {aiReportLoading && (
-                  <p className="flex items-center gap-2 text-sm text-muted-foreground py-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Analisando seu corre...
-                  </p>
-                )}
-                {aiReport?.analise && (
-                  <>
-                    <p className={`text-sm text-foreground/90 leading-relaxed whitespace-pre-line ${aiExpanded ? "" : "line-clamp-6"}`}>
-                      {aiReport.analise}
-                    </p>
-                    <div className="flex items-center gap-3 flex-wrap mt-2">
-                      <button onClick={() => setAiExpanded((v) => !v)} className="text-xs font-semibold text-primary hover:underline">
-                        {aiExpanded ? "ver menos" : "ver mais"}
-                      </button>
-                      <button onClick={generateReportAnalysis} disabled={aiReportLoading} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-60">
-                        Atualizar
-                      </button>
-                      <button onClick={() => navigate("/chat")} className="text-xs text-primary hover:underline inline-flex items-center gap-0.5 ml-auto">
-                        Conversar <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </>
-                )}
-                {aiReportError && <p className="text-xs text-destructive whitespace-pre-line mt-2">{aiReportError}</p>}
-              </div>
-            </Collapse>
           </div>
+
+          {/* Compartilhar (arte diária do DEFCON pra 1 dia; recap pra períodos) — fecha a página */}
+          {summary.faturamento > 0 && (
+            isSingleDay ? (
+              <DefconShareCarousel
+                stats={{
+                  faturamento: summary.faturamento,
+                  vendas: summary.totalVendas,
+                  conversao: summary.conversao,
+                  horas: fmtHorasCurto(summary.horasTrabalhadasMin),
+                  periodo: shareLabel,
+                }}
+              />
+            ) : (
+              <RelatorioShareCard stats={recapStats} />
+            )
+          )}
         </>
       )}
     </div>
