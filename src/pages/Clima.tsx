@@ -19,7 +19,6 @@ import { TourClima, tourClimaVisto } from "@/components/clima/TourClima";
 interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (k: string, op: string, v: unknown) => Q; lte: (k: string, v: unknown) => Q; order: (k: string) => Q; limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null }>; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> }
 const db = supabase as unknown as { from: (t: string) => Q };
 
-const FONTES = ["ECMWF · Europa", "GFS · EUA", "ICON · Alemanha", "Météo-France", "GEM · Canadá", "JMA · Japão"];
 
 export default function Clima() {
   const { user } = useAuth();
@@ -208,15 +207,14 @@ export default function Clima() {
             </div>
           )}
 
-          {/* fontes */}
-          <div className="px-4 mt-3.5">
-            <section className="rounded-[18px] border px-4 py-3.5 flex flex-col gap-2.5" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-              <div className="flex items-center justify-between gap-2"><span className="orbis-section">De onde o Orbis tirou isso</span><span className="orbis-num text-[12.5px] font-extrabold" style={{ color: "#3DD68C" }}>{tempo.concordancia}% de concordância</span></div>
-              <div className="flex flex-wrap gap-1.5">
-                {(tempo.fontesOk.length ? tempo.fontesOk : FONTES).map((f) => <span key={f} className="h-7 px-2.5 rounded-full text-[11.5px] font-bold inline-flex items-center" style={{ border: "1px solid rgba(255,255,255,.12)", color: "#b9b3a6" }}>{f}</span>)}
-              </div>
-              <p className="text-[12px] leading-[1.45]" style={{ color: "#7e7869" }}>Previsão pública (Open-Meteo). Sua posição vai arredondada pra uns 5 km — ninguém precisa da esquina exata pra saber se chove.</p>
-            </section>
+          {/* O card "De onde o Orbis tirou isso" (nomes dos modelos + provedor) saiu
+              a pedido do Mohamed, 11/09. A prova de confiança continua na tela:
+              "6 fontes · 72%" no alto da cena e o "x de 6 modelos" hora a hora.
+              Fica só o aviso de privacidade, que é promessa nossa com o vendedor. */}
+          <div className="px-5 mt-3">
+            <p className="text-[11.5px] leading-[1.45]" style={{ color: "#57534A" }}>
+              Sua posição vai arredondada pra uns 5 km — ninguém precisa da esquina exata pra saber se chove.
+            </p>
           </div>
         </>
       )}
