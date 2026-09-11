@@ -125,13 +125,18 @@ export function HeaderV9({ nome, diasTrabalhados, userId }: {
   const agora = new Date();
   const h = Number(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
   const saud = h >= 5 && h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  /* Só o PRIMEIRO nome (Rick, 11/09): "José da Silva Neto" vira "José".
+     Se a pessoa digitou tudo minúsculo, sobe a primeira letra — "rick" → "Rick".
+     Quem já tem maiúscula fica como está (JP continua JP). */
+  const cru = (nome || "").trim().split(/\s+/)[0] || "vendedor";
+  const primeiro = cru === cru.toLowerCase() ? cru.charAt(0).toUpperCase() + cru.slice(1) : cru;
   const data = agora.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "");
   return (
     <div className="flex items-center gap-3 pt-1">
       <div className="flex-1 min-w-0">
         <p className="orbis-mini">{data}</p>
         <p className="font-display font-semibold truncate mt-[3px]" style={{ fontSize: "clamp(14px,4vw,15.5px)", letterSpacing: "-.01em" }}>
-          {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
+          {saud}, <span style={{ color: "var(--orbis-gold)" }}>{primeiro}</span>
         </p>
       </div>
       {/* O ícone de perfil saiu daqui (Rick, 11/09): ele já existe na barra de
