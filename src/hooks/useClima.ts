@@ -1,7 +1,8 @@
 /* ============================================================
    useClima — pega a posição (GPS ou a última conhecida), chama a função
    clima-vendedor e guarda a resposta no aparelho por 30 min (o tempo) e
-   por dia (a opinião da IA), pra não gastar IA a cada abertura.
+   por FAIXA DO DIA (a opinião da IA), pra não gastar IA a cada abertura
+   sem deixar conselho de madrugada aparecendo de manhã.
    ============================================================ */
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,8 +22,16 @@ export interface ContextoClima { meta?: number; vendidoHoje?: number; melhorHora
 interface Resposta { tempo: Tempo; opiniao: Opiniao | null; fonteOpiniao: "ia" | "local" | "nenhuma"; atualizadoEm: string; cell: string }
 
 const K_TEMPO = "orbis_clima_tempo_v1";
-const K_OPINIAO = "orbis_clima_opiniao_v1";
+const K_OPINIAO = "orbis_clima_opiniao_v2";
 const TTL_TEMPO = 30 * 60 * 1000;
+
+/* Faixa do dia no fuso de Brasília. A opinião vale por FAIXA, não pelo dia
+   inteiro: a que o Orbis deu de madrugada ("vai dormir") não pode continuar
+   na tela às 9 da manhã. (Rick, 11/09) */
+function periodoBR(): "madrugada" | "manha" | "tarde" | "noite" {
+  const h = Number(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }).format(new Date()));
+  return h < 5 ? "madrugada" : h < 12 ? "manha" : h < 18 ? "tarde" : "noite";
+}
 
 function lerCache<T>(k: string): (T & { ts: number }) | null {
   try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T & { ts: number }) : null; } catch { return null; }
@@ -49,8 +58,8 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
   const { contexto, comOpiniao = true, auto = true } = opts;
   const [tempo, setTempo] = useState<Tempo | null>(() => { const c = lerCache<{ tempo: Tempo }>(K_TEMPO); return c ? c.tempo : null; });
   const [opiniao, setOpiniao] = useState<Opiniao | null>(() => {
-    const c = lerCache<{ opiniao: Opiniao; dia: string; estado: string }>(K_OPINIAO);
-    return c && c.dia === getBrazilDate() ? c.opiniao : null;
+    const c = lerCache<{ opiniao: Opiniao; dia: string; periodo: string; estado: string }>(K_OPINIAO);
+    return c && c.dia === getBrazilDate() && c.periodo === periodoBR() ? c.opiniao : null;
   });
   const [fonteOpiniao, setFonteOpiniao] = useState<"ia" | "local" | "nenhuma" | "cache">("nenhuma");
   const [carregando, setCarregando] = useState(false);
@@ -62,9 +71,9 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       const pos = await pegarPosicao();
       if (!pos) { setErro("sem_posicao"); return; }
       const cTempo = lerCache<{ tempo: Tempo }>(K_TEMPO);
-      const cOp = lerCache<{ opiniao: Opiniao; dia: string; estado: string }>(K_OPINIAO);
+      const cOp = lerCache<{ opiniao: Opiniao; dia: string; periodo: string; estado: string }>(K_OPINIAO);
       const tempoFresco = cTempo && Date.now() - cTempo.ts < TTL_TEMPO ? cTempo.tempo : null;
-      const opiniaoDoDia = cOp && cOp.dia === getBrazilDate() && (!tempoFresco || cOp.estado === tempoFresco.estado) ? cOp.opiniao : null;
+      const opiniaoDoDia = cOp && cOp.dia === getBrazilDate() && cOp.periodo === periodoBR() && (!tempoFresco || cOp.estado === tempoFresco.estado) ? cOp.opiniao : null;
       // tudo em cache e ninguém forçou? não gasta nada.
       if (tempoFresco && (!comOpiniao || opiniaoDoDia) && !forcarOpiniao) {
         setTempo(tempoFresco); if (opiniaoDoDia) { setOpiniao(opiniaoDoDia); setFonteOpiniao("cache"); }
@@ -79,7 +88,7 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       setTempo(r.tempo); gravarCache(K_TEMPO, { tempo: r.tempo, ts: Date.now() });
       if (r.opiniao) {
         setOpiniao(r.opiniao); setFonteOpiniao(r.fonteOpiniao);
-        gravarCache(K_OPINIAO, { opiniao: r.opiniao, dia: getBrazilDate(), estado: r.tempo.estado, ts: Date.now() });
+        gravarCache(K_OPINIAO, { opiniao: r.opiniao, dia: getBrazilDate(), periodo: periodoBR(), estado: r.tempo.estado, ts: Date.now() });
       } else if (opiniaoDoDia) { setOpiniao(opiniaoDoDia); setFonteOpiniao("cache"); }
     } catch (e) {
       console.error("useClima:", e);

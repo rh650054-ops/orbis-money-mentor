@@ -222,21 +222,49 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
   };
 }
 
+// ---------------------------------------------------------------- relógio (fuso de Brasília)
+function agoraSP() {
+  const d = new Date();
+  const p = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit", weekday: "long", hour12: false }).formatToParts(d);
+  const get = (t: string) => p.find((x) => x.type === t)?.value ?? "";
+  const hora = Number(get("hour"));
+  const data = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  const periodo = hora < 5 ? "madrugada" : hora < 12 ? "manhã" : hora < 18 ? "tarde" : "noite";
+  return { hora, minuto: get("minute"), diaSemana: get("weekday"), data, periodo };
+}
+/* O vendedor é noturno? (melhor hora dele entre 19h e 4h) */
+const ehNoturno = (h?: number | null) => h != null && (h >= 19 || h <= 4);
+
 // ---------------------------------------------------------------- opinião (IA)
 const MENTOR = `Você é o Orbis, mentor de vendedor de rua/ambulante no Brasil. Fala como parça de corre: direto, linguagem da rua, firme, sem papo corporativo, sem markdown.
 Você vai dar a OPINIÃO DO DIA sobre o clima pro vendedor decidir: hora de sair pra rua, hora de descansar, hora de voltar — ou nem sair.
 REGRAS:
+- O RELÓGIO MANDA EM TUDO. Você recebe a hora de agora. NUNCA mande sair num horário que já passou, e nunca escreva "(agora)" num horário diferente do que te passaram. Toda hora que citar tem que ser daqui pra frente; se for do dia seguinte, escreva "amanhã".
+- MADRUGADA (23h às 5h): a resposta padrão é DESCANSAR e preparar o dia seguinte — rua vazia, risco alto e ninguém comprando. Só mande sair nessa faixa se a MELHOR HORA dele for de madrugada (aí ele é vendedor noturno e a regra é o contrário: aproveitar a noite e dormir de dia).
 - Sempre específico: cite horas e números que te passarem. Nunca invente chuva que os modelos não apontam.
-- Contas vencendo e meta do dia pesam: dia ruim de clima + conta vencendo = "sai cedo e fecha antes"; tempestade = segurança primeiro, meta se recupera amanhã.
+- Contas vencendo e meta do dia pesam: dia ruim de clima + conta vencendo = "sai cedo e fecha antes"; tempestade = segurança primeiro, meta se recupera amanhã. Mas conta vencendo NUNCA é motivo pra mandar alguém pra rua de madrugada.
 - Humildade: o clima pode mudar — mas a fala principal NÃO precisa repetir "não sou Deus", isso já aparece fixo na tela.
 - Português do Brasil. Frases curtas. Sem emoji.`;
 
 interface Contexto { meta?: number; vendidoHoje?: number; melhorHora?: number | null; contas?: { nome: string; dias: number; valor: number }[]; quedaChuvaPct?: number | null }
 interface Opiniao { falas: string[]; veredito: { titulo: string; sub: string; nota: number }; sair: { hora: string; txt: string }; pausa: { hora: string; txt: string }; volta: { hora: string; txt: string } }
 
-function opiniaoLocal(t: Tempo): Opiniao {
+function opiniaoLocal(t: Tempo, c: Contexto = {}): Opiniao {
   // Reserva sem IA: nunca deixa a tela vazia.
   const ch = t.chuva;
+  const ag = agoraSP();
+  /* Madrugada manda em tudo, igual na regra da IA: ninguém que trabalha de dia
+     deve ser mandado pra rua às 2 da manhã por causa de uma conta vencendo. */
+  if ((ag.hora >= 23 || ag.hora < 5) && !ehNoturno(c.melhorHora)) {
+    const proxima = t.estado === "tempestade" ? "Só que amanhã tem tempestade — confere a tela de manhã antes de carregar." : t.estado === "chuva" && ch ? `Amanhã a chuva chega por volta das ${ch.proxima}h: sai cedo e fecha antes.` : "Amanhã o clima ajuda: sai cedo que o dia rende.";
+    return {
+      falas: ["É madrugada, parça. Agora não é hora de rua — é hora de dormir.", proxima, "Descansado você vende mais em meio dia do que quebrado em um dia inteiro."],
+      veredito: { titulo: "Hora de descansar", sub: "Rua vazia e risco alto. O corre de verdade começa de manhã.", nota: 3 },
+      sair: { hora: "amanhã cedo", txt: "Depois que clarear e o movimento voltar." },
+      pausa: { hora: "agora", txt: "Dorme. O corpo é a sua ferramenta." },
+      volta: { hora: "—", txt: "Amanhã a gente combina o dia." },
+    };
+  }
   if (t.estado === "tempestade") return { falas: ["Tempestade chegando. Hoje o corre é ficar vivo — a meta espera até amanhã.", "Se tiver que sair, sai agora e perto de casa.", "Amanhã a gente compensa."], veredito: { titulo: "Hoje não é dia de herói", sub: "Raio e chuva forte nas próximas horas. Se der pra ficar, fica.", nota: 2 }, sair: { hora: "só se precisar", txt: "Perto de casa e antes da chuva." }, pausa: { hora: "—", txt: "Encerra cedo." }, volta: { hora: "antes da chuva", txt: "Em casa quando fechar o tempo." } };
   if (t.estado === "chuva" && ch) return { falas: [`Chuva entre ${ch.proxima}h e ${ch.ate ?? ch.proxima}h — ${ch.fontes} de ${t.fontesTotal} fontes concordam. Bate a meta antes.`, "Na chuva você vende menos: a manhã vale por um dia inteiro.", "Se a meta fechou antes da chuva, vai pra casa tranquilo."], veredito: { titulo: "Dia de RALAR antes da chuva", sub: `Seco até ${ch.proxima}h. Depois, cobertura.`, nota: 6 }, sair: { hora: "agora", txt: `Seco até ${ch.proxima}h.` }, pausa: { hora: `${ch.proxima}h`, txt: "Almoça coberto enquanto chove." }, volta: { hora: `${(ch.ate ?? ch.proxima)! + 1}h ou fica`, txt: "Abre de novo depois da chuva." } };
   if (t.estado === "calor") return { falas: ["Sol muito forte hoje. Gelada é ouro: leva o dobro e cobra o preço cheio.", "Das 12h às 15h nem eu fico na rua. Pausa, hidrata, volta.", "Boné, água e não pula o almoço."], veredito: { titulo: "Dia de RALAR cedo", sub: "Gelada vende sozinha, mas das 12h às 15h o povo some.", nota: 8 }, sair: { hora: "7h30–11h30", txt: "Antes do sol subir." }, pausa: { hora: "12h–15h", txt: "Sombra e água." }, volta: { hora: "17h30", txt: "Fecha quando refresca." } };
@@ -247,19 +275,29 @@ function opiniaoLocal(t: Tempo): Opiniao {
 }
 
 async function opiniaoIA(t: Tempo, c: Contexto): Promise<Opiniao> {
-  const horasTxt = t.horas.slice(0, 14).map((h) => `${h.hora}h: chuva ${h.fontes}/${h.total} modelos${h.mm >= 0.2 ? ` (${h.mm.toFixed(1)}mm)` : ""}${h.temp != null ? ` · ${Math.round(h.temp)}°` : ""}`).join("\n");
+  const ag = agoraSP();
+  const noturno = ehNoturno(c.melhorHora);
+  // cada hora sai marcada com hoje/amanhã pra IA não mandar ele sair num horário que já passou
+  const horasTxt = t.horas.slice(0, 16).map((h) => {
+    const amanha = h.iso.slice(0, 10) !== ag.data;
+    return `${h.hora}h${amanha ? " (amanhã)" : ""}: chuva ${h.fontes}/${h.total} modelos${h.mm >= 0.2 ? ` (${h.mm.toFixed(1)}mm)` : ""}${h.temp != null ? ` · ${Math.round(h.temp)}°` : ""}`;
+  }).join("\n");
   const contas = (c.contas ?? []).slice(0, 4).map((x) => `${x.nome} R$ ${Math.round(x.valor)} (${x.dias <= 0 ? "vence hoje" : `vence em ${x.dias} dias`})`).join("; ") || "nenhuma vencendo";
-  const user = `CLIMA AGORA em ${t.cidade || "sua região"}: ${t.condicao}, ${Math.round(t.temp)}° (sensação ${Math.round(t.sensacao)}°), vento ${Math.round(t.vento)} km/h${t.rajada ? `, rajadas ${Math.round(t.rajada)} km/h` : ""}. Máx ${t.max ?? "?"}° · mín ${t.min ?? "?"}°. ${t.ehDia ? "É dia." : "É noite."}
+  const user = `AGORA SÃO ${String(ag.hora).padStart(2, "0")}h${ag.minuto} de ${ag.diaSemana} (horário de Brasília). É ${ag.periodo}.
+${ag.hora >= 23 || ag.hora < 5 ? (noturno ? "ATENÇÃO: é madrugada, MAS a melhor hora dele é nessa faixa — ele é vendedor noturno. Fale do corre desta noite." : "ATENÇÃO: é MADRUGADA e ele não é vendedor noturno. A resposta é descansar agora e sair mais tarde, no horário bom de HOJE. Não mande ele pra rua agora.") : ""}
+CLIMA AGORA em ${t.cidade || "sua região"}: ${t.condicao}, ${Math.round(t.temp)}° (sensação ${Math.round(t.sensacao)}°), vento ${Math.round(t.vento)} km/h${t.rajada ? `, rajadas ${Math.round(t.rajada)} km/h` : ""}. Máx ${t.max ?? "?"}° · mín ${t.min ?? "?"}°. ${t.ehDia ? "É dia." : "É noite."}
 ESTADO DA CENA: ${t.estado}. Concordância entre modelos: ${t.concordancia}%.
 ${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}PRÓXIMAS HORAS (quantos dos ${t.fontesTotal} modelos apostam em chuva):
 ${horasTxt}
 
 VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva` : ""}.
 
+CONFIRA ANTES DE RESPONDER: toda hora que você escrever é depois das ${String(ag.hora).padStart(2, "0")}h${ag.minuto}? Se for do dia seguinte, está escrito "amanhã"? Se é madrugada${noturno ? "" : " e ele não é vendedor noturno"}, você mandou ele descansar?
+
 Responda SOMENTE este JSON:
 {"falas":["frase 1 (até 140 caracteres, a principal)","frase 2 (até 120)","frase 3 (até 120)"],
  "veredito":{"titulo":"até 34 caracteres, ex: Dia de RALAR de manhã","sub":"1 frase até 110 caracteres","nota":0 a 10},
- "sair":{"hora":"ex: 9h–12h","txt":"até 70 caracteres"},
+ "sair":{"hora":"ex: 9h–12h (ou 'amanhã 9h')","txt":"até 70 caracteres"},
  "pausa":{"hora":"ex: 13h–14h","txt":"até 70 caracteres"},
  "volta":{"hora":"ex: 17h30","txt":"até 70 caracteres"}}`;
   const raw = await callAI(MENTOR, user);
@@ -315,7 +353,7 @@ serve(async (req) => {
         try { opiniao = await opiniaoIA(tempo, (body?.contexto ?? {}) as Contexto); fonteOpiniao = "ia"; }
         catch (e) { console.error("OPINIAO_IA_FALHOU:", String(e)); }
       }
-      if (!opiniao) { opiniao = opiniaoLocal(tempo); fonteOpiniao = "local"; }
+      if (!opiniao) { opiniao = opiniaoLocal(tempo, (body?.contexto ?? {}) as Contexto); fonteOpiniao = "local"; }
     }
     return json({ tempo, opiniao, fonteOpiniao, atualizadoEm, cell });
   } catch (error) {
