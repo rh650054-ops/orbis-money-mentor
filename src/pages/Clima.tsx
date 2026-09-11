@@ -13,6 +13,7 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { useClima, type ContextoClima } from "@/hooks/useClima";
 import { ClimaCena } from "@/components/clima/ClimaCena";
+import { TourClima, tourClimaVisto } from "@/components/clima/TourClima";
 
 // Tabelas que os tipos gerados (velhos) não conhecem: consulta genérica, sem `any`.
 interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (k: string, op: string, v: unknown) => Q; lte: (k: string, v: unknown) => Q; order: (k: string) => Q; limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null }>; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> }
@@ -25,6 +26,9 @@ export default function Clima() {
   const navigate = useNavigate();
   const [contexto, setContexto] = useState<ContextoClima | null>(null);
   const [toques, setToques] = useState(0);
+  // primeiro acesso à tela: mostra os 7 climas antes (uma vez por pessoa).
+  // null = ainda não sei quem é a pessoa (o login pode chegar depois do 1º render)
+  const [tour, setTour] = useState<boolean | null>(null);
 
   // contexto do vendedor: meta de hoje, vendido, contas vencendo, melhor hora
   useEffect(() => {
@@ -58,6 +62,8 @@ export default function Clima() {
     return () => { vivo = false; };
   }, [user]);
 
+  useEffect(() => { if (user && tour === null) setTour(!tourClimaVisto(user.id)); }, [user, tour]);
+
   const { tempo, opiniao, fonteOpiniao, carregando, erro, recarregar } = useClima({ contexto: contexto ?? undefined, auto: contexto !== null });
 
   const fala = opiniao ? opiniao.falas[toques % opiniao.falas.length] ?? opiniao.falas[0] : null;
@@ -74,6 +80,7 @@ export default function Clima() {
   ].filter(Boolean).join(" · ") : "";
 
   if (!user) return null;
+  if (tour) return <TourClima userId={user.id} onFim={() => setTour(false)} />;
 
   return (
     <div className="orbis-stagger bg-background pb-10 max-w-2xl mx-auto">

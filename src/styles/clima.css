@@ -7,6 +7,8 @@
 /* a cena ocupa uma fatia da ALTURA do celular, nunca uma medida fixa:
    em aparelho pequeno ela encolhe e o balão da opinião continua aparecendo. */
 .cl-cena, .cl-cena-vazia { height: 480px; height: clamp(290px, 52svh, 520px); }
+/* no tour a cena divide a tela só com o texto e os botões */
+.cl-tour-cena .cl-cena { height: 420px; height: clamp(260px, 50svh, 480px); }
 .cl-cena { position: relative; overflow: hidden; border-radius: 26px; background: #0d0c0b; box-shadow: 0 30px 60px -30px rgba(0,0,0,.9); -webkit-tap-highlight-color: transparent; user-select: none; }
 .cl-mundo { position: absolute; inset: 0; animation: cl-kenburns 18s ease-in-out infinite alternate; transform-origin: 50% 30%; }
 /* fundo e boneco escalam pela LARGURA (mesma régua): o fundo tem 44px de céu extra no topo (44/360 = 12,22%) */

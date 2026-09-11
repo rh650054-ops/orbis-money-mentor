@@ -17,7 +17,7 @@
    Componentes de APRESENTAÇÃO; o Index passa os números.
    ============================================================ */
 import { useEffect, useState, type ReactNode } from "react";
-import { Zap, ChevronRight, Medal, User, Moon } from "lucide-react";
+import { Zap, ChevronRight, Medal, Moon } from "lucide-react";
 import { ClimaChip } from "@/components/clima/ClimaChip";
 import { formatCurrency } from "@/shared/lib/utils";
 import { AnimatedCurrency, Ring, FillBar, useCountUp } from "@/shared/motion";
@@ -118,9 +118,9 @@ export function ChamaStreak({ dias, userId }: { dias: number; userId?: string })
   );
 }
 
-/* ---------- Cabeçalho enxuto: data + saudação · chama · avatar ---------- */
-export function HeaderV9({ nome, diasTrabalhados, userId, onPerfil }: {
-  nome: string; diasTrabalhados: number; userId?: string; onPerfil?: () => void;
+/* ---------- Cabeçalho enxuto: data + saudação · chama · clima ---------- */
+export function HeaderV9({ nome, diasTrabalhados, userId }: {
+  nome: string; diasTrabalhados: number; userId?: string;
 }) {
   const agora = new Date();
   const h = Number(agora.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }));
@@ -134,13 +134,10 @@ export function HeaderV9({ nome, diasTrabalhados, userId, onPerfil }: {
           {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
         </p>
       </div>
-      <ClimaChip />
+      {/* O ícone de perfil saiu daqui (Rick, 11/09): ele já existe na barra de
+          baixo, era o único item repetido da tela. O clima ocupa o lugar dele. */}
       <ChamaStreak dias={diasTrabalhados} userId={userId} />
-      <button type="button" onClick={onPerfil} aria-label="Seu perfil"
-        className="orbis-press w-[31px] h-[31px] rounded-[11px] flex items-center justify-center shrink-0"
-        style={{ border: "1.4px solid rgba(245,184,0,.45)", color: "var(--orbis-gold)" }}>
-        <User className="w-[15px] h-[15px]" strokeWidth={2} />
-      </button>
+      <ClimaChip />
     </div>
   );
 }

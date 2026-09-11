@@ -515,7 +515,6 @@ export default function Index() {
         nome={nickname || "vendedor"}
         diasTrabalhados={diasNoMes}
         userId={user.id}
-        onPerfil={() => navigate("/profile")}
       />
 
       {/* Lançamento do Clima do vendedor (Rick, 11/09): 1x por pessoa */}
