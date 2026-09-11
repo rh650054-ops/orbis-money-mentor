@@ -5,8 +5,7 @@
    O clima vem sozinho do GPS; o vendedor não escolhe nada.
    ============================================================ */
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Pause, Home, AlertTriangle, RefreshCw, Loader2, MapPin, Zap } from "lucide-react";
+import { ArrowRight, Pause, Home, AlertTriangle, Loader2, MapPin, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -23,7 +22,6 @@ const db = supabase as unknown as { from: (t: string) => Q };
 
 export default function Clima() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [contexto, setContexto] = useState<ContextoClima | null>(null);
   const [toques, setToques] = useState(0);
   // primeiro acesso à tela: mostra os 7 climas antes (uma vez por pessoa).
@@ -106,20 +104,9 @@ export default function Clima() {
 
   return (
     <div className="orbis-stagger bg-background pb-10 max-w-2xl mx-auto">
-      {/* cabeçalho */}
-      <div className="flex items-center gap-3 px-3 pt-3 pb-3">
-        <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="orbis-press w-10 h-10 rounded-[13px] flex items-center justify-center shrink-0" style={{ background: "#131211", border: "1px solid rgba(255,255,255,.1)" }}>
-          <ArrowLeft className="w-[18px] h-[18px]" style={{ color: "#b9b3a6" }} strokeWidth={2.4} />
-        </button>
-        <div className="min-w-0 flex-1">
-          <p className="text-[20px] font-black tracking-tight leading-none">Clima do vendedor</p>
-          <p className="text-[12px] mt-1" style={{ color: "#7e7869" }}>{tempo ? `${tempo.fontesTotal} modelos de previsão · atualiza a cada 3 h` : "lendo o céu…"}</p>
-        </div>
-        <button type="button" onClick={() => recarregar()} disabled={carregando} aria-label="Atualizar" className="orbis-press w-10 h-10 rounded-[13px] flex items-center justify-center shrink-0 disabled:opacity-50" style={{ background: "#131211", border: "1px solid rgba(255,255,255,.1)" }}>
-          {carregando ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#F5B800" }} /> : <RefreshCw className="w-4 h-4" style={{ color: "#b9b3a6" }} strokeWidth={2.2} />}
-        </button>
-      </div>
-
+      {/* O cabeçalho saiu (Rick, 11/09): a cena já diz que tela é essa. O
+          "Voltar" volta a ser o da barra do app e o atualizar foi pra dentro
+          da cena, do lado do "6 fontes". Menos moldura, mais foto. */}
       {/* PERMISSÃO — o nosso convite, no lugar do pop-up cinza do celular.
           O sistema só pergunta quando ele toca no botão dourado. (Rick, 11/09) */}
       {!tempo && (permissao === "perguntar" || permissao === "negada" || erro === "sem_posicao") && (
@@ -166,6 +153,7 @@ export default function Clima() {
               cidade={tempo.cidade ? `${tempo.cidade}${tempo.uf ? `, ${tempo.uf}` : ""}` : ""}
               fontes={tempo.fontesTotal} concordancia={tempo.concordancia}
               toques={toques} onToque={() => setToques((t) => t + 1)}
+              carregando={carregando} onAtualizar={() => recarregar()}
             />
           </div>
 

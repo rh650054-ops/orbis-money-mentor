@@ -4,7 +4,7 @@
    e falar a próxima frase (o pai controla a fala). CSS em styles/clima.css.
    ============================================================ */
 import { useEffect, useMemo, useRef } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, RefreshCw, Loader2 } from "lucide-react";
 import "@/styles/clima.css";
 
 export type Estado = "sol" | "calor" | "nublado" | "chuva" | "tempestade" | "frio" | "noite";
@@ -19,6 +19,8 @@ interface Props {
   concordancia: number;   // 0-100
   toques: number;         // quantas vezes tocou (troca a classe do pulo)
   onToque: () => void;
+  carregando?: boolean;   // o atualizar mora aqui desde que o cabeçalho saiu
+  onAtualizar?: () => void;
 }
 
 const BASE = "/orbis/clima";
@@ -37,7 +39,7 @@ function gotas(n: number, salt: number, forte: boolean) {
   }));
 }
 
-export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, concordancia, toques, onToque }: Props) {
+export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, concordancia, toques, onToque, carregando, onAtualizar }: Props) {
   const boneco = estado === "frio" ? "frio" : estado === "chuva" || estado === "tempestade" ? "chuva" : estado === "noite" ? "noite" : "calor";
   // o fundo tem que ser o da MESMA foto do boneco: a foto de trás já tem o
   // personagem dentro, e o recorte encaixa exatamente em cima dele. Misturar
@@ -168,7 +170,16 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
       {/* topo */}
       <div className="absolute left-4 right-4 top-3.5 flex items-center justify-between gap-2">
         <span className="cl-chip-agora"><MapPin className="w-3 h-3" strokeWidth={2.4} />{cidade || "sua região"} · GPS</span>
-        <span className="cl-chip-agora" style={{ color: "var(--orbis-gold,#F5B800)" }}>{fontes} fontes · {concordancia}%</span>
+        <span className="flex items-center gap-1.5 shrink-0">
+          <span className="cl-chip-agora" style={{ color: "var(--orbis-gold,#F5B800)" }}>{fontes} fontes · {concordancia}%</span>
+          {onAtualizar && (
+            <button type="button" aria-label="Atualizar o clima" disabled={carregando}
+              onClick={(e) => { e.stopPropagation(); onAtualizar(); }}
+              className="cl-chip-agora orbis-press disabled:opacity-60" style={{ width: 26, padding: 0, justifyContent: "center" }}>
+              {carregando ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#F5B800" }} /> : <RefreshCw className="w-3.5 h-3.5" strokeWidth={2.4} />}
+            </button>
+          )}
+        </span>
       </div>
       {/* temperatura */}
       {/* bottom-12: o balão da opinião sobe 30px pra dentro da cena, a linha de máx/mín tem que ficar acima dele */}
