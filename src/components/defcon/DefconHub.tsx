@@ -710,8 +710,10 @@ export default function DefconHub() {
     /* ---- Foco v2: bloco atual, contadores, ontem, semana, ranking, hora, carga ---- */
     const ontemData = getBrazilDateDaysAgo(1);
     const mes = today.slice(0, 7);
-    const [bl, ds7, planOntem, lb, plano, perfil, ld, prods] = await Promise.all([
+    const [bl, vl, ds7, planOntem, lb, plano, perfil, ld, prods] = await Promise.all([
       sessaoHoje ? supabase.from("challenge_blocks").select("block_index, started_at, ended_at, status, approaches_count, sales_count, sold_amount").eq("session_id", sessaoHoje.id).order("block_index", { ascending: true }) : Promise.resolve({ data: [] as any[] }),
+      // Vendas-linha da sessão: é daqui que sai o valor EXATO de cada hora (sold_amount do bloco não é confiável).
+      sessaoHoje ? supabase.from("defcon_sales").select("block_index, amount, method").eq("session_id", sessaoHoje.id) : Promise.resolve({ data: [] as any[] }),
       supabase.from("daily_sales").select("date, cash_sales, card_sales, pix_sales").eq("user_id", user.id).gte("date", weekStart).lte("date", today),
       supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", ontemData).maybeSingle(),
       supabase.from("leaderboard_stats").select("posicao_faturamento, faturamento_total_mes, dias_trabalhados_mes").eq("user_id", user.id).eq("mes_referencia", mes).maybeSingle(),
@@ -722,17 +724,39 @@ export default function DefconHub() {
     ]);
     {
       const blocos = ((bl.data as any[]) || []);
-      setBlocosHoje(blocos.map((b) => ({
-        i: Number(b.block_index) || 0,
-        vendido: Number(b.sold_amount) || 0,
-        vendas: Number(b.sales_count) || 0,
-        rodando: b.status === "running" || (!!b.started_at && !b.ended_at),
-        feito: !!b.ended_at,
-      })));
-      const vendas = blocos.reduce((t, b) => t + (Number(b.sales_count) || 0), 0);
+      // Valor e nº de vendas por hora vêm das vendas-linha ligadas ao block_index (exclui gorjeta).
+      const vendidoPorBloco: Record<number, number> = {};
+      const vendasPorBloco: Record<number, number> = {};
+      for (const v of ((vl.data as any[]) || [])) {
+        if (v.method === "gorjeta") continue;
+        const k = Number(v.block_index);
+        if (!Number.isFinite(k)) continue;
+        vendidoPorBloco[k] = (vendidoPorBloco[k] || 0) + (Number(v.amount) || 0);
+        vendasPorBloco[k] = (vendasPorBloco[k] || 0) + 1;
+      }
+      // Qual hora está rodando / já passou: a sessão é a fonte da verdade
+      // (blocos antigos nunca recebiam ended_at, então "feito" ficava sempre falso).
+      const sessaoAtiva = sessaoHoje && (sessaoHoje.status === "active" || sessaoHoje.status === "running" || sessaoHoje.status === "paused");
+      const idxAtual = Number(sessaoHoje?.current_block_index);
+      const temIdx = Number.isFinite(idxAtual);
+      setBlocosHoje(blocos.map((b) => {
+        const k = Number(b.block_index) || 0;
+        const fechado = !!b.ended_at || b.status === "done" || (temIdx && k < idxAtual) || (!!sessaoHoje?.ended_at);
+        const rodando = !fechado && !!b.started_at && (!!sessaoAtiva && (!temIdx || k === idxAtual));
+        return {
+          i: k,
+          vendido: vendidoPorBloco[k] ?? (Number(b.sold_amount) || 0),
+          vendas: vendasPorBloco[k] ?? (Number(b.sales_count) || 0),
+          rodando,
+          feito: fechado,
+        };
+      }));
+      const vendas = Object.values(vendasPorBloco).reduce((t, n) => t + n, 0) || blocos.reduce((t, b) => t + (Number(b.sales_count) || 0), 0);
       const abord = blocos.reduce((t, b) => t + (Number(b.approaches_count) || 0), 0);
       setContadores({ vendas, abord });
-      const rodando = blocos.find((b) => b.status === "running" || (b.started_at && !b.ended_at));
+      const rodando = sessaoAtiva
+        ? (blocos.find((b) => temIdx ? Number(b.block_index) === idxAtual && !!b.started_at && !b.ended_at : (b.status === "running" || (b.started_at && !b.ended_at))))
+        : undefined;
       setBlocoFimEm(rodando?.started_at ? new Date(rodando.started_at).getTime() + 60 * 60000 : null);
     }
     {

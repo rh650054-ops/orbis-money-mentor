@@ -3,7 +3,7 @@
 // quantos apostam em chuva ("consenso"), classifica o estado da cena (sol, calor,
 // nublado, chuva, tempestade, frio, noite) e pede pra IA a opinião do dia com os
 // números do vendedor (meta, contas, melhor hora). O tempo é cacheado por célula
-// de ~5 km durante 3 h — cem vendedores da mesma cidade custam UMA consulta.
+// de ~5 km durante 30 min — cem vendedores da mesma cidade custam UMA consulta.
 //
 // Chamada (POST, com JWT do usuário):
 //   { lat, lon, contexto?: { meta, vendidoHoje, melhorHora, melhoresHoras, contas: [{nome, dias, valor}], quedaChuvaPct }, semIA?: boolean }
@@ -92,6 +92,7 @@ interface Tempo {
   alerta: { titulo: string; texto: string } | null;
   chuva: { proxima: number | null; ate: number | null; fontes: number } | null;
   cidade: string; uf: string;
+  fonteAgora?: "observado" | "modelo";
 }
 
 const celula = (lat: number, lon: number) => `${(Math.round(lat / 0.05) * 0.05).toFixed(2)},${(Math.round(lon / 0.05) * 0.05).toFixed(2)}`;
@@ -107,6 +108,45 @@ function descreveCodigo(c: number, dia: boolean): string {
   if (c >= 80 && c <= 82) return c === 82 ? "Pancadas fortes" : "Pancadas de chuva";
   if (c >= 95) return "Tempestade";
   return "Tempo instável";
+}
+
+
+/* ---------------------------------------------------------------- "AGORA" OBSERVADO
+   A Open-Meteo é MODELO: excelente pra "vai chover às 14h?", fraca pra "está
+   chovendo AGORA?". Quando a chave WEATHERAPI_KEY existir nos segredos, o
+   "agora" passa a vir de estação/radar (WeatherAPI.com) e a previsão continua
+   vindo dos 6 modelos. Sem chave, nada muda. */
+function codigoWmoDoWeatherApi(c: number, precipMm: number): number {
+  if (c === 1000) return 0;
+  if (c === 1003) return 2;
+  if (c === 1006 || c === 1009) return 3;
+  if (c === 1030 || c === 1135 || c === 1147) return 45;
+  if (c === 1063) return precipMm >= 0.2 ? 61 : 2;           // "possibilidade de chuva" só é chuva se caiu algo
+  if (c === 1072 || c === 1150 || c === 1153) return 51;
+  if (c === 1180 || c === 1183) return 61;
+  if (c === 1186 || c === 1189) return 63;
+  if (c === 1192 || c === 1195) return 65;
+  if (c === 1240) return 80; if (c === 1243) return 81; if (c === 1246) return 82;
+  if (c === 1087 || c === 1273 || c === 1276) return 95;
+  if (c >= 1066 && c <= 1282) return 71;                      // neve/granizo: raro no Brasil
+  return 3;
+}
+async function observadoAgora(lat: number, lon: number): Promise<{ temp: number; sensacao: number; codigo: number; precip: number; ehDia: boolean; vento: number; rajada: number | null } | null> {
+  const key = Deno.env.get("WEATHERAPI_KEY");
+  if (!key) return null;
+  try {
+    const r = await fetch(`https://api.weatherapi.com/v1/current.json?key=${key}&q=${lat},${lon}&lang=pt`, { signal: AbortSignal.timeout(6000) });
+    if (!r.ok) return null;
+    const j = await r.json(); const c = j?.current;
+    if (!c) return null;
+    const precip = Number(c.precip_mm ?? 0);
+    return {
+      temp: Number(c.temp_c), sensacao: Number(c.feelslike_c ?? c.temp_c),
+      codigo: codigoWmoDoWeatherApi(Number(c.condition?.code ?? 1006), precip),
+      precip, ehDia: Number(c.is_day ?? 1) === 1,
+      vento: Number(c.wind_kph ?? 0), rajada: c.gust_kph != null ? Number(c.gust_kph) : null,
+    };
+  } catch (e) { console.error("WEATHERAPI_FALHOU:", String(e)); return null; }
 }
 
 async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
@@ -157,12 +197,15 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
   const concordancia = nAcordo > 0 ? Math.round((acordo / nAcordo) * 100) : 0;
 
   const cur = ref.current ?? {};
-  const codigo = Number(cur.weather_code ?? 0);
-  const ehDia = Number(cur.is_day ?? 1) === 1;
-  const temp = Number(cur.temperature_2m ?? 0);
-  const sensacao = Number(cur.apparent_temperature ?? temp);
-  const vento = Number(cur.wind_speed_10m ?? 0);
-  const rajada = cur.wind_gusts_10m != null ? Number(cur.wind_gusts_10m) : null;
+  const obs = await observadoAgora(lat, lon); // estação/radar, se a chave existir
+  const codigo = obs ? obs.codigo : Number(cur.weather_code ?? 0);
+  const ehDia = obs ? obs.ehDia : Number(cur.is_day ?? 1) === 1;
+  const temp = obs ? obs.temp : Number(cur.temperature_2m ?? 0);
+  const sensacao = obs ? obs.sensacao : Number(cur.apparent_temperature ?? temp);
+  const vento = obs ? obs.vento : Number(cur.wind_speed_10m ?? 0);
+  const rajada = obs ? obs.rajada : (cur.wind_gusts_10m != null ? Number(cur.wind_gusts_10m) : null);
+  const precipAgora = obs ? obs.precip : Number(cur.precipitation ?? 0);
+  const fonteAgora: "observado" | "modelo" = obs ? "observado" : "modelo";
   const rajadaMax = Math.max(rajada ?? 0, ...((ref.hourly?.wind_gusts_10m as (number | null)[] | undefined) ?? []).slice(idxAgora, idxAgora + 12).map((v) => Number(v ?? 0)));
 
   // próxima chuva (maioria dos modelos) nas próximas 12 h
@@ -174,14 +217,19 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
     if (proxima != null && !maioria && ate != null) break;
   }
   const chuva = proxima != null ? { proxima, ate, fontes: fontesChuva } : null;
-  const chovendoAgora = Number(cur.precipitation ?? 0) >= 0.2 || (codigo >= 51 && codigo <= 82);
+  /* A CENA É O AGORA (Rick, 11/09 — reclamação dos vendedores: "tá dizendo
+     tempestade e não tem nada"). Antes, um raio previsto pra daqui a 5 horas
+     já virava cena de tempestade, e chuva prevista pra daqui a 3 horas virava
+     cena de chuva. Agora a cena só mostra o que está caindo AGORA; o que vem
+     depois fica no alerta e no "chuva 14h" do chip. */
+  const chovendoAgora = precipAgora >= 0.2 || (codigo >= 51 && codigo <= 82);
   const tempestadeAgora = codigo >= 95 || (chovendoAgora && rajadaMax >= 60);
-  const tempestadeLogo = horas.slice(0, 6).some((h) => (h.codigo ?? 0) >= 95);
+  const tempestadeLogo = horas.slice(0, 6).some((h) => (h.codigo ?? 0) >= 95); // só pro ALERTA
+  const tempestadeEm1h = chovendoAgora && (horas[1]?.codigo ?? 0) >= 95;
 
-  // Tempestade e chuva mandam mesmo de noite (a cena de chuva já é escura); o resto depende de ser dia.
   let estado: Estado;
-  if (tempestadeAgora || tempestadeLogo) estado = "tempestade";
-  else if (chovendoAgora || (chuva && chuva.proxima != null && horas.findIndex((h) => h.hora === chuva.proxima) <= 3)) estado = "chuva";
+  if (tempestadeAgora || tempestadeEm1h) estado = "tempestade";
+  else if (chovendoAgora) estado = "chuva";
   else if (!ehDia) estado = "noite";
   else if (sensacao <= 14) estado = "frio";
   else if (sensacao >= 32) estado = "calor";
@@ -219,7 +267,7 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
     max: ref.daily?.temperature_2m_max?.[0] ?? null, min: ref.daily?.temperature_2m_min?.[0] ?? null,
     vento, rajada, condicao: descreveCodigo(codigo, ehDia), codigo, ehDia,
     horas, fontesTotal: total, fontesOk: fontesOk.map((m) => NOMES[m] ?? m), concordancia,
-    alerta, chuva, cidade, uf,
+    alerta, chuva, cidade, uf, fonteAgora,
   };
 }
 
@@ -301,7 +349,7 @@ ESTADO DA CENA: ${t.estado}. Concordância entre modelos: ${t.concordancia}%.
 ${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}PRÓXIMAS HORAS (quantos dos ${t.fontesTotal} modelos apostam em chuva):
 ${horasTxt}
 
-VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"}${(c.melhoresHoras ?? []).length ? ` · as horas em que ele MAIS VENDE, pelo histórico dele: ${(c.melhoresHoras ?? []).map((h) => `${h}h`).join(", ")} (proteja essas horas: se o clima deixar, ele não pode perdê-las)` : ""} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva` : ""}.
+VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"}${(c.melhoresHoras ?? []).length ? ` · as horas em que ele MAIS VENDE, pelo histórico dele: ${(c.melhoresHoras ?? []).map((h) => `${h}h`).join(", ")} (proteja essas horas: se o clima deixar, ele não pode perdê-las)` : ""} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva (medido nos dias dele)` : ""}.
 
 CONFIRA ANTES DE RESPONDER: toda hora que você escrever é depois das ${String(ag.hora).padStart(2, "0")}h${ag.minuto}? Se for do dia seguinte, está escrito "amanhã"? Se é madrugada${noturno ? "" : " e ele não é vendedor noturno"}, você mandou ele descansar?
 
@@ -343,15 +391,16 @@ serve(async (req) => {
     const cell = celula(lat, lon);
     const [cLat, cLon] = cell.split(",").map(Number) as [number, number];
 
-    // cache do tempo por célula (3 h)
+    // cache do tempo por célula: 30 min (era 3 h — o "agora" muda mais rápido que isso)
     let tempo: Tempo | null = null;
     let atualizadoEm = new Date().toISOString();
-    const { data: cached } = await admin.from("clima_cache").select("payload, atualizado_em").eq("cell", cell).maybeSingle();
-    if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 3 * 3600 * 1000 && !body?.forcar) {
+    const { data: cached } = await admin.from("clima_celula").select("payload, atualizado_em").eq("cell", cell).maybeSingle();
+    if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 30 * 60 * 1000 && !body?.forcar) {
       tempo = cached.payload as Tempo; atualizadoEm = cached.atualizado_em;
     } else {
       tempo = await buscarTempo(cLat, cLon);
-      await admin.from("clima_cache").upsert({ cell, payload: tempo, atualizado_em: atualizadoEm });
+      const { error: eCache } = await admin.from("clima_celula").upsert({ cell, payload: tempo, atualizado_em: atualizadoEm });
+      if (eCache) console.error("CACHE_CLIMA_FALHOU:", eCache.message);
     }
 
     /* O CÉREBRO APRENDE (Rick, 11/09): 1 linha por vendedor por dia com o tempo

@@ -442,6 +442,16 @@ export function DefconRunning({
     if (amount <= 0 || digits.length < 10) return;
     const phone = digits.startsWith("55") ? digits : `55${digits}`;
     const text = saleMessage.trim() ? saleMessage : buildChargeMessage(amount, saleName);
+
+    /* BUG (Rick, 11/09): "não está mais encaminhando pro WhatsApp". O WhatsApp
+       era aberto DEPOIS de um `await` (gravar o cliente no banco). Pro celular,
+       abrir uma janela fora do toque do dedo é pop-up — e ele bloqueia calado.
+       Agora o WhatsApp abre PRIMEIRO, ainda dentro do toque; o resto vem depois.
+       Se mesmo assim o navegador segurar, cai pra navegar direto pro link. */
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+    const janela = window.open(url, "_blank");
+    if (!janela) window.location.href = url;
+
     // o modelo salvo nunca guarda o link (ele muda a cada cobrança)
     saveChargeTemplate(cobrancaLink ? text.split(cobrancaLink).join("") : text, amount, saleName);
     // Cobrança por WhatsApp é sempre PIX (a mensagem manda o link ou a chave) —
@@ -458,7 +468,6 @@ export function DefconRunning({
         .update({ enviada_em: new Date().toISOString() })
         .eq("id", cobrancaId);
     }
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, "_blank");
     setShowChargePreview(false);
     resetSaleForm();
     setShowAddSale(false);

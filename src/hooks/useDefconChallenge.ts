@@ -197,8 +197,8 @@ export function useDefconChallenge(userId: string | undefined) {
     if (!sid) return;
     clearTimer();
 
-    // Save current block approaches to challenge_blocks before finishing
-    await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
+    // Save current block approaches to challenge_blocks before finishing (and close the block)
+    await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current, undefined, true);
 
     const endedAt = new Date();
     const { data: doneSession } = await supabase
@@ -223,7 +223,10 @@ export function useDefconChallenge(userId: string | undefined) {
     setPhase("finished");
   }, [clearTimer]);
 
-  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number, sales?: number) => {
+  /* BUG (Rick, 11/09): ended_at NUNCA era gravado em challenge_blocks — 1.319 blocos
+     dos últimos 14 dias sem fim. Sem isso a trilha "Blocos de hoje" do Foco via
+     todo bloco como "rodando" pra sempre. `fechar` grava a hora em que o bloco acabou. */
+  const saveBlockApproaches = async (sid: string, blockIdx: number, approaches: number, sales?: number, fechar = false) => {
     if (!userId) return;
     // Upsert ATÔMICO — depende da constraint única (session_id, block_index).
     // O método antigo usava .maybeSingle(), que retorna erro/null quando há 2+ linhas:
@@ -236,6 +239,7 @@ export function useDefconChallenge(userId: string | undefined) {
       approaches_count: approaches,
     };
     if (sales !== undefined) payload.sales_count = sales;
+    if (fechar) { payload.ended_at = new Date().toISOString(); payload.status = "done"; }
     await supabase
       .from("challenge_blocks")
       .upsert(payload, { onConflict: "session_id,block_index" });
@@ -306,9 +310,9 @@ export function useDefconChallenge(userId: string | undefined) {
         .eq("id", currentBlock.id);
     }
 
-    // Save approaches for this block
+    // Save approaches for this block (and close it: the hour is over)
     if (sid) {
-      await saveBlockApproaches(sid, idx, blockApproachesRef.current);
+      await saveBlockApproaches(sid, idx, blockApproachesRef.current, undefined, true);
     }
 
     // Play block complete alert sound
@@ -1207,8 +1211,8 @@ export function useDefconChallenge(userId: string | undefined) {
     if (!sid) return;
     clearTimer();
 
-    // Save current block approaches
-    await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current);
+    // Save current block approaches (and close the block)
+    await saveBlockApproaches(sid, currentBlockIndexRef.current, blockApproachesRef.current, undefined, true);
     // Totals already accumulated in real-time — no need to add again
 
     const endedAt = new Date();
