@@ -10,6 +10,10 @@ const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
 
 export type DefconPhase = "idle" | "running" | "break" | "block_report" | "finished" | "abandoned" | "lunch_pause";
+/** Motivo da pausa (Rick, 11/09): banheiro e conversar são "até eu voltar"; almoço tem tempo escolhido. */
+export type MotivoPausa = "banheiro" | "conversar" | "almoco";
+/** Teto de segurança (min) das pausas abertas — se esquecer de voltar, o desafio retoma sozinho. */
+export const TETO_PAUSA_MIN: Record<MotivoPausa, number> = { banheiro: 30, conversar: 90, almoco: 120 };
 
 export interface DefconBlock {
   id: string;
@@ -113,6 +117,9 @@ export function useDefconChallenge(userId: string | undefined) {
   const [lunchPauseRemaining, setLunchPauseRemaining] = useState(0);
   const [lunchPauseStartedAt, setLunchPauseStartedAt] = useState<Date | null>(null);
   const [lunchPauseDuration, setLunchPauseDuration] = useState(0);
+  const [pausaMotivo, setPausaMotivo] = useState<MotivoPausa>("almoco");
+  // Linha da pausa em andamento em defcon_pausas (pra fechar com fim/segundos ao voltar).
+  const pausaIdRef = useRef<string | null>(null);
   const [pausedBlockRemaining, setPausedBlockRemaining] = useState(0);
   // Tempo trabalhado RECONSTRUÍDO de uma sessão já encerrada (sobrevive ao reload).
   // null = sessão não encerrada -> usa o cálculo ao vivo (currentBlockIndex/remainingSeconds).
@@ -599,11 +606,24 @@ export function useDefconChallenge(userId: string | undefined) {
           setLunchPauseDuration(Math.max(1, Math.round((lunchEnds - paused) / 1000)));
           setLunchPauseRemaining(restanteSeg);
           setLunchPauseUsed(true);
+          // Recupera o motivo + a linha da pausa aberta (app recarregou no meio da pausa).
+          try {
+            const { data: pz } = await (supabase.from("defcon_pausas") as any)
+              .select("id, motivo").eq("user_id", userId).is("fim", null)
+              .order("inicio", { ascending: false }).limit(1).maybeSingle();
+            if (pz?.id) { pausaIdRef.current = pz.id; setPausaMotivo((pz.motivo as MotivoPausa) || "almoco"); }
+          } catch { /* segue como almoço */ }
           setPhase("lunch_pause");
         } else {
           // Pausa terminou com o app fechado → contabiliza a duração cheia como ocioso.
           const idleSeg = lunchEnds ? Math.max(0, Math.round((lunchEnds - paused) / 1000)) : 0;
           if (idleSeg > 0) {
+            // Fecha a pausa registrada que ficou aberta (voltou sozinho com o app fechado).
+            try {
+              await (supabase.from("defcon_pausas") as any)
+                .update({ fim: new Date(lunchEnds).toISOString(), segundos: idleSeg })
+                .eq("user_id", userId).is("fim", null);
+            } catch { /* nada */ }
             pausedSecondsRef.current += idleSeg;
             await supabase
               .from("challenge_sessions")
@@ -670,12 +690,15 @@ export function useDefconChallenge(userId: string | undefined) {
   }, [userId, loadSessionSales]);
 
   // Pausa (almoço/descanso) — DISPONÍVEL QUANTAS VEZES precisar durante o corre.
-  const startLunchPause = async (durationMinutes: number) => {
+  const startLunchPause = async (durationMinutes: number, motivo: MotivoPausa = "almoco") => {
     if (!userId || phase !== "running") return;
 
     // Trava a duração: um dedo errado (ex.: 180 em vez de 18) prendia o vendedor
-    // 3 horas na tela de almoço. Máximo 120 min.
-    const mins = Math.max(1, Math.min(120, Math.floor(durationMinutes) || 0));
+    // 3 horas na tela de almoço. Banheiro/conversar são "até eu voltar" com teto de segurança.
+    const teto = TETO_PAUSA_MIN[motivo] ?? 120;
+    const mins = motivo === "almoco"
+      ? Math.max(1, Math.min(teto, Math.floor(durationMinutes) || 0))
+      : teto;
     if (mins <= 0) return;
 
     const now = new Date();
@@ -686,6 +709,17 @@ export function useDefconChallenge(userId: string | undefined) {
     setLunchPauseStartedAt(now);
     setLunchPauseRemaining(mins * 60);
     setLunchPauseUsed(true);
+    setPausaMotivo(motivo);
+
+    // Registro da pausa com motivo — o relatório mostra a folga exata (🚻 2x 6min, 🍽️ 40min...).
+    pausaIdRef.current = null;
+    try {
+      const { data: pz } = await (supabase.from("defcon_pausas") as any)
+        .insert({ user_id: userId, session_id: sessionIdRef.current, motivo, inicio: now.toISOString() })
+        .select("id")
+        .maybeSingle();
+      pausaIdRef.current = (pz as { id?: string } | null)?.id ?? null;
+    } catch { /* sem registro, o tempo ocioso total continua contando na sessão */ }
 
     const currentBlockData = blocks[currentBlockIndex];
     if (currentBlockData) {
@@ -709,7 +743,17 @@ export function useDefconChallenge(userId: string | undefined) {
     if (inicio) {
       const durSeg = lunchPauseDurationRef.current || 0;
       const decorrido = Math.round((now.getTime() - inicio.getTime()) / 1000);
-      await acumularPausa(Math.min(durSeg || decorrido, decorrido));
+      const seg = Math.min(durSeg || decorrido, decorrido);
+      await acumularPausa(seg);
+      const pid = pausaIdRef.current;
+      pausaIdRef.current = null;
+      if (pid) {
+        try {
+          await (supabase.from("defcon_pausas") as any)
+            .update({ fim: new Date(inicio.getTime() + seg * 1000).toISOString(), segundos: Math.max(0, Math.round(seg)) })
+            .eq("id", pid);
+        } catch { /* registro fica aberto; o relatório ignora pausas sem fim */ }
+      }
     }
     const currentBlockData = blocksRef.current[currentBlockIndexRef.current];
 
@@ -1468,6 +1512,8 @@ export function useDefconChallenge(userId: string | undefined) {
     hasPlan,
     lunchPauseUsed,
     lunchPauseRemaining,
+    lunchPauseStartedAt,
+    pausaMotivo,
     blockApproaches,
     blockSalesCount,
     totalApproaches,

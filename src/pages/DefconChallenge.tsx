@@ -286,6 +286,8 @@ export default function DefconChallenge() {
           lunchPauseRemaining={defcon.lunchPauseRemaining}
           totalSold={defcon.totalSold}
           onSkip={defcon.skipLunchPause}
+          motivo={defcon.pausaMotivo}
+          startedAt={defcon.lunchPauseStartedAt}
         />
       );
 

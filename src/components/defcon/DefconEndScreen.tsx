@@ -93,25 +93,44 @@ export function DefconEndScreen({
   // Revisitar as horas anteriores: blocos da sessão que acabou de encerrar + qual está sendo visto (0 = dia).
   const [blocks, setBlocks] = useState<{ i: number; sold: number; ab: number; vn: number; ini: string | null; fim: string | null }[]>([]);
   const [reportView, setReportView] = useState(0);
+  // Folga do dia (pausas com motivo): total em segundos + quebra por motivo. "Relatórios exatos" (Rick, 11/09).
+  const [folga, setFolga] = useState<{ total: number; porMotivo: { motivo: string; vezes: number; seg: number }[] } | null>(null);
   useEffect(() => {
     if (!userId) return;
     let cancel = false;
     (async () => {
       const { data: sess } = await supabase
         .from("challenge_sessions")
-        .select("id")
+        .select("id, paused_seconds")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
       if (cancel || !(sess as any)?.id) return;
       const sid = (sess as any).id;
-      const [blRes, vendasRes] = await Promise.all([
+      const [blRes, vendasRes, pausasRes] = await Promise.all([
         supabase.from("challenge_blocks")
           .select("block_index, sold_amount, approaches_count, sales_count, started_at, ended_at")
           .eq("session_id", sid).order("block_index", { ascending: true }),
         supabase.from("defcon_sales").select("block_index, amount, method").eq("session_id", sid),
+        (supabase.from("defcon_pausas") as any).select("motivo, segundos, fim").eq("session_id", sid),
       ]);
+      if (!cancel) {
+        const porMotivo: Record<string, { vezes: number; seg: number }> = {};
+        let somaPausas = 0;
+        for (const pz of ((pausasRes?.data as any[]) || [])) {
+          if (!pz.fim) continue;
+          const seg = Number(pz.segundos) || 0;
+          const k = String(pz.motivo || "outro");
+          porMotivo[k] = { vezes: (porMotivo[k]?.vezes || 0) + 1, seg: (porMotivo[k]?.seg || 0) + seg };
+          somaPausas += seg;
+        }
+        const total = Math.max(somaPausas, Number((sess as any).paused_seconds) || 0);
+        setFolga({
+          total,
+          porMotivo: Object.entries(porMotivo).map(([motivo, v]) => ({ motivo, ...v })).sort((a, b) => b.seg - a.seg),
+        });
+      }
       const bl = blRes.data;
       if (cancel || !bl) return;
       // Valor EXATO por hora: soma as vendas LIGADAS ao block_index (exclui gorjeta).
@@ -1137,6 +1156,23 @@ export function DefconEndScreen({
             {reportView === 0 && (
             <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
               <ReportRow label="⏱️ Horas trabalhadas" value={horasLabel} />
+              {folga && folga.total >= 60 && (
+                <div className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">⏸️ Folga (pausas)</span>
+                    <span className="text-lg font-black tabular-nums text-foreground">{fmtFolga(folga.total)}</span>
+                  </div>
+                  {folga.porMotivo.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-mono text-muted-foreground">
+                      {folga.porMotivo.map((p) => (
+                        <span key={p.motivo}>
+                          {EMOJI_PAUSA[p.motivo] ?? "⏸️"} {p.vezes > 1 ? `${p.vezes}× · ` : ""}{fmtFolga(p.seg)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <ReportRow label="💰 Vendido" value={formatCurrency(totalSold)} />
               <ReportRow label="👤 Abordagens" value={String(totalApproaches)} />
               <ReportRow label="🛒 Vendas" value={String(totalSalesCount)} valueClass="text-success" />
@@ -1396,6 +1432,16 @@ export function DefconEndScreen({
       </div>
     </div>
   );
+}
+
+const EMOJI_PAUSA: Record<string, string> = { banheiro: "🚻", conversar: "💬", almoco: "🍽️" };
+/** 48s → "1min"; 6min; 1h05 */
+function fmtFolga(seg: number) {
+  const min = Math.max(1, Math.round(seg / 60));
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  const r = min % 60;
+  return r > 0 ? `${h}h${String(r).padStart(2, "0")}` : `${h}h`;
 }
 
 function ReportRow({ label, value, valueClass = "text-foreground" }: { label: string; value: string; valueClass?: string }) {

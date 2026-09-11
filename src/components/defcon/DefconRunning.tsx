@@ -3,8 +3,8 @@ import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { useTheme } from "next-themes";
 import { formatCurrency } from "@/shared/lib/utils";
 import { reaisDeTexto, limparDinheiro, arrumarDinheiro } from "@/shared/lib/dinheiro";
-import { Plus, X, UtensilsCrossed, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2 } from "lucide-react";
-import { DefconBlock } from "@/hooks/useDefconChallenge";
+import { Plus, X, UserRound, FileText, Coins, Pause, MessageCircle, Phone, Minus, User, Package, Sun, Moon, Smartphone, CreditCard, ChevronLeft, ChevronRight, Camera, Check, Loader2 } from "lucide-react";
+import { DefconBlock, type MotivoPausa } from "@/hooks/useDefconChallenge";
 import { DefconQuickSaleButtons } from "./DefconQuickSaleButtons";
 import { DefconOccurrenceModal } from "./DefconOccurrenceModal";
 import { DefconSmartNotification } from "./DefconSmartNotification";
@@ -40,7 +40,7 @@ interface DefconRunningProps {
   onAddApproach: () => void;
   onAddOccurrence: (description: string) => void;
   onEnd: () => void;
-  onLunchPause: (minutes: number) => void;
+  onLunchPause: (minutes: number, motivo?: MotivoPausa) => void;
   onAddTip?: (amount: number) => void;
   sessionSales?: any[];
   onDeleteSale?: (sale: any) => void;
@@ -85,6 +85,9 @@ export function DefconRunning({
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
   const [showLunchPicker, setShowLunchPicker] = useState(false);
   const [customLunchMinutes, setCustomLunchMinutes] = useState("");
+  // Motivo escolhido no picker de pausa: banheiro/conversar pausam na hora; almoço pede o tempo.
+  const [motivoPausa, setMotivoPausa] = useState<MotivoPausa | null>(null);
+  const fecharPicker = () => { setShowLunchPicker(false); setCustomLunchMinutes(""); setMotivoPausa(null); };
   const [showOccurrence, setShowOccurrence] = useState(false);
   /* ---- VENDA RÁPIDA POR DIA (Rick, 05/09) ----
      O histórico de valores vive no aparelho por usuário+dia: aparece já na
@@ -223,7 +226,7 @@ export function DefconRunning({
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (showAddSale) { setShowAddSale(false); resetSaleForm(); }
-      else if (showLunchPicker) { setShowLunchPicker(false); setCustomLunchMinutes(""); }
+      else if (showLunchPicker) { fecharPicker(); }
       else if (showAddTip) { setShowAddTip(false); setTipValue(""); }
       else if (showBlockSales) { setShowBlockSales(false); }
     };
@@ -816,7 +819,7 @@ export function DefconRunning({
             onClick={() => setShowLunchPicker(true)}
             className="flex-1 h-9 rounded-lg flex items-center justify-center gap-1.5 active:scale-95 active:bg-foreground/5 transition-[colors,transform,opacity]"
           >
-            <UtensilsCrossed className="w-3 h-3 text-muted-foreground/60" />
+            <Pause className="w-3 h-3 text-muted-foreground/60" />
             <span className="text-xs font-mono text-muted-foreground/70 tracking-wider uppercase">Pausar</span>
           </button>
           <span className="text-foreground/10">|</span>
@@ -1067,72 +1070,103 @@ export function DefconRunning({
         </div>
       )}
 
-      {/* Lunch pause duration picker */}
+      {/* Picker de pausa: motivo (banheiro / conversar / almoço). O relógio da hora para
+          e cada pausa vira "folga" no relatório, com o tempo exato. */}
       {showLunchPicker && (
         <div
           className="fixed inset-0 bg-background/90 flex items-end justify-center z-50"
           role="dialog"
           aria-modal="true"
           aria-labelledby="defcon-lunch-title"
-          onClick={() => { setShowLunchPicker(false); setCustomLunchMinutes(""); }}
+          onClick={fecharPicker}
         >
           <div
-            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-6 animate-in slide-in-from-bottom duration-200"
+            className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6 pb-10 space-y-5 animate-in slide-in-from-bottom duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center">
-              <h3 id="defcon-lunch-title" className="text-lg font-bold text-foreground">🍽️ Pausa para almoço</h3>
-              <button onClick={() => { setShowLunchPicker(false); setCustomLunchMinutes(""); }}>
+              <h3 id="defcon-lunch-title" className="text-lg font-bold text-foreground">⏸️ Pausar o corre</h3>
+              <button onClick={fecharPicker} aria-label="Fechar">
                 <X className="w-6 h-6 text-muted-foreground" />
               </button>
             </div>
             <p className="text-sm text-muted-foreground font-mono">
-              Escolha o tempo de pausa. Você só pode usar 1 vez por dia.
+              O relógio da hora para. O tempo de folga entra no seu relatório.
             </p>
-            <div className="grid grid-cols-4 gap-2">
-              {[15, 30, 45, 60].map((min) => (
+            <div className="grid grid-cols-3 gap-2" data-tour="defcon-pausa-motivos">
+              {([
+                { m: "banheiro" as MotivoPausa, emoji: "🚻", titulo: "Banheiro", sub: "volta quando eu tocar" },
+                { m: "conversar" as MotivoPausa, emoji: "💬", titulo: "Conversar", sub: "volta quando eu tocar" },
+                { m: "almoco" as MotivoPausa, emoji: "🍽️", titulo: "Almoço", sub: "escolher o tempo" },
+              ]).map((o) => {
+                const ativo = motivoPausa === o.m;
+                return (
+                  <button
+                    key={o.m}
+                    onClick={() => {
+                      if (o.m === "almoco") { setMotivoPausa("almoco"); return; }
+                      fecharPicker();
+                      onLunchPause(0, o.m);
+                    }}
+                    className={`min-h-[96px] rounded-2xl border px-2 py-3 flex flex-col items-center justify-center gap-1 active:scale-95 transition-[colors,transform,opacity] ${
+                      ativo ? "bg-warning/15 border-warning text-foreground" : "bg-muted border-border text-foreground"
+                    }`}
+                  >
+                    <span className="text-2xl leading-none">{o.emoji}</span>
+                    <span className="text-sm font-black leading-tight">{o.titulo}</span>
+                    <span className="text-[10px] leading-tight text-muted-foreground text-center">{o.sub}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {motivoPausa === "almoco" && (
+              <div className="space-y-3 animate-in fade-in duration-150">
+                <div className="grid grid-cols-4 gap-2">
+                  {[15, 30, 45, 60].map((min) => (
+                    <button
+                      key={min}
+                      onClick={() => setCustomLunchMinutes(String(min))}
+                      className={`h-12 rounded-xl font-bold text-sm active:scale-95 transition-[colors,transform,opacity] border ${
+                        customLunchMinutes === String(min)
+                          ? "bg-warning border-warning text-warning-foreground"
+                          : "bg-muted border-border text-muted-foreground"
+                      }`}
+                    >
+                      {min} min
+                    </button>
+                  ))}
+                </div>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">
+                    min
+                  </span>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={120}
+                    value={customLunchMinutes}
+                    onChange={(e) => setCustomLunchMinutes(e.target.value)}
+                    placeholder="Ou digite os minutos (máx. 120)"
+                    className="w-full h-14 bg-background border-2 border-border rounded-xl text-center text-2xl font-black text-foreground pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-muted-foreground placeholder:text-sm"
+                  />
+                </div>
                 <button
-                  key={min}
-                  onClick={() => setCustomLunchMinutes(String(min))}
-                  className={`h-12 rounded-xl font-bold text-sm active:scale-95 transition-[colors,transform,opacity] border ${
-                    customLunchMinutes === String(min)
-                      ? "bg-warning border-warning text-warning-foreground"
-                      : "bg-muted border-border text-muted-foreground"
-                  }`}
+                  onClick={() => {
+                    const mins = parseInt(customLunchMinutes) || 0;
+                    if (mins > 0 && mins <= 120) {
+                      fecharPicker();
+                      onLunchPause(mins, "almoco");
+                    }
+                  }}
+                  disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 120}
+                  className="w-full h-14 bg-warning text-warning-foreground font-black text-lg rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
                 >
-                  {min} min
+                  INICIAR ALMOÇO
                 </button>
-              ))}
-            </div>
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-mono">
-                min
-              </span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={120}
-                value={customLunchMinutes}
-                onChange={(e) => setCustomLunchMinutes(e.target.value)}
-                placeholder="Ou digite os minutos (máx. 120)"
-                className="w-full h-14 bg-background border-2 border-border rounded-xl text-center text-2xl font-black text-foreground pl-12 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning transition-colors placeholder:text-muted-foreground placeholder:text-sm"
-              />
-            </div>
-            <button
-              onClick={() => {
-                const mins = parseInt(customLunchMinutes) || 0;
-                if (mins > 0 && mins <= 120) {
-                  setShowLunchPicker(false);
-                  setCustomLunchMinutes("");
-                  onLunchPause(mins);
-                }
-              }}
-              disabled={!customLunchMinutes || parseInt(customLunchMinutes) <= 0 || parseInt(customLunchMinutes) > 120}
-              className="w-full h-14 bg-warning text-warning-foreground font-black text-lg rounded-xl disabled:opacity-30 active:scale-95 transition-transform"
-            >
-              INICIAR PAUSA
-            </button>
+              </div>
+            )}
           </div>
         </div>
       )}

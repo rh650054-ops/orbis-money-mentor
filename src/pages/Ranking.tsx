@@ -26,6 +26,7 @@ import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { comprimirImagem, fotoValida } from "@/shared/lib/avatar";
 import { ConviteRanking } from "@/components/ranking/ConviteRanking";
+import { OcultarResultado, useRankingOculto } from "@/components/ranking/OcultarResultado";
 
 const motivationalPhrases = [
   "Dominando o jogo com excelência!",
@@ -88,6 +89,8 @@ export default function Ranking() {
   // as comparações antigas (dead code do semanal) continuarem compilando.
   const activeTab: "mensal" | "semanal" = "mensal";
   const weekly = useWeeklyLeaderboard(user?.id, activeTab === "semanal");
+  // "Ocultar meu resultado": escolha do vendedor de ficar fora do ranking (padrão: participa).
+  const [rankingOculto, setRankingOculto] = useRankingOculto(user?.id);
   const navigate = useNavigate();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
@@ -363,7 +366,7 @@ export default function Ranking() {
             </div>
           )}
 
-          {!hasParticipated && (
+          {!hasParticipated && !rankingOculto && (
             <Card className="border border-dashed border-primary/30 bg-card/50">
               <CardContent className="p-6 text-center space-y-3">
                 <AlertCircle className="w-10 h-10 mx-auto text-primary" />
@@ -373,6 +376,16 @@ export default function Ranking() {
                 </p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Ocultar meu resultado — o vendedor decide se aparece no ranking */}
+          {user && (
+            <OcultarResultado
+              userId={user.id}
+              oculto={rankingOculto}
+              setOculto={setRankingOculto}
+              onMudou={() => { loadLeaderboard(); }}
+            />
           )}
 
           <FaturamentoLeague

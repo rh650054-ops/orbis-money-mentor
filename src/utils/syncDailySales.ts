@@ -98,12 +98,13 @@ export async function syncLeaderboardRevenue(userId: string) {
   // Get user profile for name/avatar
   const { data: profile } = await supabase
     .from("profiles")
-    .select("nickname, email, avatar_url, ranking_hidden")
+    .select("nickname, email, avatar_url, ranking_hidden, ranking_oculto")
     .eq("user_id", userId)
     .maybeSingle();
 
-  // Moderação: usuário oculto do ranking — remove a entrada do mês e não recria.
-  if ((profile as any)?.ranking_hidden) {
+  // Fora do ranking: por moderação (ranking_hidden) OU por escolha do próprio vendedor
+  // (ranking_oculto = "ocultar meu resultado"). Remove a entrada do mês e não recria.
+  if ((profile as any)?.ranking_hidden || (profile as any)?.ranking_oculto) {
     await supabase
       .from("leaderboard_stats")
       .delete()
