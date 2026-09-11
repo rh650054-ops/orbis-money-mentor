@@ -102,6 +102,20 @@
 .cl-balao { animation: cl-sobe .45s cubic-bezier(.2,.8,.2,1) both; }
 .cl-chip-agora { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; background: rgba(0,0,0,.35); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.18); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
 
+/* abertura da novidade do clima: o fundo escurece e o card sobe com o mascote */
+@keyframes cl-nov-fundo { from { opacity: 0 } to { opacity: 1 } }
+.cl-nov-fundo { animation: cl-nov-fundo .28s ease-out both; }
+@keyframes cl-nov-card { from { opacity: 0; transform: translateY(26px) scale(.94) } to { opacity: 1; transform: translateY(0) scale(1) } }
+.cl-nov-card { animation: cl-nov-card .42s cubic-bezier(.2,.9,.25,1) both; }
+@keyframes cl-nov-boneco { 0% { opacity: 0; transform: translateY(16px) scale(.96) } 60% { opacity: 1 } 100% { opacity: 1; transform: translateY(0) scale(1) } }
+.cl-nov-boneco { animation: cl-nov-boneco .6s cubic-bezier(.2,.9,.25,1) .1s both; transform-origin: 50% 100%; }
+
+/* a carinha do chip da Home: treme no frio, escorre a gota no calor */
+@keyframes cl-rosto-tremor { 0%,100% { transform: translate(0,0) } 20% { transform: translate(.4px,-.25px) } 45% { transform: translate(-.35px,.3px) } 70% { transform: translate(.3px,.3px) } }
+.cl-rosto-tremor { animation: cl-rosto-tremor .26s linear infinite; }
+@keyframes cl-rosto-suor { 0%,100% { opacity: .85 } 45% { opacity: 1 } 70% { opacity: .5 } }
+.cl-rosto-suor { animation: cl-rosto-suor 2.2s ease-in-out infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .cl-mundo, .cl-boneco, .cl-corpo, .cl-palpebra, .cl-halito, .cl-sol-disco, .cl-sol-halo, .cl-sol-raios, .cl-quente, .cl-mormaco, .cl-nuvem, .cl-rajada, .cl-gota, .cl-chuva, .cl-raio, .cl-clarao, .cl-estrelas { animation: none !important; }
+  .cl-mundo, .cl-boneco, .cl-corpo, .cl-palpebra, .cl-halito, .cl-sol-disco, .cl-sol-halo, .cl-sol-raios, .cl-quente, .cl-mormaco, .cl-nuvem, .cl-rajada, .cl-gota, .cl-chuva, .cl-raio, .cl-clarao, .cl-estrelas, .cl-rosto-tremor, .cl-rosto-suor, .cl-nov-card, .cl-nov-boneco { animation: none !important; }
 }
