@@ -108,3 +108,21 @@ function encurta(p: Pico): Pico {
 }
 
 export const rotuloPico = (p: Pico) => (p.de === p.ate ? `${p.de}h` : `${p.de}h–${p.ate + 1}h`);
+
+
+/* ============================================================
+   NOME DE CIDADE QUE CABE NA TELA (Rick, 11/09)
+   O serviço de geolocalização devolve coisas como "Região Metropolitana de
+   São Paulo" — que empurrava o "6 fontes" pra fora do celular. Aqui vira
+   "São Paulo".
+   ============================================================ */
+const PREFIXOS = /^(regi(ã|a)o\s+(metropolitana|geogr(á|a)fica\s+(imediata|intermedi(á|a)ria)|administrativa)\s+d[eoa]s?|microrregi(ã|a)o\s+d[eoa]s?|mesorregi(ã|a)o\s+d[eoa]s?|munic(í|i)pio\s+d[eoa]s?|cidade\s+d[eoa]s?|distrito\s+d[eoa]s?)\s+/i;
+
+export function cidadeCurta(nome: string, uf?: string, max = 22): string {
+  let c = (nome || "").trim();
+  let antes = "";
+  while (c !== antes) { antes = c; c = c.replace(PREFIXOS, "").trim(); }
+  if (!c) return ""; // sem nome: a tela mostra "sua região"
+  if (c.length > max) c = `${c.slice(0, max - 1).trim()}…`;
+  return uf ? `${c}, ${uf}` : c;
+}

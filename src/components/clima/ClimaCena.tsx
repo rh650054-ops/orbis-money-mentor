@@ -169,7 +169,7 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
 
       {/* topo */}
       <div className="absolute left-4 right-4 top-3.5 flex items-center justify-between gap-2">
-        <span className="cl-chip-agora"><MapPin className="w-3 h-3" strokeWidth={2.4} />{cidade || "sua região"} · GPS</span>
+        <span className="cl-chip-agora cl-chip-cidade"><MapPin className="w-3 h-3 shrink-0" strokeWidth={2.4} /><span>{cidade || "sua região"} · GPS</span></span>
         <span className="flex items-center gap-1.5 shrink-0">
           <span className="cl-chip-agora" style={{ color: "var(--orbis-gold,#F5B800)" }}>{fontes} fontes · {concordancia}%</span>
           {onAtualizar && (

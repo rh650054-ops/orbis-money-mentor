@@ -96,7 +96,10 @@
 /* balão que sobe quando o Orbis fala */
 @keyframes cl-sobe { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .cl-balao { animation: cl-sobe .45s cubic-bezier(.2,.8,.2,1) both; }
-.cl-chip-agora { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; background: rgba(0,0,0,.35); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.18); font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.cl-chip-agora { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; background: rgba(0,0,0,.35); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.18); font-size: 11.5px; font-weight: 700; white-space: nowrap; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+/* o chip da cidade cede espaço; o das fontes nunca encolhe */
+.cl-chip-cidade { min-width: 0; flex: 0 1 auto; }
+.cl-chip-cidade > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* abertura da novidade do clima: o fundo escurece e o card sobe com o mascote */
 @keyframes cl-nov-fundo { from { opacity: 0 } to { opacity: 1 } }

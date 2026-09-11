@@ -13,7 +13,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { useClima, type ContextoClima } from "@/hooks/useClima";
 import { ClimaCena } from "@/components/clima/ClimaCena";
 import { TourClima, tourClimaVisto } from "@/components/clima/TourClima";
-import { melhoresPicos, horasFortes, rotuloPico, type PerfilHora, type Pico } from "@/components/clima/picos";
+import { melhoresPicos, horasFortes, rotuloPico, cidadeCurta, type PerfilHora, type Pico } from "@/components/clima/picos";
 
 // Tabelas que os tipos gerados (velhos) não conhecem: consulta genérica, sem `any`.
 interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (k: string, op: string, v: unknown) => Q; lte: (k: string, v: unknown) => Q; gte: (k: string, v: unknown) => Q; order: (k: string) => Q; limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null }>; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> }
@@ -150,7 +150,7 @@ export default function Clima() {
           <div className="px-3">
             <ClimaCena
               estado={tempo.estado} temp={tempo.temp} condicao={tempo.condicao} linha={linha}
-              cidade={tempo.cidade ? `${tempo.cidade}${tempo.uf ? `, ${tempo.uf}` : ""}` : ""}
+              cidade={tempo.cidade ? cidadeCurta(tempo.cidade, tempo.uf) : ""}
               fontes={tempo.fontesTotal} concordancia={tempo.concordancia}
               toques={toques} onToque={() => setToques((t) => t + 1)}
               carregando={carregando} onAtualizar={() => recarregar()}
