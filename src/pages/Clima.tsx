@@ -6,7 +6,7 @@
    ============================================================ */
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Pause, Home, AlertTriangle, RefreshCw, Loader2, MapPinOff } from "lucide-react";
+import { ArrowLeft, ArrowRight, Pause, Home, AlertTriangle, RefreshCw, Loader2, MapPin, Zap } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -14,9 +14,10 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { useClima, type ContextoClima } from "@/hooks/useClima";
 import { ClimaCena } from "@/components/clima/ClimaCena";
 import { TourClima, tourClimaVisto } from "@/components/clima/TourClima";
+import { melhoresPicos, horasFortes, rotuloPico, type PerfilHora, type Pico } from "@/components/clima/picos";
 
 // Tabelas que os tipos gerados (velhos) não conhecem: consulta genérica, sem `any`.
-interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (k: string, op: string, v: unknown) => Q; lte: (k: string, v: unknown) => Q; order: (k: string) => Q; limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null }>; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> }
+interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (k: string, op: string, v: unknown) => Q; lte: (k: string, v: unknown) => Q; gte: (k: string, v: unknown) => Q; order: (k: string) => Q; limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null }>; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> }
 const db = supabase as unknown as { from: (t: string) => Q };
 
 
@@ -28,6 +29,7 @@ export default function Clima() {
   // primeiro acesso à tela: mostra os 7 climas antes (uma vez por pessoa).
   // null = ainda não sei quem é a pessoa (o login pode chegar depois do 1º render)
   const [tour, setTour] = useState<boolean | null>(null);
+  const [perfilHoras, setPerfilHoras] = useState<PerfilHora[]>([]);
 
   // contexto do vendedor: meta de hoje, vendido, contas vencendo, melhor hora
   useEffect(() => {
@@ -51,10 +53,29 @@ export default function Clima() {
       const vendidoHoje = (vendas.data ?? []).reduce((s, r) => s + (Number((r as { total_profit?: number }).total_profit) || 0), 0);
       const fichaMelhor = (ficha.data as { melhor_hora?: number | null } | null)?.melhor_hora;
       const contasRows = (contas.data ?? []) as { name: string; amount: number; due_date: string }[];
+      // horas em que ELE mais vende: vem dos blocos do DEFCON dos últimos 90 dias
+      const desde = new Date(Date.now() - 90 * 86400000).toISOString();
+      const { data: blocos } = await db
+        .from("challenge_blocks").select("started_at, sales_count")
+        .eq("user_id", user.id).gte("started_at", desde).limit(1000);
+      let horasDele: PerfilHora[] = [];
+      if (vivo && blocos) {
+        const mapa = new Map<number, { vendas: number; blocos: number }>();
+        for (const b of blocos as unknown as { started_at: string | null; sales_count: number | null }[]) {
+          if (!b.started_at) continue;
+          const h = Number(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }).format(new Date(b.started_at)));
+          const at = mapa.get(h) ?? { vendas: 0, blocos: 0 };
+          at.vendas += Number(b.sales_count) || 0; at.blocos += 1;
+          mapa.set(h, at);
+        }
+        horasDele = [...mapa.entries()].map(([hora, v]) => ({ hora, ...v }));
+        setPerfilHoras(horasDele);
+      }
       const dias = (iso: string) => Math.round((new Date(`${iso}T12:00:00`).getTime() - new Date(`${hoje}T12:00:00`).getTime()) / 86400000);
       setContexto({
         meta, vendidoHoje,
         melhorHora: fichaMelhor != null ? Number(fichaMelhor) : null,
+        melhoresHoras: horasFortes(horasDele).topo,
         contas: contasRows.map((b) => ({ nome: String(b.name), dias: dias(String(b.due_date)), valor: Number(b.amount) || 0 })),
       });
     })().catch(() => { if (vivo) setContexto({}); });
@@ -63,7 +84,7 @@ export default function Clima() {
 
   useEffect(() => { if (user && tour === null) setTour(!tourClimaVisto(user.id)); }, [user, tour]);
 
-  const { tempo, opiniao, fonteOpiniao, carregando, erro, recarregar } = useClima({ contexto: contexto ?? undefined, auto: contexto !== null });
+  const { tempo, opiniao, fonteOpiniao, carregando, erro, permissao, recarregar, pedirPermissao } = useClima({ contexto: contexto ?? undefined, auto: contexto !== null });
 
   const fala = opiniao ? opiniao.falas[toques % opiniao.falas.length] ?? opiniao.falas[0] : null;
   const cor = useMemo(() => {
@@ -72,6 +93,8 @@ export default function Clima() {
   }, [opiniao]);
   const linha = tempo ? `máx ${tempo.max != null ? Math.round(tempo.max) : "–"}° · mín ${tempo.min != null ? Math.round(tempo.min) : "–"}° · sensação ${Math.round(tempo.sensacao)}°${tempo.vento >= 20 ? ` · vento ${Math.round(tempo.vento)} km/h` : ""}` : "";
   const proximas = (tempo?.horas ?? []).slice(0, 10);
+  // PICOS: as horas que ele não pode perder hoje (clima + histórico dele)
+  const picos = useMemo<Pico[]>(() => (tempo ? melhoresPicos(tempo.horas.slice(0, 16), perfilHoras) : []), [tempo, perfilHoras]);
   const contexTxt = contexto ? [
     contexto.meta ? `meta de hoje ${formatCurrency(contexto.meta)}` : null,
     contexto.contas && contexto.contas[0] ? `${contexto.contas[0].nome} vence ${contexto.contas[0].dias <= 0 ? "hoje" : `em ${contexto.contas[0].dias} dias`}` : null,
@@ -97,15 +120,34 @@ export default function Clima() {
         </button>
       </div>
 
-      {/* sem posição / erro */}
-      {!tempo && erro === "sem_posicao" && (
-        <div className="mx-4 rounded-2xl border p-5 flex flex-col items-center text-center gap-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.08)" }}>
-          <MapPinOff className="w-8 h-8" style={{ color: "#7e7869" }} />
-          <p className="text-[15px] font-bold">Preciso saber onde você está</p>
-          <p className="text-[13px]" style={{ color: "#b9b3a6" }}>O clima vem do lugar onde você tá. Libera a localização pro Orbis (a mesma do Caça-Sinal) e tenta de novo.</p>
-          <button type="button" onClick={() => recarregar()} className="orbis-cta w-full" style={{ height: 48 }}>TENTAR DE NOVO</button>
+      {/* PERMISSÃO — o nosso convite, no lugar do pop-up cinza do celular.
+          O sistema só pergunta quando ele toca no botão dourado. (Rick, 11/09) */}
+      {!tempo && (permissao === "perguntar" || permissao === "negada" || erro === "sem_posicao") && (
+        <div className="px-4">
+          <section className="relative overflow-hidden rounded-[22px] border p-5 flex flex-col gap-2.5"
+            style={{ borderColor: "rgba(245,184,0,.4)", background: "linear-gradient(160deg,#1c1608 0%,#131211 60%)" }}>
+            <img src="/orbis/clima/calor-boneco-p.webp" alt="" draggable={false} className="absolute pointer-events-none"
+              style={{ right: -26, top: -10, width: 132, maxWidth: "none", opacity: .9, filter: "drop-shadow(0 10px 20px rgba(0,0,0,.6))" }} />
+            <span className="relative inline-flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[.16em] uppercase" style={{ color: "#F5B800" }}>
+              <MapPin className="w-3.5 h-3.5" strokeWidth={2.6} /> Onde você vende
+            </span>
+            <p className="relative text-[19px] font-black leading-[1.15] pr-[110px]">Me diz onde você tá que eu leio o céu por você.</p>
+            <p className="relative text-[13px] leading-[1.5] pr-[100px]" style={{ color: "#b9b3a6" }}>
+              {permissao === "negada"
+                ? "A localização tá bloqueada pro Orbis. Abre o cadeado na barra de endereço (ou os ajustes do app) e libera — aí eu te mostro as melhores horas de hoje."
+                : "Com a sua localização eu vejo a chuva hora a hora e te digo os picos do dia — as horas em que vale sair e as que não valem. Não guardo sua rua: arredondo pra uns 5 km."}
+            </p>
+            {permissao !== "negada" && (
+              <button type="button" onClick={() => void pedirPermissao()} disabled={carregando}
+                className="orbis-cta relative w-full mt-1 flex items-center justify-center gap-2 disabled:opacity-60" style={{ height: 50, fontSize: 14 }}>
+                {carregando ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <MapPin className="w-[18px] h-[18px]" strokeWidth={2.6} />}
+                {carregando ? "PROCURANDO VOCÊ…" : "LIBERAR LOCALIZAÇÃO"}
+              </button>
+            )}
+          </section>
         </div>
       )}
+
       {!tempo && erro === "falhou" && (
         <div className="mx-4 rounded-2xl border p-5 text-center" style={{ background: "#131211", borderColor: "rgba(255,255,255,.08)" }}>
           <p className="text-[15px] font-bold">Não consegui ler o céu agora</p>
@@ -126,6 +168,23 @@ export default function Clima() {
               toques={toques} onToque={() => setToques((t) => t + 1)}
             />
           </div>
+
+          {/* ALERTA PRIMEIRO (Rick + Mohamed, 11/09): risco de vida vem antes de
+              qualquer conselho de venda. Vermelho forte, ícone grande, no topo. */}
+          {tempo.alerta && (
+            <div className="px-4 mt-3.5">
+              <section className="cl-alerta rounded-[20px] px-4 py-4 flex items-start gap-3" style={{ border: "2px solid #FF5C5C", background: "linear-gradient(160deg,#3a0c10,#1a0708)" }}>
+                <span className="w-11 h-11 rounded-[14px] inline-flex items-center justify-center shrink-0" style={{ background: "rgba(255,92,92,.2)" }}>
+                  <AlertTriangle className="w-6 h-6" style={{ color: "#FF5C5C" }} strokeWidth={2.6} />
+                </span>
+                <span className="flex flex-col gap-1 min-w-0">
+                  <span className="text-[10.5px] font-black tracking-[.18em] uppercase" style={{ color: "#FF8A8A" }}>Alerta agora</span>
+                  <span className="text-[17px] font-black leading-tight">{tempo.alerta.titulo}</span>
+                  <span className="text-[13px] leading-[1.45]" style={{ color: "#e8b9b9" }}>{tempo.alerta.texto}</span>
+                </span>
+              </section>
+            </div>
+          )}
 
           {/* balão: o Orbis fala */}
           <div className="px-4 -mt-[30px] relative">
@@ -154,29 +213,65 @@ export default function Clima() {
             </div>
           )}
 
-          {/* janelas */}
-          {opiniao && (
-            <div className="px-4 mt-3.5 flex flex-col gap-2.5">
-              <p className="orbis-section px-1">Seu dia, hora a hora</p>
-              <section className="rounded-[18px] border px-4 py-1" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-                <Janela icone={<ArrowRight className="w-[18px] h-[18px]" style={{ color: "#3DD68C" }} strokeWidth={2.4} />} fundo="rgba(61,214,140,.14)" titulo="Sair pra vender" txt={opiniao.sair.txt} hora={opiniao.sair.hora} cor="#3DD68C" />
-                <Janela icone={<Pause className="w-[18px] h-[18px]" style={{ color: "#F5B800" }} strokeWidth={2.4} />} fundo="rgba(245,184,0,.14)" titulo="Descansar" txt={opiniao.pausa.txt} hora={opiniao.pausa.hora} cor="#F5B800" borda />
-                <Janela icone={<Home className="w-[18px] h-[18px]" style={{ color: "#b9b3a6" }} strokeWidth={2.4} />} fundo="rgba(255,255,255,.08)" titulo="Voltar pra casa" txt={opiniao.volta.txt} hora={opiniao.volta.hora} cor="#ffffff" borda />
+          {/* PICOS DO DIA — as horas que ele não pode perder (Rick, 11/09).
+              Clima dos 6 modelos + sol/temperatura + movimento de rua + as horas
+              em que ELE mais vende. Conta pura, sem IA: aparece mesmo offline. */}
+          {picos.length > 0 && (
+            <div className="px-4 mt-4 flex flex-col gap-2">
+              <div className="flex items-baseline justify-between px-1">
+                <p className="orbis-section">Picos de hoje</p>
+                <p className="text-[11.5px]" style={{ color: "#7e7869" }}>não perde essas horas</p>
+              </div>
+              <div className="flex flex-col gap-2">
+                {picos.map((p, i) => {
+                  const c = i === 0 ? "#3DD68C" : "#F5B800";
+                  return (
+                    <section key={`${p.de}-${p.ate}`} className="rounded-[16px] px-3.5 py-3 flex items-center gap-3"
+                      style={{ border: `1px solid ${c}55`, background: `linear-gradient(100deg, ${c}18, #131211 70%)` }}>
+                      <span className="orbis-num text-[17px] font-black shrink-0" style={{ color: c, minWidth: 74 }}>{rotuloPico(p)}</span>
+                      <span className="flex flex-wrap gap-1.5 flex-1 min-w-0">
+                        {p.etiquetas.map((e) => (
+                          <span key={e} className="h-[22px] px-2 rounded-full text-[10.5px] font-extrabold inline-flex items-center"
+                            style={e === "seu pico"
+                              ? { background: `${c}26`, color: c }
+                              : { border: "1px solid rgba(255,255,255,.14)", color: "#b9b3a6" }}>
+                            {e === "seu pico" ? "⚡ seu pico" : e}
+                          </span>
+                        ))}
+                      </span>
+                      {i === 0 && <Zap className="w-[18px] h-[18px] shrink-0" style={{ color: c }} strokeWidth={2.6} />}
+                    </section>
+                  );
+                })}
+              </div>
+              {perfilHoras.length === 0 && (
+                <p className="px-1 text-[11.5px] leading-[1.4]" style={{ color: "#7e7869" }}>
+                  Ainda tô aprendendo suas horas. Quanto mais você usa o Foco, mais afiado fica esse pico.
+                </p>
+              )}
+            </div>
+          )}
+          {picos.length === 0 && tempo.horas.length > 0 && (
+            <div className="px-4 mt-4">
+              <section className="rounded-[16px] px-4 py-3.5" style={{ border: "1px solid rgba(255,255,255,.08)", background: "#131211" }}>
+                <p className="text-[13.5px] font-bold">Hoje não tem janela boa.</p>
+                <p className="text-[12.5px] mt-1 leading-[1.45]" style={{ color: "#b9b3a6" }}>
+                  {tempo.estado === "tempestade" ? "Tempestade fecha o dia. Amanhã a gente recupera." : tempo.estado === "chuva" ? "Chuva na maior parte das horas — o que der, dá de manhã." : "Nem toda hora do dia serve. Confere a chance de chuva aqui embaixo."}
+                </p>
               </section>
-              {contexTxt && <p className="px-1 text-[12px] leading-[1.45]" style={{ color: "#7e7869" }}>Levei em conta: {contexTxt}.{fonteOpiniao === "local" ? " (IA descansando — opinião pela regra da casa.)" : ""}</p>}
             </div>
           )}
 
-          {/* alerta */}
-          {tempo.alerta && (
-            <div className="px-4 mt-3.5">
-              <section className="rounded-[18px] border px-4 py-3.5 flex items-start gap-3" style={{ borderColor: "rgba(255,92,92,.55)", background: "linear-gradient(180deg,#24090c,#131211)" }}>
-                <span className="w-9 h-9 rounded-[11px] inline-flex items-center justify-center shrink-0" style={{ background: "rgba(255,92,92,.16)" }}><AlertTriangle className="w-5 h-5" style={{ color: "#FF5C5C" }} strokeWidth={2.2} /></span>
-                <span className="flex flex-col gap-1 min-w-0">
-                  <span className="text-[14.5px] font-extrabold leading-[1.3]">{tempo.alerta.titulo}</span>
-                  <span className="text-[12.5px] leading-[1.45]" style={{ color: "#b9b3a6" }}>{tempo.alerta.texto}</span>
-                </span>
+          {/* janelas — mais enxutas (Mohamed: "as notificações estão muito grossas") */}
+          {opiniao && (
+            <div className="px-4 mt-4 flex flex-col gap-2">
+              <p className="orbis-section px-1">Seu dia, hora a hora</p>
+              <section className="rounded-[16px] border px-3.5 py-0.5" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+                <Janela icone={<ArrowRight className="w-4 h-4" style={{ color: "#3DD68C" }} strokeWidth={2.6} />} fundo="rgba(61,214,140,.14)" titulo="Sair pra vender" txt={opiniao.sair.txt} hora={opiniao.sair.hora} cor="#3DD68C" />
+                <Janela icone={<Pause className="w-4 h-4" style={{ color: "#F5B800" }} strokeWidth={2.6} />} fundo="rgba(245,184,0,.14)" titulo="Descansar" txt={opiniao.pausa.txt} hora={opiniao.pausa.hora} cor="#F5B800" borda />
+                <Janela icone={<Home className="w-4 h-4" style={{ color: "#b9b3a6" }} strokeWidth={2.6} />} fundo="rgba(255,255,255,.08)" titulo="Voltar pra casa" txt={opiniao.volta.txt} hora={opiniao.volta.hora} cor="#ffffff" borda />
               </section>
+              {contexTxt && <p className="px-1 text-[11.5px] leading-[1.45]" style={{ color: "#7e7869" }}>Levei em conta: {contexTxt}.{fonteOpiniao === "local" ? " (IA descansando — opinião pela regra da casa.)" : ""}</p>}
             </div>
           )}
 
@@ -224,10 +319,16 @@ export default function Clima() {
 
 function Janela({ icone, fundo, titulo, txt, hora, cor, borda }: { icone: React.ReactNode; fundo: string; titulo: string; txt: string; hora: string; cor: string; borda?: boolean }) {
   return (
-    <div className="flex items-center gap-3 min-h-[60px] py-2.5" style={borda ? { borderTop: "1px solid rgba(255,255,255,.07)" } : undefined}>
-      <span className="w-9 h-9 rounded-[11px] inline-flex items-center justify-center shrink-0" style={{ background: fundo }}>{icone}</span>
-      <span className="flex-1 min-w-0 flex flex-col gap-0.5"><span className="text-[14.5px] font-extrabold">{titulo}</span><span className="text-[12px] leading-[1.35]" style={{ color: "#b9b3a6" }}>{txt}</span></span>
-      <span className="orbis-num text-[14px] font-extrabold whitespace-nowrap" style={{ color: cor }}>{hora}</span>
+    /* linha enxuta: título e hora na MESMA linha, explicação embaixo em cinza */
+    <div className="flex items-start gap-2.5 py-2.5" style={borda ? { borderTop: "1px solid rgba(255,255,255,.07)" } : undefined}>
+      <span className="w-7 h-7 rounded-[9px] inline-flex items-center justify-center shrink-0 mt-[1px]" style={{ background: fundo }}>{icone}</span>
+      <span className="flex-1 min-w-0">
+        <span className="flex items-baseline gap-2">
+          <span className="text-[13.5px] font-extrabold flex-1 min-w-0 truncate">{titulo}</span>
+          <span className="orbis-num text-[13px] font-extrabold whitespace-nowrap" style={{ color: cor }}>{hora}</span>
+        </span>
+        <span className="block text-[11.5px] leading-[1.35] mt-[1px]" style={{ color: "#8f8a80" }}>{txt}</span>
+      </span>
     </div>
   );
 }

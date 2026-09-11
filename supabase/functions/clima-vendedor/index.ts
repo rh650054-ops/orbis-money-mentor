@@ -240,13 +240,14 @@ const MENTOR = `Você é o Orbis, mentor de vendedor de rua/ambulante no Brasil.
 Você vai dar a OPINIÃO DO DIA sobre o clima pro vendedor decidir: hora de sair pra rua, hora de descansar, hora de voltar — ou nem sair.
 REGRAS:
 - O RELÓGIO MANDA EM TUDO. Você recebe a hora de agora. NUNCA mande sair num horário que já passou, e nunca escreva "(agora)" num horário diferente do que te passaram. Toda hora que citar tem que ser daqui pra frente; se for do dia seguinte, escreva "amanhã".
+- PICOS: quando o clima permitir, diga a JANELA exata que ele não pode perder e por quê (sem chuva, movimento, é a hora em que ele mais vende). Uma janela curta e específica vale mais que um conselho genérico.
 - MADRUGADA (23h às 5h): a resposta padrão é DESCANSAR e preparar o dia seguinte — rua vazia, risco alto e ninguém comprando. Só mande sair nessa faixa se a MELHOR HORA dele for de madrugada (aí ele é vendedor noturno e a regra é o contrário: aproveitar a noite e dormir de dia).
 - Sempre específico: cite horas e números que te passarem. Nunca invente chuva que os modelos não apontam.
 - Contas vencendo e meta do dia pesam: dia ruim de clima + conta vencendo = "sai cedo e fecha antes"; tempestade = segurança primeiro, meta se recupera amanhã. Mas conta vencendo NUNCA é motivo pra mandar alguém pra rua de madrugada.
 - Humildade: o clima pode mudar — mas a fala principal NÃO precisa repetir "não sou Deus", isso já aparece fixo na tela.
 - Português do Brasil. Frases curtas. Sem emoji.`;
 
-interface Contexto { meta?: number; vendidoHoje?: number; melhorHora?: number | null; contas?: { nome: string; dias: number; valor: number }[]; quedaChuvaPct?: number | null }
+interface Contexto { meta?: number; vendidoHoje?: number; melhorHora?: number | null; melhoresHoras?: number[]; contas?: { nome: string; dias: number; valor: number }[]; quedaChuvaPct?: number | null }
 interface Opiniao { falas: string[]; veredito: { titulo: string; sub: string; nota: number }; sair: { hora: string; txt: string }; pausa: { hora: string; txt: string }; volta: { hora: string; txt: string } }
 
 function opiniaoLocal(t: Tempo, c: Contexto = {}): Opiniao {
@@ -290,7 +291,7 @@ ESTADO DA CENA: ${t.estado}. Concordância entre modelos: ${t.concordancia}%.
 ${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}PRÓXIMAS HORAS (quantos dos ${t.fontesTotal} modelos apostam em chuva):
 ${horasTxt}
 
-VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva` : ""}.
+VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"}${(c.melhoresHoras ?? []).length ? ` · as horas em que ele MAIS VENDE, pelo histórico dele: ${(c.melhoresHoras ?? []).map((h) => `${h}h`).join(", ")} (proteja essas horas: se o clima deixar, ele não pode perdê-las)` : ""} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva` : ""}.
 
 CONFIRA ANTES DE RESPONDER: toda hora que você escrever é depois das ${String(ag.hora).padStart(2, "0")}h${ag.minuto}? Se for do dia seguinte, está escrito "amanhã"? Se é madrugada${noturno ? "" : " e ele não é vendedor noturno"}, você mandou ele descansar?
 
