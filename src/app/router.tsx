@@ -78,6 +78,7 @@ const X1Carteira = lazyWithReload(() => import("@/pages/X1Carteira"));
 const MpRetorno = lazyWithReload(() => import("@/pages/MpRetorno"));
 const Verificar = lazyWithReload(() => import("@/pages/Verificar"));
 const Cobrar = lazyWithReload(() => import("@/pages/Cobrar"));
+const Clima = lazyWithReload(() => import("@/pages/Clima"));
 const X1Escolher = lazyWithReload(() => import("@/pages/X1Escolher"));
 const X1Luta = lazyWithReload(() => import("@/pages/X1Luta"));
 const Rewards = lazyWithReload(() => import("@/pages/Rewards"));
@@ -138,6 +139,7 @@ export function AppRouter() {
                     <Route path="/insights" element={<Insights />} />
                     <Route path="/chat" element={<Chat />} />
                     <Route path="/finances" element={<Finances />} />
+                    <Route path="/clima" element={<Clima />} />
                     <Route path="/tributario" element={<Tributario />} />
                     <Route path="/daily-goals" element={<DailyGoals />} />
                     <Route path="/ranking" element={<Ranking />} />

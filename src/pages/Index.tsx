@@ -25,6 +25,7 @@ import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha } fr
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
+import { NovidadeClima } from "@/components/clima/NovidadeClima";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
 
 const REWARD_TIERS = [
@@ -516,6 +517,9 @@ export default function Index() {
         userId={user.id}
         onPerfil={() => navigate("/profile")}
       />
+
+      {/* Lançamento do Clima do vendedor (Rick, 11/09): 1x por pessoa */}
+      <NovidadeClima userId={user.id} />
 
       {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
       {contaNova && (

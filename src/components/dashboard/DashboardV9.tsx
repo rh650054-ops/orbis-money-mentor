@@ -18,6 +18,7 @@
    ============================================================ */
 import { useEffect, useState, type ReactNode } from "react";
 import { Zap, ChevronRight, Medal, User, Moon } from "lucide-react";
+import { ClimaChip } from "@/components/clima/ClimaChip";
 import { formatCurrency } from "@/shared/lib/utils";
 import { AnimatedCurrency, Ring, FillBar, useCountUp } from "@/shared/motion";
 
@@ -133,6 +134,7 @@ export function HeaderV9({ nome, diasTrabalhados, userId, onPerfil }: {
           {saud}, <span style={{ color: "var(--orbis-gold)" }}>{nome}</span>
         </p>
       </div>
+      <ClimaChip />
       <ChamaStreak dias={diasTrabalhados} userId={userId} />
       <button type="button" onClick={onPerfil} aria-label="Seu perfil"
         className="orbis-press w-[31px] h-[31px] rounded-[11px] flex items-center justify-center shrink-0"
