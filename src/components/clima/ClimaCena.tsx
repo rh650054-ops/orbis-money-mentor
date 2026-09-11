@@ -3,7 +3,7 @@
    Estado vem do backend (clima-vendedor). Tocar na cena faz o Orbis pular
    e falar a próxima frase (o pai controla a fala). CSS em styles/clima.css.
    ============================================================ */
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { MapPin } from "lucide-react";
 import "@/styles/clima.css";
 
@@ -22,10 +22,9 @@ interface Props {
 }
 
 const BASE = "/orbis/clima";
-// olho aberto de cada recorte (caixa medida no PNG de 360px): x0,x1,y0,y1 e altura da imagem
-const OLHOS: Record<string, [number, number, number, number, number]> = {
-  calor: [216, 238, 109, 147, 946], frio: [201, 222, 111, 147, 946], chuva: [207, 226, 117, 152, 943], noite: [203, 223, 123, 155, 943],
-};
+const V = "?v=2"; // imagens novas, no dobro da resolução — o ?v=2 fura o cache antigo
+// altura da imagem de cada recorte (pra posicionar o hálito do frio)
+const ALTURA: Record<string, number> = { calor: 1892, frio: 1892, chuva: 1886, noite: 1886 };
 
 const rnd = (i: number, salt: number) => { const x = Math.sin(i * 12.9898 + salt * 78.233) * 43758.5453; return x - Math.floor(x); };
 function gotas(n: number, salt: number, forte: boolean) {
@@ -40,22 +39,65 @@ function gotas(n: number, salt: number, forte: boolean) {
 
 export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, concordancia, toques, onToque }: Props) {
   const boneco = estado === "frio" ? "frio" : estado === "chuva" || estado === "tempestade" ? "chuva" : estado === "noite" ? "noite" : "calor";
-  const fundo = estado === "chuva" || estado === "tempestade" ? "chuva" : estado === "noite" ? "noite" : "calor";
-  const filtro = estado === "nublado" ? "nublado" : estado === "frio" ? "frio" : "";
+  // o fundo tem que ser o da MESMA foto do boneco: a foto de trás já tem o
+  // personagem dentro, e o recorte encaixa exatamente em cima dele. Misturar
+  // (boneco de frio no fundo de calor) mostrava dois Orbis na mesma cena.
+  const fundo = estado === "chuva" || estado === "tempestade" ? "chuva" : estado === "noite" ? "noite" : estado === "frio" ? "frio" : "calor";
+  const filtro = estado === "nublado" ? "nublado" : "";
   const acao = estado === "frio" ? "frio" : estado === "tempestade" ? "tempestade" : estado === "calor" ? "calor" : "";
-  const pulo = toques === 0 ? "" : toques % 2 ? "pulo-a" : "pulo-b";
-  const o = OLHOS[boneco]!;
-  const ow = (o[1] - o[0]) + 8, oh = (o[3] - o[2]) + 8;
-  const olho = { left: `${(((o[0] + o[1]) / 2 - ow / 2) / 360 * 100).toFixed(2)}%`, top: `${(((o[2] + o[3]) / 2 - oh / 2) / o[4] * 100).toFixed(2)}%`, width: `${(ow / 360 * 100).toFixed(2)}%`, height: `${(oh / o[4] * 100).toFixed(2)}%` };
-  const boca = { left: `${(172 / 360 * 100).toFixed(2)}%`, top: `${(152 / o[4] * 100).toFixed(2)}%` };
+  const boca = { left: `${(344 / 720 * 100).toFixed(2)}%`, top: `${(304 / (ALTURA[boneco] ?? 1886) * 100).toFixed(2)}%` };
   const leves = useMemo(() => gotas(estado === "tempestade" ? 40 : 34, 1, false), [estado]);
   const fortes = useMemo(() => gotas(estado === "tempestade" ? 110 : 70, 7, true), [estado]);
   const sol = estado === "sol" || estado === "calor";
 
+  /* MOVIMENTO DO BONECO — feito em JavaScript de propósito.
+     Quando o celular está no modo economia de bateria (ou com "reduzir
+     animações" ligado), o navegador CONGELA as animações de CSS e o Orbis
+     ficava parado feito estátua. Desenhar quadro a quadro aqui continua
+     funcionando nesses celulares. */
+  const refBoneco = useRef<HTMLDivElement>(null);
+  const refCorpo = useRef<HTMLDivElement>(null);
+  const refPulo = useRef(-99);
+  useEffect(() => { if (toques > 0) refPulo.current = performance.now(); }, [toques]);
+  useEffect(() => {
+    const el = refBoneco.current, corpo = refCorpo.current;
+    if (!el) return;
+    const calmo = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const amp = calmo ? 1.6 : 4;         // quanto ele sobe e desce respirando
+    const t0 = performance.now();
+    let raf = 0, vivo = true;
+    const passo = (t: number) => {
+      if (!vivo) return;
+      const s = (t - t0) / 1000;
+      // respirar: sobe e desce devagar, com uma inclinação num ritmo diferente (não fica robótico)
+      let y = Math.sin((s / 5.2) * Math.PI * 2) * -amp;
+      let escala = 1 + Math.sin((s / 5.2) * Math.PI * 2) * .006;
+      const giro = Math.sin((s / 7.4) * Math.PI * 2) * (calmo ? .12 : .35);
+      // pulo do toque (dura 0,95 s)
+      const dt = (t - refPulo.current) / 1000;
+      if (dt >= 0 && dt < .95) {
+        const k = dt / .95;
+        y -= Math.sin(Math.PI * k) * (calmo ? 8 : 26);
+        escala += Math.sin(Math.PI * k) * .018;
+      }
+      el.style.transform = `translate3d(0,${y.toFixed(2)}px,0) rotate(${giro.toFixed(3)}deg) scale(${escala.toFixed(4)})`;
+      // o corpo reage ao clima: treme de frio, se abana no calor, se encolhe na tempestade
+      if (corpo) {
+        if (acao === "frio") corpo.style.transform = `translate3d(${(Math.sin(s * 34) * (calmo ? .5 : 1.5)).toFixed(2)}px,0,0) rotate(${(Math.sin(s * 31) * (calmo ? .12 : .38)).toFixed(3)}deg)`;
+        else if (acao === "calor") corpo.style.transform = `translate3d(0,${(Math.sin((s / 2.2) * Math.PI * 2) * -2).toFixed(2)}px,0) rotate(${(Math.sin((s / 2.2) * Math.PI * 2) * 1.3).toFixed(3)}deg)`;
+        else if (acao === "tempestade") corpo.style.transform = `translate3d(0,${(2.5 + Math.sin((s / 2.4) * Math.PI * 2) * 2.5).toFixed(2)}px,0) scale(.99) rotate(${(Math.sin((s / 2.4) * Math.PI * 2) * -.5).toFixed(3)}deg)`;
+        else corpo.style.transform = "";
+      }
+      raf = requestAnimationFrame(passo);
+    };
+    raf = requestAnimationFrame(passo);
+    return () => { vivo = false; cancelAnimationFrame(raf); };
+  }, [acao]);
+
   return (
     <div className="cl-cena" onClick={onToque} role="button" aria-label="Toque pra ouvir o Orbis">
       <div className="cl-mundo">
-        <img className={`cl-fundo ${filtro}`} src={`${BASE}/${fundo}.jpg`} alt="" draggable={false} />
+        <img className={`cl-fundo ${filtro}`} src={`${BASE}/${fundo}.jpg${V}`} alt="" draggable={false} />
         {estado === "nublado" && <span className="cl-fx cl-veu-cinza" />}
         {estado === "frio" && <span className="cl-fx cl-veu-frio" />}
         {estado === "chuva" && <span className="cl-fx cl-veu-chuva" />}
@@ -95,11 +137,10 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
           </>
         )}
 
-        {/* o boneco: fora respira/pula, dentro reage ao clima */}
-        <div className={`cl-boneco ${pulo}`}>
-          <div className={`cl-corpo ${acao}`}>
-            <img src={`${BASE}/${boneco}-boneco.webp`} alt="Orbis" draggable={false} />
-            <span className="cl-palpebra" style={olho} />
+        {/* o boneco: fora respira/pula, dentro reage ao clima (movimento em JS, ver acima) */}
+        <div className="cl-boneco" ref={refBoneco}>
+          <div className="cl-corpo" ref={refCorpo}>
+            <img src={`${BASE}/${boneco}-boneco.webp${V}`} alt="Orbis" draggable={false} />
             {estado === "frio" && (<><span className="cl-halito" style={boca} /><span className="cl-halito b" style={boca} /></>)}
           </div>
         </div>
@@ -131,10 +172,11 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
       </div>
       {/* temperatura */}
       {/* bottom-12: o balão da opinião sobe 30px pra dentro da cena, a linha de máx/mín tem que ficar acima dele */}
-      <div className="absolute left-[18px] bottom-12 flex flex-col gap-0.5">
-        <span className="orbis-num text-[74px] font-extrabold leading-[.95] tracking-[-.03em]" style={{ textShadow: "0 6px 24px rgba(0,0,0,.6)" }}>{Math.round(temp)}°</span>
-        <span className="text-[16px] font-extrabold" style={{ textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>{condicao}</span>
-        <span className="orbis-num text-[12.5px]" style={{ color: "rgba(255,255,255,.8)" }}>{linha}</span>
+      <div className="absolute left-[18px] right-[18px] bottom-12 flex flex-col gap-0.5">
+        {/* tamanhos acompanham a largura do celular */}
+        <span className="orbis-num font-extrabold leading-[.95] tracking-[-.03em]" style={{ fontSize: "clamp(46px,15vw,74px)", textShadow: "0 6px 24px rgba(0,0,0,.6)" }}>{Math.round(temp)}°</span>
+        <span className="font-extrabold" style={{ fontSize: "clamp(14px,4.2vw,16px)", textShadow: "0 2px 12px rgba(0,0,0,.6)" }}>{condicao}</span>
+        <span className="orbis-num" style={{ fontSize: "clamp(11px,3.3vw,12.5px)", color: "rgba(255,255,255,.8)" }}>{linha}</span>
       </div>
     </div>
   );

@@ -40,7 +40,8 @@ export function ClimaChip() {
     >
       <span className="relative w-8 h-8 rounded-full overflow-hidden shrink-0" style={{ background: "#0d0c0b" }}>
         {/* maxWidth: none — o reset do Tailwind põe max-width:100% em <img> e encolheria a cabeça pra 32px */}
-        <img src={`${BASE}/${boneco}-boneco.webp`} alt="" className="absolute" style={{ left: -24, top: -7, width: 64, maxWidth: "none", height: "auto" }} draggable={false} />
+        {/* "-p" = versão pequena (200 px): o chip tem 32 px, não faz sentido baixar a foto grande da tela do clima */}
+        <img src={`${BASE}/${boneco}-boneco-p.webp`} alt="" className="absolute" style={{ left: -24, top: -7, width: 64, maxWidth: "none", height: "auto" }} draggable={false} />
         {/* a cara é desenhada por cima da foto pra ter expressão do tempo */}
         <RostoClima estado={e} foto={boneco} />
       </span>

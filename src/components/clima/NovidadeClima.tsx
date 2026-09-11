@@ -47,7 +47,7 @@ export function NovidadeClima({ userId }: { userId: string }) {
         <div className="relative w-full shrink-0 overflow-hidden" style={{ height: 246 }}>
           <span className="absolute pointer-events-none" style={{ left: "50%", top: 4, width: 250, height: 250, marginLeft: -125, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,208,92,.34), rgba(255,208,92,0) 68%)" }} />
           <img
-            src={`${BASE}/calor-boneco.webp`} alt="O Orbis" draggable={false}
+            src={`${BASE}/calor-boneco.webp?v=2`} alt="O Orbis" draggable={false}
             className="cl-nov-boneco absolute left-1/2 top-0"
             style={{ width: 268, maxWidth: "none", height: "auto", marginLeft: -134, filter: "drop-shadow(0 18px 30px rgba(0,0,0,.65))" }}
           />

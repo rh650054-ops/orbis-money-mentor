@@ -4,7 +4,10 @@
    cima. Tudo CSS/SVG: zero vídeo, zero Lottie — o PWA continua leve.
    Estados: sol · calor · nublado · chuva · tempestade · frio · noite.
    ============================================================ */
-.cl-cena { position: relative; height: 540px; overflow: hidden; border-radius: 26px; background: #0d0c0b; box-shadow: 0 30px 60px -30px rgba(0,0,0,.9); -webkit-tap-highlight-color: transparent; user-select: none; }
+/* a cena ocupa uma fatia da ALTURA do celular, nunca uma medida fixa:
+   em aparelho pequeno ela encolhe e o balão da opinião continua aparecendo. */
+.cl-cena, .cl-cena-vazia { height: 480px; height: clamp(290px, 52svh, 520px); }
+.cl-cena { position: relative; overflow: hidden; border-radius: 26px; background: #0d0c0b; box-shadow: 0 30px 60px -30px rgba(0,0,0,.9); -webkit-tap-highlight-color: transparent; user-select: none; }
 .cl-mundo { position: absolute; inset: 0; animation: cl-kenburns 18s ease-in-out infinite alternate; transform-origin: 50% 30%; }
 /* fundo e boneco escalam pela LARGURA (mesma régua): o fundo tem 44px de céu extra no topo (44/360 = 12,22%) */
 .cl-fundo { position: absolute; left: 0; top: 0; width: 100%; height: auto; min-height: 100%; transition: filter 1.2s ease; }
@@ -14,20 +17,11 @@
 .cl-fx { position: absolute; inset: 0; pointer-events: none; }
 
 /* ---- boneco: duas camadas de movimento. Fora = respira/pula. Dentro = reação ao clima. ---- */
-.cl-boneco { position: absolute; left: 0; top: 0; margin-top: 12.22%; width: 100%; transform-origin: 50% 92%; animation: cl-vive 5.2s ease-in-out infinite; will-change: transform; }
-.cl-corpo { position: relative; transform-origin: 50% 90%; }
+/* o transform vem do JavaScript (ClimaCena) pra funcionar também no modo
+   economia de bateria, que congela as animações de CSS. */
+.cl-boneco { position: absolute; left: 0; top: 0; margin-top: 12.22%; width: 100%; transform-origin: 50% 92%; will-change: transform; }
+.cl-corpo { position: relative; transform-origin: 50% 90%; will-change: transform; }
 .cl-boneco img { display: block; width: 100%; height: auto; }
-@keyframes cl-vive { 0% { transform: translateY(0) rotate(0) scale(1); } 50% { transform: translateY(-4px) rotate(.35deg) scale(1.008); } 100% { transform: translateY(0) rotate(0) scale(1); } }
-@keyframes cl-pulo { 0% { transform: translateY(0) scale(1,1); } 15% { transform: translateY(5px) scale(1.03,.96); } 45% { transform: translateY(-24px) scale(.98,1.04); } 72% { transform: translateY(0) scale(1.02,.97); } 86% { transform: translateY(-4px) scale(1,1); } 100% { transform: translateY(0) scale(1,1); } }
-.cl-boneco.pulo-a, .cl-boneco.pulo-b { animation: cl-pulo .95s cubic-bezier(.34,1.2,.44,1) 1, cl-vive 5.2s ease-in-out .95s infinite; }
-@keyframes cl-treme { from { transform: translateX(-1.4px) rotate(-.35deg); } to { transform: translateX(1.4px) rotate(.35deg); } }
-.cl-corpo.frio { animation: cl-treme .17s ease-in-out infinite alternate; }
-@keyframes cl-abana { 0%,100% { transform: rotate(0) translateY(0); } 50% { transform: rotate(1.4deg) translateY(-2px); } }
-.cl-corpo.calor { animation: cl-abana 2.2s ease-in-out infinite; }
-@keyframes cl-encolhe { 0%,100% { transform: translateY(0) scale(1); } 50% { transform: translateY(5px) scale(.985,.975) rotate(-.8deg); } }
-.cl-corpo.tempestade { animation: cl-encolhe 2.4s ease-in-out infinite; }
-.cl-palpebra { position: absolute; border-radius: 50%; background: #0b0b0d; transform: scaleY(0); transform-origin: 50% 0; animation: cl-pisca 4.6s ease-in-out infinite; }
-@keyframes cl-pisca { 0%, 91%, 100% { transform: scaleY(0); } 93.5% { transform: scaleY(1); } 96% { transform: scaleY(0); } }
 @keyframes cl-halito { 0% { opacity: 0; transform: translate(0,0) scale(.4); } 25% { opacity: .5; } 100% { opacity: 0; transform: translate(24px,-36px) scale(1.5); } }
 .cl-halito { position: absolute; width: 22px; height: 14px; border-radius: 50%; background: radial-gradient(ellipse, rgba(255,255,255,.9), rgba(255,255,255,0) 70%); filter: blur(2px); opacity: 0; animation: cl-halito 3s ease-out infinite; }
 .cl-halito.b { animation-delay: 1.5s; width: 16px; height: 10px; }
@@ -117,5 +111,7 @@
 .cl-rosto-suor { animation: cl-rosto-suor 2.2s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .cl-mundo, .cl-boneco, .cl-corpo, .cl-palpebra, .cl-halito, .cl-sol-disco, .cl-sol-halo, .cl-sol-raios, .cl-quente, .cl-mormaco, .cl-nuvem, .cl-rajada, .cl-gota, .cl-chuva, .cl-raio, .cl-clarao, .cl-estrelas, .cl-rosto-tremor, .cl-rosto-suor, .cl-nov-card, .cl-nov-boneco { animation: none !important; }
+  /* partícula parada no ar parece bug: some com ela (o boneco continua se mexendo, o movimento dele é em JS) */
+  .cl-gota, .cl-rajada, .cl-halito, .cl-raio, .cl-clarao, .cl-mormaco, .cl-nuvem { display: none !important; }
+  .cl-mundo, .cl-halito, .cl-sol-disco, .cl-sol-halo, .cl-sol-raios, .cl-quente, .cl-mormaco, .cl-nuvem, .cl-rajada, .cl-gota, .cl-chuva, .cl-raio, .cl-clarao, .cl-estrelas, .cl-rosto-tremor, .cl-rosto-suor, .cl-nov-card, .cl-nov-boneco { animation: none !important; }
 }

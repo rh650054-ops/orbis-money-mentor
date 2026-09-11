@@ -107,7 +107,7 @@ export default function Clima() {
         </div>
       )}
       {!tempo && !erro && (
-        <div className="mx-3 rounded-[26px] animate-pulse" style={{ height: 540, background: "#131211" }} />
+        <div className="cl-cena-vazia mx-3 rounded-[26px] animate-pulse" style={{ background: "#131211" }} />
       )}
 
       {tempo && (
