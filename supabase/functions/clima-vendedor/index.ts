@@ -6,7 +6,8 @@
 // de ~5 km durante 3 h — cem vendedores da mesma cidade custam UMA consulta.
 //
 // Chamada (POST, com JWT do usuário):
-//   { lat, lon, contexto?: { meta, vendidoHoje, melhorHora, contas: [{nome, dias, valor}], quedaChuvaPct }, semIA?: boolean }
+//   { lat, lon, contexto?: { meta, vendidoHoje, melhorHora, melhoresHoras, contas: [{nome, dias, valor}], quedaChuvaPct }, semIA?: boolean }
+// Efeito colateral: grava o tempo do dia do vendedor em clima_dia (o cérebro aprende).
 // Resposta: { tempo: {...}, opiniao: {...} | null, atualizadoEm }
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
@@ -200,14 +201,14 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
   let cidade = "", uf = "";
   try {
     const g = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=pt`, { signal: AbortSignal.timeout(6000) });
-    if (g.ok) { const gj = await g.json(); cidade = gj.city || gj.locality || ""; uf = (gj.principalSubdivisionCode || "").replace("BR-", ""); }
+    if (g.ok) { const gj = await g.json(); cidade = limpaCidade(gj.city || gj.locality || ""); uf = (gj.principalSubdivisionCode || "").replace("BR-", ""); }
   } catch { /* tenta a outra */ }
   if (!cidade) {
     try {
       const n = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&zoom=10&accept-language=pt-BR`, { headers: { "User-Agent": "OrbisApp/1.0 (clima do vendedor; contato@orbis.app)" }, signal: AbortSignal.timeout(6000) });
       if (n.ok) {
         const nj = await n.json(); const a = nj.address ?? {};
-        cidade = a.city || a.town || a.municipality || a.village || a.county || "";
+        cidade = limpaCidade(a.city || a.town || a.municipality || a.village || a.county || "");
         uf = (a["ISO3166-2-lvl4"] || "").replace("BR-", "");
       }
     } catch { /* segue sem cidade */ }
@@ -232,6 +233,15 @@ function agoraSP() {
   const periodo = hora < 5 ? "madrugada" : hora < 12 ? "manhã" : hora < 18 ? "tarde" : "noite";
   return { hora, minuto: get("minute"), diaSemana: get("weekday"), data, periodo };
 }
+/* "Região Metropolitana de São Paulo" -> "São Paulo": nome que cabe na tela
+   e que a IA lê sem tropeçar. */
+const PREFIXOS_CIDADE = /^(regi(ã|a)o\s+(metropolitana|geogr(á|a)fica\s+(imediata|intermediária|intermediaria)|administrativa)\s+d[eoa]s?|microrregi(ã|a)o\s+d[eoa]s?|mesorregi(ã|a)o\s+d[eoa]s?|munic(í|i)pio\s+d[eoa]s?|cidade\s+d[eoa]s?|distrito\s+d[eoa]s?)\s+/i;
+function limpaCidade(nome: string): string {
+  let c = (nome || "").trim(), antes = "";
+  while (c !== antes) { antes = c; c = c.replace(PREFIXOS_CIDADE, "").trim(); }
+  return c;
+}
+
 /* O vendedor é noturno? (melhor hora dele entre 19h e 4h) */
 const ehNoturno = (h?: number | null) => h != null && (h >= 19 || h <= 4);
 
@@ -342,6 +352,25 @@ serve(async (req) => {
     } else {
       tempo = await buscarTempo(cLat, cLon);
       await admin.from("clima_cache").upsert({ cell, payload: tempo, atualizado_em: atualizadoEm });
+    }
+
+    /* O CÉREBRO APRENDE (Rick, 11/09): 1 linha por vendedor por dia com o tempo
+       que ele pegou. Cruzando com as vendas do dia dá pra saber em que tempo
+       cada um vende mais. Guarda o tempo MAIS SEVERO do dia: se choveu de
+       tarde, o dia foi de chuva, mesmo que de manhã tivesse sol. */
+    if (user && tempo) {
+      const hojeBR = agoraSP().data;
+      const severidade: Record<string, number> = { sol: 1, noite: 1, nublado: 2, calor: 3, frio: 3, chuva: 4, tempestade: 5 };
+      const chuvaDia = tempo.horas.filter((h) => h.iso.slice(0, 10) === hojeBR).reduce((t, h) => t + (h.mm || 0), 0);
+      const { data: jaTem } = await admin.from("clima_dia").select("estado, chuva_mm, alerta").eq("user_id", user.id).eq("data", hojeBR).maybeSingle();
+      const anterior = (jaTem?.estado as string | undefined) ?? "";
+      const fica = (severidade[anterior] ?? 0) > (severidade[tempo.estado] ?? 0) ? anterior : tempo.estado;
+      await admin.from("clima_dia").upsert({
+        user_id: user.id, data: hojeBR, estado: fica, temp: tempo.temp,
+        chuva_mm: Math.max(Number(jaTem?.chuva_mm ?? 0), Number(chuvaDia.toFixed(2))),
+        alerta: !!tempo.alerta || !!jaTem?.alerta, cidade: tempo.cidade || null, uf: tempo.uf || null,
+        atualizado_em: new Date().toISOString(),
+      }, { onConflict: "user_id,data" });
     }
 
     // opinião: só pra usuário logado, com trava diária (feature "clima", 6/dia)

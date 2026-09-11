@@ -7,7 +7,16 @@ import { Switch } from "@/shared/ui/switch";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Brain, Save, ArrowLeft, Shield, Loader2 } from "lucide-react";
+import { Brain, Save, ArrowLeft, Shield, Loader2, CloudSun } from "lucide-react";
+
+/* O que o clima já ensinou pro cérebro (função clima_painel, só admin). */
+interface PainelClima {
+  vendedores: number; vendedores_7d: number; vendedores_hoje: number; dias: number;
+  por_estado: { estado: string; dias: number; vendedores: number; media_lucro: number }[];
+  top_cidades: { cidade: string; uf: string | null; vendedores: number }[];
+}
+const NOME_ESTADO: Record<string, string> = { sol: "dia limpo", calor: "calor", nublado: "nublado", chuva: "chuva", tempestade: "tempestade", frio: "frio", noite: "noite" };
+const moeda = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
 interface BrainSection {
   id: string;
@@ -27,6 +36,7 @@ export default function AdminBrain() {
   const [sections, setSections] = useState<BrainSection[]>([]);
   const [loadingSections, setLoadingSections] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [clima, setClima] = useState<PainelClima | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -37,8 +47,17 @@ export default function AdminBrain() {
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    if (isAdmin) loadSections();
+    if (isAdmin) { loadSections(); loadClima(); }
   }, [isAdmin]);
+
+  /* Números do Clima do vendedor: quantos usam e em que tempo se vende mais. */
+  const loadClima = async () => {
+    try {
+      const r = supabase as unknown as { rpc: (n: string) => Promise<{ data: unknown }> };
+      const { data } = await r.rpc("clima_painel");
+      setClima((data ?? null) as PainelClima | null);
+    } catch { setClima(null); }
+  };
 
   const checkAdminRole = async () => {
     if (!user) return;
@@ -131,6 +150,46 @@ export default function AdminBrain() {
           </div>
         </div>
       </div>
+
+      {/* CLIMA DO VENDEDOR — leitura, não edição: é o que o app aprendeu sozinho. */}
+      {clima && (
+        <Card className="mb-4">
+          <CardHeader className="flex flex-row items-center gap-2 pb-2">
+            <CloudSun className="w-4 h-4 text-primary" />
+            <CardTitle className="text-sm">Clima do vendedor — o que o app aprendeu</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              {[["usaram", clima.vendedores], ["nos 7 dias", clima.vendedores_7d], ["hoje", clima.vendedores_hoje]].map(([r, v]) => (
+                <div key={String(r)} className="rounded-lg border p-2 text-center">
+                  <p className="text-lg font-bold leading-none">{String(v)}</p>
+                  <p className="text-[10.5px] text-muted-foreground mt-1">{String(r)}</p>
+                </div>
+              ))}
+            </div>
+            {clima.por_estado.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Média vendida por tempo</p>
+                {[...clima.por_estado].sort((a, b) => b.media_lucro - a.media_lucro).map((e) => (
+                  <div key={e.estado} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                    <span className="font-medium">{NOME_ESTADO[e.estado] ?? e.estado}</span>
+                    <span className="text-muted-foreground">{e.dias} dias · {e.vendedores} vendedores</span>
+                    <span className="font-bold">{moeda(Number(e.media_lucro) || 0)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {clima.top_cidades.length > 0 && (
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Cidades: {clima.top_cidades.map((c) => `${c.cidade}${c.uf ? `/${c.uf}` : ""} (${c.vendedores})`).join(" · ")}
+              </p>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              Uma linha por vendedor por dia, com o tempo mais severo daquele dia cruzado com o que ele vendeu. Quanto mais dias, mais firme fica o "você vende X% menos na chuva" que aparece pra ele.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {loadingSections ? (
         <div className="flex justify-center py-10">

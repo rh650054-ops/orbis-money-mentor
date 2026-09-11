@@ -18,6 +18,16 @@ import { melhoresPicos, horasFortes, rotuloPico, cidadeCurta, type PerfilHora, t
 // Tabelas que os tipos gerados (velhos) não conhecem: consulta genérica, sem `any`.
 interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (k: string, op: string, v: unknown) => Q; lte: (k: string, v: unknown) => Q; gte: (k: string, v: unknown) => Q; order: (k: string) => Q; limit: (n: number) => Promise<{ data: Record<string, unknown>[] | null }>; maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> }
 const db = supabase as unknown as { from: (t: string) => Q };
+const rpc = supabase as unknown as { rpc: (nome: string, args?: Record<string, unknown>) => Promise<{ data: unknown }> };
+
+/* O que o Orbis já aprendeu do clima DESTE vendedor (vem da função clima_meu_aprendizado). */
+interface Aprendizado {
+  dias: number;
+  melhor: { estado: string; media: number; dias: number } | null;
+  queda_chuva_pct: number | null;
+  por_estado: { estado: string; dias: number; media: number }[];
+}
+const NOME_ESTADO: Record<string, string> = { sol: "dia limpo", calor: "calor", nublado: "nublado", chuva: "chuva", tempestade: "tempestade", frio: "frio", noite: "noite" };
 
 
 export default function Clima() {
@@ -28,6 +38,7 @@ export default function Clima() {
   // null = ainda não sei quem é a pessoa (o login pode chegar depois do 1º render)
   const [tour, setTour] = useState<boolean | null>(null);
   const [perfilHoras, setPerfilHoras] = useState<PerfilHora[]>([]);
+  const [aprendizado, setAprendizado] = useState<Aprendizado | null>(null);
 
   // contexto do vendedor: meta de hoje, vendido, contas vencendo, melhor hora
   useEffect(() => {
@@ -69,11 +80,16 @@ export default function Clima() {
         horasDele = [...mapa.entries()].map(([hora, v]) => ({ hora, ...v }));
         setPerfilHoras(horasDele);
       }
+      // o que o cérebro já aprendeu do clima dele (vira contexto da IA)
+      const { data: aprRaw } = await rpc.rpc("clima_meu_aprendizado");
+      const apr = (aprRaw ?? null) as Aprendizado | null;
+      if (vivo) setAprendizado(apr);
       const dias = (iso: string) => Math.round((new Date(`${iso}T12:00:00`).getTime() - new Date(`${hoje}T12:00:00`).getTime()) / 86400000);
       setContexto({
         meta, vendidoHoje,
         melhorHora: fichaMelhor != null ? Number(fichaMelhor) : null,
         melhoresHoras: horasFortes(horasDele).topo,
+        quedaChuvaPct: apr?.queda_chuva_pct ?? null,
         contas: contasRows.map((b) => ({ nome: String(b.name), dias: dias(String(b.due_date)), valor: Number(b.amount) || 0 })),
       });
     })().catch(() => { if (vivo) setContexto({}); });
@@ -260,6 +276,40 @@ export default function Clima() {
                 <Janela icone={<Home className="w-4 h-4" style={{ color: "#b9b3a6" }} strokeWidth={2.6} />} fundo="rgba(255,255,255,.08)" titulo="Voltar pra casa" txt={opiniao.volta.txt} hora={opiniao.volta.hora} cor="#ffffff" borda />
               </section>
               {contexTxt && <p className="px-1 text-[11.5px] leading-[1.45]" style={{ color: "#7e7869" }}>Levei em conta: {contexTxt}.{fonteOpiniao === "local" ? " (IA descansando — opinião pela regra da casa.)" : ""}</p>}
+            </div>
+          )}
+
+          {/* O QUE O ORBIS APRENDEU DE VOCÊ (Rick, 11/09) — sai do cruzamento
+              entre o tempo de cada dia e o que ele vendeu naquele dia. */}
+          {aprendizado && aprendizado.dias > 0 && (
+            <div className="px-4 mt-4">
+              <section className="rounded-[18px] border px-4 py-3.5 flex flex-col gap-2" style={{ background: "#131211", borderColor: "rgba(255,255,255,.08)" }}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="orbis-section">O que eu aprendi de você</span>
+                  <span className="text-[11px]" style={{ color: "#7e7869" }}>{aprendizado.dias} {aprendizado.dias === 1 ? "dia" : "dias"} cruzados</span>
+                </div>
+                {aprendizado.melhor || aprendizado.queda_chuva_pct != null ? (
+                  <div className="flex flex-col gap-2">
+                    {aprendizado.melhor && (
+                      <p className="text-[13.5px] leading-[1.45]">
+                        Seu melhor tempo é <b style={{ color: "#3DD68C" }}>{NOME_ESTADO[aprendizado.melhor.estado] ?? aprendizado.melhor.estado}</b>
+                        <span style={{ color: "#b9b3a6" }}> — média de {formatCurrency(aprendizado.melhor.media)} em {aprendizado.melhor.dias} dias.</span>
+                      </p>
+                    )}
+                    {aprendizado.queda_chuva_pct != null && (
+                      <p className="text-[13.5px] leading-[1.45]">
+                        {aprendizado.queda_chuva_pct > 0
+                          ? <>Com chuva você vende <b style={{ color: "#FF5C5C" }}>{Math.abs(aprendizado.queda_chuva_pct)}% menos</b><span style={{ color: "#b9b3a6" }}> — por isso eu te empurro pra fora antes de ela chegar.</span></>
+                          : <>Com chuva você vende <b style={{ color: "#3DD68C" }}>{Math.abs(aprendizado.queda_chuva_pct)}% mais</b><span style={{ color: "#b9b3a6" }}> — você é dos raros. Rua vazia de vendedor é rua sua.</span></>}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[12.5px] leading-[1.45]" style={{ color: "#b9b3a6" }}>
+                    Tô anotando o tempo de cada dia junto com o que você vende. Em uns dias eu te digo em que tempo você rende mais — e quanto a chuva te custa.
+                  </p>
+                )}
+              </section>
             </div>
           )}
 
