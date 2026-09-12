@@ -673,6 +673,11 @@ export default function AdminSubscriptions() {
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><TrendingUp className="w-3.5 h-3.5" /> Vendas (assinaturas)</div>
               <p className="text-2xl font-bold mt-1 text-success">{loadingPeriodo ? "—" : (periodo?.assinaturas_novas ?? 0)}</p>
               <p className="text-[11px] text-muted-foreground">{periodo?.assinaturas_ativas_agora ?? 0} ativas hoje</p>
+              {/* Ponto cego: venda que não dá pra ligar a nenhum parceiro. Se esse número
+                  é alto, tem comissão que ninguém está recebendo. */}
+              {Number(periodo?.sem_origem ?? 0) > 0 && (
+                <p className="text-[11px] text-warning mt-0.5">{periodo.sem_origem} sem origem</p>
+              )}
             </div>
             <div className="rounded-xl border border-primary/30 bg-primary/10 p-3">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Wallet className="w-3.5 h-3.5" /> Comissão a pagar</div>

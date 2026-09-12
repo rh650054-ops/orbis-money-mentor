@@ -46,6 +46,11 @@ Deno.serve(async (req) => {
     const origemSrc =
       compra?.origin?.src ?? compra?.origin?.sck ?? compra?.origin?.xcod ??
       compra?.sck ?? compra?.src ?? null;
+    // CUPOM DO PARCEIRO (12/09/2026): quando a pessoa compra pelo link do influenciador,
+    // a Hotmart aplica um cupom e manda o NOME dele na oferta (ex: offer.name = "ZECK5").
+    // Essa é a prova mais forte de quem fez a venda — vale mais que o e-mail do formulário,
+    // porque não depende de a pessoa assinar com o mesmo e-mail que cadastrou.
+    const cupomOferta = (compra?.offer?.name ?? "").toString().trim().toUpperCase() || null;
     const valorVenda =
       compra?.price?.value ?? compra?.full_price?.value ?? compra?.offer?.price?.value ?? null;
     const moedaVenda =
@@ -133,6 +138,28 @@ Deno.serve(async (req) => {
       });
     } catch (e) {
       console.error("hotmart_eventos: falhou ao registrar (seguindo)", String(e).slice(0, 200));
+    }
+
+    // CARIMBO DA ORIGEM: se a venda veio com cupom de parceiro e o perfil ainda não tem
+    // origem, grava agora. O carimbo é permanente (só preenche quando está vazio), então
+    // nunca rouba uma venda de outro parceiro.
+    if (userId && cupomOferta) {
+      try {
+        const { data: parceiro } = await supabase
+          .from("parceiros")
+          .select("code")
+          .ilike("code", cupomOferta)
+          .maybeSingle();
+        if (parceiro?.code) {
+          await supabase
+            .from("profiles")
+            .update({ origem_ref: parceiro.code, origem_fixada_em: new Date().toISOString() })
+            .eq("user_id", userId)
+            .is("origem_ref", null);
+        }
+      } catch (e) {
+        console.error("carimbo de origem falhou (seguindo)", String(e).slice(0, 200));
+      }
     }
 
     // If can't identify user, store as unlinked.
