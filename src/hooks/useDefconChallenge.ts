@@ -111,6 +111,8 @@ export function useDefconChallenge(userId: string | undefined) {
   const [blockStartedAt, setBlockStartedAt] = useState<Date | null>(null);
   const [breakStartedAt, setBreakStartedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(true);
+  loadingRef.current = loading;
   const [hasPlan, setHasPlan] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [lunchPauseUsed, setLunchPauseUsed] = useState(false);
@@ -366,7 +368,8 @@ export function useDefconChallenge(userId: string | undefined) {
   }, [completeChallenge]);
 
   // Load today's plan and blocks
-  const loadData = useCallback(async () => {
+  const carregando = useRef(false);
+  const loadDataInterno = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setWorkedMinutes(null); // recalculado abaixo só p/ sessões já encerradas
@@ -688,6 +691,41 @@ export function useDefconChallenge(userId: string | undefined) {
 
     setLoading(false);
   }, [userId, loadSessionSales]);
+
+  /* A tela do DEFCON fica bloqueada em "CARREGANDO" enquanto `loading` for true.
+     Se QUALQUER consulta aqui falhar (celular bloqueado, sinal caiu, prazo estourou),
+     antes o `setLoading(false)` do fim nunca era alcançado e o vendedor ficava preso —
+     só fechando o app na força. Agora a falha libera a tela do mesmo jeito e o app
+     mostra o erro; quem chama decide se tenta de novo. (Rick, 13/09/2026.) */
+  const loadData = useCallback(async () => {
+    if (carregando.current) return;
+    carregando.current = true;
+    try {
+      await loadDataInterno();
+    } catch (e) {
+      console.error("DEFCON: não consegui carregar o dia", e);
+      setLoading(false);
+    } finally {
+      carregando.current = false;
+    }
+  }, [loadDataInterno]);
+
+  /* VOLTOU PRO APP: se a carga anterior ficou pendurada (aba congelada), refaz.
+     É o caso do vendedor que bloqueia o telefone ou sai pra responder uma mensagem. */
+  useEffect(() => {
+    if (!userId) return;
+    const aoVoltar = () => {
+      if (document.visibilityState !== "visible") return;
+      if (carregando.current) return;
+      if (loadingRef.current) void loadData();
+    };
+    document.addEventListener("visibilitychange", aoVoltar);
+    window.addEventListener("focus", aoVoltar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoVoltar);
+      window.removeEventListener("focus", aoVoltar);
+    };
+  }, [userId, loadData]);
 
   // Pausa (almoço/descanso) — DISPONÍVEL QUANTAS VEZES precisar durante o corre.
   const startLunchPause = async (durationMinutes: number, motivo: MotivoPausa = "almoco") => {

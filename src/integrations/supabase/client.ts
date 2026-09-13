@@ -8,10 +8,42 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+/* ============================================================
+   REQUISIÇÃO QUE NÃO TRAVA PRA SEMPRE (13/09/2026)
+
+   Quando o vendedor bloqueia o celular ou sai do app pra responder uma
+   mensagem, o navegador CONGELA a aba. A busca que estava no ar naquele
+   momento fica pendurada: ao voltar, ela nunca responde e nunca dá erro.
+   Quem estava esperando essa resposta (o DEFCON, por exemplo) ficava em
+   "CARREGANDO..." pra sempre — só fechando o app pela força.
+
+   Aqui toda consulta ao BANCO ganha um prazo. Passou do prazo, vira erro
+   normal e o app trata como qualquer falha de rede (mostra tentar de novo).
+   As funções (/functions/v1/) ficam de fora: IA e geração de arte
+   demoram de propósito.
+   ============================================================ */
+const PRAZO_BANCO_MS = 20_000;
+
+const buscaComPrazo: typeof fetch = (entrada, init) => {
+  const url = typeof entrada === "string" ? entrada : entrada instanceof URL ? entrada.href : entrada.url;
+  const ehBanco = url.includes("/rest/v1/") || url.includes("/auth/v1/");
+  if (!ehBanco) return fetch(entrada, init);
+
+  const controle = new AbortController();
+  const jaAbortado = init?.signal;
+  if (jaAbortado) {
+    if (jaAbortado.aborted) controle.abort();
+    else jaAbortado.addEventListener("abort", () => controle.abort(), { once: true });
+  }
+  const alarme = setTimeout(() => controle.abort(), PRAZO_BANCO_MS);
+  return fetch(entrada, { ...init, signal: controle.signal }).finally(() => clearTimeout(alarme));
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: { fetch: buscaComPrazo },
 });

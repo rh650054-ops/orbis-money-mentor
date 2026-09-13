@@ -156,13 +156,7 @@ export default function DefconChallenge() {
   void quickSaleAmount;
 
   if (authLoading || defcon.loading || !user) {
-    return (
-      <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex items-center justify-center">
-        <div className="text-2xl font-mono text-destructive animate-pulse">
-          CARREGANDO DEFCON 4...
-        </div>
-      </div>
-    );
+    return <CarregandoDefcon />;
   }
 
   if (!defcon.hasPlan) {
@@ -427,5 +421,45 @@ export default function DefconChallenge() {
           venda em 2 toques, offline continua registrando, encerrar o dia. */}
       {!treino && user && <FirstTimeCard tela="defcon" userId={user.id} />}
     </>
+  );
+}
+
+/* ============================================================
+   TELA DE CARGA QUE NÃO PRENDE NINGUÉM (Rick, 13/09/2026)
+
+   Relato do vendedor: "tu bloqueia o telefone ou sai do app pra responder
+   uma mensagem, quando volta fica mais de 10 minutos pra poder voltar,
+   tem que fechar". O navegador congela a aba; a consulta que estava no ar
+   nunca responde e a tela ficava em "CARREGANDO DEFCON 4..." pra sempre.
+
+   Agora, passados 8 segundos, aparece a saída: um botão pra recarregar.
+   O app também refaz a carga sozinho quando volta pro primeiro plano.
+   ============================================================ */
+function CarregandoDefcon() {
+  const [demorou, setDemorou] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setDemorou(true), 8000);
+    return () => clearTimeout(id);
+  }, []);
+  return (
+    <div className="min-h-[100dvh] bg-black pt-safe pb-safe flex flex-col items-center justify-center px-8 text-center">
+      <div className="text-2xl font-mono text-destructive animate-pulse">
+        CARREGANDO DEFCON 4...
+      </div>
+      {demorou && (
+        <>
+          <p className="mt-6 text-sm text-neutral-400 max-w-xs leading-snug">
+            O sinal travou na volta pro app. Suas vendas estão salvas — é só recarregar.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 h-12 px-7 rounded-xl font-black text-sm bg-white text-black active:scale-95 transition-transform"
+          >
+            RECARREGAR
+          </button>
+        </>
+      )}
+    </div>
   );
 }
