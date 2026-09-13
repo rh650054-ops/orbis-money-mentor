@@ -233,7 +233,7 @@ export default function Index() {
       { data: todayChallenge },
       { data: monthExpenses },
       { data: todayGoalPlan },
-      { data: defconSales },
+      { data: diasTrabalhadosRpc },
     ] = await Promise.all([
       supabase.from("profiles").select("monthly_goal, nickname").eq("user_id", user.id).maybeSingle(),
       supabase.from("daily_sales").select("*").eq("user_id", user.id).eq("date", today),
@@ -242,26 +242,23 @@ export default function Index() {
       supabase.from("challenge_blocks").select("sales_count,created_at").eq("user_id", user.id).gte("created_at", today),
       supabase.from("personal_expenses").select("amount,date").eq("user_id", user.id).gte("date", dateStart).lte("date", dateEnd),
       supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", today).maybeSingle(),
-      supabase.from("defcon_sales").select("created_at").eq("user_id", user.id).gte("created_at", `${sessentaDiasAtras}T00:00:00`).limit(3000),
+      // Dias trabalhados: CONTADOS NO BANCO (1 linha por dia).
+      // Antes isso baixava todas as vendas do DEFCON de 60 dias e contava no celular —
+      // e a API corta em 1.000 linhas, então quem MAIS vende perdia os dias mais recentes
+      // e via a semana toda com "×" (caso do Oempresariodofarol, 12/09/2026).
+      (supabase.rpc as any)("orbis_dias_trabalhados", { p_desde: sessentaDiasAtras }),
     ]);
 
     /* ---- DIA TRABALHADO (constância) ----
-       Precisa das DUAS coisas ao mesmo tempo:
-       (1) teve venda no DEFCON naquele dia  → não vale lançamento manual
-           nem Pix atrasado; e
-       (2) o dinheiro AINDA está de pé no fechamento do dia (daily_sales
-           > 0) → se ele reiniciou/limpou o DEFCON (teste, engano), os
-           blocos zeram, o daily_sales zera e o dia SAI da conta sozinho.
-       Um dia conta UMA vez, tendo 1 ou 40 vendas. */
-    const diasComDinheiro = new Set(
-      ((weekData as { date: string; total_profit: number | null }[]) || [])
-        .filter((d) => (d.total_profit ?? 0) > 0)
-        .map((d) => String(d.date)),
-    );
-    const diasDefcon = Array.from(new Set(((defconSales as { created_at: string }[]) || [])
-      .map((v) => new Date(v.created_at).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }))))
-      .filter((dia) => diasComDinheiro.has(dia));
-    setDiasTrabalhados(diasDefcon);
+       A regra mora na RPC orbis_dias_trabalhados: precisa das DUAS coisas no
+       mesmo dia — (1) ele ABRIU o DEFCON ou registrou venda no DEFCON (não vale
+       lançamento manual nem Pix atrasado) e (2) o dinheiro do dia ficou de pé no
+       fechamento (daily_sales > 0). Um dia conta UMA vez, tendo 1 ou 40 vendas. */
+    const diasDefcon = ((diasTrabalhadosRpc as unknown as (string | { dia?: string })[]) || [])
+      .map((d) => (typeof d === "string" ? d : String(d?.dia ?? "")))
+      .filter(Boolean)
+      .map((d) => d.slice(0, 10));
+    setDiasTrabalhados(Array.from(new Set(diasDefcon)));
 
     if (profile?.monthly_goal) {
       setMonthlyGoal(profile.monthly_goal);

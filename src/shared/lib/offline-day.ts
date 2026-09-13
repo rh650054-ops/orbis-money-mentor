@@ -38,6 +38,11 @@ export interface DiaOffline {
   approaches_log?: string[];          // ISO de cada abordagem (pra contar por bloco)
   occurrences?: { at: string; text: string }[];
   paused_until?: string | null;       // pausa/almoço em andamento
+  // --- ciclo dos blocos (1h de corre + 5min de descanso), igual ao DEFCON com internet ---
+  bloco_atual?: number;               // índice do bloco em andamento
+  bloco_inicio?: string | null;       // quando a hora atual começou
+  descanso_ate?: string | null;       // fim dos 5 minutos de descanso
+  relatorio_bloco?: number | null;    // bloco esperando o "continuar" do relatório da hora
 }
 
 const chave = (userId: string, date: string) => `orbis_dia_offline_${userId}_${date}`;

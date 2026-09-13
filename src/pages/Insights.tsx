@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { buscarTudo } from "@/shared/lib/paginar";
 import { useNavigate } from "react-router-dom";
 import {
   Sparkles,
@@ -251,13 +252,18 @@ export default function Insights() {
           .eq("user_id", user.id)
           .gte("sale_date", startISO)
           .lte("sale_date", endISO),
-        supabase
-          .from("defcon_sales")
-          .select("created_at,amount")
-          .eq("user_id", user.id)
-          .gte("created_at", range.start.toISOString())
-          .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
-          .order("created_at", { ascending: true }),
+        // Vendedor forte passa de 1.000 vendas no mês e a API corta a resposta sem avisar —
+        // o ritmo e o hora-a-hora ficavam contando só um pedaço do período.
+        buscarTudo<{ created_at: string; amount?: number }>((de, ate) =>
+          (supabase
+            .from("defcon_sales")
+            .select("created_at,amount")
+            .eq("user_id", user.id)
+            .gte("created_at", range.start.toISOString())
+            .lte("created_at", new Date(range.end.getTime() + 86399999).toISOString())
+            .order("created_at", { ascending: true })
+            .range(de, ate) as unknown as PromiseLike<{ data: { created_at: string; amount?: number }[] | null; error: unknown }>),
+        ).then((data) => ({ data })),
         supabase
           .from("challenge_sessions")
           .select("started_at,ended_at,worked_minutes,current_block_index,distance_meters,paused_seconds")

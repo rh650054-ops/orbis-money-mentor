@@ -23,6 +23,8 @@ import { useDefconOffline } from "@/hooks/useDefconOffline";
 import { DefconStartScreen } from "@/components/defcon/DefconStartScreen";
 import { DefconRunning } from "@/components/defcon/DefconRunning";
 import { DefconLunchPause } from "@/components/defcon/DefconLunchPause";
+import { DefconBreak } from "@/components/defcon/DefconBreak";
+import { DefconBlockReport } from "@/components/defcon/DefconBlockReport";
 import { Ring } from "@/shared/motion";
 import { carregarDiaOffline, hojeBR } from "@/shared/lib/offline-day";
 import { syncAllPendingData } from "@/shared/lib/offline-sync";
@@ -116,6 +118,38 @@ export default function ModoOffline() {
       <>
         {tarja}
         <DefconLunchPause lunchPauseRemaining={d.lunchPauseRemaining} totalSold={d.totalSold} onSkip={d.skipLunchPause} />
+      </>
+    );
+  }
+
+  /* Fim da hora: relatório da hora e 5 min de descanso — igual ao DEFCON com internet.
+     Antes o offline virava a hora sozinho no meio da venda, sem relatório nem descanso. */
+  if (d.phase === "block_report") {
+    return (
+      <>
+        {tarja}
+        <DefconBlockReport
+          blockIndex={d.relatorioBloco ?? d.currentBlockIndex}
+          approaches={d.blockApproaches}
+          sales={d.blockSalesCount}
+          soldAmount={d.currentBlock.achieved_amount}
+          totalSalesCount={d.totalSalesCount}
+          onContinue={d.fecharRelatorioBloco}
+        />
+      </>
+    );
+  }
+
+  if (d.phase === "break") {
+    return (
+      <>
+        {tarja}
+        <DefconBreak
+          breakRemaining={d.breakRemaining}
+          currentBlockIndex={d.currentBlockIndex}
+          blockSold={d.currentBlock.achieved_amount}
+          onSkip={d.proximoBloco}
+        />
       </>
     );
   }

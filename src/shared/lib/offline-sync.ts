@@ -218,6 +218,33 @@ export async function syncOfflineDay(dia: DiaOffline): Promise<boolean> {
     // 3) daily_sales + ranking (mesma função que o DEFCON usa)
     await syncBlocksToDailySales(userId, date);
 
+    // 4) O dia offline vira um DEFCON DE VERDADE: sessão + blocos + vendas.
+    //    Sem isso o relatório do dia vinha vazio, não tinha hora-a-hora e o dia
+    //    não contava na ofensiva — o vendedor fechava o corre e "não ia" (Rick, 12/09).
+    //    Re-enviar é substituir (a RPC troca as linhas dessa sessão), então pode rodar
+    //    quantas vezes for: nunca duplica venda.
+    try {
+      await (supabase.rpc as unknown as (n: string, a: Record<string, unknown>) => Promise<{ error: unknown }>)(
+        "orbis_subir_dia_offline",
+        {
+          p_date: date,
+          p_daily_goal: Number(dia.daily_goal) || 0,
+          p_started_at: dia.defcon_started_at ?? null,
+          p_ended_at: dia.ended_at ?? null,
+          p_approaches: Number(dia.approaches || 0),
+          p_sales: (dia.sales || []).map((s) => ({
+            amount: Number(s.amount || 0),
+            method: s.method,
+            at: s.at,
+            block_index: Number(s.block_index ?? 0),
+          })),
+        },
+      );
+    } catch (e) {
+      // O dinheiro já subiu no passo 3; o relatório tenta de novo no próximo gatilho.
+      console.error("[OfflineSync] dia offline -> DEFCON falhou:", e);
+    }
+
     marcarDiaSincronizado(userId, date);
     return true;
   } catch (err) {
