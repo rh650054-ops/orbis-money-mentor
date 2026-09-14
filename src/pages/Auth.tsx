@@ -83,6 +83,11 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
+      // 8 caracteres no CADASTRO (a mesma regra que o servidor cobra desde 14/09/2026).
+      // No LOGIN continua 6: quem já tem conta antiga não fica trancado do lado de fora.
+      if (!isLogin && password.length < 8) {
+        throw new Error("A senha precisa ter pelo menos 8 caracteres.");
+      }
       if (password.length < 6) {
         throw new Error("A senha deve ter no mínimo 6 caracteres.");
       }
@@ -335,7 +340,7 @@ export default function Auth() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
+                    minLength={isLogin ? 6 : 8}
                     autoComplete={isLogin ? "current-password" : "new-password"}
                     className="h-11 rounded-xl border-border bg-input text-base focus-visible:border-primary focus-visible:ring-primary/20"
                   />

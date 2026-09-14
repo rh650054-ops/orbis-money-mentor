@@ -39,12 +39,42 @@ Deno.serve(async (req) => {
       );
     }
 
+    // SENHA MÍNIMA (14/09/2026): antes aceitava qualquer coisa, até uma letra.
+    if (String(password).length < 8) {
+      return new Response(
+        JSON.stringify({ error: "A senha precisa ter pelo menos 8 caracteres." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const cleanedCpf = cpf.replace(/\D/g, "");
     if (!isValidCpf(cleanedCpf)) {
       return new Response(
         JSON.stringify({ error: "CPF inválido." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // FREIO (14/09/2026): esta porta é pública — sem login e sem captcha. Sem freio,
+    // dava pra criar conta em massa e pra varrer CPF atrás de quem já é cliente.
+    // 5 tentativas por IP e 5 por CPF a cada 15 minutos. Nunca derruba o cadastro
+    // de quem está de boa: o vendedor honesto tenta uma vez.
+    const ipBruto = req.headers.get("x-forwarded-for") ?? "";
+    const ip = ipBruto.split(",")[0].trim() || "sem-ip";
+    try {
+      const [porIp, porCpf] = await Promise.all([
+        supabase.rpc("cadastro_pode_tentar", { p_chave: `ip:${ip}` }),
+        supabase.rpc("cadastro_pode_tentar", { p_chave: `cpf:${cleanedCpf}` }),
+      ]);
+      if (porIp.data === false || porCpf.data === false) {
+        return new Response(
+          JSON.stringify({ error: "Muitas tentativas. Espera uns minutos e tenta de novo." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } catch (e) {
+      // Freio quebrado não pode impedir cadastro legítimo — segue e registra.
+      console.error("register-user freio:", String(e).slice(0, 200));
     }
 
     const internalEmail = `${cleanedCpf}@orbis.internal`;
@@ -63,7 +93,9 @@ Deno.serve(async (req) => {
       const isConfirmed = !!existingUser.confirmada;
       if (isConfirmed) {
         return new Response(
-          JSON.stringify({ error: "Este CPF já possui uma conta. Faça login ou recupere a senha." }),
+          // Mensagem NEUTRA: antes o 409 confirmava "esse CPF é cliente", e dava pra
+          // varrer CPF atrás de quem tem conta. Agora serve pro dono e não entrega nada.
+          JSON.stringify({ error: "Não foi possível concluir o cadastro com esses dados. Se já tem conta, faça login ou recupere a senha." }),
           { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -90,7 +122,7 @@ Deno.serve(async (req) => {
       const jaExiste = /already|exists|duplicate|registered/i.test(createError.message || "");
       return new Response(
         JSON.stringify({ error: jaExiste
-          ? "Este CPF já possui uma conta. Faça login ou recupere a senha."
+          ? "Não foi possível concluir o cadastro com esses dados. Se já tem conta, faça login ou recupere a senha."
           : "Não deu pra criar sua conta agora. Tenta de novo em instantes." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

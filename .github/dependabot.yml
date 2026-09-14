@@ -1,0 +1,26 @@
+# Avisa sozinho quando uma dependência do Orbis tem falha de segurança conhecida.
+# Antes ninguém estava olhando: a auditoria de 14/09/2026 achou 27 vulnerabilidades
+# paradas no lockfile, duas delas em pacotes que vão pro celular do vendedor.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    groups:
+      # Ferramenta de build não vai pro app: junta tudo num PR só.
+      ferramentas-de-build:
+        dependency-type: "development"
+    labels:
+      - "dependencias"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
