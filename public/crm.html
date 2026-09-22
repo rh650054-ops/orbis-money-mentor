@@ -161,7 +161,7 @@ h2.sec:first-child{margin-top:0}
 .temp b{font-weight:700}
 /* conversa */
 .chat{display:flex;flex-direction:column;gap:7px;max-height:280px;overflow-y:auto;padding:2px 0 6px}
-.bal{max-width:84%;padding:8px 11px;border-radius:13px;font-size:12.5px;line-height:1.45;position:relative}
+.bal{max-width:84%;padding:8px 11px;border-radius:13px;font-size:12.5px;line-height:1.45;position:relative;white-space:pre-wrap;word-break:break-word}
 .bal .q{display:block;font-size:9.5px;margin-top:3px;opacity:.6}
 .bal.eu{align-self:flex-end;background:var(--c2);color:#fff;border-bottom-right-radius:4px}
 .bal.ele{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
@@ -305,7 +305,10 @@ h2.sec:first-child{margin-top:0}
 .loginbox p{margin:0 0 16px;font-size:12.5px;color:var(--dim)}
 .loginbox input{width:100%;border:1px solid var(--line2);border-radius:9px;padding:11px 12px;
   font:inherit;font-size:14px;background:var(--panel2);color:var(--ink);margin-bottom:8px}
-#erroLogin{font-size:12px;color:var(--bad);min-height:16px;margin-top:6px}
+#erroLogin{font-size:12.5px;line-height:1.45;min-height:16px;margin-top:8px;border-radius:9px;padding:0}
+#erroLogin:not(:empty){padding:9px 11px;border:1px solid var(--bad);background:var(--bad-s);color:var(--bad);font-weight:600}
+#erroLogin.andamento:not(:empty){border-color:var(--line2);background:var(--panel2);color:var(--dim);font-weight:500}
+#btEntrar[disabled]{opacity:.55;cursor:wait}
 #carregando{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:80;
   font-size:13px;color:var(--dim);gap:10px}
 .spin{width:26px;height:26px;border:2.5px solid var(--line2);border-top-color:var(--c1);
@@ -341,8 +344,25 @@ h2.sec:first-child{margin-top:0}
     <p>Entre com o mesmo CPF (ou e-mail) e senha do app Orbis.</p>
     <input id="inEmail" placeholder="CPF ou e-mail" autocomplete="username" inputmode="text">
     <input id="inSenha" type="password" placeholder="Senha" autocomplete="current-password">
-    <button class="btn go block" id="btEntrar" style="margin-top:4px">Entrar</button>
-    <div id="erroLogin" role="alert"></div>
+    <button class="btn go block" id="btEntrar" style="margin-top:4px" disabled>Carregando…</button>
+    <div id="erroLogin" role="alert" aria-live="polite"></div>
+    <script>
+    /* roda antes do CRM em si: se o botão continuar "Carregando…" depois de 15s,
+       o arquivo principal não chegou (internet, bloqueio ou CDN fora) — avisa em vez de ficar mudo */
+    window.__crmPronto=false;
+    document.getElementById("btEntrar").addEventListener("click",function(){
+      if(!window.__crmPronto){var e=document.getElementById("erroLogin");e.className="andamento";
+        e.textContent="Ainda carregando o CRM… espera uns segundos e clica de novo.";}
+    });
+    setTimeout(function(){
+      if(window.__crmPronto) return;
+      var e=document.getElementById("erroLogin"); e.className="";
+      e.textContent="O CRM não terminou de carregar (15s). Verifique a internet e recarregue a página (Ctrl+Shift+R). Se persistir, avise o Rick — pode ser o servidor de scripts fora do ar.";
+      document.getElementById("btEntrar").textContent="Recarregar";
+      document.getElementById("btEntrar").disabled=false;
+      document.getElementById("btEntrar").onclick=function(){location.reload();};
+    },15000);
+    </script>
   </div>
 </div>
 
@@ -391,7 +411,17 @@ h2.sec:first-child{margin-top:0}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script type="module">
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+/* biblioteca do Supabase: tenta o jsdelivr; se falhar, o esm.sh. Nunca fica mudo. */
+let createClient;
+try { ({ createClient } = await import("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm")); }
+catch (e1) {
+  try { ({ createClient } = await import("https://esm.sh/@supabase/supabase-js@2")); }
+  catch (e2) {
+    const el=document.getElementById("erroLogin"); el.className="";
+    el.textContent="Não consegui baixar a biblioteca de login (bloqueio de rede?). Recarregue ou tente outra rede.";
+    throw e2;
+  }
+}
 const sb = createClient("https://qbcsjsdwjjpybvzbxszi.supabase.co",
                         "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy");
 /* =========================================================
@@ -403,7 +433,7 @@ const META={contatos:10, vendas:1};
 let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   naoPagas:0,naoPagasQtd:0,atraso:0,atrasoQtd:0,encerradas:0,encerradasQtd:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
-let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[];
+let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={};
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
@@ -546,6 +576,10 @@ async function carregarTudo(){
     dias:(g.dias||[]).map(x=>[x.d,+x.v])};
 
   HOT = (await chamar("crm_hotmart_lista")) || [];
+  CONV = {};
+  for(const m of ((await chamar("crm_conversas_lista"))||[])){
+    (CONV[m.cartao]=CONV[m.cartao]||[]).push({de:m.de,t:m.texto,q:quando(m.criado_em),ts:m.criado_em,origem:m.origem});
+  }
   PARCEIROS = (ehDono() ? await chamar("crm_parceiros") : []) || [];
 
   const pipes=["trial","relacionamento","inadimplente","parceiro"];
@@ -564,10 +598,14 @@ async function carregarTudo(){
           n:String(c.nome||"—").split(" ").slice(0,2).join(" "),
           ref:c.ref||h?.origem||"—",
           zap:"·"+String(c.whatsapp||h?.telefone||"").replace(/\D/g,"").slice(-4),
+          tel:telZap(c.whatsapp)||telZap(h?.telefone),
+          conversa:(CONV[c.id]||[]),
           email:c.email||h?.email||"", cidade:c.cidade||"",
           d:Number(c.dias_na_etapa)||0,
           trava:(Number(c.dias_na_etapa)||0)>=1?(Number(c.dias_na_etapa)||0):0,
-          entrou:c.criado_em||null, fim:c.trial_end||null, renova:c.period_end||null,
+          entrou:c.criado_em||null, fim:c.trial_end||null,
+          // data da próxima cobrança: a da Hotmart manda; a do Orbis é reserva
+          renova:(h&&h.cobra_em?deBR(h.cobra_em):null)||c.period_end||null,
           pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
           feitasBanco:c.feitas||[], hot:h});
       }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
@@ -599,7 +637,29 @@ function dias(s){
  return Math.round((t-HOJE)/86400000);
 }
 /* data do banco -> 22/09/2026 */
-const dbr=v=>{ if(!v) return "—"; const t=String(v); return t.slice(8,10)+"/"+t.slice(5,7)+"/"+t.slice(0,4); };
+const dbr=v=>{ if(!v) return "—"; const t=String(v); if(/^\d{2}\/\d{2}/.test(t)) return t; return t.slice(8,10)+"/"+t.slice(5,7)+"/"+t.slice(0,4); };
+/* "22/09/2026" (como a Hotmart devolve) -> "2026-09-22" */
+const deBR=v=>{ const m=/^(\d{2})\/(\d{2})\/(\d{4})/.exec(String(v||"")); return m?`${m[3]}-${m[2]}-${m[1]}`:null; };
+/* telefone brasileiro -> digitos com DDI, pronto pro wa.me */
+function telZap(v){
+ let d=String(v||"").replace(/\D/g,""); if(!d) return "";
+ if(d.startsWith("0")) d=d.slice(1);
+ if(d.length===10||d.length===11) d="55"+d;
+ return d.length>=12&&d.length<=13 ? d : "";
+}
+/* abre o WhatsApp do vendedor com a mensagem pronta — custo zero, sem API */
+const linkZap=(f,texto)=>f.tel?`https://wa.me/${f.tel}${texto?"?text="+encodeURIComponent(texto):""}`:null;
+function abrirZap(f,texto){
+ const u=linkZap(f,texto); if(!u){toast("Essa ficha não tem WhatsApp");return false;}
+ window.open(u,"_blank","noopener"); return true;
+}
+/* timestamp do banco -> "hoje 14:32" / "ontem 09:10" / "21/09 09:10" */
+function quando(ts){
+ const t=new Date(ts); if(isNaN(t)) return "";
+ const hm=t.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"});
+ const d=Math.round((new Date(t.getFullYear(),t.getMonth(),t.getDate())-HOJE)/86400000);
+ return (d===0?"hoje":d===-1?"ontem":t.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}))+" "+hm;
+}
 const brl=v=>"R$ "+(Number(v)||0).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
 const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 function toast(t){const e=document.getElementById("toast");e.textContent=t;e.dataset.on="1";clearTimeout(e._t);e._t=setTimeout(()=>e.dataset.on="0",2000);}
@@ -669,11 +729,22 @@ const fila=()=>FICHAS.filter(f=>!S.fechados[f.id]);
 const atual=()=>{const q=fila();return q[Math.min(S.pos,q.length-1)]||null;};
 /* conversa = historico real + o que foi enviado nesta sessao */
 const convDe=f=>[...(f.conversa||[]),...(S.conv[f.id]||[])];
-function enviar(f,texto){
- if(!texto||!texto.trim())return;
- (S.conv[f.id]=S.conv[f.id]||[]).push({de:"eu",t:texto.trim(),q:"agora"});
- salvar();
+async function gravarMsg(f,de,texto){
+ texto=String(texto||"").trim(); if(!texto) return false;
+ const agora=new Date().toISOString();
+ try{
+  const {data,error}=await sb.rpc("crm_msg_gravar",{p_cartao:f.cartaoId,p_de:de,p_texto:texto});
+  if(error) throw error;
+  (f.conversa=f.conversa||[]).push({de,t:data.texto,q:quando(data.criado_em),ts:data.criado_em,origem:"crm"});
+  return true;
+ }catch(e){
+  // sem banco, guarda no navegador pra não perder
+  (S.conv[f.id]=S.conv[f.id]||[]).push({de,t:texto,q:quando(agora),ts:agora,origem:"local"});
+  salvar(); PROBLEMAS.push("gravar mensagem: "+(e.message||e)); mostrarProblemas();
+  return false;
+ }
 }
+const enviar=(f,texto)=>gravarMsg(f,"eu",texto);
 /* REGRA DE CUSTO (doc oficial da Meta, 2026):
    - mensagem RECEBIDA nunca e cobrada
    - responder dentro da janela de 24h (conversa de servico) e GRATIS desde 01/11/2024
@@ -684,14 +755,32 @@ function janela(f){
  return ultimaDele?{free:true,quando:ultimaDele.q}:{free:false,custo:0.21};
 }
 /* quantas do dia sao gratis e quantas custariam */
-function custoDoDia(){
- let gratis=0,pagas=0,valor=0;
+/* medidas tiradas das conversas registradas: quanto o vendedor demora pra responder
+   e em que horas os leads mais respondem */
+function temposDeConversa(){
+ const esperas=[], horas=Array(24).fill(0); let respostasDele=0;
  FICHAS.forEach(f=>{
-  const enviadas=(S.conv[f.id]||[]).length; if(!enviadas)return;
-  if(janela(f).free) gratis+=enviadas; else {pagas+=enviadas; valor+=enviadas*0.21;}
+  const c=convDe(f).filter(m=>m.ts).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  for(let i=0;i<c.length;i++){
+   if(c[i].de!=="ele") continue;
+   respostasDele++; horas[new Date(c[i].ts).getHours()]++;
+   const prox=c.slice(i+1).find(m=>m.de==="eu");
+   if(prox) esperas.push((new Date(prox.ts)-new Date(c[i].ts))/60000);
+  }
  });
- return {gratis,pagas,valor};
+ const media=esperas.length?esperas.reduce((a,b)=>a+b,0)/esperas.length:null;
+ let pico=null,max=0; horas.forEach((v,h)=>{if(v>max){max=v;pico=h;}});
+ return {media,respondidas:esperas.length,respostasDele,pico,picoQtd:max};
 }
+function mensagensDoDia(){
+ let enviadas=0,respostas=0,pessoas=new Set();
+ FICHAS.forEach(f=>convDe(f).forEach(m=>{
+  if(!m.ts||dias(m.ts)!==0) return;
+  if(m.de==="eu"){enviadas++;pessoas.add(f.id);} else respostas++;
+ }));
+ return {enviadas,respostas,pessoas:pessoas.size};
+}
+const custoDoDia=()=>({gratis:mensagensDoDia().enviadas,pagas:0,valor:0});
 function msgDe(f,a){
  if(!a.m)return null;
  return a.m.replace(/\{p\}/g,f.n.split(" ")[0])
@@ -725,7 +814,7 @@ function renderHoje(){
  const queRenovam=FICHAS.filter(x=>etapaDe(x)==="renova");
  const renovam=queRenovam.reduce((s,x)=>s+(x.pago||0),0);
  const maxD=Math.max(...GRANA.dias.map(d=>d[1]));
- const cst=custoDoDia();
+ const msgs=mensagensDoDia();
  const vend=Object.values(S.fechados).filter(x=>x==="ganhou").length;
 
  let h=ehDono()? `<div class="grana">
@@ -765,14 +854,14 @@ function renderHoje(){
    <div class="v num" style="color:var(--bad)">${travados}</div><div class="s">travados por falta de atividade</div></div>
  </div>
  <div class="box pad" style="margin-top:9px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-  <span style="font-size:22px">💸</span>
+  <span style="font-size:22px">💬</span>
   <div style="flex:1;min-width:180px">
-   <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)">Custo do WhatsApp hoje</div>
-   <div style="font-size:22px;font-weight:700;letter-spacing:-.03em;color:var(--c2)" class="num">${brl(cst.valor)}</div>
+   <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)">WhatsApp hoje</div>
+   <div style="font-size:22px;font-weight:700;letter-spacing:-.03em;color:var(--c2)" class="num">${msgs.enviadas} <span style="font-size:12px;font-weight:600;color:var(--dim)">enviadas</span> · ${msgs.respostas} <span style="font-size:12px;font-weight:600;color:var(--dim)">respostas</span></div>
   </div>
   <p style="flex:2;min-width:230px;margin:0;font-size:11.5px;color:var(--dim);line-height:1.5">
-   ${cst.gratis} mensagem${cst.gratis===1?"":"s"} dentro da janela de 24h — <b>a Meta não cobra nada por essas</b>.
-   Receber é sempre grátis e responder quem te chamou também. Só custa quando <b>você</b> começa a conversa.</p>
+   Você falou com <b>${msgs.pessoas} pessoa${msgs.pessoas===1?"":"s"}</b> hoje. Cada mensagem sai pelo <b>seu WhatsApp normal</b>, com o texto já pronto —
+   custo <b>R$ 0,00</b>. Quando alguém responder, registre aqui na ficha pra conversa ficar no CRM.</p>
  </div>`;
 
  if(!f){h+=`<div class="box" style="margin-top:14px"><div class="vazio"><strong>Fila zerada.</strong>Você falou com todo mundo que precisava hoje.</div></div>`;
@@ -788,7 +877,7 @@ function renderHoje(){
     <div class="pills"><span class="pill p${cor.slice(1)}">${esc(E[f.e].nome)}</span>
      <span class="pill${et==="acabou"?" bad":""}">${esc(colNome)}</span>
      ${f.ref&&f.ref!=="—"?`<span class="pill">via ${esc(f.ref)}</span>`:""}
-     <span class="pill">zap ${esc(f.zap)}</span>
+     ${f.tel?`<a class="pill" href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);border-color:var(--c2);text-decoration:none">WhatsApp ↗</a>`:`<span class="pill">zap ${esc(f.zap)}</span>`}
      ${f.trava?`<span class="pill bad">travado ${f.trava}d</span>`:""}</div></div>
    <button class="btn ghost" style="flex:none;align-self:flex-start" data-painel="${f.id}">Painel</button></div>
   <p class="porque"><span style="flex:none;color:var(--dim)">→</span><span><b>Por que esse agora:</b> ${f.porque}</span></p>
@@ -824,30 +913,45 @@ function renderHoje(){
 function chatHTML(f){
  const c=convDe(f), j=janela(f), ats=atividades(f).filter(a=>a.m);
  return `
-  ${c.length?`<div class="chat">${c.map(m=>`<div class="bal ${m.de==="eu"?"eu":"ele"}">${esc(m.t)}<span class="q">${esc(m.q)}</span></div>`).join("")}</div>`
-   :`<p class="nota" style="margin:0">Nenhuma conversa ainda. A primeira mensagem parte de um modelo aprovado.</p>`}
-  <div class="janela ${j.free?"free":"pago"}">${j.free
-    ? `✓ <b>Custo desta conversa: R$ 0,00.</b> Ele falou ${esc(j.quando)}, então a janela de 24h está aberta — responder é grátis, quantas mensagens você quiser.`
-    : `Fora da janela de 24h. Só aqui existe custo: <b>R$ 0,21</b> por modelo de utilidade. <b>Alternativa de graça:</b> faça ele te chamar primeiro pelo botão no app.`}</div>
+  ${c.length?`<div class="chat">${c.map(m=>`<div class="bal ${m.de==="eu"?"eu":"ele"}">${esc(m.t)}<span class="q">${esc(m.q)}${m.origem==="local"?" · só neste navegador":""}</span></div>`).join("")}</div>`
+   :`<p class="nota" style="margin:0">Nenhuma conversa registrada ainda.</p>`}
+  ${f.tel?`<div class="janela free">${j.free
+    ? `✓ <b>${esc(f.n.split(" ")[0])} mandou a última mensagem</b> (${esc(j.quando)}) — está esperando você.`
+    : `✓ Sai pelo <b>seu WhatsApp</b>, já com o texto. Custo <b>R$ 0,00</b>.`}
+    <a href="${linkZap(f)}" target="_blank" rel="noopener" style="margin-left:6px;font-weight:700;color:inherit">Abrir conversa ↗</a></div>`
+   :`<div class="janela pago">Essa ficha <b>não tem WhatsApp</b> no cadastro — não dá pra abrir a conversa.</div>`}
   <div class="envio">
     <input id="ch-in" placeholder="Escreva pro ${esc(f.n.split(" ")[0])}..." aria-label="Mensagem">
-    <button class="btn go" id="ch-send">Enviar</button>
+    <button class="btn go" id="ch-send"${f.tel?"":" disabled"}>Enviar no WhatsApp</button>
   </div>
   ${ats.length?`<div class="atalhos">${ats.map((a,i)=>`<button class="atalho" data-atalho="${i}">${esc(a.t)}</button>`).join("")}</div>`:""}
-  <p class="nota">Atalhos preenchem o campo com a mensagem da atividade. Ao enviar, a atividade é marcada.</p>`;
+  <p class="nota">Atalhos preenchem o campo com a mensagem da atividade. <b>Enviar</b> abre o WhatsApp com o texto pronto, grava a mensagem aqui e marca a atividade.</p>
+  <details class="resposta" style="margin-top:10px">
+    <summary style="cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink)">${esc(f.n.split(" ")[0])} respondeu? Registre aqui</summary>
+    <textarea id="ch-dele" class="txtarea" style="margin-top:8px" placeholder="Cole ou resuma o que ele disse..."></textarea>
+    <div class="acoes"><button class="btn ghost" id="ch-dele-ok">Registrar resposta dele</button></div>
+    <p class="nota">Isso é o que faz a conversa aparecer no CRM e conta como <b>resposta</b> nas suas métricas.</p>
+  </details>`;
 }
 function ligarChat(root,f){
  const inp=root.querySelector("#ch-in"), snd=root.querySelector("#ch-send");
+ const ch=root.querySelector(".chat"); if(ch) ch.scrollTop=ch.scrollHeight;
  if(!inp||!snd)return;
  const ats=atividades(f);
- const mandar=()=>{
+ const mandar=async()=>{
   const t=inp.value; if(!t.trim())return;
-  enviar(f,t);
+  if(!abrirZap(f,t.trim())) return;
   const idx=ats.findIndex(a=>a.m&&msgDe(f,a)===t.trim());
   if(idx>=0)marcar(f,idx,true);
-  inp.value=""; toast("Mensagem enviada"); render(); abrir(f.id);
+  inp.value=""; await enviar(f,t);
+  toast(idx>=0?"WhatsApp aberto · atividade marcada":"WhatsApp aberto · mensagem gravada"); render(); abrir(f.id);
  };
  snd.onclick=mandar;
+ const dele=root.querySelector("#ch-dele"), deleOk=root.querySelector("#ch-dele-ok");
+ if(dele&&deleOk) deleOk.onclick=async()=>{
+  const t=dele.value; if(!t.trim()){toast("Escreva o que ele disse");return;}
+  await gravarMsg(f,"ele",t); toast("Resposta registrada"); render(); abrir(f.id);
+ };
  inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();mandar();}});
  root.querySelectorAll("[data-atalho]").forEach(b=>{
   b.onclick=()=>{const a=ats.filter(x=>x.m)[+b.dataset.atalho];
@@ -888,10 +992,10 @@ function ativHTML(f,a,i,on){
   <div class="ativ-b" hidden>
     ${m?`<div class="msg">${esc(m)}</div>
        <div class="acoes">
-         <button class="btn go" data-enviar="${i}">Copiar e enviar no WhatsApp</button>
+         <button class="btn go" data-enviar="${i}"${f.tel?"":" disabled"}>Abrir no WhatsApp com a mensagem</button>
          <button class="btn ghost" data-copiar="${i}">Só copiar</button>
        </div>
-       <p class="nota">Ao enviar, a atividade é marcada sozinha.</p>`
+       <p class="nota">${f.tel?"Abre o seu WhatsApp já com o texto. A atividade é marcada e a mensagem fica gravada aqui.":"Sem WhatsApp no cadastro — copie e mande por onde conseguir."}</p>`
       :`<div class="msg nota">${esc(a.nota||"Anote o resultado desta atividade.")}</div>
         <textarea class="txtarea" style="margin-top:9px" data-nota="${i}" placeholder="Escreva aqui...">${esc(S.notas[f.id+"/"+i]||"")}</textarea>
         <div class="acoes"><button class="btn go" data-salvar="${i}">Salvar e marcar feita</button></div>`}
@@ -904,11 +1008,13 @@ function ligarAtividades(root,f){
    const open=w.dataset.open==="1";w.dataset.open=open?"0":"1";bd.hidden=open;};});
  root.querySelectorAll("[data-copiar],[data-enviar]").forEach(b=>{
   b.onclick=async()=>{
-   const i=+(b.dataset.copiar??b.dataset.enviar),a=atividades(f)[i];
-   try{await navigator.clipboard.writeText(msgDe(f,a));}catch(e){}
-   if(b.dataset.enviar!==undefined){marcar(f,i,true);toast("Mensagem copiada · atividade marcada");render();
-     if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);}
-   else toast("Mensagem copiada");};});
+   const i=+(b.dataset.copiar??b.dataset.enviar),a=atividades(f)[i],m=msgDe(f,a);
+   if(b.dataset.enviar!==undefined){
+     if(!abrirZap(f,m)) return;
+     marcar(f,i,true); await enviar(f,m);
+     toast("WhatsApp aberto · atividade marcada"); render();
+     if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);
+   } else { try{await navigator.clipboard.writeText(m);}catch(e){} toast("Mensagem copiada"); }};});
  root.querySelectorAll("[data-salvar]").forEach(b=>{
   b.onclick=()=>{const i=+b.dataset.salvar,ta=root.querySelector(`[data-nota="${i}"]`);
    S.notas[f.id+"/"+i]=ta?ta.value:"";marcar(f,i,true);salvar();
@@ -1049,7 +1155,7 @@ function abrir(id){
   </div>
   <div class="dr-body">
    <div class="dr-sec"><h4>Dados</h4>
-    <div class="kv"><span class="k">WhatsApp</span><span class="v">${esc(f.zap)}</span></div>
+    <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}</span></div>
     <div class="kv"><span class="k">Origem</span><span class="v">${esc(f.ref||"—")}</span></div>
     ${f.email?`<div class="kv"><span class="k">E-mail</span><span class="v">${esc(f.email)}</span></div>`:""}
     ${f.cidade?`<div class="kv"><span class="k">Cidade</span><span class="v">${esc(f.cidade)}</span></div>`:""}
@@ -1128,6 +1234,7 @@ function abrirLista(titulo,sub,pessoas,total){
 
 /* ===== TELA MÉTRICAS ===== */
 function renderMetricas(){
+ const tc=temposDeConversa();
  const fe=Object.values(S.fechados);
  const resp=fe.filter(x=>x==="respondeu"||x==="ganhou").length;
  const taxaResp=fe.length?Math.round(resp/fe.length*100):null;
@@ -1167,9 +1274,12 @@ function renderMetricas(){
     <div class="bar"><i style="width:100%;background:var(--bad)"></i></div></div>
    <div class="taxa" style="cursor:default">
     <div class="k">Tempo médio de resposta</div>
-    <div class="v num" style="color:var(--faint)">—</div>
-    <div class="s">só dá pra medir com o WhatsApp ligado</div>
-    <div class="bar"><i style="width:0%"></i></div></div>
+    ${tc.media!=null?`<div class="v num" style="color:var(--${tc.media<=60?"c2":tc.media<=240?"warn":"bad"})">${tc.media<60?Math.round(tc.media)+'<span style="font-size:15px"> min</span>':tc.media<1440?(tc.media/60).toFixed(1).replace(".",",")+'<span style="font-size:15px"> h</span>':(tc.media/1440).toFixed(1).replace(".",",")+'<span style="font-size:15px"> dias</span>'}</div>
+    <div class="s">do lead responder até você responder de volta · ${tc.respondidas} conversa${tc.respondidas===1?"":"s"}</div>
+    <div class="bar"><i style="width:${Math.min(100,tc.media/240*100)}%;background:var(--${tc.media<=60?"c2":tc.media<=240?"warn":"bad"})"></i></div>`
+    :`<div class="v num" style="color:var(--faint)">—</div>
+    <div class="s">aparece quando você registrar as respostas dos leads nas fichas</div>
+    <div class="bar"><i style="width:0%"></i></div>`}</div>
    <div class="taxa" style="cursor:default">
     <div class="k">Intervalo de follow-up</div>
     <div class="v num" style="color:var(--warn)">0,2<span style="font-size:15px"> dias</span></div>
@@ -1177,9 +1287,12 @@ function renderMetricas(){
     <div class="bar"><i style="width:8%;background:var(--warn)"></i></div></div>
    <div class="taxa" style="cursor:default">
     <div class="k">Horário de mais resposta</div>
-    <div class="v" style="color:var(--faint);font-size:19px">—</div>
-    <div class="s">precisa do WhatsApp pra saber quando o vendedor responde</div>
-    <div class="bar"><i style="width:0%"></i></div></div>
+    ${tc.pico!=null?`<div class="v num" style="color:var(--c2)">${String(tc.pico).padStart(2,"0")}h–${String(tc.pico+1).padStart(2,"0")}h</div>
+    <div class="s">${tc.picoQtd} de ${tc.respostasDele} respostas dos leads chegaram nessa hora</div>
+    <div class="bar"><i style="width:${Math.round(tc.picoQtd/tc.respostasDele*100)}%;background:var(--c2)"></i></div>`
+    :`<div class="v" style="color:var(--faint);font-size:19px">—</div>
+    <div class="s">aparece quando houver respostas registradas</div>
+    <div class="bar"><i style="width:0%"></i></div>`}</div>
   </div>
   <p class="nota"><b>O número de cima é o mais grave da operação inteira.</b> Você leva em média
   <b>7,6 dias</b> pra falar com um lead pela primeira vez — e o teste grátis dura <b>3 dias</b>.
@@ -1349,8 +1462,9 @@ document.querySelectorAll("[data-tab]").forEach(b=>{
 function render(){renderHoje();renderAlertas();renderEsteiras();renderMetricas();}
 /* ===== LOGIN + BOOT ===== */
 async function depoisDoLogin(){
-  const {data:podeCrm}=await sb.rpc("is_orbis_crm");
-  if(podeCrm!==true){ erroLogin("Essa conta não tem acesso ao CRM."); await sb.auth.signOut(); return; }
+  const {data:podeCrm, error:errAcesso}=await sb.rpc("is_orbis_crm");
+  if(errAcesso){ erroLogin("Entrou, mas não consegui checar a permissão: "+errAcesso.message+". Tente de novo."); return; }
+  if(podeCrm!==true){ erroLogin("Você entrou, mas essa conta não está liberada pro CRM (só admin e comercial). Peça ao Rick pra liberar seu CPF."); await sb.auth.signOut(); return; }
   const {data:papel}=await sb.rpc("orbis_papel");
   PAPEL = papel || "comercial";
   const {data:{user}}=await sb.auth.getUser();
@@ -1365,19 +1479,35 @@ async function depoisDoLogin(){
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
   document.getElementById("carregando").hidden=true;
 }
-function erroLogin(t){ document.getElementById("erroLogin").textContent=t; }
+function erroLogin(t, andamento){ const e=document.getElementById("erroLogin"); e.className=andamento?"andamento":""; e.textContent=t||""; }
+function botaoLogin(travado, texto){ const b=document.getElementById("btEntrar"); b.disabled=!!travado; b.textContent=texto||"Entrar"; }
+/* traduz o erro do Supabase pra algo que a pessoa consiga agir em cima */
+function explicaErro(error){
+  const m=String(error?.message||error||"").toLowerCase();
+  if(m.includes("invalid login credentials")) return "CPF ou senha incorretos. É a MESMA senha do app Orbis. Se esqueceu, peça ao Rick pra redefinir no painel.";
+  if(m.includes("email not confirmed")) return "Essa conta ainda não foi confirmada. Fale com o Rick.";
+  if(m.includes("too many") || m.includes("rate limit")) return "Muitas tentativas seguidas. Espere 1 minuto e tente de novo.";
+  if(m.includes("failed to fetch") || m.includes("network") || m.includes("load failed")) return "Sem conexão com o servidor. Verifique a internet e tente de novo.";
+  return "Não foi possível entrar: " + (error?.message||error);
+}
 function resolverLogin(v){ v=String(v||"").trim();
   if(v.includes("@")) return v; const d=v.replace(/\D/g,""); return d?d+"@orbis.internal":v; }
+window.__crmPronto=true; botaoLogin(false,"Entrar"); erroLogin("");
 document.getElementById("btEntrar").onclick=async()=>{
   erroLogin("");
   const email=resolverLogin(document.getElementById("inEmail").value);
   const senha=document.getElementById("inSenha").value;
   if(!email||!senha){ erroLogin("Preencha CPF (ou e-mail) e senha."); return; }
-  const {error}=await sb.auth.signInWithPassword({email,password:senha});
-  if(error){ erroLogin("Login recusado. Use o MESMO CPF (ou e-mail) e senha do app Orbis."); return; }
-  await depoisDoLogin();
+  botaoLogin(true,"Entrando…"); erroLogin("Conferindo CPF e senha…", true);
+  try{
+    const {error}=await sb.auth.signInWithPassword({email,password:senha});
+    if(error){ erroLogin(explicaErro(error)); botaoLogin(false,"Entrar"); return; }
+    erroLogin("Senha certa. Abrindo o CRM…", true);
+    await depoisDoLogin();
+  }catch(e){ erroLogin(explicaErro(e)); }
+  finally{ botaoLogin(false,"Entrar"); }
 };
-document.getElementById("inSenha").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("btEntrar").click();});
+["inEmail","inSenha"].forEach(id=>document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("btEntrar").click();}));
 document.getElementById("btSair").onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
 document.getElementById("btAtualizar").onclick=async()=>{
   document.getElementById("carregando").hidden=false;
