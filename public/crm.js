@@ -1,4 +1,4 @@
-/* CRM da Vant — todo o JavaScript fica aqui, fora do HTML, porque a política de segurança
+/* CRM do Orbis — todo o JavaScript fica aqui, fora do HTML, porque a política de segurança
    do site (CSP) proíbe script embutido na página. Este arquivo é servido pelo próprio domínio. */
 
 /* ===== 0. BOOT: roda antes de tudo. Se o CRM travar carregando, avisa em vez de ficar mudo. ===== */
@@ -1113,7 +1113,7 @@ function afiliadosHTML(){
   const saldo=+p.com_confirmada||0, comMes=(+p.com_novos_mes||0)+(+p.com_renov_mes||0), bloq=p.status==="bloqueado";
   return `<div class="afil${bloq?" bloq":""}" data-afil="${esc(p.code)}">
    <div class="afil-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>
-    <span class="pill" style="color:var(--c4);border-color:var(--c4)">${esc(p.nivel_nome||p.nivel)} · ${p.vp} VP</span>
+    <span class="pill" style="color:var(--c4);border-color:var(--c4)">${esc(p.nivel_nome||p.nivel)} · ${p.vp} OP</span>
     <span class="pill">${p.pct_recorrente}% rec. · ${(+p.pct_recorrente)+(+p.pct_bonus)}% 1ª</span>
     ${bloq?`<span class="pill bad">bloqueado</span>`:""}
     <span style="margin-left:auto;font-size:11px;color:var(--dim)">${p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0}% viram assinatura · ${p.cliques} cliques</span></div>
@@ -1150,7 +1150,7 @@ function afiliadosHTML(){
   </div>
   <button class="btn go block" id="pSalvar" style="margin-top:10px">Criar afiliado e gerar links</button>
   <div id="pResult" class="janela free" hidden style="margin-top:10px"></div>
-  <p class="nota">Modelo Vant Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
+  <p class="nota">Modelo Orbis Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
   O link de indicação leva pro app com o cupom; o link do painel é privado — mande só pro afiliado. Pro desconto aparecer no checkout, o cupom com o mesmo código precisa existir na Hotmart.</p>
  </div>
  <h2 class="sec">Afiliados · comissões</h2>
