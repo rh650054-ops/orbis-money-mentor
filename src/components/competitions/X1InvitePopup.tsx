@@ -81,7 +81,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
   const semSaldo = aposta > 0 && saldo < aposta;
 
   return createPortal(
-    <div className="fixed inset-0 z-[85] flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,.88)" }}>
+    <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 orbis-popup" role="dialog" aria-modal="true" style={{ background: "rgba(0,0,0,.88)", pointerEvents: "auto" }}>
       <div className="orbis-card-in w-full max-w-sm rounded-[26px] text-center px-5 pt-6 pb-5 relative overflow-hidden"
         style={{ background: "radial-gradient(120% 90% at 50% 0%,#2a0c11 0%,#140508 45%,#0b0b0d 100%)", border: `1px solid ${RED}66`, boxShadow: `0 30px 80px -30px ${RED}88` }}>
         <button type="button" onClick={fechar} aria-label="Depois" className="absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center" style={{ color: "rgba(255,255,255,.5)" }}><X className="w-4 h-4" /></button>

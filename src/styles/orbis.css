@@ -55,6 +55,12 @@
 }
 
 /* ---- botão primário 3D (Duolingo press) ---- */
+/* REDE DE SEGURANÇA DOS POPUPS (Rick, 22/09): o Dialog do Radix põe pointer-events:none
+   no <body> enquanto está aberto. Qualquer popup nosso que abra por cima (portal fora do
+   Radix) ficava sem receber toque — "não sai de jeito nenhum". Todo popup do Orbis volta
+   a ser clicável, sempre. */
+[role="dialog"], .orbis-popup { pointer-events: auto; }
+
 .orbis-cta {
   background: linear-gradient(180deg, var(--orbis-gold-light), var(--orbis-gold));
   color: #1a1200;

@@ -59,7 +59,7 @@ export function WeeklyChallengeTicket() {
   return (
     <>
       {open && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 100000, background: "#030303", overflowY: "auto" }}>
+        <div className="orbis-popup" role="dialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 100000, background: "#030303", overflowY: "auto", pointerEvents: "auto" }}>
           <GoldenTicket
             introTag={challenge.introTag}
             introTitulo={challenge.introTitulo}

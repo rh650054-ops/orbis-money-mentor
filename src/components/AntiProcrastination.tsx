@@ -33,7 +33,7 @@ export default function AntiProcrastination({ visible }: AntiProcrastinationProp
   if (!show) return null;
 
   return (
-    <div className="fixed bottom-20 left-4 right-4 z-[100] animate-fade-in">
+    <div className="fixed bottom-20 left-4 right-4 z-[100] animate-fade-in orbis-popup">
       <div className="bg-card/95 border border-border rounded-xl p-5 space-y-3">
         <div className="flex items-start gap-3">
           <div className="flex-1">

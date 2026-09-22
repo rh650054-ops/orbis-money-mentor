@@ -71,7 +71,7 @@ export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, aposta, premi
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] overflow-y-auto" style={{ background: "#000" }}>
+    <div className="fixed inset-0 z-[90] overflow-y-auto orbis-popup" role="dialog" aria-modal="true" style={{ background: "#000", pointerEvents: "auto" }}>
       <div className={`x1-rays ${venci ? "" : "vermelho"}`} />
       <div className="absolute pointer-events-none" style={{ left: "50%", top: "32%", width: 520, height: 520, margin: "-260px 0 0 -260px", background: `radial-gradient(circle,${cor}44 0%,${cor}11 40%,transparent 65%)` }} />
       <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(120% 90% at 50% 40%,transparent 40%,#000 100%)" }} />

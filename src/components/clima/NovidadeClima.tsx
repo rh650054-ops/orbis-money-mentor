@@ -16,8 +16,34 @@ const BASE = "/orbis/clima";
 const chave = (userId: string) => `orbis_novidade_clima_v1_${userId}`;
 
 export function NovidadeClima({ userId }: { userId: string }) {
-  const [visivel, setVisivel] = useState(() => { try { return localStorage.getItem(chave(userId)) !== "1"; } catch { return true; } });
+  const jaViu = () => { try { return localStorage.getItem(chave(userId)) === "1" || sessionStorage.getItem(chave(userId)) === "1"; } catch { return false; } };
+  const [visivel, setVisivel] = useState(false);
   const navigate = useNavigate();
+
+  // Só entra quando a tela está livre: sem outro diálogo aberto e sem o Radix segurando
+  // o <body>. Se não liberar em 12 s, entra mesmo assim (a rede de segurança do CSS
+  // garante que dá pra fechar). Isso evita a "tela que não sai" de 22/09.
+  useEffect(() => {
+    if (jaViu()) return;
+    let n = 0;
+    const id = window.setInterval(() => {
+      n += 1;
+      const outro = document.querySelector('[role="dialog"], [data-state="open"][data-radix-dialog-content]');
+      const livre = !outro && document.body.style.pointerEvents !== "none";
+      if (livre || n > 30) { window.clearInterval(id); if (!jaViu()) setVisivel(true); }
+    }, 400);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // Esc fecha
+  useEffect(() => {
+    if (!visivel) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") fechar(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visivel]);
 
   // trava a rolagem da Home enquanto a novidade está na frente
   useEffect(() => {
@@ -28,10 +54,14 @@ export function NovidadeClima({ userId }: { userId: string }) {
   }, [visivel]);
 
   if (!visivel) return null;
-  const fechar = () => { try { localStorage.setItem(chave(userId), "1"); } catch (e) { avisar.silencioso("NovidadeClima: marcar visto", e); } setVisivel(false); };
+  const fechar = () => {
+    try { localStorage.setItem(chave(userId), "1"); } catch (e) { avisar.silencioso("NovidadeClima: marcar visto", e); }
+    try { sessionStorage.setItem(chave(userId), "1"); } catch { /* modo privado */ }
+    setVisivel(false);
+  };
 
   return createPortal(
-    <div className="fixed inset-0 z-[75] flex items-center justify-center px-5 py-6" role="dialog" aria-modal="true" aria-label="Novidade: clima do vendedor">
+    <div className="fixed inset-0 z-[75] flex items-center justify-center px-5 py-6" role="dialog" aria-modal="true" aria-label="Novidade: clima do vendedor" style={{ pointerEvents: "auto" }}>
       {/* fundo: escurece e desfoca a Home atrás */}
       <button
         type="button" aria-label="Fechar" onClick={fechar}
