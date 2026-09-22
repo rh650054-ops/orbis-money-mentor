@@ -39,7 +39,7 @@ const META={contatos:10, vendas:1};
 let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   naoPagas:0,naoPagasQtd:0,atraso:0,atrasoQtd:0,encerradas:0,encerradasQtd:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
-let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[];
+let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[], VENDAS=null;
 const mesAtual=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
 let MES_AFIL=mesAtual(), AFIL_CFG={pct_primeira:15,pct_recorrente:10};
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
@@ -172,8 +172,24 @@ function mostrarProblemas(){
 
 async function carregarTudo(){
   PROBLEMAS.length=0;
-
-  const g = (ehDono() ? await chamar("crm_faturamento") : null) || {};
+  /* Tudo de uma vez: antes eram 12 chamadas em fila (uma esperava a outra). */
+  const dono=ehDono();
+  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc] = await Promise.all([
+    dono ? chamar("crm_faturamento") : Promise.resolve(null),
+    chamar("crm_numeros"),
+    chamar("crm_relatorio_mensal"),
+    chamar("crm_hotmart_lista"),
+    chamar("crm_conversas_lista"),
+    dono ? chamar("crm_afiliados",{p_mes:MES_AFIL}) : Promise.resolve([]),
+    dono ? chamar("crm_afiliados_config") : Promise.resolve(null),
+    chamar("crm_estado_lista"),
+    chamar("crm_vendas_hoje"),
+    chamar("crm_funil",{p_pipeline:"trial"}),
+    chamar("crm_funil",{p_pipeline:"relacionamento"}),
+    chamar("crm_funil",{p_pipeline:"inadimplente"}),
+    chamar("crm_funil",{p_pipeline:"parceiro"}),
+  ]);
+  const g = g0 || {};
   GRANA={total:+g.total||0,pagamentos:+g.pagamentos||0,ticket:+g.ticket||0,desde:g.desde||"—",
     d7:+g.d7||0,d7Pag:+g.d7_qtd||0,mes:+g.mes||0,
     naoPagas:+g.nao_pagas||0,naoPagasQtd:+g.nao_pagas_qtd||0,
@@ -182,25 +198,25 @@ async function carregarTudo(){
     recorrente:+g.recorrente||0,recorrenteQtd:+g.recorrente_qtd||0,
     renovMes:+g.renov_mes||0,renovMesValor:+g.renov_mes_valor||0,novasMes:+g.novas_mes||0,
     dias:(g.dias||[]).map(x=>[x.d,+x.v])};
-
-  const n = await chamar("crm_numeros"); if(n) NUM=Object.assign(NUM, n);
-  REL = (await chamar("crm_relatorio_mensal")) || [];
-  HOT = (await chamar("crm_hotmart_lista")) || [];
+  if(n) NUM=Object.assign(NUM, n);
+  REL = rel || [];
+  HOT = hot || [];
   CONV = {};
-  for(const m of ((await chamar("crm_conversas_lista"))||[])){
+  for(const m of (conv||[])){
     (CONV[m.cartao]=CONV[m.cartao]||[]).push({de:m.de,t:m.texto,q:quando(m.criado_em),ts:m.criado_em,origem:m.origem});
   }
-  PARCEIROS = (ehDono() ? await chamar("crm_parceiros") : []) || [];
-  AFIL = (ehDono() ? await chamar("crm_afiliados",{p_mes:MES_AFIL}) : []) || [];
-  if(ehDono()){ const c=await chamar("crm_afiliados_config"); if(c) AFIL_CFG=Object.assign(AFIL_CFG,c); }
+  AFIL = afil || [];
+  if(cfg) AFIL_CFG=Object.assign(AFIL_CFG,cfg);
+  VENDAS = vendas || null;
   HOJE=hojeZero();
   EST={};
-  for(const e of ((await chamar("crm_estado_lista"))||[])) EST[e.cartao]=normEst(e);
+  for(const e of (est||[])) EST[e.cartao]=normEst(e);
+  const FUNIS={trial:fTrial, relacionamento:fRel, inadimplente:fInad, parceiro:fParc};
 
   const pipes=["trial","relacionamento","inadimplente","parceiro"];
   QTD={}; F=[]; let id=0;
   for(const pipe of pipes){
-    const dados = await chamar("crm_funil",{p_pipeline:pipe});
+    const dados = FUNIS[pipe];
     if(!dados) continue;
     const est=DE_PIPE[pipe], mapa=DE_ETAPA[pipe];
     for(const c of (dados.cartoes||[])){
@@ -463,6 +479,24 @@ function mover(f,destino){
  render();abrir(f.id);
 }
 
+/* ===== VENDAS DE HOJE (Hotmart, ao vivo) ===== */
+function vendasHojeHTML(){
+ const v=VENDAS; if(!v) return "";
+ const tot=(+v.novas||0)+(+v.renov||0), o=v.ontem||{}, totO=(+o.novas||0)+(+o.renov||0);
+ const lista=(v.lista||[]);
+ return `<div class="box pad" style="margin-bottom:9px;border-color:var(--c2)">
+  <div style="display:flex;gap:12px;align-items:baseline;flex-wrap:wrap">
+   <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--c2)">Vendas hoje · Hotmart</div>
+   <div class="num" style="font-size:24px;font-weight:700;letter-spacing:-.03em">${tot} <span style="font-size:12px;font-weight:600;color:var(--dim)">${v.novas} nova${v.novas===1?"":"s"} · ${v.renov} renovaç${v.renov===1?"ão":"ões"}</span></div>
+   ${ehDono()?`<div class="num" style="font-size:13px;color:var(--dim)">líquido <b style="color:var(--ink)">${brl(+v.liquido||0)}</b></div>`:""}
+   <div style="margin-left:auto;font-size:11.5px;color:var(--dim)">ontem: ${totO} (${o.novas||0} nova${o.novas===1?"":"s"} · ${o.renov||0} renov.)</div>
+  </div>
+  ${lista.length?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">${lista.map(x=>{
+     const f=x.cartao?FICHAS.find(y=>y.cartaoId===x.cartao):null;
+     return `<button class="pill" ${f?`data-venda="${f.id}"`:""} style="cursor:${f?"pointer":"default"};${x.tipo==="nova"?"border-color:var(--c2);color:var(--c2)":""}">${esc(x.hora)} · ${esc(String(x.nome||"—").split(" ").slice(0,2).join(" "))} · ${x.tipo==="nova"?"nova":"renov."}${ehDono()?" · "+brl(+x.liquido):""}</button>`;}).join("")}</div>`
+   :`<p class="nota" style="margin:8px 0 0">Nenhuma venda aprovada ainda hoje.</p>`}
+ </div>`;
+}
 /* ===== TELA HOJE ===== */
 function renderHoje(){
  const q=fila(),f=atual();
@@ -473,7 +507,8 @@ function renderHoje(){
  const msgs=mensagensDoDia();
  const vend=fechados().filter(e=>e.fechado==="ganhou").length;
 
- let h=ehDono()? `<div class="grana">
+ let h=vendasHojeHTML();
+ h+=ehDono()? `<div class="grana">
   <div class="lbl">Faturamento total do Orbis</div>
   <div class="big num">${brl(GRANA.total)}</div>
   <div class="sub num">${GRANA.pagamentos} pagamentos · ticket ${brl(GRANA.ticket)} · desde ${GRANA.desde}</div>
@@ -683,6 +718,7 @@ function ligarHoje(f){
  if(bt)bt.onclick=()=>{const q=fila(),i=q.findIndex(x=>etapaDe(x)==="acabou");
   if(i>=0){S.pos=i;salvar();renderHoje();window.scrollTo({top:0,behavior:"smooth"});}};
  document.querySelectorAll("[data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+ document.querySelectorAll("[data-venda]").forEach(b=>b.onclick=()=>abrir(+b.dataset.venda,"conversa"));
  if(!f)return;
  ligarAtividades(document.getElementById("p-hoje"),f);
  const av=document.querySelector("[data-avancar]");
@@ -735,11 +771,14 @@ function renderAlertas(){
    Este aviso aparece toda vez que você abre o CRM.</p></div></div>
   <h2 class="sec">Por ordem de urgência</h2>
   <div class="box pad">${A.length?A.slice(0,40).map((a,i)=>`
-    <button class="alerta-l" data-al="${i}">
+    <div class="alerta-l" style="cursor:default">
       <span class="al-ic" style="background:var(--${a.cor==="dim"?"panel2":a.cor+"-s"});">${a.ic}</span>
-      <span class="tx"><span class="tt">${esc(a.tt)}</span><span class="ds">${a.ds}</span></span>
-      <span class="go">abrir ↗</span>
-    </button>`).join("")
+      <span class="tx"><span class="tt">${esc(a.tt)}</span><span class="ds">${a.ds}</span>
+       <span style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px">
+        <button class="btn go" data-al="${i}" style="padding:7px 11px;font-size:12px">Abrir conversa</button>
+        ${a.f.tel?`<button class="btn ghost" data-al-zap="${i}" style="padding:7px 11px;font-size:12px;color:var(--c2);border-color:var(--c2)">WhatsApp ↗</button>`:""}
+       </span></span>
+    </div>`).join("")
    :`<div class="vazio"><strong>Nada pendente.</strong>Ninguém está vazando agora.</div>`}
    ${A.length>40?`<div class="mais num" style="margin-top:8px">+ ${A.length-40} alertas depois destes — resolva os de cima primeiro</div>`:""}</div>
   <p class="nota">A regra: entra aqui quem <b>respondeu e está sem resposta</b>, quem <b>já mostrou que vale a pena</b>,
@@ -760,7 +799,14 @@ function renderAlertas(){
     <span class="tx"><span class="tt">A saída: faça ele chamar primeiro</span>
     <span class="ds">Um botão <b>"Falar com o Yan"</b> dentro do Orbis abre o WhatsApp já com a mensagem escrita. Quem clica manda a mensagem, e isso abre a janela grátis — sem você gastar um centavo. É o caminho de custo zero pros 298 que nunca foram atendidos.</span></span></div>
   </div>`;
- el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>abrir(A[+b.dataset.al].f.id));
+ el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>abrir(A[+b.dataset.al].f.id,"conversa"));
+ el.querySelectorAll("[data-al-zap]").forEach(b=>b.onclick=async()=>{
+   const f=A[+b.dataset.alZap].f, ats=atividades(f), fe=feitasDe(f);
+   const i=ats.findIndex((a,k)=>a.m&&!fe.includes(k)); const a=i>=0?ats[i]:ats.find(x=>x.m);
+   const m=a?msgDe(f,a):`Oi ${f.n.split(" ")[0]}, aqui é do Orbis. Tudo bem?`;
+   if(!abrirZap(f,m)) return;
+   if(i>=0) marcar(f,i,true); await enviar(f,m); toast("WhatsApp aberto · registrado"); render();
+ });
 }
 
 /* ===== TELA ESTEIRAS ===== */
@@ -798,7 +844,7 @@ function renderEsteiras(){
 }
 
 /* ===== PAINEL DA PESSOA ===== */
-function abrir(id){
+function abrir(id,foco){
  const f=byId(id);if(!f)return;
  const dr=document.getElementById("drawer"),veu=document.getElementById("veu");
  const et=etapaDe(f),def=E[f.e],cols=def.cols,idx=cols.findIndex(c=>c[0]===et);
@@ -815,6 +861,7 @@ function abrir(id){
    <button class="fechar" id="dr-x" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
   </div>
   <div class="dr-body">
+   ${foco==="conversa"?`<div class="dr-sec" style="border-color:var(--c2)"><h4 style="color:var(--c2)">Conversa no WhatsApp</h4>${chatHTML(f)}</div>`:""}
    <div class="dr-sec"><h4>Dados</h4>
     <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}</span></div>
     <div class="kv"><span class="k">Origem</span><span class="v">${esc(f.ref||"—")}</span></div>
@@ -851,7 +898,7 @@ function abrir(id){
      <h4 style="color:var(--bad)">Falta o motivo</h4>
      <p style="margin:0;font-size:12.5px;line-height:1.5">Enquanto o motivo de não ter fechado não for escrito na primeira atividade,
      esta ficha conta como <b>lead sem contato</b> nas Métricas.</p></div>`:""}
-   <div class="dr-sec"><h4>Conversa no WhatsApp</h4>${chatHTML(f)}</div>
+   ${foco==="conversa"?"":`<div class="dr-sec"><h4>Conversa no WhatsApp</h4>${chatHTML(f)}</div>`}
    <div class="dr-sec"><h4>Atividades desta etapa</h4>
     <div id="dr-ativs">${ats.map((a,i)=>ativHTML(f,a,i,fei.includes(i))).join("")}</div>
     <button class="btn go block" style="margin-top:9px" id="dr-avancar" ${pronto?"":"disabled"}>
@@ -1237,7 +1284,7 @@ async function depoisDoLogin(){
   document.getElementById("telaLogin").hidden=true;
   document.getElementById("app").hidden=false;
   document.getElementById("carregando").hidden=false;
-  try{ await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo(); ULTIMA_CARGA=Date.now(); }
+  try{ await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
   try{ aplicarPapel(); render(); if(ehDono()) renderParceiros(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
@@ -1280,7 +1327,8 @@ async function atualizar(silencioso){
   const cartaoAberto=drawerAberto?byId(+(document.getElementById("drawer").dataset.id||-1))?.cartaoId:null;
   if(!silencioso) document.getElementById("carregando").hidden=false;
   try{
-    await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo();
+    if(!silencioso){ await Promise.all([chamar("crm_sync"), chamar("crm_sync_base")]); }
+    await carregarTudo();
     // mantém a pessoa que estava na tela, mesmo que a ordem tenha mudado
     if(cartaoAtual){ const i=fila().findIndex(x=>x.cartaoId===cartaoAtual); if(i>=0){S.pos=i;salvar();} }
     render(); if(ehDono()) renderParceiros();
