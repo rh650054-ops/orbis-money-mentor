@@ -1,482 +1,1391 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ORBIS — CRM</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#15171A">
+<link rel="icon" href="/orbis-icon-192.png">
+<title>CRM da Vant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap">
 <style>
 :root{
-  --bg:#0d0c09; --panel:#16140f; --panel2:#1d1a13; --borda:#2b271d;
-  --ouro:#e8b00a; --ouro2:#f5c94a; --texto:#efe9dc; --mudo:#9a9282;
-  --verde:#4caf72; --verm:#e05b5b; --azul:#4FC3F7; --roxo:#BA68C8; --lar:#FF8A65;
+  --bg:#F3F2EF; --panel:#FCFCFB; --panel2:#F7F6F3; --rail:#15171A;
+  --ink:#13161A; --dim:#5B626D; --faint:#8A909C; --line:#E2E0DB; --line2:#CFCCC5;
+  --c1:#3B6FE0; --c2:#0F9E78; --c3:#D9432A; --c4:#8B5CF0;
+  --c1s:#E6EDFC; --c2s:#DFF3ED; --c3s:#FBE7E2; --c4s:#EFE9FD;
+  --ok:#0F9E78; --ok-s:#DFF3ED; --warn:#B5760D; --warn-s:#FBF0DC;
+  --bad:#C4321A; --bad-s:#FBE3DD;
+  --shadow:0 1px 2px rgba(16,18,20,.05),0 8px 24px -16px rgba(16,18,20,.26);
 }
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:var(--bg);color:var(--texto);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
-button{font-family:inherit;cursor:pointer}
-input,select,textarea{font-family:inherit}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D0F12; --panel:#16191D; --panel2:#1B1F24; --rail:#08090B;
+  --ink:#E8EAED; --dim:#949AA5; --faint:#6A707D; --line:#242930; --line2:#333942;
+  --c1:#4E86EC; --c2:#0FAE86; --c3:#EC6244; --c4:#9370EE;
+  --c1s:#141F33; --c2s:#0B2B24; --c3s:#301A15; --c4s:#201A38;
+  --ok:#0FAE86; --ok-s:#0B2B24; --warn:#E0A43A; --warn-s:#2C2212;
+  --bad:#EC6244; --bad-s:#301A15;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.85);}}
+:root[data-theme="dark"]{
+  --bg:#0D0F12; --panel:#16191D; --panel2:#1B1F24; --rail:#08090B;
+  --ink:#E8EAED; --dim:#949AA5; --faint:#6A707D; --line:#242930; --line2:#333942;
+  --c1:#4E86EC; --c2:#0FAE86; --c3:#EC6244; --c4:#9370EE;
+  --c1s:#141F33; --c2s:#0B2B24; --c3s:#301A15; --c4s:#201A38;
+  --ok:#0FAE86; --ok-s:#0B2B24; --warn:#E0A43A; --warn-s:#2C2212;
+  --bad:#EC6244; --bad-s:#301A15;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.85);}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.5;
+  font-family:"Instrument Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;text-align:left}
+:focus-visible{outline:2px solid var(--c1);outline-offset:2px;border-radius:6px}
+.shell{max-width:1120px;margin:0 auto;padding-inline:14px;padding-block:18px 96px}
+@media(min-width:720px){.shell{padding-inline:20px;padding-block:22px 60px}}
 
-/* ---------- login ---------- */
-.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
-  background:radial-gradient(ellipse 70% 40% at 50% 0%,rgba(232,176,10,.10),transparent)}
-.login-box{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--borda);border-radius:16px;padding:32px}
-.login-box h1{font-size:22px;text-align:center;margin-bottom:4px}
-.login-box h1 span{color:var(--ouro)}
-.login-box p{text-align:center;color:var(--mudo);font-size:13px;margin-bottom:24px}
-.login-box label{font-size:12px;color:var(--mudo);display:block;margin:14px 0 6px}
-.login-box input{width:100%;height:46px;background:var(--panel2);border:1px solid var(--borda);border-radius:10px;color:var(--texto);padding:0 14px;font-size:15px}
-.login-box input:focus{outline:none;border-color:var(--ouro)}
-.btn-ouro{width:100%;height:48px;margin-top:22px;background:linear-gradient(180deg,var(--ouro2),var(--ouro));border:none;border-radius:10px;color:#1a1502;font-size:15px;font-weight:700}
-.login-erro{color:var(--verm);font-size:13px;text-align:center;margin-top:14px;min-height:18px}
+.top{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+.mark{width:32px;height:32px;border-radius:9px;flex:none;display:grid;place-items:center;background:var(--rail)}
+.top h1{font-size:15px;font-weight:700;letter-spacing:-.02em;margin:0;line-height:1.2}
+.top p{margin:0;font-size:10.5px;color:var(--faint)}
+.top .sp{flex:1}
+.avatar{width:28px;height:28px;border-radius:50%;background:var(--c2s);color:var(--c2);display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
 
-/* ---------- topo ---------- */
-header{position:sticky;top:0;z-index:20;background:rgba(13,12,9,.92);backdrop-filter:blur(8px);
-  border-bottom:1px solid var(--borda);padding:12px 20px;display:flex;align-items:center;gap:12px}
-header h1{font-size:16px}
-header h1 span{color:var(--ouro)}
-.hspace{flex:1}
-.btn-fantasma{background:none;border:1px solid var(--borda);border-radius:8px;color:var(--mudo);padding:8px 14px;font-size:13px}
-.btn-fantasma:hover{color:var(--texto);border-color:var(--ouro)}
+.tabs{display:none}
+@media(min-width:720px){.tabs{display:flex;gap:2px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:18px}
+  .tabs button{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:600;color:var(--dim);text-align:center}
+  .tabs button[aria-selected="true"]{background:var(--panel);color:var(--ink);box-shadow:var(--shadow)}}
+.navbar{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;background:var(--panel);
+  border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+@media(min-width:720px){.navbar{display:none}}
+.navbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;
+  font-size:10.5px;font-weight:600;color:var(--faint);border-radius:9px;text-align:center}
+.navbar button[aria-selected="true"]{color:var(--c1);background:var(--c1s)}
 
-/* ---------- home: 4 cards ---------- */
-.home{max-width:960px;margin:0 auto;padding:28px 20px}
-.home h2{font-size:20px;margin-bottom:4px}
-.home .sub{color:var(--mudo);font-size:13px;margin-bottom:24px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
-.card-pipe{background:var(--panel);border:1px solid var(--borda);border-radius:16px;padding:20px;text-align:left;transition:.15s;position:relative;overflow:hidden}
-.card-pipe:hover{border-color:var(--ouro);transform:translateY(-2px)}
-.card-pipe .icone{font-size:26px;margin-bottom:10px;display:block}
-.card-pipe .nome{font-size:15px;font-weight:600;margin-bottom:2px}
-.card-pipe .desc{font-size:12px;color:var(--mudo);margin-bottom:14px;min-height:32px}
-.card-pipe .num{font-size:30px;font-weight:800;color:var(--ouro)}
-.card-pipe .num small{font-size:12px;color:var(--mudo);font-weight:400;margin-left:6px}
-.card-pipe .saldo{font-size:12px;margin-top:6px}
-.saldo .g{color:var(--verde)} .saldo .p{color:var(--verm);margin-left:10px}
+h2.sec{font-size:11px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);margin:26px 0 10px}
+h2.sec:first-child{margin-top:0}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+.pad{padding:14px 15px}
 
-/* ---------- funil (kanban) ---------- */
-.board-top{padding:16px 20px 4px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-.board-top h2{font-size:18px}
-.board-top input,.board-top select{background:var(--panel2);border:1px solid var(--borda);border-radius:8px;color:var(--texto);height:38px;padding:0 12px;font-size:13px}
-.board{display:flex;gap:12px;overflow-x:auto;padding:14px 20px 40px;align-items:flex-start}
-.col{min-width:265px;width:265px;background:var(--panel);border:1px solid var(--borda);border-radius:14px;flex-shrink:0}
-.col-head{padding:12px 14px;border-bottom:1px solid var(--borda);display:flex;align-items:center;gap:8px;position:sticky;top:0}
-.col-head .ponto{width:9px;height:9px;border-radius:50%}
-.col-head .t{font-size:13px;font-weight:600;flex:1}
-.col-head .n{font-size:12px;color:var(--mudo);background:var(--panel2);border-radius:20px;padding:2px 9px}
-.col-corpo{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:80px;max-height:calc(100vh - 220px);overflow-y:auto}
-.col.drag-sobre{border-color:var(--ouro)}
-.cartao{background:var(--panel2);border:1px solid var(--borda);border-radius:12px;padding:12px;cursor:grab;transition:.12s}
-.cartao:hover{border-color:var(--ouro)}
-.cartao .nm{font-size:13px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:6px}
-.cartao .tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
-.tag{font-size:10.5px;padding:2px 8px;border-radius:20px;border:1px solid var(--borda);color:var(--mudo)}
-.tag.parceiro{color:var(--ouro2);border-color:rgba(232,176,10,.4)}
-.tag.dia{color:var(--azul);border-color:rgba(79,195,247,.4)}
-.tag.alerta{color:var(--lar);border-color:rgba(255,138,101,.4)}
-.tag.ok{color:var(--verde);border-color:rgba(76,175,114,.4)}
-.prog{height:5px;background:#0009;border-radius:4px;overflow:hidden;margin-bottom:8px}
-.prog i{display:block;height:100%;background:var(--ouro);border-radius:4px}
-.cartao .rodape{display:flex;align-items:center;justify-content:space-between}
-.cartao .rodape .quando{font-size:11px;color:var(--mudo)}
-.zap{font-size:12px;color:var(--verde);text-decoration:none;border:1px solid rgba(76,175,114,.4);border-radius:8px;padding:3px 9px}
-.vazio{color:var(--mudo);font-size:12px;text-align:center;padding:16px 6px}
+/* dinheiro */
+.grana{background:var(--rail);border-radius:15px;padding:16px 16px 8px;color:#fff}
+.grana .lbl{font-size:10.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:rgba(255,255,255,.55)}
+.grana .big{font-size:clamp(30px,9vw,40px);font-weight:700;letter-spacing:-.035em;line-height:1.05;margin:4px 0 0}
+.grana .sub{font-size:12px;color:rgba(255,255,255,.6);margin-top:3px}
+.gline{display:grid;gap:13px;grid-template-columns:repeat(2,1fr);margin-top:14px;padding-top:13px;border-top:1px solid rgba(255,255,255,.12)}
+@media(min-width:620px){.gline{grid-template-columns:repeat(4,1fr)}}
+.gcell .k{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);line-height:1.3}
+.gcell .v{font-size:17px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+.gcell .n{font-size:10.5px;color:rgba(255,255,255,.45);margin-top:1px}
+.gcell.perda .k,.gcell.perda .v{color:#FF8A6B}
+.gcell.perda .n{color:rgba(255,138,107,.65)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:48px;margin:14px 0 0}
+.spark .b{flex:1;border-radius:3px 3px 0 0;background:rgba(255,255,255,.26);min-height:2px}
+.spark .b.hoje{background:#FFB020}
+.fonte{font-size:10.5px;color:rgba(255,255,255,.4);padding:9px 0 8px;line-height:1.45}
+.fonte b{color:rgba(255,255,255,.7)}
 
-/* ---------- drawer do cartão ---------- */
-.fundo-modal{position:fixed;inset:0;background:#000a;z-index:40;display:none}
-.fundo-modal.aberto{display:block}
-.drawer{position:fixed;top:0;right:0;bottom:0;width:min(420px,100vw);background:var(--panel);border-left:1px solid var(--borda);
-  z-index:50;transform:translateX(105%);transition:.2s;overflow-y:auto;padding:22px}
-.drawer.aberto{transform:none}
-.drawer .fechar{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--mudo);font-size:22px}
-.drawer h3{font-size:18px;margin-bottom:2px;padding-right:30px}
-.drawer .linha-info{font-size:13px;color:var(--mudo);margin:3px 0}
-.drawer .linha-info b{color:var(--texto);font-weight:600}
-.drawer .tags{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
-.sec-t{font-size:12px;color:var(--ouro);text-transform:uppercase;letter-spacing:.08em;margin:20px 0 10px;font-weight:700}
-.tarefa{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--panel2);border:1px solid var(--borda);border-radius:10px;margin-bottom:7px;cursor:pointer}
-.tarefa input{width:18px;height:18px;accent-color:var(--ouro);margin-top:1px;flex-shrink:0;cursor:pointer}
-.tarefa span{font-size:13px;line-height:1.45}
-.tarefa.feita span{color:var(--mudo);text-decoration:line-through}
-.drawer textarea{width:100%;min-height:90px;background:var(--panel2);border:1px solid var(--borda);border-radius:10px;color:var(--texto);padding:10px 12px;font-size:13px;resize:vertical}
-.drawer textarea:focus{outline:none;border-color:var(--ouro)}
-.acoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
-.btn-ganhou{height:44px;border:none;border-radius:10px;background:rgba(76,175,114,.15);border:1px solid var(--verde);color:var(--verde);font-weight:700;font-size:14px}
-.btn-perdeu{height:44px;border:none;border-radius:10px;background:rgba(224,91,91,.12);border:1px solid var(--verm);color:var(--verm);font-weight:700;font-size:14px}
-.aviso-salvo{font-size:12px;color:var(--verde);min-height:16px;margin-top:6px}
+.alerta{border:1px solid var(--bad);background:var(--bad-s);border-radius:13px;padding:13px 14px;display:flex;gap:11px;margin-top:14px}
+.alerta .ic{flex:none;color:var(--bad);margin-top:1px}
+.alerta h3{margin:0 0 3px;font-size:14px;font-weight:700;color:var(--bad)}
+.alerta p{margin:0;font-size:13px;line-height:1.5}
+.cta{margin-top:9px;background:var(--bad);color:#fff;padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:600}
 
-.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--ouro);
-  color:var(--texto);padding:12px 20px;border-radius:12px;font-size:13px;z-index:99;display:none;max-width:90vw}
-.oculto{display:none!important}
-@media(max-width:640px){ .col{min-width:82vw;width:82vw} }
+.strip{display:grid;gap:9px;grid-template-columns:repeat(2,1fr)}
+@media(min-width:640px){.strip{grid-template-columns:repeat(4,1fr)}}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 13px}
+.stat .k{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.stat .v{font-size:22px;font-weight:700;letter-spacing:-.03em;line-height:1.15;margin-top:3px}
+.stat .s{font-size:11px;color:var(--dim);margin-top:2px;line-height:1.35}
+.meter{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin:7px 0 5px}
+.meter i{display:block;height:100%;border-radius:99px;background:var(--c2)}
+
+/* ficha do dia */
+.fila{display:grid;gap:14px}
+@media(min-width:960px){.fila{grid-template-columns:1fr 296px;align-items:start}}
+.fh{padding:14px 15px;border-bottom:1px solid var(--line);display:flex;gap:11px}
+.blob{width:40px;height:40px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:14px;font-weight:700}
+.fh h3{font-size:17px;font-weight:700;letter-spacing:-.025em;margin:0;line-height:1.25}
+.pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.pill{font-size:10px;font-weight:600;padding:3px 8px;border-radius:99px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+.pill.p1{color:var(--c1);border-color:var(--c1);background:var(--c1s)}
+.pill.p2{color:var(--c2);border-color:var(--c2);background:var(--c2s)}
+.pill.p3{color:var(--c3);border-color:var(--c3);background:var(--c3s)}
+.pill.p4{color:var(--c4);border-color:var(--c4);background:var(--c4s)}
+.pill.bad{color:var(--bad);border-color:var(--bad);background:var(--bad-s)}
+.porque{margin:0;padding:11px 15px;background:var(--panel2);border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:8px;line-height:1.5}
+.blk{padding:13px 15px;border-bottom:1px solid var(--line)}
+.blk:last-child{border-bottom:0}
+.blk h4{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 9px}
+
+/* ATIVIDADE com mensagem embutida */
+.ativ{border:1px solid var(--line);border-radius:10px;margin-bottom:7px;overflow:hidden;background:var(--panel)}
+.ativ.on{border-color:var(--c2);background:var(--c2s)}
+.ativ-h{display:flex;gap:9px;align-items:flex-start;padding:10px 11px;cursor:pointer;width:100%}
+.cbox{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line2);flex:none;margin-top:1px;display:grid;place-items:center}
+.ativ.on .cbox{background:var(--c2);border-color:var(--c2)}
+.cbox svg{opacity:0}.ativ.on .cbox svg{opacity:1}
+.ativ-h .tt{flex:1;font-size:13px;line-height:1.4}
+.ativ.on .tt{color:var(--dim);text-decoration:line-through}
+.ativ-h .cv{flex:none;color:var(--faint);transition:transform .15s}
+.ativ[data-open="1"] .cv{transform:rotate(180deg)}
+.ativ-b{padding:0 11px 11px;border-top:1px solid var(--line)}
+.msg{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:10px 11px;
+  font-size:12.5px;line-height:1.55;white-space:pre-wrap;margin-top:10px}
+.msg.nota{font-style:italic;color:var(--dim);white-space:normal}
+.acoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.btn{padding:8px 13px;border-radius:9px;font-size:12.5px;font-weight:600;border:1px solid var(--line2);
+  background:var(--panel);transition:transform .1s;text-align:center}
+.btn:active{transform:scale(.98)}
+.btn.go{background:var(--c2);border-color:var(--c2);color:#fff}
+.btn.ghost{color:var(--dim)}
+.btn.win{border-color:var(--c2);color:var(--c2);background:var(--c2s)}
+.btn.lose{border-color:var(--bad);color:var(--bad);background:var(--bad-s)}
+.btn[disabled]{opacity:.42;cursor:not-allowed}
+.btn.block{width:100%;display:block}
+
+/* sinais do lead */
+.sinais{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));margin-top:2px}
+.sin{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:9px 10px}
+.sin .k{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.sin .v{font-size:16px;font-weight:700;letter-spacing:-.02em;margin-top:2px;line-height:1.2}
+.sin.q{border-color:var(--bad);background:var(--bad-s)}
+.sin.q .v,.sin.q .k{color:var(--bad)}
+.temp{display:flex;gap:9px;align-items:flex-start;padding:10px 11px;border-radius:10px;
+  border:1px solid var(--line2);background:var(--panel2);margin-top:9px;font-size:12.5px;line-height:1.5}
+.temp.q{border-color:var(--bad);background:var(--bad-s)}
+.temp.w{border-color:var(--warn);background:var(--warn-s)}
+.temp .e{font-size:17px;flex:none;line-height:1.2}
+.temp b{font-weight:700}
+/* conversa */
+.chat{display:flex;flex-direction:column;gap:7px;max-height:280px;overflow-y:auto;padding:2px 0 6px}
+.bal{max-width:84%;padding:8px 11px;border-radius:13px;font-size:12.5px;line-height:1.45;position:relative}
+.bal .q{display:block;font-size:9.5px;margin-top:3px;opacity:.6}
+.bal.eu{align-self:flex-end;background:var(--c2);color:#fff;border-bottom-right-radius:4px}
+.bal.ele{align-self:flex-start;background:var(--panel2);border:1px solid var(--line);border-bottom-left-radius:4px}
+.janela{font-size:11px;padding:7px 10px;border-radius:8px;margin-top:8px;line-height:1.45}
+.janela.free{background:var(--c2s);color:var(--c2);border:1px solid var(--c2)}
+.janela.pago{background:var(--warn-s);color:var(--warn);border:1px solid var(--warn)}
+.envio{display:flex;gap:6px;margin-top:9px}
+.envio input{flex:1;min-width:0;border:1px solid var(--line2);border-radius:9px;padding:9px 11px;
+  font:inherit;font-size:12.5px;background:var(--panel2);color:var(--ink)}
+.atalhos{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.atalho{font-size:11px;font-weight:600;padding:5px 9px;border-radius:99px;border:1px solid var(--line2);color:var(--dim)}
+.atalho:hover{border-color:var(--ink);color:var(--ink)}
+/* alertas */
+.badge{display:inline-grid;place-items:center;min-width:17px;height:17px;padding:0 5px;border-radius:99px;
+  background:var(--bad);color:#fff;font-size:10px;font-weight:700;margin-left:5px;vertical-align:middle}
+.nb{position:absolute;top:2px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:99px;
+  background:var(--bad);color:#fff;font-size:9.5px;font-weight:700;display:grid;place-items:center}
+.navbar button{position:relative}
+.alerta-l{display:flex;gap:11px;align-items:flex-start;padding:12px 0;width:100%;border-bottom:1px solid var(--line)}
+.alerta-l:last-child{border-bottom:0}
+.al-ic{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;font-size:14px}
+.alerta-l .tx{flex:1;min-width:0;display:block}
+.alerta-l .tt{display:block;font-size:13.5px;font-weight:700;letter-spacing:-.01em}
+.alerta-l .ds{display:block;font-size:12px;color:var(--dim);margin-top:3px;line-height:1.45}
+.alerta-l .go{font-size:11px;font-weight:700;color:var(--c1);white-space:nowrap;flex:none;align-self:center}
+.destrava{margin-top:9px;font-size:11.5px;color:var(--dim);background:var(--panel2);
+  border:1px dashed var(--line2);border-radius:9px;padding:8px 10px;line-height:1.45}
+.destrava.ok{border-color:var(--c2);color:var(--c2);background:var(--c2s);border-style:solid}
+.desf{display:grid;gap:7px;grid-template-columns:1fr 1fr}
+
+.lado{display:flex;flex-direction:column;gap:11px}
+.prox{display:flex;gap:8px;align-items:center;padding:7px 0;font-size:12.5px;width:100%}
+.prox+.prox{border-top:1px solid var(--line)}
+.prox .n{width:16px;font-size:10.5px;font-weight:700;color:var(--faint);flex:none}
+.prox .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;flex:none}
+.mini-h{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 9px}
+
+/* esteiras */
+.est-head{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.est-head h3{margin:0;font-size:14px;font-weight:700}
+.est-head .c{font-size:11px;color:var(--faint);margin-left:auto}
+.cols{display:flex;gap:1px;background:var(--line);overflow-x:auto;scroll-snap-type:x mandatory}
+.col{background:var(--panel);padding:10px;min-width:176px;flex:1 0 176px;scroll-snap-align:start}
+@media(min-width:800px){.cols{display:grid;grid-template-columns:repeat(var(--n,4),1fr);overflow:visible}.col{min-width:0;flex:none}}
+.col-h{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.col-h .t{font-size:11px;font-weight:700;flex:1;line-height:1.3}
+.col-h .q{font-size:11px;font-weight:700;color:var(--faint)}
+.chip{background:var(--panel2);border:1px solid var(--line);border-left-width:3px;border-radius:8px;
+  padding:7px 8px;margin-bottom:5px;font-size:12px;cursor:pointer;width:100%;transition:transform .1s}
+.chip:hover{transform:translateX(2px)}
+.chip.morto{border-color:var(--bad);background:var(--bad-s)}
+.chip .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .sb{font-size:10px;color:var(--faint);margin-top:2px}
+.chip .sb.bad{color:var(--bad);font-weight:600}
+.mais{font-size:10.5px;color:var(--faint);padding:4px 2px}
+
+/* metricas */
+.taxas{display:grid;gap:9px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.taxa{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px;width:100%;
+  cursor:pointer;transition:border-color .13s,transform .1s;position:relative}
+.taxa:hover{border-color:var(--line2);transform:translateY(-1px)}
+.taxa .k{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.taxa .v{font-size:27px;font-weight:700;letter-spacing:-.035em;line-height:1.1;margin-top:4px}
+.taxa .s{font-size:11px;color:var(--dim);margin-top:3px;line-height:1.4}
+.taxa .bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:9px}
+.taxa .bar i{display:block;height:100%;border-radius:99px}
+.taxa .ver{position:absolute;top:11px;right:11px;font-size:9.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--faint)}
+
+.funil{display:flex;flex-direction:column;gap:2px}
+.fstep{display:flex;align-items:center;gap:10px;width:100%;padding:2px 0;cursor:pointer}
+.fstep:hover .track{outline:1px solid var(--line2)}
+.fstep .lbl{font-size:12px;min-width:106px;flex:none}
+.fstep .track{flex:1;height:26px;background:var(--panel2);border-radius:5px;overflow:hidden;min-width:50px}
+.fstep .track i{display:block;height:100%;border-radius:4px}
+.fstep .v{font-size:12.5px;font-weight:700;min-width:64px;text-align:right;color:var(--dim)}
+
+.barras{display:flex;align-items:flex-end;gap:4px;height:118px;margin-top:8px}
+.barras .c2{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:5px;height:100%}
+.barras .bb{width:100%;border-radius:4px 4px 0 0;background:var(--c1);min-height:2px}
+.barras .bb.zero{background:var(--line2)}
+.barras .dt{font-size:9px;color:var(--faint)}
+.tabela{width:100%;border-collapse:collapse;font-size:12.5px}
+.tabela th,.tabela td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--line)}
+.tabela th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.tabela td.n,.tabela th.n{text-align:right;font-variant-numeric:tabular-nums}
+.tabela tr:last-child td{border-bottom:0}
+.legend{display:flex;gap:13px;flex-wrap:wrap;font-size:11.5px;color:var(--dim);margin-top:9px}
+.legend span{display:flex;align-items:center;gap:5px}
+.nota{font-size:11.5px;color:var(--faint);line-height:1.55;margin:11px 0 0}
+.nota b{color:var(--dim)}
+
+/* PAINEL LATERAL (drawer) */
+.veu{position:fixed;inset:0;background:rgba(10,12,14,.5);z-index:70;opacity:0;pointer-events:none;transition:opacity .2s}
+.veu[data-on="1"]{opacity:1;pointer-events:auto}
+.drawer{position:fixed;z-index:71;background:var(--panel);display:flex;flex-direction:column;
+  transition:transform .24s ease;box-shadow:0 0 60px -10px rgba(0,0,0,.45)}
+@media(max-width:719px){.drawer{left:0;right:0;bottom:0;top:34px;border-radius:16px 16px 0 0;transform:translateY(102%)}
+  .drawer[data-on="1"]{transform:translateY(0)}}
+@media(min-width:720px){.drawer{top:0;bottom:0;right:0;width:min(460px,100%);transform:translateX(102%)}
+  .drawer[data-on="1"]{transform:translateX(0)}}
+.dr-head{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:11px;align-items:flex-start;flex:none}
+.dr-head h3{margin:0;font-size:18px;font-weight:700;letter-spacing:-.025em;line-height:1.2}
+.fechar{margin-left:auto;flex:none;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--faint)}
+.fechar:hover{background:var(--panel2);color:var(--ink)}
+.dr-body{overflow-y:auto;flex:1;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}
+.dr-sec{padding:13px 16px;border-bottom:1px solid var(--line)}
+.dr-sec h4{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);margin:0 0 9px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:12.5px}
+.kv+.kv{border-top:1px solid var(--line)}
+.kv .k{color:var(--faint)}
+.kv .v{font-weight:600;text-align:right}
+.trilha{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.tstep{font-size:10.5px;font-weight:600;padding:4px 9px;border-radius:99px;border:1px solid var(--line2);color:var(--faint);white-space:nowrap}
+.tstep.pass{background:var(--c2s);border-color:var(--c2);color:var(--c2)}
+.tstep.now{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+.tstep.bad{background:var(--bad-s);border-color:var(--bad);color:var(--bad)}
+.mover{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px}
+.mv{font-size:11.5px;font-weight:600;padding:6px 11px;border-radius:8px;border:1px solid var(--line2);color:var(--dim)}
+.mv:hover:not([disabled]){border-color:var(--ink);color:var(--ink)}
+.mv[disabled]{opacity:.4;cursor:not-allowed}
+.txtarea{width:100%;border:1px solid var(--line2);border-radius:9px;padding:9px 10px;font:inherit;font-size:12.5px;
+  background:var(--panel2);color:var(--ink);resize:vertical;min-height:62px}
+.lista-p{display:flex;gap:10px;align-items:center;padding:9px 0;font-size:13px;width:100%;border-bottom:1px solid var(--line)}
+.lista-p:last-child{border-bottom:0}
+.lista-p .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.lista-p .mt{font-size:11px;color:var(--faint)}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom,0px));
+  background:var(--rail);color:#fff;padding:9px 17px;border-radius:99px;font-size:12.5px;font-weight:600;
+  z-index:90;opacity:0;pointer-events:none;transition:opacity .2s}
+@media(min-width:720px){.toast{bottom:22px}}
+.toast[data-on="1"]{opacity:1}
+.vazio{padding:34px 18px;text-align:center;color:var(--faint);font-size:13.5px}
+.vazio strong{display:block;font-size:16px;color:var(--ink);margin-bottom:4px}
+#telaLogin{min-height:100dvh;display:grid;place-items:center;padding:20px}
+.loginbox{width:100%;max-width:340px;background:var(--panel);border:1px solid var(--line);
+  border-radius:16px;padding:22px;box-shadow:var(--shadow)}
+.loginbox h2{margin:12px 0 4px;font-size:19px;font-weight:700;letter-spacing:-.02em}
+.loginbox p{margin:0 0 16px;font-size:12.5px;color:var(--dim)}
+.loginbox input{width:100%;border:1px solid var(--line2);border-radius:9px;padding:11px 12px;
+  font:inherit;font-size:14px;background:var(--panel2);color:var(--ink);margin-bottom:8px}
+#erroLogin{font-size:12px;color:var(--bad);min-height:16px;margin-top:6px}
+#carregando{position:fixed;inset:0;background:var(--bg);display:grid;place-items:center;z-index:80;
+  font-size:13px;color:var(--dim);gap:10px}
+.spin{width:26px;height:26px;border:2.5px solid var(--line2);border-top-color:var(--c1);
+  border-radius:50%;animation:g .8s linear infinite;margin:0 auto 10px}
+@keyframes g{to{transform:rotate(360deg)}}
+.pbox{display:flex;gap:10px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);width:100%}
+.pbox:last-child{border-bottom:0}
+.pbox .nm{flex:1;min-width:0}
+.pbox .nm b{display:block;font-size:13.5px}
+.pbox .nm span{display:block;font-size:11px;color:var(--faint);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pbox .st{text-align:right;font-size:11px;color:var(--dim);flex:none}
+.pbox .st b{display:block;font-size:15px;color:var(--ink)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<style>
+  html,body{min-height:100%}
+  :root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+  img{max-width:100%}
+  [hidden]{display:none!important}
 </style>
 </head>
 <body>
 
-<!-- LOGIN -->
-<div id="vLogin" class="login-wrap">
-  <div class="login-box">
-    <h1>ORBIS <span>CRM</span></h1>
-    <p>Funil de vendas — acesso do time</p>
-    <label>CPF ou e-mail</label>
-    <input id="inEmail" type="text" autocomplete="username" placeholder="Mesmo acesso do app Orbis">
-    <label>Senha</label>
-    <input id="inSenha" type="password" autocomplete="current-password" placeholder="••••••••">
-    <button class="btn-ouro" onclick="entrar()">Entrar</button>
-    <div id="loginErro" class="login-erro"></div>
+
+<div id="telaLogin">
+  <div class="loginbox">
+    <span class="mark" style="width:38px;height:38px"><svg width="24" height="24" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="32" fill="none" stroke="#3a3f46" stroke-width="6"/>
+      <path d="M37 41 L50 61 L64 34" fill="none" stroke="#FFB020" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg></span>
+    <h2>CRM da Vant</h2>
+    <p>Entre com o mesmo CPF (ou e-mail) e senha do app Orbis.</p>
+    <input id="inEmail" placeholder="CPF ou e-mail" autocomplete="username" inputmode="text">
+    <input id="inSenha" type="password" placeholder="Senha" autocomplete="current-password">
+    <button class="btn go block" id="btEntrar" style="margin-top:4px">Entrar</button>
+    <div id="erroLogin" role="alert"></div>
   </div>
 </div>
 
-<!-- APP -->
-<div id="vApp" class="oculto">
-  <header>
-    <button id="btnVoltar" class="btn-fantasma oculto" onclick="irHome()">← Voltar</button>
-    <h1>ORBIS <span>CRM</span></h1>
-    <div class="hspace"></div>
-    <span id="quemSou" style="font-size:12px;color:var(--mudo)"></span>
-    <button class="btn-fantasma" onclick="sair()">Sair</button>
-  </header>
-
-  <!-- HOME -->
-  <div id="vHome" class="home">
-    <h2>Bom trabalho, <span id="nomeYan">time</span> 👊</h2>
-    <div class="sub" id="subSync">Sincronizando as esteiras…</div>
-    <div class="cards" id="gridCards"></div>
+<div id="app" hidden>
+<div class="shell">
+  <div class="top">
+    <span class="mark"><svg width="20" height="20" viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="32" fill="none" stroke="#3a3f46" stroke-width="6"/>
+      <path d="M37 41 L50 61 L64 34" fill="none" stroke="#FFB020" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg></span>
+    <div><h1>CRM da Vant</h1><p>Dados ao vivo do banco e da Hotmart</p></div>
+    <span class="sp"></span>
+    <button class="btn ghost" id="btAtualizar" style="padding:6px 11px;font-size:12px">Atualizar</button>
+    <span class="avatar" id="quemSou" title="Conectado">Y</span>
+    <button class="btn ghost" id="btSair" style="padding:6px 11px;font-size:12px">Sair</button>
   </div>
-
-  <!-- FUNIL -->
-  <div id="vBoard" class="oculto">
-    <div class="board-top">
-      <h2 id="tituloFunil"></h2>
-      <div class="hspace"></div>
-      <button class="btn-fantasma" onclick="abrirFunil(funilAtual)">↻ Atualizar</button>
-      <select id="selParceiro" class="oculto" onchange="renderBoard()"></select>
-      <input id="inBusca" placeholder="Buscar nome, e-mail, zap…" oninput="renderBoard()">
-    </div>
-    <div class="board" id="board"></div>
+  <div class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="hoje">Hoje</button>
+    <button role="tab" aria-selected="false" data-tab="esteiras">Esteiras</button>
+    <button role="tab" aria-selected="false" data-tab="alertas">Alertas <span class="badge" id="bd-d">0</span></button>
+    <button role="tab" aria-selected="false" data-tab="metricas">Métricas</button>
+    <button role="tab" aria-selected="false" data-tab="parceiros">Parceiros</button>
   </div>
+  <section id="p-hoje"></section>
+  <section id="p-alertas" hidden></section>
+  <section id="p-esteiras" hidden></section>
+  <section id="p-metricas" hidden></section>
+  <section id="p-parceiros" hidden></section>
 </div>
 
-<!-- DRAWER -->
-<div id="fundoModal" class="fundo-modal" onclick="fecharCartao()"></div>
-<div id="drawer" class="drawer"></div>
-<div id="toast" class="toast"></div>
+</div>
+<nav class="navbar" role="tablist" aria-label="Navegação">
+  <button role="tab" aria-selected="true" data-tab="hoje"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>Hoje</button>
+  <button role="tab" aria-selected="false" data-tab="esteiras"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.4"/><rect x="9.5" y="4" width="5" height="11" rx="1.4"/><rect x="16" y="4" width="5" height="7" rx="1.4"/></svg>Esteiras</button>
+  <button role="tab" aria-selected="false" data-tab="alertas"><span class="nb" id="bd-m">0</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6ZM10.5 20a2 2 0 0 0 3 0"/></svg>Alertas</button>
+  <button role="tab" aria-selected="false" data-tab="metricas"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M10 19V4M16 19v-7M22 19H2"/></svg>Métricas</button>
+  <button role="tab" aria-selected="false" data-tab="parceiros"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Links</button>
+</nav>
+</div>
 
-<script>
-const SB_URL = "https://qbcsjsdwjjpybvzbxszi.supabase.co";
-const SB_KEY = "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy";
-const sb = supabase.createClient(SB_URL, SB_KEY);
+<div id="diag" hidden style="max-width:1120px;margin:14px auto;padding:14px 16px;border-radius:12px;
+  border:1px solid var(--bad);background:var(--bad-s);color:var(--ink);font-size:13px;line-height:1.55"></div>
+<div id="carregando" hidden><div style="text-align:center"><div class="spin"></div>Carregando o CRM…</div></div>
+<div class="veu" id="veu"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Painel"></aside>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-const PIPES = {
-  trial: { icone:"⏳", nome:"Trial", desc:"Quem está no teste grátis. Dia 1 → 2 → 3 → fechamento." },
-  relacionamento: { icone:"🤝", nome:"Relacionamento", desc:"Assinantes ativos. Mensagens estratégicas do mês." },
-  inadimplente: { icone:"🚨", nome:"Inadimplentes", desc:"Recorrência que não passou. Recuperar o pagamento." },
-  parceiro: { icone:"📣", nome:"Leads por parceiro", desc:"Leads de cada influenciador e afiliado." },
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+const sb = createClient("https://qbcsjsdwjjpybvzbxszi.supabase.co",
+                        "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy");
+/* =========================================================
+   DADOS REAIS — lidos ao vivo do banco (RPCs do CRM).
+   Nada aqui e fixo: tudo chega de crm_faturamento, crm_funil,
+   crm_hotmart_lista e crm_parceiros. Exige login de admin.
+   ========================================================= */
+const META={contatos:10, vendas:1};
+let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
+  naoPagas:0,naoPagasQtd:0,atraso:0,atrasoQtd:0,encerradas:0,encerradasQtd:0,
+  recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
+let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[];
+let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
+const ehDono=()=>PAPEL==="admin";
+/* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
+   Sao numeros de historia acumulada, nao de hoje; por isso ficam fixos ate virarem RPC. */
+const FUNIL_HIST={contas:779, abriram:293, venderam:257, assinaram:104};
+let BASES={base:FUNIL_HIST.contas,abriram:FUNIL_HIST.abriram,venderam:FUNIL_HIST.venderam,
+  assinaram:FUNIL_HIST.assinaram,trial:0,pagante:0,atraso:0,parou:0,frio:0};
+const TRIAL_HIST={total:363,semContato:298,comContato:65,fechou:17,fechouSem:14,fechouCom:3};
+const FECHOU={jun:28,jul:19,ago:40,set:21,total:108,comYan:33,sozinhas:75,pct:30.6};
+const TEMPOS={ate1oContato:182.8,mediana:185.7,entreFollowups:0.2};
+const LP={total:929,semConta:228,comConta:701};
+const RITMO=[["26/08",6],["01/09",12],["05/09",4],["07/09",3],["09/09",10],["10/09",48],
+             ["12/09",34],["13/09",23],["15/09",63],["16/09",0],["17/09",0],["18/09",0],
+             ["19/09",0],["20/09",0],["21/09",0],["22/09",0]];
+const FOCO=[{d:"26/08",ini:"13:34",fim:"15:23",min:109,tar:6,fic:3},
+ {d:"01/09",ini:"14:36",fim:"14:55",min:19,tar:12,fic:11},
+ {d:"05/09",ini:"11:47",fim:"11:53",min:7,tar:4,fic:4},
+ {d:"07/09",ini:"11:12",fim:"17:47",min:395,tar:3,fic:2},
+ {d:"09/09",ini:"14:01",fim:"14:07",min:6,tar:10,fic:7},
+ {d:"10/09",ini:"10:45",fim:"16:00",min:315,tar:48,fic:36},
+ {d:"12/09",ini:"11:19",fim:"11:41",min:22,tar:34,fic:17},
+ {d:"13/09",ini:"13:13",fim:"13:26",min:13,tar:23,fic:8},
+ {d:"15/09",ini:"16:26",fim:"20:29",min:243,tar:63,fic:25}];
+
+/* mapa pipeline do banco -> esteira desta tela */
+const DE_PIPE={trial:"trial", relacionamento:"pagante", inadimplente:"perdido", parceiro:"base"};
+const DE_ETAPA={
+ trial:{dia1:"dia1",dia2:"dia2",dia3:"dia3",fechamento:"dia3",fechou:"assinou",nao_renovou:"acabou"},
+ relacionamento:{inicio_mes:"novo",meio_mes:"meio",fim_mes:"meio",renovacao:"renova"},
+ inadimplente:{novo:"saiu",contato1:"motivo",negociando:"oferta",fechamento:"voltou"},
+ parceiro:{novo:"frio",contatado:"acordou",respondeu:"usou",virou_teste:"virou"}};
+
+const E={
+ trial:{nome:"Trial de 3 dias",cor:"c1",
+  desc:"Começa no lead da landing page. Boas-vindas só abre quando a pessoa cria conta no Orbis — o dia seguinte só abre quando a atividade do dia é feita.",
+  cols:[["lp","Lead da LP · sem conta"],["dia1","Dia 1 · Boas-vindas"],["dia2","Dia 2 · Ensinar"],["dia3","Dia 3 · Decidir"],["assinou","Assinou"],["acabou","Acabou"]],
+  ativ:{
+   lp:[
+    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é o Yan do Orbis.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
+    {t:"Mandar o link de criar conta",m:"Segue o link pra criar sua conta: [link]\n\nLeva menos de um minuto. Assim que criar me avisa aqui que eu já te mostro por onde começar."},
+    {t:"Anotar o motivo se não criar",nota:"Se ele não criar conta, escreva o porquê. São 228 pessoas nessa situação — o motivo delas é o dado mais valioso que a gente não tem."}],
+   dia1:[
+    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo ao Orbis!\n\nSou o Yan, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
+    {t:"Perguntar o que ele vende e onde",m:"Me conta uma coisa: o que você vende e onde você costuma vender?\n\nAssim já te mostro a parte do app que mais vai te ajudar no seu corre."},
+    {t:"Confirmar que registrou a primeira venda",m:"{p}, conseguiu registrar sua primeira venda no app?\n\nÉ o passo que faz tudo destravar — depois dela o Orbis já começa a te mostrar número."}],
+   dia2:[
+    {t:"Perguntar como foi o primeiro dia",m:"E aí {p}, como foi o primeiro dia usando o Orbis?\n\nDeu pra registrar as vendas direitinho ou travou em alguma parte?"},
+    {t:"Ensinar o DEFCON 4",m:"Quero te mostrar a função que quase ninguém acha sozinho: o DEFCON 4.\n\nEle divide seu dia em blocos de 1 hora, com meta em cada bloco e 5 minutos de descanso entre eles.\n\nQuem usa dois dias seguidos não larga mais. Quer que eu te mostre como liga?"},
+    {t:"Anotar a objeção principal",nota:"Escreva com as palavras dele o que está travando: preço, tempo, não entendeu o app, achou que não precisa."}],
+   dia3:[
+    {t:"Avisar que o teste acaba hoje",m:"{p}, hoje é o último dia do seu teste grátis!\n\nNão quero que acabe e você nem perceba — por isso tô passando aqui."},
+    {t:"Mostrar o resultado dos 3 dias",m:"Dá uma olhada no seu relatório antes de decidir: tudo que você registrou nesses 3 dias tá lá.\n\nVocê já consegue ver quanto vendeu, quanto lucrou e qual foi sua melhor hora do dia."},
+    {t:"Mandar o link de assinatura",m:"Se fizer sentido continuar, é R$ 29,90 por mês — menos de duas vendas suas.\n\nSegue o link: [link da assinatura]\n\nQualquer dúvida me chama antes de decidir."}],
+   assinou:[
+    {t:"Confirmar que o pagamento passou",m:"{p}, confirmado aqui! Seja muito bem-vindo de verdade.\n\nSeu acesso já tá liberado e eu continuo por aqui."},
+    {t:"Combinar a meta do primeiro mês",m:"Vamos combinar uma coisa: qual a meta de faturamento que você quer bater esse mês?\n\nEu anoto aqui e te cobro — de forma leve, mas cobro."}],
+   acabou:[
+    {t:"Registrar o motivo de não ter fechado",nota:"OBRIGATÓRIO. Sem o motivo escrito aqui, a ficha fica marcada como 'não houve contato' nas métricas."},
+    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é o Yan do Orbis.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
+
+ pagante:{nome:"Já pagantes",cor:"c2",
+  desc:"Entra sozinho quando a ficha do Trial cai em Assinou. O trabalho aqui é não deixar a renovação chegar de surpresa.",
+  cols:[["novo","Primeiro mês"],["meio","Meio do ciclo"],["renova","Renova em 7 dias"],["renovou","Renovou"]],
+  ativ:{
+   novo:[
+    {t:"Confirmar que está usando todo dia",m:"Opa {p}, tudo certo?\n\nTô de olho aqui e queria saber: tá conseguindo usar o Orbis todo dia ou alguns dias escapam?"},
+    {t:"Mostrar uma função que ele não abriu",m:"Vi que você ainda não mexeu em uma parte do app que ia te ajudar bastante.\n\nPosso te mandar um print rápido de como usar?"}],
+   meio:[
+    {t:"Mandar o resultado do mês dele",m:"{p}, metade do mês já foi. Olha só o que você registrou até agora no Orbis.\n\nTá no caminho da sua meta ou precisa acelerar na segunda quinzena?"},
+    {t:"Elogiar um número real dele",m:"Cara, reparei que você manteve a constância esse mês. Isso é o que separa quem cresce de quem só trabalha.\n\nParabéns de verdade."}],
+   renova:[
+    {t:"Avisar que a renovação está chegando",m:"Opa {p}, tudo certo?\n\nSua renovação do Orbis é dia {renova}. Só tô avisando pra não te pegar de surpresa."},
+    {t:"Confirmar que o cartão vai passar",m:"Dá uma conferida se o cartão tá em dia, beleza? Assim não trava seu acesso no meio do corre.\n\nQualquer coisa me chama que eu resolvo por aqui."}],
+   renovou:[
+    {t:"Agradecer e plantar a meta do mês novo",m:"{p}, renovação confirmada! Obrigado pela confiança.\n\nMês novo, meta nova: quanto você quer bater dessa vez?"}]}},
+
+ perdido:{nome:"Encerrou e não renovou",cor:"c3",
+  desc:"Já pagou e parou. É a base mais barata de trazer de volta — essa pessoa já conhece o produto.",
+  cols:[["saiu","Acabou de sair"],["motivo","Motivo descoberto"],["oferta","Oferta feita"],["voltou","Voltou"]],
+  ativ:{
+   saiu:[
+    {t:"Perguntar por que parou — sem vender nada",m:"Opa {p}, tudo bem?\n\nVi que sua assinatura do Orbis encerrou. Não tô aqui pra te vender nada, juro.\n\nSó queria entender o que faltou. Foi preço, foi o app, ou foi corrido demais pra usar?"},
+    {t:"Anotar o motivo real",nota:"Escreva o motivo como ele falou. Esse campo vira a métrica de por que a gente perde gente."}],
+   motivo:[
+    {t:"Responder a objeção com o número dele",m:"{p}, entendi o que você falou.\n\nSó pra você ter em mente: no tempo que usou, você registrou suas vendas aqui e dava pra ver exatamente onde entrava e saía o dinheiro. É isso que some quando o app fecha."},
+    {t:"Oferecer o caminho de volta",m:"Se quiser voltar, eu reativo sua conta com o histórico todo — nada foi apagado.\n\nQuer que eu reative?"}],
+   oferta:[{t:"Cobrar a decisão em 48h",m:"{p}, só pra fechar: quer que eu reative ou prefere que eu encerre de vez aqui?\n\nQualquer resposta tá ótima, só não quero te deixar no limbo."}],
+   voltou:[{t:"Confirmar que o pagamento passou",m:"Confirmado, {p}! Bem-vindo de volta.\n\nSeu histórico tá todo lá, é só continuar de onde parou."}]}},
+
+ base:{nome:"Base geral",cor:"c4",
+  desc:"Quem criou conta e nunca virou nada. O maior bolo e o mais frio — só entra na fila quando o resto estiver limpo.",
+  cols:[["frio","Nunca usou"],["acordou","Abriu o app"],["usou","Registrou venda"],["virou","Virou teste"]],
+  ativ:{
+   frio:[
+    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é o Yan do Orbis.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
+    {t:"Perguntar o que travou",nota:"Se ele responder, anote aqui. É o dado mais valioso que a gente não tem: por que 408 pessoas criaram conta e sumiram."}],
+   acordou:[{t:"Ensinar a primeira venda no DEFCON",m:"{p}, vi que você abriu o app! Boa.\n\nO próximo passo é registrar sua primeira venda — depois dela o Orbis começa a te mostrar número de verdade.\n\nQuer que eu te mostre como?"}],
+   usou:[{t:"Mostrar o resultado e oferecer o teste",m:"{p}, você já registrou venda no Orbis — isso é ótimo.\n\nQuem faz isso costuma não largar mais. Quer que eu libere um teste completo pra você ver o resto do app?"}],
+   virou:[{t:"Passar para a esteira de Trial",nota:"Ao marcar, a ficha sai daqui e entra no Dia 1 do Trial."}]}}
 };
 
-let funilAtual = null, dadosFunil = null, cartaoAberto = null;
 
-/* ---------------- auth ---------------- */
-// Login por CPF: converte pro endereco interno igual o app faz.
-function resolverLogin(entrada){
-  const v = String(entrada || "").trim();
-  if(v.includes("@")) return v;
-  const dig = v.replace(/\D/g, "");
-  return dig ? `${dig}@orbis.internal` : v;
-}
-async function entrar(){
-  const el = document.getElementById("loginErro");
-  el.textContent = "";
-  const email = resolverLogin(document.getElementById("inEmail").value);
-  const senha = document.getElementById("inSenha").value;
-  if(!email || !senha){ el.textContent = "Preencha CPF (ou e-mail) e senha."; return; }
-  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
-  if(error){ el.textContent = "Login recusado. Use o MESMO CPF (ou e-mail) e senha do app Orbis."; return; }
-  await depoisDoLogin();
-}
-async function depoisDoLogin(){
-  const { data } = await sb.rpc("is_orbis_admin");
-  if(data !== true){
-    document.getElementById("loginErro").textContent = "Essa conta não tem acesso ao CRM.";
-    await sb.auth.signOut(); return;
-  }
-  const { data:{ user } } = await sb.auth.getUser();
-  const nome = (user?.email || "").split("@")[0];
-  document.getElementById("quemSou").textContent = user?.email || "";
-  document.getElementById("nomeYan").textContent = nome.charAt(0).toUpperCase()+nome.slice(1);
-  document.getElementById("vLogin").classList.add("oculto");
-  document.getElementById("vApp").classList.remove("oculto");
-  await carregarHome();
-}
-async function sair(){ await sb.auth.signOut(); location.reload(); }
-
-/* ---------------- home ---------------- */
-async function carregarHome(){
-  const sub = document.getElementById("subSync");
-  sub.textContent = "Sincronizando as esteiras…";
-  const { data:sync, error:e1 } = await sb.rpc("crm_sync");
-  const { data:resumo, error:e2 } = await sb.rpc("crm_resumo");
-  if(e1 || e2){ sub.textContent = "Erro ao sincronizar: " + (e1?.message || e2?.message); return; }
-  const novos = (sync?.trial_novos||0)+(sync?.inadimplentes_novos||0)+(sync?.leads_novos||0)+(sync?.relacionamento_novos||0);
-  sub.textContent = novos > 0
-    ? `Esteiras atualizadas — ${novos} cartão(ões) novo(s) entrou(aram) sozinho(s).`
-    : "Esteiras atualizadas. Nada novo desde a última olhada.";
-  const grid = document.getElementById("gridCards");
-  grid.innerHTML = Object.entries(PIPES).map(([k,p])=>{
-    const r = resumo?.[k] || {abertos:0,ganhos_30d:0,perdidos_30d:0};
-    return `<button class="card-pipe" onclick="abrirFunil('${k}')">
-      <span class="icone">${p.icone}</span>
-      <div class="nome">${p.nome}</div>
-      <div class="desc">${p.desc}</div>
-      <div class="num">${r.abertos}<small>para trabalhar</small></div>
-      <div class="saldo"><span class="g">✓ ${r.ganhos_30d} ganhos</span><span class="p">✗ ${r.perdidos_30d} perdidos</span> <small style="color:var(--mudo)">· 30d</small></div>
-    </button>`;
-  }).join("");
-}
-function irHome(){
-  funilAtual = null;
-  document.getElementById("vBoard").classList.add("oculto");
-  document.getElementById("btnVoltar").classList.add("oculto");
-  document.getElementById("vHome").classList.remove("oculto");
-  carregarHome();
+/* ===== CARREGADOR ===== */
+function hotDe(c){
+  const mail=(c.email||"").toLowerCase().trim();
+  const zap=(c.whatsapp||"").replace(/\D/g,"");
+  return HOT.find(h=>(h.user_id&&c.user_id&&h.user_id===c.user_id)
+    || (mail&&(h.email||"").toLowerCase()===mail)
+    || (zap.length>=8&&(h.telefone||"").replace(/\D/g,"").slice(-8)===zap.slice(-8))) || null;
 }
 
-/* ---------------- funil ---------------- */
-async function abrirFunil(pipe){
-  funilAtual = pipe;
-  document.getElementById("vHome").classList.add("oculto");
-  document.getElementById("vBoard").classList.remove("oculto");
-  document.getElementById("btnVoltar").classList.remove("oculto");
-  document.getElementById("tituloFunil").textContent = PIPES[pipe].icone + " " + PIPES[pipe].nome;
-  document.getElementById("inBusca").value = "";
-  document.getElementById("board").innerHTML = '<div class="vazio">Carregando…</div>';
-  const { data, error } = await sb.rpc("crm_funil", { p_pipeline: pipe });
-  if(error){ document.getElementById("board").innerHTML = '<div class="vazio">Erro: '+error.message+'</div>'; return; }
-  dadosFunil = data;
-  const sel = document.getElementById("selParceiro");
-  if(pipe === "parceiro"){
-    const nomes = [...new Set((data.cartoes||[]).map(c=>c.parceiro||c.ref).filter(Boolean))].sort();
-    sel.innerHTML = '<option value="">Todos os parceiros</option>' + nomes.map(n=>`<option>${n}</option>`).join("");
-    sel.classList.remove("oculto");
-  } else sel.classList.add("oculto");
-  renderBoard();
+const PROBLEMAS=[];
+async function chamar(nome, args){
+  try{
+    const r = args ? await sb.rpc(nome,args) : await sb.rpc(nome);
+    if(r.error){ PROBLEMAS.push(nome+": "+r.error.message); return null; }
+    return r.data;
+  }catch(e){ PROBLEMAS.push(nome+": "+(e.message||e)); return null; }
+}
+function mostrarProblemas(){
+  const d=document.getElementById("diag"); if(!d) return;
+  if(!PROBLEMAS.length){ d.hidden=true; return; }
+  d.hidden=false;
+  d.innerHTML='<b>O CRM abriu, mas parte dos dados não veio:</b><ul style="margin:8px 0 0;padding-left:18px">'
+    + PROBLEMAS.map(t=>'<li>'+t.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))+'</li>').join('')
+    + '</ul><p style="margin:9px 0 0;font-size:12px">Manda essa lista pro Claude que ele conserta.</p>';
 }
 
-function tarefasDaEtapa(etapa){ return (dadosFunil.tarefas||[]).filter(t=>t.etapa===etapa); }
+async function carregarTudo(){
+  PROBLEMAS.length=0;
 
-function renderBoard(){
-  const busca = document.getElementById("inBusca").value.trim().toLowerCase();
-  const filtroParc = document.getElementById("selParceiro").value;
-  const etapasFinais = new Set((dadosFunil.etapas||[]).filter(e=>["fechou","nao_renovou","virou_teste"].includes(e.etapa)).map(e=>e.etapa));
-  const abertos = (dadosFunil.cartoes||[]).filter(c=>{
-    // abertos aparecem na etapa deles; fechados só nas colunas finais
-    if(c.status !== "aberto" && !etapasFinais.has(c.etapa)) return false;
-    if(filtroParc && (c.parceiro||c.ref) !== filtroParc) return false;
-    if(busca){
-      const alvo = [c.nome,c.email,c.whatsapp,c.parceiro,c.ref].join(" ").toLowerCase();
-      if(!alvo.includes(busca)) return false;
+  const g = (ehDono() ? await chamar("crm_faturamento") : null) || {};
+  GRANA={total:+g.total||0,pagamentos:+g.pagamentos||0,ticket:+g.ticket||0,desde:g.desde||"—",
+    d7:+g.d7||0,d7Pag:+g.d7_qtd||0,mes:+g.mes||0,
+    naoPagas:+g.nao_pagas||0,naoPagasQtd:+g.nao_pagas_qtd||0,
+    atraso:+g.atraso||0,atrasoQtd:+g.atraso_qtd||0,
+    encerradas:+g.encerradas||0,encerradasQtd:+g.encerradas_qtd||0,
+    recorrente:+g.recorrente||0,recorrenteQtd:+g.recorrente_qtd||0,
+    renovMes:+g.renov_mes||0,renovMesValor:+g.renov_mes_valor||0,novasMes:+g.novas_mes||0,
+    dias:(g.dias||[]).map(x=>[x.d,+x.v])};
+
+  HOT = (await chamar("crm_hotmart_lista")) || [];
+  PARCEIROS = (ehDono() ? await chamar("crm_parceiros") : []) || [];
+
+  const pipes=["trial","relacionamento","inadimplente","parceiro"];
+  QTD={}; F=[]; let id=0;
+  for(const pipe of pipes){
+    const dados = await chamar("crm_funil",{p_pipeline:pipe});
+    if(!dados) continue;
+    const est=DE_PIPE[pipe], mapa=DE_ETAPA[pipe];
+    for(const c of (dados.cartoes||[])){
+      try{
+        const col=mapa[c.etapa]; if(!col) continue;
+        if(String(c.status||"aberto")!=="aberto" && col!=="assinou") continue;
+        const k=est+"/"+col; QTD[k]=(QTD[k]||0)+1;
+        const h=hotDe(c)||null;
+        F.push({id:id++, cartaoId:c.id, e:est, c:col,
+          n:String(c.nome||"—").split(" ").slice(0,2).join(" "),
+          ref:c.ref||h?.origem||"—",
+          zap:"·"+String(c.whatsapp||h?.telefone||"").replace(/\D/g,"").slice(-4),
+          email:c.email||h?.email||"", cidade:c.cidade||"",
+          d:Number(c.dias_na_etapa)||0,
+          trava:(Number(c.dias_na_etapa)||0)>=1?(Number(c.dias_na_etapa)||0):0,
+          entrou:c.criado_em||null, fim:c.trial_end||null, renova:c.period_end||null,
+          pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
+          feitasBanco:c.feitas||[], hot:h});
+      }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
     }
-    return true;
-  });
-  // urgência primeiro: teste que vence antes; depois quem está há mais tempo parado na etapa
-  abertos.sort((a,b)=>{
-    if(funilAtual==="trial" && a.trial_end && b.trial_end && a.trial_end !== b.trial_end)
-      return a.trial_end < b.trial_end ? -1 : 1;
-    return (b.dias_na_etapa||0) - (a.dias_na_etapa||0);
-  });
-  const board = document.getElementById("board");
-  board.innerHTML = (dadosFunil.etapas||[]).map(e=>{
-    const doCol = abertos.filter(c=>c.etapa===e.etapa);
-    const tarefasEtapa = tarefasDaEtapa(e.etapa);
-    return `<div class="col" data-etapa="${e.etapa}" ondragover="dragSobre(event)" ondragleave="dragSai(event)" ondrop="soltar(event)">
-      <div class="col-head"><span class="ponto" style="background:${e.cor}"></span><span class="t">${e.titulo}</span><span class="n">${doCol.length}</span></div>
-      <div class="col-corpo">
-        ${doCol.length ? doCol.map(c=>htmlCartao(c,tarefasEtapa)).join("") : '<div class="vazio">ninguém aqui</div>'}
-      </div>
-    </div>`;
-  }).join("");
+  }
+  QTD["trial/lp"]=LP.semConta;
+  BASES={base:FUNIL_HIST.contas,abriram:FUNIL_HIST.abriram,venderam:FUNIL_HIST.venderam,
+    assinaram:FUNIL_HIST.assinaram,
+    trial:QTD["trial/dia1"]||0,pagante:GRANA.recorrenteQtd||FUNIL_HIST.assinaram,
+    atraso:GRANA.atrasoQtd,parou:GRANA.encerradasQtd,frio:LP.semConta};
+
+  FICHAS=[];
+  for(const f of F){
+    try{ FICHAS.push({...f, ...avaliar(f)}); }
+    catch(e){ PROBLEMAS.push("prioridade de "+f.n+": "+(e.message||e)); }
+  }
+  FICHAS.sort((a,b)=>b.score-a.score);
+  if(!F.length) PROBLEMAS.push("Nenhum cartão veio das esteiras (crm_funil devolveu vazio).");
+  mostrarProblemas();
 }
 
-function htmlCartao(c, tarefasEtapa){
-  const feitas = tarefasEtapa.filter(t=>(c.feitas||[]).includes(t.id)).length;
-  const total = tarefasEtapa.length;
-  const pct = total ? Math.round(100*feitas/total) : 0;
-  const tags = [];
-  if(c.parceiro) tags.push(`<span class="tag parceiro">${c.parceiro_tipo==="afiliado"?"🔗":"📣"} ${c.parceiro}</span>`);
-  else if(c.ref) tags.push(`<span class="tag parceiro">🔗 ${c.ref}</span>`);
-  if(funilAtual==="trial" && c.dia_do_teste) tags.push(`<span class="tag dia">Dia ${Math.min(c.dia_do_teste,3)} do teste</span>`);
-  if(funilAtual==="trial" && c.trial_end){
-    const hojeISO = new Date().toLocaleDateString("sv-SE");
-    if(c.trial_end < hojeISO) tags.push(`<span class="tag alerta">teste acabou</span>`);
-    else if(c.trial_end === hojeISO) tags.push(`<span class="tag alerta">acaba HOJE</span>`);
-  }
-  if(funilAtual==="relacionamento" && c.etapa==="renovacao" && c.period_end)
-    tags.push(`<span class="tag alerta">renova ${c.period_end.split("-").reverse().slice(0,2).join("/")}</span>`);
-  const dEtapa = c.dias_na_etapa || 0;
-  tags.push(`<span class="tag ${dEtapa>=3?'alerta':''}">⏱ ${dEtapa===0?'hoje':dEtapa+(dEtapa===1?' dia':' dias')} na etapa</span>`);
-  if(c.cidade) tags.push(`<span class="tag">📍 ${c.cidade}</span>`);
-  if(c.notas) tags.push(`<span class="tag">📝</span>`);
-  const zap = c.whatsapp ? `<a class="zap" href="https://wa.me/55${(c.whatsapp||'').replace(/\D/g,'').replace(/^55/,'')}" target="_blank" onclick="event.stopPropagation()">WhatsApp</a>` : "";
-  return `<div class="cartao" draggable="true" ondragstart="pegar(event,${c.id})" onclick="abrirCartao(${c.id})">
-    <div class="nm">${c.nome}</div>
-    <div class="tags">${tags.join("")}</div>
-    ${total?`<div class="prog"><i style="width:${pct}%"></i></div>`:""}
-    <div class="rodape"><span class="quando">${feitas}/${total} atividades · desde ${c.criado_em||""}</span>${zap}</div>
+/* ===== util ===== */
+const HOJE=(()=>{const d=new Date();d.setHours(0,0,0,0);return d;})();
+/* aceita "2026-09-22" e tambem o timestamp completo que vem do banco */
+function dias(s){
+ if(!s) return 0;
+ const t = (s instanceof Date) ? s : new Date(String(s).length<=10 ? String(s)+"T12:00:00" : s);
+ if(isNaN(t)) return 0;
+ return Math.round((t-HOJE)/86400000);
+}
+/* data do banco -> 22/09/2026 */
+const dbr=v=>{ if(!v) return "—"; const t=String(v); return t.slice(8,10)+"/"+t.slice(5,7)+"/"+t.slice(0,4); };
+const brl=v=>"R$ "+(Number(v)||0).toFixed(2).replace(".",",").replace(/\B(?=(\d{3})+(?!\d))/g,".");
+const esc=s=>String(s).replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+function toast(t){const e=document.getElementById("toast");e.textContent=t;e.dataset.on="1";clearTimeout(e._t);e._t=setTimeout(()=>e.dataset.on="0",2000);}
+
+/* ===== TEMPERATURA DO LEAD =====
+   Nao e sensacao, e comportamento: quanto a pessoa ja usou o app e quanto
+   ja faturou DENTRO dele durante o teste. Quem faturou tem argumento pronto. */
+function temperatura(f){
+ const msgs=(f.conversa||[]).length;
+ const respondeu=(f.conversa||[]).some(m=>m.de!=="eu");
+ const fat=f.faturou||0, ven=f.vendas||0;
+ if(f.c==="lp") return {n:"Ainda não é usuário",ic:"📄",cor:"dim",
+   why:`Deixou contato na landing page e não criou conta. Não dá pra falar de resultado ainda — a conversa aqui é destravar o cadastro.`,msgs,respondeu};
+ if(f.e!=="trial"&&f.e!=="base") return null;
+ if(fat>=100&&ven>=10) return {n:"Pronto pra fechar",ic:"🔥",cor:"bad",
+   why:`Registrou <b>${ven} vendas</b> e <b>${brl(fat)}</b> dentro do Orbis durante o teste. Ele já viu o valor — é só pedir a decisão usando o número dele.`,
+   msgs,respondeu};
+ if(fat>0||ven>0) return {n:"Morno",ic:"🌤️",cor:"warn",
+   why:`Mexeu no app (${ven} venda${ven===1?"":"s"}, ${brl(fat)}) mas ainda não pegou ritmo. Falta mostrar o DEFCON.`,msgs,respondeu};
+ if(f.usoDias>0) return {n:"Morno",ic:"🌤️",cor:"warn",
+   why:`Abriu o app mas não registrou nenhuma venda. É aqui que a maioria some.`,msgs,respondeu};
+ return {n:"Frio",ic:"❄️",cor:"dim",
+   why:`Não abriu o app nenhuma vez. Quem não registra venda assina em 1,5% dos casos.`,msgs,respondeu};
+}
+
+/* ===== prioridade ===== */
+function avaliar(f){
+ let u=0,d=0,p="";
+ if(f.c==="acabou"){u=100;d=55;
+  p=`<b>Travado há ${f.trava} dias e sem motivo registrado.</b> O teste acabou e ninguém falou com essa pessoa. Enquanto o motivo não for escrito, ela conta como <b>lead sem contato</b> nas suas métricas.`;}
+ else if(f.c==="renova"){const k=dias(f.renova);u=k<=3?100:95;d=95;
+  p=`Renova em <b>${k} dia${k===1?"":"s"}</b> e paga <b>${brl(f.pago)}</b> por mês. Avisar antes custa uma mensagem; recuperar depois falha em 88% dos casos.`;}
+ else if(f.e==="perdido"){u=f.d<=7?85:f.d<=15?50:22;d=80;
+  p=f.d<=7?`Saiu há <b>${Math.round(f.d)} dias</b>. Essa é a janela: quem volta, volta na primeira semana.`
+          :`Saiu há <b>${Math.round(f.d)} dias</b> e ninguém perguntou por quê. Não é mais venda — é descobrir o motivo antes que vire padrão.`;}
+ else if(f.c==="lp"){u=72;d=45;
+  p=`Deixou o contato na página mas <b>nunca criou conta no Orbis</b> — já faz ${Math.round(f.d)} dias. São <b>228 pessoas</b> nessa situação. Ele levantou a mão e ninguém puxou; é o lead mais barato que existe porque já demonstrou interesse.`;}
+ else if(f.e==="trial"){
+  const T=temperatura(f), quente=T&&T.n==="Pronto pra fechar";
+  const kFim=f.fim?dias(f.fim):null;
+  if(quente){u=100;d=85;
+   p=`<b>Pronto pra fechar.</b> Registrou <b>${f.vendas} vendas</b> e <b>${brl(f.faturou)}</b> dentro do Orbis${kFim!==null?`, e o teste ${kFim<=0?"<b>acaba hoje</b>":`acaba em <b>${kFim} dia${kFim===1?"":"s"}</b>`}`:""}. Não precisa convencer — mostra o número dele e pede a decisão.`;}
+  else if(f.c==="dia3"){u=98;d=70;p=`<b>O teste acaba hoje.</b> Quem usa o app em 2 dias diferentes assina em 46% dos casos. É a última conversa possível.`;}
+  else if(f.c==="dia2"){u=f.trava?80:65;d=55;
+   p=f.trava?`<b>Travado há ${f.trava} dia.</b> A atividade do Dia 2 não foi feita, então o Dia 3 não abriu — ele está parado esperando você.`
+            :`Segundo dia. <b>Quem usa 2 dias converte a 46%; quem usa 1, a 18%.</b> Hoje é o dia que dobra a chance.`;}
+  else{u=60;d=50;p=`Entrou agora. <b>82% dos testes do histórico acabaram sem uma única mensagem</b> — a primeira conversa é o que impede isso.`;}
+  if(T&&T.respondeu&&!quente){u=Math.max(u,88);
+   p+=` <b>Ele respondeu no WhatsApp e está esperando.</b>`;}}
+ else{u=f.c==="usou"?55:f.c==="acordou"?45:25;d=35;
+  p=f.c==="frio"?`Criou conta e nunca abriu o app. São <b>408 iguais a esse</b>. Volume alto, chance baixa.`
+                :`Já mexeu no app mas não virou teste. <b>Quem registra uma venda converte 25× mais.</b>`;}
+ return{score:Math.round(u*.55+d*.3+Math.min(30,f.d*1.1)*.15),porque:p};
+}
+const byId=id=>FICHAS.find(f=>f.id===id);
+
+/* ===== estado ===== */
+const K="crm-orbis-v1";
+let S={pos:0,feitas:{},fechados:{},contatos:0,etapa:{},notas:{},conv:{},vistos:{}};
+try{const g=localStorage.getItem(K);if(g)S=Object.assign(S,JSON.parse(g));}catch(e){}
+const salvar=()=>{try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}};
+const etapaDe=f=>S.etapa[f.id]||f.c;
+const atividades=f=>E[f.e].ativ[etapaDe(f)]||[];
+const feitasDe=f=>S.feitas[f.id+"/"+etapaDe(f)]||[];
+const tudoFeito=f=>{const a=atividades(f);return a.length>0&&feitasDe(f).length>=a.length;};
+const fila=()=>FICHAS.filter(f=>!S.fechados[f.id]);
+const atual=()=>{const q=fila();return q[Math.min(S.pos,q.length-1)]||null;};
+/* conversa = historico real + o que foi enviado nesta sessao */
+const convDe=f=>[...(f.conversa||[]),...(S.conv[f.id]||[])];
+function enviar(f,texto){
+ if(!texto||!texto.trim())return;
+ (S.conv[f.id]=S.conv[f.id]||[]).push({de:"eu",t:texto.trim(),q:"agora"});
+ salvar();
+}
+/* REGRA DE CUSTO (doc oficial da Meta, 2026):
+   - mensagem RECEBIDA nunca e cobrada
+   - responder dentro da janela de 24h (conversa de servico) e GRATIS desde 01/11/2024
+   - so custa iniciar conversa fora da janela, com modelo aprovado */
+function janela(f){
+ const c=convDe(f);
+ const ultimaDele=[...c].reverse().find(m=>m.de!=="eu");
+ return ultimaDele?{free:true,quando:ultimaDele.q}:{free:false,custo:0.21};
+}
+/* quantas do dia sao gratis e quantas custariam */
+function custoDoDia(){
+ let gratis=0,pagas=0,valor=0;
+ FICHAS.forEach(f=>{
+  const enviadas=(S.conv[f.id]||[]).length; if(!enviadas)return;
+  if(janela(f).free) gratis+=enviadas; else {pagas+=enviadas; valor+=enviadas*0.21;}
+ });
+ return {gratis,pagas,valor};
+}
+function msgDe(f,a){
+ if(!a.m)return null;
+ return a.m.replace(/\{p\}/g,f.n.split(" ")[0])
+           .replace(/\{renova\}/g,f.renova?f.renova.slice(8,10)+"/"+f.renova.slice(5,7):"");
+}
+function marcar(f,i,on){
+ const k=f.id+"/"+etapaDe(f),arr=S.feitas[k]||[],j=arr.indexOf(i);
+ if(on&&j<0)arr.push(i); if(!on&&j>=0)arr.splice(j,1);
+ S.feitas[k]=arr;salvar();
+}
+function avancar(f){
+ const cols=E[f.e].cols,at=etapaDe(f),i=cols.findIndex(c=>c[0]===at);
+ if(f.e==="trial"&&at==="dia3"){mover(f,"assinou");return;}
+ if(i>=0&&i<cols.length-1)mover(f,cols[i+1][0]);
+}
+function mover(f,destino){
+ // Trial > Assinou entra sozinho em Pagantes
+ if(f.e==="trial"&&destino==="assinou"){
+   f.e="pagante";S.etapa[f.id]="novo";salvar();
+   toast(f.n.split(" ")[0]+" entrou em Já pagantes");render();abrir(f.id);return;
+ }
+ S.etapa[f.id]=destino;salvar();
+ toast("Movido para "+(E[f.e].cols.find(c=>c[0]===destino)?.[1]||destino));
+ render();abrir(f.id);
+}
+
+/* ===== TELA HOJE ===== */
+function renderHoje(){
+ const q=fila(),f=atual();
+ const travados=FICHAS.filter(x=>etapaDe(x)==="acabou"&&!S.fechados[x.id]).length;
+ const queRenovam=FICHAS.filter(x=>etapaDe(x)==="renova");
+ const renovam=queRenovam.reduce((s,x)=>s+(x.pago||0),0);
+ const maxD=Math.max(...GRANA.dias.map(d=>d[1]));
+ const cst=custoDoDia();
+ const vend=Object.values(S.fechados).filter(x=>x==="ganhou").length;
+
+ let h=ehDono()? `<div class="grana">
+  <div class="lbl">Faturamento total do Orbis</div>
+  <div class="big num">${brl(GRANA.total)}</div>
+  <div class="sub num">${GRANA.pagamentos} pagamentos · ticket ${brl(GRANA.ticket)} · desde ${GRANA.desde}</div>
+  <div class="gline">
+    <div class="gcell"><div class="k">Últimos 7 dias</div><div class="v num">${brl(GRANA.d7)}</div><div class="n num">${GRANA.d7Pag} pagamentos</div></div>
+    <div class="gcell perda"><div class="k">Recorrências não pagas</div><div class="v num">${brl(GRANA.naoPagas)}</div><div class="n num">${GRANA.naoPagasQtd} assinaturas paradas</div></div>
+    <div class="gcell"><div class="k">Receita recorrente</div><div class="v num">${brl(GRANA.recorrente)}</div><div class="n num">${GRANA.recorrenteQtd} ativas</div></div>
+    <div class="gcell"><div class="k">Renovações do mês</div><div class="v num">${GRANA.renovMes}</div><div class="n num">${brl(GRANA.renovMesValor)}</div></div>
+  </div>
+  <div class="spark" role="img" aria-label="Faturamento diário dos últimos 14 dias">
+    ${GRANA.dias.map(([d,v],i)=>`<span class="b${i===GRANA.dias.length-1?" hoje":""}" style="height:${Math.max(2,v/maxD*100)}%" title="${d}: ${brl(v)}"></span>`).join("")}
+  </div>
+  <p class="fonte">Faturamento total conta assinatura nova + renovação. Receita recorrente é o fixo do mês.
+  <b>${brl(GRANA.naoPagas)} são recorrências que deveriam estar entrando e não estão</b> — ${brl(GRANA.atraso)} em atraso (${GRANA.atrasoQtd}) e ${brl(GRANA.encerradas)} de quem parou (${GRANA.encerradasQtd}).<br>
+  Lido da Hotmart pelo webhook, que <b>só começou a gravar em 24/08</b> — o histórico anterior entra quando a API da Hotmart for ligada.</p>
+ </div>` : "";
+
+ if(travados) h+=`<div class="alerta">
+   <span class="ic"><svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2.5 18.5 17h-17L10 2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v3.6M10 14v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+   <div><h3>${TRIAL_HIST.semContato} pessoas testaram o Orbis e ninguém falou com elas</h3>
+   <p>De ${TRIAL_HIST.total} testes, <b>${TRIAL_HIST.semContato} (82%) nunca receberam uma única mensagem</b>. ${travados} dessas ainda dá pra recuperar hoje.</p>
+   <button class="cta" id="ir-travados">Ver quem está travado</button></div></div>`;
+
+ h+=`<h2 class="sec">Seu dia</h2><div class="strip">
+  <div class="stat"><div class="k">Meta de hoje</div><div class="v num">${S.contatos} / ${META.contatos}</div>
+   <div class="meter"><i style="width:${Math.min(100,S.contatos/META.contatos*100)}%"></i></div>
+   <div class="s">${S.contatos>=META.contatos?"Meta batida.":`Faltam ${META.contatos-S.contatos} contatos`}</div></div>
+  <div class="stat"><div class="k">Assinaturas fechadas</div><div class="v num">${vend} / ${META.vendas}</div>
+   <div class="meter"><i style="width:${Math.min(100,vend/META.vendas*100)}%"></i></div>
+   <div class="s">só as que você fechou</div></div>
+  <div class="stat" style="border-color:var(--warn)"><div class="k" style="color:var(--warn)">Renova esta semana</div>
+   <div class="v num" style="color:var(--warn)">${brl(renovam)}</div><div class="s">${queRenovam.length} cliente${queRenovam.length===1?"":"s"} · avise antes</div></div>
+  <div class="stat" style="border-color:var(--bad)"><div class="k" style="color:var(--bad)">Sem contato</div>
+   <div class="v num" style="color:var(--bad)">${travados}</div><div class="s">travados por falta de atividade</div></div>
+ </div>
+ <div class="box pad" style="margin-top:9px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+  <span style="font-size:22px">💸</span>
+  <div style="flex:1;min-width:180px">
+   <div style="font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)">Custo do WhatsApp hoje</div>
+   <div style="font-size:22px;font-weight:700;letter-spacing:-.03em;color:var(--c2)" class="num">${brl(cst.valor)}</div>
+  </div>
+  <p style="flex:2;min-width:230px;margin:0;font-size:11.5px;color:var(--dim);line-height:1.5">
+   ${cst.gratis} mensagem${cst.gratis===1?"":"s"} dentro da janela de 24h — <b>a Meta não cobra nada por essas</b>.
+   Receber é sempre grátis e responder quem te chamou também. Só custa quando <b>você</b> começa a conversa.</p>
+ </div>`;
+
+ if(!f){h+=`<div class="box" style="margin-top:14px"><div class="vazio"><strong>Fila zerada.</strong>Você falou com todo mundo que precisava hoje.</div></div>`;
+  document.getElementById("p-hoje").innerHTML=h;ligarHoje(null);return;}
+
+ const et=etapaDe(f),cor=E[f.e].cor,ini=f.n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+ const colNome=E[f.e].cols.find(c=>c[0]===et)?.[1]||et;
+ const ats=atividades(f),fei=feitasDe(f),pronto=tudoFeito(f);
+
+ h+=`<h2 class="sec">Fale com essa pessoa agora</h2><div class="fila"><div class="box">
+  <div class="fh"><span class="blob" style="background:var(--${cor}s);color:var(--${cor})">${esc(ini)}</span>
+   <div style="min-width:0;flex:1"><h3>${esc(f.n)}</h3>
+    <div class="pills"><span class="pill p${cor.slice(1)}">${esc(E[f.e].nome)}</span>
+     <span class="pill${et==="acabou"?" bad":""}">${esc(colNome)}</span>
+     ${f.ref&&f.ref!=="—"?`<span class="pill">via ${esc(f.ref)}</span>`:""}
+     <span class="pill">zap ${esc(f.zap)}</span>
+     ${f.trava?`<span class="pill bad">travado ${f.trava}d</span>`:""}</div></div>
+   <button class="btn ghost" style="flex:none;align-self:flex-start" data-painel="${f.id}">Painel</button></div>
+  <p class="porque"><span style="flex:none;color:var(--dim)">→</span><span><b>Por que esse agora:</b> ${f.porque}</span></p>
+  ${sinaisHTML(f)}
+  <div class="blk"><h4>Atividades — clique para ver a mensagem</h4>
+   <div id="ativs">${ats.map((a,i)=>ativHTML(f,a,i,fei.includes(i))).join("")}</div>
+   <p class="destrava${pronto?" ok":""}">${pronto
+     ? "✓ Todas feitas. A ficha já pode avançar de etapa."
+     : `Enquanto as atividades não forem feitas, <b>${esc(f.n.split(" ")[0])} não avança</b> — fica parado nessa coluna. Três dias parado e a ficha vai pro fim, em vermelho.`}</p>
+   <button class="btn go block" style="margin-top:9px" data-avancar="${f.id}" ${pronto?"":"disabled"}>
+     ${pronto?"Avançar de etapa →":"Faça as atividades para avançar"}</button></div>
+  <div class="blk"><h4>Desfecho do contato</h4><div class="desf">
+    <button class="btn win" data-fim="ganhou">Resolvido</button>
+    <button class="btn" data-fim="respondeu">Respondeu</button>
+    <button class="btn" data-fim="aguarda">Falei, sem resposta</button>
+    <button class="btn lose" data-fim="perdido">Perdido</button></div>
+   <p class="nota">O desfecho alimenta sua <b>taxa de resposta</b> nas Métricas.</p></div></div>
+  <div class="lado">
+   <div class="box pad"><h4 class="mini-h">Depois desse</h4>
+    ${q.slice(S.pos+1,S.pos+7).map((x,i)=>`<button class="prox" data-painel="${x.id}">
+      <span class="n num">${i+2}</span><span class="dot" style="background:var(--${E[x.e].cor})"></span>
+      <span class="nm">${esc(x.n)}</span><span class="n num" style="color:var(--faint);width:auto">${x.score}</span></button>`).join("")
+      ||`<div style="font-size:12.5px;color:var(--faint)">É o último da fila.</div>`}</div>
+   <div class="box pad"><h4 class="mini-h">Como a fila é montada</h4>
+    <p style="font-size:12px;color:var(--dim);margin:0;line-height:1.5">Nota de <b>0 a 100</b> somando o <b>prazo</b>,
+    o <b>dinheiro</b> e o <b>tempo parado</b>. Quem está no topo está lá porque perder ele hoje custa mais caro.</p></div>
+  </div></div>`;
+
+ document.getElementById("p-hoje").innerHTML=h;ligarHoje(f);
+}
+
+/* ===== CONVERSA (inbox do WhatsApp dentro do CRM) ===== */
+function chatHTML(f){
+ const c=convDe(f), j=janela(f), ats=atividades(f).filter(a=>a.m);
+ return `
+  ${c.length?`<div class="chat">${c.map(m=>`<div class="bal ${m.de==="eu"?"eu":"ele"}">${esc(m.t)}<span class="q">${esc(m.q)}</span></div>`).join("")}</div>`
+   :`<p class="nota" style="margin:0">Nenhuma conversa ainda. A primeira mensagem parte de um modelo aprovado.</p>`}
+  <div class="janela ${j.free?"free":"pago"}">${j.free
+    ? `✓ <b>Custo desta conversa: R$ 0,00.</b> Ele falou ${esc(j.quando)}, então a janela de 24h está aberta — responder é grátis, quantas mensagens você quiser.`
+    : `Fora da janela de 24h. Só aqui existe custo: <b>R$ 0,21</b> por modelo de utilidade. <b>Alternativa de graça:</b> faça ele te chamar primeiro pelo botão no app.`}</div>
+  <div class="envio">
+    <input id="ch-in" placeholder="Escreva pro ${esc(f.n.split(" ")[0])}..." aria-label="Mensagem">
+    <button class="btn go" id="ch-send">Enviar</button>
+  </div>
+  ${ats.length?`<div class="atalhos">${ats.map((a,i)=>`<button class="atalho" data-atalho="${i}">${esc(a.t)}</button>`).join("")}</div>`:""}
+  <p class="nota">Atalhos preenchem o campo com a mensagem da atividade. Ao enviar, a atividade é marcada.</p>`;
+}
+function ligarChat(root,f){
+ const inp=root.querySelector("#ch-in"), snd=root.querySelector("#ch-send");
+ if(!inp||!snd)return;
+ const ats=atividades(f);
+ const mandar=()=>{
+  const t=inp.value; if(!t.trim())return;
+  enviar(f,t);
+  const idx=ats.findIndex(a=>a.m&&msgDe(f,a)===t.trim());
+  if(idx>=0)marcar(f,idx,true);
+  inp.value=""; toast("Mensagem enviada"); render(); abrir(f.id);
+ };
+ snd.onclick=mandar;
+ inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();mandar();}});
+ root.querySelectorAll("[data-atalho]").forEach(b=>{
+  b.onclick=()=>{const a=ats.filter(x=>x.m)[+b.dataset.atalho];
+   inp.value=msgDe(f,a); inp.focus();};});
+}
+
+/* ===== SINAIS DO LEAD (o que o CRM sabe sobre ele) ===== */
+function sinaisHTML(f){
+ const T=temperatura(f), conv=convDe(f);
+ const respondeu=conv.length&&conv[conv.length-1].de!=="eu";
+ const quente=T&&T.n==="Pronto pra fechar";
+ const kFim=f.fim?dias(f.fim):null;
+ const sins=[];
+ if(f.vendas!==undefined) sins.push({k:"Vendas no app",v:f.vendas,q:f.vendas>=10});
+ if(f.faturou!==undefined) sins.push({k:"Faturou testando",v:brl(f.faturou),q:f.faturou>=100});
+ if(kFim!==null) sins.push({k:"Teste acaba",v:kFim<=0?"hoje":kFim+"d",q:kFim<=1});
+ if(f.pago) sins.push({k:"Paga por mês",v:brl(f.pago),q:false});
+ if(f.renova) sins.push({k:"Renova em",v:dias(f.renova)+"d",q:dias(f.renova)<=3});
+ sins.push({k:"Mensagens",v:conv.length||"—",q:false});
+ sins.push({k:"Respondeu?",v:respondeu?"sim, e espera":conv.length?"não":"—",q:respondeu});
+ return `<div class="blk"><h4>O que já sabemos dele</h4>
+  <div class="sinais">${sins.map(s=>`<div class="sin${s.q?" q":""}"><div class="k">${s.k}</div><div class="v num">${s.v}</div></div>`).join("")}</div>
+  ${T?`<div class="temp${quente?" q":T.cor==="warn"?" w":""}"><span class="e">${T.ic}</span>
+    <span><b>${T.n}.</b> ${T.why}</span></div>`:""}
+  ${respondeu?`<div class="temp q" style="margin-top:7px"><span class="e">💬</span>
+    <span><b>Ele mandou a última mensagem.</b> Está esperando você desde ${esc(conv[conv.length-1].q)} — e responder dentro de 24h é de graça no WhatsApp oficial.</span></div>`:""}
+ </div>`;
+}
+
+function ativHTML(f,a,i,on){
+ const m=msgDe(f,a);
+ return `<div class="ativ${on?" on":""}" data-ativ="${i}" data-open="0">
+  <button class="ativ-h" data-toggle="${i}">
+    <span class="cbox"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.4l2.4 2.4 4.6-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="tt">${esc(a.t)}</span>
+    <span class="cv"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+  </button>
+  <div class="ativ-b" hidden>
+    ${m?`<div class="msg">${esc(m)}</div>
+       <div class="acoes">
+         <button class="btn go" data-enviar="${i}">Copiar e enviar no WhatsApp</button>
+         <button class="btn ghost" data-copiar="${i}">Só copiar</button>
+       </div>
+       <p class="nota">Ao enviar, a atividade é marcada sozinha.</p>`
+      :`<div class="msg nota">${esc(a.nota||"Anote o resultado desta atividade.")}</div>
+        <textarea class="txtarea" style="margin-top:9px" data-nota="${i}" placeholder="Escreva aqui...">${esc(S.notas[f.id+"/"+i]||"")}</textarea>
+        <div class="acoes"><button class="btn go" data-salvar="${i}">Salvar e marcar feita</button></div>`}
+  </div></div>`;
+}
+
+function ligarAtividades(root,f){
+ root.querySelectorAll("[data-toggle]").forEach(b=>{
+  b.onclick=()=>{const w=b.closest(".ativ"),bd=w.querySelector(".ativ-b");
+   const open=w.dataset.open==="1";w.dataset.open=open?"0":"1";bd.hidden=open;};});
+ root.querySelectorAll("[data-copiar],[data-enviar]").forEach(b=>{
+  b.onclick=async()=>{
+   const i=+(b.dataset.copiar??b.dataset.enviar),a=atividades(f)[i];
+   try{await navigator.clipboard.writeText(msgDe(f,a));}catch(e){}
+   if(b.dataset.enviar!==undefined){marcar(f,i,true);toast("Mensagem copiada · atividade marcada");render();
+     if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);}
+   else toast("Mensagem copiada");};});
+ root.querySelectorAll("[data-salvar]").forEach(b=>{
+  b.onclick=()=>{const i=+b.dataset.salvar,ta=root.querySelector(`[data-nota="${i}"]`);
+   S.notas[f.id+"/"+i]=ta?ta.value:"";marcar(f,i,true);salvar();
+   toast("Anotado · atividade marcada");render();
+   if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);};});
+}
+
+function ligarHoje(f){
+ const bt=document.getElementById("ir-travados");
+ if(bt)bt.onclick=()=>{const q=fila(),i=q.findIndex(x=>etapaDe(x)==="acabou");
+  if(i>=0){S.pos=i;salvar();renderHoje();window.scrollTo({top:0,behavior:"smooth"});}};
+ document.querySelectorAll("[data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+ if(!f)return;
+ ligarAtividades(document.getElementById("p-hoje"),f);
+ const av=document.querySelector("[data-avancar]");
+ if(av&&!av.disabled)av.onclick=()=>avancar(f);
+ document.querySelectorAll("[data-fim]").forEach(b=>b.onclick=()=>{
+  S.fechados[f.id]=b.dataset.fim;S.contatos++;
+  if(S.pos>=fila().length)S.pos=Math.max(0,fila().length-1);
+  salvar();toast({ganhou:"Boa. Próximo.",respondeu:"Resposta registrada",aguarda:"Volta em 2 dias",perdido:"Marcado como perdido"}[b.dataset.fim]);
+  render();});
+}
+
+/* ===== TELA ALERTAS =====
+   O CRM cutuca o Yan quando entra: quem vaza se ninguem falar hoje. */
+function alertas(){
+ const A=[];
+ fila().forEach(f=>{
+  const et=etapaDe(f), c=convDe(f);
+  const esperando=c.length&&c[c.length-1].de!=="eu";
+  const T=temperatura(f);
+  if(esperando) A.push({p:1,ic:"💬",cor:"bad",f,
+   tt:`${f.n} respondeu e está sem resposta`,
+   ds:`Última mensagem dele em ${c[c.length-1].q}. A janela de 24h está aberta — responder agora não custa nada e é o contato com maior chance de virar venda.`});
+  if(T&&T.n==="Pronto pra fechar") A.push({p:1,ic:"🔥",cor:"bad",f,
+   tt:`${f.n} está pronto pra fechar`,
+   ds:`Registrou ${f.vendas} vendas e ${brl(f.faturou)} dentro do Orbis no teste. Não precisa convencer — mostre o número dele.`});
+  if(f.fim&&dias(f.fim)<=1) A.push({p:1,ic:"⏳",cor:"bad",f,
+   tt:`Teste do ${f.n.split(" ")[0]} ${dias(f.fim)<=0?"acaba hoje":"acaba amanhã"}`,
+   ds:`Depois disso ele vira mais um dos 298 que testaram e ninguém procurou.`});
+  if(et==="renova"&&dias(f.renova)<=3) A.push({p:2,ic:"💳",cor:"warn",f,
+   tt:`${f.n} renova em ${dias(f.renova)} dias`,
+   ds:`${brl(f.pago)} por mês. Se o cartão falhar sem aviso, vira inadimplente — e 85% de quem atrasa não volta.`});
+  if(f.trava>=1&&et!=="acabou"&&(f.e==="trial"||f.e==="pagante")) A.push({p:2,ic:"🔒",cor:"warn",f,
+   tt:`${f.n} travado há ${f.trava} dia${f.trava===1?"":"s"}`,
+   ds:`A atividade da etapa não foi feita, então a ficha não avançou. Ele está parado esperando você.`});
+  if(et==="acabou"&&!(S.notas[f.id+"/0"]||"").trim()) A.push({p:3,ic:"❓",cor:"dim",f,
+   tt:`${f.n} acabou sem motivo registrado`,
+   ds:`Enquanto o motivo não for escrito, ele conta como lead sem contato nas métricas.`});
+ });
+ return A.sort((a,b)=>a.p-b.p);
+}
+function renderAlertas(){
+ const A=alertas(), urg=A.filter(a=>a.p===1).length;
+ const bd=document.getElementById("bd-d"), bm=document.getElementById("bd-m");
+ [bd,bm].forEach(b=>{if(b){b.textContent=A.length;b.hidden=A.length===0;}});
+ const el=document.getElementById("p-alertas"); if(!el)return;
+ el.innerHTML=`
+  <div class="alerta" style="margin-top:0"><span class="ic"><svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2.5 18.5 17h-17L10 2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v3.6M10 14v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+   <div><h3>${A.length} coisa${A.length===1?"":"s"} precisam de você hoje</h3>
+   <p>${urg} ${urg===1?"é urgente":"são urgentes"} — se ninguém falar com essas pessoas hoje, elas viram lead perdido.
+   Este aviso aparece toda vez que você abre o CRM.</p></div></div>
+  <h2 class="sec">Por ordem de urgência</h2>
+  <div class="box pad">${A.length?A.slice(0,40).map((a,i)=>`
+    <button class="alerta-l" data-al="${i}">
+      <span class="al-ic" style="background:var(--${a.cor==="dim"?"panel2":a.cor+"-s"});">${a.ic}</span>
+      <span class="tx"><span class="tt">${esc(a.tt)}</span><span class="ds">${a.ds}</span></span>
+      <span class="go">abrir ↗</span>
+    </button>`).join("")
+   :`<div class="vazio"><strong>Nada pendente.</strong>Ninguém está vazando agora.</div>`}
+   ${A.length>40?`<div class="mais num" style="margin-top:8px">+ ${A.length-40} alertas depois destes — resolva os de cima primeiro</div>`:""}</div>
+  <p class="nota">A regra: entra aqui quem <b>respondeu e está sem resposta</b>, quem <b>já mostrou que vale a pena</b>,
+  quem <b>vence hoje ou amanhã</b>, quem está <b>parado há mais de um dia</b> na mesma etapa, e quem <b>acabou sem motivo escrito</b>.</p>
+
+  <h2 class="sec">Como manter o custo em R$ 0,00</h2>
+  <div class="box pad">
+   <div class="alerta-l" style="cursor:default"><span class="al-ic" style="background:var(--c2s)">✓</span>
+    <span class="tx"><span class="tt">Receber é sempre grátis</span>
+    <span class="ds">A Meta não cobra por mensagem que chega. Ver tudo dentro do CRM custa zero, para sempre.</span></span></div>
+   <div class="alerta-l" style="cursor:default"><span class="al-ic" style="background:var(--c2s)">✓</span>
+    <span class="tx"><span class="tt">Responder em até 24h é grátis</span>
+    <span class="ds">Quando o cliente fala, abre uma janela de 24 horas. Dentro dela você manda quantas mensagens quiser sem pagar nada — regra oficial da Meta desde 01/11/2024.</span></span></div>
+   <div class="alerta-l" style="cursor:default"><span class="al-ic" style="background:var(--warn-s)">R$</span>
+    <span class="tx"><span class="tt">Só custa quando você começa a conversa</span>
+    <span class="ds">Fora da janela, iniciar exige um modelo aprovado: R$ 0,21 (utilidade) ou R$ 0,35 (marketing).</span></span></div>
+   <div class="alerta-l" style="cursor:default"><span class="al-ic" style="background:var(--c1s)">💡</span>
+    <span class="tx"><span class="tt">A saída: faça ele chamar primeiro</span>
+    <span class="ds">Um botão <b>"Falar com o Yan"</b> dentro do Orbis abre o WhatsApp já com a mensagem escrita. Quem clica manda a mensagem, e isso abre a janela grátis — sem você gastar um centavo. É o caminho de custo zero pros 298 que nunca foram atendidos.</span></span></div>
   </div>`;
+ el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>abrir(A[+b.dataset.al].f.id));
 }
 
-/* ---------------- drag & drop ---------------- */
-const MENSAGENS = {
-  trial: {
-    dia1: c=>`Fala ${primeiroNome(c)}! Aqui é o Yan, do Orbis 👊 Vi que você começou seu teste grátis. Me conta: o que você vende e onde? Vou te ajudar a tirar o máximo do app nesses 3 dias.`,
-    dia2: c=>`E aí ${primeiroNome(c)}, como foi o primeiro dia com o Orbis? Já registrou suas vendas? Tem uma função que quase ninguém conhece e muda o jogo — quer que eu te mostre?`,
-    dia3: c=>`${primeiroNome(c)}, seu teste acaba HOJE! Dá uma olhada no quanto você já registrou nesses dias. Pra não perder seu histórico e seguir com o mentor de vendas do seu lado, garante sua assinatura — te mando o link.`,
-    fechamento: c=>`${primeiroNome(c)}, seu teste do Orbis venceu, mas seu histórico continua guardado. Quer continuar de onde parou? Te mando o link — e qualquer dúvida do app eu resolvo contigo agora.`,
-  },
-  relacionamento: {
-    inicio_mes: c=>`Fala ${primeiroNome(c)}! Mês novo começando 🚀 Qual sua meta de vendas esse mês? Bora configurar ela no Orbis que o app te puxa todo dia.`,
-    meio_mes: c=>`E aí ${primeiroNome(c)}, metade do mês! Como tá a meta? Me manda um print do seu painel que eu te dou uma ideia pra acelerar a segunda quinzena.`,
-    fim_mes: c=>`${primeiroNome(c)}, fechou o mês! 👏 Dá uma olhada no seu resumo no Orbis e me conta quanto deu — quero comemorar contigo (e já planejar o próximo).`,
-    renovacao: c=>`Fala ${primeiroNome(c)}! Sua assinatura renova em poucos dias. Só passando pra garantir que tá tudo certo com o cartão — e pra lembrar o quanto você já vendeu com o Orbis do seu lado 💪`,
-  },
-  inadimplente: {
-    novo: c=>`Oi ${primeiroNome(c)}, aqui é o Yan, do Orbis. Vi que o pagamento da sua renovação não passou — foi o cartão? Te mando o link pra regularizar em 1 minuto, seu histórico continua intacto.`,
-    contato1: c=>`${primeiroNome(c)}, segue o link pra regularizar sua assinatura do Orbis. Qualquer problema com o pagamento me fala que eu resolvo contigo.`,
-    negociando: c=>`${primeiroNome(c)}, não deixa seu Orbis vencer de vez — seu histórico de vendas e seu ranking continuam te esperando. Posso te ajudar em algo pra facilitar?`,
-    fechamento: c=>`${primeiroNome(c)}, última chamada 😅 consigo segurar seu acesso até hoje. Bora regularizar?`,
-  },
-  parceiro: {
-    novo: c=>`Fala ${primeiroNome(c)}! Vi que você chegou pelo ${c.parceiro||"nosso parceiro"} 👊 O Orbis é o app que ele indica pra organizar as vendas na rua. Quer testar 3 dias grátis, sem cartão? Te mando o link!`,
-    contatado: c=>`E aí ${primeiroNome(c)}, conseguiu ver minha mensagem? O teste é grátis mesmo, sem pedir cartão — 3 dias usando tudo.`,
-    respondeu: c=>`Boa, ${primeiroNome(c)}! Qualquer dúvida do app me chama aqui. Te mando o link do teste grátis!`,
-  },
+/* ===== TELA ESTEIRAS ===== */
+function renderEsteiras(){
+ let h=`<p class="nota" style="margin:0 0 12px">Clique em qualquer ficha para abrir o <b>painel completo da pessoa</b>.
+ Uma ficha só avança de coluna quando as atividades daquela etapa são feitas — e você pode mover à mão, mas o CRM avisa se ainda falta atividade.
+ No celular, arraste as colunas para o lado.</p>`;
+ for(const [k,def] of Object.entries(E)){
+  const total=def.cols.reduce((s,[c])=>s+(QTD[k+"/"+c]||0),0);
+  h+=`<div class="box" style="margin-bottom:14px">
+   <div class="est-head"><span class="dot" style="background:var(--${def.cor});width:9px;height:9px"></span>
+    <h3>${def.nome}</h3><span class="c num">${total} fichas</span>
+    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">${def.desc}</p></div>
+   <div class="cols" style="--n:${def.cols.length}">
+   ${def.cols.map(([c,titulo])=>{
+     const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
+     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!S.fechados[x.id]).slice(0,4);
+     return `<div class="col"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num">${qtd}</span></div>
+      ${am.map(x=>{
+        const semMotivo=etapaDe(x)==="acabou"&&!(S.notas[x.id+"/0"]||"").trim();
+        return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}">
+         <div class="nm">${esc(x.n)}</div>
+         <div class="sb${x.trava||semMotivo?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
+           :x.trava?`travado ${x.trava}d`:`${Math.round(x.d)}d nessa coluna`}</div></button>`;}).join("")}
+      ${qtd>am.length?`<div class="mais num">+ ${qtd-am.length} não mostradas</div>`:""}
+      ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
+   </div></div>`;}
+ document.getElementById("p-esteiras").innerHTML=h;
+ document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+}
+
+/* ===== PAINEL DA PESSOA ===== */
+function abrir(id){
+ const f=byId(id);if(!f)return;
+ const dr=document.getElementById("drawer"),veu=document.getElementById("veu");
+ const et=etapaDe(f),def=E[f.e],cols=def.cols,idx=cols.findIndex(c=>c[0]===et);
+ const ats=atividades(f),fei=feitasDe(f),pronto=tudoFeito(f);
+ const ini=f.n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
+ const semMotivo=et==="acabou"&&!(S.notas[f.id+"/0"]||"").trim();
+
+ dr.innerHTML=`
+  <div class="dr-head">
+   <span class="blob" style="background:var(--${def.cor}s);color:var(--${def.cor})">${esc(ini)}</span>
+   <div style="min-width:0"><h3>${esc(f.n)}</h3>
+    <div class="pills"><span class="pill p${def.cor.slice(1)}">${esc(def.nome)}</span>
+     <span class="pill${et==="acabou"?" bad":""}">${esc(cols[idx]?.[1]||et)}</span></div></div>
+   <button class="fechar" id="dr-x" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  </div>
+  <div class="dr-body">
+   <div class="dr-sec"><h4>Dados</h4>
+    <div class="kv"><span class="k">WhatsApp</span><span class="v">${esc(f.zap)}</span></div>
+    <div class="kv"><span class="k">Origem</span><span class="v">${esc(f.ref||"—")}</span></div>
+    ${f.email?`<div class="kv"><span class="k">E-mail</span><span class="v">${esc(f.email)}</span></div>`:""}
+    ${f.cidade?`<div class="kv"><span class="k">Cidade</span><span class="v">${esc(f.cidade)}</span></div>`:""}
+    ${f.entrou?`<div class="kv"><span class="k">Entrou em</span><span class="v">${dbr(f.entrou)}</span></div>`:""}
+    ${f.pago?`<div class="kv"><span class="k">Paga por mês</span><span class="v">${brl(f.pago)}</span></div>`:""}
+    ${f.renova?`<div class="kv"><span class="k">Renova em</span><span class="v">${dbr(f.renova)} · ${dias(f.renova)}d</span></div>`:""}
+    ${f.fim?`<div class="kv"><span class="k">Teste acaba em</span><span class="v">${dbr(f.fim)} · ${dias(f.fim)}d</span></div>`:""}
+    <div class="kv"><span class="k">Parado há</span><span class="v">${Math.round(f.d)} dias</span></div>
+    <div class="kv"><span class="k">Prioridade</span><span class="v num">${f.score}/100</span></div>
+   </div>
+   ${f.hot?`<div class="dr-sec"><h4>Assinatura na Hotmart</h4>
+    <div class="kv"><span class="k">Situação</span><span class="v">${esc(f.hot.situacao||"—")}</span></div>
+    ${f.hot.plano?`<div class="kv"><span class="k">Plano</span><span class="v">${esc(f.hot.plano)}</span></div>`:""}
+    ${f.hot.valor?`<div class="kv"><span class="k">Valor</span><span class="v">${brl(f.hot.valor)}</span></div>`:""}
+    ${f.hot.recorrencia?`<div class="kv"><span class="k">Cobranças já feitas</span><span class="v num">${f.hot.recorrencia}</span></div>`:""}
+    ${f.hot.assinou_em?`<div class="kv"><span class="k">Assinou em</span><span class="v">${esc(f.hot.assinou_em)}</span></div>`:""}
+    ${f.hot.cobra_em?`<div class="kv"><span class="k">Próxima cobrança</span><span class="v">${esc(f.hot.cobra_em)}${f.hot.dias_pra_cobrar!=null?" · "+f.hot.dias_pra_cobrar+"d":""}</span></div>`:""}
+    ${f.hot.pagamento?`<div class="kv"><span class="k">Forma de pagamento</span><span class="v">${esc(f.hot.pagamento)}</span></div>`:""}
+   </div>`:""}
+   <div class="dr-sec"><h4>Situação</h4>
+    <p style="margin:0;font-size:13px;line-height:1.55">${f.porque}</p></div>
+   <div class="dr-sec"><h4>Onde ele está na esteira</h4>
+    <div class="trilha">${cols.map(([c,t],i)=>`<span class="tstep ${c===et?(c==="acabou"?"bad":"now"):(i<idx?"pass":"")}">${esc(t)}</span>`).join("")}</div>
+    <p class="nota" style="margin:11px 0 0"><b>Mover para:</b></p>
+    <div class="mover">${cols.filter(([c])=>c!==et).map(([c,t])=>{
+      const frente=cols.findIndex(x=>x[0]===c)>idx;
+      const trava=frente&&!pronto;
+      return `<button class="mv" data-mover="${c}" ${trava?"disabled":""} title="${trava?"Faça as atividades desta etapa antes de avançar":"Mover para "+t}">${trava?"🔒 ":""}${esc(t)}</button>`;}).join("")}</div>
+    ${!pronto?`<p class="nota">Só dá pra <b>avançar</b> depois que as atividades desta etapa estiverem feitas. Voltar é sempre liberado.</p>`:""}
+   </div>
+   ${semMotivo?`<div class="dr-sec" style="background:var(--bad-s)">
+     <h4 style="color:var(--bad)">Falta o motivo</h4>
+     <p style="margin:0;font-size:12.5px;line-height:1.5">Enquanto o motivo de não ter fechado não for escrito na primeira atividade,
+     esta ficha conta como <b>lead sem contato</b> nas Métricas.</p></div>`:""}
+   <div class="dr-sec"><h4>Conversa no WhatsApp</h4>${chatHTML(f)}</div>
+   <div class="dr-sec"><h4>Atividades desta etapa</h4>
+    <div id="dr-ativs">${ats.map((a,i)=>ativHTML(f,a,i,fei.includes(i))).join("")}</div>
+    <button class="btn go block" style="margin-top:9px" id="dr-avancar" ${pronto?"":"disabled"}>
+      ${pronto?"Avançar de etapa →":"Faça as atividades para avançar"}</button>
+   </div>
+   <div class="dr-sec"><h4>Ir para a fila</h4>
+    <button class="btn block" id="dr-fila">Colocar como próximo em Hoje</button></div>
+  </div>`;
+ dr.dataset.on="1";veu.dataset.on="1";
+ document.getElementById("dr-x").onclick=fechar;
+ veu.onclick=fechar;
+ ligarAtividades(dr,f); ligarChat(dr,f);
+ dr.querySelectorAll("[data-mover]").forEach(b=>{if(!b.disabled)b.onclick=()=>mover(f,b.dataset.mover);});
+ const av=document.getElementById("dr-avancar");if(av&&!av.disabled)av.onclick=()=>avancar(f);
+ document.getElementById("dr-fila").onclick=()=>{
+  const q=fila(),i=q.findIndex(x=>x.id===f.id);
+  if(i>=0){S.pos=i;salvar();fechar();aba("hoje");renderHoje();window.scrollTo({top:0});}
+  else toast("Essa ficha já foi fechada hoje");};
+}
+function fechar(){document.getElementById("drawer").dataset.on="0";document.getElementById("veu").dataset.on="0";}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")fechar();});
+
+/* ===== LISTA (drill-down das métricas) ===== */
+function abrirLista(titulo,sub,pessoas,total){
+ const dr=document.getElementById("drawer"),veu=document.getElementById("veu");
+ dr.innerHTML=`<div class="dr-head"><div style="min-width:0"><h3>${esc(titulo)}</h3>
+   <p style="margin:3px 0 0;font-size:12px;color:var(--dim)">${esc(sub)}</p></div>
+   <button class="fechar" id="dr-x" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+  <div class="dr-body"><div class="dr-sec">
+   ${pessoas.length?pessoas.map(p=>`<button class="lista-p" data-painel="${p.id}">
+     <span class="dot" style="background:var(--${E[p.e].cor})"></span>
+     <span class="nm">${esc(p.n)}<span class="mt" style="display:block;font-weight:400">${esc(E[p.e].nome)} · zap ${esc(p.zap)} · ${esc(p.ref||"—")}</span></span>
+     <span class="mt num">${Math.round(p.d)}d</span></button>`).join("")
+    :`<p class="nota" style="margin:0">Ninguém nesta lista.</p>`}
+   ${total&&total>pessoas.length?`<p class="nota">Mostrando ${pessoas.length} de <b>${total}</b>. No app real a lista é completa, com busca e filtro.</p>`:""}
+  </div></div>`;
+ dr.dataset.on="1";veu.dataset.on="1";
+ document.getElementById("dr-x").onclick=fechar;veu.onclick=fechar;
+ dr.querySelectorAll("[data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+}
+
+/* ===== TELA MÉTRICAS ===== */
+function renderMetricas(){
+ const fe=Object.values(S.fechados);
+ const resp=fe.filter(x=>x==="respondeu"||x==="ganhou").length;
+ const taxaResp=fe.length?Math.round(resp/fe.length*100):null;
+ const todas=FICHAS.filter(f=>!S.fechados[f.id]);
+
+ const cards=[
+  {k:"Pessoas que entraram",v:BASES.base,suf:"",s:"contas criadas no total",cor:"c4",pct:100,
+   lista:()=>abrirLista("Pessoas que entraram","779 contas criadas — quem ainda não virou nada está na esteira Base",todas.filter(f=>f.e==="base"),BASES.base)},
+  {k:"Taxa de conversão",v:"13,4",suf:"%",s:"104 assinaram de 779 contas",cor:"c1",pct:13.4,
+   lista:()=>abrirLista("Quem assinou","104 pessoas assinaram alguma vez · 70 pagam hoje",todas.filter(f=>f.e==="pagante"),BASES.assinaram)},
+  {k:"Taxa de resposta",v:taxaResp===null?"—":taxaResp,suf:taxaResp===null?"":"%",
+   s:taxaResp===null?"marque um desfecho para começar a medir":`${resp} responderam de ${fe.length} contatos`,cor:"c2",pct:taxaResp||0,
+   lista:()=>abrirLista("Taxa de resposta","Alimentada pelo botão Respondeu no desfecho de cada contato",[],0)},
+  {k:"Taxa de fechamento",v:"4,7",suf:"%",s:"17 assinaram de 363 testes",cor:"c2",pct:4.7,
+   lista:()=>abrirLista("Testes que não fecharam","298 acabaram sem contato · falta o motivo em cada um",todas.filter(f=>etapaDe(f)==="acabou"),TRIAL_HIST.semContato)},
+  {k:"Taxa de inadimplência",v:"13,6",suf:"%",s:"11 em atraso de 81 assinaturas",cor:"c3",pct:13.6,
+   lista:()=>abrirLista("Quem parou de pagar",`${brl(GRANA.naoPagas)} por mês parados · ${GRANA.naoPagasQtd} assinaturas`,todas.filter(f=>f.e==="perdido"),BASES.parou+BASES.atraso)}
+ ];
+ const funil=[["Contas criadas",BASES.base,"c4"],["Abriram o app",BASES.abriram,"c1"],["Registraram venda",BASES.venderam,"c1"],["Assinaram",BASES.assinaram,"c2"],["Pagando hoje",BASES.pagante,"c2"]];
+ const maxF=funil[0][1],maxR=Math.max(...RITMO.map(r=>r[1]));
+
+ document.getElementById("p-metricas").innerHTML=`
+ <h2 class="sec">Os números do Yan · clique em qualquer um para ver quem são</h2>
+ <div class="taxas">${cards.map((t,i)=>`<button class="taxa" data-card="${i}">
+   <span class="ver">ver lista ↗</span>
+   <div class="k">${t.k}</div><div class="v num" style="color:var(--${t.cor})">${t.v}<span style="font-size:17px">${t.suf}</span></div>
+   <div class="s">${t.s}</div><div class="bar"><i style="width:${Math.min(100,t.pct)}%;background:var(--${t.cor})"></i></div>
+ </button>`).join("")}</div>
+
+ <h2 class="sec">Seus tempos de resposta</h2>
+ <div class="box pad">
+  <div class="taxas" style="grid-template-columns:repeat(auto-fit,minmax(152px,1fr))">
+   <div class="taxa" style="cursor:default;border-color:var(--bad)">
+    <div class="k" style="color:var(--bad)">Demora pra chamar o lead</div>
+    <div class="v num" style="color:var(--bad)">7,6<span style="font-size:15px"> dias</span></div>
+    <div class="s">mediana 7,7 dias · <b>o teste dura 3</b></div>
+    <div class="bar"><i style="width:100%;background:var(--bad)"></i></div></div>
+   <div class="taxa" style="cursor:default">
+    <div class="k">Tempo médio de resposta</div>
+    <div class="v num" style="color:var(--faint)">—</div>
+    <div class="s">só dá pra medir com o WhatsApp ligado</div>
+    <div class="bar"><i style="width:0%"></i></div></div>
+   <div class="taxa" style="cursor:default">
+    <div class="k">Intervalo de follow-up</div>
+    <div class="v num" style="color:var(--warn)">0,2<span style="font-size:15px"> dias</span></div>
+    <div class="s">é rajada, não follow-up: várias marcações na mesma sessão</div>
+    <div class="bar"><i style="width:8%;background:var(--warn)"></i></div></div>
+   <div class="taxa" style="cursor:default">
+    <div class="k">Horário de mais resposta</div>
+    <div class="v" style="color:var(--faint);font-size:19px">—</div>
+    <div class="s">precisa do WhatsApp pra saber quando o vendedor responde</div>
+    <div class="bar"><i style="width:0%"></i></div></div>
+  </div>
+  <p class="nota"><b>O número de cima é o mais grave da operação inteira.</b> Você leva em média
+  <b>7,6 dias</b> pra falar com um lead pela primeira vez — e o teste grátis dura <b>3 dias</b>.
+  Quando a conversa começa, o teste já acabou há quase cinco dias. Não é falta de esforço:
+  é a fila que nunca apontou pra pessoa certa no dia certo.</p>
+ </div>
+
+ <h2 class="sec">Quanto tempo por dia dentro do CRM</h2>
+ <div class="box pad">
+  <table class="tabela">
+   <tr><th>Dia</th><th>Entrou</th><th>Saiu</th><th class="n">Janela</th><th class="n">Tarefas</th><th class="n">Por tarefa</th></tr>
+   ${FOCO.map(f=>{const mpt=(f.min/f.tar);return `<tr>
+     <td class="num">${f.d}</td><td class="num">${f.ini}</td><td class="num">${f.fim}</td>
+     <td class="n">${f.min<60?f.min+"min":(Math.floor(f.min/60)+"h"+String(f.min%60).padStart(2,"0"))}</td>
+     <td class="n">${f.tar}</td>
+     <td class="n" style="color:var(--${mpt<1?"bad":mpt<3?"warn":"c2"})">${mpt<1?Math.round(mpt*60)+"s":mpt.toFixed(1)+"min"}</td></tr>`;}).join("")}
+   <tr style="border-top:2px solid var(--line2)"><td><b>9 dias em 27</b></td><td colspan="2" class="num">33% dos dias</td>
+     <td class="n"><b>18h49</b></td><td class="n"><b>203</b></td><td class="n"><b>5,6min</b></td></tr>
+  </table>
+  <div class="temp q" style="margin-top:13px"><span class="e">⚠️</span><span>
+   <b>Ele trabalhou no CRM em 9 dias de 27 — e a última vez foi 15/09, há uma semana.</b>
+   A janela média nos dias que trabalhou é de <b>2h05</b>. Mas o que importa é a última coluna:
+   em 12/09 foram <b>34 tarefas em 22 minutos</b> e em 13/09 <b>23 em 13 minutos</b> — cerca de
+   <b>36 segundos por tarefa</b>. Não existe conversa de WhatsApp de 36 segundos com 34 pessoas seguidas.
+   Isso é marcação em lote, e é a prova que faltava de por que contato e não-contato converteram igual.</span></div>
+  <p class="nota">Os dias de <b>26/08</b> (18 min por tarefa) e <b>10/09</b> (6,6 min) parecem trabalho de verdade.
+  O de 07/09 são 3 tarefas espalhadas em 6 horas — janela longa, trabalho nenhum.
+  Com a atividade amarrada ao envio da mensagem, essa coluna passa a medir conversa de verdade.</p>
+ </div>
+
+ <h2 class="sec">Quanto a gente fecha · e qual deve ser a meta</h2>
+ <div class="box pad">
+  <div class="funil" style="margin-bottom:14px">
+   ${[["Junho",FECHOU.jun],["Julho",FECHOU.jul],["Agosto",FECHOU.ago],["Setembro (até dia 22)",FECHOU.set]].map(([m,v])=>`
+     <div class="fstep" style="cursor:default"><span class="lbl">${m}</span>
+      <span class="track"><i style="width:${v/40*100}%;background:var(--c2)"></i></span>
+      <span class="v num">${v}</span></div>`).join("")}
+  </div>
+  <table class="tabela">
+   <tr><th>Como as 108 assinaturas aconteceram</th><th class="n">Qtd</th><th class="n">Parte</th></tr>
+   <tr><td>Assinaram <b>sozinhas</b>, sem nenhum contato seu</td><td class="n">${FECHOU.sozinhas}</td><td class="n">69,4%</td></tr>
+   <tr><td>Tiveram <b>contato seu</b> antes de assinar</td><td class="n">${FECHOU.comYan}</td><td class="n">30,6%</td></tr>
+  </table>
+  <div class="temp q" style="margin-top:14px"><span class="e">🎯</span><span>
+   <b>A meta que proponho: ${META.contatos} contatos e ${META.vendas} assinatura fechada por dia útil.</b><br>
+   A conta: 87 assinaturas em jun+jul+ago dão <b>29 por mês</b>, ou 1,3 por dia útil. Mas só 30,6% passam por você —
+   então hoje você fecha <b>0,4 por dia</b>. Entram cerca de 230 cadastros por mês, ou 10,5 por dia útil:
+   por isso <b>10 contatos</b>, que é falar com todo mundo que entra. Se 10% virarem assinatura — o dobro da taxa
+   de hoje, justificado por falar no dia 1 em vez do dia 8 — dá <b>1 por dia</b>, ou 22 no mês.
+   Seria <b>2,4× o que você fecha hoje</b>, sem depender de mais tráfego.</span></div>
+  <p class="nota">A meta conta só as assinaturas <b>que você fechou</b>. As 69,4% que entram sozinhas não somam
+  no seu placar — elas já aconteceriam de qualquer jeito. Quem define os dois números é o admin.</p>
+ </div>
+
+ <h2 class="sec">Onde as pessoas somem · clique em cada degrau</h2>
+ <div class="box pad"><div class="funil">
+  ${funil.map(([l,v,c],i)=>`<button class="fstep" data-funil="${i}">
+    <span class="lbl">${l}</span><span class="track"><i style="width:${v/maxF*100}%;background:var(--${c})"></i></span>
+    <span class="v num">${v}${i?` · ${Math.round(v/maxF*100)}%`:""}</span></button>`).join("")}</div>
+  <p class="nota">O degrau mais caro é o primeiro: <b>486 pessoas criaram conta e nunca abriram o app</b>.
+  Desse grupo só 1,5% assina; de quem registra uma venda, 38% assina — <b>25 vezes mais</b>.</p></div>
+
+ <h2 class="sec">Seu ritmo de trabalho</h2>
+ <div class="box pad"><div class="barras" role="img" aria-label="Atividades concluídas por dia">
+  ${RITMO.map(([d,v])=>`<div class="c2"><span class="bb${v?"":" zero"}" style="height:${v?Math.max(4,v/maxR*100):2}%" title="${d}: ${v}"></span><span class="dt">${d.slice(0,2)}</span></div>`).join("")}</div>
+  <div class="legend"><span><span class="dot" style="background:var(--c1)"></span>atividades concluídas no dia</span></div>
+  <p class="nota"><b>Nenhuma atividade desde 15/09 — sete dias.</b> E o trabalho vem em rajada: 63 num dia, zero em cinco.
+  A fila do Hoje existe pra trocar rajada por ritmo: 5 por dia, todo dia, nas fichas certas.</p></div>
+
+ <h2 class="sec">A pergunta incômoda</h2>
+ <div class="box pad"><table class="tabela">
+  <tr><th>Grupo</th><th class="n">Pessoas</th><th class="n">Assinaram</th><th class="n">Taxa</th></tr>
+  <tr><td>Nunca recebeu contato</td><td class="n">${TRIAL_HIST.semContato}</td><td class="n">${TRIAL_HIST.fechouSem}</td><td class="n">4,7%</td></tr>
+  <tr><td>Recebeu pelo menos 1 contato</td><td class="n">${TRIAL_HIST.comContato}</td><td class="n">${TRIAL_HIST.fechouCom}</td><td class="n">4,6%</td></tr></table>
+  <p class="nota"><b>Quem foi contatado converteu igual a quem não foi.</b> Isso não prova que contato não funciona — prova que
+  <b>marcar tarefa no CRM antigo não significava que a conversa aconteceu</b>. Em 15/09 foram 63 tarefas marcadas em 25 fichas no mesmo dia: carimbo, não conversa.
+  É por isso que aqui a atividade só é marcada quando você <b>envia a mensagem</b>, e marcar sem enviar trava a pessoa em vez de limpar a lista.</p></div>
+
+ <p class="nota" style="margin-top:18px">Números lidos do banco de produção a cada abertura. Faturamento e assinaturas vêm do webhook
+ da Hotmart (histórico a partir de 24/08). <b>Nesta versão, o que você marca, move ou anota fica salvo
+ só neste navegador</b> — ainda não volta pro banco, então o mesmo trabalho feito no celular e no
+ computador não se enxerga. Gravar no banco é o próximo passo.</p>`;
+
+ document.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>cards[+b.dataset.card].lista());
+ const alvos=[
+  ()=>abrirLista("Contas criadas","779 pessoas criaram conta no Orbis",todas.filter(f=>f.e==="base"),BASES.base),
+  ()=>abrirLista("Abriram o app","293 de 779 chegaram a abrir o DEFCON",todas.filter(f=>f.e==="base"&&etapaDe(f)!=="frio"),BASES.abriram),
+  ()=>abrirLista("Registraram venda","257 registraram pelo menos uma venda",todas.filter(f=>etapaDe(f)==="usou"),BASES.venderam),
+  ()=>abrirLista("Assinaram","104 assinaram alguma vez",todas.filter(f=>f.e==="pagante"),BASES.assinaram),
+  ()=>abrirLista("Pagando hoje","70 assinaturas ativas",todas.filter(f=>f.e==="pagante"),BASES.pagante)];
+ document.querySelectorAll("[data-funil]").forEach(b=>b.onclick=()=>alvos[+b.dataset.funil]());
+}
+
+/* ===== TELA PARCEIROS · gerar e medir os links ===== */
+function renderParceiros(){
+ const el=document.getElementById("p-parceiros"); if(!el)return;
+ const tot=PARCEIROS.reduce((a,p)=>a+(+p.cadastros||0),0);
+ const ass=PARCEIROS.reduce((a,p)=>a+(+p.assinaturas||0),0);
+ el.innerHTML=`
+ <h2 class="sec">Criar um link novo</h2>
+ <div class="box pad">
+  <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr">
+   <input id="pCode" class="txtarea" style="min-height:0" placeholder="CÓDIGO (ex: JOAO5)" maxlength="20">
+   <input id="pNome" class="txtarea" style="min-height:0" placeholder="Nome do parceiro">
+   <select id="pTipo" class="txtarea" style="min-height:0">
+     <option value="afiliado">Afiliado (5%)</option>
+     <option value="influenciador">Influenciador (6,5%)</option>
+   </select>
+   <input id="pCom" class="txtarea" style="min-height:0" type="number" step="0.5" value="5" placeholder="Comissão %">
+  </div>
+  <label style="display:flex;gap:8px;align-items:center;margin-top:9px;font-size:12.5px;color:var(--dim)">
+   <input type="checkbox" id="pRec"> comissão recorrente (ganha todo mês, não só na primeira)</label>
+  <button class="btn go block" id="pSalvar" style="margin-top:10px">Gerar link</button>
+  <div id="pResult" class="janela free" hidden style="margin-top:10px"></div>
+  <p class="nota"><b>Importante:</b> o link já funciona pra rastrear cadastro e atribuir a venda.
+  Mas pro desconto aparecer no checkout, o cupom com esse mesmo código precisa existir na Hotmart —
+  isso você cria no painel deles uma vez.</p>
+ </div>
+
+ <h2 class="sec">Links ativos · ${PARCEIROS.length} parceiros · ${tot} cadastros · ${ass} assinaturas</h2>
+ <div class="box pad">
+  ${PARCEIROS.length?PARCEIROS.map(p=>{
+    const conv=p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0;
+    const cor=conv>=20?"c2":conv>=10?"warn":"bad";
+    return `<div class="pbox">
+      <span class="nm"><b>${esc(p.nome)} · ${esc(p.code)}</b>
+        <span>${esc(p.link)}</span></span>
+      <span class="st"><b class="num" style="color:var(--${cor})">${conv}%</b>
+        ${p.cadastros} cad · ${p.assinaturas} ass${p.ativas?" · "+p.ativas+" ativas":""}</span>
+      <button class="btn ghost" data-copiar-link="${esc(p.link)}" style="flex:none;padding:7px 11px">Copiar</button>
+    </div>`;}).join("")
+   :`<div class="vazio">Nenhum parceiro cadastrado ainda.</div>`}
+ </div>
+ <p class="nota">A conversão compara <b>cadastros que vieram pelo link</b> com <b>assinaturas</b> desses cadastros.
+ Quem estiver abaixo de 10% traz público que não é vendedor de rua.</p>`;
+
+ el.querySelectorAll("[data-copiar-link]").forEach(b=>b.onclick=async()=>{
+   try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Link copiado");}catch(e){toast("Copie da tela");}});
+ const sv=document.getElementById("pSalvar");
+ if(sv) sv.onclick=async()=>{
+   const code=document.getElementById("pCode").value, nome=document.getElementById("pNome").value;
+   const tipo=document.getElementById("pTipo").value, com=+document.getElementById("pCom").value||5;
+   const rec=document.getElementById("pRec").checked;
+   const {data,error}=await sb.rpc("crm_parceiro_salvar",
+     {p_code:code,p_nome:nome,p_tipo:tipo,p_comissao:com,p_recorrente:rec});
+   if(error){ toast(error.message); return; }
+   const r=document.getElementById("pResult");
+   r.hidden=false; r.innerHTML=`✓ Link criado: <b>${esc(data.link)}</b>`;
+   PARCEIROS=(await sb.rpc("crm_parceiros")).data||[];
+   toast("Parceiro salvo"); renderParceiros();
+ };
+}
+
+/* ===== abas ===== */
+function aplicarPapel(){
+ document.querySelectorAll('[data-tab="parceiros"]').forEach(b=>b.hidden=!ehDono());
+ const av=document.getElementById("quemSou");
+ if(av) av.title = ehDono()? "Dono — vê tudo" : "Comercial — sem faturamento e sem links";
+}
+function aba(t){
+ if(t==="parceiros"&&!ehDono()) t="hoje";
+ document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
+ ["hoje","alertas","esteiras","metricas","parceiros"].forEach(k=>document.getElementById("p-"+k).hidden=k!==t);
+}
+document.querySelectorAll("[data-tab]").forEach(b=>{
+ b.onclick=()=>{aba(b.dataset.tab);render();window.scrollTo({top:0});};});
+function render(){renderHoje();renderAlertas();renderEsteiras();renderMetricas();}
+/* ===== LOGIN + BOOT ===== */
+async function depoisDoLogin(){
+  const {data:podeCrm}=await sb.rpc("is_orbis_crm");
+  if(podeCrm!==true){ erroLogin("Essa conta não tem acesso ao CRM."); await sb.auth.signOut(); return; }
+  const {data:papel}=await sb.rpc("orbis_papel");
+  PAPEL = papel || "comercial";
+  const {data:{user}}=await sb.auth.getUser();
+  {const q=document.getElementById("quemSou"), quem=(user?.email||"").split("@")[0];
+   q.textContent = ehDono()?"D":"C"; q.title = quem+" · "+(ehDono()?"dono":"comercial");}
+  document.getElementById("telaLogin").hidden=true;
+  document.getElementById("app").hidden=false;
+  document.getElementById("carregando").hidden=false;
+  try{ await chamar("crm_sync"); await carregarTudo(); }
+  catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
+  try{ aplicarPapel(); render(); if(ehDono()) renderParceiros(); }
+  catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
+  document.getElementById("carregando").hidden=true;
+}
+function erroLogin(t){ document.getElementById("erroLogin").textContent=t; }
+function resolverLogin(v){ v=String(v||"").trim();
+  if(v.includes("@")) return v; const d=v.replace(/\D/g,""); return d?d+"@orbis.internal":v; }
+document.getElementById("btEntrar").onclick=async()=>{
+  erroLogin("");
+  const email=resolverLogin(document.getElementById("inEmail").value);
+  const senha=document.getElementById("inSenha").value;
+  if(!email||!senha){ erroLogin("Preencha CPF (ou e-mail) e senha."); return; }
+  const {error}=await sb.auth.signInWithPassword({email,password:senha});
+  if(error){ erroLogin("Login recusado. Use o MESMO CPF (ou e-mail) e senha do app Orbis."); return; }
+  await depoisDoLogin();
 };
-function primeiroNome(c){ return String(c.nome||"").trim().split(/\s+/)[0] || "amigo"; }
-function mensagemDaEtapa(c){
-  const f = MENSAGENS[funilAtual]?.[c.etapa];
-  return f ? f(c) : "";
-}
-let arrastando = null;
-function pegar(ev,id){ arrastando = id; ev.dataTransfer.effectAllowed = "move"; }
-function dragSobre(ev){ ev.preventDefault(); ev.currentTarget.classList.add("drag-sobre"); }
-function dragSai(ev){ ev.currentTarget.classList.remove("drag-sobre"); }
-async function soltar(ev){
-  ev.preventDefault();
-  ev.currentTarget.classList.remove("drag-sobre");
-  const etapaNova = ev.currentTarget.dataset.etapa;
-  const c = (dadosFunil.cartoes||[]).find(x=>x.id===arrastando);
-  if(!c || c.etapa===etapaNova) return;
-  const ordem = Object.fromEntries((dadosFunil.etapas||[]).map(e=>[e.etapa,e.ordem]));
-  if(ordem[etapaNova] > ordem[c.etapa]){
-    const pend = tarefasDaEtapa(c.etapa).filter(t=>!(c.feitas||[]).includes(t.id));
-    if(pend.length){
-      toast(`⚠️ Faltam ${pend.length} atividade(s) obrigatória(s) em "${c.nome}" antes de avançar.`);
-      return;
-    }
-  }
-  let statusNovo = null;
-  if(etapaNova === "fechou") statusNovo = "ganho";
-  else if(etapaNova === "nao_renovou") statusNovo = "perdido";
-  else if(c.status !== "aberto") statusNovo = "aberto"; // saiu da coluna final: reabre
-  c.etapa = etapaNova; if(statusNovo) c.status = statusNovo;
-  c.dias_na_etapa = 0; renderBoard();
-  const { error } = await sb.rpc("crm_mover", { p_cartao:c.id, p_etapa:etapaNova, p_status:statusNovo });
-  if(error){ toast("Erro ao mover: "+error.message); abrirFunil(funilAtual); }
-}
-
-/* ---------------- drawer ---------------- */
-function abrirCartao(id){
-  cartaoAberto = (dadosFunil.cartoes||[]).find(x=>x.id===id);
-  if(!cartaoAberto) return;
-  const c = cartaoAberto;
-  const etapaInfo = (dadosFunil.etapas||[]).find(e=>e.etapa===c.etapa);
-  const tarefas = tarefasDaEtapa(c.etapa);
-  const zapNum = (c.whatsapp||"").replace(/\D/g,"").replace(/^55/,"");
-  document.getElementById("drawer").innerHTML = `
-    <button class="fechar" onclick="fecharCartao()">×</button>
-    <h3>${c.nome}</h3>
-    <div class="linha-info">Etapa: <b style="color:${etapaInfo?.cor||'#fff'}">${etapaInfo?.titulo||c.etapa}</b></div>
-    ${c.email?`<div class="linha-info">E-mail: <b>${c.email}</b></div>`:""}
-    ${c.whatsapp?`<div class="linha-info">WhatsApp: <b>${c.whatsapp}</b> — <a class="zap" href="https://wa.me/55${zapNum}" target="_blank">abrir conversa</a></div>`:""}
-    ${c.parceiro?`<div class="linha-info">Veio de: <b>${c.parceiro}</b> (${c.parceiro_tipo||"parceiro"})</div>`:(c.ref?`<div class="linha-info">Origem: <b>${c.ref}</b></div>`:`<div class="linha-info">Origem: <b>orgânico / sem link</b></div>`)}
-    ${c.dia_do_teste?`<div class="linha-info">Dia do teste: <b>${c.dia_do_teste>3?"acabou":"dia "+c.dia_do_teste}</b>${c.trial_end?` (termina ${c.trial_end.split("-").reverse().join("/")})`:""}</div>`:""}
-    ${c.period_end?`<div class="linha-info">Assinatura vai até: <b>${c.period_end.split("-").reverse().join("/")}</b></div>`:""}
-    <div class="sec-t">Atividades desta etapa</div>
-    ${tarefas.length?tarefas.map(t=>{
-      const feita = (c.feitas||[]).includes(t.id);
-      return `<label class="tarefa ${feita?'feita':''}"><input type="checkbox" ${feita?'checked':''} onchange="mudarTarefa(${t.id},this.checked)"><span>${t.titulo}</span></label>`;
-    }).join(""):'<div class="vazio">sem atividades nesta etapa</div>'}
-    ${mensagemDaEtapa(c) ? `
-    <div class="sec-t">Mensagem pronta desta etapa</div>
-    <textarea id="txtMsgPronta" style="min-height:110px">${mensagemDaEtapa(c)}</textarea>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      ${zapNum ? `<button class="btn-fantasma" style="color:var(--verde);border-color:rgba(76,175,114,.4)" onclick="abrirZapComMsg('${zapNum}')">📲 Abrir no WhatsApp</button>` : ""}
-      <button class="btn-fantasma" onclick="copiarMsg()">Copiar</button>
-    </div>` : ""}
-    <div class="sec-t">Notas</div>
-    <textarea id="txtNotas" placeholder="Objeções, combinados, contexto…">${c.notas||""}</textarea>
-    <button class="btn-fantasma" style="margin-top:8px" onclick="salvarNota()">Salvar notas</button>
-    <span class="aviso-salvo" id="avisoSalvo"></span>
-    <div class="acoes">
-      <button class="btn-ganhou" onclick="fecharCom('ganho')">✓ Ganhou</button>
-      <button class="btn-perdeu" onclick="fecharCom('perdido')">✗ Perdido</button>
-    </div>`;
-  document.getElementById("drawer").classList.add("aberto");
-  document.getElementById("fundoModal").classList.add("aberto");
-}
-function fecharCartao(){
-  document.getElementById("drawer").classList.remove("aberto");
-  document.getElementById("fundoModal").classList.remove("aberto");
-  cartaoAberto = null;
-}
-async function mudarTarefa(tarefaId, feito){
-  const c = cartaoAberto; if(!c) return;
-  if(feito){ if(!(c.feitas||[]).includes(tarefaId)) c.feitas = [...(c.feitas||[]), tarefaId]; }
-  else c.feitas = (c.feitas||[]).filter(x=>x!==tarefaId);
-  renderBoard();
-  const { error } = await sb.rpc("crm_tarefa", { p_cartao:c.id, p_tarefa:tarefaId, p_feito:feito });
-  if(error) toast("Erro ao salvar atividade: "+error.message);
-}
-async function salvarNota(){
-  const c = cartaoAberto; if(!c) return;
-  c.notas = document.getElementById("txtNotas").value;
-  const { error } = await sb.rpc("crm_nota", { p_cartao:c.id, p_nota:c.notas });
-  document.getElementById("avisoSalvo").textContent = error ? "Erro: "+error.message : "Notas salvas ✓";
-  renderBoard();
-}
-async function fecharCom(status){
-  const c = cartaoAberto; if(!c) return;
-  if(status==="perdido" && !(c.notas||"").trim()){
-    toast("Antes de marcar como perdido, anote o motivo nas notas.");
-    return;
-  }
-  const { error } = await sb.rpc("crm_mover", { p_cartao:c.id, p_etapa:c.etapa, p_status:status });
-  if(error){ toast("Erro: "+error.message); return; }
-  c.status = status;
-  fecharCartao(); renderBoard();
-  toast(status==="ganho" ? "🎉 Marcado como GANHO!" : "Marcado como perdido.");
-}
-
-function abrirZapComMsg(zapNum){
-  const msg = document.getElementById("txtMsgPronta")?.value || "";
-  window.open(`https://wa.me/55${zapNum}?text=${encodeURIComponent(msg)}`, "_blank");
-}
-async function copiarMsg(){
-  const msg = document.getElementById("txtMsgPronta")?.value || "";
-  try { await navigator.clipboard.writeText(msg); toast("Mensagem copiada ✓"); }
-  catch { toast("Não consegui copiar — seleciona e copia manualmente."); }
-}
-/* ---------------- util ---------------- */
-let toastTimer = null;
-function toast(msg){
-  const t = document.getElementById("toast");
-  t.textContent = msg; t.style.display = "block";
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>{ t.style.display = "none"; }, 3500);
-}
-document.getElementById("inSenha").addEventListener("keydown", e=>{ if(e.key==="Enter") entrar(); });
-
-/* sessão já aberta? */
-sb.auth.getSession().then(({ data })=>{ if(data?.session) depoisDoLogin(); });
+document.getElementById("inSenha").addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("btEntrar").click();});
+document.getElementById("btSair").onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
+document.getElementById("btAtualizar").onclick=async()=>{
+  document.getElementById("carregando").hidden=false;
+  try{ await chamar("crm_sync"); await carregarTudo(); render(); if(ehDono()) renderParceiros(); toast("Atualizado"); }
+  catch(e){ PROBLEMAS.push("atualizar: "+(e.message||e)); mostrarProblemas(); }
+  document.getElementById("carregando").hidden=true;
+};
+(async()=>{ const {data:{session}}=await sb.auth.getSession(); if(session) await depoisDoLogin(); })();
 </script>
 </body>
 </html>
