@@ -41,7 +41,7 @@ let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
 let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[];
 const mesAtual=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
-let MES_AFIL=mesAtual();
+let MES_AFIL=mesAtual(), AFIL_CFG={pct_primeira:15,pct_recorrente:10};
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
@@ -192,6 +192,7 @@ async function carregarTudo(){
   }
   PARCEIROS = (ehDono() ? await chamar("crm_parceiros") : []) || [];
   AFIL = (ehDono() ? await chamar("crm_afiliados",{p_mes:MES_AFIL}) : []) || [];
+  if(ehDono()){ const c=await chamar("crm_afiliados_config"); if(c) AFIL_CFG=Object.assign(AFIL_CFG,c); }
   HOJE=hojeZero();
   EST={};
   for(const e of ((await chamar("crm_estado_lista"))||[])) EST[e.cartao]=normEst(e);
@@ -1107,46 +1108,62 @@ const mesMais=(m,k)=>{const [a,n]=m.split("-").map(Number);const d=new Date(a,n-
 async function recarregarAfiliados(){ AFIL=(await chamar("crm_afiliados",{p_mes:MES_AFIL}))||[]; renderParceiros(); }
 function afiliadosHTML(){
  const soma=k=>AFIL.reduce((a,p)=>a+(+p[k]||0),0);
- const saldoTot=soma("com_acumulada")-soma("com_paga");
+ const saldoTot=soma("com_confirmada");
  const linha=(p)=>{
-  const saldo=(+p.com_acumulada||0)-(+p.com_paga||0);
-  const comMes=(+p.com_novos_mes||0)+(+p.com_renov_mes||0);
-  return `<div class="afil" data-afil="${esc(p.code)}">
+  const saldo=+p.com_confirmada||0, comMes=(+p.com_novos_mes||0)+(+p.com_renov_mes||0), bloq=p.status==="bloqueado";
+  return `<div class="afil${bloq?" bloq":""}" data-afil="${esc(p.code)}">
    <div class="afil-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>
-    <span class="pill">${esc(p.tipo)} · ${p.comissao}%${p.recorrente?" · recorrente":" · só 1ª cobrança"}</span>
-    <span style="margin-left:auto;font-size:11px;color:var(--dim)">${p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0}% viram assinatura</span></div>
+    <span class="pill" style="color:var(--c4);border-color:var(--c4)">${esc(p.nivel_nome||p.nivel)} · ${p.vp} VP</span>
+    <span class="pill">${p.pct_recorrente}% rec. · ${(+p.pct_recorrente)+(+p.pct_bonus)}% 1ª</span>
+    ${bloq?`<span class="pill bad">bloqueado</span>`:""}
+    <span style="margin-left:auto;font-size:11px;color:var(--dim)">${p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0}% viram assinatura · ${p.cliques} cliques</span></div>
    <div class="afil-g">
-    <div class="afil-n"><span>Cadastros indicados</span><b class="num">${p.cadastros}</b></div>
+    <div class="afil-n"><span>Cadastros indicados</span><b class="num">${p.cadastros}</b><i>${p.leads} pessoas no total</i></div>
     <div class="afil-n"><span>Assinaturas geradas</span><b class="num">${p.assinaturas}</b></div>
     <div class="afil-n"><span>Clientes ativos</span><b class="num">${p.ativos}</b></div>
     <div class="afil-n"><span>Receita líquida · ${esc(mesNome(MES_AFIL))}</span><b class="num">${brl(+p.receita_mes||0)}</b><i>total ${brl(+p.receita_total||0)}</i></div>
-    <div class="afil-n"><span>Comissão acumulada</span><b class="num">${brl(+p.com_acumulada||0)}</b><i>${esc(mesNome(MES_AFIL))}: ${p.novos_mes} nova${p.novos_mes===1?"":"s"} ${brl(+p.com_novos_mes||0)} + ${p.renov_mes} renov. ${brl(+p.com_renov_mes||0)} = ${brl(comMes)}</i></div>
-    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga</span><b class="num">${brl(+p.com_paga||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo):saldo<-0.009?"pago a mais "+brl(-saldo):"em dia"}</i></div>
+    <div class="afil-n"><span>Comissão acumulada</span><b class="num">${brl(+p.com_acumulada||0)}</b><i>${esc(mesNome(MES_AFIL))}: ${p.novos_mes} nova${p.novos_mes===1?"":"s"} ${brl(+p.com_novos_mes||0)} + ${p.renov_mes} renov. ${brl(+p.com_renov_mes||0)} = ${brl(comMes)}${+p.com_pendente?` · pendente ${brl(+p.com_pendente)}`:""}${+p.com_cancelada?` · cancelada ${brl(+p.com_cancelada)}`:""}</i></div>
+    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga</span><b class="num">${brl(+p.com_paga||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo):"em dia"}</i></div>
    </div>
    <div class="afil-f">
-    ${(p.pagamentos||[]).slice(0,3).map(g=>`<span class="pill">${esc(g.em)} · ${brl(+g.valor)}${g.ref?" · "+esc(mesNome(g.ref)):""}</span>`).join("")}
-    <button class="btn ghost" data-pagar="${esc(p.code)}" style="margin-left:auto;padding:7px 11px">Registrar pagamento</button>
+    <button class="btn ghost" data-copiar-link="${esc(p.link)}" style="padding:7px 11px">Copiar link de indicação</button>
+    <button class="btn ghost" data-copiar-link="${esc(p.painel)}" style="padding:7px 11px">Copiar link do painel</button>
+    <a class="btn ghost" href="${esc(p.painel)}" target="_blank" rel="noopener" style="padding:7px 11px;text-decoration:none">Abrir painel ↗</a>
+    ${(p.pagamentos||[]).slice(0,2).map(g=>`<span class="pill">${esc(g.em)} · ${brl(+g.valor)}${g.ref?" · "+esc(mesNome(g.ref)):""}</span>`).join("")}
+    <button class="btn ghost" data-bloq="${esc(p.code)}" data-para="${bloq?"ativo":"bloqueado"}" style="margin-left:auto;padding:7px 11px;color:var(--${bloq?"c2":"bad"})">${bloq?"Desbloquear":"Bloquear"}</button>
+    <button class="btn ghost" data-pagar="${esc(p.code)}" style="padding:7px 11px">Registrar pagamento</button>
    </div>
    <div class="afil-pg" hidden>
     <input class="txtarea" style="min-height:0" type="number" step="0.01" min="0.01" data-pg-valor value="${saldo>0?saldo.toFixed(2):""}" placeholder="Valor pago (R$)">
-    <input class="txtarea" style="min-height:0" data-pg-obs placeholder="Obs. (ex.: Pix 22/09)">
+    <input class="txtarea" style="min-height:0" data-pg-obs placeholder="Obs. / ID da transação Pix">
     <button class="btn go" data-pg-ok>Confirmar ${esc(mesNome(MES_AFIL))}</button>
     <button class="btn ghost" data-pg-nao>Cancelar</button>
    </div>
   </div>`;};
  return `
- <h2 class="sec">Afiliados · pagar comissão</h2>
+ <h2 class="sec">Novo afiliado</h2>
+ <div class="box pad">
+  <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr">
+   <input id="pCode" class="txtarea" style="min-height:0" placeholder="CÓDIGO (ex: JOAO5)" maxlength="20">
+   <input id="pNome" class="txtarea" style="min-height:0" placeholder="Nome do afiliado">
+   <input id="pPix" class="txtarea" style="min-height:0" placeholder="Chave Pix (opcional)">
+  </div>
+  <button class="btn go block" id="pSalvar" style="margin-top:10px">Criar afiliado e gerar links</button>
+  <div id="pResult" class="janela free" hidden style="margin-top:10px"></div>
+  <p class="nota">Modelo Vant Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
+  O link de indicação leva pro app com o cupom; o link do painel é privado — mande só pro afiliado. Pro desconto aparecer no checkout, o cupom com o mesmo código precisa existir na Hotmart.</p>
+ </div>
+ <h2 class="sec">Afiliados · comissões</h2>
  <div class="box pad">
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
    <button class="btn ghost" id="afMesAnt" style="padding:6px 10px">‹</button>
    <b style="min-width:70px;text-align:center">${esc(mesNome(MES_AFIL))}</b>
    <button class="btn ghost" id="afMesProx" style="padding:6px 10px" ${MES_AFIL>=mesAtual()?"disabled":""}>›</button>
-   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} parceiros · ${soma("cadastros")} cadastros · ${soma("assinaturas")} assinaturas · ${soma("ativos")} ativos ·
+   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} afiliados · ${soma("cadastros")} cadastros · ${soma("assinaturas")} assinaturas · ${soma("ativos")} ativos ·
     receita líquida no mês <b>${brl(soma("receita_mes"))}</b> · <b style="color:var(--${saldoTot>0.009?"warn":"c2"})">${saldoTot>0.009?"a pagar "+brl(saldoTot):"comissões em dia"}</b></span>
   </div>
-  ${AFIL.length?AFIL.map(linha).join(""):`<div class="vazio">Nenhum parceiro ainda.</div>`}
-  <p class="nota">Receita líquida = o que a Hotmart repassa (já sem a taxa dela). Comissão = % do parceiro sobre a 1ª cobrança de quem ele trouxe;
-  quem é <b>recorrente</b> ganha também sobre as renovações. Compras anteriores a 24/08 não estão na Hotmart ligada ao CRM.</p>
+  ${AFIL.length?AFIL.map(linha).join(""):`<div class="vazio">Nenhum afiliado ainda.</div>`}
+  <p class="nota">Cada cobrança guarda a regra que valia no dia (snapshot). Reembolso, chargeback ou cancelamento na Hotmart cancelam a comissão daquela cobrança sozinhos; se já tiver sido paga, entra um estorno. Compras anteriores a 24/08 não estão na Hotmart ligada ao CRM.</p>
  </div>`;
 }
 function ligarAfiliados(el){
@@ -1160,68 +1177,36 @@ function ligarAfiliados(el){
   if(!(v>0)){ toast("Informe o valor pago"); return; }
   if(!confirm("Registrar pagamento de "+brl(v)+" para "+code+" ("+mesNome(MES_AFIL)+")?")) return;
   b.disabled=true;
-  const {error}=await sb.rpc("crm_comissao_pagar",{p_code:code,p_valor:v,p_referencia:MES_AFIL,p_obs:obs});
+  const {error}=await sb.rpc("crm_comissao_pagar",{p_code:code,p_valor:v,p_referencia:MES_AFIL,p_obs:obs,p_transacao:null});
   if(error){ toast(error.message); b.disabled=false; return; }
   toast("Pagamento registrado"); await recarregarAfiliados();
+ });
+ el.querySelectorAll("[data-bloq]").forEach(b=>b.onclick=async()=>{
+  const code=b.dataset.bloq, para=b.dataset.para;
+  if(!confirm((para==="bloqueado"?"Bloquear ":"Desbloquear ")+code+"? "+(para==="bloqueado"?"O painel e o link dele param de funcionar.":""))) return;
+  const {error}=await sb.rpc("crm_afiliado_status",{p_code:code,p_status:para,p_novo_token:false});
+  if(error){ toast(error.message); return; }
+  toast(para==="bloqueado"?"Afiliado bloqueado":"Afiliado liberado"); await recarregarAfiliados();
  });
 }
 function renderParceiros(){
  const el=document.getElementById("p-parceiros"); if(!el)return;
- const tot=PARCEIROS.reduce((a,p)=>a+(+p.cadastros||0),0);
- const ass=PARCEIROS.reduce((a,p)=>a+(+p.assinaturas||0),0);
- el.innerHTML=afiliadosHTML()+`
- <h2 class="sec">Criar um link novo</h2>
- <div class="box pad">
-  <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr">
-   <input id="pCode" class="txtarea" style="min-height:0" placeholder="CÓDIGO (ex: JOAO5)" maxlength="20">
-   <input id="pNome" class="txtarea" style="min-height:0" placeholder="Nome do parceiro">
-   <select id="pTipo" class="txtarea" style="min-height:0">
-     <option value="afiliado">Afiliado (5%)</option>
-     <option value="influenciador">Influenciador (6,5%)</option>
-   </select>
-   <input id="pCom" class="txtarea" style="min-height:0" type="number" step="0.5" value="5" placeholder="Comissão %">
-  </div>
-  <label style="display:flex;gap:8px;align-items:center;margin-top:9px;font-size:12.5px;color:var(--dim)">
-   <input type="checkbox" id="pRec"> comissão recorrente (ganha todo mês, não só na primeira)</label>
-  <button class="btn go block" id="pSalvar" style="margin-top:10px">Gerar link</button>
-  <div id="pResult" class="janela free" hidden style="margin-top:10px"></div>
-  <p class="nota"><b>Importante:</b> o link já funciona pra rastrear cadastro e atribuir a venda.
-  Mas pro desconto aparecer no checkout, o cupom com esse mesmo código precisa existir na Hotmart —
-  isso você cria no painel deles uma vez.</p>
- </div>
-
- <h2 class="sec">Links ativos · ${PARCEIROS.length} parceiros · ${tot} cadastros · ${ass} assinaturas</h2>
- <div class="box pad">
-  ${PARCEIROS.length?PARCEIROS.map(p=>{
-    const conv=p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0;
-    const cor=conv>=20?"c2":conv>=10?"warn":"bad";
-    return `<div class="pbox">
-      <span class="nm"><b>${esc(p.nome)} · ${esc(p.code)}</b>
-        <span>${esc(p.link)}</span></span>
-      <span class="st"><b class="num" style="color:var(--${cor})">${conv}%</b>
-        ${p.cadastros} cad · ${p.assinaturas} ass${p.ativas?" · "+p.ativas+" ativas":""}</span>
-      <button class="btn ghost" data-copiar-link="${esc(p.link)}" style="flex:none;padding:7px 11px">Copiar</button>
-    </div>`;}).join("")
-   :`<div class="vazio">Nenhum parceiro cadastrado ainda.</div>`}
- </div>
- <p class="nota">A conversão compara <b>cadastros que vieram pelo link</b> com <b>assinaturas</b> desses cadastros.
- Quem estiver abaixo de 10% traz público que não é vendedor de rua.</p>`;
-
+ el.innerHTML=afiliadosHTML();
  ligarAfiliados(el);
  el.querySelectorAll("[data-copiar-link]").forEach(b=>b.onclick=async()=>{
    try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Link copiado");}catch(e){toast("Copie da tela");}});
  const sv=document.getElementById("pSalvar");
  if(sv) sv.onclick=async()=>{
-   const code=document.getElementById("pCode").value, nome=document.getElementById("pNome").value;
-   const tipo=document.getElementById("pTipo").value, com=+document.getElementById("pCom").value||5;
-   const rec=document.getElementById("pRec").checked;
-   const {data,error}=await sb.rpc("crm_parceiro_salvar",
-     {p_code:code,p_nome:nome,p_tipo:tipo,p_comissao:com,p_recorrente:rec});
+   const code=document.getElementById("pCode").value, nome=document.getElementById("pNome").value, pix=document.getElementById("pPix").value;
+   if(!code||!nome){ toast("Código e nome são obrigatórios"); return; }
+   sv.disabled=true;
+   const {data,error}=await sb.rpc("crm_afiliado_salvar",{p_code:code,p_nome:nome,p_pix:pix||null});
+   sv.disabled=false;
    if(error){ toast(error.message); return; }
    const r=document.getElementById("pResult");
-   r.hidden=false; r.innerHTML=`✓ Link criado: <b>${esc(data.link)}</b>`;
-   PARCEIROS=(await sb.rpc("crm_parceiros")).data||[];
-   toast("Parceiro salvo"); await recarregarAfiliados();
+   r.hidden=false; r.innerHTML=`✓ <b>${esc(data.nome)}</b> criado.<br>Link de indicação: <b>${esc(data.link)}</b><br>Link do painel (privado): <b>${esc(data.painel)}</b>`;
+   toast("Afiliado criado"); await recarregarAfiliados();
+   const r2=document.getElementById("pResult"); if(r2){ r2.hidden=false; r2.innerHTML=r.innerHTML; }
  };
 }
 

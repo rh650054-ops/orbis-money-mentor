@@ -1,6 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/r/:code",
+      "destination": "/r.html"
+    },
+    {
+      "source": "/parceiro",
+      "destination": "/parceiro.html"
+    },
+    {
+      "source": "/parceiro/",
+      "destination": "/parceiro.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
