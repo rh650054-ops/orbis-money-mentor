@@ -505,7 +505,7 @@ function renderHoje(){
  const renovam=queRenovam.reduce((s,x)=>s+(x.pago||0),0);
  const maxD=Math.max(...GRANA.dias.map(d=>d[1]));
  const msgs=mensagensDoDia();
- const vend=fechados().filter(e=>e.fechado==="ganhou").length;
+  const vend=VENDAS?((+VENDAS.novas||0)+(+VENDAS.renov||0)):0;
 
  let h=vendasHojeHTML();
  h+=ehDono()? `<div class="grana">
@@ -536,9 +536,9 @@ function renderHoje(){
   <div class="stat"><div class="k">Meta de hoje</div><div class="v num">${contatosHoje()} / ${META.contatos}</div>
    <div class="meter"><i style="width:${Math.min(100,contatosHoje()/META.contatos*100)}%"></i></div>
    <div class="s">${contatosHoje()>=META.contatos?"Meta batida.":`Faltam ${META.contatos-contatosHoje()} contatos`}</div></div>
-  <div class="stat"><div class="k">Assinaturas fechadas</div><div class="v num">${vend} / ${META.vendas}</div>
+  <div class="stat"><div class="k">Vendas hoje</div><div class="v num">${vend} / ${META.vendas}</div>
    <div class="meter"><i style="width:${Math.min(100,vend/META.vendas*100)}%"></i></div>
-   <div class="s">só as que você fechou</div></div>
+   <div class="s">${VENDAS?`${VENDAS.novas} nova${VENDAS.novas===1?"":"s"} · ${VENDAS.renov} renovaç${VENDAS.renov===1?"ão":"ões"} (Hotmart)`:"aprovadas na Hotmart"}</div></div>
   <div class="stat" style="border-color:var(--warn)"><div class="k" style="color:var(--warn)">Renova esta semana</div>
    <div class="v num" style="color:var(--warn)">${brl(renovam)}</div><div class="s">${queRenovam.length} cliente${queRenovam.length===1?"":"s"} · avise antes</div></div>
   <div class="stat" style="border-color:var(--bad)"><div class="k" style="color:var(--bad)">Sem contato</div>
@@ -1155,22 +1155,22 @@ const mesMais=(m,k)=>{const [a,n]=m.split("-").map(Number);const d=new Date(a,n-
 async function recarregarAfiliados(){ AFIL=(await chamar("crm_afiliados",{p_mes:MES_AFIL}))||[]; renderParceiros(); }
 function afiliadosHTML(){
  const soma=k=>AFIL.reduce((a,p)=>a+(+p[k]||0),0);
- const saldoTot=soma("com_confirmada");
+ const mes=esc(mesNome(MES_AFIL)), saldoTot=soma("com_confirmada");
  const linha=(p)=>{
-  const saldo=+p.com_confirmada||0, comMes=(+p.com_novos_mes||0)+(+p.com_renov_mes||0), bloq=p.status==="bloqueado";
+  const saldo=+p.com_confirmada||0, bloq=p.status==="bloqueado";
   return `<div class="afil${bloq?" bloq":""}" data-afil="${esc(p.code)}">
    <div class="afil-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>
     <span class="pill" style="color:var(--c4);border-color:var(--c4)">${esc(p.nivel_nome||p.nivel)} · ${p.vp} OP</span>
     <span class="pill">${p.pct_recorrente}% rec. · ${(+p.pct_recorrente)+(+p.pct_bonus)}% 1ª</span>
     ${bloq?`<span class="pill bad">bloqueado</span>`:""}
-    <span style="margin-left:auto;font-size:11px;color:var(--dim)">${p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0}% viram assinatura · ${p.cliques} cliques</span></div>
+    <span style="margin-left:auto;font-size:11px;color:var(--dim)">${mes}: ${p.cadastros_mes?Math.round(p.assinaturas_mes/p.cadastros_mes*100):0}% viram assinatura · ${p.cliques_mes} cliques</span></div>
    <div class="afil-g">
-    <div class="afil-n"><span>Cadastros indicados</span><b class="num">${p.cadastros}</b><i>${p.leads} pessoas no total</i></div>
-    <div class="afil-n"><span>Assinaturas geradas</span><b class="num">${p.assinaturas}</b></div>
-    <div class="afil-n"><span>Clientes ativos</span><b class="num">${p.ativos}</b></div>
-    <div class="afil-n"><span>Receita líquida · ${esc(mesNome(MES_AFIL))}</span><b class="num">${brl(+p.receita_mes||0)}</b><i>total ${brl(+p.receita_total||0)}</i></div>
-    <div class="afil-n"><span>Comissão acumulada</span><b class="num">${brl(+p.com_acumulada||0)}</b><i>${esc(mesNome(MES_AFIL))}: ${p.novos_mes} nova${p.novos_mes===1?"":"s"} ${brl(+p.com_novos_mes||0)} + ${p.renov_mes} renov. ${brl(+p.com_renov_mes||0)} = ${brl(comMes)}${+p.com_pendente?` · pendente ${brl(+p.com_pendente)}`:""}${+p.com_cancelada?` · cancelada ${brl(+p.com_cancelada)}`:""}</i></div>
-    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga</span><b class="num">${brl(+p.com_paga||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo):"em dia"}</i></div>
+    <div class="afil-n"><span>Cadastros · ${mes}</span><b class="num">${p.cadastros_mes}</b><i>${p.leads_mes} pessoas no mês · ${p.cadastros_total} no total</i></div>
+    <div class="afil-n"><span>Assinaturas · ${mes}</span><b class="num">${p.assinaturas_mes}</b><i>${p.novos_mes} 1ª cobrança${p.novos_mes===1?"":"s"} · ${p.assinaturas_total} no total</i></div>
+    <div class="afil-n"><span>Clientes ativos hoje</span><b class="num">${p.ativos}</b><i>${p.ativos_do_mes} assinaram em ${mes} e seguem</i></div>
+    <div class="afil-n"><span>Receita líquida · ${mes}</span><b class="num">${brl(+p.receita_mes||0)}</b><i>${p.novos_mes} nova${p.novos_mes===1?"":"s"} + ${p.renov_mes} renov. · total ${brl(+p.receita_total||0)}</i></div>
+    <div class="afil-n"><span>Comissão · ${mes}</span><b class="num">${brl(+p.com_mes||0)}</b><i>1ª ${brl(+p.com_novos_mes||0)} + renov. ${brl(+p.com_renov_mes||0)}${+p.com_pendente_mes?` · pendente ${brl(+p.com_pendente_mes)}`:""}${+p.com_cancelada_mes?` · cancelada ${brl(+p.com_cancelada_mes)}`:""} · acumulada ${brl(+p.com_acumulada||0)}</i></div>
+    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga · ${mes}</span><b class="num">${brl(+p.com_paga_mes||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo)+" (tudo)":"em dia"} · pago no total ${brl(+p.com_paga||0)}</i></div>
    </div>
    <div class="afil-f">
     <button class="btn ghost" data-copiar-link="${esc(p.link)}" style="padding:7px 11px">Copiar link de indicação</button>
@@ -1183,7 +1183,7 @@ function afiliadosHTML(){
    <div class="afil-pg" hidden>
     <input class="txtarea" style="min-height:0" type="number" step="0.01" min="0.01" data-pg-valor value="${saldo>0?saldo.toFixed(2):""}" placeholder="Valor pago (R$)">
     <input class="txtarea" style="min-height:0" data-pg-obs placeholder="Obs. / ID da transação Pix">
-    <button class="btn go" data-pg-ok>Confirmar ${esc(mesNome(MES_AFIL))}</button>
+    <button class="btn go" data-pg-ok>Confirmar ${mes}</button>
     <button class="btn ghost" data-pg-nao>Cancelar</button>
    </div>
   </div>`;};
@@ -1200,17 +1200,18 @@ function afiliadosHTML(){
   <p class="nota">Modelo Orbis Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
   O link de indicação leva pro app com o cupom; o link do painel é privado — mande só pro afiliado. Pro desconto aparecer no checkout, o cupom com o mesmo código precisa existir na Hotmart.</p>
  </div>
- <h2 class="sec">Afiliados · comissões</h2>
+ <h2 class="sec">Afiliados · o que aconteceu em ${mes}</h2>
  <div class="box pad">
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
    <button class="btn ghost" id="afMesAnt" style="padding:6px 10px">‹</button>
-   <b style="min-width:70px;text-align:center">${esc(mesNome(MES_AFIL))}</b>
+   <b style="min-width:70px;text-align:center">${mes}</b>
    <button class="btn ghost" id="afMesProx" style="padding:6px 10px" ${MES_AFIL>=mesAtual()?"disabled":""}>›</button>
-   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} afiliados · ${soma("cadastros")} cadastros · ${soma("assinaturas")} assinaturas · ${soma("ativos")} ativos ·
-    receita líquida no mês <b>${brl(soma("receita_mes"))}</b> · <b style="color:var(--${saldoTot>0.009?"warn":"c2"})">${saldoTot>0.009?"a pagar "+brl(saldoTot):"comissões em dia"}</b></span>
+   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} afiliados · no mês: ${soma("cadastros_mes")} cadastros · ${soma("assinaturas_mes")} assinaturas · ${soma("novos_mes")+soma("renov_mes")} cobranças ·
+    receita líquida <b>${brl(soma("receita_mes"))}</b> · comissão <b>${brl(soma("com_mes"))}</b> · paga <b>${brl(soma("com_paga_mes"))}</b> · <b style="color:var(--${saldoTot>0.009?"warn":"c2"})">${saldoTot>0.009?"a pagar (tudo) "+brl(saldoTot):"comissões em dia"}</b></span>
   </div>
   ${AFIL.length?AFIL.map(linha).join(""):`<div class="vazio">Nenhum afiliado ainda.</div>`}
-  <p class="nota">Cada cobrança guarda a regra que valia no dia (snapshot). Reembolso, chargeback ou cancelamento na Hotmart cancelam a comissão daquela cobrança sozinhos; se já tiver sido paga, entra um estorno. Compras anteriores a 24/08 não estão na Hotmart ligada ao CRM.</p>
+  <p class="nota">Cada número é só do mês escolhido (use ‹ › pra trocar); o total desde o início aparece pequeno embaixo. "Clientes ativos hoje" é estado de agora, não tem mês.
+  Cada cobrança guarda a regra que valia no dia; reembolso, chargeback ou cancelamento cancelam a comissão sozinhos. Compras anteriores a 24/08 não estão na Hotmart ligada ao CRM.</p>
  </div>`;
 }
 function ligarAfiliados(el){
