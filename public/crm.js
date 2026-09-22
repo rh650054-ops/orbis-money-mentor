@@ -44,13 +44,13 @@ let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
    Sao numeros de historia acumulada, nao de hoje; por isso ficam fixos ate virarem RPC. */
-const FUNIL_HIST={contas:779, abriram:293, venderam:257, assinaram:104};
-let BASES={base:FUNIL_HIST.contas,abriram:FUNIL_HIST.abriram,venderam:FUNIL_HIST.venderam,
-  assinaram:FUNIL_HIST.assinaram,trial:0,pagante:0,atraso:0,parou:0,frio:0};
+/* NUM = números vivos do funil, lidos de crm_numeros() a cada abertura */
+let NUM={leads_total:0,leads_sem_conta:0,leads_com_conta:0,contas:0,abriram:0,venderam:0,assinaram:0,pagando:0};
+let BASES={base:0,abriram:0,venderam:0,assinaram:0,trial:0,pagante:0,atraso:0,parou:0,frio:0};
 const TRIAL_HIST={total:363,semContato:298,comContato:65,fechou:17,fechouSem:14,fechouCom:3};
 const FECHOU={jun:28,jul:19,ago:40,set:21,total:108,comYan:33,sozinhas:75,pct:30.6};
 const TEMPOS={ate1oContato:182.8,mediana:185.7,entreFollowups:0.2};
-const LP={total:929,semConta:228,comConta:701};
+const LP={get total(){return NUM.leads_total}, get semConta(){return NUM.leads_sem_conta}, get comConta(){return NUM.leads_com_conta}};
 const RITMO=[["26/08",6],["01/09",12],["05/09",4],["07/09",3],["09/09",10],["10/09",48],
              ["12/09",34],["13/09",23],["15/09",63],["16/09",0],["17/09",0],["18/09",0],
              ["19/09",0],["20/09",0],["21/09",0],["22/09",0]];
@@ -67,7 +67,7 @@ const FOCO=[{d:"26/08",ini:"13:34",fim:"15:23",min:109,tar:6,fic:3},
 /* mapa pipeline do banco -> esteira desta tela */
 const DE_PIPE={trial:"trial", relacionamento:"pagante", inadimplente:"perdido", parceiro:"base"};
 const DE_ETAPA={
- trial:{dia1:"dia1",dia2:"dia2",dia3:"dia3",fechamento:"dia3",fechou:"assinou",nao_renovou:"acabou"},
+ trial:{lp:"lp",dia1:"dia1",dia2:"dia2",dia3:"dia3",fechamento:"dia3",fechou:"assinou",nao_renovou:"acabou"},
  relacionamento:{inicio_mes:"novo",meio_mes:"meio",fim_mes:"meio",renovacao:"renova"},
  inadimplente:{novo:"saiu",contato1:"motivo",negociando:"oferta",fechamento:"voltou"},
  parceiro:{novo:"frio",contatado:"acordou",respondeu:"usou",virou_teste:"virou"}};
@@ -80,7 +80,7 @@ const E={
    lp:[
     {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é o Yan do Orbis.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
     {t:"Mandar o link de criar conta",m:"Segue o link pra criar sua conta: [link]\n\nLeva menos de um minuto. Assim que criar me avisa aqui que eu já te mostro por onde começar."},
-    {t:"Anotar o motivo se não criar",nota:"Se ele não criar conta, escreva o porquê. São 228 pessoas nessa situação — o motivo delas é o dado mais valioso que a gente não tem."}],
+    {t:"Anotar o motivo se não criar",nota:"Se ele não criar conta, escreva o porquê. O motivo de quem não entra é o dado mais valioso que a gente não tem."}],
    dia1:[
     {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo ao Orbis!\n\nSou o Yan, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
     {t:"Perguntar o que ele vende e onde",m:"Me conta uma coisa: o que você vende e onde você costuma vender?\n\nAssim já te mostro a parte do app que mais vai te ajudar no seu corre."},
@@ -181,6 +181,7 @@ async function carregarTudo(){
     renovMes:+g.renov_mes||0,renovMesValor:+g.renov_mes_valor||0,novasMes:+g.novas_mes||0,
     dias:(g.dias||[]).map(x=>[x.d,+x.v])};
 
+  const n = await chamar("crm_numeros"); if(n) NUM=Object.assign(NUM, n);
   HOT = (await chamar("crm_hotmart_lista")) || [];
   CONV = {};
   for(const m of ((await chamar("crm_conversas_lista"))||[])){
@@ -217,11 +218,9 @@ async function carregarTudo(){
       }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
     }
   }
-  QTD["trial/lp"]=LP.semConta;
-  BASES={base:FUNIL_HIST.contas,abriram:FUNIL_HIST.abriram,venderam:FUNIL_HIST.venderam,
-    assinaram:FUNIL_HIST.assinaram,
-    trial:QTD["trial/dia1"]||0,pagante:GRANA.recorrenteQtd||FUNIL_HIST.assinaram,
-    atraso:GRANA.atrasoQtd,parou:GRANA.encerradasQtd,frio:LP.semConta};
+  BASES={base:NUM.contas,abriram:NUM.abriram,venderam:NUM.venderam,assinaram:NUM.assinaram,
+    trial:QTD["trial/dia1"]||0,pagante:NUM.pagando||GRANA.recorrenteQtd,
+    atraso:GRANA.atrasoQtd,parou:GRANA.encerradasQtd,frio:QTD["base/frio"]||0};
 
   FICHAS=[];
   for(const f of F){
@@ -301,8 +300,9 @@ function avaliar(f){
  else if(f.e==="perdido"){u=f.d<=7?85:f.d<=15?50:22;d=80;
   p=f.d<=7?`Saiu há <b>${Math.round(f.d)} dias</b>. Essa é a janela: quem volta, volta na primeira semana.`
           :`Saiu há <b>${Math.round(f.d)} dias</b> e ninguém perguntou por quê. Não é mais venda — é descobrir o motivo antes que vire padrão.`;}
- else if(f.c==="lp"){u=72;d=45;
-  p=`Deixou o contato na página mas <b>nunca criou conta no Orbis</b> — já faz ${Math.round(f.d)} dias. São <b>228 pessoas</b> nessa situação. Ele levantou a mão e ninguém puxou; é o lead mais barato que existe porque já demonstrou interesse.`;}
+ else if(f.c==="lp"){u=f.d<=3?78:f.d<=14?55:f.d<=45?35:18;d=45;
+  p=f.d<=3?`Deixou o contato na página <b>há ${Math.round(f.d)} dia${Math.round(f.d)===1?"":"s"}</b> e ainda não criou conta. É agora: quem levantou a mão ontem responde; quem levantou há um mês, não.`
+   :`Deixou o contato na página há <b>${Math.round(f.d)} dias</b> e nunca criou conta. São <b>${NUM.leads_sem_conta} pessoas</b> nessa situação — vale um toque leve, sem insistir.`;}
  else if(f.e==="trial"){
   const T=temperatura(f), quente=T&&T.n==="Pronto pra fechar";
   const kFim=f.fim?dias(f.fim):null;
@@ -316,7 +316,7 @@ function avaliar(f){
   if(T&&T.respondeu&&!quente){u=Math.max(u,88);
    p+=` <b>Ele respondeu no WhatsApp e está esperando.</b>`;}}
  else{u=f.c==="usou"?55:f.c==="acordou"?45:25;d=35;
-  p=f.c==="frio"?`Criou conta e nunca abriu o app. São <b>408 iguais a esse</b>. Volume alto, chance baixa.`
+  p=f.c==="frio"?`Criou conta e nunca abriu o app. São <b>${QTD["base/frio"]||0} iguais a esse</b>. Volume alto, chance baixa.`
                 :`Já mexeu no app mas não virou teste. <b>Quem registra uma venda converte 25× mais.</b>`;}
  return{score:Math.round(u*.55+d*.3+Math.min(30,f.d*1.1)*.15),porque:p};
 }
@@ -328,6 +328,8 @@ let S={pos:0,feitas:{},fechados:{},contatos:0,etapa:{},notas:{},conv:{},vistos:{
 try{const g=localStorage.getItem(K);if(g)S=Object.assign(S,JSON.parse(g));}catch(e){}
 const salvar=()=>{try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}};
 const etapaDe=f=>S.etapa[f.id]||f.c;
+/* "travado" só existe onde há atividade que destrava: Trial (dias 1–3) e Pagantes. Lead da LP e Base só "estão" ali. */
+const travaDe=f=>{const c=etapaDe(f); return ((f.e==="trial"&&c!=="lp"&&c!=="acabou")||f.e==="pagante")?f.trava:0;};
 const atividades=f=>E[f.e].ativ[etapaDe(f)]||[];
 const feitasDe=f=>S.feitas[f.id+"/"+etapaDe(f)]||[];
 const tudoFeito=f=>{const a=atividades(f);return a.length>0&&feitasDe(f).length>=a.length;};
@@ -484,7 +486,7 @@ function renderHoje(){
      <span class="pill${et==="acabou"?" bad":""}">${esc(colNome)}</span>
      ${f.ref&&f.ref!=="—"?`<span class="pill">via ${esc(f.ref)}</span>`:""}
      ${f.tel?`<a class="pill" href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);border-color:var(--c2);text-decoration:none">WhatsApp ↗</a>`:`<span class="pill">zap ${esc(f.zap)}</span>`}
-     ${f.trava?`<span class="pill bad">travado ${f.trava}d</span>`:""}</div></div>
+     ${travaDe(f)?`<span class="pill bad">travado ${travaDe(f)}d</span>`:`<span class="pill">${Math.round(f.d)}d aqui</span>`}</div></div>
    <button class="btn ghost" style="flex:none;align-self:flex-start" data-painel="${f.id}">Painel</button></div>
   <p class="porque"><span style="flex:none;color:var(--dim)">→</span><span><b>Por que esse agora:</b> ${f.porque}</span></p>
   ${sinaisHTML(f)}
@@ -664,8 +666,8 @@ function alertas(){
   if(et==="renova"&&dias(f.renova)<=3) A.push({p:2,ic:"💳",cor:"warn",f,
    tt:`${f.n} renova em ${dias(f.renova)} dias`,
    ds:`${brl(f.pago)} por mês. Se o cartão falhar sem aviso, vira inadimplente — e 85% de quem atrasa não volta.`});
-  if(f.trava>=1&&et!=="acabou"&&(f.e==="trial"||f.e==="pagante")) A.push({p:2,ic:"🔒",cor:"warn",f,
-   tt:`${f.n} travado há ${f.trava} dia${f.trava===1?"":"s"}`,
+  if(travaDe(f)>=1) A.push({p:2,ic:"🔒",cor:"warn",f,
+   tt:`${f.n} travado há ${travaDe(f)} dia${travaDe(f)===1?"":"s"}`,
    ds:`A atividade da etapa não foi feita, então a ficha não avançou. Ele está parado esperando você.`});
   if(et==="acabou"&&!(S.notas[f.id+"/0"]||"").trim()) A.push({p:3,ic:"❓",cor:"dim",f,
    tt:`${f.n} acabou sem motivo registrado`,
@@ -733,13 +735,18 @@ function renderEsteiras(){
         const semMotivo=etapaDe(x)==="acabou"&&!(S.notas[x.id+"/0"]||"").trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}">
          <div class="nm">${esc(x.n)}</div>
-         <div class="sb${x.trava||semMotivo?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
-           :x.trava?`travado ${x.trava}d`:`${Math.round(x.d)}d nessa coluna`}</div></button>`;}).join("")}
-      ${qtd>am.length?`<div class="mais num">+ ${qtd-am.length} não mostradas</div>`:""}
+         <div class="sb${travaDe(x)||semMotivo?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
+           :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}</div></button>`;}).join("")}
+      ${qtd>am.length?`<button class="mais num" data-coluna="${k}/${c}" style="color:var(--c1);font-weight:700">+ ${qtd-am.length} não mostradas · ver todas ↗</button>`:""}
       ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
    </div></div>`;}
  document.getElementById("p-esteiras").innerHTML=h;
  document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+ document.querySelectorAll("#p-esteiras [data-coluna]").forEach(b=>b.onclick=()=>{
+   const [k,c]=b.dataset.coluna.split("/"); const titulo=(E[k].cols.find(x=>x[0]===c)||[c,c])[1];
+   const lista=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!S.fechados[x.id]);
+   abrirLista(titulo, `${lista.length} pessoas nesta coluna · por prioridade`, lista, lista.length);
+ });
 }
 
 /* ===== PAINEL DA PESSOA ===== */
@@ -826,16 +833,20 @@ function abrirLista(titulo,sub,pessoas,total){
    <p style="margin:3px 0 0;font-size:12px;color:var(--dim)">${esc(sub)}</p></div>
    <button class="fechar" id="dr-x" aria-label="Fechar"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
   <div class="dr-body"><div class="dr-sec">
-   ${pessoas.length?pessoas.map(p=>`<button class="lista-p" data-painel="${p.id}">
+   ${pessoas.length>8?`<input id="busca-lista" class="txtarea" style="min-height:0;margin-bottom:9px" placeholder="Buscar por nome, WhatsApp ou cupom…" aria-label="Buscar na lista">`:""}
+   ${pessoas.length?pessoas.map(p=>`<button class="lista-p" data-painel="${p.id}" data-busca="${esc((p.n+" "+p.zap+" "+(p.ref||"")+" "+(p.email||"")).toLowerCase())}">
      <span class="dot" style="background:var(--${E[p.e].cor})"></span>
      <span class="nm">${esc(p.n)}<span class="mt" style="display:block;font-weight:400">${esc(E[p.e].nome)} · zap ${esc(p.zap)} · ${esc(p.ref||"—")}</span></span>
      <span class="mt num">${Math.round(p.d)}d</span></button>`).join("")
     :`<p class="nota" style="margin:0">Ninguém nesta lista.</p>`}
-   ${total&&total>pessoas.length?`<p class="nota">Mostrando ${pessoas.length} de <b>${total}</b>. No app real a lista é completa, com busca e filtro.</p>`:""}
+   ${total&&total>pessoas.length?`<p class="nota">Mostrando as <b>${pessoas.length}</b> fichas abertas; o total de <b>${total}</b> inclui quem já foi fechado ou arquivado.</p>`:""}
   </div></div>`;
  dr.dataset.on="1";veu.dataset.on="1";
  document.getElementById("dr-x").onclick=fechar;veu.onclick=fechar;
  dr.querySelectorAll("[data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+ const bl=dr.querySelector("#busca-lista");
+ if(bl) bl.oninput=()=>{const q=bl.value.trim().toLowerCase();
+   dr.querySelectorAll(".lista-p").forEach(b=>b.hidden=!!q&&!b.dataset.busca.includes(q));};
 }
 
 /* ===== TELA MÉTRICAS ===== */
@@ -848,9 +859,9 @@ function renderMetricas(){
 
  const cards=[
   {k:"Pessoas que entraram",v:BASES.base,suf:"",s:"contas criadas no total",cor:"c4",pct:100,
-   lista:()=>abrirLista("Pessoas que entraram","779 contas criadas — quem ainda não virou nada está na esteira Base",todas.filter(f=>f.e==="base"),BASES.base)},
-  {k:"Taxa de conversão",v:"13,4",suf:"%",s:"104 assinaram de 779 contas",cor:"c1",pct:13.4,
-   lista:()=>abrirLista("Quem assinou","104 pessoas assinaram alguma vez · 70 pagam hoje",todas.filter(f=>f.e==="pagante"),BASES.assinaram)},
+   lista:()=>abrirLista("Pessoas que entraram",`${NUM.contas} contas criadas — quem ainda não virou nada está na esteira Base`,todas.filter(f=>f.e==="base"),BASES.base)},
+  {k:"Taxa de conversão",v:NUM.contas?String((NUM.assinaram/NUM.contas*100).toFixed(1)).replace(".",","):"—",suf:"%",s:`${NUM.assinaram} assinaram de ${NUM.contas} contas`,cor:"c1",pct:NUM.contas?NUM.assinaram/NUM.contas*100:0,
+   lista:()=>abrirLista("Quem assinou",`${NUM.assinaram} pessoas assinaram alguma vez · ${NUM.pagando} pagam hoje`,todas.filter(f=>f.e==="pagante"),BASES.assinaram)},
   {k:"Taxa de resposta",v:taxaResp===null?"—":taxaResp,suf:taxaResp===null?"":"%",
    s:taxaResp===null?"marque um desfecho para começar a medir":`${resp} responderam de ${fe.length} contatos`,cor:"c2",pct:taxaResp||0,
    lista:()=>abrirLista("Taxa de resposta","Alimentada pelo botão Respondeu no desfecho de cada contato",[],0)},
@@ -958,7 +969,7 @@ function renderMetricas(){
   ${funil.map(([l,v,c],i)=>`<button class="fstep" data-funil="${i}">
     <span class="lbl">${l}</span><span class="track"><i style="width:${v/maxF*100}%;background:var(--${c})"></i></span>
     <span class="v num">${v}${i?` · ${Math.round(v/maxF*100)}%`:""}</span></button>`).join("")}</div>
-  <p class="nota">O degrau mais caro é o primeiro: <b>486 pessoas criaram conta e nunca abriram o app</b>.
+  <p class="nota">O degrau mais caro é o primeiro: <b>${NUM.contas-NUM.abriram} pessoas criaram conta e nunca abriram o app</b>.
   Desse grupo só 1,5% assina; de quem registra uma venda, 38% assina — <b>25 vezes mais</b>.</p></div>
 
  <h2 class="sec">Seu ritmo de trabalho</h2>
@@ -984,11 +995,11 @@ function renderMetricas(){
 
  document.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>cards[+b.dataset.card].lista());
  const alvos=[
-  ()=>abrirLista("Contas criadas","779 pessoas criaram conta no Orbis",todas.filter(f=>f.e==="base"),BASES.base),
-  ()=>abrirLista("Abriram o app","293 de 779 chegaram a abrir o DEFCON",todas.filter(f=>f.e==="base"&&etapaDe(f)!=="frio"),BASES.abriram),
-  ()=>abrirLista("Registraram venda","257 registraram pelo menos uma venda",todas.filter(f=>etapaDe(f)==="usou"),BASES.venderam),
-  ()=>abrirLista("Assinaram","104 assinaram alguma vez",todas.filter(f=>f.e==="pagante"),BASES.assinaram),
-  ()=>abrirLista("Pagando hoje","70 assinaturas ativas",todas.filter(f=>f.e==="pagante"),BASES.pagante)];
+  ()=>abrirLista("Contas criadas",`${NUM.contas} pessoas criaram conta no Orbis`,todas.filter(f=>f.e==="base"),BASES.base),
+  ()=>abrirLista("Abriram o app",`${NUM.abriram} de ${NUM.contas} chegaram a abrir o app`,todas.filter(f=>f.e==="base"&&etapaDe(f)!=="frio"),BASES.abriram),
+  ()=>abrirLista("Registraram venda",`${NUM.venderam} registraram pelo menos uma venda`,todas.filter(f=>etapaDe(f)==="usou"),BASES.venderam),
+  ()=>abrirLista("Assinaram",`${NUM.assinaram} assinaram alguma vez`,todas.filter(f=>f.e==="pagante"),BASES.assinaram),
+  ()=>abrirLista("Pagando hoje",`${NUM.pagando} assinaturas ativas na Hotmart`,todas.filter(f=>f.e==="pagante"),BASES.pagante)];
  document.querySelectorAll("[data-funil]").forEach(b=>b.onclick=()=>alvos[+b.dataset.funil]());
 }
 
@@ -1079,7 +1090,7 @@ async function depoisDoLogin(){
   document.getElementById("telaLogin").hidden=true;
   document.getElementById("app").hidden=false;
   document.getElementById("carregando").hidden=false;
-  try{ await chamar("crm_sync"); await carregarTudo(); }
+  try{ await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
   try{ aplicarPapel(); render(); if(ehDono()) renderParceiros(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
@@ -1117,7 +1128,7 @@ document.getElementById("btEntrar").onclick=async()=>{
 document.getElementById("btSair").onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
 document.getElementById("btAtualizar").onclick=async()=>{
   document.getElementById("carregando").hidden=false;
-  try{ await chamar("crm_sync"); await carregarTudo(); render(); if(ehDono()) renderParceiros(); toast("Atualizado"); }
+  try{ await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo(); render(); if(ehDono()) renderParceiros(); toast("Atualizado"); }
   catch(e){ PROBLEMAS.push("atualizar: "+(e.message||e)); mostrarProblemas(); }
   document.getElementById("carregando").hidden=true;
 };
