@@ -39,7 +39,9 @@ const META={contatos:10, vendas:1};
 let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   naoPagas:0,naoPagasQtd:0,atraso:0,atrasoQtd:0,encerradas:0,encerradasQtd:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
-let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[];
+let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[];
+const mesAtual=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
+let MES_AFIL=mesAtual();
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
@@ -189,6 +191,10 @@ async function carregarTudo(){
     (CONV[m.cartao]=CONV[m.cartao]||[]).push({de:m.de,t:m.texto,q:quando(m.criado_em),ts:m.criado_em,origem:m.origem});
   }
   PARCEIROS = (ehDono() ? await chamar("crm_parceiros") : []) || [];
+  AFIL = (ehDono() ? await chamar("crm_afiliados",{p_mes:MES_AFIL}) : []) || [];
+  HOJE=hojeZero();
+  EST={};
+  for(const e of ((await chamar("crm_estado_lista"))||[])) EST[e.cartao]=normEst(e);
 
   const pipes=["trial","relacionamento","inadimplente","parceiro"];
   QTD={}; F=[]; let id=0;
@@ -219,6 +225,9 @@ async function carregarTudo(){
       }catch(e){ PROBLEMAS.push("cartão "+(c&&c.id)+": "+(e.message||e)); }
     }
   }
+  // esteira/coluna movida à mão (só vale enquanto o banco não mexeu no cartão)
+  for(const f of F){ const e=EST[f.cartaoId]; if(e&&e.esteira&&maoVale(f)) f.e=e.esteira; }
+  QTD={}; for(const f of F){ const k=f.e+"/"+etapaDe(f); QTD[k]=(QTD[k]||0)+1; }
   BASES={base:NUM.contas,abriram:NUM.abriram,venderam:NUM.venderam,assinaram:NUM.assinaram,
     trial:QTD["trial/dia1"]||0,pagante:NUM.pagando||GRANA.recorrenteQtd,
     atraso:GRANA.atrasoQtd,parou:GRANA.encerradasQtd,frio:QTD["base/frio"]||0};
@@ -234,7 +243,8 @@ async function carregarTudo(){
 }
 
 /* ===== util ===== */
-const HOJE=(()=>{const d=new Date();d.setHours(0,0,0,0);return d;})();
+const hojeZero=()=>{const d=new Date();d.setHours(0,0,0,0);return d;};
+let HOJE=hojeZero();
 /* aceita "2026-09-22" e tambem o timestamp completo que vem do banco */
 function dias(s){
  if(!s) return 0;
@@ -324,20 +334,55 @@ function avaliar(f){
 const byId=id=>FICHAS.find(f=>f.id===id);
 
 /* ===== estado ===== */
-const K="crm-orbis-v1";
-let S={pos:0,feitas:{},fechados:{},contatos:0,etapa:{},notas:{},conv:{},vistos:{}};
+/* O estado de trabalho (coluna movida à mão, atividades feitas, notas, "resolvido/perdido")
+   mora no BANCO (tabela crm_estado), indexado pelo id do cartão — o que o Yan marca, o Rick vê.
+   Antes ficava no navegador, indexado pela ORDEM em que os cartões chegavam: bastava a ordem
+   mudar pra nota de uma pessoa aparecer na ficha de outra. */
+const K="crm-orbis-v2";
+try{localStorage.removeItem("crm-orbis-v1");}catch(e){}
+let S={pos:0,conv:{}};
 try{const g=localStorage.getItem(K);if(g)S=Object.assign(S,JSON.parse(g));}catch(e){}
 const salvar=()=>{try{localStorage.setItem(K,JSON.stringify(S));}catch(e){}};
-const etapaDe=f=>S.etapa[f.id]||f.c;
+let EST={};
+const normEst=e=>({esteira:e.esteira||null,etapa:e.etapa||null,etapa_base:e.etapa_base||null,
+  fechado:e.fechado||null,fechado_em:e.fechado_em||null,feitas:e.feitas||{},notas:e.notas||{}});
+const estDe=f=>EST[f.cartaoId]||(EST[f.cartaoId]=normEst({}));
+async function gravarEstado(f,patch){
+ const e=estDe(f);
+ Object.assign(e,patch);                                   // resposta imediata na tela
+ if("fechado" in patch) e.fechado_em=patch.fechado?new Date().toISOString():null;
+ if(patch.notas) e.notas=Object.assign({},e.notas,patch.notas);
+ try{
+  const {data,error}=await sb.rpc("crm_estado_salvar",{p_cartao:f.cartaoId,p_patch:patch});
+  if(error) throw error;
+  if(data) EST[f.cartaoId]=normEst(data);
+  return true;
+ }catch(err){ PROBLEMAS.push("salvar no banco ("+f.n+"): "+(err.message||err)); mostrarProblemas(); return false; }
+}
+/* a mão só vale enquanto o banco não mexer no cartão: se o sync mudou a etapa, a mão perde */
+const maoVale=f=>{const e=EST[f.cartaoId]; return !!(e&&e.etapa_base===f.c);};
+const etapaDe=f=>{const e=EST[f.cartaoId]; return (e&&e.etapa&&maoVale(f))?e.etapa:f.c;};
+const MS_DIA=864e5;
+/* "Resolvido"/"Perdido" somem da fila; "Respondeu" volta amanhã; "Falei, sem resposta" volta em 2 dias */
+function escondida(f){
+ const e=EST[f.cartaoId]; if(!e||!e.fechado||!maoVale(f)) return false;
+ if(e.fechado==="ganhou"||e.fechado==="perdido") return true;
+ const t=e.fechado_em?new Date(e.fechado_em).getTime():0;
+ return (Date.now()-t) < (e.fechado==="aguarda"?2*MS_DIA:MS_DIA);
+}
+const fechados=()=>Object.values(EST).filter(e=>e.fechado);
+const mesmoDia=ts=>{if(!ts)return false;const d=new Date(ts);return d.getFullYear()===HOJE.getFullYear()&&d.getMonth()===HOJE.getMonth()&&d.getDate()===HOJE.getDate();};
+const contatosHoje=()=>fechados().filter(e=>mesmoDia(e.fechado_em)).length;
+const notaDe=(f,i)=>String((estDe(f).notas||{})[String(i)]||"");
 /* "travado" só existe onde há atividade que destrava: Trial (dias 1–3) e Pagantes. Lead da LP e Base só "estão" ali. */
 const travaDe=f=>{const c=etapaDe(f); return ((f.e==="trial"&&c!=="lp"&&c!=="acabou")||f.e==="pagante")?f.trava:0;};
 const atividades=f=>E[f.e].ativ[etapaDe(f)]||[];
-const feitasDe=f=>S.feitas[f.id+"/"+etapaDe(f)]||[];
+const feitasDe=f=>(estDe(f).feitas||{})[etapaDe(f)]||[];
 const tudoFeito=f=>{const a=atividades(f);return a.length>0&&feitasDe(f).length>=a.length;};
-const fila=()=>FICHAS.filter(f=>!S.fechados[f.id]);
+const fila=()=>FICHAS.filter(f=>!escondida(f));
 const atual=()=>{const q=fila();return q[Math.min(S.pos,q.length-1)]||null;};
 /* conversa = historico real + o que foi enviado nesta sessao */
-const convDe=f=>[...(f.conversa||[]),...(S.conv[f.id]||[])];
+const convDe=f=>[...(f.conversa||[]),...(S.conv[f.cartaoId]||[])];
 async function gravarMsg(f,de,texto){
  texto=String(texto||"").trim(); if(!texto) return false;
  const agora=new Date().toISOString();
@@ -348,7 +393,7 @@ async function gravarMsg(f,de,texto){
   return true;
  }catch(e){
   // sem banco, guarda no navegador pra não perder
-  (S.conv[f.id]=S.conv[f.id]||[]).push({de,t:texto,q:quando(agora),ts:agora,origem:"local"});
+  (S.conv[f.cartaoId]=S.conv[f.cartaoId]||[]).push({de,t:texto,q:quando(agora),ts:agora,origem:"local"});
   salvar(); PROBLEMAS.push("gravar mensagem: "+(e.message||e)); mostrarProblemas();
   return false;
  }
@@ -395,11 +440,12 @@ function msgDe(f,a){
  return a.m.replace(/\{p\}/g,f.n.split(" ")[0])
            .replace(/\{renova\}/g,f.renova?f.renova.slice(8,10)+"/"+f.renova.slice(5,7):"");
 }
-function marcar(f,i,on){
- const k=f.id+"/"+etapaDe(f),arr=S.feitas[k]||[],j=arr.indexOf(i);
+function feitasCom(f,i,on){
+ const e=estDe(f),k=etapaDe(f),arr=[...((e.feitas||{})[k]||[])],j=arr.indexOf(i);
  if(on&&j<0)arr.push(i); if(!on&&j>=0)arr.splice(j,1);
- S.feitas[k]=arr;salvar();
+ return Object.assign({},e.feitas,{[k]:arr});
 }
+function marcar(f,i,on){ void gravarEstado(f,{feitas:feitasCom(f,i,on)}); }
 function avancar(f){
  const cols=E[f.e].cols,at=etapaDe(f),i=cols.findIndex(c=>c[0]===at);
  if(f.e==="trial"&&at==="dia3"){mover(f,"assinou");return;}
@@ -408,10 +454,10 @@ function avancar(f){
 function mover(f,destino){
  // Trial > Assinou entra sozinho em Pagantes
  if(f.e==="trial"&&destino==="assinou"){
-   f.e="pagante";S.etapa[f.id]="novo";salvar();
+   void gravarEstado(f,{esteira:"pagante",etapa:"novo",etapa_base:f.c}); f.e="pagante";
    toast(f.n.split(" ")[0]+" entrou em Já pagantes");render();abrir(f.id);return;
  }
- S.etapa[f.id]=destino;salvar();
+ void gravarEstado(f,{etapa:destino,etapa_base:f.c});
  toast("Movido para "+(E[f.e].cols.find(c=>c[0]===destino)?.[1]||destino));
  render();abrir(f.id);
 }
@@ -419,12 +465,12 @@ function mover(f,destino){
 /* ===== TELA HOJE ===== */
 function renderHoje(){
  const q=fila(),f=atual();
- const travados=FICHAS.filter(x=>etapaDe(x)==="acabou"&&!S.fechados[x.id]).length;
+ const travados=FICHAS.filter(x=>etapaDe(x)==="acabou"&&!escondida(x)).length;
  const queRenovam=FICHAS.filter(x=>etapaDe(x)==="renova");
  const renovam=queRenovam.reduce((s,x)=>s+(x.pago||0),0);
  const maxD=Math.max(...GRANA.dias.map(d=>d[1]));
  const msgs=mensagensDoDia();
- const vend=Object.values(S.fechados).filter(x=>x==="ganhou").length;
+ const vend=fechados().filter(e=>e.fechado==="ganhou").length;
 
  let h=ehDono()? `<div class="grana">
   <div class="lbl">Faturamento total do Orbis</div>
@@ -451,9 +497,9 @@ function renderHoje(){
    <button class="cta" id="ir-travados">Ver quem está travado</button></div></div>`;
 
  h+=`<h2 class="sec">Seu dia</h2><div class="strip">
-  <div class="stat"><div class="k">Meta de hoje</div><div class="v num">${S.contatos} / ${META.contatos}</div>
-   <div class="meter"><i style="width:${Math.min(100,S.contatos/META.contatos*100)}%"></i></div>
-   <div class="s">${S.contatos>=META.contatos?"Meta batida.":`Faltam ${META.contatos-S.contatos} contatos`}</div></div>
+  <div class="stat"><div class="k">Meta de hoje</div><div class="v num">${contatosHoje()} / ${META.contatos}</div>
+   <div class="meter"><i style="width:${Math.min(100,contatosHoje()/META.contatos*100)}%"></i></div>
+   <div class="s">${contatosHoje()>=META.contatos?"Meta batida.":`Faltam ${META.contatos-contatosHoje()} contatos`}</div></div>
   <div class="stat"><div class="k">Assinaturas fechadas</div><div class="v num">${vend} / ${META.vendas}</div>
    <div class="meter"><i style="width:${Math.min(100,vend/META.vendas*100)}%"></i></div>
    <div class="s">só as que você fechou</div></div>
@@ -606,7 +652,7 @@ function ativHTML(f,a,i,on){
        </div>
        <p class="nota">${f.tel?"Abre o seu WhatsApp já com o texto. A atividade é marcada e a mensagem fica gravada aqui.":"Sem WhatsApp no cadastro — copie e mande por onde conseguir."}</p>`
       :`<div class="msg nota">${esc(a.nota||"Anote o resultado desta atividade.")}</div>
-        <textarea class="txtarea" style="margin-top:9px" data-nota="${i}" placeholder="Escreva aqui...">${esc(S.notas[f.id+"/"+i]||"")}</textarea>
+        <textarea class="txtarea" style="margin-top:9px" data-nota="${i}" placeholder="Escreva aqui...">${esc(notaDe(f,i))}</textarea>
         <div class="acoes"><button class="btn go" data-salvar="${i}">Salvar e marcar feita</button></div>`}
   </div></div>`;
 }
@@ -626,7 +672,7 @@ function ligarAtividades(root,f){
    } else { try{await navigator.clipboard.writeText(m);}catch(e){} toast("Mensagem copiada"); }};});
  root.querySelectorAll("[data-salvar]").forEach(b=>{
   b.onclick=()=>{const i=+b.dataset.salvar,ta=root.querySelector(`[data-nota="${i}"]`);
-   S.notas[f.id+"/"+i]=ta?ta.value:"";marcar(f,i,true);salvar();
+   void gravarEstado(f,{notas:{[String(i)]:ta?ta.value:""},feitas:feitasCom(f,i,true)});
    toast("Anotado · atividade marcada");render();
    if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);};});
 }
@@ -641,7 +687,7 @@ function ligarHoje(f){
  const av=document.querySelector("[data-avancar]");
  if(av&&!av.disabled)av.onclick=()=>avancar(f);
  document.querySelectorAll("[data-fim]").forEach(b=>b.onclick=()=>{
-  S.fechados[f.id]=b.dataset.fim;S.contatos++;
+  void gravarEstado(f,{fechado:b.dataset.fim,etapa_base:f.c});
   if(S.pos>=fila().length)S.pos=Math.max(0,fila().length-1);
   salvar();toast({ganhou:"Boa. Próximo.",respondeu:"Resposta registrada",aguarda:"Volta em 2 dias",perdido:"Marcado como perdido"}[b.dataset.fim]);
   render();});
@@ -670,7 +716,7 @@ function alertas(){
   if(travaDe(f)>=1) A.push({p:2,ic:"🔒",cor:"warn",f,
    tt:`${f.n} travado há ${travaDe(f)} dia${travaDe(f)===1?"":"s"}`,
    ds:`A atividade da etapa não foi feita, então a ficha não avançou. Ele está parado esperando você.`});
-  if(et==="acabou"&&!(S.notas[f.id+"/0"]||"").trim()) A.push({p:3,ic:"❓",cor:"dim",f,
+  if(et==="acabou"&&!notaDe(f,0).trim()) A.push({p:3,ic:"❓",cor:"dim",f,
    tt:`${f.n} acabou sem motivo registrado`,
    ds:`Enquanto o motivo não for escrito, ele conta como lead sem contato nas métricas.`});
  });
@@ -730,10 +776,10 @@ function renderEsteiras(){
    <div class="cols" style="--n:${def.cols.length}">
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
-     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!S.fechados[x.id]).slice(0,4);
+     const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x)).slice(0,4);
      return `<div class="col"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num">${qtd}</span></div>
       ${am.map(x=>{
-        const semMotivo=etapaDe(x)==="acabou"&&!(S.notas[x.id+"/0"]||"").trim();
+        const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
         return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}">
          <div class="nm">${esc(x.n)}</div>
          <div class="sb${travaDe(x)||semMotivo?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
@@ -745,7 +791,7 @@ function renderEsteiras(){
  document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
  document.querySelectorAll("#p-esteiras [data-coluna]").forEach(b=>b.onclick=()=>{
    const [k,c]=b.dataset.coluna.split("/"); const titulo=(E[k].cols.find(x=>x[0]===c)||[c,c])[1];
-   const lista=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!S.fechados[x.id]);
+   const lista=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x));
    abrirLista(titulo, `${lista.length} pessoas nesta coluna · por prioridade`, lista, lista.length);
  });
 }
@@ -757,7 +803,7 @@ function abrir(id){
  const et=etapaDe(f),def=E[f.e],cols=def.cols,idx=cols.findIndex(c=>c[0]===et);
  const ats=atividades(f),fei=feitasDe(f),pronto=tudoFeito(f);
  const ini=f.n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
- const semMotivo=et==="acabou"&&!(S.notas[f.id+"/0"]||"").trim();
+ const semMotivo=et==="acabou"&&!notaDe(f,0).trim();
 
  dr.innerHTML=`
   <div class="dr-head">
@@ -813,7 +859,7 @@ function abrir(id){
    <div class="dr-sec"><h4>Ir para a fila</h4>
     <button class="btn block" id="dr-fila">Colocar como próximo em Hoje</button></div>
   </div>`;
- dr.dataset.on="1";veu.dataset.on="1";
+ dr.dataset.id=String(id); dr.dataset.id=""; dr.dataset.on="1";veu.dataset.on="1";
  document.getElementById("dr-x").onclick=fechar;
  veu.onclick=fechar;
  ligarAtividades(dr,f); ligarChat(dr,f);
@@ -904,10 +950,10 @@ function relatorioHTML(){
 /* ===== TELA MÉTRICAS ===== */
 function renderMetricas(){
  const tc=temposDeConversa();
- const fe=Object.values(S.fechados);
+ const fe=fechados().map(e=>e.fechado);
  const resp=fe.filter(x=>x==="respondeu"||x==="ganhou").length;
  const taxaResp=fe.length?Math.round(resp/fe.length*100):null;
- const todas=FICHAS.filter(f=>!S.fechados[f.id]);
+ const todas=FICHAS.filter(f=>!escondida(f));
 
  const cards=[
   {k:"Pessoas que entraram",v:BASES.base,suf:"",s:"contas criadas no total",cor:"c4",pct:100,
@@ -1057,11 +1103,73 @@ function renderMetricas(){
 }
 
 /* ===== TELA PARCEIROS · gerar e medir os links ===== */
+const mesMais=(m,k)=>{const [a,n]=m.split("-").map(Number);const d=new Date(a,n-1+k,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
+async function recarregarAfiliados(){ AFIL=(await chamar("crm_afiliados",{p_mes:MES_AFIL}))||[]; renderParceiros(); }
+function afiliadosHTML(){
+ const soma=k=>AFIL.reduce((a,p)=>a+(+p[k]||0),0);
+ const saldoTot=soma("com_acumulada")-soma("com_paga");
+ const linha=(p)=>{
+  const saldo=(+p.com_acumulada||0)-(+p.com_paga||0);
+  const comMes=(+p.com_novos_mes||0)+(+p.com_renov_mes||0);
+  return `<div class="afil" data-afil="${esc(p.code)}">
+   <div class="afil-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>
+    <span class="pill">${esc(p.tipo)} · ${p.comissao}%${p.recorrente?" · recorrente":" · só 1ª cobrança"}</span>
+    <span style="margin-left:auto;font-size:11px;color:var(--dim)">${p.cadastros?Math.round(p.assinaturas/p.cadastros*100):0}% viram assinatura</span></div>
+   <div class="afil-g">
+    <div class="afil-n"><span>Cadastros indicados</span><b class="num">${p.cadastros}</b></div>
+    <div class="afil-n"><span>Assinaturas geradas</span><b class="num">${p.assinaturas}</b></div>
+    <div class="afil-n"><span>Clientes ativos</span><b class="num">${p.ativos}</b></div>
+    <div class="afil-n"><span>Receita líquida · ${esc(mesNome(MES_AFIL))}</span><b class="num">${brl(+p.receita_mes||0)}</b><i>total ${brl(+p.receita_total||0)}</i></div>
+    <div class="afil-n"><span>Comissão acumulada</span><b class="num">${brl(+p.com_acumulada||0)}</b><i>${esc(mesNome(MES_AFIL))}: ${p.novos_mes} nova${p.novos_mes===1?"":"s"} ${brl(+p.com_novos_mes||0)} + ${p.renov_mes} renov. ${brl(+p.com_renov_mes||0)} = ${brl(comMes)}</i></div>
+    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga</span><b class="num">${brl(+p.com_paga||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo):saldo<-0.009?"pago a mais "+brl(-saldo):"em dia"}</i></div>
+   </div>
+   <div class="afil-f">
+    ${(p.pagamentos||[]).slice(0,3).map(g=>`<span class="pill">${esc(g.em)} · ${brl(+g.valor)}${g.ref?" · "+esc(mesNome(g.ref)):""}</span>`).join("")}
+    <button class="btn ghost" data-pagar="${esc(p.code)}" style="margin-left:auto;padding:7px 11px">Registrar pagamento</button>
+   </div>
+   <div class="afil-pg" hidden>
+    <input class="txtarea" style="min-height:0" type="number" step="0.01" min="0.01" data-pg-valor value="${saldo>0?saldo.toFixed(2):""}" placeholder="Valor pago (R$)">
+    <input class="txtarea" style="min-height:0" data-pg-obs placeholder="Obs. (ex.: Pix 22/09)">
+    <button class="btn go" data-pg-ok>Confirmar ${esc(mesNome(MES_AFIL))}</button>
+    <button class="btn ghost" data-pg-nao>Cancelar</button>
+   </div>
+  </div>`;};
+ return `
+ <h2 class="sec">Afiliados · pagar comissão</h2>
+ <div class="box pad">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+   <button class="btn ghost" id="afMesAnt" style="padding:6px 10px">‹</button>
+   <b style="min-width:70px;text-align:center">${esc(mesNome(MES_AFIL))}</b>
+   <button class="btn ghost" id="afMesProx" style="padding:6px 10px" ${MES_AFIL>=mesAtual()?"disabled":""}>›</button>
+   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} parceiros · ${soma("cadastros")} cadastros · ${soma("assinaturas")} assinaturas · ${soma("ativos")} ativos ·
+    receita líquida no mês <b>${brl(soma("receita_mes"))}</b> · <b style="color:var(--${saldoTot>0.009?"warn":"c2"})">${saldoTot>0.009?"a pagar "+brl(saldoTot):"comissões em dia"}</b></span>
+  </div>
+  ${AFIL.length?AFIL.map(linha).join(""):`<div class="vazio">Nenhum parceiro ainda.</div>`}
+  <p class="nota">Receita líquida = o que a Hotmart repassa (já sem a taxa dela). Comissão = % do parceiro sobre a 1ª cobrança de quem ele trouxe;
+  quem é <b>recorrente</b> ganha também sobre as renovações. Compras anteriores a 24/08 não estão na Hotmart ligada ao CRM.</p>
+ </div>`;
+}
+function ligarAfiliados(el){
+ const a=document.getElementById("afMesAnt"), p=document.getElementById("afMesProx");
+ if(a) a.onclick=()=>{MES_AFIL=mesMais(MES_AFIL,-1); recarregarAfiliados();};
+ if(p) p.onclick=()=>{MES_AFIL=mesMais(MES_AFIL,1); recarregarAfiliados();};
+ el.querySelectorAll("[data-pagar]").forEach(b=>b.onclick=()=>{const c=b.closest(".afil").querySelector(".afil-pg"); c.hidden=!c.hidden; if(!c.hidden) c.querySelector("[data-pg-valor]").focus();});
+ el.querySelectorAll("[data-pg-nao]").forEach(b=>b.onclick=()=>{b.closest(".afil-pg").hidden=true;});
+ el.querySelectorAll("[data-pg-ok]").forEach(b=>b.onclick=async()=>{
+  const box=b.closest(".afil"), code=box.dataset.afil, v=+box.querySelector("[data-pg-valor]").value, obs=box.querySelector("[data-pg-obs]").value;
+  if(!(v>0)){ toast("Informe o valor pago"); return; }
+  if(!confirm("Registrar pagamento de "+brl(v)+" para "+code+" ("+mesNome(MES_AFIL)+")?")) return;
+  b.disabled=true;
+  const {error}=await sb.rpc("crm_comissao_pagar",{p_code:code,p_valor:v,p_referencia:MES_AFIL,p_obs:obs});
+  if(error){ toast(error.message); b.disabled=false; return; }
+  toast("Pagamento registrado"); await recarregarAfiliados();
+ });
+}
 function renderParceiros(){
  const el=document.getElementById("p-parceiros"); if(!el)return;
  const tot=PARCEIROS.reduce((a,p)=>a+(+p.cadastros||0),0);
  const ass=PARCEIROS.reduce((a,p)=>a+(+p.assinaturas||0),0);
- el.innerHTML=`
+ el.innerHTML=afiliadosHTML()+`
  <h2 class="sec">Criar um link novo</h2>
  <div class="box pad">
   <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr">
@@ -1099,6 +1207,7 @@ function renderParceiros(){
  <p class="nota">A conversão compara <b>cadastros que vieram pelo link</b> com <b>assinaturas</b> desses cadastros.
  Quem estiver abaixo de 10% traz público que não é vendedor de rua.</p>`;
 
+ ligarAfiliados(el);
  el.querySelectorAll("[data-copiar-link]").forEach(b=>b.onclick=async()=>{
    try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Link copiado");}catch(e){toast("Copie da tela");}});
  const sv=document.getElementById("pSalvar");
@@ -1112,7 +1221,7 @@ function renderParceiros(){
    const r=document.getElementById("pResult");
    r.hidden=false; r.innerHTML=`✓ Link criado: <b>${esc(data.link)}</b>`;
    PARCEIROS=(await sb.rpc("crm_parceiros")).data||[];
-   toast("Parceiro salvo"); renderParceiros();
+   toast("Parceiro salvo"); await recarregarAfiliados();
  };
 }
 
@@ -1143,7 +1252,7 @@ async function depoisDoLogin(){
   document.getElementById("telaLogin").hidden=true;
   document.getElementById("app").hidden=false;
   document.getElementById("carregando").hidden=false;
-  try{ await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo(); }
+  try{ await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
   try{ aplicarPapel(); render(); if(ehDono()) renderParceiros(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
@@ -1179,12 +1288,27 @@ document.getElementById("btEntrar").onclick=async()=>{
 };
 ["inEmail","inSenha"].forEach(id=>document.getElementById(id).addEventListener("keydown",e=>{if(e.key==="Enter")document.getElementById("btEntrar").click();}));
 document.getElementById("btSair").onclick=async()=>{ await sb.auth.signOut(); location.reload(); };
-document.getElementById("btAtualizar").onclick=async()=>{
-  document.getElementById("carregando").hidden=false;
-  try{ await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo(); render(); if(ehDono()) renderParceiros(); toast("Atualizado"); }
-  catch(e){ PROBLEMAS.push("atualizar: "+(e.message||e)); mostrarProblemas(); }
-  document.getElementById("carregando").hidden=true;
-};
+let ATUALIZANDO=false, ULTIMA_CARGA=0;
+async function atualizar(silencioso){
+  if(ATUALIZANDO) return; ATUALIZANDO=true;
+  const cartaoAtual=atual()?.cartaoId, drawerAberto=document.getElementById("drawer").dataset.on==="1";
+  const cartaoAberto=drawerAberto?byId(+(document.getElementById("drawer").dataset.id||-1))?.cartaoId:null;
+  if(!silencioso) document.getElementById("carregando").hidden=false;
+  try{
+    await chamar("crm_sync"); await chamar("crm_sync_base"); await carregarTudo();
+    // mantém a pessoa que estava na tela, mesmo que a ordem tenha mudado
+    if(cartaoAtual){ const i=fila().findIndex(x=>x.cartaoId===cartaoAtual); if(i>=0){S.pos=i;salvar();} }
+    render(); if(ehDono()) renderParceiros();
+    if(cartaoAberto){ const f=FICHAS.find(x=>x.cartaoId===cartaoAberto); if(f) abrir(f.id); }
+    ULTIMA_CARGA=Date.now(); if(!silencioso) toast("Atualizado");
+  }catch(e){ PROBLEMAS.push("atualizar: "+(e.message||e)); mostrarProblemas(); }
+  document.getElementById("carregando").hidden=true; ATUALIZANDO=false;
+}
+document.getElementById("btAtualizar").onclick=()=>atualizar(false);
+setInterval(()=>{ if(!document.hidden && !document.getElementById("app").hidden) atualizar(true); }, 5*60*1000);
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden && !document.getElementById("app").hidden && Date.now()-ULTIMA_CARGA>2*60*1000) atualizar(true);
+});
 (async()=>{ const {data:{session}}=await sb.auth.getSession(); if(session) await depoisDoLogin(); })();
 
 })().catch((e) => {

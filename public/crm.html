@@ -322,6 +322,20 @@ h2.sec:first-child{margin-top:0}
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pbox .st{text-align:right;font-size:11px;color:var(--dim);flex:none}
 .pbox .st b{display:block;font-size:15px;color:var(--ink)}
+.afil{padding:12px 0;border-bottom:1px solid var(--line)}
+.afil:last-of-type{border-bottom:0}
+.afil-h{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px}
+.afil-g{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:10px}
+@media (max-width:900px){.afil-g{grid-template-columns:repeat(3,1fr)}}
+@media (max-width:520px){.afil-g{grid-template-columns:repeat(2,1fr)}}
+.afil-n{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 10px;min-width:0}
+.afil-n span{display:block;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+.afil-n b{display:block;font-size:17px;margin-top:3px;letter-spacing:-.02em}
+.afil-n i{display:block;font-style:normal;font-size:10.5px;color:var(--dim);margin-top:3px;line-height:1.35}
+.afil-n.deve{border-color:var(--warn)} .afil-n.deve b{color:var(--warn)}
+.afil-f{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:9px}
+.afil-pg{display:grid;grid-template-columns:1fr 1.4fr auto auto;gap:8px;margin-top:9px;align-items:center}
+@media (max-width:640px){.afil-pg{grid-template-columns:1fr 1fr}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 <style>
@@ -367,7 +381,7 @@ h2.sec:first-child{margin-top:0}
     <button role="tab" aria-selected="false" data-tab="esteiras">Esteiras</button>
     <button role="tab" aria-selected="false" data-tab="alertas">Alertas <span class="badge" id="bd-d">0</span></button>
     <button role="tab" aria-selected="false" data-tab="metricas">Métricas</button>
-    <button role="tab" aria-selected="false" data-tab="parceiros">Parceiros</button>
+    <button role="tab" aria-selected="false" data-tab="parceiros">Afiliados</button>
   </div>
   <section id="p-hoje"></section>
   <section id="p-alertas" hidden></section>
@@ -382,7 +396,7 @@ h2.sec:first-child{margin-top:0}
   <button role="tab" aria-selected="false" data-tab="esteiras"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.4"/><rect x="9.5" y="4" width="5" height="11" rx="1.4"/><rect x="16" y="4" width="5" height="7" rx="1.4"/></svg>Esteiras</button>
   <button role="tab" aria-selected="false" data-tab="alertas"><span class="nb" id="bd-m">0</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a6 6 0 0 0-6 6c0 5-2 6-2 6h16s-2-1-2-6a6 6 0 0 0-6-6ZM10.5 20a2 2 0 0 0 3 0"/></svg>Alertas</button>
   <button role="tab" aria-selected="false" data-tab="metricas"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V9M10 19V4M16 19v-7M22 19H2"/></svg>Métricas</button>
-  <button role="tab" aria-selected="false" data-tab="parceiros"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Links</button>
+  <button role="tab" aria-selected="false" data-tab="parceiros"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Afiliados</button>
 </nav>
 </div>
 
@@ -393,6 +407,6 @@ h2.sec:first-child{margin-top:0}
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Painel"></aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="/crm.js?v=5" defer></script>
+<script src="/crm.js?v=7" defer></script>
 </body>
 </html>
