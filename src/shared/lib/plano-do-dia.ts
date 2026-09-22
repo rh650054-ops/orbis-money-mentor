@@ -6,6 +6,7 @@
    e não pode esbarrar em "Sem plano hoje".
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 export interface PlanoDoDia { id: string; daily_goal: number; date: string }
 
@@ -37,6 +38,7 @@ export async function garantirPlanoDoDia(userId: string, date: string): Promise<
     plan_id: novo.id, user_id: userId, hour_index: i, hour_label: `H${i + 1}`, target_amount: dg / wh,
     valor_dinheiro: 0, valor_cartao: 0, valor_pix: 0, valor_calote: 0, timer_status: "idle",
   }));
-  await supabase.from("hourly_goal_blocks").insert(blocos);
+  const { error: blkErr } = await supabase.from("hourly_goal_blocks").insert(blocos);
+  if (blkErr) avisar.usuario("Não consegui montar as horas do plano de hoje. Tenta de novo.", blkErr, "plano-do-dia: criar blocos");
   return novo as PlanoDoDia;
 }

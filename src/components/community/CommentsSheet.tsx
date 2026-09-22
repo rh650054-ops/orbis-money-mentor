@@ -5,6 +5,7 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Heart, Loader2, Send, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -67,13 +68,18 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
   const send = async () => {
     if (!user || !postId || !text.trim() || sending) return;
     setSending(true);
-    await supabase.from("community_comments").insert({
+    const { error } = await supabase.from("community_comments").insert({
       post_id: postId,
       user_id: user.id,
       content: text.trim().slice(0, 500),
       nickname: profile?.nickname ?? user.email?.split("@")[0] ?? "Vendedor",
       avatar_url: profile?.avatar_url ?? null,
     });
+    if (error) {
+      avisar.usuario("Não consegui enviar o comentário. Tenta de novo.", error, "CommentsSheet: enviar comentário");
+      setSending(false);
+      return;
+    }
     setText("");
     await load();
     setSending(false);
@@ -84,15 +90,18 @@ export function CommentsSheet({ postId, onClose, profile }: Props) {
     setComments((prev) => prev.map((x) => x.id === c.id ? {
       ...x, liked_by_me: !x.liked_by_me, likes_count: x.likes_count + (x.liked_by_me ? -1 : 1)
     } : x));
-    if (c.liked_by_me) {
-      await supabase.from("community_likes").delete().eq("user_id", user.id).eq("comment_id", c.id);
-    } else {
-      await supabase.from("community_likes").insert({ user_id: user.id, comment_id: c.id });
-    }
+    const { error } = c.liked_by_me
+      ? await supabase.from("community_likes").delete().eq("user_id", user.id).eq("comment_id", c.id)
+      : await supabase.from("community_likes").insert({ user_id: user.id, comment_id: c.id });
+    if (error) avisar.usuario("Não consegui salvar a curtida. Tenta de novo.", error, "CommentsSheet: curtir comentário");
   };
 
   const remove = async (id: string) => {
-    await supabase.from("community_comments").update({ is_deleted: true }).eq("id", id);
+    const { error } = await supabase.from("community_comments").update({ is_deleted: true }).eq("id", id);
+    if (error) {
+      avisar.usuario("Não consegui apagar o comentário. Tenta de novo.", error, "CommentsSheet: apagar comentário");
+      return;
+    }
     setComments((p) => p.filter((c) => c.id !== id));
   };
 

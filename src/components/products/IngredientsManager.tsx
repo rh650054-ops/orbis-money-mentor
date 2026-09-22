@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/shared/ui/select";
 import { useIngredients, UNIT_OPTIONS, Ingredient } from "@/hooks/useIngredients";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -85,7 +86,8 @@ export default function IngredientsManager() {
   };
 
   const toggleAlerts = async (i: Ingredient) => {
-    await supabase.from("ingredients").update({ alerts_enabled: !i.alerts_enabled }).eq("id", i.id);
+    const { error } = await supabase.from("ingredients").update({ alerts_enabled: !i.alerts_enabled }).eq("id", i.id);
+    if (error) avisar.usuario("Não consegui salvar o alerta do ingrediente. Tenta de novo.", error, "IngredientsManager: alternar alerta");
     reload();
   };
 

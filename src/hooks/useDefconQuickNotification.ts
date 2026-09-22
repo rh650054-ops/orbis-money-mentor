@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { avisar } from "@/shared/lib/avisar";
 
 interface QuickNotifOptions {
   /** Total de vendas do dia (escrito na notificação de venda). */
@@ -66,8 +67,8 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
         if (q === "venda") optsRef.current.onVenda();
         else optsRef.current.onAbordagem();
       }
-    } catch {
-      /* ignora */
+    } catch (e) {
+      avisar.silencioso("QuickNotification: ler atalho da URL", e);
     }
   }, [active]);
 
@@ -115,8 +116,8 @@ export function useDefconQuickNotification(active: boolean, opts: QuickNotifOpti
             quickValue: optsRef.current.quickValue,
           },
         });
-      } catch {
-        /* ignora */
+      } catch (e) {
+        avisar.silencioso("QuickNotification: enviar pro service worker", e);
       }
     })();
 

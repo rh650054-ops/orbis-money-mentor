@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Swords } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { X1Avatar } from "./X1Avatar";
 import { fmt, primeiroNome } from "./x1-lib";
 
@@ -24,7 +25,7 @@ export function VizinhosCard({ userId, totalSold }: { userId: string | undefined
     let vivo = true;
     (supabase as any).rpc("x1_vizinhos_hoje").then(({ data }: { data: any[] | null }) => {
       if (vivo) setViz(((data as any[]) || []).map((v) => ({ ...v, vendido_hoje: Number(v.vendido_hoje) || 0 })));
-    }).catch(() => {});
+    }).catch((e: unknown) => avisar.erro("VizinhosCard: carregar vizinhos", e));
     return () => { vivo = false; };
   }, [userId]);
 

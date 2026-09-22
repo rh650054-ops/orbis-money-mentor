@@ -13,6 +13,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Check, X, Handshake, Loader2, Swords } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 import { X1Avatar } from "@/components/x1/X1Avatar";
 import { carregarPessoas, carregarRecorde, erroBonito, expiraEm, fmt, primeiroNome, quandoTexto, type Pessoa } from "@/components/x1/x1-lib";
@@ -59,7 +60,7 @@ export default function X1InvitePopup({ userId }: { userId: string }) {
       localStorage.setItem(`x1invite_ts_${meu.id}`, String(Date.now()));
       setConvite({ ...meu, stakes_amount: Number(meu.stakes_amount) || 0 });
       setAberto(true);
-    })().catch(() => {});
+    })().catch((e) => avisar.erro("X1InvitePopup: carregar convite", e));
     return () => { vivo = false; };
   }, [userId]);
 

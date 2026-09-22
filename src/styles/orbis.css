@@ -140,7 +140,7 @@
 /* ============================================================
    DASHBOARD v9.1 — "padrão Opal" (Rick, 01/09)
    Tokens de superfície e a escala de rótulo miúdo. A régua de espaço
-   e os 6 tamanhos de fonte moram no DashboardV9.tsx; aqui ficam só os
+   e os 6 tamanhos de fonte moram no Dashboard.tsx; aqui ficam só os
    valores que mais de um lugar usa.
    ============================================================ */
 :root {

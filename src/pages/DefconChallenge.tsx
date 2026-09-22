@@ -3,6 +3,7 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useDefconChallenge } from "@/hooks/useDefconChallenge";
 import { useDistanceTracker } from "@/hooks/useDistanceTracker";
 import { useDefconOnboarding } from "@/hooks/useDefconOnboarding";
@@ -32,7 +33,7 @@ export default function DefconChallenge() {
   // card "treino concluído", marca o passo do checklist e volta pro início.
   const [treinoConcluido, setTreinoConcluido] = useState(false);
   const concluirTreino = (rota: string = "/") => {
-    try { if (user?.id) localStorage.setItem(`orbis_defcon_tour_ok_${user.id}`, "1"); } catch { /* nada */ }
+    try { if (user?.id) localStorage.setItem(`orbis_defcon_tour_ok_${user.id}`, "1"); } catch (e) { avisar.silencioso("DefconChallenge: marcar treino concluído", e); }
     navigate(rota, { replace: true });
   };
 
@@ -80,7 +81,8 @@ export default function DefconChallenge() {
   useEffect(() => {
     if (treino) return;
     if ((defcon.phase === "finished" || defcon.phase === "abandoned") && defcon.sessionId) {
-      supabase.from("challenge_sessions").update({ distance_meters: Math.round(distLatest.current) } as never).eq("id", defcon.sessionId);
+      void supabase.from("challenge_sessions").update({ distance_meters: Math.round(distLatest.current) } as never).eq("id", defcon.sessionId)
+        .then(({ error }) => { if (error) avisar.erro("DefconChallenge: gravar distância da sessão", error); });
     }
   }, [defcon.phase, defcon.sessionId, treino]);
 
@@ -189,8 +191,8 @@ export default function DefconChallenge() {
       if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
         await Notification.requestPermission();
       }
-    } catch {
-      /* ignora — em aparelho sem suporte, segue sem notificação */
+    } catch (e) {
+      avisar.silencioso("DefconChallenge: pedir permissão de notificação", e);
     }
     defcon.startChallenge();
   };
@@ -341,7 +343,7 @@ export default function DefconChallenge() {
     try { return localStorage.getItem(askKey) === "1"; } catch { return true; }
   })();
   const mostrarPergunta = Boolean(overnight && !jaPerguntou);
-  const marcarPerguntado = () => { try { if (askKey) localStorage.setItem(askKey, "1"); } catch { /* ignore */ } setMidnightTick((t) => t + 1); };
+  const marcarPerguntado = () => { try { if (askKey) localStorage.setItem(askKey, "1"); } catch (e) { avisar.silencioso("DefconChallenge: marcar pergunta da virada", e); } setMidnightTick((t) => t + 1); };
 
   return (
     <>

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { useNavigate } from "react-router-dom";
 import { Swords } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -23,7 +24,7 @@ export function DefconX1Live({ x1 }: { x1: X1LiveState }) {
     if (!x1.event) return;
     try {
       if (typeof navigator !== "undefined" && "vibrate" in navigator) navigator.vibrate(x1.event.type === "overtaken" ? [90, 50, 90] : [60]);
-    } catch { /* sem vibração */ }
+    } catch (e) { avisar.silencioso("DefconX1Live: vibração", e); }
     const t = setTimeout(() => x1.dismissEvent(), 6000);
     return () => clearTimeout(t);
   }, [x1.event, x1]);

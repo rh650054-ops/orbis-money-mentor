@@ -7,6 +7,7 @@ import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { Label } from "@/shared/ui/label";
 import { Target, Clock, Calendar, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -122,15 +123,16 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
       .eq("date", today)
       .maybeSingle();
 
+    let planErr: unknown = null;
     if (todayPlan) {
-      await supabase
+      ({ error: planErr } = await supabase
         .from("daily_goal_plans")
         .update({
           daily_goal: dailyGoal,
           work_hours: workHours,
           hourly_goal: hourlyGoal,
         })
-        .eq("id", todayPlan.id);
+        .eq("id", todayPlan.id));
 
       // Update hourly blocks
       const { data: blocks } = await supabase
@@ -142,10 +144,11 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
         // If hours changed, recreate blocks
         if (blocks.length !== workHours) {
           // Delete old blocks
-          await supabase
+          const { error: delErr } = await supabase
             .from("hourly_goal_blocks")
             .delete()
             .eq("plan_id", todayPlan.id);
+          planErr ??= delErr;
 
           // Create new blocks
           const newBlocks = Array.from({ length: workHours }, (_, i) => ({
@@ -156,17 +159,19 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
             target_amount: hourlyGoal,
           }));
 
-          await supabase
+          const { error: insErr } = await supabase
             .from("hourly_goal_blocks")
             .insert(newBlocks);
+          planErr ??= insErr;
         } else {
           // Just update target amounts
           for (const block of blocks) {
             if (!block.is_completed) {
-              await supabase
+              const { error: updErr } = await supabase
                 .from("hourly_goal_blocks")
                 .update({ target_amount: hourlyGoal })
                 .eq("id", block.id);
+              planErr ??= updErr;
             }
           }
         }
@@ -174,6 +179,10 @@ export function EditPlanningModal({ userId, isOpen, onClose, isRequired = false,
     }
 
     setLoading(false);
+    if (planErr) {
+      avisar.usuario("Salvei as metas, mas não consegui atualizar o plano de hoje. Tenta de novo.", planErr, "EditPlanningModal: atualizar plano de hoje");
+      return;
+    }
     toast({
       title: "✅ Planejamento atualizado!",
       description: "Suas metas foram atualizadas com sucesso.",

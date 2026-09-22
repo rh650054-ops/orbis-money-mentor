@@ -13,6 +13,7 @@
 import { useEffect, useState } from "react";
 import { carregarPlano, salvarHoraInicio } from "@/shared/onboarding/plano";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 export default function CampoHoraVenda({ userId }: { userId?: string }) {
   const [hora, setHora] = useState<number | null>(null);
@@ -30,7 +31,8 @@ export default function CampoHoraVenda({ userId }: { userId?: string }) {
       void salvarHoraInicio(userId, nova);
     } else {
       // desmarcou: limpa no banco (e no local) — sem hora, sem cobrança
-      void supabase.from("onboarding_planos").update({ hora_inicio: null }).eq("user_id", userId);
+      void supabase.from("onboarding_planos").update({ hora_inicio: null }).eq("user_id", userId)
+        .then(({ error }) => { if (error) avisar.usuario("Não consegui salvar a hora de início. Tenta de novo.", error, "CampoHoraVenda: limpar hora"); });
       try {
         const raw = localStorage.getItem(`orbis_plano_corre_${userId}`);
         if (raw) {
@@ -38,7 +40,7 @@ export default function CampoHoraVenda({ userId }: { userId?: string }) {
           p.horaInicio = null;
           localStorage.setItem(`orbis_plano_corre_${userId}`, JSON.stringify(p));
         }
-      } catch { /* nada */ }
+      } catch (e) { avisar.silencioso("CampoHoraVenda: plano local", e); }
     }
   };
 

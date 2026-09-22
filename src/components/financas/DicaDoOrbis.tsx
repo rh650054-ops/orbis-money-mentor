@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, RefreshCw, ChevronRight, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 export interface DicaContexto {
@@ -78,7 +79,7 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
       if (!d.texto) throw new Error("vazia");
       const nova: Dica = { titulo: (d.titulo || "").trim(), texto: d.texto.trim(), fonte: "ia", quando: new Date().toISOString() };
       setDica(nova);
-      try { localStorage.setItem(chave(userId), JSON.stringify(nova)); } catch { /* ignore */ }
+      try { localStorage.setItem(chave(userId), JSON.stringify(nova)); } catch (e) { avisar.silencioso("DicaDoOrbis: guardar dica", e); }
     } catch (e) {
       console.error("dica financas:", e);
       setErro(forcar ? "Não consegui gerar agora. Tenta de novo em 1 min." : null);

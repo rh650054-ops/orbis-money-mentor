@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { DollarSign, CreditCard, Smartphone, Banknote, AlertTriangle, X, CalendarIcon, Bus, Utensils } from "lucide-react";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { z } from "zod";
 import { MotivationalCard } from "./MotivationalCard";
 import { MotivationalMessage } from "./MotivationalMessage";
@@ -254,6 +255,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         if (error) throw error;
       }
 
+      let falhouExtra = false; // venda salva, mas algum registro derivado falhou — não esconde o aviso com o toast de sucesso
       // Atualizar blocos de hora se existir plano hoje (usa fuso de Brasília)
       const currentHour = parseInt(getBrazilTime().split(":")[0], 10);
       const { data: planData } = await supabase
@@ -279,13 +281,14 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
           const totalWithAdjustment = newAchievedAmount + (currentBlock.manual_adjustment ?? 0);
           const isCompleted = totalWithAdjustment >= currentBlock.target_amount;
 
-          await supabase
+          const { error: blockErr } = await supabase
             .from("hourly_goal_blocks")
             .update({
               achieved_amount: newAchievedAmount,
               is_completed: isCompleted,
             })
             .eq("id", currentBlock.id);
+          if (blockErr) { falhouExtra = true; avisar.usuario("Salvei a venda, mas não consegui atualizar a meta da hora.", blockErr, "DailySalesForm: atualizar bloco da hora"); }
 
           if (isCompleted && !currentBlock.is_completed) {
             toast({
@@ -333,10 +336,11 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
           newStreak = 1;
         }
 
-        await supabase
+        const { error: streakErr } = await supabase
           .from("profiles")
           .update({ streak_days: newStreak, last_check_in_date: today })
           .eq("user_id", userId);
+        if (streakErr) { falhouExtra = true; avisar.usuario("Salvei a venda, mas não consegui atualizar sua constância.", streakErr, "DailySalesForm: atualizar constância"); }
       }
 
       // Calculate percentage and show motivational message
@@ -348,7 +352,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       const goalAchieved = totalDayProfit >= baseDailyGoal;
       const percentageAchieved = percentage;
 
-      await supabase
+      const { error: logErr } = await supabase
         .from("daily_work_log")
         .upsert({
           user_id: userId,
@@ -361,12 +365,15 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
         }, {
           onConflict: 'user_id,date'
         });
+      if (logErr) { falhouExtra = true; avisar.usuario("Salvei a venda, mas não consegui registrar o dia trabalhado.", logErr, "DailySalesForm: registrar dia trabalhado"); }
 
       // Mensagem motivacional automática
       const missing = Math.max(0, baseDailyGoal - totalDayProfit);
       const missingPercent = ((missing / baseDailyGoal) * 100).toFixed(0);
 
-      if (totalDayProfit >= baseDailyGoal) {
+      if (falhouExtra) {
+        // aviso de erro já está na tela; o toast motivacional o substituiria
+      } else if (totalDayProfit >= baseDailyGoal) {
         toast({
           title: "🔥 Visionário! Meta batida!",
           description: `R$${totalDayProfit.toFixed(2)} hoje! Isso aqui é disciplina de verdade!`,
@@ -397,6 +404,7 @@ export default function DailySalesForm({ userId, onSaved }: DailySalesFormProps)
       emitMissionEvent("sale-registered");
       if (onSaved) onSaved();
     } catch (error) {
+      avisar.erro("DailySalesForm: salvar venda do dia", error);
       toast({
         title: "Erro",
         description: "Não foi possível salvar os dados.",

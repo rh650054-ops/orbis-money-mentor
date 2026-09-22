@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, formatBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
 import { formatCurrency } from "@/shared/lib/utils";
 import { MoneyInput } from "@/shared/ui/money-input";
@@ -119,6 +120,7 @@ function LatePixSection() {
       setAmount("");
       fetchHistory();
     } catch (e) {
+      avisar.erro("DefconHub: lançar Pix atrasado", e);
       toast({ title: "Erro ao lançar o Pix", variant: "destructive" });
     } finally {
       setSaving(false);
@@ -146,7 +148,7 @@ function LatePixSection() {
         .limit(1);
       const ds = dsRows && dsRows.length > 0 ? dsRows[0] : null;
       if (ds) {
-        await supabase
+        const { error: updErr } = await supabase
           .from("daily_sales")
           .update({
             total_profit: Math.max(0, (Number(ds.total_profit) || 0) - Number(entry.amount)),
@@ -155,6 +157,7 @@ function LatePixSection() {
             total_debt: (Number((ds as any).total_debt) || 0) + Number(entry.amount),
           })
           .eq("id", ds.id);
+        if (updErr) throw updErr;
       }
       const { error: delErr } = await supabase.from("late_pix_entries").delete().eq("id", entry.id);
       if (delErr) throw delErr;
@@ -164,6 +167,7 @@ function LatePixSection() {
         description: `${formatCurrency(Number(entry.amount))} descontado de ${prettyDate(entry.sale_date)}`,
       });
     } catch (e) {
+      avisar.erro("DefconHub: remover Pix atrasado", e);
       toast({ title: "Erro ao remover", variant: "destructive" });
     } finally {
       setDeletingId(null);
@@ -677,7 +681,8 @@ export default function DefconHub() {
           valor_dinheiro: 0, valor_cartao: 0, valor_pix: 0, valor_calote: 0,
           timer_status: "idle",
         }));
-        await supabase.from("hourly_goal_blocks").insert(blocks);
+        const { error: blocksErr } = await supabase.from("hourly_goal_blocks").insert(blocks);
+        if (blocksErr) avisar.usuario("Não consegui montar as horas do plano de hoje. Tenta de novo.", blocksErr, "DefconHub: criar blocos do plano");
         setDailyGoal(dg);
         setPlanId(newPlan.id);
         setWorkHours(wh);
@@ -828,6 +833,7 @@ export default function DefconHub() {
       const label = pdfDate === getBrazilDate() ? "de hoje" : `de ${pdfDate.split("-").reverse().slice(0, 2).join("/")}`;
       toast({ title: "PDF gerado", description: `Relatório ${label} baixado com sucesso.` });
     } catch (e) {
+      avisar.erro("DefconHub: gerar PDF", e);
       toast({ title: "Erro ao gerar PDF", variant: "destructive" });
     } finally {
       setExporting(false);
@@ -851,16 +857,21 @@ export default function DefconHub() {
       .eq("date", today)
       .order("created_at", { ascending: true })
       .limit(1);
+    let costErr: unknown = null;
     if (rows && rows.length > 0) {
       const prev = Number((rows[0] as any)[col]) || 0;
-      await supabase
+      ({ error: costErr } = await supabase
         .from("daily_sales")
         .update({ [col]: prev + amount } as any)
-        .eq("id", (rows[0] as any).id);
+        .eq("id", (rows[0] as any).id));
     } else {
-      await supabase
+      ({ error: costErr } = await supabase
         .from("daily_sales")
-        .insert({ user_id: user.id, date: today, [col]: amount } as any);
+        .insert({ user_id: user.id, date: today, [col]: amount } as any));
+    }
+    if (costErr) {
+      avisar.usuario("Não consegui salvar o gasto. Tenta de novo.", costErr, "DefconHub: gasto rápido");
+      return;
     }
     setQuickCost("");
     const catLabel = quickCostCat === "transporte" ? "Transporte" : quickCostCat === "alimentacao" ? "Almoço" : "Mercadoria";
@@ -923,10 +934,11 @@ export default function DefconHub() {
           accD += bd; accC += bc; accP += bp;
           const bcal = Math.max(0, Math.round((blockTotal - (bd + bc + bp)) * 100) / 100);
           const achieved = Math.round((bd + bc + bp + bcal) * 100) / 100;
-          await supabase
+          const { error: blkErr } = await supabase
             .from("hourly_goal_blocks")
             .update({ valor_dinheiro: bd, valor_cartao: bc, valor_pix: bp, valor_calote: bcal, achieved_amount: achieved })
             .eq("id", b.id);
+          if (blkErr) throw blkErr;
         }
       }
 
@@ -934,7 +946,8 @@ export default function DefconHub() {
       setEditingPay(false);
       toast({ title: "Recebimentos atualizados", description: "Dinheiro, cartão e Pix corrigidos." });
       loadAll();
-    } catch {
+    } catch (e) {
+      avisar.erro("DefconHub: corrigir recebimentos", e);
       toast({ title: "Erro ao salvar", variant: "destructive" });
     } finally {
       setSavingPay(false);

@@ -13,6 +13,7 @@
    é o Index (tem os hooks de metas/defcon/ranking) e passa por props.
    ============================================================ */
 import { useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { Check, X } from "lucide-react";
 
@@ -78,19 +79,19 @@ export default function PrimeirosPassos({ userId, passos, onDispensar }: {
   // Tudo feito → celebra UMA vez, depois some pra sempre
   if (completo || primeirosPassosDispensado(userId)) {
     let celebrado = true;
-    try { celebrado = localStorage.getItem(chaveCelebrado(userId)) === "1"; } catch { /* nada */ }
+    try { celebrado = localStorage.getItem(chaveCelebrado(userId)) === "1"; } catch (e) { avisar.silencioso("PrimeirosPassos: ler celebrado", e); }
     if (completo && !celebrado) {
       return (
         <TourConcluido onFechar={() => {
           try {
             localStorage.setItem(chaveCelebrado(userId), "1");
             localStorage.setItem(chaveDispensado(userId), "1");
-          } catch { /* nada */ }
+          } catch (e) { avisar.silencioso("PrimeirosPassos: marcar celebrado", e); }
           onDispensar?.();
         }} />
       );
     }
-    if (completo) { try { localStorage.setItem(chaveDispensado(userId), "1"); } catch { /* nada */ } }
+    if (completo) { try { localStorage.setItem(chaveDispensado(userId), "1"); } catch (e) { avisar.silencioso("PrimeirosPassos: marcar dispensado", e); } }
     return null;
   }
 
@@ -148,7 +149,7 @@ export default function PrimeirosPassos({ userId, passos, onDispensar }: {
 
       {onDispensar && (
         <button type="button"
-          onClick={() => { try { localStorage.setItem(chaveDispensado(userId), "1"); } catch { /* nada */ } onDispensar(); }}
+          onClick={() => { try { localStorage.setItem(chaveDispensado(userId), "1"); } catch (e) { avisar.silencioso("PrimeirosPassos: dispensar", e); } onDispensar(); }}
           className="mt-1 inline-flex items-center gap-1 text-[11.5px] font-semibold"
           style={{ color: "var(--orbis-fg-3)" }}>
           <X size={12} /> esconder isso

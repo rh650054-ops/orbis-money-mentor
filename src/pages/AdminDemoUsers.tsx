@@ -9,6 +9,7 @@ import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { AdminShell } from "@/components/admin/AdminShell";
 import {
   UserPlus,
   Users,
@@ -331,16 +332,7 @@ export default function AdminDemoUsers() {
   }
 
   return (
-    <div className="space-y-6 pb-4 md:pb-8">
-      <div className="flex items-center gap-3">
-        <Shield className="w-8 h-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Gerenciar Contas Demo</h1>
-          <p className="text-muted-foreground mt-1">
-            Crie e gerencie contas de demonstração ilimitadas
-          </p>
-        </div>
-      </div>
+    <AdminShell title="Usuários demo" subtitle="Crie e gerencie contas de demonstração ilimitadas" icon={<Shield className="w-6 h-6 text-primary" />} width="xl">
 
       {/* Usuários no teste de 3 dias (trial) */}
       <Card>
@@ -573,6 +565,6 @@ export default function AdminDemoUsers() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </AdminShell>
   );
 }

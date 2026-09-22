@@ -9,6 +9,7 @@ import { Switch } from "@/shared/ui/switch";
 import { cn } from "@/shared/lib/utils";
 import { Save, Sparkles, Camera, X, Loader2, Instagram, MessageCircle, MapPin, Package, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
 
 const EXCLUSIVE_EMOJIS = [
@@ -171,17 +172,18 @@ export function RankingProfileModal({
       if (profileError) throw profileError;
 
       const currentMonth = new Date().toISOString().slice(0, 7);
-      await supabase
+      const { error: lbError } = await supabase
         .from("leaderboard_stats")
         .update({ nome_usuario: nickname.trim(), avatar_url: avatarValue })
         .eq("user_id", userId)
         .eq("mes_referencia", currentMonth);
+      if (lbError) throw lbError;
 
       toast({ title: "Perfil salvo!", description: "Outros vendedores já podem ver." });
       onProfileUpdated();
       onOpenChange(false);
     } catch (e) {
-      console.error(e);
+      avisar.erro("RankingProfileModal: salvar perfil público", e);
       toast({ title: "Erro ao salvar", variant: "destructive" });
     } finally { setIsSaving(false); }
   };

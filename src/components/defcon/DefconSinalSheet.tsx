@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getUltimaPosicao } from "@/shared/lib/gps-last";
@@ -44,7 +45,7 @@ export function DefconSinalSheet({ sessionId, userId, totalSold }: { sessionId: 
     (async () => {
       try {
         if (localStorage.getItem(chave(sessionId)) === "1") return;
-      } catch { /* nada */ }
+      } catch (e) { avisar.silencioso("DefconSinalSheet: ler se já perguntou", e); }
       // Já respondeu essa sessão no banco? (outro aparelho)
       const { data: sess } = await supabase.from("challenge_sessions").select("sinal_osm_id").eq("id", sessionId).maybeSingle();
       if (!vivo) return;
@@ -78,11 +79,11 @@ export function DefconSinalSheet({ sessionId, userId, totalSold }: { sessionId: 
       // Sem GPS e sem histórico: não tem como perguntar — não incomoda.
       if (!det && lista.length === 0) return;
       setTimeout(() => vivo && setOpen(true), 1200);
-    })().catch(() => {});
+    })().catch((e) => avisar.erro("DefconSinalSheet: carregar sinais", e));
     return () => { vivo = false; };
   }, [sessionId, userId]);
 
-  const marcarPerguntado = () => { try { localStorage.setItem(chave(sessionId), "1"); } catch { /* nada */ } };
+  const marcarPerguntado = () => { try { localStorage.setItem(chave(sessionId), "1"); } catch (e) { avisar.silencioso("DefconSinalSheet: marcar perguntado", e); } };
 
   const fechar = () => { marcarPerguntado(); setOpen(false); };
 
@@ -99,9 +100,11 @@ export function DefconSinalSheet({ sessionId, userId, totalSold }: { sessionId: 
       sinal_lng: pos ? Math.round(pos.lng * 1000) / 1000 : null,
     } as never).eq("id", sessionId);
     if (!error) {
-      await supabase.from("profiles").update({ compartilha_pontos: compartilha } as never).eq("user_id", userId);
+      const { error: profErr } = await supabase.from("profiles").update({ compartilha_pontos: compartilha } as never).eq("user_id", userId);
+      if (profErr) avisar.erro("DefconSinalSheet: salvar preferência de compartilhar pontos", profErr);
       if (duracao) {
-        await (supabase as any).from("caca_sinal_duracoes").upsert({ user_id: userId, osm_id: escolhido.osm_id, duracao }, { onConflict: "user_id,osm_id" });
+        const { error: durErr } = await (supabase as any).from("caca_sinal_duracoes").upsert({ user_id: userId, osm_id: escolhido.osm_id, duracao }, { onConflict: "user_id,osm_id" });
+        if (durErr) avisar.erro("DefconSinalSheet: salvar duração do sinal", durErr);
       }
     }
     setSalvando(false);

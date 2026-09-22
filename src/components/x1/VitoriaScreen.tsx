@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Share2, Swords, X, RotateCcw } from "lucide-react";
 import { toast } from "@/shared/hooks/use-toast";
+import { avisar } from "@/shared/lib/avisar";
 import { X1Avatar } from "./X1Avatar";
 import { XpBar } from "./FighterCard";
 import { fmt, primeiroNome, proximaPatente, type Pessoa, type Recorde } from "./x1-lib";
@@ -45,7 +46,7 @@ export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, aposta, premi
 }) {
   const [xpAnimado, setXpAnimado] = useState(false);
   useEffect(() => {
-    try { navigator.vibrate?.(tipo === "vitoria" ? [80, 60, 80, 60, 160] : [200]); } catch { /* sem vibração */ }
+    try { navigator.vibrate?.(tipo === "vitoria" ? [80, 60, 80, 60, 160] : [200]); } catch (e) { avisar.silencioso("VitoriaScreen: vibração", e); }
     const t = setTimeout(() => setXpAnimado(true), 2200);
     return () => clearTimeout(t);
   }, [tipo]);
@@ -66,7 +67,7 @@ export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, aposta, premi
     try {
       if (navigator.share) await navigator.share({ text: texto });
       else { await navigator.clipboard.writeText(texto); toast({ title: "Copiado! Cola no story." }); }
-    } catch { /* cancelou */ }
+    } catch (e) { avisar.silencioso("VitoriaScreen: compartilhar (cancelado)", e); }
   };
 
   return createPortal(

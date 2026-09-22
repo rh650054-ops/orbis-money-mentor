@@ -20,6 +20,7 @@ import { TrialNudge } from "@/components/TrialNudge";
 import { RankingList } from "@/components/ranking/RankingList";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 import { RANKING_FIRE_GRADIENT, RANKING_TIER_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
@@ -75,7 +76,7 @@ export default function Ranking() {
   // Checklist "Conhecer o ranking": marca a visita (lido pelo dashboard)
   useEffect(() => {
     if (!user) return;
-    try { localStorage.setItem(`orbis_visitou_ranking_${user.id}`, "1"); } catch { /* nada */ }
+    try { localStorage.setItem(`orbis_visitou_ranking_${user.id}`, "1"); } catch (e) { avisar.silencioso("Ranking: marcar visita", e); }
   }, [user]);
 
   const {
@@ -162,11 +163,11 @@ export default function Ranking() {
     const rank = leagueRank(pos);
     const key = `orbis_last_league_${user.id}`;
     let stored = 0;
-    try { stored = Number(localStorage.getItem(key)) || 0; } catch { /* noop */ }
+    try { stored = Number(localStorage.getItem(key)) || 0; } catch (e) { avisar.silencioso("Ranking: ler liga anterior", e); }
     if (stored && stored !== rank) {
       setLeagueTransition({ type: rank > stored ? "up" : "down", position: pos });
     }
-    try { localStorage.setItem(key, String(rank)); } catch { /* noop */ }
+    try { localStorage.setItem(key, String(rank)); } catch (e) { avisar.silencioso("Ranking: guardar liga", e); }
   }, [currentUserStats?.posicao_faturamento, user?.id]);
 
   // Recarrega ranking e perfil ao voltar o foco (ex.: retorno do DEFCON 4)
@@ -209,7 +210,7 @@ export default function Ranking() {
       loadUserProfile();
       loadLeaderboard();
     } catch (err) {
-      console.error(err);
+      avisar.erro("Ranking: enviar foto de perfil", err);
       toast({ title: "Erro ao enviar a foto", description: "Tente novamente.", variant: "destructive" });
     } finally {
       setQuickUploading(false);

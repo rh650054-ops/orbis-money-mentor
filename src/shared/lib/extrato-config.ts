@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 // Horário-limite pra subir o extrato do dia (hora do DIA SEGUINTE, fuso BR).
 // Vem do banco (app_settings.extrato_deadline_hour) e é mudável pelo admin.
@@ -26,8 +27,8 @@ export async function loadExtratoDeadline(): Promise<void> {
       .maybeSingle();
     const h = Number((data as { value?: string } | null)?.value);
     if (Number.isFinite(h) && h >= 0 && h <= 23) deadlineHour = h;
-  } catch {
-    /* mantém o padrão */
+  } catch (e) {
+    avisar.erro("extrato-config: ler hora limite (mantém o padrão)", e);
   }
 }
 

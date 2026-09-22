@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import MissionTour from "./MissionTour";
 import MissionWelcome from "./MissionWelcome";
 import MissionRanking from "./MissionRanking";
@@ -30,7 +31,8 @@ export default function MissionOrchestrator({
 }: MissionOrchestratorProps) {
   const persistStep = useCallback(
     (index: number) => {
-      void supabase.from("profiles").update({ onboarding_step: index }).eq("user_id", userId);
+      void supabase.from("profiles").update({ onboarding_step: index }).eq("user_id", userId)
+        .then(({ error }) => { if (error) avisar.erro("MissionOrchestrator: salvar passo do onboarding", error); });
     },
     [userId],
   );
@@ -39,7 +41,8 @@ export default function MissionOrchestrator({
     void supabase
       .from("profiles")
       .update({ onboarding_completed: true, onboarding_step: 0 })
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .then(({ error }) => { if (error) avisar.erro("MissionOrchestrator: marcar onboarding concluído", error); });
     onCompleted?.();
   }, [userId, onCompleted]);
 

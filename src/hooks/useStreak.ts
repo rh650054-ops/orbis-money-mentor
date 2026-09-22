@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 
@@ -82,7 +83,7 @@ export const useStreak = (userId: string | undefined) => {
     if (daysSinceWeekStart >= 7) {
       missedThisWeek = 0;
       freezeUsedThisWeek = false;
-      await supabase
+      const { error } = await supabase
         .from("profiles")
         .update({
           missed_days_this_week: 0,
@@ -90,6 +91,7 @@ export const useStreak = (userId: string | undefined) => {
           week_start_date: getBrazilDate(),
         })
         .eq("user_id", userId);
+      if (error) avisar.erro("useStreak: zerar contadores da semana", error);
     }
 
     let currentStreak = 0;
@@ -178,13 +180,14 @@ export const useStreak = (userId: string | undefined) => {
     await updateStreakInProfile(currentStreak);
 
     // Update freeze tracking
-    await supabase
+    const { error: freezeErr } = await supabase
       .from("profiles")
       .update({
         missed_days_this_week: missedThisWeek,
         freeze_used_this_week: freezeUsedThisWeek,
       })
       .eq("user_id", userId);
+    if (freezeErr) avisar.erro("useStreak: gravar faltas/freeze da semana", freezeErr);
 
     // Notify if streak changed
     if (currentStreak < oldStreak && oldStreak > 0) {
@@ -208,10 +211,11 @@ export const useStreak = (userId: string | undefined) => {
 
   const updateStreakInProfile = async (newStreak: number) => {
     if (!userId) return;
-    await supabase
+    const { error } = await supabase
       .from("profiles")
       .update({ streak_days: newStreak })
       .eq("user_id", userId);
+    if (error) avisar.erro("useStreak: gravar constância no perfil", error);
   };
 
   return { streak, calculateStreak };

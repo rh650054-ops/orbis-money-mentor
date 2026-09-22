@@ -7,6 +7,7 @@
    Fica no router, fora do Layout — cobre TODAS as telas.
    ============================================================ */
 import { useEffect, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CloudOff, Zap } from "lucide-react";
@@ -23,7 +24,7 @@ export default function OfflineGate() {
 
   // lembra o id do usuário pra o placar funcionar num boot sem sessão
   useEffect(() => {
-    if (user?.id) { try { localStorage.setItem("orbis_ultimo_user_id", user.id); } catch { /* nada */ } }
+    if (user?.id) { try { localStorage.setItem("orbis_ultimo_user_id", user.id); } catch (e) { avisar.silencioso("OfflineGate: lembrar usuário", e); } }
   }, [user?.id]);
 
   // voltou o sinal → reseta o "só olhar" pra próxima queda

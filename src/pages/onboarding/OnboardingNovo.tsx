@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import { Share, PlusSquare, Check } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useCountUp, useReducedMotion } from "@/shared/motion";
 import { calcularPlano, salvarPlano, marcarPlanoRevelado, type PlanoDoCorre } from "@/shared/onboarding/plano";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -121,7 +122,7 @@ export default function OnboardingNovo() {
   const gravarPasso = (n: number) => {
     if (!user?.id) return;
     supabase.from("profiles").update({ onboarding_step: n }).eq("user_id", user.id)
-      .then(() => { /* fire and forget */ }, () => { /* offline — segue o jogo */ });
+      .then(({ error }) => { if (error) avisar.erro("OnboardingNovo: gravar passo", error); }, (e: unknown) => avisar.erro("OnboardingNovo: gravar passo", e));
   };
   useEffect(() => { gravarPasso(1); /* chegou no Ato 1 */ // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
@@ -154,10 +155,11 @@ export default function OnboardingNovo() {
     if (user?.id) {
       marcarNovidadesVistas(user.id); // conta nova não vê "o que mudou no 2.0"
       try {
-        await supabase.from("profiles")
+        const { error } = await supabase.from("profiles")
           .update({ onboarding_completed: true, onboarding_step: 6 })
           .eq("user_id", user.id);
-      } catch { /* offline — o Layout revalida depois */ }
+        if (error) throw error;
+      } catch (e) { avisar.erro("OnboardingNovo: marcar onboarding concluído (o Layout revalida depois)", e); }
     }
     // Direto pro início do DEFCON: a ativação é o primeiro dia rodando, não o dashboard.
     navigate("/defcon?treino=1&primeiro=1", { replace: true });
@@ -186,7 +188,7 @@ export default function OnboardingNovo() {
         onInstalarNativo={async () => {
           const ev = promptRef.current;
           if (!ev) return;
-          try { await ev.prompt(); await ev.userChoice; } catch { /* usuário fechou */ }
+          try { await ev.prompt(); await ev.userChoice; } catch (e) { avisar.silencioso("OnboardingNovo: instalar PWA (usuário fechou)", e); }
           promptRef.current = null; setTemPromptNativo(false);
         }}
         onConcluir={() => irPara("meta")}

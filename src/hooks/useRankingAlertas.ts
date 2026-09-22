@@ -10,6 +10,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 export interface RankingAlerta {
   id: string;
@@ -67,7 +68,7 @@ export function useRankingAlertas(userId: string | undefined) {
               .then((reg) => reg.active?.postMessage({ type: "orbis-ranking-alert", data: { title: a.tipo === "foi_ultrapassado" ? `🔻 ${titulo}` : `🔺 ${titulo}`, body: corpo } }))
               .catch(() => { /* nada */ });
           }
-        } catch { /* nada */ }
+        } catch (e) { avisar.silencioso("useRankingAlertas: notificar service worker", e); }
       })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -75,14 +76,20 @@ export function useRankingAlertas(userId: string | undefined) {
 
   const dispensar = useCallback(async (id: string) => {
     setAlertas((lista) => lista.filter((a) => a.id !== id));
-    try { await supabase.from("ranking_eventos" as any).update({ visto_em: new Date().toISOString() }).eq("id", id); } catch { /* nada */ }
+    try {
+      const { error } = await supabase.from("ranking_eventos" as any).update({ visto_em: new Date().toISOString() }).eq("id", id);
+      if (error) avisar.erro("useRankingAlertas: marcar alerta como visto", error);
+    } catch (e) { avisar.erro("useRankingAlertas: marcar alerta como visto", e); }
   }, []);
 
   const dispensarTodos = useCallback(async () => {
     const ids = alertas.map((a) => a.id);
     setAlertas([]);
     if (!ids.length) return;
-    try { await supabase.from("ranking_eventos" as any).update({ visto_em: new Date().toISOString() }).in("id", ids); } catch { /* nada */ }
+    try {
+      const { error } = await supabase.from("ranking_eventos" as any).update({ visto_em: new Date().toISOString() }).in("id", ids);
+      if (error) avisar.erro("useRankingAlertas: marcar alertas como vistos", error);
+    } catch (e) { avisar.erro("useRankingAlertas: marcar alertas como vistos", e); }
   }, [alertas]);
 
   return { alertas, dispensar, dispensarTodos };

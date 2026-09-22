@@ -1,4 +1,5 @@
 import { lazy, Suspense, type ComponentType } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Layout from "@/app/layout";
 import RankingAlertas from "@/components/ranking/RankingAlertas";
@@ -17,8 +18,8 @@ function lazyWithReload<T extends ComponentType<any>>(
       .then((m) => {
         try {
           sessionStorage.removeItem("orbis-chunk-reload");
-        } catch {
-          /* noop */
+        } catch (e) {
+          avisar.silencioso("router: limpar flag de reload", e);
         }
         return m;
       })
@@ -29,8 +30,8 @@ function lazyWithReload<T extends ComponentType<any>>(
             window.location.reload();
             return new Promise<{ default: T }>(() => {});
           }
-        } catch {
-          /* noop */
+        } catch (e) {
+          avisar.silencioso("router: flag de reload de chunk", e);
         }
         throw err;
       }),
@@ -58,12 +59,9 @@ const AdminCenter = lazyWithReload(() => import("@/pages/AdminCenter"));
 const AdminDemoUsers = lazyWithReload(() => import("@/pages/AdminDemoUsers"));
 const AdminSubscriptions = lazyWithReload(() => import("@/pages/AdminSubscriptions"));
 const AdminCompetitions = lazyWithReload(() => import("@/pages/AdminCompetitions"));
-const AdminBrain = lazyWithReload(() => import("@/pages/AdminBrain"));
+const AdminCofre = lazyWithReload(() => import("@/pages/AdminCofre"));
 const AdminAntiCheat = lazyWithReload(() => import("@/pages/AdminAntiCheat"));
 const AdminExtratoConfig = lazyWithReload(() => import("@/pages/AdminExtratoConfig"));
-const TesteExtrato = lazyWithReload(() => import("@/pages/TesteExtrato"));
-const TestRanking = lazyWithReload(() => import("@/pages/TestRanking"));
-const TesteDefcon = lazyWithReload(() => import("@/pages/TesteDefcon"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
 const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
@@ -164,13 +162,9 @@ export function AppRouter() {
                     <Route path="/admin/demo-users" element={<AdminDemoUsers />} />
                     <Route path="/admin/subscriptions" element={<AdminSubscriptions />} />
                     <Route path="/admin/competitions" element={<AdminCompetitions />} />
-                    <Route path="/admin/ai-brain" element={<AdminBrain />} />
+                    <Route path="/admin/cofre" element={<AdminCofre />} />
                     <Route path="/admin/anti-trapaca" element={<AdminAntiCheat />} />
                     <Route path="/admin/extrato-config" element={<AdminExtratoConfig />} />
-                    <Route path="/admin/teste-extrato" element={<TesteExtrato />} />
-                    <Route path="/admin/teste-ranking" element={<TestRanking />} />
-                    {/* DEFCON teste — protótipo do Foco 2.0, só admin, nada vai pro banco */}
-                    <Route path="/admin/defcon-teste" element={<TesteDefcon />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </Suspense>

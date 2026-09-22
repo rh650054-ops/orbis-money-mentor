@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { EyeOff, Eye, Loader2 } from "lucide-react";
 import { Switch } from "@/shared/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 
@@ -49,7 +50,7 @@ export function OcultarResultado({ userId, oculto, setOculto, onMudou }: Props) 
       if (error) throw error;
       if (!valor) {
         // voltou pro ranking: recalcula o mês dele agora, sem esperar o próximo fechamento
-        try { await syncLeaderboardRevenue(userId); } catch { /* o próximo fechamento refaz */ }
+        try { await syncLeaderboardRevenue(userId); } catch (e) { avisar.erro("OcultarResultado: recalcular ranking ao voltar", e); }
       }
       toast({
         title: valor ? "Seu resultado está oculto" : "Você voltou pro ranking",

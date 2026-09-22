@@ -2,6 +2,7 @@
  * Background sync: when connection is restored, push pending offline data to the cloud.
  */
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getUnsynced, markSynced, clearSynced, type OfflineRecord } from "./offline-db";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { diasOfflinePendentes, marcarDiaSincronizado, type DiaOffline } from "./offline-day";
@@ -261,5 +262,5 @@ async function syncDiasOfflineLocais(): Promise<void> {
     for (const dia of diasOfflinePendentes(userId)) {
       await syncOfflineDay(dia);
     }
-  } catch { /* sem rede / sem sessão: tenta no próximo gatilho */ }
+  } catch (e) { avisar.erro("offline-sync: sincronizar dias offline (tenta no próximo gatilho)", e); }
 }

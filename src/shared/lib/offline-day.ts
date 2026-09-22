@@ -12,6 +12,7 @@
    então sincronizar 2x nunca duplica dinheiro.
    ============================================================ */
 import { addOfflineRecord } from "@/shared/lib/offline-db";
+import { avisar } from "@/shared/lib/avisar";
 
 export type MetodoVenda = "dinheiro" | "pix" | "cartao" | "gorjeta";
 
@@ -56,7 +57,7 @@ export function hojeBR(): string {
 /** O dashboard/Foco gravam a meta do dia aqui sempre que estão online,
  *  pra o modo offline saber qual é a meta mesmo sem servidor. */
 export function lembrarMetaDia(userId: string, meta: number): void {
-  try { if (meta > 0) localStorage.setItem(chaveMetaDia(userId), String(meta)); } catch { /* nada */ }
+  try { if (meta > 0) localStorage.setItem(chaveMetaDia(userId), String(meta)); } catch (e) { avisar.silencioso("offline-day: lembrar meta", e); }
 }
 export function metaDiaLembrada(userId: string): number {
   try { return Number(localStorage.getItem(chaveMetaDia(userId))) || 0; } catch { return 0; }
@@ -81,7 +82,7 @@ export function novoDiaOffline(userId: string, dailyGoal: number, date = hojeBR(
 
 /** Grava no localStorage (instantâneo) E na fila do IndexedDB (pra sync). */
 export async function salvarDiaOffline(dia: DiaOffline): Promise<void> {
-  try { localStorage.setItem(chave(dia.user_id, dia.date), JSON.stringify(dia)); } catch { /* nada */ }
+  try { localStorage.setItem(chave(dia.user_id, dia.date), JSON.stringify(dia)); } catch (e) { avisar.silencioso("offline-day: guardar dia no aparelho", e); }
   try {
     await addOfflineRecord("pending_defcon", {
       id: `offline_day_${dia.user_id}_${dia.date}`,
@@ -90,7 +91,7 @@ export async function salvarDiaOffline(dia: DiaOffline): Promise<void> {
       created_at: dia.started_at,
       synced: false,
     });
-  } catch { /* IndexedDB indisponível: o localStorage segura e o sync tenta por ele */ }
+  } catch (e) { avisar.erro("offline-day: enfileirar dia no IndexedDB", e); }
 }
 
 export function totaisDoDia(dia: DiaOffline) {
@@ -111,9 +112,9 @@ export function diasOfflinePendentes(userId: string): DiaOffline[] {
         try {
           const d = JSON.parse(localStorage.getItem(k) || "null") as DiaOffline | null;
           if (d && !d.synced_at && (d.sales.length > 0 || d.approaches > 0 || d.calote > 0)) out.push(d);
-        } catch { /* nada */ }
+        } catch (e) { avisar.silencioso("offline-day: ler dia guardado", e); }
       });
-  } catch { /* nada */ }
+  } catch (e) { avisar.silencioso("offline-day: listar dias pendentes", e); }
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -121,5 +122,5 @@ export function marcarDiaSincronizado(userId: string, date: string): void {
   const d = carregarDiaOffline(userId, date);
   if (!d) return;
   d.synced_at = new Date().toISOString();
-  try { localStorage.setItem(chave(userId, date), JSON.stringify(d)); } catch { /* nada */ }
+  try { localStorage.setItem(chave(userId, date), JSON.stringify(d)); } catch (e) { avisar.silencioso("offline-day: marcar sincronizado", e); }
 }

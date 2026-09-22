@@ -20,13 +20,13 @@ import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/we
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 // Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
 import RankingCard from "@/components/RankingCard";
-import { CompeticaoRow } from "@/components/dashboard/DashboardV8";
-import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha } from "@/components/dashboard/DashboardV9";
+import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha, CompeticaoRow } from "@/components/dashboard/Dashboard";
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { NovidadeClima } from "@/components/clima/NovidadeClima";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
+import { avisar } from "@/shared/lib/avisar";
 
 const REWARD_TIERS = [
   { name: "Semente", emoji: "🌱", threshold: 10_000, accent: "140 70% 45%", rarity: "Comum" },
@@ -109,7 +109,7 @@ export default function Index() {
       try {
         setTemDefcon(localStorage.getItem(`orbis_defcon_tour_ok_${user.id}`) === "1");
         setVisitouRanking(localStorage.getItem(`orbis_visitou_ranking_${user.id}`) === "1");
-      } catch { /* nada */ }
+      } catch (e) { avisar.silencioso("início: ler passos do tour", e); }
     })();
     return () => { cancel = true; };
   }, [user]);
@@ -431,7 +431,7 @@ export default function Index() {
     const tick = () => {
       try {
         if (localStorage.getItem(k) === "1") { localStorage.removeItem(k); setShowEditPlanning(true); }
-      } catch { /* nada */ }
+      } catch (e) { avisar.silencioso("início: abrir planejamento", e); }
     };
     tick();
     const id = window.setInterval(tick, 800); // o card fecha sem re-render do Index — sonda leve

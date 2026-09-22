@@ -9,6 +9,7 @@ import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { useToast } from "@/shared/hooks/use-toast";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 interface MenuItem {
   icon: React.ElementType;
@@ -193,10 +194,14 @@ export default function Profile() {
           // cards de 1ª vez em cada tela → checklist "primeiros passos" → tour concluído.
           const uid = user?.id;
           if (uid) {
-            await supabase
+            const { error } = await supabase
               .from("profiles")
               .update({ onboarding_completed: false, onboarding_step: 0 })
               .eq("user_id", uid);
+            if (error) {
+              avisar.usuario("Não consegui reiniciar o tour. Tenta de novo.", error, "Profile: refazer onboarding");
+              return;
+            }
           }
           try {
             // zera TUDO que o onboarding 2.0 marca como "já visto/feito"
@@ -213,8 +218,8 @@ export default function Profile() {
               )
               .forEach((k) => localStorage.removeItem(k));
             localStorage.setItem(`orbis_onboarding_novo_${uid}`, "1"); // conta no fluxo 2.0
-          } catch {
-            /* ignore */
+          } catch (e) {
+            avisar.silencioso("Profile: limpar marcações do onboarding no aparelho", e);
           }
           window.location.assign("/onboarding-novo");
         }}

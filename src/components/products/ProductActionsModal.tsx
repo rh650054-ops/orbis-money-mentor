@@ -5,6 +5,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/shared/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useIngredients } from "@/hooks/useIngredients";
@@ -61,25 +62,34 @@ export default function ProductActionsModal({ product, onClose, onChanged }: Pro
     const amount = parseFloat(saleAmount) || 0;
     setBusy(true);
 
-    // 1. Log da venda
-    await supabase.from("product_sales_log").insert({
-      user_id: user.id, product_id: product.id, quantity: qty, total_amount: amount,
-    });
+    try {
+      // 1. Log da venda
+      const { error: logErr } = await supabase.from("product_sales_log").insert({
+        user_id: user.id, product_id: product.id, quantity: qty, total_amount: amount,
+      });
+      if (logErr) throw logErr;
 
-    if (mode === "per_unit") {
-      // baixa direta dos ingredientes
-      for (const r of recipe) {
-        const ing = ingredients.find((i) => i.id === r.ingredient_id);
-        if (!ing) continue;
-        const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * qty);
-        await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
+      if (mode === "per_unit") {
+        // baixa direta dos ingredientes
+        for (const r of recipe) {
+          const ing = ingredients.find((i) => i.id === r.ingredient_id);
+          if (!ing) continue;
+          const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * qty);
+          const { error: ingErr } = await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
+          if (ingErr) throw ingErr;
+        }
       }
-    }
 
-    // sempre baixa do estoque do produto se houver
-    if (product.stock_quantity > 0) {
-      const newStock = Math.max(0, product.stock_quantity - qty);
-      await supabase.from("products").update({ stock_quantity: newStock }).eq("id", product.id);
+      // sempre baixa do estoque do produto se houver
+      if (product.stock_quantity > 0) {
+        const newStock = Math.max(0, product.stock_quantity - qty);
+        const { error: stockErr } = await supabase.from("products").update({ stock_quantity: newStock }).eq("id", product.id);
+        if (stockErr) throw stockErr;
+      }
+    } catch (e) {
+      avisar.usuario("Não consegui registrar a venda. Tenta de novo.", e, "ProductActionsModal: registrar venda");
+      setBusy(false);
+      return;
     }
 
     toast({ title: "Venda registrada", description: `${qty}× ${product.name}` });
@@ -99,22 +109,31 @@ export default function ProductActionsModal({ product, onClose, onChanged }: Pro
     }
     setBusy(true);
 
-    // baixa ingredientes do lote
-    for (const r of recipe) {
-      const ing = ingredients.find((i) => i.id === r.ingredient_id);
-      if (!ing) continue;
-      const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * lots);
-      await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
-    }
-
     const unitsAdded = lots * yieldPer;
-    await supabase.from("products").update({
-      stock_quantity: Number(product.stock_quantity) + unitsAdded,
-    }).eq("id", product.id);
+    try {
+      // baixa ingredientes do lote
+      for (const r of recipe) {
+        const ing = ingredients.find((i) => i.id === r.ingredient_id);
+        if (!ing) continue;
+        const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * lots);
+        const { error: ingErr } = await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
+        if (ingErr) throw ingErr;
+      }
 
-    await supabase.from("production_batches").insert({
-      user_id: user.id, product_id: product.id, batches_count: lots, units_produced: unitsAdded,
-    });
+      const { error: stockErr } = await supabase.from("products").update({
+        stock_quantity: Number(product.stock_quantity) + unitsAdded,
+      }).eq("id", product.id);
+      if (stockErr) throw stockErr;
+
+      const { error: batchErr } = await supabase.from("production_batches").insert({
+        user_id: user.id, product_id: product.id, batches_count: lots, units_produced: unitsAdded,
+      });
+      if (batchErr) throw batchErr;
+    } catch (e) {
+      avisar.usuario("Não consegui registrar a produção. Tenta de novo.", e, "ProductActionsModal: registrar produção");
+      setBusy(false);
+      return;
+    }
 
     toast({ title: "Produção registrada", description: `+${unitsAdded} ${product.name} no estoque` });
     setBusy(false);

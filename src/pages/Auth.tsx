@@ -6,6 +6,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
 import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
 import { getReferralCode } from "@/shared/lib/checkout";
@@ -188,7 +189,7 @@ export default function Auth() {
         });
         // Marca a conta como "Onboarding 2.0" (o Layout não mostra a missão antiga pra ela)
         if (signUpData?.user) {
-          try { localStorage.setItem(`orbis_onboarding_novo_${signUpData.user.id}`, "1"); } catch { /* nada */ }
+          try { localStorage.setItem(`orbis_onboarding_novo_${signUpData.user.id}`, "1"); } catch (e) { avisar.silencioso("Auth: marcar onboarding 2.0", e); }
         }
         navigate("/onboarding-novo", { replace: true });
       }

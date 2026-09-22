@@ -6,6 +6,7 @@
    ============================================================ */
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { getUltimaPosicao, setUltimaPosicao } from "@/shared/lib/gps-last";
 import type { Estado } from "@/components/clima/ClimaCena";
@@ -36,7 +37,7 @@ function periodoBR(): "madrugada" | "manha" | "tarde" | "noite" {
 function lerCache<T>(k: string): (T & { ts: number }) | null {
   try { const raw = localStorage.getItem(k); return raw ? (JSON.parse(raw) as T & { ts: number }) : null; } catch { return null; }
 }
-function gravarCache(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* ignore */ } }
+function gravarCache(k: string, v: unknown) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { avisar.silencioso("clima: gravar cache", e); } }
 
 /* ============================================================
    PERMISSÃO DE LOCALIZAÇÃO (Rick, 11/09)
@@ -55,8 +56,8 @@ export async function estadoPermissao(): Promise<Permissao> {
     if (st?.state === "granted") return "liberada";
     if (st?.state === "denied") return "negada";
     if (st?.state === "prompt") return "perguntar";
-  } catch { /* Safari antigo não tem: cai no plano B */ }
-  try { if (localStorage.getItem(K_JA_LIBEROU) === "1") return "liberada"; } catch { /* ignore */ }
+  } catch (e) { avisar.silencioso("clima: permissions API indisponível", e); }
+  try { if (localStorage.getItem(K_JA_LIBEROU) === "1") return "liberada"; } catch (e) { avisar.silencioso("clima: ler flag de GPS liberado", e); }
   return "perguntar";
 }
 
@@ -69,7 +70,7 @@ function lerGps(timeout = 8000): Promise<{ lat: number; lon: number } | null> {
     navigator.geolocation.getCurrentPosition(
       (p) => {
         setUltimaPosicao(p.coords.latitude, p.coords.longitude);
-        try { localStorage.setItem(K_JA_LIBEROU, "1"); } catch { /* ignore */ }
+        try { localStorage.setItem(K_JA_LIBEROU, "1"); } catch (e) { avisar.silencioso("clima: gravar flag de GPS liberado", e); }
         fim({ lat: p.coords.latitude, lon: p.coords.longitude });
       },
       () => fim(null),
