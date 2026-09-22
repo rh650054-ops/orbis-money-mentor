@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { OrbisSphere, type SphereState } from "@/components/ai/OrbisSphere";
 import { cn } from "@/shared/lib/utils";
 import { useToast } from "@/shared/ui/use-toast";
+import { avisar } from "@/shared/lib/avisar";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -47,7 +48,7 @@ export default function FloatingChatButton() {
   const vozFemininaRef = useRef(vozFeminina);
   useEffect(() => {
     vozFemininaRef.current = vozFeminina;
-    try { localStorage.setItem("orbis_voz_sexo", vozFeminina ? "f" : "m"); } catch { /* noop */ }
+    try { localStorage.setItem("orbis_voz_sexo", vozFeminina ? "f" : "m"); } catch (e) { avisar.silencioso("Chat: guardar preferência de voz", e); }
   }, [vozFeminina]);
   const lastSpokenRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -59,8 +60,8 @@ export default function FloatingChatButton() {
   const pendingTextRef = useRef("");    // transcrição atual da fala do usuário
   const stopSpeaking = () => {
     ttsTokenRef.current++; // invalida qualquer TTS em andamento (foca na fala nova)
-    try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch { /* noop */ }
-    try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch { /* noop */ }
+    try { if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; } } catch (e) { avisar.silencioso("Chat: parar áudio", e); }
+    try { if (typeof window !== "undefined" && window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) { avisar.silencioso("Chat: cancelar fala do navegador", e); }
     setSpeaking(false);
     speakingRef.current = false;
   };
@@ -76,13 +77,13 @@ export default function FloatingChatButton() {
       const warm = new SpeechSynthesisUtterance(" ");
       warm.volume = 0;
       window.speechSynthesis?.speak(warm);
-    } catch { /* noop */ }
+    } catch (e) { avisar.silencioso("Chat: destravar fala do navegador", e); }
     try {
       if (audioRef.current) {
         audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
         audioRef.current.play().catch(() => {});
       }
-    } catch { /* noop */ }
+    } catch (e) { avisar.silencioso("Chat: destravar player de áudio", e); }
   };
 
   // Reconhecimento nativo do navegador (Chrome/Safari). Onde NÃO existe (Firefox,
@@ -125,13 +126,14 @@ export default function FloatingChatButton() {
           const { data } = await supabase.functions.invoke("bright-action", { body: { stt: b64, mime: blob.type } });
           const text = ((data as any)?.text || "").trim();
           if (text) onText(text);
-        } catch { /* transcrição falhou: usuário grava de novo */ }
+        } catch (e) { avisar.usuario("Não consegui entender o áudio. Grava de novo.", e, "Chat: transcrição de voz"); }
         setTranscribing(false);
       };
       mediaRecRef.current = mr;
       mr.start();
       setIsRecording(true); isRecordingRef.current = true;
-    } catch {
+    } catch (e) {
+      avisar.erro("Chat: não consegui usar o microfone", e);
       setIsRecording(false); isRecordingRef.current = false; mediaRecRef.current = null;
       // Sem isso o botão "morre" em silêncio e parece que a IA quebrou — quando na
       // verdade o microfone está bloqueado no navegador ou preso por outro app.
@@ -142,7 +144,7 @@ export default function FloatingChatButton() {
       });
     }
   };
-  const stopRecFallback = () => { try { mediaRecRef.current?.stop(); } catch { /* noop */ } };
+  const stopRecFallback = () => { try { mediaRecRef.current?.stop(); } catch (e) { avisar.silencioso("Chat: parar gravação (fallback)", e); } };
 
   const requestClose = () => {
     if (typeof window !== "undefined" && (window.history.state as any)?.orbisChat) {
@@ -172,7 +174,7 @@ export default function FloatingChatButton() {
     }
     stopSpeaking(); // corta a fala da IA quando o usuario vai falar de novo
     // garante que nenhum reconhecimento anterior ficou preso (causa de não gravar na 2a vez)
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    try { recognitionRef.current?.stop(); } catch (e) { avisar.silencioso("Chat: parar reconhecimento de voz", e); }
     recognitionRef.current = null;
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
@@ -207,7 +209,8 @@ export default function FloatingChatButton() {
     recognitionRef.current = rec;
     try {
       rec.start();
-    } catch {
+    } catch (e) {
+      avisar.silencioso("Chat: iniciar reconhecimento de voz (estado preso)", e);
       // não conseguiu iniciar (estado preso): zera tudo pra o usuario tocar de novo e funcionar
       setIsRecording(false);
       isRecordingRef.current = false;
@@ -401,7 +404,7 @@ export default function FloatingChatButton() {
       const b64 = (data as any)?.audio;
       if (!b64) return null;
       return "data:" + ((data as any)?.mime || "audio/wav") + ";base64," + b64;
-    } catch { return null; }
+    } catch (e) { avisar.erro("Chat: gerar voz (TTS)", e); return null; }
   };
 
   const playSrc = (src: string, myToken: number) =>
@@ -492,7 +495,7 @@ export default function FloatingChatButton() {
     pendingTextRef.current = "";
     const rec = recognitionRef.current;
     recognitionRef.current = null; // resultados atrasados deste reconhecimento serão ignorados
-    try { rec?.stop(); } catch { /* noop */ }
+    try { rec?.stop(); } catch (e) { avisar.silencioso("Chat: parar reconhecimento de voz", e); }
     if (!text) return;
     const agora = Date.now();
     if (text === lastSentRef.current.t && agora - lastSentRef.current.ts < 8000) return; // duplicata
@@ -503,7 +506,7 @@ export default function FloatingChatButton() {
 
   const stopVoice = () => {
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    try { recognitionRef.current?.stop(); } catch (e) { avisar.silencioso("Chat: parar reconhecimento de voz", e); }
     stopRecFallback();
     stopSpeaking();
   };
@@ -519,19 +522,19 @@ export default function FloatingChatButton() {
     }
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     stopSpeaking(); // corta a fala da IA (se estiver falando) e passa a te ouvir
-    try { recognitionRef.current?.stop(); } catch { /* noop */ }
+    try { recognitionRef.current?.stop(); } catch (e) { avisar.silencioso("Chat: parar reconhecimento de voz", e); }
     recognitionRef.current = null;
     // desbloqueia o áudio DENTRO do toque (necessário no iPhone pra IA conseguir falar depois)
     try {
       window.speechSynthesis?.resume();
       const warm = new SpeechSynthesisUtterance(" "); warm.volume = 0; window.speechSynthesis?.speak(warm);
-    } catch { /* noop */ }
+    } catch (e) { avisar.silencioso("Chat: destravar fala do navegador", e); }
     // desbloqueia também o player de áudio (a voz do Gemini toca por ele — sem isso o iPhone bloqueia)
     if (audioRef.current) {
       try {
         audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
         audioRef.current.play().catch(() => {});
-      } catch { /* noop */ }
+      } catch (e) { avisar.silencioso("Chat: destravar player de áudio", e); }
     }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const rec = new SR();
@@ -559,7 +562,7 @@ export default function FloatingChatButton() {
       if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     };
     recognitionRef.current = rec;
-    try { rec.start(); } catch { /* noop */ }
+    try { rec.start(); } catch (e) { avisar.silencioso("Chat: iniciar reconhecimento de voz", e); }
   };
 
   const speakBrowser = (text: string) => {
@@ -595,7 +598,7 @@ export default function FloatingChatButton() {
         }
       };
       u.onerror = () => { setSpeaking(false); speakingRef.current = false; };
-      try { synth.resume(); } catch { /* noop */ }
+      try { synth.resume(); } catch (e) { avisar.silencioso("Chat: retomar fala do navegador", e); }
       synth.speak(u);
     };
     if (synth.getVoices().length) {
@@ -629,13 +632,13 @@ export default function FloatingChatButton() {
         const warm = new SpeechSynthesisUtterance(" ");
         warm.volume = 0;
         window.speechSynthesis.speak(warm);
-      } catch { /* noop */ }
+      } catch (e) { avisar.silencioso("Chat: destravar fala do navegador", e); }
     }
     if (audioRef.current) {
       try {
         audioRef.current.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAESsAACJWAAACABAAZGF0YQAAAAA=";
         audioRef.current.play().catch(() => {});
-      } catch { /* noop */ }
+      } catch (e) { avisar.silencioso("Chat: destravar player de áudio", e); }
     }
     const text = input.trim();
     recognitionRef.current?.stop();

@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
-import { ArrowLeft, ShieldAlert, Loader2, EyeOff, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { ShieldAlert, Loader2, EyeOff, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 interface Suspect {
   user_id: string;
@@ -85,10 +86,12 @@ export default function AdminAntiCheat() {
     try {
       const { error } = await supabase.from("profiles").update({ ranking_hidden: true } as any).eq("user_id", uid);
       if (error) throw error;
-      await supabase.from("leaderboard_stats").delete().eq("user_id", uid);
+      const { error: delErr } = await supabase.from("leaderboard_stats").delete().eq("user_id", uid);
+      if (delErr) throw delErr;
       const now = new Date();
       const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      await supabase.rpc("recalculate_ranking_positions", { target_month: mes });
+      const { error: recalcErr } = await supabase.rpc("recalculate_ranking_positions", { target_month: mes });
+      if (recalcErr) throw recalcErr;
       toast({ title: "🚫 Removido do ranking", description: `${nome || "Usuário"} foi ocultado.` });
       setList((l) => l.filter((s) => s.user_id !== uid));
     } catch (e: any) {
@@ -116,23 +119,12 @@ export default function AdminAntiCheat() {
     return (
       <div className="p-8 text-center">
         <p className="text-lg font-bold">Acesso restrito</p>
-        <button onClick={() => navigate("/")} className="mt-3 text-primary underline">Voltar</button>
+        <button onClick={() => navigate("/admin")} className="mt-3 text-primary underline">Voltar</button>
       </div>
     );
 
   return (
-    <div className="pb-24 px-4 pt-4 max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted/40 transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <ShieldAlert className="w-6 h-6 text-amber-400" /> Anti-trapaça
-          </h1>
-          <p className="text-sm text-muted-foreground">Quem fez um dia muito acima da própria média</p>
-        </div>
-      </div>
+    <AdminShell title="Anti-trapaça" subtitle="Quem fez um dia muito acima da própria média" icon={<ShieldAlert className="w-6 h-6 text-amber-400" />}>
 
       <div className="flex items-end gap-2 rounded-xl border border-border bg-card/40 p-3">
         <div className="flex-1">
@@ -260,6 +252,6 @@ export default function AdminAntiCheat() {
           ))}
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }

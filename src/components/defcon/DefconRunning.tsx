@@ -13,6 +13,7 @@ import { DefconBlockReport } from "./DefconBlockReport";
 import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
@@ -105,7 +106,7 @@ export function DefconRunning({
   })());
   const guardarVendaRapida = (lista: number[]) => {
     if (onboardingMode) return;
-    try { localStorage.setItem(chaveVendaRapida, JSON.stringify(lista.slice(-200).map((a) => ({ amount: a, method: metodoPorValorRef.current[String(a)] ?? "dinheiro" })))); } catch { /* sem espaço: segue sem persistir */ }
+    try { localStorage.setItem(chaveVendaRapida, JSON.stringify(lista.slice(-200).map((a) => ({ amount: a, method: metodoPorValorRef.current[String(a)] ?? "dinheiro" })))); } catch (e) { avisar.silencioso("DefconRunning: guardar venda rápida", e); }
   };
   const [showAddTip, setShowAddTip] = useState(false);
   const [tipValue, setTipValue] = useState("");
@@ -158,7 +159,7 @@ export function DefconRunning({
     let vivo = true;
     (supabase as any).from("product_price_tiers").select("product_id, qty, price").in("product_id", ids)
       .then(({ data }: any) => { if (vivo) setTiers(((data as any[]) || []).map((t) => ({ product_id: t.product_id, qty: Number(t.qty), price: Number(t.price) }))); })
-      .catch(() => { if (vivo) setTiers([]); });
+      .catch((e: unknown) => { avisar.erro("DefconRunning: carregar faixas de preço", e); if (vivo) setTiers([]); });
     return () => { vivo = false; };
   }, [loadout]);
 
@@ -258,16 +259,17 @@ export function DefconRunning({
     const phone = sanitizePhone(salePhone);
     if (!name && !phone) return null;
     try {
-      const { data } = await supabase.from("defcon_clients").insert({
+      const { data, error } = await supabase.from("defcon_clients").insert({
         user_id: userId,
         amount,
         method,
         customer_name: name || null,
         customer_phone: phone || null,
       }).select("id").maybeSingle();
+      if (error) throw error;
       return ((data as any)?.id as string) ?? null;
     } catch (e) {
-      console.warn("[defcon] failed to save client", e);
+      avisar.usuario("A venda entrou, mas não consegui guardar o cliente.", e, "DefconRunning: salvar cliente do dia");
       return null;
     }
   };
@@ -282,7 +284,7 @@ export function DefconRunning({
     const pid = productId ?? selectedProductId;
     if (!onboardingMode && pid) {
       incrementSold(pid, Math.max(1, qty)).catch((e) =>
-        console.warn("[defcon] failed to debit loadout", e)
+        avisar.usuario("A venda entrou, mas não consegui baixar do estoque.", e, "DefconRunning: baixar estoque"),
       );
     }
     // Onboarding: qualquer venda no DEFCON (rápida ou manual) avança a missão.
@@ -371,7 +373,7 @@ export function DefconRunning({
     try {
       const saved = localStorage.getItem(chargeTplKey);
       if (saved && saved.trim()) return saved;
-    } catch (_e) { /* ignore */ }
+    } catch (e) { avisar.silencioso("DefconRunning: ler modelo de cobrança", e); }
     return defaultChargeBody();
   };
 
@@ -386,7 +388,7 @@ export function DefconRunning({
       const idx = msg.indexOf("\n\n");
       const body = idx >= 0 ? msg.slice(idx + 2) : msg;
       localStorage.setItem(chargeTplKey, body.split(formatCurrency(amount)).join(VALOR_TOKEN));
-    } catch (_e) { /* ignore */ }
+    } catch (e) { avisar.silencioso("DefconRunning: guardar modelo de cobrança", e); }
   };
 
   /** O que o cliente levou — vai na descrição da cobrança e no extrato da carteira. */
@@ -433,7 +435,7 @@ export function DefconRunning({
         setSaleMessage(`${base}\n\nÉ só pagar por aqui, cai na hora:\n${link}`);
       }
     } catch (e) {
-      console.warn("[defcon] cobranca nao criada", e);
+      avisar.erro("DefconRunning: criar cobrança Pix", e);
     } finally {
       setCriandoPix(false);
     }
@@ -465,11 +467,13 @@ export function DefconRunning({
     if (idCliente && cobrancaId) {
       void supabase.from("cobrancas" as any)
         .update({ defcon_client_id: idCliente, enviada_em: new Date().toISOString() })
-        .eq("id", cobrancaId);
+        .eq("id", cobrancaId)
+        .then(({ error }: { error: unknown }) => { if (error) avisar.erro("DefconRunning: amarrar cobrança ao cliente", error); });
     } else if (cobrancaId) {
       void supabase.from("cobrancas" as any)
         .update({ enviada_em: new Date().toISOString() })
-        .eq("id", cobrancaId);
+        .eq("id", cobrancaId)
+        .then(({ error }: { error: unknown }) => { if (error) avisar.erro("DefconRunning: marcar cobrança enviada", error); });
     }
     setShowChargePreview(false);
     resetSaleForm();

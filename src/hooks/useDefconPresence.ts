@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 /**
  * Marca o usuário como "online" enquanto ele estiver no DEFCON.
@@ -24,8 +25,8 @@ export function useDefconPresence(userId: string | undefined, active: boolean) {
           { onConflict: "user_id" },
         )
         .then(
-          () => {},
-          () => {},
+          ({ error }) => { if (error) avisar.silencioso("presence: heartbeat", error); },
+          (e: unknown) => avisar.silencioso("presence: heartbeat", e),
         );
     };
 

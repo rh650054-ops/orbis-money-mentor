@@ -7,6 +7,7 @@
    ("gravado em silêncio, só avisamos depois" — decisão do Rick).
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 export interface PlanoDoCorre {
   metaMensal: number;   // R$ por mês (o que ele digitou)
@@ -45,7 +46,7 @@ const chaveLocal = (userId: string) => `orbis_plano_corre_${userId}`;
  *  Se o banco falhar (sem rede na rua), o local segura a onda e o
  *  app tenta de novo na próxima leitura. */
 export async function salvarPlano(userId: string, plano: PlanoDoCorre): Promise<void> {
-  try { localStorage.setItem(chaveLocal(userId), JSON.stringify(plano)); } catch { /* modo privado */ }
+  try { localStorage.setItem(chaveLocal(userId), JSON.stringify(plano)); } catch (e) { avisar.silencioso("plano: guardar no aparelho", e); }
   // FONTE ÚNICA: as metas moram em profiles (mesmas colunas que o modal
   // "Editar Planejamento" grava) — assim o dashboard, o DEFCON e o checklist
   // enxergam o plano do onboarding sem nenhum código extra.
@@ -53,7 +54,7 @@ export async function salvarPlano(userId: string, plano: PlanoDoCorre): Promise<
     const calc = calcularPlano(plano);
     const hoje = new Date();
     const dataBR = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
-    await supabase.from("profiles").update({
+    const { error } = await supabase.from("profiles").update({
       monthly_goal: plano.metaMensal,
       goal_hours: plano.horasDia,
       weekly_work_days: plano.diasSemana,
@@ -61,9 +62,12 @@ export async function salvarPlano(userId: string, plano: PlanoDoCorre): Promise<
       weekly_goal: calc.semana,
       week_start_date: dataBR,
     }).eq("user_id", userId);
-  } catch { /* offline — tenta de novo na próxima gravação */ }
+    if (error) throw error;
+  } catch (e) {
+    avisar.usuario("Não consegui salvar suas metas no servidor. Ficaram guardadas no celular.", e, "plano: gravar metas no perfil");
+  }
   try {
-    await supabase.from("onboarding_planos").upsert(
+    const { error } = await supabase.from("onboarding_planos").upsert(
       {
         user_id: userId,
         meta_mensal: plano.metaMensal,
@@ -74,8 +78,10 @@ export async function salvarPlano(userId: string, plano: PlanoDoCorre): Promise<
       },
       { onConflict: "user_id" },
     );
-  } catch {
-    // sem rede agora — o localStorage já garantiu; sincroniza depois
+    if (error) throw error;
+  } catch (e) {
+    // sem rede agora — o localStorage já garantiu
+    avisar.erro("plano: gravar onboarding_planos", e);
   }
 }
 
@@ -95,11 +101,11 @@ export async function carregarPlano(userId: string): Promise<PlanoCalculado | nu
         horaInicio: data?.hora_inicio == null ? null : Number(data.hora_inicio),
       });
     }
-  } catch { /* offline — cai pro local */ }
+  } catch (e) { avisar.erro("plano: carregar do servidor (usando o local)", e); }
   try {
     const raw = localStorage.getItem(chaveLocal(userId));
     if (raw) return calcularPlano(JSON.parse(raw) as PlanoDoCorre);
-  } catch { /* nada */ }
+  } catch (e) { avisar.silencioso("plano: ler do aparelho", e); }
   return null;
 }
 
@@ -116,21 +122,25 @@ export async function salvarHoraInicio(userId: string, hora: number): Promise<vo
       horasDia: atual?.horasDia ?? 8,
       horaInicio: hora,
     }));
-  } catch { /* modo privado */ }
+  } catch (e) { avisar.silencioso("plano: guardar hora no aparelho", e); }
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("onboarding_planos")
       .update({ hora_inicio: hora, atualizado_em: new Date().toISOString() })
       .eq("user_id", userId)
       .select("user_id");
+    if (error) throw error;
     if (!data || data.length === 0) {
       // não tinha plano no banco (pulou o onboarding) — cria um mínimo
-      await supabase.from("onboarding_planos").upsert(
+      const { error: upErr } = await supabase.from("onboarding_planos").upsert(
         { user_id: userId, meta_mensal: 1, dias_semana: 6, horas_dia: 8, hora_inicio: hora },
         { onConflict: "user_id" },
       );
+      if (upErr) throw upErr;
     }
-  } catch { /* sem rede — o localStorage segura */ }
+  } catch (e) {
+    avisar.usuario("Não consegui salvar a hora de início no servidor. Ficou guardada no celular.", e, "plano: gravar hora de início");
+  }
 }
 
 /** O 1º Modo Foco chama isto pra saber se ainda deve REVELAR o plano
@@ -140,5 +150,5 @@ export function planoJaRevelado(userId: string): boolean {
   try { return localStorage.getItem(`orbis_plano_revelado_${userId}`) === "1"; } catch { return true; }
 }
 export function marcarPlanoRevelado(userId: string): void {
-  try { localStorage.setItem(`orbis_plano_revelado_${userId}`, "1"); } catch { /* nada */ }
+  try { localStorage.setItem(`orbis_plano_revelado_${userId}`, "1"); } catch (e) { avisar.silencioso("plano: marcar revelado", e); }
 }

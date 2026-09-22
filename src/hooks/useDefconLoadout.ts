@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 export interface LoadoutItem {
@@ -52,7 +53,7 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
 
   const addProduct = async (product: ProductOption, qty: number) => {
     if (!userId || qty <= 0) return;
-    await supabase.from("defcon_daily_loadout").upsert(
+    const { error } = await supabase.from("defcon_daily_loadout").upsert(
       {
         user_id: userId,
         date: day,
@@ -62,15 +63,15 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
       },
       { onConflict: "user_id,date,product_id" }
     );
+    if (error) avisar.usuario("Não consegui adicionar o produto na carga. Tenta de novo.", error, "useDefconLoadout: adicionar produto");
     await load();
   };
 
   const updateQty = async (id: string, qty: number) => {
-    if (qty <= 0) {
-      await supabase.from("defcon_daily_loadout").delete().eq("id", id);
-    } else {
-      await supabase.from("defcon_daily_loadout").update({ qty_initial: qty }).eq("id", id);
-    }
+    const { error } = qty <= 0
+      ? await supabase.from("defcon_daily_loadout").delete().eq("id", id)
+      : await supabase.from("defcon_daily_loadout").update({ qty_initial: qty }).eq("id", id);
+    if (error) avisar.usuario("Não consegui salvar a quantidade da carga. Tenta de novo.", error, "useDefconLoadout: alterar quantidade");
     await load();
   };
 
@@ -78,16 +79,18 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
     if (!userId) return;
     const item = loadout.find((l) => l.product_id === productId);
     if (!item) return;
-    await supabase
+    const { error: soldErr } = await supabase
       .from("defcon_daily_loadout")
       .update({ qty_sold: Number(item.qty_sold) + qty })
       .eq("id", item.id);
+    if (soldErr) throw soldErr;
 
     // debita estoque do produto
     const prod = products.find((p) => p.id === productId);
     if (prod) {
       const newStock = Math.max(0, Number(prod.stock_quantity) - qty);
-      await supabase.from("products").update({ stock_quantity: newStock }).eq("id", productId);
+      const { error: stockErr } = await supabase.from("products").update({ stock_quantity: newStock }).eq("id", productId);
+      if (stockErr) throw stockErr;
     }
 
     // se produto tem receita per_unit, debita ingredientes proporcionalmente
@@ -114,18 +117,20 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
           const ing = ings?.find((i: any) => i.id === r.ingredient_id);
           if (!ing) continue;
           const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * qty);
-          await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
+          const { error: ingErr } = await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
+          if (ingErr) throw ingErr;
         }
       }
     }
 
     // log da venda do produto (alimenta histórico/análises)
-    await supabase.from("product_sales_log").insert({
+    const { error: logErr } = await supabase.from("product_sales_log").insert({
       user_id: userId,
       product_id: productId,
       quantity: qty,
       total_amount: prod ? Number(prod.sale_price || 0) * qty : 0,
     });
+    if (logErr) throw logErr;
 
     // Acumula o CUSTO DE MERCADORIA (CMV) do dia em daily_sales.cost.
     // É esse campo que os relatórios e o Financeiro usam pra abater o custo
@@ -141,16 +146,15 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
         .eq("date", day)
         .order("created_at", { ascending: true })
         .limit(1);
-      if (dsRows && dsRows.length > 0 && dsRows[0]?.id) {
-        await supabase
+      const { error: costErr } = dsRows && dsRows.length > 0 && dsRows[0]?.id
+        ? await supabase
           .from("daily_sales")
           .update({ cost: Number(dsRows[0].cost || 0) + addCost } as any)
-          .eq("id", dsRows[0].id);
-      } else {
-        await supabase
+          .eq("id", dsRows[0].id)
+        : await supabase
           .from("daily_sales")
           .insert({ user_id: userId, date: day, cost: addCost } as any);
-      }
+      if (costErr) throw costErr;
     }
 
     await load();

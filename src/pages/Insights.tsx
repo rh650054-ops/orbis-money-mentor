@@ -30,6 +30,7 @@ import {
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { useToast } from "@/shared/hooks/use-toast";
@@ -659,7 +660,7 @@ export default function Insights() {
             const j = await ctx.json();
             if (j?.error) msg = String(j.error);
           }
-        } catch { /* mantém msg */ }
+        } catch (e) { avisar.silencioso("Insights: ler corpo do erro da função", e); }
         throw new Error(msg);
       }
       const d = data as { analise?: string; error?: string } | null;

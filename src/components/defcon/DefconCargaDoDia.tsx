@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Box, Loader2, Minus, Package, Play, Plus, TrendingUp, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useDefconLoadout, type ProductOption } from "@/hooks/useDefconLoadout";
 import { getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
@@ -145,7 +146,8 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
   const salvarPreco1 = useCallback(async (pid: string, n: number) => {
     if (n <= 0) return;
     setPrecoLocal((m) => ({ ...m, [pid]: n }));
-    await supabase.from("products").update({ sale_price: n }).eq("id", pid).eq("user_id", userId);
+    const { error } = await supabase.from("products").update({ sale_price: n }).eq("id", pid).eq("user_id", userId);
+    if (error) avisar.usuario("Não consegui salvar o preço. Tenta de novo.", error, "DefconCargaDoDia: salvar preço");
   }, [userId]);
 
   const salvarTier = useCallback(async (pid: string, qty: number, price: number) => {
@@ -155,12 +157,14 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
       const lista = (m[pid] ?? []).filter((x) => x.qty !== qty).concat({ qty, price }).sort((a, b) => a.qty - b.qty);
       return { ...m, [pid]: lista };
     });
-    await supabase.from("product_price_tiers" as any).upsert({ user_id: userId, product_id: pid, qty, price }, { onConflict: "product_id,qty" });
+    const { error } = await supabase.from("product_price_tiers" as any).upsert({ user_id: userId, product_id: pid, qty, price }, { onConflict: "product_id,qty" });
+    if (error) avisar.usuario("Não consegui salvar o preço por quantidade. Tenta de novo.", error, "DefconCargaDoDia: salvar faixa");
   }, [userId]);
 
   const removerTier = useCallback(async (pid: string, qty: number) => {
     setTiers((m) => ({ ...m, [pid]: (m[pid] ?? []).filter((x) => x.qty !== qty) }));
-    await supabase.from("product_price_tiers" as any).delete().eq("product_id", pid).eq("qty", qty);
+    const { error } = await supabase.from("product_price_tiers" as any).delete().eq("product_id", pid).eq("qty", qty);
+    if (error) avisar.usuario("Não consegui remover o preço por quantidade. Tenta de novo.", error, "DefconCargaDoDia: remover faixa");
   }, []);
 
   // resumo da carga

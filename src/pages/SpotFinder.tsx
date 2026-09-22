@@ -13,6 +13,7 @@ import { Navigation, LocateFixed, Flame, Loader2, MapPin, Search, Check, Downloa
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getUltimaPosicao, setUltimaPosicao } from "@/shared/lib/gps-last";
@@ -322,7 +323,11 @@ export default function SpotFinder() {
 
   const informarDuracao = async (osm: number, d: Duracao) => {
     if (!user) return;
-    await (supabase as any).from("caca_sinal_duracoes").upsert({ user_id: user.id, osm_id: osm, duracao: d }, { onConflict: "user_id,osm_id" });
+    const { error } = await (supabase as any).from("caca_sinal_duracoes").upsert({ user_id: user.id, osm_id: osm, duracao: d }, { onConflict: "user_id,osm_id" });
+    if (error) {
+      avisar.usuario("Não consegui registrar o tempo do sinal. Tenta de novo.", error, "SpotFinder: informar duração");
+      return;
+    }
     setSinais((prev) => prev.map((s) => (s.osm_id === osm ? { ...s, duracao: s.duracao ?? d, duracao_votos: s.duracao_votos + 1 } : s)));
     toast({ title: "Valeu! Tempo do sinal registrado." });
   };
@@ -337,7 +342,11 @@ export default function SpotFinder() {
     if (!ultima) { toast({ title: "Marque no fim do DEFCON", description: "Quando você encerrar o dia ali, o Orbis pergunta o ponto e guarda seu histórico." }); return; }
     const { data: prof } = await supabase.from("profiles").select("compartilha_pontos").eq("user_id", user.id).maybeSingle();
     const comp = (prof as any)?.compartilha_pontos !== false;
-    await supabase.from("challenge_sessions").update({ sinal_osm_id: s.osm_id, sinal_compartilha: comp } as never).eq("id", ultima.id);
+    const { error } = await supabase.from("challenge_sessions").update({ sinal_osm_id: s.osm_id, sinal_compartilha: comp } as never).eq("id", ultima.id);
+    if (error) {
+      avisar.usuario("Não consegui ligar o sinal ao seu DEFCON. Tenta de novo.", error, "SpotFinder: já vendi aqui");
+      return;
+    }
     toast({ title: `${nomeDoSinal(s)} ligado ao seu DEFCON de ${String(ultima.date).slice(8, 10)}/${String(ultima.date).slice(5, 7)}`, description: "Entrou no seu histórico." });
     carregarMeus();
   };

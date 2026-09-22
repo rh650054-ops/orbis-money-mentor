@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 /**
@@ -59,9 +60,10 @@ export async function syncBlocksToDailySales(userId: string, planDate?: string) 
   // daily_sales_user_date_unique (migration 20260620). Substitui o antigo
   // "le-depois-insere" que, em duas atualizacoes concorrentes do DEFCON,
   // criava linha duplicada e dobrava o faturamento no ranking.
-  await supabase
+  const { error: dsErr } = await supabase
     .from("daily_sales")
     .upsert({ user_id: userId, date: today, ...salesRow } as any, { onConflict: "user_id,date" });
+  if (dsErr) avisar.usuario("Não consegui atualizar o total do dia. Tenta de novo.", dsErr, "syncDailySales: gravar daily_sales");
 
   // Also update leaderboard revenue in real-time
   await syncLeaderboardRevenue(userId);
@@ -105,11 +107,12 @@ export async function syncLeaderboardRevenue(userId: string) {
   // Fora do ranking: por moderação (ranking_hidden) OU por escolha do próprio vendedor
   // (ranking_oculto = "ocultar meu resultado"). Remove a entrada do mês e não recria.
   if ((profile as any)?.ranking_hidden || (profile as any)?.ranking_oculto) {
-    await supabase
+    const { error } = await supabase
       .from("leaderboard_stats")
       .delete()
       .eq("user_id", userId)
       .eq("mes_referencia", currentMonth);
+    if (error) avisar.erro("syncDailySales: remover do ranking (oculto)", error);
     return;
   }
 
@@ -131,7 +134,7 @@ export async function syncLeaderboardRevenue(userId: string) {
     .maybeSingle();
 
   if (existingEntry) {
-    await supabase
+    const { error } = await supabase
       .from("leaderboard_stats")
       .update({
         nome_usuario: userName,
@@ -140,8 +143,9 @@ export async function syncLeaderboardRevenue(userId: string) {
         dias_trabalhados_mes: Math.max(existingEntry.dias_trabalhados_mes, daysWithSales),
       })
       .eq("id", existingEntry.id);
+    if (error) avisar.erro("syncDailySales: atualizar ranking", error);
   } else if (totalFaturamento > 0) {
-    await supabase
+    const { error } = await supabase
       .from("leaderboard_stats")
       .insert({
         user_id: userId,
@@ -153,10 +157,12 @@ export async function syncLeaderboardRevenue(userId: string) {
         constancia_streak_atual: 1,
         constancia_maior_streak: 1,
       });
+    if (error) avisar.erro("syncDailySales: criar entrada no ranking", error);
   }
 
   // Recalculate positions
   if (totalFaturamento > 0) {
-    await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
+    const { error } = await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
+    if (error) avisar.erro("syncDailySales: recalcular posições do ranking", error);
   }
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { useTrialStatus } from "@/hooks/useTrialStatus";
 import { getCheckoutUrl } from "@/shared/lib/checkout";
 import { Sparkles, X } from "lucide-react";
@@ -42,15 +43,15 @@ export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = tru
     let seen = false;
     try {
       seen = localStorage.getItem(dayKey) === "1";
-    } catch {
-      /* ignore */
+    } catch (e) {
+      avisar.silencioso("TrialNudge: ler visto", e);
     }
     if (!seen) {
       setShow(true);
       try {
         localStorage.setItem(dayKey, "1");
-      } catch {
-        /* ignore */
+      } catch (e) {
+        avisar.silencioso("TrialNudge: marcar visto", e);
       }
     } else {
       setShow(false);

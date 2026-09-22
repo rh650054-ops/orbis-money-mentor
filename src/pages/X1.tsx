@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Swords, Check, X, Loader2, Flame, Trophy, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -125,7 +126,7 @@ export default function X1() {
     const { error } = await (supabase as any).rpc("x1_negotiate", { p_id: c.id, p_action: action });
     setAgindo(null);
     if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
-    if (action === "accept") { try { navigator.vibrate?.([60, 40, 90]); } catch { /* sem vibração */ } navigate(`/x1/luta/${c.id}`); return; }
+    if (action === "accept") { try { navigator.vibrate?.([60, 40, 90]); } catch (e) { avisar.silencioso("X1: vibração", e); } navigate(`/x1/luta/${c.id}`); return; }
     toast({ title: "Desafio recusado" });
     void carregar();
   };

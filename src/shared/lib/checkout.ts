@@ -1,4 +1,5 @@
 import { HOTMART_CHECKOUT_URL } from "./constants";
+import { avisar } from "@/shared/lib/avisar";
 
 // Atribuição de influenciador por cupom, mesmo com o teste grátis no app.
 // Quando a pessoa entra pelo link do influenciador (ex: ".../?cupom=ZECK15"),
@@ -22,8 +23,8 @@ export function captureReferralCoupon(): void {
       localStorage.setItem(COUPON_KEY, code);
       localStorage.setItem(COUPON_TS_KEY, String(Date.now()));
     }
-  } catch {
-    /* ignore */
+  } catch (e) {
+    avisar.silencioso("checkout: guardar cupom", e);
   }
 }
 
@@ -33,8 +34,8 @@ function storedCoupon(): string | null {
     const code = localStorage.getItem(COUPON_KEY);
     const ts = Number(localStorage.getItem(COUPON_TS_KEY) || "0");
     if (code && ts && Date.now() - ts <= COUPON_MAX_AGE_MS) return code;
-  } catch {
-    /* ignore */
+  } catch (e) {
+    avisar.silencioso("checkout: ler cupom", e);
   }
   return null;
 }

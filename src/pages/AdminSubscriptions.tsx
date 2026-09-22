@@ -7,7 +7,9 @@ import { Label } from "@/shared/ui/label";
 import { Badge } from "@/shared/ui/badge";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
+import { AdminShell } from "@/components/admin/AdminShell";
 import { Shield, Search, UserCheck, UserX, RefreshCw, Link2, Trash2, Pencil, Save, KeyRound, Copy, Check, MessageCircle, Crown, CalendarDays, Users, Wallet, Download, TrendingUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
 import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
@@ -318,7 +320,8 @@ export default function AdminSubscriptions() {
 
       if (newHidden) {
         // Tira do ranking agora (todas as entradas)
-        await supabase.from("leaderboard_stats").delete().eq("user_id", editUser.user_id);
+        const { error: delErr } = await supabase.from("leaderboard_stats").delete().eq("user_id", editUser.user_id);
+        if (delErr) throw delErr;
       } else {
         // Volta ao ranking: reconstrói a entrada a partir das vendas do mês
         await syncLeaderboardRevenue(editUser.user_id);
@@ -326,7 +329,8 @@ export default function AdminSubscriptions() {
 
       const now = new Date();
       const mes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-      await supabase.rpc("recalculate_ranking_positions", { target_month: mes });
+      const { error: recalcErr } = await supabase.rpc("recalculate_ranking_positions", { target_month: mes });
+      if (recalcErr) throw recalcErr;
 
       setRankingHidden(newHidden);
       toast({ title: newHidden ? "🚫 Removido do ranking" : "✅ De volta ao ranking" });
@@ -399,10 +403,11 @@ export default function AdminSubscriptions() {
       // Propaga o nome pro RANKING na hora: o leaderboard_stats guarda uma CÓPIA
       // do nome; sem isto, um nome trocado pelo admin continuava aparecendo no
       // ranking (ex.: apagar um nome impróprio). Atualiza todas as entradas do user.
-      await supabase
+      const { error: lbErr } = await supabase
         .from("leaderboard_stats")
         .update({ nome_usuario: editForm.nickname || null } as any)
         .eq("user_id", editUser.user_id);
+      if (lbErr) throw lbErr;
       // Salva também qualquer valor de dia digitado em "Resultados do mês" que
       // não foi salvo pelo botão da linha — antes, digitar ali e tocar em
       // "Salvar" descartava a correção em silêncio (a causa do "salvo e não muda").
@@ -589,16 +594,7 @@ export default function AdminSubscriptions() {
   }
 
   return (
-    <div className="space-y-6 pb-4 md:pb-8">
-      <div className="flex items-center gap-3">
-        <Shield className="w-8 h-8 text-primary" />
-        <div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Gerenciar Assinaturas</h1>
-          <p className="text-muted-foreground mt-1">
-            Ative ou desative assinaturas manualmente (provider: Hotmart)
-          </p>
-        </div>
-      </div>
+    <AdminShell title="Assinaturas" subtitle="Ative ou desative assinaturas manualmente (provider: Hotmart)" icon={<Shield className="w-6 h-6 text-primary" />} width="xl">
 
       {/* ===== Período: cadastros, vendas e comissão por afiliado ===== */}
       <Card className="border-primary/30">
@@ -1259,6 +1255,6 @@ export default function AdminSubscriptions() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </AdminShell>
   );
 }

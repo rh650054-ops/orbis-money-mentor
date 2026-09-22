@@ -21,6 +21,7 @@ import { Zap, ChevronRight, Medal, Moon } from "lucide-react";
 import { ClimaChip } from "@/components/clima/ClimaChip";
 import { formatCurrency } from "@/shared/lib/utils";
 import { AnimatedCurrency, Ring, FillBar, useCountUp } from "@/shared/motion";
+import { avisar } from "@/shared/lib/avisar";
 
 const fmtCurto = (n: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
@@ -60,7 +61,7 @@ export const CHAVE_ACENDER = (uid: string) => `orbis_chama_acender_${uid}`;
 const VALIDADE_MS = 12 * 60 * 60 * 1000; // a marca vale por 12h: fechou à noite, abriu de manhã, ainda acende
 export function pedirAcenderChama(uid: string | undefined) {
   if (!uid) return;
-  try { localStorage.setItem(CHAVE_ACENDER(uid), String(Date.now())); } catch { /* sem storage: sem animação */ }
+  try { localStorage.setItem(CHAVE_ACENDER(uid), String(Date.now())); } catch (e) { avisar.silencioso("dashboard: acender", e); }
 }
 /* Lê a marca SEM apagar. Aceita "1" (versão antiga) ou um timestamp recente. */
 function marcaPendente(uid: string | undefined): boolean {
@@ -88,7 +89,7 @@ export function ChamaStreak({ dias, userId }: { dias: number; userId?: string })
     if (dias <= 0) { setMostra(0); setAceso(false); return; }
     const pedido = marcaPendente(userId);
     if (!pedido) { setMostra(dias); setAceso(true); return; }
-    try { if (userId) localStorage.removeItem(CHAVE_ACENDER(userId)); } catch { /* nada */ }
+    try { if (userId) localStorage.removeItem(CHAVE_ACENDER(userId)); } catch (e) { avisar.silencioso("dashboard: apagar acender", e); }
     setMostra(Math.max(0, dias - 1));
     setAceso(false);
     const t1 = window.setTimeout(() => { setAceso(true); setAcender(true); }, 300);
@@ -348,5 +349,37 @@ export function PatenteLinha({ nome, pct, faltam, onClick }: {
       direita={pct > 0 ? <span className="orbis-num text-[13px] font-bold mr-1" style={{ color: "var(--orbis-fg-2)" }}>{Math.round(pct)}%</span> : undefined}
       onClick={onClick}
     />
+  );
+}
+
+/* ---------- Competição: espadas no quadrado dourado ----------
+   (veio do v8 — formato ATUAL, decisão do Rick 01/09: o quadrado dourado
+   das espadas fica como está.) */
+export function CompeticaoRow({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="orbis-press w-full rounded-2xl border px-3.5 py-2.5 flex items-center gap-3 text-left"
+      style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surface)" }}
+    >
+      <span
+        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+        style={{ background: "linear-gradient(180deg,var(--orbis-gold-light),var(--orbis-gold))", boxShadow: "0 3px 0 var(--orbis-gold-deep)" }}
+      >
+        <svg width="23" height="23" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3.5 3.5 15 15M3.5 3.5H6L8 5.5M20.5 3.5 9 15M20.5 3.5H18L16 5.5" stroke="#1A1200" strokeWidth="2.2" />
+          <path d="M13.6 13.6 18 18M10.4 13.6 6 18" stroke="#1A1200" strokeWidth="2.2" />
+          <path d="M16.2 19.8 19.8 16.2M7.8 19.8 4.2 16.2" stroke="#7A1F1F" strokeWidth="2.4" />
+          <circle cx="19" cy="19" r="1.4" fill="#7A1F1F" />
+          <circle cx="5" cy="19" r="1.4" fill="#7A1F1F" />
+        </svg>
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="block text-[14.5px] font-bold">Competição</span>
+        <span className="block text-[12px]" style={{ color: "var(--orbis-fg-2)" }}>Em breve — as guerras de vendas estão chegando</span>
+      </span>
+      <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-fg-3)" }} />
+    </button>
   );
 }

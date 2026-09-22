@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
 import { getBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib/date-utils";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
@@ -71,8 +72,9 @@ async function queueBlockOffline(
       created_at: new Date().toISOString(),
       synced: false,
     });
-  } catch {
+  } catch (e) {
     // IndexedDB indisponivel (aba anonima / storage cheio): resta so o estado otimista da tela.
+    avisar.usuario("Sem internet e sem espaço no aparelho: essa venda pode não ficar guardada.", e, "DEFCON: fila offline indisponível");
   }
 }
 
@@ -249,9 +251,10 @@ export function useDefconChallenge(userId: string | undefined) {
     };
     if (sales !== undefined) payload.sales_count = sales;
     if (fechar) { payload.ended_at = new Date().toISOString(); payload.status = "done"; }
-    await supabase
+    const { error } = await supabase
       .from("challenge_blocks")
       .upsert(payload, { onConflict: "session_id,block_index" });
+    if (error) avisar.usuario("Não consegui salvar a abordagem. Tenta de novo.", error, "DEFCON: salvar abordagens do bloco");
   };
 
   // Carrega as vendas-linha (defcon_sales) da sessão atual em ordem cronológica.
@@ -615,7 +618,7 @@ export function useDefconChallenge(userId: string | undefined) {
               .select("id, motivo").eq("user_id", userId).is("fim", null)
               .order("inicio", { ascending: false }).limit(1).maybeSingle();
             if (pz?.id) { pausaIdRef.current = pz.id; setPausaMotivo((pz.motivo as MotivoPausa) || "almoco"); }
-          } catch { /* segue como almoço */ }
+          } catch (e) { avisar.erro("DEFCON: ler pausa aberta", e); }
           setPhase("lunch_pause");
         } else {
           // Pausa terminou com o app fechado → contabiliza a duração cheia como ocioso.
@@ -623,10 +626,11 @@ export function useDefconChallenge(userId: string | undefined) {
           if (idleSeg > 0) {
             // Fecha a pausa registrada que ficou aberta (voltou sozinho com o app fechado).
             try {
-              await (supabase.from("defcon_pausas") as any)
+              const { error: pzErr } = await (supabase.from("defcon_pausas") as any)
                 .update({ fim: new Date(lunchEnds).toISOString(), segundos: idleSeg })
                 .eq("user_id", userId).is("fim", null);
-            } catch { /* nada */ }
+              if (pzErr) avisar.erro("DEFCON: fechar pausa que ficou aberta", pzErr);
+            } catch (e) { avisar.erro("DEFCON: fechar pausa que ficou aberta", e); }
             pausedSecondsRef.current += idleSeg;
             await supabase
               .from("challenge_sessions")
@@ -703,7 +707,7 @@ export function useDefconChallenge(userId: string | undefined) {
     try {
       await loadDataInterno();
     } catch (e) {
-      console.error("DEFCON: não consegui carregar o dia", e);
+      avisar.erro("DEFCON: não consegui carregar o dia", e);
       setLoading(false);
     } finally {
       carregando.current = false;
@@ -752,12 +756,13 @@ export function useDefconChallenge(userId: string | undefined) {
     // Registro da pausa com motivo — o relatório mostra a folga exata (🚻 2x 6min, 🍽️ 40min...).
     pausaIdRef.current = null;
     try {
-      const { data: pz } = await (supabase.from("defcon_pausas") as any)
+      const { data: pz, error: pzErr } = await (supabase.from("defcon_pausas") as any)
         .insert({ user_id: userId, session_id: sessionIdRef.current, motivo, inicio: now.toISOString() })
         .select("id")
         .maybeSingle();
+      if (pzErr) avisar.erro("DEFCON: registrar pausa", pzErr);
       pausaIdRef.current = (pz as { id?: string } | null)?.id ?? null;
-    } catch { /* sem registro, o tempo ocioso total continua contando na sessão */ }
+    } catch (e) { avisar.erro("DEFCON: registrar pausa", e); }
 
     const currentBlockData = blocks[currentBlockIndex];
     if (currentBlockData) {
@@ -787,10 +792,11 @@ export function useDefconChallenge(userId: string | undefined) {
       pausaIdRef.current = null;
       if (pid) {
         try {
-          await (supabase.from("defcon_pausas") as any)
+          const { error: pzErr } = await (supabase.from("defcon_pausas") as any)
             .update({ fim: new Date(inicio.getTime() + seg * 1000).toISOString(), segundos: Math.max(0, Math.round(seg)) })
             .eq("id", pid);
-        } catch { /* registro fica aberto; o relatório ignora pausas sem fim */ }
+          if (pzErr) avisar.erro("DEFCON: fechar pausa", pzErr);
+        } catch (e) { avisar.erro("DEFCON: fechar pausa", e); }
       }
     }
     const currentBlockData = blocksRef.current[currentBlockIndexRef.current];
@@ -1033,13 +1039,14 @@ export function useDefconChallenge(userId: string | undefined) {
       if (blkErr) throw blkErr;
 
       if (sessionId) {
-        await supabase
+        const { error: sesErr } = await supabase
           .from("challenge_sessions")
           .update({ total_sold: newTotal })
           .eq("id", sessionId);
+        if (sesErr) throw sesErr;
         await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
         // Registra a venda como LINHA em defcon_sales (pra listar/editar/excluir).
-        await supabase.from("defcon_sales").insert({
+        const { error: saleErr } = await supabase.from("defcon_sales").insert({
           user_id: userId,
           session_id: sessionId,
           block_index: currentBlockIndex,
@@ -1047,12 +1054,14 @@ export function useDefconChallenge(userId: string | undefined) {
           method,
           late: false,
         });
+        if (saleErr) throw saleErr;
       }
 
       await syncBlocksToDailySales(userId, planDateRef.current);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Rede caiu no meio (ou { error } retornado): enfileira pra subir ao reconectar.
+      avisar.erro("DEFCON: venda não subiu agora, ficou na fila offline", e);
       await queueBlockOffline(blockState, userId, planIdRef.current);
     }
   };
@@ -1097,11 +1106,16 @@ export function useDefconChallenge(userId: string | undefined) {
     setTotalSold(newTotal);
 
     // 1) Apaga a linha.
-    await supabase.from("defcon_sales").delete().eq("id", sale.id);
+    const { error: delErr } = await supabase.from("defcon_sales").delete().eq("id", sale.id);
+    if (delErr) {
+      avisar.usuario("Não consegui excluir a venda. Tenta de novo.", delErr, "DEFCON: excluir venda");
+      deletingSalesRef.current.delete(sale.id);
+      return;
+    }
 
     // 2) Reverte os agregados no BLOCO da venda (não necessariamente o atual).
     if (targetBlock) {
-      await supabase
+      const { error: blkErr } = await supabase
         .from("hourly_goal_blocks")
         .update({
           achieved_amount: newAchieved,
@@ -1111,11 +1125,13 @@ export function useDefconChallenge(userId: string | undefined) {
           valor_gorjeta: newGorjeta,
         })
         .eq("id", targetBlock.id);
+      if (blkErr) avisar.usuario("Excluí a venda, mas não consegui estornar o valor do bloco.", blkErr, "DEFCON: estornar bloco ao excluir venda");
     }
 
     // 3) Estorna total_sold da sessão (piso 0).
     if (sessionId) {
-      await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+      const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+      if (sesErr) avisar.usuario("Excluí a venda, mas não consegui estornar o total do dia.", sesErr, "DEFCON: estornar total ao excluir venda");
     }
 
     // 4) venda E abordagem: tocar em "venda" soma 1 abordagem automaticamente,
@@ -1187,8 +1203,9 @@ export function useDefconChallenge(userId: string | undefined) {
       if (blkErr) throw blkErr;
 
       if (sessionId) {
-        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
-        await supabase.from("defcon_sales").insert({
+        const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+        if (sesErr) throw sesErr;
+        const { error: saleErr } = await supabase.from("defcon_sales").insert({
           user_id: userId,
           session_id: sessionId,
           block_index: blockIdx,
@@ -1196,12 +1213,14 @@ export function useDefconChallenge(userId: string | undefined) {
           method: "pix",
           late: true,
         });
+        if (saleErr) throw saleErr;
       }
 
       await syncBlocksToDailySales(userId, planDateRef.current);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Offline / rede caiu: enfileira o estado do bloco pra sincronizar depois.
+      avisar.erro("DEFCON: pix-depois não subiu agora, ficou na fila offline", e);
       await queueBlockOffline(blockState, userId, planIdRef.current);
     }
   };
@@ -1243,10 +1262,11 @@ export function useDefconChallenge(userId: string | undefined) {
       if (blkErr) throw blkErr;
 
       if (sessionId) {
-        await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+        const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
+        if (sesErr) throw sesErr;
         // Registra a gorjeta como LINHA em defcon_sales (method='gorjeta') pra aparecer
         // no histórico de vendas e poder ser cancelada. NÃO conta venda/abordagem.
-        await supabase.from("defcon_sales").insert({
+        const { error: tipErr } = await supabase.from("defcon_sales").insert({
           user_id: userId,
           session_id: sessionId,
           block_index: currentBlockIndex,
@@ -1254,12 +1274,14 @@ export function useDefconChallenge(userId: string | undefined) {
           method: "gorjeta",
           late: false,
         });
+        if (tipErr) throw tipErr;
       }
 
       await syncBlocksToDailySales(userId, planDateRef.current);
       if (sessionId) await loadSessionSales(sessionId);
     } catch (e) {
       // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
+      avisar.erro("DEFCON: gorjeta não subiu agora, ficou na fila offline", e);
       await queueBlockOffline(blockState, userId, planIdRef.current);
     }
   };
@@ -1280,12 +1302,13 @@ export function useDefconChallenge(userId: string | undefined) {
 
   const addOccurrence = async (description: string) => {
     if (!userId || !sessionId) return;
-    await supabase.from("defcon_occurrences").insert({
+    const { error } = await supabase.from("defcon_occurrences").insert({
       user_id: userId,
       session_id: sessionId,
       block_index: currentBlockIndex,
       description,
     });
+    if (error) avisar.usuario("Não consegui salvar a ocorrência. Tenta de novo.", error, "DEFCON: salvar ocorrência");
   };
 
   const endChallenge = async () => {
@@ -1298,12 +1321,13 @@ export function useDefconChallenge(userId: string | undefined) {
     // Totals already accumulated in real-time — no need to add again
 
     const endedAt = new Date();
-    const { data: doneSession } = await supabase
+    const { data: doneSession, error: endErr } = await supabase
       .from("challenge_sessions")
       .update({ status: "abandoned", ended_at: endedAt.toISOString(), total_sold: totalSoldRef.current })
       .eq("id", sid)
       .select("started_at")
       .maybeSingle();
+    if (endErr) avisar.usuario("Não consegui fechar o dia no servidor. Confere sua internet e tenta de novo.", endErr, "DEFCON: encerrar sessão");
 
     // Encerramento manual — blocos completos + parcial do bloco atual (sem cravar hora cheia).
     if (doneSession?.started_at) {
@@ -1319,7 +1343,7 @@ export function useDefconChallenge(userId: string | undefined) {
        venda não é dia trabalhado. */
     try {
       if (userId && totalSoldRef.current > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, String(Date.now()));
-    } catch { /* sem storage: sem animação, sem quebra */ }
+    } catch (e) { avisar.silencioso("DEFCON: marcar chama pra acender", e); }
 
     setPhase("abandoned");
   };
@@ -1342,7 +1366,7 @@ export function useDefconChallenge(userId: string | undefined) {
       const bPix = Math.round(pix * ratio * 100) / 100;
       const bCalote = Math.round(calote * ratio * 100) / 100;
 
-      await supabase
+      const { error: blkErr } = await supabase
         .from("hourly_goal_blocks")
         .update({
           valor_dinheiro: bDinheiro,
@@ -1352,6 +1376,7 @@ export function useDefconChallenge(userId: string | undefined) {
           achieved_amount: bDinheiro + bCartao + bPix + bCalote,
         })
         .eq("id", block.id);
+      if (blkErr) throw blkErr;
     }
 
     setBlocks(prev =>
@@ -1487,20 +1512,24 @@ export function useDefconChallenge(userId: string | undefined) {
     const pid = planIdRef.current;
 
     // Apaga challenge_blocks e challenge_session do dia
+    const errosReset: unknown[] = [];
     if (sid) {
-      await supabase.from("challenge_blocks").delete().eq("session_id", sid);
-      await supabase.from("challenge_sessions").delete().eq("id", sid);
+      const r1 = await supabase.from("challenge_blocks").delete().eq("session_id", sid);
+      const r2 = await supabase.from("challenge_sessions").delete().eq("id", sid);
+      if (r1.error) errosReset.push(r1.error);
+      if (r2.error) errosReset.push(r2.error);
     }
 
     // Remove blocos de extensão (⏱ +1h) criados durante o dia
-    await supabase
+    const r3 = await supabase
       .from("hourly_goal_blocks")
       .delete()
       .eq("plan_id", pid)
       .like("hour_label", "⏱%");
+    if (r3.error) errosReset.push(r3.error);
 
     // Zera os valores dos blocos originais
-    await supabase
+    const r4 = await supabase
       .from("hourly_goal_blocks")
       .update({
         achieved_amount: 0,
@@ -1514,13 +1543,16 @@ export function useDefconChallenge(userId: string | undefined) {
         valor_gorjeta: 0,
       })
       .eq("plan_id", pid);
+    if (r4.error) errosReset.push(r4.error);
 
     // Zera daily_sales do dia
-    await supabase
+    const r5 = await supabase
       .from("daily_sales")
       .update({ cash_sales: 0, card_sales: 0, pix_sales: 0, tip_sales: 0, total_profit: 0, total_debt: 0 })
       .eq("user_id", userId)
       .eq("date", today);
+    if (r5.error) errosReset.push(r5.error);
+    if (errosReset.length) avisar.usuario("Não consegui zerar o dia por completo. Tenta de novo.", errosReset, "DEFCON: reiniciar o dia");
 
     // Recarrega tudo do zero
     await loadData();

@@ -1,10 +1,11 @@
 /* Última posição conhecida do GPS do DEFCON (só quando o GPS está ligado).
    Usada pelo Caça-Sinal pra detectar em qual semáforo a pessoa vendeu hoje.
    Fica no aparelho; nada sobe pro servidor por aqui. */
+import { avisar } from "@/shared/lib/avisar";
 const KEY = "orbis_gps_last";
 
 export function setUltimaPosicao(lat: number, lng: number) {
-  try { localStorage.setItem(KEY, JSON.stringify({ lat, lng, ts: Date.now() })); } catch { /* nada */ }
+  try { localStorage.setItem(KEY, JSON.stringify({ lat, lng, ts: Date.now() })); } catch (e) { avisar.silencioso("gps-last: guardar posição", e); }
 }
 
 export function getUltimaPosicao(maxIdadeMs = 8 * 3600 * 1000): { lat: number; lng: number; ts: number } | null {

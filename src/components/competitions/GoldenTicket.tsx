@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 
 export interface MiniPrize {
   valor: string;
@@ -57,8 +58,8 @@ function playUnlockSound() {
       o.stop(t + 0.5);
     });
     setTimeout(() => ctx.close().catch(() => {}), 1600);
-  } catch {
-    /* noop */
+  } catch (e) {
+    avisar.silencioso("GoldenTicket: som", e);
   }
 }
 

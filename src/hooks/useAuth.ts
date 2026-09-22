@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 // ESTADO DE AUTH COMPARTILHADO (singleton de módulo).
 // Antes, cada chamada de useAuth() criava seu PRÓPRIO useState + getSession() +
@@ -50,8 +51,8 @@ const signOut = async () => {
     Object.keys(localStorage).forEach((k) => {
       if (k.startsWith("orbis_") || k.startsWith("last")) localStorage.removeItem(k);
     });
-  } catch {
-    /* ignore */
+  } catch (e) {
+    avisar.silencioso("useAuth: limpar chaves locais no logout", e);
   }
   await supabase.auth.signOut();
 };

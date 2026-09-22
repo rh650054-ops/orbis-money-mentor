@@ -5,6 +5,7 @@
    Card central (campo de visão), rolável, no design system.
    ============================================================ */
 import { useEffect, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { Sparkles, Check, Clock } from "lucide-react";
 import { useReducedMotion } from "@/shared/motion";
@@ -37,7 +38,7 @@ const chave = (uid: string) => `orbis_novidades_${VERSAO}_vista_${uid}`;
  *  O onboarding chama isso ao concluir, pra o card não pular na frente do
  *  primeiro DEFCON (Rick, 05/09: cadastro → DEFCON, sem dashboard no meio). */
 export function marcarNovidadesVistas(uid: string) {
-  try { localStorage.setItem(chave(uid), "1"); } catch { /* sem storage */ }
+  try { localStorage.setItem(chave(uid), "1"); } catch (e) { avisar.silencioso("Novidades: marcar vistas", e); }
 }
 
 /** true = o card de novidades AINDA vai aparecer pra este usuário (os outros
@@ -70,7 +71,7 @@ export default function NovidadesOrbis2({ userId }: { userId?: string }) {
       localStorage.setItem(chave(userId), "1");
       // Dia 1: depois das novidades, o dashboard abre o planejamento (metas + dias de folga)
       localStorage.setItem(`orbis_abrir_planejamento_${userId}`, "1");
-    } catch { /* nada */ }
+    } catch (e) { avisar.silencioso("Novidades: fechar", e); }
     if (reduced) { setAberto(false); return; }
     setEntrando(false);
     window.setTimeout(() => setAberto(false), 250);

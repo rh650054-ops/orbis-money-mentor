@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { extratoValendo } from "@/shared/lib/ranking-config";
 
@@ -96,8 +97,8 @@ export function useLeaderboard(userId: string | undefined) {
         entries.forEach((e: any) => {
           e.faturamento_total_mes = vmap.get(e.user_id) ?? 0;
         });
-      } catch {
-        /* se a RPC falhar, mantém o valor do cache */
+      } catch (e) {
+        avisar.erro("useLeaderboard: faturamento da semana (mantém o cache)", e);
       }
 
       // 1) Abre JA com nome/foto do proprio leaderboard_stats — nao espera mais nada.
@@ -241,7 +242,7 @@ export function useLeaderboard(userId: string | undefined) {
 
       if (existingEntry) {
         // Update existing entry
-        await supabase
+        const { error } = await supabase
           .from("leaderboard_stats")
           .update({
             nome_usuario: userName,
@@ -252,9 +253,10 @@ export function useLeaderboard(userId: string | undefined) {
             constancia_maior_streak: maxStreak,
           })
           .eq("id", existingEntry.id);
+        if (error) throw error;
       } else {
         // Create new entry
-        await supabase
+        const { error } = await supabase
           .from("leaderboard_stats")
           .insert({
             user_id: userId,
@@ -266,15 +268,17 @@ export function useLeaderboard(userId: string | undefined) {
             constancia_streak_atual: currentStreak,
             constancia_maior_streak: maxStreak,
           });
+        if (error) throw error;
       }
 
       // Recalculate positions for all users
-      await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
+      const { error: recalcErr } = await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
+      if (recalcErr) throw recalcErr;
 
       // Reload leaderboard
       await loadLeaderboard();
     } catch (err) {
-      console.error("Error updating user stats:", err);
+      avisar.erro("useLeaderboard: atualizar estatísticas do usuário", err);
     }
   };
 

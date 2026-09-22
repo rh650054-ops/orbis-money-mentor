@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { Card, CardContent } from "@/shared/ui/card";
@@ -9,7 +10,8 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { Textarea } from "@/shared/ui/textarea";
 import { toast } from "@/shared/hooks/use-toast";
-import { Trophy, Plus, Trash2, CheckCircle2, ArrowLeft, Pin, Pencil } from "lucide-react";
+import { Trophy, Plus, Trash2, CheckCircle2, Pin, Pencil } from "lucide-react";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 interface Comp {
   id: string;
@@ -110,7 +112,7 @@ export default function AdminCompetitions() {
     return (
       <div className="p-8 text-center space-y-3">
         <p className="text-muted-foreground">Acesso restrito a administradores.</p>
-        <Button onClick={() => navigate("/ranking")}>Voltar</Button>
+        <Button onClick={() => navigate("/admin")}>Voltar</Button>
       </div>
     );
   }
@@ -293,28 +295,31 @@ export default function AdminCompetitions() {
 
   const finish = async (c: Comp, winnerUserId: string) => {
     if (!confirm(`Finalizar competição e premiar ${profileMap[winnerUserId] || winnerUserId}?`)) return;
-    await supabase
+    const { error: finErr } = await supabase
       .from("competitions" as any)
       .update({ status: "finished", winner_user_id: winnerUserId })
       .eq("id", c.id);
-    await supabase.from("competition_winners" as any).insert({
+    if (finErr) {
+      avisar.usuario("Não consegui finalizar a competição. Tenta de novo.", finErr, "AdminCompetitions: finalizar");
+      return;
+    }
+    const { error: winErr } = await supabase.from("competition_winners" as any).insert({
       competition_id: c.id,
       user_id: winnerUserId,
       prize_label: c.prize_label,
       prize_value: c.prize_value,
     });
+    if (winErr) {
+      avisar.usuario("Finalizei a competição, mas não consegui registrar o vencedor.", winErr, "AdminCompetitions: registrar vencedor");
+      load();
+      return;
+    }
     toast({ title: "Vencedor registrado! 🏆" });
     load();
   };
 
   return (
-    <div className="pb-8 space-y-5 px-4 pt-4 max-w-2xl mx-auto">
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/ranking")}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <h1 className="text-2xl font-bold text-foreground">Admin · Competições</h1>
-      </div>
+    <AdminShell title="Competições" subtitle="Criar, editar, fixar e encerrar competições" icon={<Trophy className="w-6 h-6 text-amber-400" />}>
 
       {/* Form */}
       <Card>
@@ -575,6 +580,6 @@ export default function AdminCompetitions() {
           </Card>
         ))}
       </div>
-    </div>
+    </AdminShell>
   );
 }

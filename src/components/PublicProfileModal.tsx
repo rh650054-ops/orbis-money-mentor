@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { cn } from "@/shared/lib/utils";
 import { presenceInfo } from "@/shared/lib/presence";
 import { useAuth } from "@/hooks/useAuth";
@@ -68,7 +69,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
   useEffect(() => {
     if (!viewer?.id) { setSupremo(false); return; }
     let vivo = true;
-    (supabase as any).rpc("is_orbis_super_admin").then((r: any) => { if (vivo) setSupremo(r?.data === true); }).catch(() => {});
+    (supabase as any).rpc("is_orbis_super_admin").then((r: any) => { if (vivo) setSupremo(r?.data === true); }).catch((e: unknown) => avisar.erro("PublicProfileModal: checar super admin", e));
     return () => { vivo = false; };
   }, [viewer?.id]);
 
@@ -77,8 +78,8 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
     let vivo = true;
     setFichaLoading(true);
     (supabase as any).rpc("admin_ficha_usuario", { target: userId })
-      .then((r: any) => { if (vivo) setFicha(r?.error ? null : r?.data); })
-      .catch(() => { if (vivo) setFicha(null); })
+      .then((r: any) => { if (r?.error) avisar.erro("PublicProfileModal: ficha admin", r.error); if (vivo) setFicha(r?.error ? null : r?.data); })
+      .catch((e: unknown) => { avisar.erro("PublicProfileModal: ficha admin", e); if (vivo) setFicha(null); })
       .finally(() => { if (vivo) setFichaLoading(false); });
     return () => { vivo = false; };
   }, [open, userId, supremo, viewer?.id]);
@@ -171,7 +172,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
       if (!active) return;
       setX1Hist(raw.map((h) => ({ id: h.id, otherName: nameMap.get(h.other) || "Vendedor", won: h.won, prize: h.prize })));
       setCompWins(((cw as any[]) || []).map((r) => ({ id: r.id, label: r.prize_label, value: r.prize_value || 0 })));
-    })().catch(() => {});
+    })().catch((e) => avisar.erro("PublicProfileModal: carregar histórico", e));
     return () => {
       active = false;
     };
@@ -513,7 +514,7 @@ function Linha({ icone, rot, val, copiar, destaque }: { icone: ReactNode; rot: s
   return (
     <button
       type="button"
-      onClick={() => { if (copiar && v !== "—") { try { void navigator.clipboard.writeText(v); } catch { /* sem clipboard */ } } }}
+      onClick={() => { if (copiar && v !== "—") { try { void navigator.clipboard.writeText(v); } catch (e) { avisar.silencioso("PublicProfileModal: copiar", e); } } }}
       className="w-full flex items-center gap-2 text-left"
     >
       <span className="text-muted-foreground flex items-center gap-1 w-[118px] shrink-0">{icone}{rot}</span>

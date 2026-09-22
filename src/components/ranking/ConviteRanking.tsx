@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Camera, Instagram, Check, Loader2, X, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 
 /**
@@ -11,7 +12,7 @@ import { toast } from "@/shared/hooks/use-toast";
 const chave = (uid: string) => `orbis_ranking_convite_${uid}`;
 
 function lembrarDispensa(uid: string) {
-  try { localStorage.setItem(chave(uid), "1"); } catch { /* nada */ }
+  try { localStorage.setItem(chave(uid), "1"); } catch (e) { avisar.silencioso("ConviteRanking: lembrar dispensa", e); }
 }
 function foiDispensado(uid: string) {
   try { return localStorage.getItem(chave(uid)) === "1"; } catch { return true; }

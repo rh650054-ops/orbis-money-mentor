@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { toast } from "@/shared/hooks/use-toast";
 import { getExtratoDeadlineHour, setExtratoDeadline } from "@/shared/lib/extrato-config";
-import { ArrowLeft, Clock, Loader2 } from "lucide-react";
+import { Clock, Loader2 } from "lucide-react";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 // Admin: muda o horário-limite pra envio do extrato (sem código).
 export default function AdminExtratoConfig() {
@@ -36,23 +37,12 @@ export default function AdminExtratoConfig() {
     return (
       <div className="p-8 text-center">
         <p className="text-lg font-bold">Acesso restrito</p>
-        <button onClick={() => navigate("/")} className="mt-3 text-primary underline">Voltar</button>
+        <button onClick={() => navigate("/admin")} className="mt-3 text-primary underline">Voltar</button>
       </div>
     );
 
   return (
-    <div className="pb-24 px-4 pt-4 max-w-lg mx-auto space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted/40 transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Clock className="w-6 h-6 text-amber-400" /> Horário do extrato
-          </h1>
-          <p className="text-sm text-muted-foreground">Até que horas o extrato do dia pode ser enviado</p>
-        </div>
-      </div>
+    <AdminShell title="Horário do extrato" subtitle="Até que horas o extrato do dia pode ser enviado" icon={<Clock className="w-6 h-6 text-amber-400" />} width="md">
 
       <div className="rounded-2xl border border-border bg-card/40 p-4 space-y-3">
         <p className="text-sm text-muted-foreground leading-relaxed">
@@ -80,6 +70,6 @@ export default function AdminExtratoConfig() {
           Vale pro popup do fim do DEFCON, o lembrete e o corte do dia. Passa a valer pra todos os usuários no próximo carregamento do app deles.
         </p>
       </div>
-    </div>
+    </AdminShell>
   );
 }

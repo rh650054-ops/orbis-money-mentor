@@ -42,6 +42,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/hooks/use-toast";
+import { avisar } from "@/shared/lib/avisar";
 import { formatCurrency } from "@/shared/lib/utils";
 import { generatePixPayload } from "@/shared/lib/pix-code";
 import { BRAZILIAN_BANKS, getBankById } from "@/shared/lib/brazilian-banks";
@@ -298,16 +299,20 @@ export default function Products() {
     } else {
       // Grava a receita junto com o produto (controlada pelo form): apaga a antiga e regrava a atual.
       const pid = (saved as any)?.id ?? editing?.id;
+      let falhouExtra = false;
       if (pid) {
         // Tabela de preço por quantidade: regrava as faixas válidas (qty >= 2, preço > 0)
-        await supabase.from("product_price_tiers" as any).delete().eq("product_id", pid);
+        const { error: eDelTiers } = await supabase.from("product_price_tiers" as any).delete().eq("product_id", pid);
+        if (eDelTiers) { falhouExtra = true; avisar.usuario("Não consegui salvar a tabela de preço por quantidade. Tenta de novo.", eDelTiers, "Products: apagar faixas de preço"); }
         const faixas = form.tiers
           .map((t) => ({ qty: parseInt(t.qty) || 0, price: parseFloat(t.price) || 0 }))
           .filter((t) => t.qty >= 2 && t.price > 0);
         if (faixas.length && !form.open_price) {
-          await supabase.from("product_price_tiers" as any).insert(faixas.map((t) => ({ user_id: user.id, product_id: pid, qty: t.qty, price: t.price })));
+          const { error: eTiers } = await supabase.from("product_price_tiers" as any).insert(faixas.map((t) => ({ user_id: user.id, product_id: pid, qty: t.qty, price: t.price })));
+          if (eTiers) { falhouExtra = true; avisar.usuario("Não consegui salvar a tabela de preço por quantidade. Tenta de novo.", eTiers, "Products: gravar faixas de preço"); }
         }
-        await supabase.from("product_recipes").delete().eq("product_id", pid);
+        const { error: eDelRec } = await supabase.from("product_recipes").delete().eq("product_id", pid);
+        if (eDelRec) { falhouExtra = true; avisar.usuario("Não consegui salvar a receita do produto. Tenta de novo.", eDelRec, "Products: apagar receita"); }
         if (form.recipe_mode !== "none") {
           const rows = form.recipe_items
             .filter((r) => r.ingredient_id && r.quantity)
@@ -317,10 +322,14 @@ export default function Products() {
               ingredient_id: r.ingredient_id,
               quantity: parseFloat(r.quantity) || 0,
             }));
-          if (rows.length) await supabase.from("product_recipes").insert(rows);
+          if (rows.length) {
+            const { error: eRec } = await supabase.from("product_recipes").insert(rows);
+            if (eRec) { falhouExtra = true; avisar.usuario("Não consegui salvar a receita do produto. Tenta de novo.", eRec, "Products: gravar receita"); }
+          }
         }
       }
-      toast({ title: editing ? "Produto atualizado" : "Produto criado" });
+      // o toast de sucesso substituiria o aviso de erro (limite de 1 toast): só mostra se tudo gravou
+      if (!falhouExtra) toast({ title: editing ? "Produto atualizado" : "Produto criado" });
       if (!editing) emitMissionEvent("product-added");
       setFormOpen(false);
       loadAll();
@@ -331,10 +340,12 @@ export default function Products() {
   const deleteProduct = async (id: string) => {
     if (!confirm("Excluir este produto?")) return;
     const { error } = await supabase.from("products").update({ is_active: false }).eq("id", id);
-    if (!error) {
-      toast({ title: "Produto removido" });
-      loadAll();
+    if (error) {
+      avisar.usuario("Não consegui remover o produto. Tenta de novo.", error, "Products: remover produto");
+      return;
     }
+    toast({ title: "Produto removido" });
+    loadAll();
   };
 
   // ---------- Pix accounts CRUD ----------
@@ -408,14 +419,19 @@ export default function Products() {
 
   const setDefaultPix = async (id: string) => {
     if (!user) return;
-    await supabase.from("pix_accounts").update({ is_default: false }).eq("user_id", user.id);
-    await supabase.from("pix_accounts").update({ is_default: true }).eq("id", id);
+    const { error: e1 } = await supabase.from("pix_accounts").update({ is_default: false }).eq("user_id", user.id);
+    const { error: e2 } = e1 ? { error: null } : await supabase.from("pix_accounts").update({ is_default: true }).eq("id", id);
+    if (e1 || e2) avisar.usuario("Não consegui marcar essa conta Pix como principal. Tenta de novo.", e1 ?? e2, "Products: conta Pix padrão");
     loadAll();
   };
 
   const deletePixAccount = async (id: string) => {
     if (!confirm("Excluir esta conta Pix?")) return;
-    await supabase.from("pix_accounts").delete().eq("id", id);
+    const { error } = await supabase.from("pix_accounts").delete().eq("id", id);
+    if (error) {
+      avisar.usuario("Não consegui excluir a conta Pix. Tenta de novo.", error, "Products: excluir conta Pix");
+      return;
+    }
     if (editingPix?.id === id) resetPixForm();
     loadAll();
   };

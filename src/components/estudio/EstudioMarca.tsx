@@ -3,6 +3,7 @@ import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check, ImagePlus
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useSubscription } from "@/hooks/useSubscription";
 import { generatePixPayload } from "@/shared/lib/pix-code";
 import { Button } from "@/shared/ui/button";
@@ -136,7 +137,7 @@ async function prepararQrEnviado(file: File): Promise<string | null> {
       while (y1 > y0 && linhaBranca(y1)) y1--;
       while (x0 < x1 && colBranca(x0)) x0++;
       while (x1 > x0 && colBranca(x1)) x1--;
-    } catch { /* sem leitura de pixel: usa a imagem inteira */ }
+    } catch (e) { avisar.silencioso("EstudioMarca: recorte automático (usa a imagem inteira)", e); }
 
     const lw = Math.max(1, x1 - x0 + 1);
     const lh = Math.max(1, y1 - y0 + 1);
@@ -321,10 +322,11 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     const k = pixKey.trim();
     if (!k || k === pixSalva) return;
     try {
-      await sb.from("profiles").update({ pix_key: k }).eq("user_id", userId);
+      const { error } = await sb.from("profiles").update({ pix_key: k }).eq("user_id", userId);
+      if (error) throw error;
       setPixSalva(k);
       toast({ title: "Chave Pix salva", description: "Da próxima vez o QR já vem pronto." });
-    } catch { /* não trava o fluxo por causa disso */ }
+    } catch (e) { avisar.usuario("Não consegui salvar a chave Pix. Tenta de novo.", e, "EstudioMarca: salvar chave Pix"); }
   };
 
   const gerar = async () => {
@@ -450,11 +452,12 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
       // Baixou = achou boa. É o sinal mais forte que o Estúdio produz — sem ele,
       // melhorar o prompt vira chute.
       try {
-        await sb.rpc("marcar_arte_baixada", {
+        const { error } = await sb.rpc("marcar_arte_baixada", {
           p_id: geracaoId || null,
           p_url: arte && !arte.startsWith("data:") ? arte : null,
         });
-      } catch { /* não atrapalha o download */ }
+        if (error) avisar.erro("EstudioMarca: marcar arte baixada", error);
+      } catch (e) { avisar.erro("EstudioMarca: marcar arte baixada", e); }
       toast({
         title: pagante ? "Arte baixada!" : "Arte baixada (com marca d'água)",
         description: pagante
@@ -653,7 +656,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
                   gráfica — e você passa de 2 pra 4 artes por dia, além do mentor de vendas completo.
                 </p>
                 <Button
-                  onClick={() => { try { window.open(getCheckoutUrl(), "_blank"); } catch { /* noop */ } }}
+                  onClick={() => { try { window.open(getCheckoutUrl(), "_blank"); } catch (e) { avisar.silencioso("EstudioMarca: abrir checkout", e); } }}
                   className="w-full h-12 bg-gradient-primary text-base font-bold"
                 >
                   ⭐ Assinar e baixar sem marca d'água

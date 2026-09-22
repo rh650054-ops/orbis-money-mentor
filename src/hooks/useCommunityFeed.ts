@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 
 // Mantido por compatibilidade com componentes que ainda recebem "channel".
@@ -111,11 +112,10 @@ export function useCommunityFeed() {
     setPosts((prev) => prev.map((p) => p.id === postId ? {
       ...p, liked_by_me: !p.liked_by_me, likes_count: p.likes_count + (p.liked_by_me ? -1 : 1)
     } : p));
-    if (post.liked_by_me) {
-      await supabase.from("community_likes").delete().eq("user_id", user.id).eq("post_id", postId);
-    } else {
-      await supabase.from("community_likes").insert({ user_id: user.id, post_id: postId });
-    }
+    const { error } = post.liked_by_me
+      ? await supabase.from("community_likes").delete().eq("user_id", user.id).eq("post_id", postId)
+      : await supabase.from("community_likes").insert({ user_id: user.id, post_id: postId });
+    if (error) avisar.usuario("Não consegui salvar a curtida. Tenta de novo.", error, "useCommunityFeed: curtir post");
   };
 
   return { posts, loading, reload: load, toggleLike };

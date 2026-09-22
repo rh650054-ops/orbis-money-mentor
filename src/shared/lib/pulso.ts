@@ -25,6 +25,7 @@
       dele dentro do app, não o que ele escreveu.
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 type Tipo = "abriu" | "tela" | "fala" | "fechou";
 
@@ -45,7 +46,7 @@ const TELA_MAXIMA_SEG = 7200;     // celular no bolso a tarde inteira não é "u
 const novaId = () => {
   try {
     if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
-  } catch { /* segue */ }
+  } catch (e) { avisar.silencioso("pulso: randomUUID indisponível", e); }
   return `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
 };
 
@@ -65,7 +66,7 @@ function enfileirar(tipo: Tipo, tela: string | null, detalhe: string | null, seg
   try {
     fila.push({ sessao, tipo, tela, detalhe, segundos, em: agora() });
     if (fila.length >= LOTE_MAXIMO) void enviar();
-  } catch { /* sensor nunca atrapalha */ }
+  } catch (e) { avisar.silencioso("pulso: enfileirar evento", e); }
 }
 
 /** Manda o que está na fila. Erro de rede = descarta e segue a vida. */
@@ -88,10 +89,11 @@ async function enviar() {
         em: e.em,
       })) as never,
     );
-  } catch {
+  } catch (e) {
     /* Sem internet no farol é o normal, não a exceção. O evento morre aqui
        de propósito: guardar fila pra sempre encheria a memória do celular
        e o que interessa é o padrão, não cada linha. */
+    avisar.silencioso("pulso: enviar lote (sem rede?)", e);
   }
 }
 
@@ -132,11 +134,11 @@ export function pulsoLigar() {
         enfileirar("abriu", null, null, null);
         telaDesde = Date.now();
       }
-    } catch { /* nunca atrapalha */ }
+    } catch (e) { avisar.silencioso("pulso: visibilitychange", e); }
   });
 
   window.addEventListener("pagehide", () => {
-    try { fecharTela(); enfileirar("fechou", null, null, null); void enviar(); } catch { /* nada */ }
+    try { fecharTela(); enfileirar("fechou", null, null, null); void enviar(); } catch (e) { avisar.silencioso("pulso: pagehide", e); }
   });
 }
 

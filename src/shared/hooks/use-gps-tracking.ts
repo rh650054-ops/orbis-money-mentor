@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 
 /* GPS no DEFCON é OPCIONAL e começa DESLIGADO (Rick, 02/09).
    Motivo: no iPhone instalado como app, a pergunta "quer usar sua localização?"
@@ -17,7 +18,7 @@ export function useGpsTracking() {
   const toggle = useCallback(() => {
     setEnabled((prev) => {
       const next = !prev;
-      try { localStorage.setItem(KEY, next ? "1" : "0"); } catch { /* sem storage */ }
+      try { localStorage.setItem(KEY, next ? "1" : "0"); } catch (e) { avisar.silencioso("gps-tracking: guardar preferência", e); }
       return next;
     });
   }, []);

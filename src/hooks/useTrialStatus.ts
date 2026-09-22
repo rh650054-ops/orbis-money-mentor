@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/ui/use-toast";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
@@ -74,7 +75,8 @@ export function useTrialStatus(userId: string | undefined) {
       }
 
       // Check if trial expired for non-demo users
-      await supabase.rpc('check_trial_expired', { user_uuid: userId });
+      const { error: trialErr } = await supabase.rpc('check_trial_expired', { user_uuid: userId });
+      if (trialErr) avisar.erro("useTrialStatus: check_trial_expired", trialErr);
 
       // Compara datas no fuso de Brasília para evitar leituras erradas perto da meia-noite
       const trialEndDate = profile.trial_end

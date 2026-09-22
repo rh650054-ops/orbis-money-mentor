@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 export interface HourlyBlock {
@@ -157,13 +158,14 @@ export function useHourlyBlocks(userId: string | undefined, date?: string) {
     // Start only the first block's timer
     const firstBlock = blocks[0];
     if (firstBlock && firstBlock.timer_status === 'idle') {
-      await supabase
+      const { error } = await supabase
         .from("hourly_goal_blocks")
         .update({
           timer_status: 'running',
           timer_started_at: new Date().toISOString()
         })
         .eq("id", firstBlock.id);
+      if (error) avisar.usuario("Não consegui iniciar o bloco. Tenta de novo.", error, "useHourlyBlocks: iniciar primeiro bloco");
       
       loadBlocks();
     }
