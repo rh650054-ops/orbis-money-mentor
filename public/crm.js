@@ -39,7 +39,7 @@ const META={contatos:10, vendas:1};
 let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   naoPagas:0,naoPagasQtd:0,atraso:0,atrasoQtd:0,encerradas:0,encerradasQtd:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
-let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={};
+let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[];
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
@@ -182,6 +182,7 @@ async function carregarTudo(){
     dias:(g.dias||[]).map(x=>[x.d,+x.v])};
 
   const n = await chamar("crm_numeros"); if(n) NUM=Object.assign(NUM, n);
+  REL = (await chamar("crm_relatorio_mensal")) || [];
   HOT = (await chamar("crm_hotmart_lista")) || [];
   CONV = {};
   for(const m of ((await chamar("crm_conversas_lista"))||[])){
@@ -849,6 +850,57 @@ function abrirLista(titulo,sub,pessoas,total){
    dr.querySelectorAll(".lista-p").forEach(b=>b.hidden=!!q&&!b.dataset.busca.includes(q));};
 }
 
+/* ===== RELATÓRIO MENSAL (vem pronto do banco: crm_relatorio_mensal) ===== */
+const MESES_PT=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const mesNome=m=>{const [a,b]=m.split("-");return MESES_PT[+b-1]+"/"+a.slice(2);};
+const pct=v=>v==null?"—":String(v).replace(".",",")+"%";
+function relatorioHTML(){
+ if(!REL.length) return "";
+ const cols=REL.map(r=>`<th class="n">${mesNome(r.mes)}${r.parcial?"<br><span style='font-weight:500;font-size:9.5px'>até hoje</span>":""}</th>`).join("");
+ const linha=(rotulo,fn,opts={})=>`<tr><td${opts.forte?' style="font-weight:700"':''}>${rotulo}</td>${REL.map(r=>{
+   const v=fn(r); const cor=opts.cor?opts.cor(r):null;
+   return `<td class="n"${cor?` style="color:var(--${cor});font-weight:700"`:""}>${v==null?"—":v}</td>`;}).join("")}</tr>`;
+ const conv=r=>r.conversao_pct, churnS=r=>r.churn_safra_pct, churnM=r=>r.churn_mensal_pct;
+ const corConv=r=>r.parcial?null:(conv(r)>=15?"c2":conv(r)>=10?"warn":"bad");
+ const corChurn=v=>v==null?null:(v<=20?"c2":v<=35?"warn":"bad");
+ // leitura automática: mês fechado mais recente
+ const fech=REL.filter(r=>!r.parcial), u=fech[fech.length-1], ant=fech[fech.length-2];
+ let leitura="";
+ if(u){
+  const cadaN=u.conversao_pct?Math.round(100/u.conversao_pct):null;
+  leitura=`Em <b>${mesNome(u.mes)}</b> entraram <b>${u.contas} contas</b> e <b>${u.assinaram}</b> assinaram — <b>${pct(u.conversao_pct)}</b>${cadaN?`, ou <b>1 venda a cada ${cadaN} contas</b>`:""}.`;
+  if(ant&&ant.conversao_pct!=null&&u.conversao_pct!=null){
+   const d=(u.conversao_pct-ant.conversao_pct).toFixed(1).replace(".",",");
+   leitura+=` Contra ${mesNome(ant.mes)}: ${u.conversao_pct>=ant.conversao_pct?"+":""}${d} ponto${Math.abs(u.conversao_pct-ant.conversao_pct)===1?"":"s"}.`;}
+  if(u.churn_safra_pct!=null) leitura+=` Da safra de ${mesNome(u.mes)}, <b>${pct(u.churn_safra_pct)}</b> já pararam de pagar.`;
+  const semAbrir=u.contas-u.abriram;
+  if(u.contas) leitura+=` <b>${semAbrir} das ${u.contas} contas (${Math.round(semAbrir/u.contas*100)}%) nunca abriram o app</b> — é aí que o funil mais vaza.`;
+ }
+ return `
+ <h2 class="sec">Resumo por mês · direto do banco</h2>
+ <div class="box pad" style="overflow-x:auto">
+  <table class="tabela" style="min-width:${120+REL.length*84}px">
+   <tr><th>Mês</th>${cols}</tr>
+   ${linha("Leads na LP",r=>r.leads)}
+   ${linha("Contas criadas",r=>r.contas,{forte:true})}
+   ${linha("Abriram o app",r=>`${r.abriram}${r.contas?` · ${Math.round(r.abriram/r.contas*100)}%`:""}`)}
+   ${linha("Registraram venda",r=>`${r.venderam}${r.contas?` · ${Math.round(r.venderam/r.contas*100)}%`:""}`)}
+   ${linha("Assinaram (dessa safra)",r=>r.assinaram)}
+   ${linha("Conversão",r=>pct(conv(r)),{forte:true,cor:corConv})}
+   ${linha("Vendas no mês",r=>r.vendas,{forte:true})}
+   ${linha("Ainda pagando hoje",r=>r.ainda_ativas)}
+   ${linha("Churn da safra",r=>pct(churnS(r)),{cor:r=>r.parcial?null:corChurn(churnS(r))})}
+   ${linha("Churn no mês",r=>r.ativas_inicio?`${pct(churnM(r))} <span style="font-weight:400;color:var(--faint)">(${r.pararam}/${r.ativas_inicio})</span>`:"—",{cor:r=>corChurn(churnM(r))})}
+   ${ehDono()?linha("Receita Hotmart",r=>r.receita!=null?brl(r.receita):"—",{forte:true}):""}
+   ${ehDono()?linha("· novas + renovações",r=>r.hot_novas!=null?`${r.hot_novas} + ${r.hot_renov}`:"—"):""}
+  </table>
+  ${leitura?`<div class="temp" style="margin-top:12px"><span class="e">📊</span><span>${leitura}</span></div>`:""}
+  <p class="nota"><b>Como ler:</b> "Assinaram (dessa safra)" conta quem criou conta naquele mês e assinou em qualquer momento; "Vendas no mês" conta assinaturas criadas naquele mês, de qualquer safra. Churn da safra = de quem assinou no mês, quantos já pararam. Churn no mês = quem parou naquele mês ÷ quem estava ativo no início dele.
+  ${ehDono()?"Receita Hotmart só existe desde 16/08 (webhook); junho e julho dependem da API da Hotmart.":""}
+  Setembro é parcial: a safra ainda está decidindo, e 22 dos que "pararam" ainda estão em retentativa de cobrança na Hotmart.</p>
+ </div>`;
+}
+
 /* ===== TELA MÉTRICAS ===== */
 function renderMetricas(){
  const tc=temposDeConversa();
@@ -874,6 +926,7 @@ function renderMetricas(){
  const maxF=funil[0][1],maxR=Math.max(...RITMO.map(r=>r[1]));
 
  document.getElementById("p-metricas").innerHTML=`
+ ${relatorioHTML()}
  <h2 class="sec">Os números do Yan · clique em qualquer um para ver quem são</h2>
  <div class="taxas">${cards.map((t,i)=>`<button class="taxa" data-card="${i}">
    <span class="ver">ver lista ↗</span>
