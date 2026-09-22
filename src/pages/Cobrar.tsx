@@ -15,6 +15,7 @@ import {
   ChevronRight, AlertTriangle, HandCoins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { reaisDeTexto, limparDinheiro, textoDeReais, arrumarDinheiro } from "@/shared/lib/dinheiro";
 import { toast } from "@/shared/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -181,7 +182,8 @@ export default function Cobrar() {
 
   const mandarZap = () => {
     if (!cob) return;
-    void supabase.from("cobrancas" as any).update({ enviada_em: new Date().toISOString() }).eq("id", cob.id);
+    void supabase.from("cobrancas" as any).update({ enviada_em: new Date().toISOString() }).eq("id", cob.id)
+      .then(({ error }: { error: unknown }) => { if (error) avisar.erro("Cobrar: marcar cobrança como enviada", error); });
     window.open(linkZap(cob.cliente_telefone, texto), "_blank", "noopener");
   };
 

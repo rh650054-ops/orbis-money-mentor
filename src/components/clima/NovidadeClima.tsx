@@ -6,6 +6,7 @@
    pra sempre. Tocar no fundo também fecha.
    ============================================================ */
 import { useEffect, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { X, Sparkles, CloudSun } from "lucide-react";
@@ -27,7 +28,7 @@ export function NovidadeClima({ userId }: { userId: string }) {
   }, [visivel]);
 
   if (!visivel) return null;
-  const fechar = () => { try { localStorage.setItem(chave(userId), "1"); } catch { /* ignore */ } setVisivel(false); };
+  const fechar = () => { try { localStorage.setItem(chave(userId), "1"); } catch (e) { avisar.silencioso("NovidadeClima: marcar visto", e); } setVisivel(false); };
 
   return createPortal(
     <div className="fixed inset-0 z-[75] flex items-center justify-center px-5 py-6" role="dialog" aria-modal="true" aria-label="Novidade: clima do vendedor">

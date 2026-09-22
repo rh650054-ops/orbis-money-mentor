@@ -10,6 +10,7 @@ import { ChevronRight, Swords, TrendingDown, TrendingUp, X } from "lucide-react"
 import { useAuth } from "@/hooks/useAuth";
 import { useRankingAlertas, textoAlerta } from "@/hooks/useRankingAlertas";
 import { useEffect, useRef } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { pulsoFala } from "@/shared/lib/pulso";
 
 export default function RankingAlertas() {
@@ -27,7 +28,7 @@ export default function RankingAlertas() {
       jaAnotados.current.add(a.id);
       try {
         pulsoFala(a.tipo === "foi_ultrapassado" ? "ranking_te_passaram" : "ranking_voce_subiu");
-      } catch { /* sensor nunca atrapalha */ }
+      } catch (e) { avisar.silencioso("RankingAlertas: pulso", e); }
     }
   }, [alertas]);
 

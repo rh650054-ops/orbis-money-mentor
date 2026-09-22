@@ -14,6 +14,7 @@
    o Index só passa vendidoHoje e o onComecar.
    ============================================================ */
 import { useEffect, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { AlarmClock } from "lucide-react";
 import { carregarPlano, type PlanoCalculado } from "@/shared/onboarding/plano";
 
@@ -35,7 +36,7 @@ export default function CobrancaDoCorre({ userId, vendidoHoje, onComecar }: {
 
   useEffect(() => {
     if (!userId) return;
-    try { setSilenciado(localStorage.getItem(chaveHoje(userId)) === "1"); } catch { /* nada */ }
+    try { setSilenciado(localStorage.getItem(chaveHoje(userId)) === "1"); } catch (e) { avisar.silencioso("CobrancaDoCorre: ler silenciado", e); }
     void carregarPlano(userId).then(setPlano);
   }, [userId]);
 
@@ -53,7 +54,7 @@ export default function CobrancaDoCorre({ userId, vendidoHoje, onComecar }: {
   const atraso = atrasoMin >= 60 ? `${Math.floor(atrasoMin / 60)}h${atrasoMin % 60 > 0 ? String(atrasoMin % 60).padStart(2, "0") : ""}` : `${atrasoMin}min`;
 
   const silenciarHoje = () => {
-    try { localStorage.setItem(chaveHoje(userId), "1"); } catch { /* nada */ }
+    try { localStorage.setItem(chaveHoje(userId), "1"); } catch (e) { avisar.silencioso("CobrancaDoCorre: silenciar hoje", e); }
     setSilenciado(true);
   };
 

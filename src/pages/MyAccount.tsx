@@ -10,6 +10,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useToast } from "@/shared/hooks/use-toast";
 import { z } from "zod";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
@@ -148,6 +149,7 @@ export default function Profile() {
       .eq("user_id", user.id)
       .maybeSingle();
 
+    if (error) avisar.erro("MyAccount: carregar perfil", error);
     if (data && !error) {
       setProfile({
         nickname: data.nickname || "",
@@ -175,7 +177,7 @@ export default function Profile() {
       }
     } else {
       // Se não existe perfil, criar um
-      const { data: newProfile } = await supabase
+      const { data: newProfile, error: insErr } = await supabase
         .from("profiles")
         .insert({
           user_id: user.id,
@@ -184,6 +186,7 @@ export default function Profile() {
         })
         .select()
         .single();
+      if (insErr) avisar.usuario("Não consegui criar seu perfil. Tenta de novo.", insErr, "MyAccount: criar perfil");
 
       if (newProfile) {
         setProfile({
@@ -337,6 +340,7 @@ export default function Profile() {
       });
       setIsSaving(false);
     } catch (error) {
+      avisar.erro("MyAccount: salvar perfil", error);
       toast({
         title: "Erro",
         description: "Não foi possível atualizar o perfil.",
@@ -378,6 +382,7 @@ export default function Profile() {
         description: `Sua meta mensal de lucro líquido agora é ${value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`,
       });
     } catch (error) {
+      avisar.erro("MyAccount: salvar meta mensal", error);
       toast({
         title: "Erro",
         description: "Não foi possível salvar a meta.",

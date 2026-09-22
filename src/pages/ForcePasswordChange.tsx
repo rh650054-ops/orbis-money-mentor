@@ -6,6 +6,7 @@ import { Label } from "@/shared/ui/label";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { KeyRound, CheckCircle2, ShieldCheck } from "lucide-react";
 
 /**
@@ -57,10 +58,11 @@ export default function ForcePasswordChange() {
 
     // 2. Limpa a flag must_change_password no profile
     if (userId) {
-      await supabase
+      const { error: flagErr } = await supabase
         .from("profiles")
         .update({ must_change_password: false })
         .eq("user_id", userId);
+      if (flagErr) avisar.erro("ForcePasswordChange: limpar flag must_change_password", flagErr);
     }
 
     setLoading(false);

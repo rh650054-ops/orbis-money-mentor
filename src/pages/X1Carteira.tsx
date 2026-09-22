@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -250,7 +251,7 @@ export default function X1Carteira() {
       setMyPix("");
       setMyNome("");
       setMode("new");
-    })().catch(() => {});
+    })().catch((e) => avisar.erro("X1Carteira: carregar oponente", e));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, searchParams]);
 
@@ -402,10 +403,12 @@ export default function X1Carteira() {
       if (upErr) throw upErr;
       const { error: rpcErr } = await (supabase as any).rpc("x1_set_proof", { p_id: c.id, p_url: path });
       if (rpcErr) throw rpcErr;
-      await (supabase as any).rpc("x1_mark_paid", { p_id: c.id }); // comprovante enviado = paguei
+      const { error: paidErr } = await (supabase as any).rpc("x1_mark_paid", { p_id: c.id }); // comprovante enviado = paguei
+      if (paidErr) throw paidErr;
       toast({ title: "Comprovante enviado ✅", description: "O admin vai conferir e liberar o duelo." });
       await loadAll();
     } catch (e: any) {
+      avisar.erro("X1Carteira: enviar comprovante", e);
       toast({ title: "Não consegui enviar o comprovante", description: e?.message || "Tenta de novo com uma foto mais nítida.", variant: "destructive" });
     } finally {
       setUploadingProof(null);
@@ -440,7 +443,8 @@ export default function X1Carteira() {
         toast({ title: "Comprovante recebido 📋", description: r?.dica ?? "Vai passar pela conferência do admin." });
         await loadAll();
       }
-    } catch {
+    } catch (e) {
+      avisar.erro("X1Carteira: enviar comprovante de depósito", e);
       toast({ title: "Não consegui enviar", description: "Tenta de novo.", variant: "destructive" });
     } finally {
       setEnviandoComprovante(false);
@@ -459,7 +463,7 @@ export default function X1Carteira() {
       } else {
         setMpQr({ paymentId: r.payment_id, valor: r.valor, copiaCola: r.copia_cola, qrB64: r.qr_base64 });
       }
-    } catch { toast({ title: "Não rolou", variant: "destructive" }); }
+    } catch (e) { avisar.erro("X1Carteira: gerar cobrança Pix (Mercado Pago)", e); toast({ title: "Não rolou", variant: "destructive" }); }
     setMpGerando(false);
   };
   // Enquanto o QR está na tela, vigia o pagamento — quando o MP confirmar, festeja.

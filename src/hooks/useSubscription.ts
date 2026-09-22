@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 interface SubscriptionStatus {
   subscribed: boolean;
@@ -59,10 +60,11 @@ export function useSubscription(userId: string | undefined) {
           setLoading(false);
           return;
         }
-        await supabase
+        const { error: expErr } = await supabase
           .from("profiles")
           .update({ is_trial_active: false, plan_status: "expired" })
           .eq("user_id", userId);
+        if (expErr) avisar.erro("useSubscription: marcar teste expirado", expErr);
       }
 
       // Check subscriptions table

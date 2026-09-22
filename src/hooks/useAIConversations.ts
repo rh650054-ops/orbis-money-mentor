@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/ui/use-toast";
 import { buildOrbisUserContext } from "@/shared/lib/orbis-user-context";
@@ -102,13 +103,18 @@ export const useAIConversations = () => {
 
   const renameConversation = useCallback(async (id: string, title: string) => {
     if (!user) return;
-    await supabase.from("ai_conversations").update({ title }).eq("id", id);
+    const { error } = await supabase.from("ai_conversations").update({ title }).eq("id", id);
+    if (error) avisar.usuario("Não consegui renomear a conversa. Tenta de novo.", error, "IA: renomear conversa");
     await loadConversations();
   }, [user, loadConversations]);
 
   const deleteConversation = useCallback(async (id: string) => {
     if (!user) return;
-    await supabase.from("ai_conversations").delete().eq("id", id);
+    const { error } = await supabase.from("ai_conversations").delete().eq("id", id);
+    if (error) {
+      avisar.usuario("Não consegui apagar a conversa. Tenta de novo.", error, "IA: apagar conversa");
+      return;
+    }
     if (activeId === id) setActiveId(null);
     await loadConversations();
   }, [user, activeId, loadConversations]);
@@ -167,7 +173,7 @@ export const useAIConversations = () => {
           userContext = await buildOrbisUserContext(user.id);
           userCtxRef.current = { ctx: userContext, ts: now };
         }
-      } catch { userContext = ""; }
+      } catch (e) { avisar.erro("IA: montar contexto do usuário", e); userContext = ""; }
 
       // Tenta o chat; se falhar (timeout/limite), tenta +1 vez antes de desistir.
       // Reduz bastante o "Desculpe, tive um problema..." aparecer/ser falado na voz.
@@ -200,8 +206,9 @@ export const useAIConversations = () => {
         const comFoto = `${text}\n\n[[foto:${refUrlEnviada}]]`;
         setMessages((prev) => prev.map((m) => (m.id === idMinhaMsg ? { ...m, content: comFoto } : m)));
         try {
-          await supabase.from("ai_messages").update({ content: comFoto }).eq("id", idMinhaMsg);
-        } catch { /* a miniatura ja' esta' na tela; se o banco falhar, some so' no reload */ }
+          const { error: fotoErr } = await supabase.from("ai_messages").update({ content: comFoto }).eq("id", idMinhaMsg);
+          if (fotoErr) avisar.erro("IA: guardar foto na mensagem", fotoErr);
+        } catch (e) { avisar.erro("IA: guardar foto na mensagem", e); }
       }
       const aiText =
         chatMessage ||
@@ -217,7 +224,7 @@ export const useAIConversations = () => {
       }
       await loadConversations();
     } catch (err) {
-      console.error(err);
+      avisar.erro("IA: enviar mensagem", err);
       toast({ title: "Erro ao enviar mensagem", variant: "destructive" });
     } finally {
       setIsSending(false);

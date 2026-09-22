@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Flame, Check, X, Loader2, Swords, Share2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import "@/components/x1/x1.css";
@@ -68,7 +69,7 @@ export default function X1Luta() {
     carregarRecorde(uid).then(setRecorde);
     supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle().then(({ data }) => setSaldo(Number((data as any)?.balance) || 0));
   }, [uid, l?.status]);
-  useEffect(() => { if (!hit) return; try { navigator.vibrate?.(40); } catch { /* */ } const t = setTimeout(() => setHit(null), 500); return () => clearTimeout(t); }, [hit]);
+  useEffect(() => { if (!hit) return; try { navigator.vibrate?.(40); } catch (e) { avisar.silencioso("X1Luta: vibração", e); } const t = setTimeout(() => setHit(null), 500); return () => clearTimeout(t); }, [hit]);
   useEffect(() => { const t = setTimeout(() => setRodadaVisivel(false), 2600); return () => clearTimeout(t); }, []);
 
   const souCh = !!l && l.challenger_id === uid;
@@ -83,7 +84,7 @@ export default function X1Luta() {
     const { error } = await (supabase as any).rpc("x1_negotiate", { p_id: l.id, p_action: action });
     setAgindo(false);
     if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
-    if (action === "accept") { try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch { /* */ } prev.current = null; void carregar(); }
+    if (action === "accept") { try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch (e) { avisar.silencioso("X1Luta: vibração", e); } prev.current = null; void carregar(); }
     else { toast({ title: "Desafio recusado" }); navigate("/x1"); }
   };
   const torcer = async (lado: "challenger" | "opponent") => {
@@ -95,7 +96,7 @@ export default function X1Luta() {
   const compartilhar = async () => {
     if (!l) return;
     const texto = `X1 ao vivo no Orbis: ${primeiroNome(l.ch_nome)} ${fmt(l.ch_total)} × ${fmt(l.op_total)} ${primeiroNome(l.op_nome)}. Quem vende mais até 23:59 leva.`;
-    try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast({ title: "Copiado!" }); } } catch { /* */ }
+    try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast({ title: "Copiado!" }); } } catch (e) { avisar.silencioso("X1Luta: compartilhar (cancelado)", e); }
   };
 
   if (!uid) return null;

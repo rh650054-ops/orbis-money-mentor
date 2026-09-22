@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 export interface Competition {
   id: string;
@@ -67,11 +68,12 @@ export function useCompetitions(userId: string | undefined) {
 
     // Recalc scores for active competitions (best-effort, server-side)
     const activeIds = compsList.filter((c) => c.status === "active").map((c) => c.id);
-    await Promise.all(
+    const recalcs = await Promise.all(
       activeIds.map((id) =>
         supabase.rpc("recalculate_competition_scores" as any, { _competition_id: id }),
       ),
     );
+    recalcs.forEach((r) => { if (r.error) avisar.erro("useCompetitions: recalcular pontuação", r.error); });
 
     // Load all participants for active+finished competitions
     if (compsList.length) {

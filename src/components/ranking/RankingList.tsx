@@ -4,6 +4,7 @@ import { getTier } from "./tier";
 import { presenceInfo } from "@/shared/lib/presence";
 import { AvatarRanking, SeloVerificado } from "./AvatarRanking";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { ChevronRight, ChevronUp, Swords } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -129,7 +130,7 @@ export function RankingList({ ranking, me, formatCurrency, onOpenProfile }: Prop
       const map: Record<string, string> = {};
       for (const r of (data as any[]) || []) map[String(r.user_id)] = String(r.motivo);
       setSuspects(map);
-    })().catch(() => {});
+    })().catch((e) => avisar.erro("RankingList: carregar suspeitos", e));
     return () => { alive = false; };
   }, []);
   if (ranking.length < 4) return null;

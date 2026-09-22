@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Wallet, Swords, Search, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import "@/components/x1/x1.css";
@@ -105,7 +106,7 @@ export default function X1Escolher() {
     const r = data as { id: string; status: string; ja_existia: boolean };
     const ele: Pessoa = { user_id: sel.user_id, nome: sel.nome, avatar_url: sel.avatar_url };
     if (r.status === "active") {
-      try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch { /* sem vibração */ }
+      try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch (e) { avisar.silencioso("X1Escolher: vibração", e); }
       setSplash({ ele, id: r.id });
       setTimeout(() => navigate(`/x1/luta/${r.id}`, { replace: true }), 1900);
     } else {

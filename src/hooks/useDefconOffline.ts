@@ -12,6 +12,7 @@
    do DEFCON 4". Então a tela é a MESMA; só o motor é este.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import type { DefconBlock } from "@/hooks/useDefconChallenge";
 import {
   carregarDiaOffline, novoDiaOffline, salvarDiaOffline, totaisDoDia, metaDiaLembrada, hojeBR,
@@ -208,7 +209,7 @@ export function useDefconOffline(userId: string | null) {
     // Mesma regra do online: fechou com venda → a Home acende a chama uma vez.
     try {
       if (userId && t.total > 0) localStorage.setItem(`orbis_chama_acender_${userId}`, String(Date.now()));
-    } catch { /* sem storage: sem animação */ }
+    } catch (e) { avisar.silencioso("DefconOffline: marcar chama pra acender", e); }
   };
   const reabrir = () => {
     mudar((d) => ({ ...d, ended_at: null, bloco_inicio: new Date().toISOString(), descanso_ate: null, relatorio_bloco: null }));

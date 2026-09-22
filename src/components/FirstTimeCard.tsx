@@ -18,6 +18,7 @@
    - Novas telas: é só adicionar uma entrada em TELAS_INTRO.
    ============================================================ */
 import { useEffect, useState, type ReactNode } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { Home, Zap, Trophy, Wallet, BarChart3, Package } from "lucide-react";
 import { useReducedMotion } from "@/shared/motion";
@@ -128,7 +129,7 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
       try {
         if (localStorage.getItem(`orbis_abrir_planejamento_${userId}`) === "1") return false; // planejamento vai abrir
         if (novidadesPendentes(userId)) return false;                   // novidades ainda vão aparecer
-      } catch { /* nada */ }
+      } catch (e) { avisar.silencioso("FirstTimeCard: checar pendências", e); }
       return true;
     };
     let ok = 0; // precisa achar a tela livre 2 vezes seguidas (~meio segundo de respiro)
@@ -149,7 +150,7 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
   if (!c) return null;
 
   const fechar = () => {
-    try { localStorage.setItem(chave(userId, tela), "1"); } catch { /* nada */ }
+    try { localStorage.setItem(chave(userId, tela), "1"); } catch (e) { avisar.silencioso("FirstTimeCard: marcar visto", e); }
     if (reduced) { setAberto(false); return; }
     setEntrando(false);
     window.setTimeout(() => setAberto(false), 250);

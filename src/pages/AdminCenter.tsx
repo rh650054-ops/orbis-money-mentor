@@ -5,18 +5,20 @@ import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { toast } from "@/shared/hooks/use-toast";
-import { ArrowLeft, ShieldCheck, Trophy, Eye, Loader2, Sparkles, ChevronRight, Users, CreditCard, Brain, ShieldAlert, FileCog, Swords, Zap } from "lucide-react";
+import { ShieldCheck, Trophy, Eye, Loader2, Sparkles, Users, CreditCard, Brain, ShieldAlert, FileCog, Swords, Landmark, ArrowDownToLine, ArrowUpFromLine, Wallet, Filter, ExternalLink, Flag } from "lucide-react";
+import { AdminShell } from "@/components/admin/AdminShell";
 
 // ============================================================================
-// CENTRAL DE ADMINISTRAÇÃO DO ORBIS — acessível só pelo Perfil, só pra admins.
-// Tudo que era painel de admin espalhado na aba X1 mora aqui:
+// PAINEL DE COMANDO DO ORBIS — acessível só pelo Perfil, só pra admins.
+// Um mundo só: atalhos pra TODAS as áreas de admin em cima (o CRM continua
+// app separado em /crm.html porque o vendedor comercial usa sem o app), e as
+// operações do X1 logo abaixo:
 //   🏦 Tesouraria (só Rick e Mohamed — o banco barra o resto via x1_tesouraria)
 //   ⚔️ Revisões de duelos (conferir pagamento, ver comprovante, premiar vencedor
 //      com extrato verificado + parecer da IA)
 //   📋 Depósitos (fila pendente de conferência + últimos auto-creditados)
 //   💰 Carteiras (creditar/debitar saldo de qualquer vendedor)
 //   🏁 Liquidação manual (roda sozinha às 9h05; botão pra forçar agora)
-//   🔗 Atalhos pras outras áreas de admin já existentes
 // A segurança REAL está no banco (RLS/RPCs) — esta tela é só a interface.
 // ============================================================================
 
@@ -55,24 +57,26 @@ const dateBR = (iso: string | null) => {
 const dtBR = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
-// Outras áreas de admin que já existem no app — atalhos num lugar só.
-const OUTRAS_AREAS = [
-  { icon: Users, label: "CRM — Funil de vendas", desc: "Trial, relacionamento, inadimplentes e leads por parceiro", path: "/crm.html" },
-  { icon: Brain, label: "Cofre de Conhecimento", desc: "O que o mentor de IA sabe — cada nota afia a IA na hora", path: "/cofre.html" },
-  { icon: Swords, label: "Competições", desc: "Criar e gerenciar competições", path: "/admin/competitions" },
-  { icon: Users, label: "Usuários demo", desc: "Contas de demonstração", path: "/admin/demo-users" },
-  { icon: CreditCard, label: "Assinaturas", desc: "Planos e pagamentos", path: "/admin/subscriptions" },
-  { icon: Brain, label: "Cérebro da IA", desc: "Configurar a IA do app", path: "/admin/ai-brain" },
-  { icon: ShieldAlert, label: "Anti-trapaça", desc: "Análise de anomalias", path: "/admin/anti-trapaca" },
-  { icon: FileCog, label: "Config. de extrato", desc: "Regras da verificação", path: "/admin/extrato-config" },
+// Atalhos do Painel de Comando — TUDO que é admin, num lugar só.
+// `href` abre em nova aba (app separado); `path` navega no app; `anchor` rola
+// até a seção desta mesma tela.
+type Atalho = { icon: typeof Users; label: string; desc: string; path?: string; href?: string; anchor?: string; cor?: string };
+const ATALHOS_AREAS: Atalho[] = [
+  { icon: Filter, label: "CRM", desc: "Funil de vendas — app separado", href: "/crm.html", cor: "text-sky-400" },
+  { icon: CreditCard, label: "Assinaturas", desc: "Planos, pagamentos e afiliados", path: "/admin/subscriptions", cor: "text-emerald-400" },
+  { icon: Brain, label: "Cofre de Conhecimento", desc: "O que o mentor de IA sabe", path: "/admin/cofre", cor: "text-violet-400" },
+  { icon: Swords, label: "Competições", desc: "Criar e gerenciar", path: "/admin/competitions", cor: "text-amber-400" },
+  { icon: ShieldAlert, label: "Anti-trapaça", desc: "Análise de anomalias", path: "/admin/anti-trapaca", cor: "text-red-400" },
+  { icon: Users, label: "Usuários demo", desc: "Contas de demonstração", path: "/admin/demo-users", cor: "text-primary" },
+  { icon: FileCog, label: "Config. de extrato", desc: "Regras da verificação", path: "/admin/extrato-config", cor: "text-muted-foreground" },
 ];
-
-// Ferramentas de teste/simulação — antes ficavam soltas no Minha Conta.
-const TESTES = [
-  { icon: FileCog, label: "Teste · Extrato", desc: "Simular upload de extrato", path: "/admin/teste-extrato" },
-  { icon: Trophy, label: "Bilhete dourado", desc: "Testar o bilhete dourado", path: "/?bilhete-teste=1" },
-  { icon: Eye, label: "Ranking (simulador)", desc: "Simular o ranking", path: "/admin/teste-ranking" },
-  { icon: Zap, label: "DEFCON teste", desc: "Protótipo do Foco 2.0: carga, tabela de preço, fechamento — nada vai pro banco", path: "/admin/defcon-teste" },
+const ATALHOS_SECOES: Atalho[] = [
+  { icon: Landmark, label: "Tesouraria X1", desc: "Devido, taxas, saldos", anchor: "tesouraria", cor: "text-violet-400" },
+  { icon: Swords, label: "Duelos em revisão", desc: "Pagamentos e vencedores", anchor: "duelos", cor: "text-primary" },
+  { icon: ArrowDownToLine, label: "Depósitos", desc: "Fila de conferência", anchor: "depositos", cor: "text-emerald-400" },
+  { icon: ArrowUpFromLine, label: "Saques", desc: "Pix a enviar", anchor: "saques", cor: "text-amber-400" },
+  { icon: Wallet, label: "Carteiras", desc: "Creditar / debitar", anchor: "carteiras", cor: "text-foreground" },
+  { icon: Flag, label: "Liquidação", desc: "Forçar agora", anchor: "liquidacao", cor: "text-foreground" },
 ];
 
 export default function AdminCenter() {
@@ -172,7 +176,7 @@ export default function AdminCenter() {
     ]);
     const todos = [...(((pend as any[]) || [])), ...(((rec as any[]) || [])), ...(((wds as any[]) || []))];
     const uidsDep = Array.from(new Set(todos.map((d) => d.user_id)));
-    let nomes: Record<string, string> = {};
+    const nomes: Record<string, string> = {};
     if (uidsDep.length) {
       const { data: pf } = await supabase.from("public_profiles").select("user_id, nickname").in("user_id", uidsDep);
       ((pf as any[]) || []).forEach((p) => (nomes[p.user_id] = p.nickname));
@@ -314,17 +318,47 @@ export default function AdminCenter() {
   const revWin = revisoes.filter((c) => c.status === "awaiting_result" || (c.status === "active" && (c.scheduled_date ?? "") < hoje));
   const revAtivos = revisoes.filter((c) => c.status === "active" && c.scheduled_date === hoje);
 
+  const irPara = (a: Atalho) => {
+    if (a.href) window.open(a.href, "_blank", "noopener");
+    else if (a.path) navigate(a.path);
+    else if (a.anchor) document.getElementById(a.anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const contadores: Record<string, number> = { duelos: revAcc.length + revWin.length, depositos: depsPendentes.length, saques: saques.length };
+  const atalhoBtn = (a: Atalho) => {
+    const Icon = a.icon;
+    const badge = a.anchor ? contadores[a.anchor] : undefined;
+    return (
+      <button
+        key={a.label}
+        type="button"
+        onClick={() => irPara(a)}
+        className="relative flex flex-col items-start gap-1.5 rounded-xl bg-card border border-border/60 p-3 text-left active:scale-[0.98] transition-transform min-h-[76px]"
+      >
+        <span className="flex items-center gap-1.5 w-full">
+          <Icon className={`w-4 h-4 shrink-0 ${a.cor ?? "text-primary"}`} />
+          {a.href && <ExternalLink className="w-3 h-3 text-muted-foreground ml-auto" />}
+          {!!badge && <span className="ml-auto text-[10px] font-black px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 tabular-nums">{badge}</span>}
+        </span>
+        <span className="block text-xs font-bold text-foreground leading-tight">{a.label}</span>
+        <span className="block text-[10px] text-muted-foreground leading-tight">{a.desc}</span>
+      </button>
+    );
+  };
+
   return (
-    <div className="pb-24 px-4 pt-4 max-w-2xl mx-auto space-y-4">
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate("/profile")} className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground hover:bg-muted/40">
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-          <ShieldCheck className="w-6 h-6 text-violet-400" /> Administração
-        </h1>
+    <AdminShell
+      title="Painel de Comando"
+      subtitle="Tudo que é admin do Orbis, num lugar só."
+      icon={<ShieldCheck className="w-6 h-6 text-violet-400" />}
+      backTo="/profile"
+    >
+      {/* ===== 🧭 Atalhos ===== */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Áreas</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{ATALHOS_AREAS.map(atalhoBtn)}</div>
+        <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground pt-1">Operações X1 · nesta tela</p>
+        <div className="grid grid-cols-3 gap-2">{ATALHOS_SECOES.filter((a) => a.anchor !== "tesouraria" || podeVerTesouraria).map(atalhoBtn)}</div>
       </div>
-      <p className="text-xs text-muted-foreground -mt-2">Central de controle do Orbis — só admins veem esta tela.</p>
 
       {loading ? (
         <div className="space-y-3">
@@ -336,7 +370,7 @@ export default function AdminCenter() {
         <>
           {/* ===== 🏦 Tesouraria (só Rick e Mohamed) ===== */}
           {podeVerTesouraria && tesouraria && (
-            <div className="rounded-2xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3">
+            <div id="tesouraria" className="scroll-mt-4 rounded-2xl border border-violet-500/40 bg-violet-500/5 p-4 space-y-3">
               <p className="text-[10px] font-black uppercase tracking-wider text-violet-400">🏦 Tesouraria X1 · confidencial</p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-card border border-border/60 p-3">
@@ -371,7 +405,7 @@ export default function AdminCenter() {
           )}
 
           {/* ===== ⚔️ Revisões de duelos ===== */}
-          <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+          <div id="duelos" className="scroll-mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
             <p className="text-[10px] font-black uppercase tracking-wider text-primary">⚔️ Revisões de duelos</p>
 
             {revAcc.length === 0 && revWin.length === 0 && revAtivos.length === 0 && (
@@ -454,7 +488,7 @@ export default function AdminCenter() {
           </div>
 
           {/* ===== 💸 Saques (valor já reservado — só enviar o Pix e marcar pago) ===== */}
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2.5">
+          <div id="saques" className="scroll-mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-amber-400">💸 Saques {saques.length > 0 ? `· ${saques.length} aguardando` : ""}</p>
             {saques.length === 0 ? (
               <p className="text-xs text-muted-foreground">Nenhum saque aguardando envio.</p>
@@ -484,7 +518,7 @@ export default function AdminCenter() {
           </div>
 
           {/* ===== 📋 Depósitos ===== */}
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2.5">
+          <div id="depositos" className="scroll-mt-4 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">📋 Depósitos</p>
 
             {depsPendentes.length === 0 ? (
@@ -524,7 +558,7 @@ export default function AdminCenter() {
           </div>
 
           {/* ===== 💰 Carteiras ===== */}
-          <div className="rounded-2xl border border-border bg-card/50 p-4 space-y-2.5">
+          <div id="carteiras" className="scroll-mt-4 rounded-2xl border border-border bg-card/50 p-4 space-y-2.5">
             <p className="text-[10px] font-black uppercase tracking-wider text-foreground">💰 Carteiras · creditar / debitar</p>
             <input
               value={admWallet.busca}
@@ -555,7 +589,7 @@ export default function AdminCenter() {
           </div>
 
           {/* ===== 🏁 Liquidação ===== */}
-          <div className="rounded-2xl border border-border bg-card/50 p-4 space-y-2">
+          <div id="liquidacao" className="scroll-mt-4 rounded-2xl border border-border bg-card/50 p-4 space-y-2">
             <p className="text-[10px] font-black uppercase tracking-wider text-foreground">🏁 Liquidação</p>
             <p className="text-[11px] text-muted-foreground">Roda sozinha todo dia às 9h05 (extrato verificado decide, prêmio cai na carteira, 10% fica pro Orbis). Use o botão só pra forçar agora.</p>
             <button onClick={admLiquidarAgora} className="w-full h-10 rounded-xl bg-card border border-border text-xs font-bold text-foreground active:scale-[0.98] transition-transform">
@@ -563,47 +597,8 @@ export default function AdminCenter() {
             </button>
           </div>
 
-          {/* ===== 🔗 Outras áreas ===== */}
-          <div className="rounded-2xl border border-border bg-card/50 p-4 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-foreground">🔗 Outras áreas de admin</p>
-            <div className="space-y-1.5">
-              {OUTRAS_AREAS.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <button key={a.path} onClick={() => (a.path.endsWith(".html") ? window.open(a.path, "_blank") : navigate(a.path))} className="w-full flex items-center gap-3 rounded-xl bg-card border border-border/60 px-3 py-2.5 text-left active:scale-[0.99] transition-transform">
-                    <Icon className="w-4 h-4 text-primary shrink-0" />
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-xs font-bold text-foreground">{a.label}</span>
-                      <span className="block text-[10px] text-muted-foreground truncate">{a.desc}</span>
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* ===== 🧪 Ferramentas de teste ===== */}
-          <div className="rounded-2xl border border-border bg-card/50 p-4 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-wider text-foreground">🧪 Ferramentas de teste</p>
-            <div className="space-y-1.5">
-              {TESTES.map((a) => {
-                const Icon = a.icon;
-                return (
-                  <button key={a.path} onClick={() => navigate(a.path)} className="w-full flex items-center gap-3 rounded-xl bg-card border border-border/60 px-3 py-2.5 text-left active:scale-[0.99] transition-transform">
-                    <Icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-xs font-bold text-foreground">{a.label}</span>
-                      <span className="block text-[10px] text-muted-foreground truncate">{a.desc}</span>
-                    </span>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </>
       )}
-    </div>
+    </AdminShell>
   );
 }

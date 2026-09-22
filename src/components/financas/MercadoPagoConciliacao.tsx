@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Loader2, RefreshCw, Link2, Check, AlertTriangle, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
 import { formatCurrency } from "@/shared/lib/utils";
 
@@ -125,7 +126,7 @@ export function ConciliacaoDia({ userId, data }: { userId: string | undefined; d
       await ler();
       if (!vivo) return;
       setSincronizando(true);
-      await (supabase as any).functions.invoke("mp-sync", { body: { dias: 1 } }).catch(() => {});
+      await (supabase as any).functions.invoke("mp-sync", { body: { dias: 1 } }).catch((e: unknown) => avisar.erro("MercadoPago: sincronizar (mp-sync)", e));
       if (!vivo) return;
       await ler();
       setSincronizando(false);
@@ -135,7 +136,7 @@ export function ConciliacaoDia({ userId, data }: { userId: string | undefined; d
 
   const atualizar = async () => {
     setSincronizando(true);
-    await (supabase as any).functions.invoke("mp-sync", { body: { dias: 1 } }).catch(() => {});
+    await (supabase as any).functions.invoke("mp-sync", { body: { dias: 1 } }).catch((e: unknown) => avisar.erro("MercadoPago: sincronizar (mp-sync)", e));
     await ler();
     setSincronizando(false);
   };

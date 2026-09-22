@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { Trophy, ChevronRight, Flame } from "lucide-react";
 import { useLeaderboard } from "@/hooks/useLeaderboard";
 import { getTier } from "@/components/ranking/tier";
@@ -34,7 +35,7 @@ export default function RankingCard({ userId, onClick }: RankingCardProps) {
       const antes = localStorage.getItem(key);
       if (antes && antes !== tier.label) setCelebrar(true);
       localStorage.setItem(key, tier.label);
-    } catch { /* localStorage indisponível: sem pulso, sem quebra */ }
+    } catch (e) { avisar.silencioso("RankingCard: patente vista", e); }
   }, [tier?.label, userId]);
 
   if (loadingStats) {

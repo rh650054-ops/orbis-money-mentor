@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Trophy, Share2 } from "lucide-react";
 import { toast } from "@/shared/hooks/use-toast";
+import { avisar } from "@/shared/lib/avisar";
 import { formatCurrency } from "@/shared/lib/utils";
 
 export function ObjetivoConquistado({ nome, valor, dias, onFechar, onNovo }: {
@@ -18,7 +19,7 @@ export function ObjetivoConquistado({ nome, valor, dias, onFechar, onNovo }: {
         confetti({ particleCount: 90, spread: 70, origin: { y: 0.6 }, colors: cores, zIndex: 100 });
         setTimeout(() => vivo && confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0 }, colors: cores, zIndex: 100 }), 250);
         setTimeout(() => vivo && confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1 }, colors: cores, zIndex: 100 }), 400);
-      } catch { /* sem confete, sem drama */ }
+      } catch (e) { avisar.silencioso("ObjetivoConquistado: confete", e); }
     })();
     return () => { vivo = false; };
   }, []);
@@ -32,7 +33,7 @@ export function ObjetivoConquistado({ nome, valor, dias, onFechar, onNovo }: {
       }
       await navigator.clipboard.writeText(texto);
       toast({ title: "Texto copiado", description: "Cola no seu story do Instagram." });
-    } catch { /* cancelou */ }
+    } catch (e) { avisar.silencioso("ObjetivoConquistado: compartilhar (cancelado)", e); }
   };
 
   return createPortal(

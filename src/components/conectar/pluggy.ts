@@ -10,6 +10,7 @@
    banco nunca carrega nada.
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 
 const CDN = "https://cdn.pluggy.ai/pluggy-connect/latest/pluggy-connect.js";
 
@@ -132,7 +133,7 @@ export async function carregarPro(): Promise<StatusPro> {
   try {
     const { data } = await (supabase as any).rpc("orbis_pro_status");
     r = ((data as any[]) || [])[0];
-  } catch { /* segue como "não é Pro" */ }
+  } catch (e) { avisar.erro("pluggy: status Pro (segue como não-Pro)", e); }
   return {
     pro: !!r?.pro,
     origem: (r?.origem as string) ?? null,

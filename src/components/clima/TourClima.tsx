@@ -5,6 +5,7 @@
    Orbis faz naquele clima. Aparece uma vez por pessoa; "pular" encerra.
    ============================================================ */
 import { useState } from "react";
+import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { ArrowRight, Check, MapPin } from "lucide-react";
 import { ClimaCena, type Estado } from "./ClimaCena";
@@ -38,7 +39,7 @@ export function TourClima({ userId, onFim }: { userId: string; onFim: () => void
   const [toques, setToques] = useState(0);
   const p = PASSOS[i]!;
   const ultimo = i === PASSOS.length - 1;
-  const fechar = () => { try { localStorage.setItem(chave(userId), "1"); } catch { /* ignore */ } onFim(); };
+  const fechar = () => { try { localStorage.setItem(chave(userId), "1"); } catch (e) { avisar.silencioso("TourClima: marcar visto", e); } onFim(); };
 
   return createPortal(
     <div className="fixed inset-0 z-[80] flex flex-col" style={{ background: "#0d0c0b" }} role="dialog" aria-modal="true" aria-label="Como funciona o clima">

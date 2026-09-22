@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useGuardarDia } from "@/hooks/useGuardarDia";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
@@ -89,6 +90,7 @@ function rotuloVencimento(iso: string | null): string {
   return `dia ${iso!.slice(8, 10)}/${iso!.slice(5, 7)}`;
 }
 import { ObjetivoConquistado } from "@/components/financas/ObjetivoConquistado";
+import { avisar } from "@/shared/lib/avisar";
 
 interface PlannedBill {
   id: string;
@@ -167,11 +169,11 @@ export default function Finances() {
   const [objOpcoes, setObjOpcoes] = useState(false);
   const [isAddBillOpen, setIsAddBillOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  // Guarda o último "Guardei tudo" pra poder DESFAZER (reverte contas, metas e o guardado de hoje).
-  const [ultimoGuardei, setUltimoGuardei] = useState<
-    | { billDeltas: { id: string; delta: number }[]; goalDeltas: { id: string; delta: number; prevStatus: string }[]; savedHojeDelta: number }
-    | null
-  >(null);
+  // "Guardar do dia" (alvo congelado, guardado hoje, "já salvou", último guardei) vive
+  // no banco (financas_guardar_dia) — sobrevive a trocar de celular / limpar o navegador.
+  const guardar = useGuardarDia(user?.id);
+  // Último "Guardei tudo" pra poder DESFAZER (reverte contas, metas e o guardado de hoje).
+  const ultimoGuardei = guardar.ultimoGuardei;
   const [isAddGoalOpen, setIsAddGoalOpen] = useState(false);
 
   // Dias de trabalho do perfil — usados pra dividir "guardar por dia" só nos dias úteis
@@ -266,14 +268,15 @@ export default function Finances() {
   // Data pra lançar/ajustar o guardado num dia ANTERIOR (rever dias passados).
   const [outroDiaData, setOutroDiaData] = useState(getBrazilDate());
   // "Já guardou hoje?" — evita pedir pra guardar de novo se a pessoa vender mais à tarde.
-  const [savedToday, setSavedToday] = useState(() => {
-    try { return localStorage.getItem("orbis_last_save_date") === getBrazilDate(); } catch { return false; }
-  });
+  const savedToday = guardar.salvoEm !== null;
   // "A guardar hoje" = ALVO FIXO do dia − o que já foi guardado hoje. O alvo é
   // congelado no 1º load do dia (senão encolheria a cada depósito por causa da
-  // amortização) e o guardado-hoje é somado a cada depósito. Reinicia à meia-noite.
-  const [savedTodayAmount, setSavedTodayAmount] = useState(0);
-  const [targetSnapshot, setTargetSnapshot] = useState<number | null>(null);
+  // amortização) e o guardado-hoje é somado a cada depósito. Reinicia à meia-noite
+  // (a linha do banco é por dia; sem linha = dia novo).
+  const savedTodayAmount = guardar.guardado;
+  const targetSnapshot = guardar.alvo;
+  // O card "Guardar hoje" só aparece quando as finanças E o guardar do dia carregaram.
+  const guardarCarregando = isLoadingData || guardar.carregando;
 
   // Edit bill dialog state
   const [editBill, setEditBill] = useState<PlannedBill | null>(null);
@@ -601,7 +604,7 @@ export default function Finances() {
       }
       // Conta no "guardado hoje" (abate do alvo do dia). Não fecha o dia à força —
       // deixa o card mostrar o quanto ainda falta.
-      registrarGuardadoHoje(value);
+      await registrarGuardadoHoje(value);
       setDepositTarget(null);
       setDepositValue("");
       loadFinancialData();
@@ -1119,7 +1122,7 @@ export default function Finances() {
     const cursor = new Date(today);
     let primeiro = true; // 1ª iteração = hoje
     while (cursor.getTime() <= dueDay.getTime()) {
-      const name = weekdayNames[cursor.getDay()];
+      const name = weekdayNames[cursor.getDay()] ?? "";
       // Conta o dia se é dia de trabalho — OU se é HOJE e você trabalhou hoje (mesmo no descanso).
       if (workingDays.includes(name) || (primeiro && trabalhouHoje)) count++;
       primeiro = false;
@@ -1147,7 +1150,7 @@ export default function Finances() {
     let guard = 0;
     while (restantes > 0 && guard < 4000) {
       cursor.setDate(cursor.getDate() + 1);
-      if (workingDays.includes(weekdayNames[cursor.getDay()])) restantes--;
+      if (workingDays.includes(weekdayNames[cursor.getDay()] ?? "")) restantes--;
       guard++;
     }
     return cursor;
@@ -1256,50 +1259,29 @@ export default function Finances() {
   // calculado mais adiante no render.
   const guardarTargetRef = useRef(0);
   useEffect(() => {
-    if (isLoadingData) return;
+    if (isLoadingData || guardar.carregando) return;
     const hoje = getBrazilDate();
-    const alvo = guardarTargetRef.current;
-    try {
-      // LIMPEZA 1x: o modelo antigo de "saldo adiantado" deixou saldos travados
-      // (ex.: "guardou 990 hoje") gravados com a data de hoje — aí o reinício-no-dia
-      // não pegava. Esta migração zera o resíduo uma única vez por aparelho.
-      if (localStorage.getItem("orbis_guardar_ver") !== "2") {
-        localStorage.setItem("orbis_guardar_ver", "2");
-        localStorage.setItem("orbis_guardar_date", hoje);
-        localStorage.setItem("orbis_guardar_target", String(alvo));
-        localStorage.setItem("orbis_guardar_saved", "0");
-        localStorage.removeItem("orbis_last_save_date");
-        setSavedToday(false);
-        setTargetSnapshot(alvo);
-        setSavedTodayAmount(0);
-        return;
-      }
-      if (localStorage.getItem("orbis_guardar_date") !== hoje) {
-        // NOVO DIA → REINICIA limpo: alvo = sugestão de hoje, guardado-hoje = 0.
-        // Nada de "saldo adiantado" carregado do dia anterior (isso travava o card em
-        // "já guardou tudo"). Cada dia mostra do zero quanto falta guardar HOJE. O que
-        // você guardou antes já abateu as contas (bills.saved_amount), então o alvo de
-        // hoje já vem naturalmente menor conforme você quita.
-        localStorage.setItem("orbis_guardar_date", hoje);
-        localStorage.setItem("orbis_guardar_target", String(alvo));
-        localStorage.setItem("orbis_guardar_saved", "0");
-        setTargetSnapshot(alvo);
-        setSavedTodayAmount(0);
-      } else {
-        // Mesmo dia: o alvo congela pra não encolher enquanto você guarda. MAS se você
-        // ADICIONA uma conta (o alvo ao vivo sobe acima do congelado), atualiza na hora —
-        // o congelado só SOBE, nunca desce (descer é o guardar, que já é mostrado à parte).
-        const stored = Number(localStorage.getItem("orbis_guardar_target") || alvo);
-        const novo = Math.max(stored, alvo);
-        if (novo !== stored) localStorage.setItem("orbis_guardar_target", String(novo));
-        setTargetSnapshot(novo);
-        setSavedTodayAmount(Number(localStorage.getItem("orbis_guardar_saved") || 0));
-      }
-    } catch {
-      setTargetSnapshot(alvo);
+    if (guardar.dia !== hoje) {
+      // VIROU O DIA com o app aberto: relê a linha de hoje (que não existe → reinicia).
+      void guardar.recarregar();
+      return;
     }
+    const alvo = guardarTargetRef.current;
+    if (guardar.alvo === null) {
+      // NOVO DIA (sem linha no banco) → REINICIA limpo: alvo = sugestão de hoje,
+      // guardado-hoje = 0. Nada de "saldo adiantado" carregado do dia anterior (isso
+      // travava o card em "já guardou tudo"). O que você guardou antes já abateu as
+      // contas (bills.saved_amount), então o alvo de hoje já vem menor conforme quita.
+      void guardar.setAlvo(alvo);
+      return;
+    }
+    // Mesmo dia: o alvo congela pra não encolher enquanto você guarda. MAS se você
+    // ADICIONA uma conta (o alvo ao vivo sobe acima do congelado), atualiza na hora —
+    // o congelado só SOBE, nunca desce (descer é o guardar, que já é mostrado à parte).
+    const novo = Math.max(guardar.alvo, alvo);
+    if (novo - guardar.alvo > 0.005) void guardar.setAlvo(novo);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingData]);
+  }, [isLoadingData, guardar.carregando, guardar.dia, guardar.alvo]);
 
   // COMEMORAÇÃO: quando um objetivo passa a "completed" nesta sessão, mostra o card (1x por objetivo).
   useEffect(() => {
@@ -1312,9 +1294,9 @@ export default function Finances() {
     for (const g of goals) {
       if (g.status !== "completed" || completadosVistosRef.current.has(g.id)) continue;
       let ja = false;
-      try { ja = localStorage.getItem(`orbis_obj_comemorado_${g.id}`) === "1"; } catch { /* nada */ }
+      try { ja = localStorage.getItem(`orbis_obj_comemorado_${g.id}`) === "1"; } catch (e) { avisar.silencioso("finanças: ler comemoração", e); }
       if (!ja) {
-        try { localStorage.setItem(`orbis_obj_comemorado_${g.id}`, "1"); } catch { /* nada */ }
+        try { localStorage.setItem(`orbis_obj_comemorado_${g.id}`, "1"); } catch (e) { avisar.silencioso("finanças: gravar comemoração", e); }
         setComemorar(g);
         break;
       }
@@ -1322,25 +1304,14 @@ export default function Finances() {
     completadosVistosRef.current = completados;
   }, [goals, isLoadingData]);
 
-  // Carrega o "último guardei" salvo no aparelho (sobrevive a fechar/abrir o app),
-  // pra o botão de desfazer continuar disponível mesmo depois de sair e voltar.
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("orbis_ultimo_guardei");
-      if (!raw) return;
-      const obj = JSON.parse(raw);
-      if (obj?.date === getBrazilDate() && obj?.data) setUltimoGuardei(obj.data);
-      else localStorage.removeItem("orbis_ultimo_guardei");
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  // (o "último guardei" vem do banco via useGuardarDia — o desfazer continua
+  // disponível depois de fechar/abrir o app e até em outro aparelho)
 
   // (o "early return" de auth foi movido pra logo antes do JSX — precisava ficar DEPOIS
   // dos useMemo abaixo pra não quebrar a regra dos hooks)
 
   // "A guardar hoje" — quanto reservar do líquido de hoje pras metas + contas
-  const todayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()];
+  const todayName = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date().getDay()] ?? "";
   const escaladoHoje = workingDays && workingDays.length > 0 ? workingDays.includes(todayName) : true;
   // Trabalhou no descanso? Conta como dia de trabalho → guarda a parte de hoje também.
   const todayIsWorkDay = escaladoHoje || trabalhouHoje;
@@ -1376,7 +1347,7 @@ export default function Finances() {
   // Hoje entra se já guardou; se ainda não, a sequência é contada até ontem.
   const sequencia = useMemo(() => {
     const nomes = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
-    const ehTrabalho = (d: Date) => (workingDays && workingDays.length > 0 ? workingDays.includes(nomes[d.getDay()]) : true);
+    const ehTrabalho = (d: Date) => (workingDays && workingDays.length > 0 ? workingDays.includes(nomes[d.getDay()] ?? "") : true);
     const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const hoje = new Date(getBrazilDate() + "T12:00:00");
     const hojeYmd = ymd(hoje);
@@ -1407,7 +1378,7 @@ export default function Finances() {
       const salvo = Number(localStorage.getItem(`orbis_fin_recorde_${user?.id}`) || 0);
       recorde = Math.max(recorde, salvo, atual);
       if (user?.id) localStorage.setItem(`orbis_fin_recorde_${user.id}`, String(recorde));
-    } catch { /* nada */ }
+    } catch (e) { avisar.silencioso("finanças: recorde no aparelho", e); }
     // últimos 7 dias de trabalho (inclui hoje por último)
     const ultimos: { k: string; estado: "on" | "miss" | "hoje" }[] = [];
     const y = new Date(hoje);
@@ -1449,18 +1420,12 @@ export default function Finances() {
       .then(() => {}, () => {});
   };
 
-  // Soma um depósito ao "guardado hoje" (persiste no fuso BR).
-  const registrarGuardadoHoje = (valor: number) => {
+  // Soma um depósito ao "guardado hoje" (no banco, por dia no fuso BR). O estado
+  // local só muda se gravar; em erro o hook já avisa com toast.
+  const registrarGuardadoHoje = async (valor: number): Promise<boolean> => {
     const novo = savedTodayAmount + Math.max(0, valor);
-    setSavedTodayAmount(novo);
     gravarDiaGuardado(getBrazilDate(), novo);
-    try {
-      localStorage.setItem("orbis_guardar_date", getBrazilDate());
-      localStorage.setItem("orbis_guardar_saved", String(novo));
-      if (localStorage.getItem("orbis_guardar_target") == null) {
-        localStorage.setItem("orbis_guardar_target", String(totalGuardarHoje));
-      }
-    } catch { /* ignore */ }
+    return guardar.setGuardado(novo);
   };
 
   // ALVO do dia (snapshot). O "saldo adiantado" é savedTodayAmount (persiste e é
@@ -1487,7 +1452,7 @@ export default function Finances() {
     for (let i = 0; i <= diasAteFimMes; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      const nome = nomes[d.getDay()];
+      const nome = nomes[d.getDay()] ?? "";
       const isToday = i === 0;
       // Hoje conta como trabalho se está na escala OU se você trabalhou hoje (descanso trabalhado).
       const isWork = (workingDays && workingDays.length > 0 ? workingDays.includes(nome) : true) || (isToday && trabalhouHoje);
@@ -1547,7 +1512,7 @@ export default function Finances() {
     let count = 0, guard = 0;
     while (count < nDiasUteis && guard < 4000) {
       cur.setDate(cur.getDate() + 1); guard++;
-      const util = workingDays && workingDays.length > 0 ? workingDays.includes(nm[cur.getDay()]) : true;
+      const util = workingDays && workingDays.length > 0 ? workingDays.includes(nm[cur.getDay()] ?? "") : true;
       if (util) count++;
     }
     return { data: cur.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }), mes: cur.toLocaleDateString("pt-BR", { month: "long" }) };
@@ -1565,7 +1530,7 @@ export default function Finances() {
     const ativas = goals
       .filter((g) => g.status === "active" && (Number(g.target_amount) - Number(g.current_amount)) > 0.005)
       .map((g) => ({ g, falta: Number(g.target_amount) - Number(g.current_amount) }))
-      .sort((a, z) => (ordemPrazo[a.g.prazo || "medio"] - ordemPrazo[z.g.prazo || "medio"]) || (a.falta - z.falta));
+      .sort((a, z) => ((ordemPrazo[a.g.prazo || "medio"] ?? 1) - (ordemPrazo[z.g.prazo || "medio"] ?? 1)) || (a.falta - z.falta));
     const mapa = new Map<string, { ordem: number; total: number; diasInicio: number; diasFim: number | null; dias: number | null }>();
     let acum = 0;
     ativas.forEach((item, i) => {
@@ -1612,11 +1577,11 @@ export default function Finances() {
       }
       // dia.valor = quanto guardar de CONTA nesse dia (contas primeiro).
       const valor = Math.max(0, ganhoDia - dia.valor);
-      const meta = filaIdx < fila.length ? fila[filaIdx].nome : null;
+      const meta = fila[filaIdx]?.nome ?? null;
       if (valor > 0.005 && filaIdx < fila.length) {
         acum += valor;
-        while (filaIdx < fila.length && acum >= fila[filaIdx].falta - 0.005) {
-          acum -= fila[filaIdx].falta;
+        while (filaIdx < fila.length && acum >= (fila[filaIdx]?.falta ?? Infinity) - 0.005) {
+          acum -= fila[filaIdx]?.falta ?? 0;
           filaIdx++;
         }
       }
@@ -1791,15 +1756,10 @@ export default function Finances() {
       // com o alvo (comportamento antigo) pra não travar o botão.
       const entrouDeVerdade = billDeltas.reduce((s, d) => s + d.delta, 0) + goalDeltas.reduce((s, d) => s + d.delta, 0);
       const savedHojeDelta = entrouDeVerdade > 0.005 ? entrouDeVerdade : (restanteGuardarHoje > 0 ? restanteGuardarHoje : totalGuardarHoje);
-      registrarGuardadoHoje(savedHojeDelta);
-      const guardeiInfo = { billDeltas, goalDeltas, savedHojeDelta };
-      try {
-        localStorage.setItem("orbis_last_save_date", getBrazilDate());
-        // Persiste o "último guardei" pra o botão de desfazer sobreviver a fechar/abrir o app.
-        localStorage.setItem("orbis_ultimo_guardei", JSON.stringify({ date: getBrazilDate(), data: guardeiInfo }));
-      } catch { /* ignore */ }
-      setSavedToday(true);
-      setUltimoGuardei(guardeiInfo);
+      await registrarGuardadoHoje(savedHojeDelta);
+      // Marca "já guardou hoje" + persiste o "último guardei" no banco pra o botão de
+      // desfazer sobreviver a fechar/abrir o app (e a trocar de aparelho).
+      await guardar.marcarSalvo({ billDeltas, goalDeltas, savedHojeDelta });
       toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(savedHojeDelta)} guardado.` });
       loadFinancialData();
     } catch {
@@ -1843,15 +1803,9 @@ export default function Finances() {
         await Promise.all(writes);
         novoSaved = Math.max(0, savedTodayAmount - ultimoGuardei.savedHojeDelta);
       }
-      setSavedTodayAmount(novoSaved);
       gravarDiaGuardado(getBrazilDate(), novoSaved);
-      try {
-        localStorage.setItem("orbis_guardar_saved", String(novoSaved));
-        localStorage.removeItem("orbis_last_save_date");
-      } catch { /* ignore */ }
-      setSavedToday(false);
-      setUltimoGuardei(null);
-      try { localStorage.removeItem("orbis_ultimo_guardei"); } catch { /* ignore */ }
+      // Reabre o dia no banco: guardado revertido, "já salvou" e "último guardei" limpos.
+      await guardar.desfazerSalvo(novoSaved);
       toast({ title: "Desfeito", description: "O 'guardei tudo' foi revertido." });
       loadFinancialData();
     } catch {
@@ -1889,7 +1843,7 @@ export default function Finances() {
       // Soma ao "guardado hoje": o card passa a mostrar o ALVO DO DIA − o que já foi
       // guardado (ex.: 602 − 392 = 210). Não cobra o restante amortizado no mesmo dia;
       // reinicia à meia-noite com o valor recalculado.
-      registrarGuardadoHoje(value);
+      await registrarGuardadoHoje(value);
       setCustomSaveOpen(false);
       setCustomSaveValue("");
       const restanteAgora = Math.max(0, alvoHoje - (savedTodayAmount + value));
@@ -1979,7 +1933,7 @@ export default function Finances() {
       await distribuirGuardado(value);
       // Só conta no "guardado hoje" se o dia selecionado for HOJE. Dia anterior/outro só
       // abate as contas (senão inflava o buffer de hoje com um lançamento retroativo).
-      if (diaSave?.isToday) registrarGuardadoHoje(value);
+      if (diaSave?.isToday) await registrarGuardadoHoje(value);
       const label = diaSave?.label || "hoje";
       setDiaSave(null);
       setDiaSaveValue("");
@@ -2001,7 +1955,7 @@ export default function Finances() {
   // Vencidas ordenadas por RISCO (alto primeiro), depois pela mais antiga.
   const ordemRisco: Record<string, number> = { alto: 0, medio: 1, baixo: 2 };
   const overdueBillsOrdenadas = [...overdueBills].sort(
-    (a, z) => (ordemRisco[a.risco || "medio"] - ordemRisco[z.risco || "medio"]) || (a.due_date || "").localeCompare(z.due_date || ""),
+    (a, z) => ((ordemRisco[a.risco || "medio"] ?? 1) - (ordemRisco[z.risco || "medio"] ?? 1)) || (a.due_date || "").localeCompare(z.due_date || ""),
   );
   // Contas "apertadas": vencem em poucos dias úteis e ainda falta bastante — são elas que
   // inflam o "a guardar hoje". Listamos pra avisar o porquê do valor alto.
@@ -2105,7 +2059,7 @@ export default function Finances() {
             ) : null)}
           </div>
 
-          {isLoadingData ? (
+          {guardarCarregando ? (
             <Skeleton className="h-10 w-40 mt-2" />
           ) : diaGuardadoFechado ? (
             <>
@@ -2204,7 +2158,7 @@ export default function Finances() {
             </>
           )}
 
-          {!isLoadingData && ultimoGuardei && (
+          {!guardarCarregando && ultimoGuardei && (
             <button
               onClick={handleDesfazerGuardei}
               className="w-full h-10 mt-2 rounded-xl border border-border text-muted-foreground font-semibold text-xs active:scale-[0.98] transition flex items-center justify-center gap-2"

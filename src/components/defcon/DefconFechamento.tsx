@@ -38,6 +38,7 @@ import { AnimatedCurrency } from "@/shared/motion";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
@@ -232,13 +233,13 @@ export function DefconFechamento({
             const antes = Number(localStorage.getItem(CHAVE_LIGA(userId)) || 0);
             if (antes > 0 && agora > antes) setSubiuDe(tierPorRank(antes));
             localStorage.setItem(CHAVE_LIGA(userId), String(agora));
-          } catch { /* sem storage: sem cena, sem erro */ }
+          } catch (e) { avisar.silencioso("DefconFechamento: liga anterior", e); }
         }
       } else {
         setRank({ posicao: null, faturamento: 0, dias: 0, acima: null, total });
       }
       setCarga(((ld.data as any[]) || []).map((l) => ({ nome: String(l.product_name || "produto"), levou: Number(l.qty_initial) || 0, vendeu: Number(l.qty_sold) || 0 })));
-    })().catch(() => { if (vivo) setCustosCarregados(true); });
+    })().catch((e) => { avisar.erro("DefconFechamento: carregar dados do fechamento", e); if (vivo) setCustosCarregados(true); });
     return () => { vivo = false; };
   }, [userId, hoje]);
 
@@ -254,14 +255,14 @@ export function DefconFechamento({
         if (!r?.tem_banco) { setBanco({ tem: false, nome: "", total: 0, qtd: 0, ultima: null }); return false; }
         setBanco({ tem: true, nome: String(r.banco || ""), total: Number(r.total) || 0, qtd: Number(r.qtd) || 0, ultima: r.ultima_sync ?? null });
         return true;
-      } catch { return false; }
+      } catch (e) { avisar.erro("DefconFechamento: ler Pix do banco", e); return false; }
     };
     const timers: ReturnType<typeof setTimeout>[] = [];
     (async () => {
       if (!(await ler())) return;
       // pede o extrato fresco. A Pluggy responde pelo webhook, então relê duas vezes depois.
       setBancoBuscando(true);
-      try { await (supabase as any).functions.invoke("pluggy-sync"); } catch { /* sem banco fresco: fica o que tem */ }
+      try { await (supabase as any).functions.invoke("pluggy-sync"); } catch (e) { avisar.erro("DefconFechamento: sincronizar banco (pluggy)", e); }
       await ler();
       if (vivo) setBancoBuscando(false);
       timers.push(setTimeout(() => { if (vivo) void ler(); }, 20_000));
@@ -332,6 +333,7 @@ export function DefconFechamento({
       setRecSujo(false);
       return true;
     } catch (e: any) {
+      avisar.erro("DefconFechamento: salvar recebimentos", e);
       toast({ title: "Não deu pra salvar", description: e?.message || "Tenta de novo.", variant: "destructive" });
       return false;
     } finally {
@@ -348,19 +350,22 @@ export function DefconFechamento({
     setSalvandoCustos(true);
     try {
       for (const l of linhas) {
+        let erro: unknown = null;
         if (l.origem === "cmv" && dsId) {
-          await supabase.from("daily_sales").update({ cost: l.valor }).eq("id", dsId);
+          ({ error: erro } = await supabase.from("daily_sales").update({ cost: l.valor }).eq("id", dsId));
         } else if (l.origem === "manual") {
-          await supabase.from("personal_expenses").update({ amount: l.valor }).eq("id", l.id);
+          ({ error: erro } = await supabase.from("personal_expenses").update({ amount: l.valor }).eq("id", l.id));
         } else if ((l.origem === "sugestao" || l.origem === "novo") && l.valor > 0) {
-          await supabase.from("personal_expenses").insert({
+          ({ error: erro } = await supabase.from("personal_expenses").insert({
             user_id: userId, name: l.nome.slice(0, 80), category: l.categoria || "Outros", icon: l.icone || "➕",
             amount: l.valor, type: "variable", date: hoje,
-          });
+          }));
         }
+        if (erro) throw erro;
       }
       setPasso("relatorio");
     } catch (e: any) {
+      avisar.erro("DefconFechamento: salvar custos do dia", e);
       toast({ title: "Não deu pra salvar os custos", description: e?.message || "Tenta de novo.", variant: "destructive" });
     } finally {
       setSalvandoCustos(false);

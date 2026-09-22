@@ -5,6 +5,7 @@ import { CobradorCard } from "@/components/cobranca/CobradorCard";
 import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, getBrazilDateLabel, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
@@ -539,14 +540,14 @@ export function DefconEndScreen({
         .eq("date", today)
         .order("created_at", { ascending: true })
         .limit(1);
-      if (row && row.length > 0) {
-        await supabase.from("daily_sales").update({ unpaid_units: caloteUnits } as any).eq("id", row[0].id);
-      } else {
-        await supabase.from("daily_sales").insert({ user_id: userId, date: today, unpaid_units: caloteUnits } as any);
-      }
+      const { error } = row && row.length > 0
+        ? await supabase.from("daily_sales").update({ unpaid_units: caloteUnits } as any).eq("id", row[0].id)
+        : await supabase.from("daily_sales").insert({ user_id: userId, date: today, unpaid_units: caloteUnits } as any);
+      if (error) throw error;
       setCaloteAcknowledged(true);
       toast({ title: "Anotado", description: `${caloteUnits} ${caloteUnits === 1 ? "kit não pago" : "kits não pagos"} no relatório.` });
-    } catch {
+    } catch (e) {
+      avisar.usuario("Não consegui anotar os kits não pagos. Tenta de novo.", e, "DefconEndScreen: salvar calote");
       setCaloteAcknowledged(true);
     } finally {
       setSavingUnits(false);
@@ -575,23 +576,26 @@ export function DefconEndScreen({
         .eq("date", today)
         .order("created_at", { ascending: true })
         .limit(1);
+      let tipErr: unknown = null;
       if (row && row.length > 0) {
         const r = row[0] as any;
-        await supabase
+        ({ error: tipErr } = await supabase
           .from("daily_sales")
           .update({
             tip_sales: newTip,
             cash_sales: Math.max(0, (Number(r.cash_sales) || 0) + delta),
             total_profit: Math.max(0, (Number(r.total_profit) || 0) + delta),
           } as any)
-          .eq("id", r.id);
+          .eq("id", r.id));
       } else {
-        await supabase.from("daily_sales").insert({ user_id: userId, date: today, tip_sales: newTip } as any);
+        ({ error: tipErr } = await supabase.from("daily_sales").insert({ user_id: userId, date: today, tip_sales: newTip } as any));
       }
+      if (tipErr) throw tipErr;
       setTotalTips(newTip);
       setEditingTip(false);
       toast({ title: "Gorjeta atualizada", description: formatCurrency(newTip) });
-    } catch {
+    } catch (e) {
+      avisar.erro("DefconEndScreen: salvar gorjeta", e);
       toast({ title: "Erro ao salvar gorjeta", variant: "destructive" });
     } finally {
       setSavingTip(false);
@@ -640,7 +644,8 @@ export function DefconEndScreen({
       const tip = (data as { tip?: string } | null)?.tip;
       if (!tip) throw new Error("sem dica");
       setAiTip(tip);
-    } catch {
+    } catch (e) {
+      avisar.erro("DefconEndScreen: dica da IA", e);
       setAiTipError(true);
     } finally {
       setAiTipLoading(false);

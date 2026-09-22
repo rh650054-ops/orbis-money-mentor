@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { X } from "lucide-react";
 import { pulsoFala } from "@/shared/lib/pulso";
@@ -183,7 +184,7 @@ export function DefconSmartNotification({
     // Anota no pulso SÓ aqui — depois das travas acima. Se a mensagem foi
     // barrada pelo teto, ela não apareceu, e registrar mesmo assim
     // envenenaria justamente a conta de "essa fala segurou ou espantou".
-    try { pulsoFala(qual); } catch { /* sensor nunca atrapalha */ }
+    try { pulsoFala(qual); } catch (e) { avisar.silencioso("DefconSmartNotification: pulso", e); }
 
     // Mostra NA HORA com o template (garante que sempre aparece, sem depender da rede)
     const id = Date.now().toString() + Math.random().toString(36).slice(2, 6);

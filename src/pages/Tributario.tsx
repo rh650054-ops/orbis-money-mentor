@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
 import { Skeleton } from "@/shared/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -57,7 +58,8 @@ export default function Tributario() {
     setSaving(true);
     setSituacao(novaSituacao);
     setAtividade(novaAtividade);
-    await supabase.from("profiles").update({ tax_situacao: novaSituacao, tax_atividade: novaAtividade } as never).eq("user_id", user.id);
+    const { error } = await supabase.from("profiles").update({ tax_situacao: novaSituacao, tax_atividade: novaAtividade } as never).eq("user_id", user.id);
+    if (error) avisar.usuario("Não consegui salvar sua situação tributária. Tenta de novo.", error, "Tributario: salvar perfil");
     setSaving(false);
   };
 
