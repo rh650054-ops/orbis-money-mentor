@@ -47,7 +47,7 @@ const DIMS: Record<TemplateId, [number, number]> = {
 };
 
 // Constrói uma arte (FUNDO TRANSPARENTE — pra colar como adesivo no story)
-async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCanvasElement | null> {
+export async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCanvasElement | null> {
   const [W, H] = DIMS[template];
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -188,7 +188,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
 
   if (template === "post") {
     // ===== COM FUNDO (retrato 4:5) — logo topo, faturamento, linha de números, VANT =====
-    drawLogo(W / 2, 175, 150);
+    drawLogo(W / 2, 185, 240);
 
     label("FATURAMENTO", W / 2, 415, 42, GOLD);
     value(fat, W / 2, 540, 150);
@@ -204,7 +204,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     });
     hline(80, W - 80, 1040);
 
-    drawWordmark(W / 2, 1180, 230);
+    drawWordmark(W / 2, 1175, 300);
     label(rodape, W / 2, 1270, 26, MUTED);
   } else if (template === "empilhada" || template === "empilhadaSemHoras") {
     // ===== Vertical empilhado (PADRÃO). "SemHoras" = mesma arte sem o bloco HORAS =====
@@ -220,8 +220,8 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       label("CONVERSÃO", W / 2, 1048, 36, MUTED);
       value(conv, W / 2, 1168, 142);
 
-      drawLogo(W / 2, 1385, 195);
-      if (s.periodo) label(rodape, W / 2, 1530, 30, MUTED);
+      drawLogo(W / 2, 1400, 300);
+      if (s.periodo) label(rodape, W / 2, 1610, 30, MUTED);
     } else {
       // 4 dados (com HORAS) — logo um pouco mais pra cima
       label("FATURAMENTO", W / 2, 340, 46, GOLD);
@@ -236,15 +236,15 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       label("HORAS", W / 2, 1150, 36, MUTED);
       value(horas, W / 2, 1270, 142);
 
-      drawLogo(W / 2, 1505, 195);
-      if (s.periodo) label(rodape, W / 2, 1650, 30, MUTED);
+      drawLogo(W / 2, 1520, 280);
+      if (s.periodo) label(rodape, W / 2, 1715, 30, MUTED);
     }
   } else if (template === "destaque") {
     // ===== Paisagem: faturamento (cima/esq) + logo (cima/dir) + linha (igual à 1ª) =====
     label("FATURAMENTO", 90, 165, 40, GOLD, "left");
     value(fat, 92, 285, 138, "left");
     if (s.periodo) label(rodape, 92, 385, 26, MUTED, "left");
-    drawLogo(905, 265, 170);
+    drawLogo(955, 125, 190);
 
     hline(70, W - 70, 460);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
@@ -266,8 +266,8 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       value(c[1], cx, 275, 112);
       if (i > 0) vline(colW * i, 115, 335);
     });
-    drawLogo(180, 460, 128);
-    drawWordmark(865, 460, 235);
+    drawLogo(195, 452, 190);
+    drawWordmark(850, 455, 290);
   }
 
   return canvas;

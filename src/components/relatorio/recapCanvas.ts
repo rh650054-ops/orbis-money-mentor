@@ -173,8 +173,8 @@ export async function buildRecapCanvas(template: RecapTemplate, s: RecapStats): 
     : { header: 120, label: 295, value: 400, sub: 485, chartTop: 570, chartBot: 825, grid: 900, footer: 1262 };
 
   // ===== HEADER: logo + wordmark à esquerda, período em pílula dourada à direita =====
-  drawLogo(M + 34, Y.header, 68);
-  drawWordmark(M + 34 + 34 + 24 + 75, Y.header, 150);
+  drawLogo(M + 50, Y.header, 100);
+  drawWordmark(M + 50 + 50 + 22 + 90, Y.header, 180);
   {
     ctx.font = `800 26px ${FONT}`;
     const t = s.titulo.toUpperCase();
@@ -289,7 +289,7 @@ export async function buildRecapCanvas(template: RecapTemplate, s: RecapStats): 
   }
 
   // ===== RODAPÉ =====
-  drawWordmark(W / 2, Y.footer, 170);
+  drawWordmark(W / 2, Y.footer, 220);
   spaced("MEU CORRE NA VANT", W / 2, Y.footer + 52, 20, MUTED, "center", 700);
 
   return canvas;

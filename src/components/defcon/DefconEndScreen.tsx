@@ -773,7 +773,7 @@ export function DefconEndScreen({
       const cc = conversionRate >= 30 ? SUCCESS : conversionRate >= 15 ? PRIMARY : DEST;
       centerText("CONVERSÃO", 1230, 70, "800", cc, 12);
       centerText(`${conversionRate.toFixed(0)}%`, 1390, 150, "900", FG);
-      await drawLogo(H - 320, 380, 0.55);
+      await drawLogo(1490, 400, 0.7);
     } else if (template === 2) {
       // Card escuro com grade de números
       const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -798,7 +798,7 @@ export function DefconEndScreen({
       statCard("ABORDAGENS", String(totalApproaches || 0), rightX, topY, gw, gh);
       statCard("CONVERSÃO", `${conversionRate.toFixed(0)}%`, leftX, botY, gw, gh);
       statCard("HORAS", horasLabel, rightX, botY, gw, gh);
-      await drawLogo(H - 340, 340, 0.7);
+      await drawLogo(1380, 480, 0.85);
     } else {
       // Conquista — fundo dourado quando bate a meta
       const reached = goalReached;
@@ -829,7 +829,7 @@ export function DefconEndScreen({
         centerTextAt(c[1], cx, 1140, 84, "900", WHITE);
         centerTextAt(c[0], cx, 1212, 28, "700", MUTED, 3);
       });
-      await drawLogo(H - 340, 340, 0.7);
+      await drawLogo(1380, 480, 0.85);
     }
     return canvas;
   };

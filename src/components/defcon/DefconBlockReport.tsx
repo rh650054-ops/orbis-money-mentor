@@ -161,12 +161,12 @@ export function DefconBlockReport({
     // Logo sutil no rodapé (não sobrepõe os valores)
     try {
       const logo = await loadLogo();
-      const logoW = 380;
+      const logoW = 520;
       const ratio = logo.height / logo.width;
       const logoH = logoW * ratio;
       ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 80, logoW, logoH);
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(logo, W / 2 - logoW / 2, H - logoH - 60, logoW, logoH);
       ctx.restore();
     } catch {
       // Fallback: text logo

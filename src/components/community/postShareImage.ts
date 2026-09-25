@@ -178,7 +178,7 @@ export async function generatePostShareImage(post: FeedPost): Promise<Blob | nul
   const logo = await loadLogo();
   let lx = innerX;
   if (logo) {
-    const lh = 46;
+    const lh = 64;
     const ratio = logo.width / logo.height;
     ctx.save();
     ctx.globalAlpha = 0.95;
