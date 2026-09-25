@@ -57,7 +57,7 @@ export function CobradorCard({ userId, faltouCair }: { userId?: string; faltouCa
         </p>
         <p className="text-[12.5px] mt-2 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
           {faltouCair > 0.005
-            ? "O Orbis gera o Pix de quem ficou devendo e abre seu WhatsApp com a mensagem pronta. Quando pagar, isso aqui cai sozinho."
+            ? "A Vant gera o Pix de quem ficou devendo e abre seu WhatsApp com a mensagem pronta. Quando pagar, isso aqui cai sozinho."
             : "Nada em aberto. Se alguém ficar devendo amanhã, é daqui que você cobra."}
         </p>
         {resumo && resumo.pagas_mes > 0 && (

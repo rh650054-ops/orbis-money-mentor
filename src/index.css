@@ -58,11 +58,11 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* Orbis warm-dark theme - tinted toward brand hue to avoid pure-black AI reflex */
-    --background: 0 0% 0%;           /* Orbis 2.0: preto absoluto */
+    /* Vant warm-dark theme - tinted toward brand hue to avoid pure-black AI reflex */
+    --background: 0 0% 0%;           /* Vant 2.0: preto absoluto */
     --foreground: 0 0% 100%;
 
-    --card: 0 0% 6.7%;               /* Orbis 2.0: superfície #111 */
+    --card: 0 0% 6.7%;               /* Vant 2.0: superfície #111 */
     --card-foreground: 0 0% 100%;
 
     --popover: 0 0% 8%;
@@ -140,11 +140,11 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
-  /* Tema claro: inverte a logo branca do Orbis pra ficar escura e legível */
-  html:not(.dark) img[src*="orbis-logo"],
-  html:not(.dark) img[src*="orbis-wordmark"],
-  html:not(.dark) img[src*="orbis-full-logo"] {
-    filter: invert(1);
+  /* Tema claro: a logo da Vant é branca + amarela sobre preto. Inverter viraria azul,
+     então ela vira silhueta preta (brightness 0) — legível e ainda a seta. */
+  html:not(.dark) img[src*="vant-logo"],
+  html:not(.dark) img[src*="vant-wordmark"] {
+    filter: brightness(0);
   }
 
   body {
@@ -360,7 +360,7 @@ body.battery-saver .backdrop-blur-xl {
 }
 
 
-/* ===== Animações de transição de liga (Orbis) ===== */
+/* ===== Animações de transição de liga (Vant) ===== */
 @keyframes orbisFadeIn { from { opacity: 0; } to { opacity: 1; } }
 .orbis-fade-in { animation: orbisFadeIn 0.3s ease both; }
 

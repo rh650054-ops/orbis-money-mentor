@@ -35,7 +35,7 @@ const DESAFIOS: WeeklyChallenge[] = [
     introTag: "Você foi convidado",
     introTitulo: "DESAFIO DA SEMANA",
     introSub: "Arraste e descubra quanto dá pra faturar já nesta semana — antes mesmo do ranking abrir.",
-    eventoLabel: "Elite Orbis · Julho",
+    eventoLabel: "Elite Vant · Julho",
     ticketTitulo: "VOCÊ ESTÁ DENTRO",
     grandPrizeValue: "R$ 500",
     grandPrizeDesc: "Prêmio mensal",

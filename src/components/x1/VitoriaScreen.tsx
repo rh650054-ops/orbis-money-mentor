@@ -62,8 +62,8 @@ export function VitoriaScreen({ tipo, eu, ele, recorde, meu, dele, aposta, premi
 
   const compartilhar = async () => {
     const texto = venci
-      ? `Venci ${nome} no X1 do Orbis: ${fmt(meu)} × ${fmt(dele)}. ${recorde.vitorias} vitórias na arena. Quem é o próximo?`
-      : tipo === "derrota" ? `Perdi pro ${nome} no X1 do Orbis por ${fmt(dele - meu)}. Amanhã tem revanche.` : `Empate no X1 do Orbis com ${nome}: ${fmt(meu)} cada.`;
+      ? `Venci ${nome} no X1 da Vant: ${fmt(meu)} × ${fmt(dele)}. ${recorde.vitorias} vitórias na arena. Quem é o próximo?`
+      : tipo === "derrota" ? `Perdi pro ${nome} no X1 da Vant por ${fmt(dele - meu)}. Amanhã tem revanche.` : `Empate no X1 da Vant com ${nome}: ${fmt(meu)} cada.`;
     try {
       if (navigator.share) await navigator.share({ text: texto });
       else { await navigator.clipboard.writeText(texto); toast({ title: "Copiado! Cola no story." }); }

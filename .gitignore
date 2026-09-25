@@ -37,3 +37,6 @@ skills-lock.json
 docs/
 public/estudio/_to_delete/
 Claude outputs/
+
+# patch temporário do rebrand (Claude) — pode apagar a pasta
+_rebrand/

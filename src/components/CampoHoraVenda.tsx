@@ -71,7 +71,7 @@ export default function CampoHoraVenda({ userId }: { userId?: string }) {
       <p className="text-[11px] mt-1.5" style={{ color: "#7E7869" }}>
         {hora != null
           ? `Combinado: às ${hora}h a gente te espera. (tocar de novo desmarca — sem hora, sem cobrança)`
-          : "Sem hora marcada, o Orbis não cobra."}
+          : "Sem hora marcada, a Vant não cobra."}
       </p>
     </div>
   );

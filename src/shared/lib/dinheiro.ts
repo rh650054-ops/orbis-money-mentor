@@ -22,7 +22,7 @@
       R$ 15 — o valor redondo é a regra, o centavo é a exceção. Cobrar 4 toques
       pelo caso comum pra facilitar o caso raro é a conta invertida.
 
-   A REGRA DE AGORA — o vendedor digita, o Orbis não atrapalha:
+   A REGRA DE AGORA — o vendedor digita, a Vant não atrapalha:
 
       digitou "20"      → R$ 20,00     (o que ele quis dizer)
       digitou "20,50"   → R$ 20,50     (a vírgula é dele, quando ele quiser)

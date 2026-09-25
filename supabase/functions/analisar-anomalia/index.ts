@@ -1,4 +1,4 @@
-// Orbis — analisar-anomalia
+// Vant — analisar-anomalia
 // Recebe { user_id } de um ADMIN, pega o histórico diário do vendedor (RPC
 // defcon_user_history, que já é gated a admin/dono) e manda pra IA (Claude)
 // julgar se o padrão é consistente ou tem cara de fraude/inflado.
@@ -31,7 +31,7 @@ function buildPrompt(nome: string, rows: HistRow[]): string {
     )
     .join("\n");
 
-  return `Você é um auditor anti-fraude do Orbis (app de vendedores de rua). Recebe o histórico DIÁRIO de um vendedor${nome ? ` chamado "${nome}"` : ""}. Cada dia traz: o valor que conta no ranking (cartão + pix), quantas vendas, o ticket médio, os minutos trabalhados, o ritmo (min/venda), o MENOR INTERVALO entre duas vendas (em segundos), o calote (não recebido) e a gorjeta.
+  return `Você é um auditor anti-fraude da Vant (app de vendedores de rua). Recebe o histórico DIÁRIO de um vendedor${nome ? ` chamado "${nome}"` : ""}. Cada dia traz: o valor que conta no ranking (cartão + pix), quantas vendas, o ticket médio, os minutos trabalhados, o ritmo (min/venda), o MENOR INTERVALO entre duas vendas (em segundos), o calote (não recebido) e a gorjeta.
 
 Sua tarefa: dizer se o padrão é CONSISTENTE ou se tem sinais de resultado INFLADO/fraudado.
 

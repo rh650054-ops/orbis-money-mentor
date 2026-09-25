@@ -92,7 +92,7 @@ export default function ModoOffline() {
       <div className="fixed inset-0 bg-black text-[#F4F1EA] flex flex-col items-center justify-center px-8 text-center">
         <CloudOff size={40} style={{ color: "#7E7869" }} />
         <h1 className="font-display text-[20px] font-extrabold mt-4">Sem internet e sem login salvo</h1>
-        <p className="text-[13px] mt-2" style={{ color: "#B9B3A6" }}>Abre o Orbis uma vez com sinal pra ele lembrar de você. Depois o DEFCON offline funciona sempre.</p>
+        <p className="text-[13px] mt-2" style={{ color: "#B9B3A6" }}>Abre a Vant uma vez com sinal pra ele lembrar de você. Depois o DEFCON offline funciona sempre.</p>
         <button type="button" onClick={() => navigate("/")} className="orbis-cta w-full max-w-xs mt-6">Voltar</button>
       </div>
     );

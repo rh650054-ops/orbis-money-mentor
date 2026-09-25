@@ -9,7 +9,7 @@ import { syncLeaderboardRevenue } from "@/utils/syncDailySales";
 /**
  * "Ocultar meu resultado": o vendedor escolhe ficar FORA do ranking.
  * Padrão = participando. Ao ligar, a linha dele some do ranking na hora
- * (RPC ranking_definir_oculto apaga a entrada do mês). Ao desligar, o Orbis
+ * (RPC ranking_definir_oculto apaga a entrada do mês). Ao desligar, a Vant
  * recalcula o mês dele e ele volta pra lista.
  */
 type Props = {

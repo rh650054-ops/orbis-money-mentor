@@ -69,7 +69,7 @@ function Col({ entry, position, avatarSize, barHeight, champion, green, formatCu
   return (
     <div className="flex-1 text-center min-w-0">
       {champion ? (
-        // Coroa SEMPRE dourada (assinatura do Orbis); só o glow acompanha o ambiente.
+        // Coroa SEMPRE dourada (assinatura da Vant); só o glow acompanha o ambiente.
         <Crown className="w-8 h-8 mx-auto mb-1 orbis-float" style={{ color: "#F5D77A", filter: `drop-shadow(0 0 14px ${avatarGlow})` }} />
       ) : (
         <div className="text-[20px] leading-none mb-1" style={{ filter: `drop-shadow(0 0 8px ${tier.glow})` }}>{medal}</div>

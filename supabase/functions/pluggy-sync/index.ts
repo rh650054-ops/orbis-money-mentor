@@ -1,5 +1,5 @@
-// Orbis — pluggy-sync: "puxa agora" o extrato do banco do vendedor logado.
-// Chamado pelo fechamento do dia: antes de mostrar "caiu X no Pix", o Orbis
+// Vant — pluggy-sync: "puxa agora" o extrato do banco do vendedor logado.
+// Chamado pelo fechamento do dia: antes de mostrar "caiu X no Pix", a Vant
 // pede pra Pluggy atualizar o item (PATCH) e importa o que ja existe la.
 // A atualizacao de verdade chega depois pelo pluggy-webhook (item/updated);
 // aqui e o melhor que da pra ter NA HORA, sem o vendedor esperar.

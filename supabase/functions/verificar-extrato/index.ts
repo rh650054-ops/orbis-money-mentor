@@ -1,4 +1,4 @@
-// Orbis — verificar-extrato
+// Vant — verificar-extrato
 // A IA le um EXTRATO (print ou PDF) e separa as VENDAS (dinheiro que ENTROU/foi recebido)
 // das DESPESAS e dos itens SUSPEITOS DE FRAUDE (auto-transferencia, duplicata).
 // PRIMARIO: Claude (visao). FALLBACK: Gemini.
@@ -26,7 +26,7 @@ function buildPromptEstatico(tipo: string): string {
   const esperado = tipo === "cartao"
     ? "COMPROVANTE DAS VENDAS NO CARTAO — pode ser o relatorio/print da MAQUININHA (Stone, PagSeguro, Mercado Pago, Cielo, Ton, SumUp, InfinitePay, etc.) OU QUALQUER extrato/print onde aparecam os recebimentos do cartao (inclusive um extrato de banco). Liste as ENTRADAS de venda no cartao."
     : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos) — mostra Pix recebidos, saldo e transacoes da conta.";
-  return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
+  return `Voce e um auditor financeiro do app Vant (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
 O DIA AUDITADO e a dica de nome do titular vem no PROXIMO bloco desta mensagem — leia-os antes de auditar.
 
 CLASSIFICACAO (faca isto ANTES de tudo): o usuario esta enviando isto como o ${esperado}
@@ -94,7 +94,7 @@ function buildPromptMesEstatico(tipo: string): string {
   const esperado = tipo === "cartao"
     ? "COMPROVANTE DAS VENDAS NO CARTAO — relatorio/print da maquininha OU qualquer extrato/print onde aparecam os recebimentos do cartao (inclusive extrato de banco)"
     : "EXTRATO DO BANCO / APP DE CONTA (onde caem os Pix recebidos)";
-  return `Voce e um auditor financeiro do app Orbis (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
+  return `Voce e um auditor financeiro do app Vant (vendedores de rua). Recebe a imagem ou PDF de um documento brasileiro.
 A JANELA DE DIAS auditada e a dica de nome do titular vem no PROXIMO bloco desta mensagem.
 
 CLASSIFICACAO (faca isto ANTES de tudo): o usuario esta enviando isto como o ${esperado}.

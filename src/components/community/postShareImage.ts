@@ -9,7 +9,7 @@ const loadLogo = (): Promise<HTMLImageElement | null> =>
     img.crossOrigin = "anonymous";
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = "/orbis-logo.png";
+    img.src = "/vant-logo.png";
   });
 
 // Carrega o avatar remoto com CORS. Se o servidor não permitir, retorna null
@@ -189,7 +189,7 @@ export async function generatePostShareImage(post: FeedPost): Promise<Blob | nul
   ctx.fillStyle = GOLD;
   ctx.font = `700 32px ${FONT}`;
   ctx.textBaseline = "top";
-  ctx.fillText("Comunidade Orbis", lx, cy + 14);
+  ctx.fillText("Comunidade Vant", lx, cy + 14);
 
   const dateStr = new Date(post.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
   ctx.fillStyle = MUTED;

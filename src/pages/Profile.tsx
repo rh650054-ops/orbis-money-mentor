@@ -111,7 +111,7 @@ export default function Profile() {
         <p className="text-muted-foreground mt-1">Acesse e gerencie sua conta</p>
       </div>
 
-      {/* Aba de Administração — só admins veem. Tudo de admin do Orbis mora aqui:
+      {/* Aba de Administração — só admins veem. Tudo de admin da Vant mora aqui:
           tesouraria, carteiras, depósitos, liquidação, revisões e as outras áreas. */}
       {isAdmin && (
         <Card

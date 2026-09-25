@@ -26,7 +26,7 @@ interface Particle {
 }
 
 /**
- * Esfera de partículas douradas — o "rosto" da Orbis IA.
+ * Esfera de partículas douradas — o "rosto" da Vant IA.
  * Canvas puro, sem dependências. Reage ao estado (ouvindo/processando/respondendo).
  */
 export function OrbisSphere({

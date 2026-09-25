@@ -264,7 +264,7 @@ export function RankingProfileModal({
 
           {/* Emojis */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Ou escolha um avatar Orbis</Label>
+            <Label className="text-sm font-medium">Ou escolha um avatar Vant</Label>
             <div className="grid grid-cols-8 gap-1.5">
               {EXCLUSIVE_EMOJIS.map((item) => (
                 <button

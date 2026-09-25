@@ -2,7 +2,7 @@
    TOUR DO CLIMA — primeiro acesso à tela (Rick, 11/09).
    Sete passos, um por clima, com a CENA DE VERDADE animada: o vendedor
    vê o personagem daquele dia se mexendo e lê, em uma frase, o que o
-   Orbis faz naquele clima. Aparece uma vez por pessoa; "pular" encerra.
+   Vant faz naquele clima. Aparece uma vez por pessoa; "pular" encerra.
    ============================================================ */
 import { useState } from "react";
 import { avisar } from "@/shared/lib/avisar";
@@ -19,7 +19,7 @@ export function tourClimaVisto(userId: string): boolean {
 interface Passo { estado: Estado; temp: number; condicao: string; linha: string; titulo: string; txt: string }
 const PASSOS: Passo[] = [
   { estado: "sol", temp: 26, condicao: "Ensolarado", linha: "máx 28° · mín 18° · sensação 26°",
-    titulo: "Dia limpo", txt: "Céu aberto, dia inteiro seu. O Orbis manda sair cedo e protege a sua melhor hora — aquela em que você mais vende." },
+    titulo: "Dia limpo", txt: "Céu aberto, dia inteiro seu. A Vant manda sair cedo e protege a sua melhor hora — aquela em que você mais vende." },
   { estado: "calor", temp: 34, condicao: "Sol muito forte", linha: "máx 36° · mín 24° · sensação 38°",
     titulo: "Calor", txt: "Sol na veia e ele de língua de fora. Gelada vende sozinha, mas das 12h às 15h o povo some — ele te dá a hora de parar e a de voltar." },
   { estado: "nublado", temp: 22, condicao: "Nublado", linha: "máx 24° · mín 17° · sensação 22°",

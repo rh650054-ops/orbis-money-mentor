@@ -3,7 +3,7 @@ import { Instagram, Loader2, X, Download, Copy, Check } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
-import { ORBIS_LOGO, ORBIS_WORDMARK } from "@/assets/orbisLogoData";
+import { VANT_LOGO, VANT_WORDMARK } from "@/assets/vantLogoData";
 
 // Dados que entram nas artes compartilháveis
 export interface ShareStats {
@@ -43,7 +43,7 @@ const DIMS: Record<TemplateId, [number, number]> = {
   empilhada: [1080, 1920], // vertical (story) — transparente
   empilhadaSemHoras: [1080, 1920], // igual, mas sem o bloco HORAS
   destaque: [1080, 864],   // paisagem: faturamento + logo + linha de números
-  faixa: [1080, 568],      // faixa larga: linha de números + ORBIS
+  faixa: [1080, 568],      // faixa larga: linha de números + VANT
 };
 
 // Constrói uma arte (FUNDO TRANSPARENTE — pra colar como adesivo no story)
@@ -116,38 +116,37 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
     ctx.fillText(text, x, y);
   };
 
-  // Logo Orbis OFICIAL (imagem real) — com fallback desenhado se não carregar
+  // Logo Vant OFICIAL (imagem real) — com fallback desenhado se não carregar
   const logoImg = await new Promise<HTMLImageElement | null>((resolve) => {
     const im = new Image();
     im.crossOrigin = "anonymous";
     im.onload = () => resolve(im);
     im.onerror = () => resolve(null);
-    im.src = ORBIS_LOGO;
+    im.src = VANT_LOGO;
   });
   const drawLogo = (cx: number, cy: number, w: number) => {
     if (logoImg) {
       const ratio = logoImg.height / logoImg.width;
       ctx.drawImage(logoImg, cx - w / 2, cy - (w * ratio) / 2, w, w * ratio);
     } else {
-      ctx.strokeStyle = WHITE;
-      ctx.lineWidth = w * 0.05;
-      ctx.beginPath();
-      ctx.arc(cx, cy, w * 0.46, 0, Math.PI * 2);
-      ctx.stroke();
+      // seta da Vant desenhada na mão (mesmos pontos do SVG oficial, caixa 100x100)
+      ctx.save();
+      ctx.translate(cx - w / 2, cy - w / 2);
+      ctx.scale(w / 100, w / 100);
       ctx.fillStyle = WHITE;
-      ctx.beginPath();
-      ctx.arc(cx, cy, w * 0.16, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.fill(new Path2D("M100 2 L0 54.8 L66.7 29.8 L46.6 58.3 L24.6 92.6 L60.8 51.8 Z"));
+      ctx.fill(new Path2D("M45.6 46.3 L11 60.3 L27.2 60.3 L11.7 94.2 L29.1 71.3 Z"));
+      ctx.restore();
     }
   };
 
-  // Wordmark "ORBIS" oficial (imagem com a fonte certa da marca)
+  // Wordmark "VANT" oficial (imagem com a fonte certa da marca)
   const wordmarkImg = await new Promise<HTMLImageElement | null>((resolve) => {
     const im = new Image();
     im.crossOrigin = "anonymous";
     im.onload = () => resolve(im);
     im.onerror = () => resolve(null);
-    im.src = ORBIS_WORDMARK;
+    im.src = VANT_WORDMARK;
   });
   const drawWordmark = (cx: number, cy: number, w: number) => {
     if (wordmarkImg) {
@@ -158,7 +157,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillStyle = WHITE;
-      ctx.fillText("ORBIS", cx, cy);
+      ctx.fillText("VANT", cx, cy);
     }
   };
 
@@ -188,7 +187,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
   const rodape = (s.periodo || "DEFCON 4").toUpperCase();
 
   if (template === "post") {
-    // ===== COM FUNDO (retrato 4:5) — logo topo, faturamento, linha de números, ORBIS =====
+    // ===== COM FUNDO (retrato 4:5) — logo topo, faturamento, linha de números, VANT =====
     drawLogo(W / 2, 175, 150);
 
     label("FATURAMENTO", W / 2, 415, 42, GOLD);
@@ -257,7 +256,7 @@ async function buildCanvas(template: TemplateId, s: ShareStats): Promise<HTMLCan
       if (i > 0) vline(colW * i, 505, 735);
     });
   } else {
-    // ===== Faixa larga: linha de números + logo/ORBIS embaixo (igual à 3ª) =====
+    // ===== Faixa larga: linha de números + logo/VANT embaixo (igual à 3ª) =====
     hline(70, W - 70, 65);
     const cols: [string, string][] = [["VENDAS", vendas], ["CONVERSÃO", conv], ["HORAS", horas]];
     const colW = W / 3;
@@ -335,7 +334,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
       if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
         await nav.share({
           files: [file],
-          title: "Meu resultado no Orbis",
+          title: "Meu resultado na Vant",
           text: `${stats.periodo ? `${stats.periodo} • ` : ""}${formatCurrency(stats.faturamento)} • ${stats.conversao.toFixed(0)}% de conversão`,
         });
       } else {

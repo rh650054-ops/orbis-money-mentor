@@ -16,7 +16,7 @@
       animação quando subiu de patente, botão pra ver o ranking e, por
       último, "Suas horas" — cada bloco com o valor REAL e exato.)
 
-   OPEN FINANCE (Rick, 10/09): quem tem banco ligado (Orbis Pro) vê o Pix já
+   OPEN FINANCE (Rick, 10/09): quem tem banco ligado (Vant Pro) vê o Pix já
    preenchido com o que caiu na conta (banco_pix_do_dia + pluggy-sync). Digita
    só cartão e dinheiro; o calote é a diferença; o recebido vai pro ranking.
    Quem não tem banco continua lançando tudo na mão, como sempre.

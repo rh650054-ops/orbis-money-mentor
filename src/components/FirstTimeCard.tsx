@@ -3,7 +3,7 @@
    Na PRIMEIRA vez que o usuário abre cada tela, sobe um cartão
    explicando SÓ O PRINCIPAL daquela função. Aparece UMA vez por
    tela, por usuário, e nunca mais. Substitui o ScreenCoach antigo
-   pras contas novas, com a roupa do design system Orbis 2.0.
+   pras contas novas, com a roupa do design system Vant 2.0.
 
    Uso (uma linha no fim de cada tela):
      <FirstTimeCard tela="dashboard" userId={user?.id} />
@@ -13,7 +13,7 @@
    - 1 CTA só ("Entendi") — sem tour, sem setinha, sem 7 passos.
    - Memória: localStorage por usuário+tela (barato e suficiente:
      se trocar de celular e ver de novo uma vez, não machuca).
-   - Entra deslizando de baixo (250ms, curva do Orbis); com
+   - Entra deslizando de baixo (250ms, curva da Vant); com
      "reduzir movimento" ligado, aparece parado.
    - Novas telas: é só adicionar uma entrada em TELAS_INTRO.
    ============================================================ */

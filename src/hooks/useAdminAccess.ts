@@ -8,7 +8,7 @@ interface AdminAccess {
 }
 
 /**
- * Descobre se o usuário logado é admin do Orbis.
+ * Descobre se o usuário logado é admin da Vant.
  *
  * Antes isso dependia SÓ da edge function `check-admin-access`: se ela falhasse
  * (rede ruim na rua, token expirado, função fria), o hook devolvia

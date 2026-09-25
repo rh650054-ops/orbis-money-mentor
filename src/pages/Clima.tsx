@@ -1,6 +1,6 @@
 /* ============================================================
    CLIMA DO VENDEDOR — tela cheia (Rick, 11/09/2026).
-   A cena com o Orbis + a opinião do dia (IA com meta, contas e melhor hora)
+   A cena com a Vant + a opinião do dia (IA com meta, contas e melhor hora)
    + janelas de sair/descansar/voltar + chance de chuva por hora (6 modelos).
    O clima vem sozinho do GPS; o vendedor não escolhe nada.
    ============================================================ */
@@ -20,7 +20,7 @@ interface Q { select: (s: string) => Q; eq: (k: string, v: unknown) => Q; not: (
 const db = supabase as unknown as { from: (t: string) => Q };
 const rpc = supabase as unknown as { rpc: (nome: string, args?: Record<string, unknown>) => Promise<{ data: unknown }> };
 
-/* O que o Orbis já aprendeu do clima DESTE vendedor (vem da função clima_meu_aprendizado). */
+/* O que a Vant já aprendeu do clima DESTE vendedor (vem da função clima_meu_aprendizado). */
 interface Aprendizado {
   dias: number;
   melhor: { estado: string; media: number; dias: number } | null;
@@ -137,7 +137,7 @@ export default function Clima() {
             <p className="relative text-[19px] font-black leading-[1.15] pr-[110px]">Me diz onde você tá que eu leio o céu por você.</p>
             <p className="relative text-[13px] leading-[1.5] pr-[100px]" style={{ color: "#b9b3a6" }}>
               {permissao === "negada"
-                ? "A localização tá bloqueada pro Orbis. Abre o cadeado na barra de endereço (ou os ajustes do app) e libera — aí eu te mostro as melhores horas de hoje."
+                ? "A localização tá bloqueada pra Vant. Abre o cadeado na barra de endereço (ou os ajustes do app) e libera — aí eu te mostro as melhores horas de hoje."
                 : "Com a sua localização eu vejo a chuva hora a hora e te digo os picos do dia — as horas em que vale sair e as que não valem. Não guardo sua rua: arredondo pra uns 5 km."}
             </p>
             {permissao !== "negada" && (
@@ -190,12 +190,12 @@ export default function Clima() {
             </div>
           )}
 
-          {/* balão: o Orbis fala */}
+          {/* balão: a Vant fala */}
           <div className="px-4 -mt-[30px] relative">
             <div key={toques} className="cl-balao rounded-[20px] px-4 py-3.5 flex flex-col gap-2" style={{ background: "#ffffff", color: "#0d0c0b", boxShadow: "0 20px 40px -20px rgba(0,0,0,.8)" }}>
               <span className="flex items-center gap-2">
                 <span className="w-[22px] h-[22px] rounded-full inline-flex items-center justify-center shrink-0" style={{ background: "#0d0c0b" }}><span className="w-3 h-3 rounded-full box-border" style={{ border: "2px solid #fff" }} /></span>
-                <span className="text-[10.5px] font-extrabold tracking-[.14em] uppercase" style={{ color: "#7e7869" }}>Opinião do Orbis</span>
+                <span className="text-[10.5px] font-extrabold tracking-[.14em] uppercase" style={{ color: "#7e7869" }}>Opinião da Vant</span>
                 <span className="ml-auto text-[10.5px] font-bold" style={{ color: "#9a9489" }}>{opiniao ? `${(toques % opiniao.falas.length) + 1}/${opiniao.falas.length} · toca na cena` : "pensando…"}</span>
               </span>
               <span className="text-[15px] font-extrabold leading-[1.35]">{fala ?? (carregando ? "Lendo os 6 modelos e as suas contas…" : "Toca em atualizar pra eu dar minha opinião.")}</span>
@@ -279,7 +279,7 @@ export default function Clima() {
             </div>
           )}
 
-          {/* O QUE O ORBIS APRENDEU DE VOCÊ (Rick, 11/09) — sai do cruzamento
+          {/* O QUE O VANT APRENDEU DE VOCÊ (Rick, 11/09) — sai do cruzamento
               entre o tempo de cada dia e o que ele vendeu naquele dia. */}
           {aprendizado && aprendizado.dias > 0 && (
             <div className="px-4 mt-4">
@@ -340,7 +340,7 @@ export default function Clima() {
             </div>
           )}
 
-          {/* O card "De onde o Orbis tirou isso" (nomes dos modelos + provedor) saiu
+          {/* O card "De onde a Vant tirou isso" (nomes dos modelos + provedor) saiu
               a pedido do Mohamed, 11/09. A prova de confiança continua na tela:
               "6 fontes · 72%" no alto da cena e o "x de 6 modelos" hora a hora.
               Fica só o aviso de privacidade, que é promessa nossa com o vendedor. */}

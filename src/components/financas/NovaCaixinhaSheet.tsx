@@ -1,5 +1,5 @@
 /* ============================================================
-   NOVA CAIXINHA — 3 perguntas e o Orbis faz a conta (Rick, 10/09):
+   NOVA CAIXINHA — 3 perguntas e a Vant faz a conta (Rick, 10/09):
    1) Pra quê?      → chips com ícone + nome
    2) Quanto custa? → valor grande
    3) Pra quando?   → 3 meses / 6 meses / 1 ano / escolher data
@@ -155,7 +155,7 @@ export function NovaCaixinhaSheet({ open, onOpenChange, userId, workingDays, sob
             </button>
             <div className="min-w-0">
               <h3 className="text-[22px] font-black tracking-tight leading-none text-foreground">Nova caixinha</h3>
-              <p className="text-[12.5px] mt-1" style={{ color: "#7e7869" }}>3 perguntas e o Orbis faz a conta</p>
+              <p className="text-[12.5px] mt-1" style={{ color: "#7e7869" }}>3 perguntas e a Vant faz a conta</p>
             </div>
           </div>
 

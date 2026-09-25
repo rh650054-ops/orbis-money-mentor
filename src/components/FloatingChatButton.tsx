@@ -139,7 +139,7 @@ export default function FloatingChatButton() {
       // verdade o microfone está bloqueado no navegador ou preso por outro app.
       toast({
         title: "Não consegui usar o microfone",
-        description: "Libere o microfone pro Orbis (ícone de cadeado na barra de endereço → Microfone → Permitir) ou feche outro app que esteja usando ele. Enquanto isso, dá pra digitar normalmente.",
+        description: "Libere o microfone pra Vant (ícone de cadeado na barra de endereço → Microfone → Permitir) ou feche outro app que esteja usando ele. Enquanto isso, dá pra digitar normalmente.",
         variant: "destructive",
       });
     }
@@ -365,7 +365,7 @@ export default function FloatingChatButton() {
         return (
           <div key={i} className="mt-2 space-y-2">
             <img
-              src={m[1]} alt="Adesivo criado pela Orbis IA"
+              src={m[1]} alt="Adesivo criado pela Vant IA"
               className="w-full max-w-[260px] rounded-xl border border-border"
               loading="lazy"
             />
@@ -718,7 +718,7 @@ export default function FloatingChatButton() {
         onClick={() => setIsOpen(true)}
         className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 md:bottom-8 md:right-8 h-14 w-14 rounded-full shadow-glow-primary bg-[#0a0a0a] border border-primary/30 hover:opacity-90 transition-smooth z-40 p-0 overflow-hidden flex items-center justify-center"
         size="icon"
-        aria-label="Abrir Orbis IA"
+        aria-label="Abrir Vant IA"
       >
         <OrbisSphere size={44} state="idle" />
       </Button>
@@ -746,7 +746,7 @@ export default function FloatingChatButton() {
             <div className="flex items-center gap-2">
               <OrbisSphere size={28} state="idle" />
               <div className="leading-tight">
-                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] text-primary">ORBIS IA</span>
+                <span id="floating-chat-title" className="font-bold text-sm tracking-[0.12em] text-primary">VANT IA</span>
                 <p className="text-xs text-success">● online</p>
               </div>
             </div>
@@ -927,7 +927,7 @@ export default function FloatingChatButton() {
               <header className="flex items-center justify-between px-4 min-h-[3.5rem] safe-top">
                 <div className="flex items-center gap-2">
                   <OrbisSphere size={26} state="idle" />
-                  <span className="font-bold text-sm tracking-[0.12em] text-primary">ORBIS IA</span>
+                  <span className="font-bold text-sm tracking-[0.12em] text-primary">VANT IA</span>
                 </div>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-primary/15 border border-primary/30 text-primary/80 tracking-[0.15em]">VOZ</span>
               </header>

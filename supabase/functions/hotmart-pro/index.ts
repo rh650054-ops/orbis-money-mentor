@@ -1,4 +1,4 @@
-// Orbis — hotmart-pro: webhook DEDICADO do produto "Orbis Pro" (+R$ 10/mes).
+// Vant — hotmart-pro: webhook DEDICADO do produto "Vant Pro" (+R$ 10/mes).
 //
 // Por que separado do hotmart-webhook: aquele ja funciona e mexe na assinatura
 // principal (R$ 29,90). Se o Pro entrasse por la, uma compra de R$ 10 renovaria
@@ -93,14 +93,14 @@ Deno.serve(async (req) => {
         p_ate: ate.toISOString(),
       });
       if (error) { console.error("pro_conceder:", error.message); return json({ error: "falhou" }, 500); }
-      console.log("Orbis Pro LIGADO para", userId);
+      console.log("Vant Pro LIGADO para", userId);
       return json({ status: "pro_ativo" });
     }
 
     if (desligou) {
       const { error } = await admin.rpc("pro_revogar", { p_user: userId });
       if (error) { console.error("pro_revogar:", error.message); return json({ error: "falhou" }, 500); }
-      console.log("Orbis Pro DESLIGADO para", userId);
+      console.log("Vant Pro DESLIGADO para", userId);
       return json({ status: "pro_cancelado" });
     }
 

@@ -1,4 +1,4 @@
-// Orbis — pluggy-diag (temporaria). Porta: nonce de uso unico.
+// Vant — pluggy-diag (temporaria). Porta: nonce de uso unico.
 // v6 (10/09/2026): ?item=<id> mostra o que a Pluggy tem daquele item — contas e
 // transacoes dos ultimos 30 dias (so data/tipo/valor, sem descricao).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

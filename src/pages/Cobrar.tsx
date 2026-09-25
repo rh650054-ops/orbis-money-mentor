@@ -5,7 +5,7 @@
      • viva  → QR + copia e cola + botão do WhatsApp + o que acontece sozinho
      • paga  → o calote já foi abatido
    O Pix é criado NA CARTEIRA DO VENDEDOR pela edge function cobranca-criar.
-   O dinheiro nunca passa pelo Orbis. A mensagem sai do WhatsApp dele.
+   O dinheiro nunca passa pela Vant. A mensagem sai do WhatsApp dele.
    Todo hook acima do primeiro return. Campos definidos FORA do componente.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -205,7 +205,7 @@ export default function Cobrar() {
           </span>
           <p className="text-[20px] font-black mt-4 leading-tight">Ligue onde você recebe<br />pra poder cobrar</p>
           <p className="text-[12.5px] mt-2.5 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
-            O Pix da cobrança é criado na sua conta e o dinheiro cai direto pra você. Sem carteira ligada, o Orbis não tem onde criar.
+            O Pix da cobrança é criado na sua conta e o dinheiro cai direto pra você. Sem carteira ligada, a Vant não tem onde criar.
           </p>
           <button type="button" onClick={() => navigate("/verificar")} className="orbis-cta w-full mt-4">
             LIGAR MINHA CARTEIRA <ChevronRight className="w-4 h-4" strokeWidth={3} />
@@ -233,7 +233,7 @@ export default function Cobrar() {
             <span style={{ color: OK }}>{fmt(cob.valor_pago ?? cob.valor)}</span>
           </p>
           <p className="text-[12.5px] mt-3 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
-            Caiu na sua conta {cob.paga_em ? `às ${horaBR(cob.paga_em)}` : ""}. O Orbis já abateu do seu calote do dia.
+            Caiu na sua conta {cob.paga_em ? `às ${horaBR(cob.paga_em)}` : ""}. A Vant já abateu do seu calote do dia.
           </p>
         </div>
         <button type="button" onClick={() => navigate("/cobrar")} className="orbis-cta w-full mt-4">
@@ -299,9 +299,9 @@ export default function Cobrar() {
         <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
           <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "var(--orbis-fg-3)" }}>O QUE ACONTECE SOZINHO</p>
           <div className="mt-2">
-            <Passo n={1} feito titulo={`Pix criado na sua conta do ${carteira}`} texto="O dinheiro cai direto pra você. O Orbis não toca nele." />
+            <Passo n={1} feito titulo={`Pix criado na sua conta do ${carteira}`} texto="O dinheiro cai direto pra você. A Vant não toca nele." />
             <Passo n={2} feito={!!cob.enviada_em} titulo="Mensagem no WhatsApp dela" texto={cob.enviada_em ? `Enviado ${horaBR(cob.enviada_em)}.` : "Sai do seu número, com a sua cara."} />
-            <Passo n={3} feito={false} titulo="Ela paga" texto={`O ${carteira} avisa o Orbis em segundos.`} />
+            <Passo n={3} feito={false} titulo="Ela paga" texto={`O ${carteira} avisa a Vant em segundos.`} />
             <Passo n={4} feito={false} titulo="Seu calote cai sozinho" texto="Sem você lançar nada, sem conferir extrato." />
           </div>
         </div>

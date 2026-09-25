@@ -1,6 +1,6 @@
 {
-  "name": "Orbis",
-  "short_name": "Orbis",
+  "name": "Vant",
+  "short_name": "Vant",
   "description": "Domine seus números. Domine seu futuro.",
   "theme_color": "#000000",
   "background_color": "#000000",
@@ -9,9 +9,9 @@
   "scope": "/",
   "start_url": "/",
   "icons": [
-    { "src": "/orbis-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/orbis-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/orbis-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
-    { "src": "/orbis-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/vant-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/vant-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/vant-icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/vant-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

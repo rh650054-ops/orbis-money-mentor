@@ -3,7 +3,7 @@ import { Instagram, Loader2, Sparkles } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import orbisLogo from "@/assets/orbis-logo-share.png";
+import orbisLogo from "@/assets/vant-logo-share.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 
@@ -170,7 +170,7 @@ export function DefconBlockReport({
       ctx.restore();
     } catch {
       // Fallback: text logo
-      centerText("ORBIS", H - 180, 80, "900", FOREGROUND, 16);
+      centerText("VANT", H - 180, 80, "900", FOREGROUND, 16);
     }
 
     return new Promise((resolve) =>
@@ -197,7 +197,7 @@ export function DefconBlockReport({
       if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
         await nav.share({
           files: [file],
-          title: "Meu bloco no Orbis",
+          title: "Meu bloco na Vant",
           text: `Bloco #${blockIndex + 1} • ${formatCurrency(soldAmount)} • ${conversionRate.toFixed(0)}% conversão`,
         });
       } else {

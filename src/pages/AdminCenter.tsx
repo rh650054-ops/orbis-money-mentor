@@ -9,7 +9,7 @@ import { ShieldCheck, Trophy, Eye, Loader2, Sparkles, Users, CreditCard, Brain, 
 import { AdminShell } from "@/components/admin/AdminShell";
 
 // ============================================================================
-// PAINEL DE COMANDO DO ORBIS — acessível só pelo Perfil, só pra admins.
+// PAINEL DE COMANDO DA VANT — acessível só pelo Perfil, só pra admins.
 // Um mundo só: atalhos pra TODAS as áreas de admin em cima (o CRM continua
 // app separado em /crm.html porque o vendedor comercial usa sem o app), e as
 // operações do X1 logo abaixo:
@@ -305,7 +305,7 @@ export default function AdminCenter() {
       <div className="text-center py-20 px-6 max-w-2xl mx-auto">
         <p className="text-5xl mb-3">🔒</p>
         <p className="text-foreground font-bold">Área restrita</p>
-        <p className="text-sm text-muted-foreground mt-1">Só administradores do Orbis entram aqui.</p>
+        <p className="text-sm text-muted-foreground mt-1">Só administradores da Vant entram aqui.</p>
         <button onClick={() => navigate("/profile")} className="mt-6 h-11 px-6 rounded-xl bg-card border border-border text-sm font-bold text-foreground active:scale-95 transition-transform">
           Voltar ao perfil
         </button>
@@ -348,7 +348,7 @@ export default function AdminCenter() {
   return (
     <AdminShell
       title="Painel de Comando"
-      subtitle="Tudo que é admin do Orbis, num lugar só."
+      subtitle="Tudo que é admin da Vant, num lugar só."
       icon={<ShieldCheck className="w-6 h-6 text-violet-400" />}
       backTo="/profile"
     >
@@ -376,12 +376,12 @@ export default function AdminCenter() {
                 <div className="rounded-xl bg-card border border-border/60 p-3">
                   <p className="text-[10px] uppercase text-muted-foreground font-bold">Devido aos usuários</p>
                   <p className="text-xl font-black text-foreground tabular-nums">{fmt(tesouraria.total_devido)}</p>
-                  <p className="text-[9px] text-muted-foreground/70">tem que ter isso na conta Pix do Orbis</p>
+                  <p className="text-[9px] text-muted-foreground/70">tem que ter isso na conta Pix da Vant</p>
                 </div>
                 <div className="rounded-xl bg-card border border-border/60 p-3">
                   <p className="text-[10px] uppercase text-muted-foreground font-bold">Taxas acumuladas</p>
                   <p className="text-xl font-black text-emerald-400 tabular-nums">{fmt(tesouraria.taxas)}</p>
-                  <p className="text-[9px] text-muted-foreground/70">isso é do Orbis 💰</p>
+                  <p className="text-[9px] text-muted-foreground/70">isso é da Vant 💰</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
@@ -591,7 +591,7 @@ export default function AdminCenter() {
           {/* ===== 🏁 Liquidação ===== */}
           <div id="liquidacao" className="scroll-mt-4 rounded-2xl border border-border bg-card/50 p-4 space-y-2">
             <p className="text-[10px] font-black uppercase tracking-wider text-foreground">🏁 Liquidação</p>
-            <p className="text-[11px] text-muted-foreground">Roda sozinha todo dia às 9h05 (extrato verificado decide, prêmio cai na carteira, 10% fica pro Orbis). Use o botão só pra forçar agora.</p>
+            <p className="text-[11px] text-muted-foreground">Roda sozinha todo dia às 9h05 (extrato verificado decide, prêmio cai na carteira, 10% fica pra Vant). Use o botão só pra forçar agora.</p>
             <button onClick={admLiquidarAgora} className="w-full h-10 rounded-xl bg-card border border-border text-xs font-bold text-foreground active:scale-[0.98] transition-transform">
               🏁 Liquidar duelos vencidos agora
             </button>

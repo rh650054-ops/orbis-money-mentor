@@ -52,7 +52,7 @@ export default function PWAInstallButton() {
       } else {
         toast({
           title: "App já instalado",
-          description: "O Orbis já está instalado no seu dispositivo.",
+          description: "A Vant já está instalada no seu dispositivo.",
         });
       }
       return;
@@ -63,7 +63,7 @@ export default function PWAInstallButton() {
     
     if (outcome === 'accepted') {
       toast({
-        title: "✅ Orbis instalado!",
+        title: "✅ Vant instalada!",
         description: "Agora você pode acessar o app diretamente da sua tela inicial.",
       });
       setIsInstallable(false);
@@ -86,21 +86,21 @@ export default function PWAInstallButton() {
         className="border-border hover:bg-muted/30"
       >
         <Download className="w-4 h-4 mr-2" />
-        Instalar Orbis
+        Instalar Vant
       </Button>
 
       <Dialog open={showIOSModal} onOpenChange={setShowIOSModal}>
         <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center text-primary">
-              📲 Instalar o Orbis no seu iPhone
+              📲 Instalar a Vant no seu iPhone
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-6 py-4">
             <p className="text-gray-300 text-center text-sm">
               O iPhone não permite instalação automática de apps via navegador.
-              Mas você pode instalar o Orbis facilmente na sua Tela Inicial:
+              Mas você pode instalar a Vant facilmente na sua Tela Inicial:
             </p>
 
             <div className="space-y-4">
@@ -152,7 +152,7 @@ export default function PWAInstallButton() {
 
             <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
               <p className="text-center text-foreground text-sm font-medium">
-                ✨ Pronto! Agora o Orbis vai aparecer como um APP no seu iPhone,
+                ✨ Pronto! Agora a Vant vai aparecer como um APP no seu iPhone,
                 com ícone e abertura em tela cheia.
               </p>
             </div>

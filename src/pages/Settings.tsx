@@ -52,7 +52,7 @@ export default function Settings() {
       if (permission === "granted") {
         setNotificationsEnabled(true);
         localStorage.setItem(STORAGE_KEYS.notifications, "true");
-        toast({ title: "✅ Notificações ativadas", description: "Você receberá lembretes do Orbis." });
+        toast({ title: "✅ Notificações ativadas", description: "Você receberá lembretes da Vant." });
       } else {
         toast({ title: "Permissão negada", description: "Habilite as notificações nas configurações do navegador.", variant: "destructive" });
       }
@@ -64,7 +64,7 @@ export default function Settings() {
   };
 
   const handleSupport = () => {
-    window.open("https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20o%20Orbis", "_blank");
+    window.open("https://wa.me/5511915054830?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20a%20Vant", "_blank");
   };
 
   return (
@@ -154,7 +154,7 @@ export default function Settings() {
               <Info className="w-5 h-5" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold">Sobre o Orbis</p>
+              <p className="font-semibold">Sobre a Vant</p>
               <p className="text-xs text-muted-foreground">Versão 1.0 · Plataforma para vendedores visionários</p>
             </div>
           </CardContent>

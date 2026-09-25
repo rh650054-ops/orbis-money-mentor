@@ -1,4 +1,4 @@
-/* ORBIS PARCEIROS — painel do afiliado.
+/* VANT PARCEIROS — painel do afiliado.
    Lê tudo de UMA RPC (parc_painel) usando só o token do link. O banco decide o que
    devolver; a página não conhece id de afiliado nenhum. Sem login, sem dados sensíveis. */
 (function () {
@@ -21,7 +21,7 @@
     body: JSON.stringify({ p_token: token })
   }).then(function (r) { return r.json(); }).then(function (j) {
     if (!j || j.code || j.message) { erro("Não consegui abrir o painel agora. Tente de novo em instantes."); return; }
-    if (j.bloqueado) { erro("Este painel está bloqueado. Fale com o time do Orbis."); return; }
+    if (j.bloqueado) { erro("Este painel está bloqueado. Fale com o time da Vant."); return; }
     D = j; render();
   }).catch(function () { erro("Sem conexão. Verifique a internet e tente de novo."); });
 
@@ -31,15 +31,15 @@
     $("carregando").hidden = true; $("app").hidden = false;
     $("nome").textContent = a.nome;
     $("av").innerHTML = a.avatar ? '<img src="' + esc(a.avatar) + '" alt="">' : esc((a.nome || "V").trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join("").toUpperCase());
-    $("nivelPill").textContent = "Orbis " + a.nivel_nome;
+    $("nivelPill").textContent = "Vant " + a.nivel_nome;
     $("codigo").textContent = "código " + a.code;
     $("desde").textContent = a.entrou_em ? "· no programa desde " + a.entrou_em : "";
     $("link").textContent = a.link.replace(/^https?:\/\//, "");
     $("quando").textContent = new Date(D.gerado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
     $("btCopiar").onclick = function () { copiar(a.link); };
     $("btCompartilhar").onclick = function () {
-      var txt = "Tô usando o Orbis pra organizar o meu corre. Testa 3 dias grátis pelo meu link: " + a.link;
-      if (navigator.share) { navigator.share({ title: "Orbis", text: txt, url: a.link }).catch(function () {}); }
+      var txt = "Tô usando a Vant pra organizar o meu corre. Testa 3 dias grátis pelo meu link: " + a.link;
+      if (navigator.share) { navigator.share({ title: "Vant", text: txt, url: a.link }).catch(function () {}); }
       else { copiar(txt); }
     };
     renderGeral(); renderCarteira(); renderComissoes(); renderConquistas();
@@ -49,14 +49,14 @@
   function nivelHTML() {
     var n = D.nivel, prog = n.proximo_vp ? Math.min(100, Math.round(n.vp / n.proximo_vp * 100)) : 100;
     return '<div class="nivel">' +
-      '<div class="row"><div class="n">Orbis ' + esc(n.atual_nome) + '<small>nível atual</small></div><div class="num" style="font-weight:800;color:var(--gold)">' + n.vp + ' OP</div></div>' +
+      '<div class="row"><div class="n">Vant ' + esc(n.atual_nome) + '<small>nível atual</small></div><div class="num" style="font-weight:800;color:var(--gold)">' + n.vp + ' VP</div></div>' +
       '<div class="bar"><i style="width:' + prog + '%"></i></div>' +
-      (n.proximo ? '<div class="f num">' + n.vp + ' / ' + n.proximo_vp + ' OP · faltam <b>' + n.faltam + ' OP ativos</b> para atingir ' + esc(n.proximo_nome) + '.</div>'
+      (n.proximo ? '<div class="f num">' + n.vp + ' / ' + n.proximo_vp + ' VP · faltam <b>' + n.faltam + ' VP ativos</b> para atingir ' + esc(n.proximo_nome) + '.</div>'
                  : '<div class="f">Você está no nível mais alto. Mantenha a carteira ativa.</div>') +
       '<div class="niveis">' + (n.niveis || []).map(function (x) {
-        return '<span class="' + (x.slug === n.atual ? "on" : (x.vp_min <= n.vp ? "ok" : "")) + '">' + esc(x.nome) + '<br><small class="num">' + x.vp_min + ' OP</small></span>';
+        return '<span class="' + (x.slug === n.atual ? "on" : (x.vp_min <= n.vp ? "ok" : "")) + '">' + esc(x.nome) + '<br><small class="num">' + x.vp_min + ' VP</small></span>';
       }).join("") + '</div>' +
-      '<p class="nota">1 cliente ativo no plano Mensal = 1 OP (Ponto Orbis). Cliente que cancela ou deixa de pagar deixa de contar.</p></div>';
+      '<p class="nota">1 cliente ativo no plano Mensal = 1 VP (Ponto Vant). Cliente que cancela ou deixa de pagar deixa de contar.</p></div>';
   }
 
   function renderGeral() {
@@ -118,7 +118,7 @@
       '<div class="sec">Pagamentos</div>' +
       '<div class="g2">' +
       '<div class="st g"><div class="k">Próximo pagamento</div><div class="v num" style="font-size:18px">' + esc(p.proxima_data) + '</div><div class="s">previsto ' + brl(p.valor_previsto) + (p.abaixo_do_minimo ? " · mínimo " + brl(p.saldo_minimo) : "") + '</div></div>' +
-      '<div class="st"><div class="k">Forma</div><div class="v" style="font-size:18px">' + esc(p.forma) + '</div><div class="s">' + (p.pix ? "chave " + esc(p.pix) : "cadastre sua chave Pix com o time do Orbis") + '</div></div>' +
+      '<div class="st"><div class="k">Forma</div><div class="v" style="font-size:18px">' + esc(p.forma) + '</div><div class="s">' + (p.pix ? "chave " + esc(p.pix) : "cadastre sua chave Pix com o time da Vant") + '</div></div>' +
       '</div>' +
       (p.ultimo ? '<p class="nota">Último pagamento: ' + esc(p.ultimo.data) + ' · ' + brl(p.ultimo.valor) + '</p>' : '') +
       ((p.historico || []).length ? '<div class="lista">' + p.historico.map(function (h) {
@@ -131,7 +131,7 @@
           '<span class="num">' + esc(x.data) + ' · ' + esc(x.plano || "") + ' · líquido ' + brl(x.liquido) + ' · ' + x.pct + '%</span></div>' +
           '<div class="r"><b class="num" style="' + (x.comissao < 0 ? "color:var(--bad)" : "") + '">' + brl(x.comissao) + '</b><span class="tag ' + esc(x.status) + '">' + (stNome[x.status] || x.status) + '</span></div></div>';
       }).join("") : '<div class="vazio">Nenhuma comissão ' + (FILTRO === "todas" ? "ainda" : "nesse filtro") + '.</div>') + '</div>' +
-      '<p class="nota">Comissão calculada sobre o valor líquido que o Orbis recebe (já sem a taxa da Hotmart). Só existe quando a cobrança é aprovada; reembolso, chargeback ou cancelamento cancelam a comissão daquela cobrança.</p>';
+      '<p class="nota">Comissão calculada sobre o valor líquido que a Vant recebe (já sem a taxa da Hotmart). Só existe quando a cobrança é aprovada; reembolso, chargeback ou cancelamento cancelam a comissão daquela cobrança.</p>';
     $("p-comissoes").querySelectorAll("[data-filtro]").forEach(function (b) { b.onclick = function () { FILTRO = b.dataset.filtro; renderComissoes(); }; });
   }
 
@@ -142,21 +142,21 @@
       '<div class="badges">' + (D.conquistas || []).map(function (c) {
         return '<div class="bd ' + (c.ok ? "ok" : "lock") + '"><div class="ic">' + (c.ok ? (ic[c.tipo] || "🏆") : "🔒") + '</div><div class="t">' + esc(c.nome) + '</div><div class="s">' + (c.ok ? "desbloqueado" + (c.em ? " " + esc(c.em) : "") : (c.faltam != null ? "faltam " + c.faltam : "bloqueado")) + '</div></div>';
       }).join("") + '</div>' +
-      '<div class="sec">Campanhas Orbis</div>' +
+      '<div class="sec">Campanhas Vant</div>' +
       ((D.campanhas || []).length ? D.campanhas.map(function (c) {
         var prog = Math.min(100, Math.round((c.progresso / c.meta) * 100));
         return '<div class="camp"><b>' + esc(c.nome) + '</b><p>' + esc(c.descricao || "") + '</p><p>Até ' + esc(c.fim) + ' · prêmio: <b style="color:var(--gold)">' + esc(c.premio || "—") + '</b></p>' +
-          '<div class="bar"><i style="width:' + prog + '%"></i></div><p class="num">' + c.progresso + ' / ' + c.meta + (c.criterio === "vp_ativos" ? " OP" : "") + '</p></div>';
-      }).join("") : '<div class="lista"><div class="vazio">Nenhuma campanha ativa agora. Quando o Orbis lançar uma, ela aparece aqui.</div></div>') +
+          '<div class="bar"><i style="width:' + prog + '%"></i></div><p class="num">' + c.progresso + ' / ' + c.meta + (c.criterio === "vp_ativos" ? " VP" : "") + '</p></div>';
+      }).join("") : '<div class="lista"><div class="vazio">Nenhuma campanha ativa agora. Quando a Vant lançar uma, ela aparece aqui.</div></div>') +
       '<div class="sec">Regras do programa</div><div class="termos">' +
-      det("Como a comissão é calculada", "Sempre sobre o valor líquido que o Orbis recebe da Hotmart (hoje cerca de " + brl(r.liquido_ref) + " de um plano de R$ 29,90), nunca sobre o valor bruto. Primeira cobrança do cliente indicado: " + r.pct_primeira + "%. Renovações: " + r.pct_recorrente + "% recorrente.") +
+      det("Como a comissão é calculada", "Sempre sobre o valor líquido que a Vant recebe da Hotmart (hoje cerca de " + brl(r.liquido_ref) + " de um plano de R$ 29,90), nunca sobre o valor bruto. Primeira cobrança do cliente indicado: " + r.pct_primeira + "%. Renovações: " + r.pct_recorrente + "% recorrente.") +
       det("Quando a comissão existe e quando é confirmada", "Ela nasce quando a Hotmart aprova a cobrança. " + (r.dias_confirmacao > 0 ? "Fica pendente por " + r.dias_confirmacao + " dias e depois é confirmada." : "É confirmada na hora.") + " Cobrança recusada, boleto não pago ou inadimplência não geram comissão.") +
       det("Reembolso, chargeback e cancelamento", "Se a cobrança for reembolsada, contestada (chargeback) ou cancelada, a comissão daquela cobrança é cancelada. Se já tiver sido paga, o valor é descontado do próximo pagamento.") +
       det("Pagamento", "Uma vez por mês, no dia " + r.dia_pagamento + ", por Pix, quando o saldo confirmado for de pelo menos " + brl(r.saldo_minimo) + ". Abaixo disso, acumula pro ciclo seguinte.") +
-      det("Níveis e OP (Pontos Orbis)", "OP contam só assinaturas ativas: " + (r.vp_planos || []).map(function (p) { return p.nome + " (" + brl(p.preco) + ") = " + p.vp + " OP"; }).join(" · ") + ". Cliente que cancela ou deixa de pagar deixa de contar. Níveis: " + (D.nivel.niveis || []).map(function (n) { return n.nome + " a partir de " + n.vp_min + " OP"; }).join(", ") + ". " + (D.nivel.progressao_ativa ? "O nível altera o percentual recorrente." : "Por enquanto os níveis são reconhecimento e não alteram a comissão.")) +
-      det("Campanhas e premiações", "Prêmios extras são campanhas temporárias criadas pelo Orbis, com período, regra e meta próprios. Não fazem parte da remuneração permanente.") +
+      det("Níveis e VP (Pontos Vant)", "VP contam só assinaturas ativas: " + (r.vp_planos || []).map(function (p) { return p.nome + " (" + brl(p.preco) + ") = " + p.vp + " VP"; }).join(" · ") + ". Cliente que cancela ou deixa de pagar deixa de contar. Níveis: " + (D.nivel.niveis || []).map(function (n) { return n.nome + " a partir de " + n.vp_min + " OP"; }).join(", ") + ". " + (D.nivel.progressao_ativa ? "O nível altera o percentual recorrente." : "Por enquanto os níveis são reconhecimento e não alteram a comissão.")) +
+      det("Campanhas e premiações", "Prêmios extras são campanhas temporárias criadas pela Vant, com período, regra e meta próprios. Não fazem parte da remuneração permanente.") +
       det("Fraude", "Auto-indicação, cadastros falsos, uso de cartões de terceiros ou qualquer manipulação cancelam as comissões envolvidas e podem bloquear o afiliado.") +
-      det("Mudanças no programa", "O Orbis pode alterar percentuais, níveis e regras para novos participantes e novas campanhas. Comissões já confirmadas não mudam — cada cobrança guarda a regra que valia no dia.") +
+      det("Mudanças no programa", "A Vant pode alterar percentuais, níveis e regras para novos participantes e novas campanhas. Comissões já confirmadas não mudam — cada cobrança guarda a regra que valia no dia.") +
       '</div>';
   }
   function det(t, b) { return '<details><summary>' + esc(t) + '</summary><p>' + esc(b) + '</p></details>'; }

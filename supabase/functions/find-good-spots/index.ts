@@ -1,4 +1,4 @@
-// Orbis — find-good-spots (versão GRÁTIS, sem Google)
+// Vant — find-good-spots (versão GRÁTIS, sem Google)
 // Candidatos = SEMÁFOROS REAIS do OSM (tabela caca_sinais; se faltar, busca na
 // Overpass e salva). Pontua por DENSIDADE de semáforos + FEEDBACK da comunidade.
 // Robusto: tenta vários servidores Overpass, distingue "servidor falhou" de

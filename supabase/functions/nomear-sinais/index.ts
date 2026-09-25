@@ -1,4 +1,4 @@
-// Orbis — nomear-sinais (JOB de fundo, sem chave, sem API no app)
+// Vant — nomear-sinais (JOB de fundo, sem chave, sem API no app)
 // Semáforos do OSM quase nunca têm nome. Este job pega 40 semáforos sem `vias`
 // do banco, faz UMA consulta na Overpass pelas ruas num raio de 35 m de cada
 // um e grava "Rua A × Rua B" em caca_sinais.vias. Roda pelo pg_cron a cada
@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   try {
     // SEGURANCA (09/09/2026): antes isso rodava pra qualquer um que batesse aqui.
-    // Um curl em looping fazia o Orbis martelar a Overpass (que e de graca e
+    // Um curl em looping fazia a Vant martelar a Overpass (que e de graca e
     // mantida por voluntarios) ate levar bloqueio de IP, e ainda escrevia no
     // banco com a service key. Agora so o cron entra: a chave mora em
     // painel_tokens (tabela sem RLS pra cliente nenhum) e vem no cabecalho.

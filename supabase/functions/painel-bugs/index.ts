@@ -4,7 +4,7 @@ const HTML = `<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Orbis — Central de Bugs</title>
+<title>Vant — Central de Bugs</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
 :root{--ouro:#C9A84C;--ouro-claro:#F5D78E;--surface:#0A0A0A;--surface2:#111111;--card:#0A0010;--branco:#FFFFFF;--cinza:#888888;--cinza-claro:#AAAAAA;--border:rgba(201,168,76,0.15);--border-forte:rgba(201,168,76,0.35);--verde:#10B981;--roxo:#A855F7;--alerta:#E84A4A;--ambar:#F59E0B;--grafite:#6B7280;}
@@ -101,7 +101,7 @@ header{text-align:center;padding:56px 0 30px;}
 <canvas id="bg-particles"></canvas>
 <div class="glow-top"></div>
 <div class="wrap">
-<header><div class="logo">ORBIS</div><div class="subtitulo">Central de Bugs</div><div class="frase">Achou algo quebrado? Anota aqui. A IA analisa. A gente conserta.</div></header>
+<header><div class="logo">VANT</div><div class="subtitulo">Central de Bugs</div><div class="frase">Achou algo quebrado? Anota aqui. A IA analisa. A gente conserta.</div></header>
 <div class="stats">
 <div class="stat abertos"><div class="stat-num" id="s-abertos">0</div><div class="stat-label">Abertos</div></div>
 <div class="stat andamento"><div class="stat-num" id="s-andamento">0</div><div class="stat-label">Em andamento</div></div>
@@ -121,7 +121,7 @@ header{text-align:center;padding:56px 0 30px;}
 <span class="sync"><span class="dot"></span> ao vivo</span>
 </div>
 <div id="conteudo"><div class="loading">Carregando bugs...</div></div>
-<div class="nota">Painel ligado ao banco do <b>Orbis</b>. Todo mundo com este link vê a mesma lista viva. Cada bug é analisado pela IA.</div>
+<div class="nota">Painel ligado ao banco do <b>Vant</b>. Todo mundo com este link vê a mesma lista viva. Cada bug é analisado pela IA.</div>
 </div>
 <div class="overlay" id="overlay">
 <div class="modal">

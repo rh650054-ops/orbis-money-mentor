@@ -1,4 +1,4 @@
-/* CRM do Orbis — todo o JavaScript fica aqui, fora do HTML, porque a política de segurança
+/* CRM da Vant — todo o JavaScript fica aqui, fora do HTML, porque a política de segurança
    do site (CSP) proíbe script embutido na página. Este arquivo é servido pelo próprio domínio. */
 
 /* ===== 0. BOOT: roda antes de tudo. Se o CRM travar carregando, avisa em vez de ficar mudo. ===== */
@@ -76,19 +76,19 @@ const DE_ETAPA={
 
 const E={
  trial:{nome:"Trial de 3 dias",cor:"c1",
-  desc:"Começa no lead da landing page. Boas-vindas só abre quando a pessoa cria conta no Orbis — o dia seguinte só abre quando a atividade do dia é feita.",
+  desc:"Começa no lead da landing page. Boas-vindas só abre quando a pessoa cria conta na Vant — o dia seguinte só abre quando a atividade do dia é feita.",
   cols:[["lp","Lead da LP · sem conta"],["dia1","Dia 1 · Boas-vindas"],["dia2","Dia 2 · Ensinar"],["dia3","Dia 3 · Decidir"],["assinou","Assinou"],["acabou","Acabou"]],
   ativ:{
    lp:[
-    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é o Yan do Orbis.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
+    {t:"Chamar e perguntar se travou no cadastro",m:"Oi {p}, tudo bem? Aqui é o Yan da Vant.\n\nVocê deixou seu contato pra conhecer o app mas não chegou a criar a conta. Travou em alguma parte?\n\nSe quiser eu te mando o link direto e te acompanho no primeiro dia."},
     {t:"Mandar o link de criar conta",m:"Segue o link pra criar sua conta: [link]\n\nLeva menos de um minuto. Assim que criar me avisa aqui que eu já te mostro por onde começar."},
     {t:"Anotar o motivo se não criar",nota:"Se ele não criar conta, escreva o porquê. O motivo de quem não entra é o dado mais valioso que a gente não tem."}],
    dia1:[
-    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo ao Orbis!\n\nSou o Yan, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
+    {t:"Mandar boas-vindas no WhatsApp",m:"Fala {p}, bem-vindo à Vant!\n\nSou o Yan, vou te acompanhar nesses 3 dias de teste.\n\nQualquer dúvida é só chamar aqui, respondo rápido."},
     {t:"Perguntar o que ele vende e onde",m:"Me conta uma coisa: o que você vende e onde você costuma vender?\n\nAssim já te mostro a parte do app que mais vai te ajudar no seu corre."},
-    {t:"Confirmar que registrou a primeira venda",m:"{p}, conseguiu registrar sua primeira venda no app?\n\nÉ o passo que faz tudo destravar — depois dela o Orbis já começa a te mostrar número."}],
+    {t:"Confirmar que registrou a primeira venda",m:"{p}, conseguiu registrar sua primeira venda no app?\n\nÉ o passo que faz tudo destravar — depois dela a Vant já começa a te mostrar número."}],
    dia2:[
-    {t:"Perguntar como foi o primeiro dia",m:"E aí {p}, como foi o primeiro dia usando o Orbis?\n\nDeu pra registrar as vendas direitinho ou travou em alguma parte?"},
+    {t:"Perguntar como foi o primeiro dia",m:"E aí {p}, como foi o primeiro dia usando a Vant?\n\nDeu pra registrar as vendas direitinho ou travou em alguma parte?"},
     {t:"Ensinar o DEFCON 4",m:"Quero te mostrar a função que quase ninguém acha sozinho: o DEFCON 4.\n\nEle divide seu dia em blocos de 1 hora, com meta em cada bloco e 5 minutos de descanso entre eles.\n\nQuem usa dois dias seguidos não larga mais. Quer que eu te mostre como liga?"},
     {t:"Anotar a objeção principal",nota:"Escreva com as palavras dele o que está travando: preço, tempo, não entendeu o app, achou que não precisa."}],
    dia3:[
@@ -100,20 +100,20 @@ const E={
     {t:"Combinar a meta do primeiro mês",m:"Vamos combinar uma coisa: qual a meta de faturamento que você quer bater esse mês?\n\nEu anoto aqui e te cobro — de forma leve, mas cobro."}],
    acabou:[
     {t:"Registrar o motivo de não ter fechado",nota:"OBRIGATÓRIO. Sem o motivo escrito aqui, a ficha fica marcada como 'não houve contato' nas métricas."},
-    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é o Yan do Orbis.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
+    {t:"Última tentativa de resgate",m:"Oi {p}, aqui é o Yan da Vant.\n\nSeu teste encerrou e eu queria só entender: o que faltou pra fazer sentido pra você?\n\nSe foi só falta de tempo pra testar direito, eu libero mais 3 dias — e dessa vez eu te acompanho de perto."}]}},
 
  pagante:{nome:"Já pagantes",cor:"c2",
   desc:"Entra sozinho quando a ficha do Trial cai em Assinou. O trabalho aqui é não deixar a renovação chegar de surpresa.",
   cols:[["novo","Primeiro mês"],["meio","Meio do ciclo"],["renova","Renova em 7 dias"],["renovou","Renovou"]],
   ativ:{
    novo:[
-    {t:"Confirmar que está usando todo dia",m:"Opa {p}, tudo certo?\n\nTô de olho aqui e queria saber: tá conseguindo usar o Orbis todo dia ou alguns dias escapam?"},
+    {t:"Confirmar que está usando todo dia",m:"Opa {p}, tudo certo?\n\nTô de olho aqui e queria saber: tá conseguindo usar a Vant todo dia ou alguns dias escapam?"},
     {t:"Mostrar uma função que ele não abriu",m:"Vi que você ainda não mexeu em uma parte do app que ia te ajudar bastante.\n\nPosso te mandar um print rápido de como usar?"}],
    meio:[
-    {t:"Mandar o resultado do mês dele",m:"{p}, metade do mês já foi. Olha só o que você registrou até agora no Orbis.\n\nTá no caminho da sua meta ou precisa acelerar na segunda quinzena?"},
+    {t:"Mandar o resultado do mês dele",m:"{p}, metade do mês já foi. Olha só o que você registrou até agora na Vant.\n\nTá no caminho da sua meta ou precisa acelerar na segunda quinzena?"},
     {t:"Elogiar um número real dele",m:"Cara, reparei que você manteve a constância esse mês. Isso é o que separa quem cresce de quem só trabalha.\n\nParabéns de verdade."}],
    renova:[
-    {t:"Avisar que a renovação está chegando",m:"Opa {p}, tudo certo?\n\nSua renovação do Orbis é dia {renova}. Só tô avisando pra não te pegar de surpresa."},
+    {t:"Avisar que a renovação está chegando",m:"Opa {p}, tudo certo?\n\nSua renovação da Vant é dia {renova}. Só tô avisando pra não te pegar de surpresa."},
     {t:"Confirmar que o cartão vai passar",m:"Dá uma conferida se o cartão tá em dia, beleza? Assim não trava seu acesso no meio do corre.\n\nQualquer coisa me chama que eu resolvo por aqui."}],
    renovou:[
     {t:"Agradecer e plantar a meta do mês novo",m:"{p}, renovação confirmada! Obrigado pela confiança.\n\nMês novo, meta nova: quanto você quer bater dessa vez?"}]}},
@@ -123,7 +123,7 @@ const E={
   cols:[["saiu","Acabou de sair"],["motivo","Motivo descoberto"],["oferta","Oferta feita"],["voltou","Voltou"]],
   ativ:{
    saiu:[
-    {t:"Perguntar por que parou — sem vender nada",m:"Opa {p}, tudo bem?\n\nVi que sua assinatura do Orbis encerrou. Não tô aqui pra te vender nada, juro.\n\nSó queria entender o que faltou. Foi preço, foi o app, ou foi corrido demais pra usar?"},
+    {t:"Perguntar por que parou — sem vender nada",m:"Opa {p}, tudo bem?\n\nVi que sua assinatura da Vant encerrou. Não tô aqui pra te vender nada, juro.\n\nSó queria entender o que faltou. Foi preço, foi o app, ou foi corrido demais pra usar?"},
     {t:"Anotar o motivo real",nota:"Escreva o motivo como ele falou. Esse campo vira a métrica de por que a gente perde gente."}],
    motivo:[
     {t:"Responder a objeção com o número dele",m:"{p}, entendi o que você falou.\n\nSó pra você ter em mente: no tempo que usou, você registrou suas vendas aqui e dava pra ver exatamente onde entrava e saía o dinheiro. É isso que some quando o app fecha."},
@@ -136,10 +136,10 @@ const E={
   cols:[["frio","Nunca usou"],["acordou","Abriu o app"],["usou","Registrou venda"],["virou","Virou teste"]],
   ativ:{
    frio:[
-    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é o Yan do Orbis.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
+    {t:"Mandar a mensagem de resgate",m:"Oi {p}, tudo bem? Aqui é o Yan da Vant.\n\nVi que você criou sua conta mas ainda não chegou a usar. Acontece, o corre é pesado.\n\nMe fala o que te travou?"},
     {t:"Perguntar o que travou",nota:"Se ele responder, anote aqui. É o dado mais valioso que a gente não tem: por que 408 pessoas criaram conta e sumiram."}],
-   acordou:[{t:"Ensinar a primeira venda no DEFCON",m:"{p}, vi que você abriu o app! Boa.\n\nO próximo passo é registrar sua primeira venda — depois dela o Orbis começa a te mostrar número de verdade.\n\nQuer que eu te mostre como?"}],
-   usou:[{t:"Mostrar o resultado e oferecer o teste",m:"{p}, você já registrou venda no Orbis — isso é ótimo.\n\nQuem faz isso costuma não largar mais. Quer que eu libere um teste completo pra você ver o resto do app?"}],
+   acordou:[{t:"Ensinar a primeira venda no DEFCON",m:"{p}, vi que você abriu o app! Boa.\n\nO próximo passo é registrar sua primeira venda — depois dela a Vant começa a te mostrar número de verdade.\n\nQuer que eu te mostre como?"}],
+   usou:[{t:"Mostrar o resultado e oferecer o teste",m:"{p}, você já registrou venda na Vant — isso é ótimo.\n\nQuem faz isso costuma não largar mais. Quer que eu libere um teste completo pra você ver o resto do app?"}],
    virou:[{t:"Passar para a esteira de Trial",nota:"Ao marcar, a ficha sai daqui e entra no Dia 1 do Trial."}]}}
 };
 
@@ -235,7 +235,7 @@ async function carregarTudo(){
           d:Number(c.dias_na_etapa)||0,
           trava:(Number(c.dias_na_etapa)||0)>=1?(Number(c.dias_na_etapa)||0):0,
           entrou:c.criado_em||null, fim:c.trial_end||null,
-          // data da próxima cobrança: a da Hotmart manda; a do Orbis é reserva
+          // data da próxima cobrança: a da Hotmart manda; a da Vant é reserva
           renova:(h&&h.cobra_em?deBR(h.cobra_em):null)||c.period_end||null,
           pago:h&&h.valor?Number(h.valor):null, notas:c.notas||"",
           feitasBanco:c.feitas||[], hot:h});
@@ -308,7 +308,7 @@ function temperatura(f){
    why:`Deixou contato na landing page e não criou conta. Não dá pra falar de resultado ainda — a conversa aqui é destravar o cadastro.`,msgs,respondeu};
  if(f.e!=="trial"&&f.e!=="base") return null;
  if(fat>=100&&ven>=10) return {n:"Pronto pra fechar",ic:"🔥",cor:"bad",
-   why:`Registrou <b>${ven} vendas</b> e <b>${brl(fat)}</b> dentro do Orbis durante o teste. Ele já viu o valor — é só pedir a decisão usando o número dele.`,
+   why:`Registrou <b>${ven} vendas</b> e <b>${brl(fat)}</b> dentro da Vant durante o teste. Ele já viu o valor — é só pedir a decisão usando o número dele.`,
    msgs,respondeu};
  if(fat>0||ven>0) return {n:"Morno",ic:"🌤️",cor:"warn",
    why:`Mexeu no app (${ven} venda${ven===1?"":"s"}, ${brl(fat)}) mas ainda não pegou ritmo. Falta mostrar o DEFCON.`,msgs,respondeu};
@@ -335,7 +335,7 @@ function avaliar(f){
   const T=temperatura(f), quente=T&&T.n==="Pronto pra fechar";
   const kFim=f.fim?dias(f.fim):null;
   if(quente){u=100;d=85;
-   p=`<b>Pronto pra fechar.</b> Registrou <b>${f.vendas} vendas</b> e <b>${brl(f.faturou)}</b> dentro do Orbis${kFim!==null?`, e o teste ${kFim<=0?"<b>acaba hoje</b>":`acaba em <b>${kFim} dia${kFim===1?"":"s"}</b>`}`:""}. Não precisa convencer — mostra o número dele e pede a decisão.`;}
+   p=`<b>Pronto pra fechar.</b> Registrou <b>${f.vendas} vendas</b> e <b>${brl(f.faturou)}</b> dentro da Vant${kFim!==null?`, e o teste ${kFim<=0?"<b>acaba hoje</b>":`acaba em <b>${kFim} dia${kFim===1?"":"s"}</b>`}`:""}. Não precisa convencer — mostra o número dele e pede a decisão.`;}
   else if(f.c==="dia3"){u=98;d=70;p=`<b>O teste acaba hoje.</b> Quem usa o app em 2 dias diferentes assina em 46% dos casos. É a última conversa possível.`;}
   else if(f.c==="dia2"){u=f.trava?80:65;d=55;
    p=f.trava?`<b>Travado há ${f.trava} dia.</b> A atividade do Dia 2 não foi feita, então o Dia 3 não abriu — ele está parado esperando você.`
@@ -509,7 +509,7 @@ function renderHoje(){
 
  let h=vendasHojeHTML();
  h+=ehDono()? `<div class="grana">
-  <div class="lbl">Faturamento total do Orbis</div>
+  <div class="lbl">Faturamento total da Vant</div>
   <div class="big num">${brl(GRANA.total)}</div>
   <div class="sub num">${GRANA.pagamentos} pagamentos · ticket ${brl(GRANA.ticket)} · desde ${GRANA.desde}</div>
   <div class="gline">
@@ -528,7 +528,7 @@ function renderHoje(){
 
  if(travados) h+=`<div class="alerta">
    <span class="ic"><svg width="19" height="19" viewBox="0 0 20 20" fill="none"><path d="M10 2.5 18.5 17h-17L10 2.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10 8v3.6M10 14v.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
-   <div><h3>${TRIAL_HIST.semContato} pessoas testaram o Orbis e ninguém falou com elas</h3>
+   <div><h3>${TRIAL_HIST.semContato} pessoas testaram a Vant e ninguém falou com elas</h3>
    <p>De ${TRIAL_HIST.total} testes, <b>${TRIAL_HIST.semContato} (82%) nunca receberam uma única mensagem</b>. ${travados} dessas ainda dá pra recuperar hoje.</p>
    <button class="cta" id="ir-travados">Ver quem está travado</button></div></div>`;
 
@@ -743,7 +743,7 @@ function alertas(){
    ds:`Última mensagem dele em ${c[c.length-1].q}. A janela de 24h está aberta — responder agora não custa nada e é o contato com maior chance de virar venda.`});
   if(T&&T.n==="Pronto pra fechar") A.push({p:1,ic:"🔥",cor:"bad",f,
    tt:`${f.n} está pronto pra fechar`,
-   ds:`Registrou ${f.vendas} vendas e ${brl(f.faturou)} dentro do Orbis no teste. Não precisa convencer — mostre o número dele.`});
+   ds:`Registrou ${f.vendas} vendas e ${brl(f.faturou)} dentro da Vant no teste. Não precisa convencer — mostre o número dele.`});
   if(f.fim&&dias(f.fim)<=1) A.push({p:1,ic:"⏳",cor:"bad",f,
    tt:`Teste do ${f.n.split(" ")[0]} ${dias(f.fim)<=0?"acaba hoje":"acaba amanhã"}`,
    ds:`Depois disso ele vira mais um dos 298 que testaram e ninguém procurou.`});
@@ -797,13 +797,13 @@ function renderAlertas(){
     <span class="ds">Fora da janela, iniciar exige um modelo aprovado: R$ 0,21 (utilidade) ou R$ 0,35 (marketing).</span></span></div>
    <div class="alerta-l" style="cursor:default"><span class="al-ic" style="background:var(--c1s)">💡</span>
     <span class="tx"><span class="tt">A saída: faça ele chamar primeiro</span>
-    <span class="ds">Um botão <b>"Falar com o Yan"</b> dentro do Orbis abre o WhatsApp já com a mensagem escrita. Quem clica manda a mensagem, e isso abre a janela grátis — sem você gastar um centavo. É o caminho de custo zero pros 298 que nunca foram atendidos.</span></span></div>
+    <span class="ds">Um botão <b>"Falar com o Yan"</b> dentro da Vant abre o WhatsApp já com a mensagem escrita. Quem clica manda a mensagem, e isso abre a janela grátis — sem você gastar um centavo. É o caminho de custo zero pros 298 que nunca foram atendidos.</span></span></div>
   </div>`;
  el.querySelectorAll("[data-al]").forEach(b=>b.onclick=()=>abrir(A[+b.dataset.al].f.id,"conversa"));
  el.querySelectorAll("[data-al-zap]").forEach(b=>b.onclick=async()=>{
    const f=A[+b.dataset.alZap].f, ats=atividades(f), fe=feitasDe(f);
    const i=ats.findIndex((a,k)=>a.m&&!fe.includes(k)); const a=i>=0?ats[i]:ats.find(x=>x.m);
-   const m=a?msgDe(f,a):`Oi ${f.n.split(" ")[0]}, aqui é do Orbis. Tudo bem?`;
+   const m=a?msgDe(f,a):`Oi ${f.n.split(" ")[0]}, aqui é da Vant. Tudo bem?`;
    if(!abrirZap(f,m)) return;
    if(i>=0) marcar(f,i,true); await enviar(f,m); toast("WhatsApp aberto · registrado"); render();
  });
@@ -1142,7 +1142,7 @@ function renderMetricas(){
 
  document.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>cards[+b.dataset.card].lista());
  const alvos=[
-  ()=>abrirLista("Contas criadas",`${NUM.contas} pessoas criaram conta no Orbis`,todas.filter(f=>f.e==="base"),BASES.base),
+  ()=>abrirLista("Contas criadas",`${NUM.contas} pessoas criaram conta na Vant`,todas.filter(f=>f.e==="base"),BASES.base),
   ()=>abrirLista("Abriram o app",`${NUM.abriram} de ${NUM.contas} chegaram a abrir o app`,todas.filter(f=>f.e==="base"&&etapaDe(f)!=="frio"),BASES.abriram),
   ()=>abrirLista("Registraram venda",`${NUM.venderam} registraram pelo menos uma venda`,todas.filter(f=>etapaDe(f)==="usou"),BASES.venderam),
   ()=>abrirLista("Assinaram",`${NUM.assinaram} assinaram alguma vez`,todas.filter(f=>f.e==="pagante"),BASES.assinaram),
@@ -1160,7 +1160,7 @@ function afiliadosHTML(){
   const saldo=+p.com_confirmada||0, bloq=p.status==="bloqueado";
   return `<div class="afil${bloq?" bloq":""}" data-afil="${esc(p.code)}">
    <div class="afil-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>
-    <span class="pill" style="color:var(--c4);border-color:var(--c4)">${esc(p.nivel_nome||p.nivel)} · ${p.vp} OP</span>
+    <span class="pill" style="color:var(--c4);border-color:var(--c4)">${esc(p.nivel_nome||p.nivel)} · ${p.vp} VP</span>
     <span class="pill">${p.pct_recorrente}% rec. · ${(+p.pct_recorrente)+(+p.pct_bonus)}% 1ª</span>
     ${bloq?`<span class="pill bad">bloqueado</span>`:""}
     <span style="margin-left:auto;font-size:11px;color:var(--dim)">${mes}: ${p.cadastros_mes?Math.round(p.assinaturas_mes/p.cadastros_mes*100):0}% viram assinatura · ${p.cliques_mes} cliques</span></div>
@@ -1197,7 +1197,7 @@ function afiliadosHTML(){
   </div>
   <button class="btn go block" id="pSalvar" style="margin-top:10px">Criar afiliado e gerar links</button>
   <div id="pResult" class="janela free" hidden style="margin-top:10px"></div>
-  <p class="nota">Modelo Orbis Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
+  <p class="nota">Modelo Vant Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
   O link de indicação leva pro app com o cupom; o link do painel é privado — mande só pro afiliado. Pro desconto aparecer no checkout, o cupom com o mesmo código precisa existir na Hotmart.</p>
  </div>
  <h2 class="sec">Afiliados · o que aconteceu em ${mes}</h2>
@@ -1296,7 +1296,7 @@ function botaoLogin(travado, texto){ const b=document.getElementById("btEntrar")
 /* traduz o erro do Supabase pra algo que a pessoa consiga agir em cima */
 function explicaErro(error){
   const m=String(error?.message||error||"").toLowerCase();
-  if(m.includes("invalid login credentials")) return "CPF ou senha incorretos. É a MESMA senha do app Orbis. Se esqueceu, peça ao Rick pra redefinir no painel.";
+  if(m.includes("invalid login credentials")) return "CPF ou senha incorretos. É a MESMA senha do app Vant. Se esqueceu, peça ao Rick pra redefinir no painel.";
   if(m.includes("email not confirmed")) return "Essa conta ainda não foi confirmada. Fale com o Rick.";
   if(m.includes("too many") || m.includes("rate limit")) return "Muitas tentativas seguidas. Espere 1 minuto e tente de novo.";
   if(m.includes("failed to fetch") || m.includes("network") || m.includes("load failed")) return "Sem conexão com o servidor. Verifique a internet e tente de novo.";

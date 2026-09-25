@@ -33,7 +33,7 @@ export default function MpRetorno() {
     const erroMp = params.get("error");
     if (erroMp) { setEstado("erro"); setMsg(`Você cancelou a autorização no ${nomeCarteira}.`); return; }
     if (!code || !state) { setEstado("erro"); setMsg(`O ${nomeCarteira} não devolveu o código. Tenta conectar de novo.`); return; }
-    if (!user) { setEstado("erro"); setMsg("Entre na sua conta do Orbis e conecte de novo."); return; }
+    if (!user) { setEstado("erro"); setMsg("Entre na sua conta da Vant e conecte de novo."); return; }
     let vivo = true;
     (async () => {
       const { data, error } = await (supabase as any).functions.invoke(pagbank ? "pb-callback" : "mp-callback", { body: { code, state } });
@@ -41,7 +41,7 @@ export default function MpRetorno() {
       if (error || data?.error) {
         setEstado("erro");
         setMsg(
-          data?.error === "mp_nao_configurado" || data?.error === "pb_nao_configurado" ? "O Orbis ainda não está configurado pra isso. Avisa o suporte."
+          data?.error === "mp_nao_configurado" || data?.error === "pb_nao_configurado" ? "A Vant ainda não está configurada pra isso. Avisa o suporte."
           : data?.error === "state_invalido" ? "Esse link já foi usado. Toque em conectar de novo."
           : data?.error === "expirou" ? "A autorização demorou demais. Tenta de novo."
           : "Não deu pra fechar a conexão. Tenta de novo em instantes.",

@@ -331,7 +331,7 @@ export function GoldenTicket({
             <div className="obt-ticket-shine" />
             <div className="obt-ticket-texture" />
             <div className="obt-ticket-top">
-              <div className="obt-ticket-logo">ORBIS</div>
+              <div className="obt-ticket-logo">VANT</div>
               <div className="obt-ticket-evento">{eventoLabel}</div>
               <div className="obt-notch-l" />
               <div className="obt-notch-r" />
@@ -358,7 +358,7 @@ export function GoldenTicket({
       <div className={`obt-revealed ${revealed ? "show" : ""}`}>
         <div className="obt-rev-header obt-rev-item">
           <div className="obt-rev-tag">{introTitulo}</div>
-          <div className="obt-rev-logo">ORBIS</div>
+          <div className="obt-rev-logo">VANT</div>
           <div className="obt-rev-sub">SEUS PRÊMIOS DESBLOQUEADOS</div>
         </div>
 

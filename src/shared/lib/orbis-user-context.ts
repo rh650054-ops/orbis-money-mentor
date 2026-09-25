@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
-// FASE 1 do Agente Orbis: monta um retrato COMPLETO e compacto do vendedor
+// FASE 1 do Agente Vant: monta um retrato COMPLETO e compacto do vendedor
 // (últimos 30 dias de TUDO que ele faz no app) pro mentor de IA personalizar
 // os conselhos. Se faltar dado ou der erro, devolve "" — o chat segue normal.
 

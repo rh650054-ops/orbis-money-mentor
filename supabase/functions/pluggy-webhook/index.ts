@@ -1,4 +1,4 @@
-// Orbis — pluggy-webhook: a Pluggy avisa quando o banco do vendedor atualizou.
+// Vant — pluggy-webhook: a Pluggy avisa quando o banco do vendedor atualizou.
 // A gente re-consulta as contas e as transacoes NA PLUGGY (nunca confia no corpo
 // da notificacao) e guarda so as ENTRADAS (CREDIT) como vendas a conferir.
 // Tambem concede o selo: banco conectado e atualizado = verificado.
@@ -11,7 +11,7 @@
 // o webhook item/created chega ANTES do app chamar pluggy-item, e era ignorado
 // ("item sem conexao"). Pior: no celular (PWA + OAuth em outra aba) o app pode
 // nunca receber o onSuccess do widget — e ai a conexao nunca nascia.
-// Agora, se o item nao existe no Orbis mas o clientUserId (carimbado por nos no
+// Agora, se o item nao existe na Vant mas o clientUserId (carimbado por nos no
 // connect_token) e de um vendedor Pro, o webhook cria a conexao sozinho.
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
     const status = String(item?.status ?? "");
     const dono = String(item?.clientUserId ?? clientUserId);
 
-    // ---- AUTO-CURA: item sem conexao no Orbis, mas com dono conhecido e Pro
+    // ---- AUTO-CURA: item sem conexao na Vant, mas com dono conhecido e Pro
     if (!con) {
       if (!item || !dono) {
         console.log("pluggy-webhook: item sem conexao e sem dono", itemId);

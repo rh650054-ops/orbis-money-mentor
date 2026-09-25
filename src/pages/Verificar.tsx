@@ -1,10 +1,10 @@
 /* ============================================================
-   VERIFICAR (/verificar) — a tela do ORBIS PRO (Rick, 09/09/2026).
+   VERIFICAR (/verificar) — a tela do VANT PRO (Rick, 09/09/2026).
 
    A regra do selo mudou e esta tela é onde ela vive:
      • carteira (Mercado Pago / PagBank) = GRÁTIS. Serve pra conciliar e cobrar.
        NÃO dá selo.
-     • banco pelo Open Finance = dá o VERIFICADO. E exige o Orbis Pro (+R$ 10).
+     • banco pelo Open Finance = dá o VERIFICADO. E exige a Vant Pro (+R$ 10).
    Ou seja: ninguém compra o selo. Compra o acesso ao Open Finance; o selo vem
    de ter uma conta bancária conferida de verdade.
 
@@ -14,7 +14,7 @@
      C) é Pro, com banco → selo conquistado + saúde de cada banco
 
    A senha do banco é digitada DENTRO da tela da Pluggy, nunca numa tela do
-   Orbis. O app não vê, não recebe e não guarda senha de banco.
+   Vant. O app não vê, não recebe e não guarda senha de banco.
    Todo hook acima do primeiro return.
    ============================================================ */
 import { useCallback, useEffect, useState } from "react";
@@ -37,7 +37,7 @@ const GOLD = "#F5B800";
 const OK = "#3DD68C";
 const CIANO = "#7FD3FF";
 
-/** Checkout do produto "Orbis Pro" na Hotmart. Vazio = botão vira lista de espera. */
+/** Checkout do produto "Vant Pro" na Hotmart. Vazio = botão vira lista de espera. */
 const LINK_PRO = "";
 
 interface StatusCarteira { conectado: boolean; provedores: string[]; recebido_hoje: number }
@@ -168,7 +168,7 @@ export default function Verificar() {
 
   // Voltou pro app (fechou a aba do banco, destravou o celular): confere de novo.
   // No celular o OAuth do banco abre em outra aba e o widget pode nunca avisar o
-  // Orbis — mas o servidor (webhook da Pluggy) já criou a conexão sozinho.
+  // Vant — mas o servidor (webhook da Pluggy) já criou a conexão sozinho.
   useEffect(() => {
     const aoVoltar = () => { if (document.visibilityState === "visible") void recarregar(); };
     document.addEventListener("visibilitychange", aoVoltar);
@@ -179,7 +179,7 @@ export default function Verificar() {
     setLigando(true);
     let r: Awaited<ReturnType<typeof ligarBanco>>;
     try {
-      // quando a tela da Pluggy aparece, o botão do Orbis volta ao normal
+      // quando a tela da Pluggy aparece, o botão da Vant volta ao normal
       r = await ligarBanco(() => setLigando(false));
     } catch {
       r = { erro: "erro" };
@@ -190,8 +190,8 @@ export default function Verificar() {
       if (r.erro === "cancelou") { void recarregar(); return; }
       toast({
         title: "Não deu certo",
-        description: r.erro === "precisa_pro" ? "Assine o Orbis Pro pra ligar seu banco."
-          : r.erro === "pluggy_nao_configurado" ? "O Orbis ainda não está configurado pra isso. Avisa o suporte."
+        description: r.erro === "precisa_pro" ? "Assine a Vant Pro pra ligar seu banco."
+          : r.erro === "pluggy_nao_configurado" ? "A Vant ainda não está configurada pra isso. Avisa o suporte."
           : r.erro === "sem_internet" ? "Sem internet pra abrir a tela do banco."
           : "Tenta de novo em instantes.",
         variant: "destructive",
@@ -240,7 +240,7 @@ export default function Verificar() {
     <Cartao className="mt-3">
       <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>ONDE VOCÊ RECEBE · GRÁTIS</p>
       <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "#a9a49c" }}>
-        Carteira não dá selo — quem verifica é o banco. Mas é ela que faz o Orbis conferir o que caiu e gerar as cobranças do calote.
+        Carteira não dá selo — quem verifica é o banco. Mas é ela que faz a Vant conferir o que caiu e gerar as cobranças do calote.
       </p>
       {ligadas.map((c) => (
         <div key={c.id} className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: "1px solid #1e1d21" }}>
@@ -273,7 +273,7 @@ export default function Verificar() {
         <ArrowLeft className="w-5 h-5" />
       </button>
       <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>
-        {pro.pro ? "ORBIS PRO" : "SEUS RECEBIMENTOS"}
+        {pro.pro ? "VANT PRO" : "SEUS RECEBIMENTOS"}
       </p>
       <span className="w-9" />
     </div>
@@ -291,10 +291,10 @@ export default function Verificar() {
                 <Landmark className="w-8 h-8" style={{ color: GOLD }} strokeWidth={2} />
               </span>
             </MolduraOuro>
-            <p className="text-[10px] font-black tracking-[.2em] mt-3.5" style={{ color: GOLD }}>ORBIS PRO</p>
-            <p className="text-[26px] font-black tracking-[-.035em] leading-[1.08] mt-1.5">Todos os seus<br />bancos no Orbis</p>
+            <p className="text-[10px] font-black tracking-[.2em] mt-3.5" style={{ color: GOLD }}>VANT PRO</p>
+            <p className="text-[26px] font-black tracking-[-.035em] leading-[1.08] mt-1.5">Todos os seus<br />bancos na Vant</p>
             <p className="text-[12.5px] mt-2.5 leading-relaxed" style={{ color: "#a9a49c" }}>
-              Nubank, Itaú, Caixa, C6, Bradesco, Santander. O Orbis lê o que caiu em cada um e monta seu dia sozinho.
+              Nubank, Itaú, Caixa, C6, Bradesco, Santander. A Vant lê o que caiu em cada um e monta seu dia sozinha.
             </p>
           </HeroOuro>
         </div>
@@ -316,7 +316,7 @@ export default function Verificar() {
 
         <Cartao className="mt-3 text-center" style={{ borderColor: "rgba(245,184,0,.34)", background: "linear-gradient(180deg,#171203,#0b0b0d)" }}>
           <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>VOCÊ JÁ PAGA</p>
-          <p className="text-[15px] font-extrabold mt-1" style={{ color: "#a9a49c" }}>R$ 29,90 <span className="text-[12px] font-bold">Orbis</span></p>
+          <p className="text-[15px] font-extrabold mt-1" style={{ color: "#a9a49c" }}>R$ 29,90 <span className="text-[12px] font-bold">Vant</span></p>
           <p className="text-[9.5px] font-black tracking-[.18em] mt-3" style={{ color: GOLD }}>O PRO CUSTA</p>
           <p className="text-[38px] font-black tracking-[-.04em] leading-none mt-1" style={{ color: GOLD }}>
             + R$ 10<span className="text-[15px] font-extrabold">/mês</span>
@@ -333,7 +333,7 @@ export default function Verificar() {
           </BotaoOuro>
         </div>
         <p className="text-[11px] text-center mt-2.5" style={{ color: "#7b766e" }}>
-          Sua senha do banco é digitada na tela do próprio banco. O Orbis nunca vê.
+          Sua senha do banco é digitada na tela do próprio banco. A Vant nunca vê.
         </p>
 
         {blocoCarteiras}
@@ -377,9 +377,9 @@ export default function Verificar() {
           <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>COMO FUNCIONA</p>
           <div className="mt-2">
             <Beneficio primeiro cor={CIANO} titulo="Você escolhe o banco e entra"
-              texto="A tela é do próprio banco. Sua senha não passa pelo Orbis em momento nenhum."
+              texto="A tela é do próprio banco. Sua senha não passa pela Vant em momento nenhum."
               icone={<ShieldCheck className="w-[19px] h-[19px]" style={{ color: CIANO }} strokeWidth={2.2} />} />
-            <Beneficio cor={OK} titulo="O Orbis só lê o que entrou"
+            <Beneficio cor={OK} titulo="A Vant só lê o que entrou"
               texto="Nada de mover dinheiro, transferir ou pagar. Só leitura."
               icone={<Check className="w-[19px] h-[19px]" style={{ color: OK }} strokeWidth={2.6} />} />
             <Beneficio cor={GOLD} titulo="O selo sai na hora"
@@ -438,7 +438,7 @@ export default function Verificar() {
             <div>
               <p className="text-[13.5px] font-extrabold leading-tight">Banco fora do ar não é culpa sua</p>
               <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: "#a9a49c" }}>
-                Acontece com todos os bancos, às vezes por dias. Seus outros bancos continuam em dia e nada se perde — quando ele voltar, o Orbis busca o que ficou pra trás.
+                Acontece com todos os bancos, às vezes por dias. Seus outros bancos continuam em dia e nada se perde — quando ele voltar, a Vant busca o que ficou pra trás.
               </p>
             </div>
           </div>
@@ -463,7 +463,7 @@ export default function Verificar() {
         <span className="flex-1 min-w-0">
           <span className="block text-[9.5px] font-black tracking-[.18em]" style={{ color: GOLD }}>COBRADOR DE CALOTE</span>
           <span className="block text-[14px] font-extrabold mt-1">Cobrar quem ficou devendo</span>
-          <span className="block text-[11.5px] mt-0.5" style={{ color: "#7b766e" }}>O Orbis gera o Pix e abre seu WhatsApp.</span>
+          <span className="block text-[11.5px] mt-0.5" style={{ color: "#7b766e" }}>A Vant gera o Pix e abre seu WhatsApp.</span>
         </span>
         <ChevronRight className="w-5 h-5 shrink-0" style={{ color: GOLD }} strokeWidth={2.6} />
       </button>

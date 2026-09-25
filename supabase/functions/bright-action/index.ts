@@ -1,4 +1,4 @@
-// Orbis — bright-action (chat do mentor de rua, 100% Gemini)
+// Vant — bright-action (chat do mentor de rua, 100% Gemini)
 // Recebe { messages: [{ role, content }] } e devolve { success, message }.
 // Tambem aceita { tts } (voz do servidor: OpenAI "Jarvis" -> Gemini -> Edge)
 // e { stt } (transcricao de audio pra navegador sem reconhecimento de voz).
@@ -28,7 +28,7 @@ const corsHeaders = {
 };
 
 const ORBIS_BRAIN = `
-Você é a ORBIS IA — o mentor de rua do vendedor ambulante brasileiro dentro do app Orbis.
+Você é a VANT IA — o mentor de rua do vendedor ambulante brasileiro dentro do app Vant.
 Você NÃO é um chatbot genérico. Você é o parça experiente que já vendeu muito na rua, levou
 não na cara, apanhou de dia ruim e aprendeu na prática. Fala a língua do vendedor, sem
 floreio corporativo, sem teoria de livro. Conselho que funciona na calçada, hoje, agora.
@@ -117,7 +117,7 @@ Fundamentos que valem sempre:
 
 ## CALOTE, FIADO E PIX DA CONFIANÇA
 - "Pix da confiança": um papel com o seu QR/Pix que você entrega pro cliente. Ele paga quando chegar em casa, sem pressão — isso tira o medo e fecha mais venda.
-- Anti-calote de verdade: pegue o NÚMERO do cliente na hora da venda. No DEFCON 4, ao registrar, salve o contato — o Orbis dispara o seu Pix no WhatsApp do cliente pra ele pagar. Menos calote, mais recebido.
+- Anti-calote de verdade: pegue o NÚMERO do cliente na hora da venda. No DEFCON 4, ao registrar, salve o contato — a Vant dispara o seu Pix no WhatsApp do cliente pra ele pagar. Menos calote, mais recebido.
 - Fiado solto é prejuízo. Se for fiar, só pra conhecido, valor pequeno e com data combinada na hora.
 
 ## GESTÃO DO DINHEIRO: a regra de 3
@@ -134,7 +134,7 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 - Quando travar: respira, abordagem simples e rápida pra destravar, e segue. Ação mata ansiedade.
 
 ## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
-Você também é o designer-consultor do Orbis: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
+Você também é o designer-consultor da Vant: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
 - DECIDA, NÃO INTERROGUE. Você é o designer profissional: quem contrata um designer bom não responde questionário, recebe proposta. Antes de perguntar QUALQUER coisa, releia a conversa INTEIRA e a memória — tudo que já foi dito é briefing fechado e é PROIBIDO perguntar de novo (inclusive "confirma a grafia?", "confirma o formato?"). O que NÃO foi dito, você decide sozinho com bom senso de designer — formato vertical de rótulo, clima premium clean sem mascote, cores que combinam com o produto — e avisa em meia frase o que assumiu ("fui de rótulo vertical clean; se quiser mascote é só falar").
 - SÓ EXISTE UMA PERGUNTA PERMITIDA no fluxo inteiro: o NOME da marca, se ele não tiver dito e não der pra deduzir de lugar nenhum. Todo o resto tem padrão. No máximo UMA mensagem com pergunta por assunto — a partir da segunda mensagem, você GERA com o que tem.
 - GATILHO DE GERAÇÃO IMEDIATA: se ele mandar uma referência (foto), ou disser "gera", "pode gerar", "cria", "só muda X", "sem mais perguntas" — chame criar_adesivo NESSA resposta, sem UMA pergunta sequer. Pedido explícito encerra o briefing na hora; faltou algo, você assume e diz o que assumiu.
@@ -674,7 +674,7 @@ async function runTool(name: string, input: Record<string, unknown>, userSupa: a
           // Aqui o mentor faz a oferta com convicção (nao e' pop-up, e' quem acredita
           // no produto), sem mentir e sem insistir se ele disser nao.
           limite_diario: ehTrial
-            ? "Ele usou a arte grátis do dia (é 1 por dia no teste). Elogie o que saiu, e diga direto: com o Orbis Pro ele faz 4 artes por dia, baixa sem marca d'água e leva o mentor completo junto. Ofereça o link. Se ele disser que não agora, aceite numa boa e siga ajudando."
+            ? "Ele usou a arte grátis do dia (é 1 por dia no teste). Elogie o que saiu, e diga direto: com a Vant Pro ele faz 4 artes por dia, baixa sem marca d'água e leva o mentor completo junto. Ofereça o link. Se ele disser que não agora, aceite numa boa e siga ajudando."
             : "Ele já usou as gerações de arte de hoje — amanhã libera de novo.",
           assinatura_necessaria: "O teste grátis dele acabou. Convide pra assinar, em 1 frase, sem sermão.",
           sem_chave: "Nenhum provedor de imagem está configurado no servidor.",
@@ -765,7 +765,7 @@ Deno.serve(async (req) => {
       // amostras geradas em 17/08). Troca por secret sem deploy.
       const vozFeminina = body?.voz_sexo === "f";
 
-      // 1) OpenAI — a voz principal do Orbis
+      // 1) OpenAI — a voz principal da Vant
       try {
         const okey = Deno.env.get("OPENAI_API_KEY");
         if (okey) {
@@ -998,7 +998,7 @@ Deno.serve(async (req) => {
     } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
 
     // ===== COFRE DE CONHECIMENTO (27/08/2026) =====
-    // O "Obsidian do Orbis": notas curadas pelo time na tabela ai_conhecimento.
+    // O "Obsidian da Vant": notas curadas pelo time na tabela ai_conhecimento.
     // Entram no bloco CACHEADO do cerebro — custo quase zero por mensagem — e
     // editar uma nota muda o mentor no minuto seguinte, sem deploy. O teto de
     // 24k caracteres e' cortado no banco pra ninguem inflar o custo sem ver.
@@ -1007,7 +1007,7 @@ Deno.serve(async (req) => {
       const adminK = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
       const { data: kb } = await adminK.rpc("orbis_conhecimento");
       if (kb && String(kb).trim()) {
-        cofre = "\n\n===== COFRE DE CONHECIMENTO DO ORBIS (notas do time: fatos do produto, taticas de rua e objecoes — trate como verdade e use com naturalidade) =====\n" + String(kb);
+        cofre = "\n\n===== COFRE DE CONHECIMENTO DA VANT (notas do time: fatos do produto, taticas de rua e objecoes — trate como verdade e use com naturalidade) =====\n" + String(kb);
       }
     } catch (e) { console.error("cofre load falhou", String(e).slice(0, 120)); }
     // Foto anexada pelo vendedor NA PRÓPRIA CONVERSA, como referência de estilo.
@@ -1038,7 +1038,7 @@ Deno.serve(async (req) => {
       : "";
     // ===== O COFRE (09/09/2026) =====
     // A ficha DESTE vendedor (conversão, ticket, melhor hora e dia, gargalo,
-    // calote, trajetória no ranking) + o que o Orbis aprendeu com a base inteira.
+    // calote, trajetória no ranking) + o que a Vant aprendeu com a base inteira.
     // Recalculados toda madrugada em SQL puro, custo zero de IA.
     //
     // Antes disso o mentor falava igual com quem tem 70 dias de rua e com quem
@@ -1063,7 +1063,7 @@ Deno.serve(async (req) => {
             + "\nFale COM ELE sobre O NÚMERO DELE. Compare ele com ele mesmo — nunca com outros vendedores.";
         }
         if (base) {
-          cofreBlock += "\n\n# O QUE O ORBIS APRENDEU COM TODOS OS VENDEDORES\n" + base
+          cofreBlock += "\n\n# O QUE O VANT APRENDEU COM TODOS OS VENDEDORES\n" + base
             + "\nIsto é pra VOCÊ saber o que costuma funcionar. Não jogue a média na cara dele.";
         }
       }
@@ -1275,12 +1275,12 @@ Deno.serve(async (req) => {
     // rede de segurança, mas na prática era rede de VERGONHA: eles inventavam nome
     // de marca, escreviam JSON no meio do chat e mudavam o tom do mentor. O vendedor
     // não sabia que estava falando com outro modelo — só achava que a IA piorou.
-    // Agora o Orbis fala com UMA voz só. Se o Claude não responder, o app diz a
+    // Agora a Vant fala com UMA voz só. Se o Claude não responder, o app diz a
     // verdade em vez de entregar uma resposta pior fingindo ser a mesma IA.
     console.error("Claude indisponivel e sem reserva (modo so-Claude)");
     return json({
       success: true,
-      message: "Opa, meu cérebro tá fora do ar nesse instante — não é problema no teu aparelho. Tenta de novo em 1 minuto que eu volto. Se continuar, avisa o suporte do Orbis.",
+      message: "Opa, meu cérebro tá fora do ar nesse instante — não é problema no teu aparelho. Tenta de novo em 1 minuto que eu volto. Se continuar, avisa o suporte da Vant.",
       degradado: true,
     });
     return await finishChat(text);

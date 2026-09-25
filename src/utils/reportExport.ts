@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatBrazilDate } from "@/shared/lib/date-utils";
 
 /**
- * Geração e download do "Relatório financeiro" do Orbis nos formatos
+ * Geração e download do "Relatório financeiro" da Vant nos formatos
  * PDF (jsPDF, desenhado à mão), CSV (pt-BR, separado por ;) e Excel (.xls via HTML).
  *
  * A estrutura (Excel/CSV) segue a planilha do vendedor: por dia traz unidades
@@ -386,7 +386,7 @@ function buildXLS(
   return `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
 <head><meta charset="utf-8" /><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Relatorio</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
 <body>
-<h2 style="font-family:Arial,sans-serif;color:#b9860f;margin:0 0 4px;">ORBIS — Relatório financeiro</h2>
+<h2 style="font-family:Arial,sans-serif;color:#b9860f;margin:0 0 4px;">VANT — Relatório financeiro</h2>
 <p style="font-family:Arial,sans-serif;font-size:12px;color:#555;margin:0 0 12px;">Período: ${escapeHtml(
     periodLabel,
   )}</p>
@@ -460,7 +460,7 @@ function exportPDF(
     doc.setTextColor(GOLD[0], GOLD[1], GOLD[2]);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
-    doc.text("ORBIS — Relatório financeiro", margin, 40);
+    doc.text("VANT — Relatório financeiro", margin, 40);
     doc.setTextColor(225, 225, 225);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -642,7 +642,7 @@ function exportPDF(
 
   doc.setFontSize(8.5);
   doc.setTextColor(160, 160, 160);
-  doc.text("Gerado pelo Orbis", margin, H - 28);
+  doc.text("Gerado pela Vant", margin, H - 28);
 
   doc.save(`${base}.pdf`);
 }

@@ -7,7 +7,7 @@ interface MissionPwaInstallProps {
 type OS = "android" | "ios";
 
 /**
- * Fase final da missão: tutorial opcional para instalar o Orbis como PWA.
+ * Fase final da missão: tutorial opcional para instalar a Vant como PWA.
  * Mostra os passos para Android (Chrome) e iPhone (Safari).
  * O usuário pode pular sem perder nada.
  */
@@ -15,14 +15,14 @@ export default function MissionPwaInstall({ onAdvance }: MissionPwaInstallProps)
   const [os, setOs] = useState<OS>("android");
 
   const androidSteps = [
-    { icon: "🌐", text: "Abra o Orbis no Chrome" },
+    { icon: "🌐", text: "Abra a Vant no Chrome" },
     { icon: "⋮", text: 'Toque nos 3 pontinhos no canto superior direito' },
     { icon: "📲", text: '"Adicionar à tela inicial"' },
     { icon: "✅", text: "Confirme e pronto!" },
   ];
 
   const iosSteps = [
-    { icon: "🧭", text: "Abra o Orbis no Safari" },
+    { icon: "🧭", text: "Abra a Vant no Safari" },
     { icon: "⬆️", text: "Toque no ícone de compartilhar (quadrado com seta)" },
     { icon: "➕", text: '"Adicionar à Tela de Início"' },
     { icon: "✅", text: "Confirme e pronto!" },
@@ -45,7 +45,7 @@ export default function MissionPwaInstall({ onAdvance }: MissionPwaInstallProps)
         </div>
 
         <h2 className="text-xl font-bold text-foreground mb-1">
-          Instale o Orbis no celular
+          Instale a Vant no celular
         </h2>
         <p className="text-sm text-muted-foreground mb-5">
           Fica igual um app de verdade — abre direto da tela inicial, sem precisar do navegador.

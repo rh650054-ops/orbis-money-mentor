@@ -52,7 +52,7 @@ export function WeeklyChallengeTicket() {
   };
 
   const contatoWpp = () => window.open(
-    "https://wa.me/5511915054830?text=" + encodeURIComponent("Oi! Quero fazer meu link de afiliado do Orbis pra comecar a lucrar com as assinaturas."),
+    "https://wa.me/5511915054830?text=" + encodeURIComponent("Oi! Quero fazer meu link de afiliado da Vant pra comecar a lucrar com as assinaturas."),
     "_blank",
   );
 

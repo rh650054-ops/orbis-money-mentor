@@ -34,7 +34,7 @@ export default function Privacidade() {
 
         <S t="1. Quem somos">
           <p>
-            O <strong>Orbis</strong> ("nós") é um aplicativo de gestão de vendas, metas e finanças para
+            A <strong>Vant</strong> ("nós") é um aplicativo de gestão de vendas, metas e finanças para
             vendedores autônomos e ambulantes, disponível em <strong>www.orbis.inf.br</strong>. Esta
             política explica, em linguagem simples, quais dados pessoais tratamos, para quê, com quem
             compartilhamos e quais são os seus direitos, conforme a Lei Geral de Proteção de Dados
@@ -49,7 +49,7 @@ export default function Privacidade() {
           <p><strong>No cadastro:</strong> nome/apelido, CPF, e-mail, telefone/WhatsApp, cidade e estado, e senha (armazenada de forma criptografada — nunca temos acesso à senha em texto).</p>
           <p><strong>No uso do app:</strong> registros de vendas, metas, custos, despesas, contas a pagar, produtos, insumos e estoque, rotinas de trabalho, participação em rankings e competições, e foto de perfil (opcional).</p>
           <p><strong>Financeiros (opcionais):</strong> chave Pix cadastrada por você para receber pagamentos; extratos bancários enviados por você ou obtidos via conexão bancária autorizada (Open Finance, pela Pluggy); movimentações da carteira X1.</p>
-          <p><strong>Assistente de IA:</strong> as mensagens que você troca com o assistente do Orbis, para gerar as respostas e conselhos.</p>
+          <p><strong>Assistente de IA:</strong> as mensagens que você troca com o assistente da Vant, para gerar as respostas e conselhos.</p>
           <p><strong>Pagamento da assinatura:</strong> processado pela Hotmart. Não armazenamos números de cartão — recebemos da Hotmart apenas a confirmação do pagamento, e-mail e CPF do comprador para liberar seu acesso.</p>
           <p><strong>Técnicos:</strong> registros de acesso (logs), identificadores de dispositivo e dados de uso necessários à segurança e ao funcionamento.</p>
         </S>
@@ -64,7 +64,7 @@ export default function Privacidade() {
 
         <S t="4. Com quem compartilhamos (operadores)">
           <p>Não vendemos seus dados. Compartilhamos apenas com fornecedores que operam o serviço, sob contrato:</p>
-          <p><strong>Supabase</strong> — banco de dados e autenticação. Os dados do Orbis ficam hospedados em servidores na região de São Paulo, Brasil (AWS sa-east-1).</p>
+          <p><strong>Supabase</strong> — banco de dados e autenticação. Os dados da Vant ficam hospedados em servidores na região de São Paulo, Brasil (AWS sa-east-1).</p>
           <p><strong>Vercel</strong> — hospedagem do site e do aplicativo web (EUA, com rede de distribuição global).</p>
           <p><strong>Anthropic</strong> — processamento das conversas do assistente de IA (EUA). Veja a seção 5 sobre transferência internacional.</p>
           <p><strong>Hotmart</strong> — processamento do pagamento da assinatura.</p>
@@ -120,7 +120,7 @@ export default function Privacidade() {
         </S>
 
         <S t="10. Crianças e adolescentes">
-          <p>O Orbis é destinado a maiores de 18 anos.</p>
+          <p>A Vant é destinada a maiores de 18 anos.</p>
         </S>
 
         <S t="11. Alterações desta política">

@@ -141,7 +141,7 @@ export default function X1Escolher() {
       ) : lista.length === 0 ? (
         <div className="rounded-[20px] border p-5 text-center" style={{ background: "#0e0e10", borderColor: "#22201a" }}>
           <p className="text-[13px] font-black">{filtro === "revanche" ? "Ninguém te venceu nos últimos 7 dias" : filtro === "acima" ? "Ninguém acima de você no ranking" : busca ? "Nenhum vendedor com esse nome" : "Ninguém na sua liga ainda"}</p>
-          <p className="text-[11.5px] mt-1" style={{ color: "#8a8378" }}>Tenta "Todos" — qualquer vendedor do Orbis pode ser desafiado.</p>
+          <p className="text-[11.5px] mt-1" style={{ color: "#8a8378" }}>Tenta "Todos" — qualquer vendedor da Vant pode ser desafiado.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2.5 pt-2">

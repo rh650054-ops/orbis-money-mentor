@@ -306,7 +306,7 @@ export function NovaContaSheet({ open, onOpenChange, userId, workingDays, onCrea
               <h3 className="text-[22px] font-black tracking-tight leading-tight mt-1 text-foreground">Essa conta repete?</h3>
 
               {([
-                { k: "fixa", t: "Todo mês", s: ehCartao ? "Fatura recorrente. O Orbis renova sozinho." : "Aluguel, luz, internet. O Orbis renova sozinho." },
+                { k: "fixa", t: "Todo mês", s: ehCartao ? "Fatura recorrente. A Vant renova sozinha." : "Aluguel, luz, internet. A Vant renova sozinha." },
                 { k: "duracao", t: "Por alguns meses", s: "Parcelas: escolhe quantas e ela some quando acabar." },
                 { k: "unica", t: "Só uma vez", s: "Paga e pronto." },
               ] as const).map((o) => {

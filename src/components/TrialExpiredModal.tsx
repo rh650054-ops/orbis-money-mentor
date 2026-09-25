@@ -130,7 +130,7 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
           <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-5">
             <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
               <Check className="w-3.5 h-3.5" />
-              Continuando no Orbis você
+              Continuando na Vant você
             </p>
             <ul className="space-y-2 text-[13px] text-foreground/90">
               <li className="flex items-start gap-2.5">

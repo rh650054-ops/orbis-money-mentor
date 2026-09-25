@@ -1,8 +1,8 @@
-// Orbis — pluggy-setup: cadastra o webhook da Pluggy SOZINHO.
+// Vant — pluggy-setup: cadastra o webhook da Pluggy SOZINHO.
 //
 // Por que existe: o segredo do webhook e uma palavra que precisa ser identica
 // nos dois lados. Digitar a mesma coisa em dois paineis diferentes e o tipo de
-// tarefa que erra 100% das vezes. Entao o Orbis gera a palavra, guarda no banco
+// tarefa que erra 100% das vezes. Entao a Vant gera a palavra, guarda no banco
 // e cadastra o endereco na Pluggy pela API deles. Ninguem digita nada.
 //
 // A resposta mostra o endereco com o segredo MASCARADO.
@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
     const segredo = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
     const url = `${URL_SUPA}/functions/v1/pluggy-webhook?secret=${segredo}`;
 
-    // ---- limpa os webhooks antigos que apontam pro Orbis (inclusive o quebrado)
+    // ---- limpa os webhooks antigos que apontam pra Vant (inclusive o quebrado)
     const apagados: string[] = [];
     try {
       const w = await fetch("https://api.pluggy.ai/webhooks", { headers: H, signal: AbortSignal.timeout(20000) });

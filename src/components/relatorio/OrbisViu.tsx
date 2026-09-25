@@ -1,5 +1,5 @@
 /* ============================================================
-   O QUE O ORBIS VIU — duas ou três frases, de graça, sem IA.
+   O QUE O VANT VIU — duas ou três frases, de graça, sem IA.
 
    Lê os números do período e a ficha do vendedor (orbis_ficha, o cofre) e
    diz o que importa em português de gente. O botão "Analisar com IA" fica
@@ -93,7 +93,7 @@ export function OrbisViu(p: Props) {
   const borda = (t: Tom) => t === "ouro" ? "rgba(245,184,0,.35)" : t === "ok" ? "rgba(61,214,140,.3)" : "var(--orbis-line)";
   return (
     <div>
-      <p className="orbis-section mb-2.5 px-1">O que o Orbis viu</p>
+      <p className="orbis-section mb-2.5 px-1">O que a Vant viu</p>
       <div className="flex flex-col gap-2">
         {dicas.map((d, i) => (
           <div key={i} className="orbis-card-in flex items-start gap-2.5 rounded-[14px] px-3.5 py-3" style={{ border: `1px solid ${borda(d.tom)}`, background: "var(--orbis-surf)" }}>

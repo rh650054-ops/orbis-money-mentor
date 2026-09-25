@@ -1,8 +1,8 @@
-// Orbis — pluggy-item: o widget terminou e devolveu um itemId. Aqui a gente
+// Vant — pluggy-item: o widget terminou e devolveu um itemId. Aqui a gente
 // CONFERE esse item na Pluggy (nunca confia no que veio da tela), guarda a
 // conexao, CONCEDE O SELO DE VERIFICADO e puxa a primeira leva de entradas.
 //
-// Por que o selo sai aqui e nao na carteira: o selo do Orbis significa
+// Por que o selo sai aqui e nao na carteira: o selo da Vant significa
 // "a conta bancaria desse vendedor foi conferida". Carteira (Mercado Pago,
 // PagBank) e gratis e serve pra conciliar e cobrar — mas quem verifica e o banco.
 //

@@ -54,14 +54,14 @@ const PASSOS: Passo[] = [
     texto: "Toca em Venda, digita o valor e escolhe como recebeu: Dinheiro, Pix ou Cartão. Faz 2 vendas de teste agora — aqui é treino, nada vai pro ranking.",
     espera: "venda", meta: 2, dicas: ["Registra a 1ª venda de teste (0 de 2)", "Boa! Agora a 2ª venda (1 de 2)"] },
   { anchor: "defcon-custo", rotulo: "Custo", titulo: "Você gastou com o quê hoje?",
-    texto: "Almoço, passagem, mercadoria… Anota aqui. É isso que faz o Orbis te mostrar o LUCRO de verdade no fim do dia — não só o que entrou.",
+    texto: "Almoço, passagem, mercadoria… Anota aqui. É isso que faz a Vant te mostrar o LUCRO de verdade no fim do dia — não só o que entrou.",
     espera: "custo", dica: "Toca em Custo e registra o almoço, por exemplo" },
   { anchor: "defcon-gorjeta", rotulo: "Gorjeta", titulo: "Ganhou um extra?",
     texto: "Registra a gorjeta aqui. Ela entra no faturamento do dia, separada das vendas." },
   { anchor: "defcon-pausar", rotulo: "Pausa", titulo: "Banheiro, conversa ou almoço",
     texto: "Pausa quantas vezes precisar: banheiro e conversa voltam quando você tocar; no almoço você escolhe os minutos. A folga sai exata no relatório." },
   { anchor: "defcon-encerrar", rotulo: "Encerrar", titulo: "Fechou o corre? Encerra o dia",
-    texto: "No fim do dia você toca em Encerrar e o Orbis fecha seu relatório: vendido, custos, lucro e sua posição no ranking. Faz isso agora.",
+    texto: "No fim do dia você toca em Encerrar e a Vant fecha seu relatório: vendido, custos, lucro e sua posição no ranking. Faz isso agora.",
     espera: "encerrar", dica: "Toca em Encerrar e confirma pra fechar o dia" },
 ];
 

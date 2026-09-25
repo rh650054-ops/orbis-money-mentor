@@ -243,7 +243,7 @@ export default function PublicProfileModal({ open, onOpenChange, userId }: Props
                   </div>
                 </div>
                 <h2 className="text-xl font-black text-foreground tracking-tight">
-                  {profile.nickname || "Usuário Orbis"}
+                  {profile.nickname || "Usuário Vant"}
                   {profile.verificado && <SeloVerificado className="ml-1.5" size={18} />}
                 </h2>
                 {pres.label && (

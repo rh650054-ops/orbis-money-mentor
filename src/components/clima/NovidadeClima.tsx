@@ -78,7 +78,7 @@ export function NovidadeClima({ userId }: { userId: string }) {
         <div className="relative w-full shrink-0 overflow-hidden" style={{ height: 246 }}>
           <span className="absolute pointer-events-none" style={{ left: "50%", top: 4, width: 250, height: 250, marginLeft: -125, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,208,92,.34), rgba(255,208,92,0) 68%)" }} />
           <img
-            src={`${BASE}/calor-boneco.webp?v=2`} alt="O Orbis" draggable={false}
+            src={`${BASE}/calor-boneco.webp?v=2`} alt="A Vant" draggable={false}
             className="cl-nov-boneco absolute left-1/2 top-0"
             style={{ width: 268, maxWidth: "none", height: "auto", marginLeft: -134, filter: "drop-shadow(0 18px 30px rgba(0,0,0,.65))" }}
           />
@@ -96,10 +96,10 @@ export function NovidadeClima({ userId }: { userId: string }) {
         {/* texto + botões */}
         <div className="relative px-5 pb-5 -mt-3 flex flex-col gap-2.5 overflow-y-auto" style={{ background: "linear-gradient(180deg,#141312 0%,#141312 55%,#0f1622 100%)" }}>
           <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[.16em] uppercase" style={{ color: "#F5B800" }}>
-            <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} /> Novo no Orbis
+            <Sparkles className="w-3.5 h-3.5" strokeWidth={2.4} /> Novo na Vant
           </span>
           <p className="font-display text-[23px] font-black leading-[1.14] tracking-tight">
-            O Orbis agora olha<br />o céu por você.
+            A Vant agora olha<br />o céu por você.
           </p>
           <p className="text-[13.5px] leading-[1.5]" style={{ color: "#b9b3a6" }}>
             Ele junta <b className="text-foreground">6 previsões</b>, olha suas contas e sua melhor hora, e te diz: <b className="text-foreground">dia de ralar, de descansar ou de ficar em casa</b> — e a hora certa de sair.

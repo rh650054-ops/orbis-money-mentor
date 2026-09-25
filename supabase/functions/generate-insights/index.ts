@@ -123,9 +123,9 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
   }
 }
 
-// Persona do mentor Orbis para as dicas rápidas do DEFCON (dica do dia / dica da hora).
+// Persona do mentor Vant para as dicas rápidas do DEFCON (dica do dia / dica da hora).
 // Mesma alma do chat: específico, nunca genérico, linguagem de rua.
-const ORBIS_COACH = `Você é o mentor de vendas do Orbis, o app de vendedor de rua/ambulante no Brasil.
+const ORBIS_COACH = `Você é o mentor de vendas da Vant, o app de vendedor de rua/ambulante no Brasil.
 Fala como parça de corre: direto, linguagem da rua, firme e motivador, mas realista — sem papo corporativo.
 REGRAS:
 - SEMPRE específico, NUNCA genérico: use os números que te passarem.
@@ -262,7 +262,7 @@ Não use asteriscos, markdown nem outros títulos além desses cinco.`;
       return new Response(JSON.stringify({ analise }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Dica do Orbis — tela Finanças (Rick, 10/09): uma dica por dia, com os números
+    // Dica da Vant — tela Finanças (Rick, 10/09): uma dica por dia, com os números
     // de contas, guardar-por-dia e caixinhas da própria pessoa. Devolve {titulo, texto}.
     if (body?.type === "financas_dica") {
       const n = (v: unknown) => Number(v ?? 0).toFixed(0);
@@ -338,7 +338,7 @@ Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres",
     const avgDailyProfit = daysWithSales > 0 ? totalIncome / daysWithSales : 0;
     const todayProfit = salesData.filter(s => s.date === today).reduce((s, d) => s + (d.total_profit || 0), 0);
 
-    const systemPrompt = `Você é o Orbis IA, especialista em análise pra vendedor ambulante de RUA (vende barato e em VOLUME). Gere um relatório JSON com insights estratégicos REALISTAS pra rua — nada de ticket ou meta de fantasia; o caminho é volume (mais abordagens) + ticket realista (combo no máx ~1,5x-2x o atual) + conversão. Responda APENAS com o JSON, sem texto extra.`;
+    const systemPrompt = `Você é a Vant IA, especialista em análise pra vendedor ambulante de RUA (vende barato e em VOLUME). Gere um relatório JSON com insights estratégicos REALISTAS pra rua — nada de ticket ou meta de fantasia; o caminho é volume (mais abordagens) + ticket realista (combo no máx ~1,5x-2x o atual) + conversão. Responda APENAS com o JSON, sem texto extra.`;
 
     const userPrompt = `Dados dos últimos 7 dias:
 - Vendas totais: R$ ${totalIncome.toFixed(2)}

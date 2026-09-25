@@ -1,5 +1,5 @@
 /* ============================================================
-   SELO DE VERIFICADO — a medalha do Orbis (Rick, 09/09/2026).
+   SELO DE VERIFICADO — a medalha da Vant (Rick, 09/09/2026).
    Desenhada em SVG por código: 32 pontas onduladas, gradiente do azul claro
    ao azul profundo, anel interno, brilho no topo e sombra colorida embaixo.
    Vetor puro: fica nítido em qualquer tamanho e não pesa nada.

@@ -1,5 +1,5 @@
-// Orbis — estudio-arte v9: gera o ADESIVO do vendedor com IA. O briefing vem da
-// GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Orbis IA (estilo em
+// Vant — estudio-arte v9: gera o ADESIVO do vendedor com IA. O briefing vem da
+// GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Vant IA (estilo em
 // texto + referência opcional enviada pelo PRÓPRIO usuário). Deixa ÁREA BRANCA pro app
 // colocar o QR Pix REAL.
 // PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;

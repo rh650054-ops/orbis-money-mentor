@@ -7,7 +7,7 @@ const SUPPORT_WHATSAPP = "5511915054830";
 
 /**
  * Recuperação de senha.
- * A conta no Orbis é identificada por CPF (o e-mail de auth é interno,
+ * A conta na Vant é identificada por CPF (o e-mail de auth é interno,
  * "CPF@orbis.internal"), então o reset por e-mail do Supabase não chega no
  * e-mail pessoal da pessoa. Por isso a recuperação é pelo WhatsApp: o time
  * gera uma senha temporária no painel (admin-reset) e a pessoa cria a nova
@@ -18,7 +18,7 @@ export default function ForgotPassword() {
 
   const openWhatsApp = () => {
     const msg = encodeURIComponent(
-      "Olá! Esqueci minha senha do Orbis e preciso recuperar. Meu CPF é: "
+      "Olá! Esqueci minha senha da Vant e preciso recuperar. Meu CPF é: "
     );
     window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=${msg}`, "_blank");
   };
@@ -35,14 +35,14 @@ export default function ForgotPassword() {
         {/* Header com logo */}
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/orbis-logo.png"
-            alt="Orbis"
+            src="/vant-logo.png"
+            alt="Vant"
             className="w-14 h-14 object-contain animate-orbis-spin-in"
           />
           <div className="text-center">
             <h1 className="text-xl font-bold text-foreground">Recuperar senha</h1>
             <p className="text-xs text-muted-foreground mt-1">
-              A gente te ajuda a voltar pro Orbis
+              A gente te ajuda a voltar pra Vant
             </p>
           </div>
         </div>
@@ -52,7 +52,7 @@ export default function ForgotPassword() {
             <div className="flex items-start gap-3 rounded-xl bg-primary/10 border border-primary/25 p-3.5">
               <KeyRound className="w-5 h-5 text-primary mt-0.5 shrink-0" />
               <p className="text-xs text-foreground leading-relaxed">
-                Sua conta no Orbis é pelo <span className="font-semibold">CPF</span>.
+                Sua conta na Vant é pelo <span className="font-semibold">CPF</span>.
                 Pra resetar a senha rapidinho, fala com a gente no WhatsApp que o time
                 gera uma senha nova na hora e te manda — aí no próximo login você cria
                 a sua. 👊
@@ -70,7 +70,7 @@ export default function ForgotPassword() {
 
             <div className="flex items-center gap-2 justify-center text-[11px] text-muted-foreground">
               <ShieldCheck className="w-3.5 h-3.5" />
-              Resposta rápida, direto com o time do Orbis
+              Resposta rápida, direto com o time da Vant
             </div>
           </CardContent>
         </Card>

@@ -4,7 +4,7 @@
    Regra do Rick: nada de API externa dentro do app. Esta é a ÚNICA exceção,
    e ela é obrigatória: o widget é a tela onde o vendedor digita a senha do
    banco dele. Essa senha tem que ir direto pra Pluggy, nunca passar pelo
-   Orbis — é justamente por isso que a tela é deles e não nossa.
+   Vant — é justamente por isso que a tela é deles e não nossa.
 
    O script só é baixado quando o vendedor toca no botão. Quem nunca conecta
    banco nunca carrega nada.
@@ -51,7 +51,7 @@ export type ErroPluggy = "precisa_pro" | "pluggy_nao_configurado" | "sem_interne
  *  o item_id do banco conectado, ou { erro: "cancelou" } quando o vendedor desiste.
  *
  *  `aoAbrir` avisa que a tela da Pluggy está na frente. A partir daí o botão do
- *  Orbis pode voltar ao normal: quem manda é o widget. (10/09/2026: o botão
+ *  Vant pode voltar ao normal: quem manda é o widget. (10/09/2026: o botão
  *  ficava preso em "ABRINDO…" pra sempre quando o widget não respondia — OAuth
  *  em outra aba no celular, init que falha, onClose que nunca dispara.) */
 export async function ligarBanco(aoAbrir?: () => void): Promise<{ itemId: string } | { erro: ErroPluggy }> {

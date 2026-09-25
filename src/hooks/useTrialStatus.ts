@@ -118,7 +118,7 @@ export function useTrialStatus(userId: string | undefined) {
       } else if (daysRemaining === 0 && profile.is_trial_active) {
         toast({
           title: "🚀 Último dia!",
-          description: "Seu teste gratuito termina hoje! Continue evoluindo com o Orbis.",
+          description: "Seu teste gratuito termina hoje! Continue evoluindo com a Vant.",
           duration: 8000,
         });
       }

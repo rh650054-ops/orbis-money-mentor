@@ -1,5 +1,5 @@
 /* ============================================================
-   ONBOARDING NOVO — os 3 atos + "Leva o Orbis no bolso".
+   ONBOARDING NOVO — os 3 atos + "Leva a Vant no bolso".
    Fluxo aprovado: link → captura → criar conta → AQUI → DEFCON.
    (Rick, 05/09: 7 em 10 contas novas nunca chegavam ao primeiro DEFCON
     passando pelo dashboard. Agora o onboarding termina no início do DEFCON.)
@@ -45,16 +45,16 @@ function Rochas() {
   );
 }
 
-/* ---------- logo do Orbis em PRETO E BRANCO (decisão do Rick) ---------- */
+/* ---------- logo da Vant em PRETO E BRANCO (decisão do Rick) ---------- */
 function LogoPB({ size = 64 }: { size?: number }) {
   return (
-    <div
-      className="relative rounded-full"
-      style={{ width: size, height: size, border: "5px solid #fff", boxShadow: "0 0 32px -6px rgba(255,255,255,.45)" }}
+    <svg
+      width={size} height={size} viewBox="0 0 100 100" aria-hidden="true"
+      style={{ display: "block", filter: "drop-shadow(0 0 14px rgba(255,255,255,.35))" }}
     >
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white"
-        style={{ width: size * 0.25, height: size * 0.25 }} />
-    </div>
+      <path d="M100 2 L0 54.8 L66.7 29.8 L46.6 58.3 L24.6 92.6 L60.8 51.8 Z" fill="#fff" />
+      <path d="M45.6 46.3 L11 60.3 L27.2 60.3 L11.7 94.2 L29.1 71.3 Z" fill="#fff" />
+    </svg>
   );
 }
 
@@ -409,7 +409,7 @@ function CardValor({ rotulo, valor, destaque = false }: { rotulo: string; valor:
   );
 }
 
-/* ================= FIXAR — "Leva o Orbis no bolso" ================= */
+/* ================= FIXAR — "Leva a Vant no bolso" ================= */
 function Fixar({ ehIOS, temPromptNativo, onInstalarNativo, onConcluir }: {
   ehIOS: boolean;
   temPromptNativo: boolean;
@@ -418,7 +418,7 @@ function Fixar({ ehIOS, temPromptNativo, onInstalarNativo, onConcluir }: {
 }) {
   return (
     <div className="w-full pt-[92px] pb-40 flex flex-col items-center">
-      {/* mini-celular com o ícone P&B do Orbis na tela inicial */}
+      {/* mini-celular com o ícone P&B da Vant na tela inicial */}
       <div className="relative overflow-hidden" style={{
         width: 120, height: 150, borderRadius: "22px 22px 0 0",
         border: "3px solid #262626", borderBottom: "none",
@@ -433,12 +433,12 @@ function Fixar({ ehIOS, temPromptNativo, onInstalarNativo, onConcluir }: {
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ width: 26, height: 26, border: "3px solid #fff" }} />
             <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white" style={{ width: 9, height: 9 }} />
           </div>
-          <span className="text-[8.5px] font-semibold" style={{ color: "#B9B3A6" }}>Orbis</span>
+          <span className="text-[8.5px] font-semibold" style={{ color: "#B9B3A6" }}>Vant</span>
         </div>
       </div>
 
       <h1 className="font-display text-[23px] font-extrabold leading-[1.35] mt-[22px]">
-        Leva o Orbis <b style={{ color: "#F5B800" }}>no bolso</b>,<br />igual seus outros apps.
+        Leva a Vant <b style={{ color: "#F5B800" }}>no bolso</b>,<br />igual seus outros apps.
       </h1>
       <p className="text-[13.5px] leading-[1.5] mt-2" style={{ color: "#B9B3A6" }}>
         Fixa na tela inicial: abre com um toque,<br />direto da rua, sem procurar no navegador.

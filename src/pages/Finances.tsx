@@ -2144,7 +2144,7 @@ export default function Finances() {
                   GUARDEI {formatCurrency(restanteGuardarHoje)}
                 </button>
               ) : todayIsWorkDay && bills.length === 0 && goals.length === 0 ? (
-                <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou um objetivo e o Orbis calcula quanto separar por dia.</p>
+                <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou um objetivo e a Vant calcula quanto separar por dia.</p>
               ) : null}
               <div className="flex items-center justify-center gap-1.5 mt-2.5 text-xs text-muted-foreground">
                 <button onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }} className="py-1 font-semibold text-foreground/70 active:text-foreground">guardei outro valor</button>
@@ -2520,7 +2520,7 @@ export default function Finances() {
                   {abertas.length === 0 ? (
                     <button type="button" onClick={() => setIsAddBillOpen(true)} className="w-full text-left py-4">
                       <p className="text-[14px] font-bold text-foreground">Nenhuma conta ainda.</p>
-                      <p className="text-[12.5px] mt-1" style={{ color: "#a9a49c" }}>Aluguel, luz, cartão — cadastra e o Orbis diz quanto guardar por dia.</p>
+                      <p className="text-[12.5px] mt-1" style={{ color: "#a9a49c" }}>Aluguel, luz, cartão — cadastra e a Vant diz quanto guardar por dia.</p>
                     </button>
                   ) : (
                     <>
@@ -2693,7 +2693,7 @@ export default function Finances() {
                     </span>
                     <span className="flex-1 min-w-0 flex flex-col gap-1">
                       <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
-                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e o Orbis diz quanto por dia.</span>
+                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e a Vant diz quanto por dia.</span>
                     </span>
                     <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
                   </button>
@@ -3015,7 +3015,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
             </DialogContent>
           </Dialog>
 
-        {/* 5. DICA DO ORBIS — IA com os números da pessoa (Rick, 10/09). A dica local
+        {/* 5. DICA DA VANT — IA com os números da pessoa (Rick, 10/09). A dica local
             (sem IA) vira reserva: aparece enquanto a IA pensa e se ela falhar. */}
         {!isLoadingData && (bills.length > 0 || goals.length > 0 || summary.grossToday > 0) && (() => {
           const media = summary.mediaDiariaLiquida;

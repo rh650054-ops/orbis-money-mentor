@@ -142,7 +142,7 @@ function CardSinal({ s, pos, cidade, onDuracao, onJaVendi }: {
       {s.vendedores === 0 && (
         <div className="mt-2.5 rounded-xl px-3 py-2 flex items-center gap-2 text-[11px]" style={{ background: "#1a1305", border: "1px dashed rgba(245,184,0,.4)", color: "#b3ab9c" }}>
           <Trophy className="w-4 h-4 shrink-0" style={{ color: GOLD }} />
-          <span>Ninguém do Orbis vendeu aqui ainda. <b style={{ color: GOLD }}>Seja o primeiro</b> — marca o ponto no fim do DEFCON.</span>
+          <span>Ninguém da Vant vendeu aqui ainda. <b style={{ color: GOLD }}>Seja o primeiro</b> — marca o ponto no fim do DEFCON.</span>
         </div>
       )}
 
@@ -339,7 +339,7 @@ export default function SpotFinder() {
       .eq("user_id", user.id).in("status", ["completed", "abandoned"]).is("sinal_osm_id", null).gte("date", desde)
       .order("date", { ascending: false }).limit(1);
     const ultima = (sess as any[])?.[0];
-    if (!ultima) { toast({ title: "Marque no fim do DEFCON", description: "Quando você encerrar o dia ali, o Orbis pergunta o ponto e guarda seu histórico." }); return; }
+    if (!ultima) { toast({ title: "Marque no fim do DEFCON", description: "Quando você encerrar o dia ali, a Vant pergunta o ponto e guarda seu histórico." }); return; }
     const { data: prof } = await supabase.from("profiles").select("compartilha_pontos").eq("user_id", user.id).maybeSingle();
     const comp = (prof as any)?.compartilha_pontos !== false;
     const { error } = await supabase.from("challenge_sessions").update({ sinal_osm_id: s.osm_id, sinal_compartilha: comp } as never).eq("id", ultima.id);
@@ -393,7 +393,7 @@ export default function SpotFinder() {
           </span>
         )}
         <h1 className="text-[26px] font-black tracking-tight leading-none text-foreground mt-2.5">Caça-Sinal</h1>
-        <p className="text-xs mt-1.5 max-w-[240px]" style={{ color: "#b3ab9c" }}>Os semáforos onde os vendedores do Orbis mais vendem — com tempo do sinal e melhores horas.</p>
+        <p className="text-xs mt-1.5 max-w-[240px]" style={{ color: "#b3ab9c" }}>Os semáforos onde os vendedores da Vant mais vendem — com tempo do sinal e melhores horas.</p>
 
         <div className="mt-3.5 rounded-2xl p-1.5" style={{ background: "#0a0a0d", border: "1px solid #2a2823" }}>
           <button type="button" onClick={() => setEscolhendoCidade((v) => !v)} className="w-full h-[42px] px-3 rounded-xl flex items-center gap-2 text-left">
@@ -517,7 +517,7 @@ export default function SpotFinder() {
       {loading && (
         <div className="flex flex-col items-center py-10 gap-3">
           <LocateFixed className="w-8 h-8 animate-pulse" style={{ color: GOLD }} />
-          <p className="text-sm text-center px-4" style={{ color: "#b3ab9c" }}>Cruzando semáforos reais com as vendas dos vendedores do Orbis…</p>
+          <p className="text-sm text-center px-4" style={{ color: "#b3ab9c" }}>Cruzando semáforos reais com as vendas dos vendedores da Vant…</p>
         </div>
       )}
 

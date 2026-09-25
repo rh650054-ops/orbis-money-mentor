@@ -1,5 +1,5 @@
 /**
- * IndexedDB wrapper for offline data persistence in Orbis.
+ * IndexedDB wrapper for offline data persistence in Vant.
  * Stores sales, approaches, DEFCON data, checklist items, and user settings locally.
  * Data is synced to the cloud when connection is restored.
  */

@@ -128,7 +128,7 @@ export default function Insights() {
   const [loading, setLoading] = useState(true);
   const [sales, setSales] = useState<DailySale[]>([]);
   const [challengeBlocks, setChallengeBlocks] = useState<{ approaches_count: number; sales_count: number; started_at?: string | null; created_at?: string | null }[]>([]);
-  // a ficha do cofre: gargalo, melhor hora, conversão normal — pras dicas de "O que o Orbis viu"
+  // a ficha do cofre: gargalo, melhor hora, conversão normal — pras dicas de "O que a Vant viu"
   const [ficha, setFicha] = useState<FichaResumo | null>(null);
   const [blocks, setBlocks] = useState<HourBlock[]>([]);
   const [expenses, setExpenses] = useState<{ category: string; amount: number; icon: string | null; name: string }[]>([]);
@@ -697,7 +697,7 @@ export default function Insights() {
   return (
     <div className="orbis-stagger space-y-4 pb-4 md:pb-8 text-foreground">
       <FirstTimeCard tela="relatorio" userId={user?.id} />
-      {/* Header — Relatório v2 (design system Orbis: Manrope, preto absoluto) */}
+      {/* Header — Relatório v2 (design system Vant: Manrope, preto absoluto) */}
       <div className="flex items-start justify-between gap-3">
         <h1 className="font-display text-2xl font-extrabold tracking-tight">Relatório</h1>
         <ExportReportDialog
@@ -904,7 +904,7 @@ export default function Insights() {
             </section>
           )}
 
-          {/* O QUE O ORBIS VIU — dicas de graça, da ficha + do período */}
+          {/* O QUE O VANT VIU — dicas de graça, da ficha + do período */}
           <OrbisViu
             conversao={summary.conversao}
             abordagens={summary.totalAbordagens}

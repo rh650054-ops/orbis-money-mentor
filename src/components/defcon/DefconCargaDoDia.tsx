@@ -327,7 +327,7 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
           <span className="flex-1 min-w-0">
             <b className="block text-[13.5px] font-bold leading-snug">{frase ?? "Primeira carga registrada."}</b>
             <small className="block text-[12px] mt-0.5 leading-snug" style={{ color: "var(--orbis-fg-2)" }}>
-              {frase ? `Bora zerar — dá ${brl0(resumo.potencial)} na mão.` : `Tudo que vender hoje o Orbis desconta sozinho. Zerando, dá ${brl0(resumo.potencial)} na mão.`}
+              {frase ? `Bora zerar — dá ${brl0(resumo.potencial)} na mão.` : `Tudo que vender hoje a Vant desconta sozinha. Zerando, dá ${brl0(resumo.potencial)} na mão.`}
             </small>
           </span>
         </div>

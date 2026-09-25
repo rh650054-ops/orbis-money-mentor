@@ -1,6 +1,6 @@
 /* ============================================================
    CLIMA CHIP — a entrada do clima no topo do Dashboard (Rick, 11/09).
-   Cabeça do Orbis + temperatura + o aviso que importa. Toque abre /clima.
+   Cabeça da Vant + temperatura + o aviso que importa. Toque abre /clima.
    Usa só o tempo (sem IA) — barato, cache de 30 min no aparelho.
    ============================================================ */
 import { useNavigate } from "react-router-dom";

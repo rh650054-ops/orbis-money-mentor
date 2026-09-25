@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 /**
- * Splash de abertura do Orbis.
+ * Splash de abertura da Vant.
  * Logo gira e cobre a tela INTEIRA (inclusive a barra de baixo) e só some
  * quando o app sinaliza que está pronto (evento "orbis:ready", disparado pela
  * primeira tela ao montar). Isso evita a barra de navegação "piscar" sozinha
@@ -76,7 +76,7 @@ export default function SplashScreen() {
       aria-hidden="true"
     >
       <img
-        src="/orbis-logo.png"
+        src="/vant-logo.png"
         alt=""
         className="w-24 h-24 object-contain animate-orbis-splash-spin"
       />

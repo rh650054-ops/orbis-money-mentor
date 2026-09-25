@@ -1,6 +1,6 @@
-// Orbis — pluggy-connect-token: token curto pro widget da Pluggy abrir.
+// Vant — pluggy-connect-token: token curto pro widget da Pluggy abrir.
 // TRAVA DO PRO: conectar banco pelo Open Finance custa (+R$ 10/mes), porque a
-// Pluggy cobra do Orbis por isso. Sem Pro, nem gera o token.
+// Pluggy cobra da Vant por isso. Sem Pro, nem gera o token.
 // O client_secret da Pluggy nunca sai do servidor.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

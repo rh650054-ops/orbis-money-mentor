@@ -16,7 +16,7 @@ export interface PlanoDoCorre {
   /** Que horas ele vai começar a vender (7–10). null = ainda não marcou —
    *  a pergunta aparece no FIM da definição de metas, com fala natural
    *  ("Que horas você vai começar a vender amanhã?"). Sem hora marcada,
-   *  o Orbis NÃO cobra nada. */
+   *  a Vant NÃO cobra nada. */
   horaInicio: number | null;
 }
 

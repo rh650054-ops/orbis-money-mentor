@@ -56,7 +56,7 @@ export default function Benefits() {
     {
       icon: "♾️",
       title: "Acesso Ilimitado",
-      description: "Use todas as funcionalidades do Orbis sem restrições, disponível 24/7"
+      description: "Use todas as funcionalidades da Vant sem restrições, disponível 24/7"
     },
     {
       icon: "📱",

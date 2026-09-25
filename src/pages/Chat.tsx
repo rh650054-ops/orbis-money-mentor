@@ -46,7 +46,7 @@ export default function Chat() {
       const file = new File([blob], "orbis-comunidade.png", { type: "image/png" });
       const nav = navigator as any;
       if (nav.canShare && nav.canShare({ files: [file] })) {
-        await nav.share({ files: [file], title: "Comunidade Orbis" });
+        await nav.share({ files: [file], title: "Comunidade Vant" });
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -90,7 +90,7 @@ export default function Chat() {
   return (
     <div className="mx-auto w-full max-w-xl pb-4">
       <div className="mb-3 px-1">
-        <h1 className="text-2xl font-extrabold tracking-tight">Comunidade Orbis</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">Comunidade Vant</h1>
         <p className="text-sm text-muted-foreground">Feed de vendedores na ativa</p>
       </div>
 

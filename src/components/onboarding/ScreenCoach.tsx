@@ -69,7 +69,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="defcon-abordagem"]',
         title: "Conte suas abordagens 👋",
-        text: "Cada pessoa que você aborda, toque aqui. O Orbis calcula sua conversão (quantos viram venda) e te mostra como vender mais.",
+        text: "Cada pessoa que você aborda, toque aqui. A Vant calcula sua conversão (quantos viram venda) e te mostra como vender mais.",
       },
     ],
   },
@@ -79,7 +79,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="add-product"]',
         title: "Cadastre seu produto 📦",
-        text: "Toque em 'Novo produto'. Lá dentro você dá o nome e o preço, define o estoque (o Orbis avisa quando estiver acabando) e escolhe como conta: por unidade ou por lote — ex.: brigadeiro vendido por unidade tira 1; por lote, você cadastra uma fôrma que rende 50 e o estoque baixa conforme acaba. Cada venda já desconta do estoque sozinha.",
+        text: "Toque em 'Novo produto'. Lá dentro você dá o nome e o preço, define o estoque (a Vant avisa quando estiver acabando) e escolhe como conta: por unidade ou por lote — ex.: brigadeiro vendido por unidade tira 1; por lote, você cadastra uma fôrma que rende 50 e o estoque baixa conforme acaba. Cada venda já desconta do estoque sozinha.",
       },
     ],
   },
@@ -99,7 +99,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="conectar-banco"]',
         title: "Vire vendedor verificado",
-        text: "Ligue onde você recebe (Mercado Pago, PagBank) e o Orbis passa a ver suas vendas sozinho. Você ganha o selo azul e entra nas competições valendo dinheiro.",
+        text: "Ligue onde você recebe (Mercado Pago, PagBank) e a Vant passa a ver suas vendas sozinha. Você ganha o selo azul e entra nas competições valendo dinheiro.",
       },
     ],
   },
@@ -108,7 +108,7 @@ const SCREENS: Record<string, ScreenDef> = {
     steps: [
       {
         title: "Financeiro 💵",
-        text: "Acompanhe seu lucro do dia e do mês. Defina sua meta mensal e o Orbis divide o que entra por porcentagem — quanto guardar, quanto reinvestir.",
+        text: "Acompanhe seu lucro do dia e do mês. Defina sua meta mensal e a Vant divide o que entra por porcentagem — quanto guardar, quanto reinvestir.",
       },
       {
         selector: '[data-tour="nova-despesa"]',
@@ -126,7 +126,7 @@ const SCREENS: Record<string, ScreenDef> = {
       },
       {
         selector: '[data-tour="conversar-ia"]',
-        title: "Orbis IA 🤖",
+        title: "Vant IA 🤖",
         text: "A IA lê seus dados e te dá dicas pra vender mais. Toque em 'Conversar com a IA' — você pode ESCREVER um texto ou mandar um ÁUDIO, como preferir. Ela responde do seu jeito.",
       },
     ],
@@ -142,7 +142,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="ranking-share"]',
         title: "Compartilhe no Instagram 📲",
-        text: "Toque em 'Compartilhar no Instagram': o Orbis gera uma imagem das suas vendas. Você pode baixar e postar nos seus stories, colocar num vídeo ou tirar print — do jeito que quiser mostrar o seu corre.",
+        text: "Toque em 'Compartilhar no Instagram': a Vant gera uma imagem das suas vendas. Você pode baixar e postar nos seus stories, colocar num vídeo ou tirar print — do jeito que quiser mostrar o seu corre.",
       },
     ],
   },
@@ -150,7 +150,7 @@ const SCREENS: Record<string, ScreenDef> = {
     key: "comunidade",
     steps: [
       {
-        title: "Comunidade Orbis 👥",
+        title: "Comunidade Vant 👥",
         text: "Aqui você troca ideia com vendedores do Brasil todo. O que você posta aparece pra TODA a comunidade no feed Global — e tem o feed Regional, com gente da sua cidade ou estado.",
       },
       {

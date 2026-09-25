@@ -250,7 +250,7 @@ export default function Tributario() {
       )}
 
       <p className="text-center text-[11px] text-muted-foreground px-4 leading-relaxed">
-        Valores de referência de 2026. O Orbis organiza e lembra, mas o pagamento e a declaração são feitos nos portais oficiais do governo. Casos complexos: procure um contador.
+        Valores de referência de 2026. A Vant organiza e lembra, mas o pagamento e a declaração são feitos nos portais oficiais do governo. Casos complexos: procure um contador.
       </p>
     </div>
   );

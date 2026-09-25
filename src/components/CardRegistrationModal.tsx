@@ -49,7 +49,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
               3 dias grátis
             </span>
             <DialogTitle className="text-xl font-bold leading-tight">
-              Garanta seu acesso ao Orbis
+              Garanta seu acesso à Vant
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-2 leading-relaxed">
               Teste tudo por 3 dias, sem pagar nada. Depois, mantém seus números, o mentor de rua (IA) e seu lugar no ranking.

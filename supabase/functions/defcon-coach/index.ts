@@ -1,4 +1,4 @@
-// Orbis — defcon-coach
+// Vant — defcon-coach
 // Reescreve a mensagem do coach de conversão com "voz da rua" usando Gemini Flash.
 // Recebe a mensagem-template (que já traz os números) e devolve uma versão mais
 // natural e motivadora MANTENDO os números. Se faltar chave/cota ou der qualquer
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
 
     const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
     const prompt =
-      `Você é o "mentor de rua" do app Orbis, falando com um vendedor ambulante brasileiro DURANTE o corre de vendas.\n` +
+      `Você é o "mentor de rua" do app Vant, falando com um vendedor ambulante brasileiro DURANTE o corre de vendas.\n` +
       `Reescreva a mensagem abaixo em no máximo 2 frases bem curtas, em voz da rua: direta, de parceiro, motivadora, sem ser fofa nem corporativa.\n` +
       `REGRAS: mantenha EXATAMENTE os mesmos números da mensagem; não invente dados; não use aspas; no máximo 1 emoji; foque em ação.\n` +
       (situation ? `Situação: ${situation}. ` : "") +

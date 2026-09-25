@@ -81,7 +81,7 @@ export default function AceiteTermosModal({ userId }: { userId: string }) {
           Publicamos os{" "}
           <a href="/termos" target="_blank" rel="noopener noreferrer" className="text-primary underline">Termos de Uso</a> e a{" "}
           <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-primary underline">Política de Privacidade</a>{" "}
-          do Orbis, explicando quais dados usamos, pra quê, e os seus direitos (incluindo excluir a
+          da Vant, explicando quais dados usamos, pra quê, e os seus direitos (incluindo excluir a
           conta quando quiser). Pra continuar, confirme que leu e concorda.
         </p>
         <p className="text-xs text-muted-foreground">

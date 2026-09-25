@@ -971,12 +971,12 @@ export default function AdminSubscriptions() {
                       // Mensagem já pronta conforme a aba: urgência no "último dia", win-back nos "expirados".
                       const body =
                         statusFilter === "ultimo_dia"
-                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
+                          ? `Opa${nm}, beleza? Rick aqui da Vant. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
                           : statusFilter === "expirados"
-                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que você não fechou com a gente — o que faltou pra você continuar? Pode ser sincero, me ajuda demais. 👊`
+                          ? `Opa${nm}, beleza? Rick aqui da Vant. Vi que você não fechou com a gente — o que faltou pra você continuar? Pode ser sincero, me ajuda demais. 👊`
                           : statusFilter === "assinantes"
-                          ? `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
-                          : `Opa${nm}, beleza? Rick aqui do Orbis. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`;
+                          ? `Opa${nm}, beleza? Rick aqui da Vant. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`
+                          : `Opa${nm}, beleza? Rick aqui da Vant. Vi que teu teste fecha hoje e não quis te deixar sair sem dar um alô. Sincero: o que você achou esses dias? Pergunto porque quem segue depois do teste costuma deslanchar de vez — e dá pra continuar com tudo por menos de R$1 por dia. Bora seguir junto? 👊`;
                       const msg = encodeURIComponent(body);
                       return (
                         <Button

@@ -128,7 +128,7 @@ export default function Layout({ children }: LayoutProps) {
       if (lastReminderDate !== today) {
         toast({
           title: `🔥 Faltam ${shownDays} ${shownDays === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
-          description: "Você já começou a dominar seus números. Mantém o Orbis por R$0,99 por dia (R$29,99/mês) e não perde o ritmo.",
+          description: "Você já começou a dominar seus números. Mantém a Vant por R$0,99 por dia (R$29,99/mês) e não perde o ritmo.",
           duration: 8000,
         });
         localStorage.setItem('lastTrialReminder', today);
@@ -177,7 +177,7 @@ export default function Layout({ children }: LayoutProps) {
   // (a tela preta parecia app travado e era o maior "espaço preto" do boot).
   const bootHolder = (
     <div className="min-h-[100dvh] bg-background grid place-items-center">
-      <img src="/orbis-logo.png" alt="" className="w-16 h-16 object-contain opacity-60 animate-pulse" />
+      <img src="/vant-logo.png" alt="" className="w-16 h-16 object-contain opacity-60 animate-pulse" />
     </div>
   );
   if (loading || !user) {
@@ -202,12 +202,12 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex items-center gap-3 min-w-0">
               {/* Mobile: sem logo, header limpo. Desktop: logo discreta */}
               <Link to="/" className="hidden md:flex items-center space-x-2">
-                <img src="/orbis-logo.png" alt="" className="w-7 h-7 object-contain opacity-80" />
-                <img src="/orbis-wordmark.png" alt="Orbis" className="h-4 object-contain opacity-80" />
+                <img src="/vant-logo.png" alt="" className="w-7 h-7 object-contain opacity-80" />
+                <img src="/vant-wordmark.png" alt="Vant" className="h-4 object-contain opacity-80" />
               </Link>
               {/* Mobile: ícone pequeno só como âncora para Dashboard */}
               <Link to="/" className="md:hidden flex items-center" aria-label="Início">
-                <img src="/orbis-logo.png" alt="" className="w-6 h-6 object-contain opacity-60" />
+                <img src="/vant-logo.png" alt="" className="w-6 h-6 object-contain opacity-60" />
               </Link>
               {isAdmin && (
                 <span className={cn(

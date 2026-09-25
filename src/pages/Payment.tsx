@@ -138,7 +138,7 @@ export default function Payment() {
               Ative o Plano Visionário
             </h1>
             <p className="text-sm text-muted-foreground mt-1.5">
-              Continue dominando seus números com o Orbis
+              Continue dominando seus números com a Vant
             </p>
           </div>
 
@@ -174,7 +174,7 @@ export default function Payment() {
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
                 <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5" />
-                  Continuando no Orbis você
+                  Continuando na Vant você
                 </p>
                 <ul className="space-y-2.5 text-[13px] text-foreground/90">
                   <li className="flex items-start gap-2.5">

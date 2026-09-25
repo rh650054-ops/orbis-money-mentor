@@ -774,7 +774,7 @@ export default function Profile() {
                   <Crown className="w-5 h-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold leading-tight">Orbis BLACK</p>
+                  <p className="text-base font-semibold leading-tight">Vant BLACK</p>
                   <p className="text-xs text-muted-foreground">Plano Mensal Premium</p>
                 </div>
               </div>

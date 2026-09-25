@@ -1,10 +1,10 @@
-// Orbis — verificar-deposito (Carteira X1)
-// O usuario faz o Pix pra conta do Orbis e sobe o COMPROVANTE. A IA le e valida:
+// Vant — verificar-deposito (Carteira X1)
+// O usuario faz o Pix pra conta da Vant e sobe o COMPROVANTE. A IA le e valida:
 //   - e um comprovante de Pix de verdade, pro destino certo
 //   - extrai valor, data/hora, remetente e o ID unico da transacao (E2E)
 // Travas anti-burla (no servidor):
 //   - E2E unico: o MESMO comprovante nunca credita 2x (indice unico no banco)
-//   - destino tem que ser a chave do Orbis; Pix com mais de 48h nao credita sozinho
+//   - destino tem que ser a chave da Vant; Pix com mais de 48h nao credita sozinho
 //   - teto de credito automatico (DEPOSITO_AUTO_MAX, padrao R$100) — acima disso vai
 //     pra fila de revisao do admin; teto de envios/dia (bump_ai_usage)
 //   - tudo que a IA nao tiver certeza vai pra revisao, nunca credita no escuro
@@ -19,7 +19,7 @@ const corsHeaders = {
 };
 
 function buildPrompt(chaveOrbis: string): string {
-  return `Voce e um auditor do app Orbis. Recebe a imagem ou PDF de um COMPROVANTE DE PIX brasileiro (recibo de transferencia enviada).
+  return `Voce e um auditor do app Vant. Recebe a imagem ou PDF de um COMPROVANTE DE PIX brasileiro (recibo de transferencia enviada).
 
 VALIDE E EXTRAIA (seja rigoroso — na duvida, marque false/vazio):
 - "e_comprovante": true SO se for claramente um comprovante/recibo de Pix ENVIADO (nao extrato, nao print de conversa, nao foto aleatoria).
@@ -29,7 +29,7 @@ VALIDE E EXTRAIA (seja rigoroso — na duvida, marque false/vazio):
 - "remetente": nome de quem ENVIOU o Pix.
 - "destinatario": nome de quem RECEBEU.
 - "chave_destino": a chave Pix de destino mostrada (se aparecer; pode vir mascarada).
-- "destino_confere": true SO se a chave de destino (ou o CNPJ/nome do recebedor) bater com esta chave do Orbis: "${chaveOrbis}". Mascaras parciais que sejam compativeis contam como true; destino claramente diferente = false.
+- "destino_confere": true SO se a chave de destino (ou o CNPJ/nome do recebedor) bater com esta chave da Vant: "${chaveOrbis}". Mascaras parciais que sejam compativeis contam como true; destino claramente diferente = false.
 
 ATENCAO ANTI-FRAUDE: se houver QUALQUER sinal de edicao/montagem (fontes desalinhadas, valores borrados, layout estranho pro banco em questao), marque "suspeito": true e explique em "motivo_suspeita".
 
@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
     // Por que NAO creditar sozinho? (vai pra fila do admin em vez de rejeitar)
     const motivos: string[] = [];
     if (!e2e) motivos.push("sem ID E2E legivel");
-    if (p.destino_confere !== true) motivos.push("destino nao confere com a chave do Orbis");
+    if (p.destino_confere !== true) motivos.push("destino nao confere com a chave da Vant");
     if (p.suspeito === true) motivos.push(`IA suspeitou: ${String(p.motivo_suspeita ?? "").slice(0, 120)}`);
     if (!dataPix) motivos.push("sem data/hora legivel");
     else if (idadeHoras > 48) motivos.push("Pix com mais de 48h");

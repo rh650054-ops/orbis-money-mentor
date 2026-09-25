@@ -1,5 +1,5 @@
 /* ============================================================
-   DICA DO ORBIS — gerada por IA com os números da própria pessoa.
+   DICA DA VANT — gerada por IA com os números da própria pessoa.
 
    Rick (10/09): "as dicas tem que ser com IA". Uma dica por dia, guardada no
    aparelho (localStorage) pra não gastar IA a cada abertura da tela; o botão
@@ -116,7 +116,7 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
           <span className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-[9px] shrink-0" style={{ background: "rgba(245,184,0,.14)" }}>
             <Sparkles className="w-4 h-4" style={{ color: "var(--orbis-gold,#F5B800)" }} strokeWidth={2.2} />
           </span>
-          <span className="orbis-label">Dica do Orbis</span>
+          <span className="orbis-label">Dica da Vant</span>
         </span>
         <span className="text-[11px] font-bold" style={{ color: "var(--orbis-fg-3,#7e7869)" }}>
           {carregando ? "pensando…" : mostrando?.fonte === "ia" && horaLabel ? `lida ${horaLabel}` : mostrando ? "sem IA por enquanto" : ""}

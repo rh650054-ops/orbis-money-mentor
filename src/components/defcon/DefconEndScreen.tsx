@@ -9,7 +9,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, getBrazilDateLabel, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { TrialNudge } from "@/components/TrialNudge";
 import jsPDF from "jspdf";
-import orbisLogo from "@/assets/orbis-logo-share.png";
+import orbisLogo from "@/assets/vant-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
@@ -349,7 +349,7 @@ export function DefconEndScreen({
       doc.setTextColor(244, 161, 0);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
-      doc.text("Relatório de Clientes — Orbis", margin, 40);
+      doc.text("Relatório de Clientes — Vant", margin, 40);
       doc.setTextColor(220, 220, 220);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
@@ -436,7 +436,7 @@ export function DefconEndScreen({
       doc.setTextColor(244, 161, 0);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(20);
-      doc.text("Relatório de Transações — Orbis", margin, 40);
+      doc.text("Relatório de Transações — Vant", margin, 40);
       doc.setTextColor(220, 220, 220);
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
@@ -752,7 +752,7 @@ export function DefconEndScreen({
         ctx.drawImage(logo, W / 2 - w / 2, y, w, w * ratio);
         ctx.restore();
       } else {
-        centerText("ORBIS", y + 40, 80, "900", WHITE, 16);
+        centerText("VANT", y + 40, 80, "900", WHITE, 16);
       }
     };
 
@@ -786,7 +786,7 @@ export function DefconEndScreen({
       rg.addColorStop(1, "rgba(244,161,0,0)");
       ctx.fillStyle = rg;
       ctx.fillRect(0, 0, W, 1000);
-      centerText("ORBIS · DEFCON 4", 170, 36, "800", GOLD, 8);
+      centerText("VANT · DEFCON 4", 170, 36, "800", GOLD, 8);
       centerText(dateLabel.toUpperCase(), 226, 28, "600", MUTED, 4);
       centerText("FATURAMENTO DO DIA", 400, 38, "700", MUTED, 6);
       centerText(formatCurrency(totalSold), 520, 150, "900", WHITE);
@@ -868,7 +868,7 @@ export function DefconEndScreen({
       if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
         await nav.share({
           files: [file],
-          title: "Meu resultado no Orbis",
+          title: "Meu resultado na Vant",
           text: `${formatCurrency(totalSold)} • ${percentage.toFixed(0)}% da meta`,
         });
       } else {

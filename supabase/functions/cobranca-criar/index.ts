@@ -1,5 +1,5 @@
-// Orbis — cobranca-criar: gera um Pix NA CARTEIRA DO PRÓPRIO VENDEDOR.
-// O dinheiro vai direto do cliente pra conta dele; o Orbis nunca toca no dinheiro,
+// Vant — cobranca-criar: gera um Pix NA CARTEIRA DO PRÓPRIO VENDEDOR.
+// O dinheiro vai direto do cliente pra conta dele; a Vant nunca toca no dinheiro,
 // só guarda o link, o copia-e-cola e o status pra dar baixa depois.
 //
 // verify_jwt=false porque a conferência do login é feita aqui dentro (mesmo padrão
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     const valor = Math.round((Number(body?.valor) || 0) * 100) / 100;
     const nome = String(body?.nome ?? "").trim().slice(0, 60);
     const telefone = String(body?.telefone ?? "").replace(/\D/g, "").slice(0, 13);
-    const descricao = String(body?.descricao ?? "").trim().slice(0, 100) || "Cobranca Orbis";
+    const descricao = String(body?.descricao ?? "").trim().slice(0, 100) || "Cobranca Vant";
     const clientId = body?.client_id ? String(body.client_id) : null;
     const horas = Math.min(720, Math.max(1, Number(body?.horas) || 48));
     const abate = body?.abate_calote === false ? false : true;
@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
     const expira = expiraISO(horas);
 
     // e-mail do pagador é obrigatório na API do MP. Como o cliente do camelô
-    // não tem e-mail cadastrado, vai um endereco tecnico do proprio Orbis —
+    // não tem e-mail cadastrado, vai um endereco tecnico do proprio Vant —
     // nada e enviado pra ele; quem paga usa o QR ou o copia-e-cola.
     const pagadorEmail = `cobranca+${ref.slice(0, 8)}@orbis.inf.br`;
     const partes = nome.split(/\s+/).filter(Boolean);
@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
         payer: {
           email: pagadorEmail,
           first_name: partes[0] || "Cliente",
-          last_name: partes.slice(1).join(" ") || "Orbis",
+          last_name: partes.slice(1).join(" ") || "Vant",
         },
       }),
       signal: AbortSignal.timeout(25000),

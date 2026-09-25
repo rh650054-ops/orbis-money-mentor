@@ -18,7 +18,7 @@ import { DayStartPopup } from "@/components/DayStartPopup";
 import { WeeklyChallengeDashboardCard } from "@/components/competitions/WeeklyChallenge";
 import { isWeeklyTicketPending, WEEKLY_TICKET_DONE_EVENT } from "@/shared/lib/weeklyChallenge";
 import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
-// Orbis 2.0 (set/2026): blocos do dashboard novo + onboarding
+// Vant 2.0 (set/2026): blocos do dashboard novo + onboarding
 import RankingCard from "@/components/RankingCard";
 import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha, CompeticaoRow } from "@/components/dashboard/Dashboard";
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
@@ -599,7 +599,7 @@ export default function Index() {
           userId={user.id}
           momentKey="meta_dia"
           title="Meta do dia batida!"
-          benefit="Quem usa o Orbis todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
+          benefit="Quem usa a Vant todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
         />
       )}
 

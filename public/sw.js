@@ -1,4 +1,4 @@
-// Orbis service worker.
+// Vant service worker.
 //
 // Ações rápidas na tela bloqueada durante o DEFCON, sem destravar o celular.
 //
@@ -16,9 +16,9 @@
 // bug da tela preta (que vinha de cache-FIRST servindo build velho). Só guarda GET
 // do MESMO domínio (o shell: html, js, css, ícones) — NUNCA chamadas ao Supabase.
 // Pra "matar" o offline em emergência: sobe o CACHE_VERSION que o activate limpa tudo.
-const CACHE_VERSION = "orbis-shell-v1";
+const CACHE_VERSION = "vant-shell-v1"; // subiu no rebrand: limpa o shell antigo com a logo do Orbis
 
-const ICON = "/orbis-icon-192.png";
+const ICON = "/vant-icon-192.png";
 const TAG_MAIN = "orbis-defcon";         // Android: notificação única com botões
 const TAG_VENDA = "orbis-venda";         // iPhone: notificação de toque (venda)
 const TAG_ABORDAGEM = "orbis-abordagem"; // iPhone: notificação de toque (abordagem)
@@ -106,7 +106,7 @@ async function closeTag(tag) {
 async function showButtons(data) {
   const d = cleanData(data);
   const valor = brl(d.quickValue);
-  return self.registration.showNotification("Orbis — DEFCON 4 ativo", {
+  return self.registration.showNotification("Vant — DEFCON 4 ativo", {
     tag: TAG_MAIN,
     body: `Vendas: ${d.vendas}  ·  Abordagens: ${d.abordagens}`,
     icon: ICON,

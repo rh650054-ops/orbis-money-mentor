@@ -248,8 +248,8 @@ export default function Ranking() {
       if (nav.canShare && nav.canShare({ files: [file] }) && navigator.share) {
         await navigator.share({
           files: [file],
-          title: "Meu ranking no Orbis",
-          text: "Veja minha posição no ranking do Orbis 🏆",
+          title: "Meu ranking na Vant",
+          text: "Veja minha posição no ranking da Vant 🏆",
         });
       } else {
         // Fallback: download
@@ -300,7 +300,7 @@ export default function Ranking() {
       <div className="pb-8 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold text-foreground">
-            Ranking <span className="text-primary">Orbis</span>
+            Ranking <span className="text-primary">Vant</span>
           </h1>
           <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
         </div>
@@ -320,7 +320,7 @@ export default function Ranking() {
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">
-          Ranking <span className="text-primary">Orbis</span>
+          Ranking <span className="text-primary">Vant</span>
         </h1>
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>

@@ -1,4 +1,4 @@
-// Orbis — importar-semaforos
+// Vant — importar-semaforos
 // Importa semáforos REAIS do OpenStreetMap (nós highway=traffic_signals) pra
 // dentro da tabela caca_sinais. Só ADMIN pode disparar (evita abuso do Overpass).
 // Não usa Google: geocode pela Nominatim (OSM) e os sinais vêm da Overpass API.

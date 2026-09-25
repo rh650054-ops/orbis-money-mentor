@@ -33,17 +33,17 @@ export default function Termos() {
 
         <S t="1. Aceite">
           <p>
-            Ao criar uma conta ou usar o <strong>Orbis</strong> (www.orbis.inf.br), você concorda com
+            Ao criar uma conta ou usar a <strong>Vant</strong> (www.orbis.inf.br), você concorda com
             estes Termos de Uso e com a nossa{" "}
             <Link to="/privacidade" className="text-primary underline">Política de Privacidade</Link>.
             Se não concordar, não use o serviço.
           </p>
         </S>
 
-        <S t="2. O que é o Orbis">
+        <S t="2. O que é a Vant">
           <p>
             Uma ferramenta de gestão para vendedores autônomos: metas diárias, registro de vendas e
-            custos, estoque, finanças, rankings, competições e um assistente de IA. O Orbis é uma
+            custos, estoque, finanças, rankings, competições e um assistente de IA. A Vant é uma
             ferramenta de organização — <strong>não é consultoria financeira, contábil ou jurídica</strong>,
             e as sugestões do assistente de IA não substituem um profissional habilitado.
           </p>
@@ -52,8 +52,8 @@ export default function Termos() {
         <S t="3. Sua conta">
           <p>
             O cadastro exige CPF válido e dados verdadeiros. A conta é pessoal e intransferível; você
-            é responsável por manter a senha em sigilo e por tudo que acontecer na sua conta. O Orbis
-            é destinado a maiores de 18 anos.
+            é responsável por manter a senha em sigilo e por tudo que acontecer na sua conta. A Vant
+            é destinada a maiores de 18 anos.
           </p>
         </S>
 
@@ -82,7 +82,7 @@ export default function Termos() {
 
         <S t="7. Propriedade intelectual">
           <p>
-            O Orbis, sua marca, layout e código pertencem aos seus titulares. Seus dados são seus:
+            A Vant, sua marca, layout e código pertencem aos seus titulares. Seus dados são seus:
             você pode exportá-los (ex.: CSV) e excluí-los quando quiser.
           </p>
         </S>

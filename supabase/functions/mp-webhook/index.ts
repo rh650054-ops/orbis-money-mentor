@@ -1,6 +1,6 @@
-// Orbis — mp-webhook: o Mercado Pago chama aqui quando um pagamento acontece.
+// Vant — mp-webhook: o Mercado Pago chama aqui quando um pagamento acontece.
 // Três engrenagens:
-//   A) DEPÓSITO na carteira X1 (pagamento na conta do Orbis) → credita o saldo.
+//   A) DEPÓSITO na carteira X1 (pagamento na conta da Vant) → credita o saldo.
 //   B) VENDA de um vendedor CONECTADO (Mercado Pago Connect) → grava em mp_vendas
 //      pra ele lançar no DEFCON com um toque.
 //   C) COBRANÇA do cobrador de calote (tem external_reference nosso) → dá baixa
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         }, { onConflict: "payment_id", ignoreDuplicates: true });
       }
 
-      // ---- C) era uma COBRANÇA do Orbis? dá baixa no calote sozinha.
+      // ---- C) era uma COBRANÇA da Vant? dá baixa no calote sozinha.
       if (ref) {
         const { data: cob } = await admin.from("cobrancas")
           .select("id, user_id, lancada")
@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
       return ok();
     }
 
-    // ---- A) depósito na carteira X1 (conta do Orbis)
+    // ---- A) depósito na carteira X1 (conta da Vant)
     const { data: upd } = await admin
       .from("x1_mp_payments")
       .update({ status: "creditado", credited_at: new Date().toISOString() })

@@ -401,7 +401,7 @@ export function DefconRunning({
   /* ---- COBRANÇA NA HORA (pedido do Rick, 09/09) ------------------------------
      O momento de cobrar é ESTE: o cara acabou de levar a mercadoria, o vendedor
      digitou o nome e o telefone, e a cobrança tem que sair no mesmo segundo.
-     Ao abrir a prévia o Orbis JÁ cria o Pix na carteira do vendedor e cola o
+     Ao abrir a prévia a Vant JÁ cria o Pix na carteira do vendedor e cola o
      link dentro da mensagem. Quando o cliente paga, o webhook confirma sozinho.
      Se a carteira não estiver ligada (ou a criação falhar), cai no jeito antigo:
      a mensagem vai com a chave Pix dele. Nada quebra pra quem não conectou. */
@@ -423,7 +423,7 @@ export function DefconRunning({
           telefone: sanitizePhone(salePhone),
           valor: amount,
           descricao: produtoDaVenda(),
-          // a venda é lançada aqui na hora — quando o cliente pagar, o Orbis
+          // a venda é lançada aqui na hora — quando o cliente pagar, a Vant
           // só confirma. Se somasse de novo, o dia contava o dinheiro em dobro.
           abate_calote: false,
         },
@@ -1046,7 +1046,7 @@ export function DefconRunning({
               </span>
             ) : cobrancaLink ? (
               <span className="text-xs font-bold flex items-center gap-2" style={{ color: "#3DD68C" }}>
-                <Check className="w-3.5 h-3.5" strokeWidth={3} /> Pix criado — o link já está na mensagem. Quando ela pagar, o Orbis avisa você.
+                <Check className="w-3.5 h-3.5" strokeWidth={3} /> Pix criado — o link já está na mensagem. Quando ela pagar, a Vant avisa você.
               </span>
             ) : (
               <span className="text-xs font-bold block" style={{ color: "#EAB308" }}>

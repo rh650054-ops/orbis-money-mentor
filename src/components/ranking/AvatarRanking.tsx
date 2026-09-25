@@ -38,7 +38,7 @@ export function AvatarRanking({
   return <img src={icon} alt={name || ""} className={iconClassName} style={iconStyle} />;
 }
 
-/** Selo azul de verificado — 3+ meses de Orbis (ou marcado pela equipe). */
+/** Selo azul de verificado — 3+ meses de Vant (ou marcado pela equipe). */
 export function SeloVerificado({ size = 14, className }: { size?: number; className?: string }) {
   return (
     <BadgeCheck

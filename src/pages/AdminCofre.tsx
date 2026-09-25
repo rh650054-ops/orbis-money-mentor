@@ -14,7 +14,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { Brain, Plus, RefreshCw, Save, Trash2, Loader2, CloudSun, ChevronDown, ChevronRight } from "lucide-react";
 
 // ============================================================================
-// COFRE DE CONHECIMENTO — o "Obsidian do Orbis", agora dentro do app.
+// COFRE DE CONHECIMENTO — o "Obsidian da Vant", agora dentro do app.
 // Cada nota ATIVA da tabela ai_conhecimento entra no cérebro do mentor de IA
 // em toda conversa (bright-action lê via RPC orbis_conhecimento; a categoria
 // "padroes" também entra na ficha do vendedor). Editou, salvou, já vale.
@@ -176,7 +176,7 @@ export default function AdminCofre() {
       <div className="text-center py-20 px-6 max-w-2xl mx-auto">
         <p className="text-5xl mb-3">🔒</p>
         <p className="text-foreground font-bold">Área restrita</p>
-        <p className="text-sm text-muted-foreground mt-1">Só administradores do Orbis entram aqui.</p>
+        <p className="text-sm text-muted-foreground mt-1">Só administradores da Vant entram aqui.</p>
         <Button variant="outline" className="mt-6" onClick={() => navigate("/profile")}>Voltar ao perfil</Button>
       </div>
     );

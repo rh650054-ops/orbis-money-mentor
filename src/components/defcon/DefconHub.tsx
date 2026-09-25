@@ -1156,7 +1156,7 @@ export default function DefconHub() {
         {carga.length === 0 ? (
           <button onClick={() => navigate("/products")} className="w-full flex items-center gap-3 text-left">
             <span className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0" style={{ background: "rgba(245,184,0,.12)", color: "var(--orbis-gold)" }}><Package className="w-[18px] h-[18px]" strokeWidth={2} /></span>
-            <span className="flex-1 min-w-0"><b className="block text-[14px] font-bold">Quer que o Orbis controle seu estoque?</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>Cadastra o que você vende — desconta sozinho a cada venda.</small></span>
+            <span className="flex-1 min-w-0"><b className="block text-[14px] font-bold">Quer que a Vant controle seu estoque?</b><small className="block text-[12px] mt-0.5" style={{ color: "var(--orbis-fg-3)" }}>Cadastra o que você vende — desconta sozinho a cada venda.</small></span>
             <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#5f5a50" }} />
           </button>
         ) : (

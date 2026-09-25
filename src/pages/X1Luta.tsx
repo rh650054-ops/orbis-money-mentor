@@ -95,7 +95,7 @@ export default function X1Luta() {
   };
   const compartilhar = async () => {
     if (!l) return;
-    const texto = `X1 ao vivo no Orbis: ${primeiroNome(l.ch_nome)} ${fmt(l.ch_total)} × ${fmt(l.op_total)} ${primeiroNome(l.op_nome)}. Quem vende mais até 23:59 leva.`;
+    const texto = `X1 ao vivo na Vant: ${primeiroNome(l.ch_nome)} ${fmt(l.ch_total)} × ${fmt(l.op_total)} ${primeiroNome(l.op_nome)}. Quem vende mais até 23:59 leva.`;
     try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast({ title: "Copiado!" }); } } catch (e) { avisar.silencioso("X1Luta: compartilhar (cancelado)", e); }
   };
 

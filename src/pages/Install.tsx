@@ -60,7 +60,7 @@ export default function Install() {
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">App Já Instalado! ✓</h1>
           <p className="text-muted-foreground">
-            O Orbis já está instalado no seu dispositivo. Você pode acessá-lo diretamente pela tela inicial.
+            A Vant já está instalada no seu dispositivo. Você pode acessá-lo diretamente pela tela inicial.
           </p>
           <Button onClick={() => navigate("/")} className="w-full">
             Voltar ao Dashboard
@@ -76,9 +76,9 @@ export default function Install() {
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-20 h-20 mx-auto mb-4">
-            <img src="/orbis-logo.png" alt="Orbis Logo" className="w-full h-full rounded-2xl" />
+            <img src="/vant-logo.png" alt="Vant Logo" className="w-full h-full rounded-2xl" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Instale o App Orbis</h1>
+          <h1 className="text-3xl font-bold text-foreground tracking-tight">Instale o App Vant</h1>
           <p className="text-muted-foreground">
             Tenha acesso rápido, notificações e trabalhe offline
           </p>

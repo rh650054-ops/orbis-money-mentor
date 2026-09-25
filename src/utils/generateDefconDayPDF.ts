@@ -202,7 +202,7 @@ export async function generateDefconDayPDF(userId: string, date?: string) {
   y += 20;
   doc.setFontSize(9);
   doc.setTextColor(150);
-  doc.text("Gerado pelo Orbis · DEFCON 4", margin, y);
+  doc.text("Gerado pela Vant · DEFCON 4", margin, y);
 
   doc.save(`orbis-defcon4-${day}.pdf`);
 }

@@ -1,4 +1,4 @@
-// Orbis — mp-sync: puxa as vendas das contas conectadas no MERCADO PAGO.
+// Vant — mp-sync: puxa as vendas das contas conectadas no MERCADO PAGO.
 // Três modos de entrada (verify_jwt=false, a conferência é feita aqui dentro):
 //   1) login do vendedor (Authorization: Bearer <jwt do app>)  → sincroniza SÓ ele
 //   2) service_role + {user_id, dias}                          → uso interno (mp-callback)

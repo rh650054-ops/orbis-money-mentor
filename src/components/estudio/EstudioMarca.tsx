@@ -15,7 +15,7 @@ import { getCheckoutUrl } from "@/shared/lib/checkout";
 // 1) (opcional) galeria de modelos + 4 perguntas, pra quem entra por aqui;
 // 2) a arte chega pronta (do chat ou da geração) com uma área branca reservada;
 // 3) o QR ENCAIXA SOZINHO no quadrado branco (a gente acha ele lendo os pixels);
-// 4) o QR pode vir da CHAVE PIX (gerado pelo Orbis, escaneável garantido) OU de uma
+// 4) o QR pode vir da CHAVE PIX (gerado pela Vant, escaneável garantido) OU de uma
 //    FOTO/PRINT do QR que o vendedor já tem — dá pra arrastar e redimensionar;
 // 5) baixa o PNG achatado em alta resolução (3x), pronto pra gráfica.
 // A IA nunca desenha o QR (sairia quebrado) — o QR é sempre real.
@@ -25,7 +25,7 @@ const sb = supabase as any;
 
 interface Modelo { id: string; slug: string; nome: string; descricao: string; imagem_url: string | null; }
 
-// Briefing montado na CONVERSA com a Orbis IA (ferramenta criar_adesivo do cérebro).
+// Briefing montado na CONVERSA com a Vant IA (ferramenta criar_adesivo do cérebro).
 // Quando presente, a galeria é pulada: o estilo veio da conversa, e o vendedor ainda
 // pode anexar uma foto de referência DELE (inspiração de estilo — a arte sai original).
 export interface EstudioBrief { marca?: string; produto?: string; cores?: string; extras?: string; estilo?: string; }
@@ -183,7 +183,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   // Id do registro em estudio_geracoes — usado pra marcar que ele BAIXOU a arte
   const [geracaoId, setGeracaoId] = useState("");
 
-  // De onde vem o QR: da chave Pix (gerado pelo Orbis) ou de uma imagem que ele subiu
+  // De onde vem o QR: da chave Pix (gerado pela Vant) ou de uma imagem que ele subiu
   const [qrModo, setQrModo] = useState<"chave" | "imagem">("chave");
   const [qrImg, setQrImg] = useState<string | null>(null);
   const [encaixou, setEncaixou] = useState(false);
@@ -404,7 +404,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     if (!ctx) return pngDataUrl;
     ctx.drawImage(img, 0, 0);
 
-    const texto = "ORBIS · VERSÃO DE TESTE";
+    const texto = "VANT · VERSÃO DE TESTE";
     const fonte = Math.round(img.width * 0.055);
     ctx.font = `bold ${fonte}px system-ui, sans-serif`;
     ctx.textAlign = "center";
@@ -521,7 +521,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
           <h2 className="text-xl font-bold">Exclusivo pra assinantes</h2>
           <p className="text-sm text-muted-foreground">
             Com o Estúdio você cria em minutos a arte da sua marca com QR Pix de verdade — coisa que
-            designers cobram até R$ 80 pra fazer. Assine o Orbis e libere.
+            designers cobram até R$ 80 pra fazer. Assine a Vant e libere.
           </p>
         </div>
       ) : arte ? (
@@ -583,7 +583,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
                 />
                 <p className="text-xs text-muted-foreground">
                   {payloadPix
-                    ? "QR gerado pelo Orbis — escaneável garantido, com seu nome no comprovante."
+                    ? "QR gerado pela Vant — escaneável garantido, com seu nome no comprovante."
                     : "Digita a chave e o QR aparece na hora na arte."}
                 </p>
               </div>
@@ -640,7 +640,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             <div className="rounded-2xl border border-warning/40 bg-warning/10 p-3 space-y-1">
               <p className="text-sm font-semibold">Sua arte está pronta — e ficou boa.</p>
               <p className="text-xs text-muted-foreground">
-                No teste grátis o download sai com a marca d'água do Orbis por cima. Assinando, essa
+                No teste grátis o download sai com a marca d'água da Vant por cima. Assinando, essa
                 mesma arte baixa limpa, em alta resolução, pronta pra gráfica — e você passa de 2 pra
                 4 artes por dia.
               </p>
@@ -652,7 +652,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
               <div className="w-full max-w-sm rounded-2xl border border-primary/40 bg-card p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
                 <p className="text-base font-bold">Quer levar essa arte SEM a marca d'água?</p>
                 <p className="text-sm text-muted-foreground">
-                  Assinando o Orbis agora, essa mesma arte baixa limpa, em alta resolução, pronta pra
+                  Assinando a Vant agora, essa mesma arte baixa limpa, em alta resolução, pronta pra
                   gráfica — e você passa de 2 pra 4 artes por dia, além do mentor de vendas completo.
                 </p>
                 <Button
@@ -737,7 +737,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             </div>
           ) : brief?.estilo ? (
             <div className="rounded-2xl border border-primary/40 bg-card p-3">
-              <p className="text-xs font-medium text-muted-foreground">Estilo combinado na conversa com a Orbis IA</p>
+              <p className="text-xs font-medium text-muted-foreground">Estilo combinado na conversa com a Vant IA</p>
               <p className="text-sm mt-1">{brief.estilo}</p>
             </div>
           ) : null}
@@ -790,7 +790,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
           </Button>
           <p className="text-xs text-muted-foreground">
             A IA cria a arte no estilo escolhido e deixa um espaço em branco — depois você encaixa o
-            QR Pix REAL da sua chave (gerado pelo Orbis, escaneável garantido) e baixa pronto pra imprimir.
+            QR Pix REAL da sua chave (gerado pela Vant, escaneável garantido) e baixa pronto pra imprimir.
           </p>
         </div>
       )}

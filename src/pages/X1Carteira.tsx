@@ -283,7 +283,7 @@ export default function X1Carteira() {
     if (!user || !opp) return;
     setSaving(true);
     const s = Number(stakes) || 0;
-    // Taxa do Orbis: 10% do pote (rake), descontada do prêmio na liquidação.
+    // Taxa da Vant: 10% do pote (rake), descontada do prêmio na liquidação.
     const fee = s > 0 ? Math.round(s * 2 * 0.10 * 100) / 100 : 0;
     const prize = s > 0 ? Math.max(0, s * 2 - fee) : 0;
     const { error } = await supabase.from("x1_challenges" as any).insert({
@@ -371,7 +371,7 @@ export default function X1Carteira() {
     return rpc("admin_delete_x1", { p_id: id }, "X1 excluído");
   };
 
-  // Admin: premiar o vencedor. Prêmio = pote (2x aposta) − taxa Orbis; placar do ao-vivo se houver.
+  // Admin: premiar o vencedor. Prêmio = pote (2x aposta) − taxa Vant; placar do ao-vivo se houver.
   const adminPremiar = (c: X1, winnerId: string) => {
     if (!confirm(`Premiar ${name(winnerId)} como vencedor deste X1?`)) return;
     const fee = Number(settings?.fee_flat ?? 0);
@@ -724,7 +724,7 @@ export default function X1Carteira() {
                   <p className="text-2xl font-black text-amber-400 tabular-nums" style={{ textShadow: "0 0 16px rgba(245,158,11,.6)" }}>
                     🏆 {fmt(Math.max(0, Number(stakes) * 2 * 0.9))}
                   </p>
-                  <p className="text-[9px] text-muted-foreground mt-0.5">pote {fmt(Number(stakes) * 2)} − 10% do Orbis · sai da carteira no aceite · cai na carteira às 9h pelo extrato</p>
+                  <p className="text-[9px] text-muted-foreground mt-0.5">pote {fmt(Number(stakes) * 2)} − 10% da Vant · sai da carteira no aceite · cai na carteira às 9h pelo extrato</p>
                   {saldo < Number(stakes) && (
                     <p className="text-[10px] font-bold text-red-400 mt-1">⚠️ Seu saldo é {fmt(saldo)} — deposita antes do aceite!</p>
                   )}
@@ -924,7 +924,7 @@ export default function X1Carteira() {
               onClick={() => navigator.clipboard?.writeText(settings?.pix_account || "").then(() => toast({ title: "Chave Pix copiada" }), () => {})}
               className="w-full rounded-xl bg-[#0e0e10] border border-border p-2.5 text-left active:scale-[0.98] transition-transform"
             >
-              <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground"><Copy className="w-3 h-3" /> 1 · Copiar chave Pix do Orbis</span>
+              <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-muted-foreground"><Copy className="w-3 h-3" /> 1 · Copiar chave Pix da Vant</span>
               <span className="block text-[12px] font-semibold text-emerald-400 truncate mt-0.5">{settings?.pix_account || "—"}</span>
             </button>
             <label className={`w-full rounded-xl border border-dashed border-emerald-500/50 bg-emerald-500/5 p-2.5 flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform ${enviandoComprovante ? "opacity-60 pointer-events-none" : ""}`}>
@@ -1145,7 +1145,7 @@ export default function X1Carteira() {
                     <div>
                       <p className="text-[11px] font-bold uppercase tracking-wider text-amber-400">Pagamento da aposta</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                        Faça um Pix de <span className="text-amber-400 font-bold">{fmt(c.stakes_amount)}</span> pra a conta do Orbis usando a chave abaixo — é o nosso <b className="text-foreground">CNPJ</b>. Depois suba o comprovante; o admin confere e libera o duelo.
+                        Faça um Pix de <span className="text-amber-400 font-bold">{fmt(c.stakes_amount)}</span> pra a conta da Vant usando a chave abaixo — é o nosso <b className="text-foreground">CNPJ</b>. Depois suba o comprovante; o admin confere e libera o duelo.
                       </p>
                     </div>
 

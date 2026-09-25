@@ -25,7 +25,7 @@ interface DefconSmartNotificationProps {
 
 const NOTIFICATION_DURATION = 12000; // 12 seconds — tempo para ler com calma
 const DEFAULT_BENCHMARK = 8;
-const COACH_DAILY_CAP = 8;            // ~1 por bloco num dia de 8 blocos (Rick, 09/09: quer o Orbis presente no meio do corre)
+const COACH_DAILY_CAP = 8;            // ~1 por bloco num dia de 8 blocos (Rick, 09/09: quer a Vant presente no meio do corre)
 const COACH_COOLDOWN_APPROACHES = 3;  // nunca duas seguidas numa rajada de abordagem (anti-spam)
 const COACH_AI_TIMEOUT_MS = 6000;     // tempo p/ a IA enriquecer (o template já apareceu na hora)
 
@@ -299,7 +299,7 @@ export function DefconSmartNotification({
 
       approachesSinceLastSaleRef.current = 0;
 
-      // TRIGGER 2 — a partir da 2a venda, o Orbis DIAGNOSTICA em vez de só elogiar.
+      // TRIGGER 2 — a partir da 2a venda, a Vant DIAGNOSTICA em vez de só elogiar.
       // O texto vem de defcon_diagnostico: causa + conselho concreto.
       if (totalSalesCount >= 2) {
         const triggerKey = `diag_venda_${totalSalesCount}`;

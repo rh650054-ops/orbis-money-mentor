@@ -1,5 +1,5 @@
 /* ============================================================
-   ORBIS DESIGN SYSTEM 2.0 — tokens + movimento
+   VANT DESIGN SYSTEM 2.0 — tokens + movimento
    Decisões tomadas com o Rick (set/2026):
    - Preto ABSOLUTO (#000) como palco; superfícies em cinza neutro
    - Fonte do Opal = SF Pro (nativa do iPhone); Android cai na Inter
@@ -57,7 +57,7 @@
 /* ---- botão primário 3D (Duolingo press) ---- */
 /* REDE DE SEGURANÇA DOS POPUPS (Rick, 22/09): o Dialog do Radix põe pointer-events:none
    no <body> enquanto está aberto. Qualquer popup nosso que abra por cima (portal fora do
-   Radix) ficava sem receber toque — "não sai de jeito nenhum". Todo popup do Orbis volta
+   Radix) ficava sem receber toque — "não sai de jeito nenhum". Todo popup da Vant volta
    a ser clicável, sempre. */
 [role="dialog"], .orbis-popup { pointer-events: auto; }
 

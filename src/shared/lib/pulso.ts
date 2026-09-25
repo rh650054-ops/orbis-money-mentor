@@ -1,13 +1,13 @@
 /* ============================================================
-   O PULSO DO ORBIS — o sensor de retenção.
+   O PULSO DA VANT — o sensor de retenção.
 
-   Pedido do Rick: "preciso que o Orbis saiba o momento de conversar com base
+   Pedido do Rick: "preciso que a Vant saiba o momento de conversar com base
    na retenção dele no app... o que faz o usuário ficar mais, quanto tempo ele
    ficou por causa daquela função, o que ele viu que fez ele sair, o momento
    certo que mandou algo e ele saiu, mas também algo que mandou e ele ficou."
 
    Este arquivo NÃO decide nada e NÃO gasta IA. Ele só anota por onde o
-   vendedor andou, quanto tempo ficou e o que o Orbis falou antes. É a
+   vendedor andou, quanto tempo ficou e o que a Vant falou antes. É a
    fundação: sem histórico acumulado, nenhuma inteligência de "hora certa"
    tem em que se apoiar — e dia que não grava é dia que não volta.
 
@@ -157,7 +157,7 @@ export function pulsoTela(nome: string) {
   telaDesde = Date.now();
 }
 
-/** O Orbis falou alguma coisa com ele (pop-up, coach, alerta de ranking). */
+/** A Vant falou alguma coisa com ele (pop-up, coach, alerta de ranking). */
 export function pulsoFala(qual: string) {
   enfileirar("fala", telaAtual, qual, null);
 }

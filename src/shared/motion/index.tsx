@@ -1,5 +1,5 @@
 /* ============================================================
-   KIT DE MOVIMENTO DO ORBIS
+   KIT DE MOVIMENTO DA VANT
    - useReducedMotion(): respeita "reduzir movimento" do celular
    - AnimatedNumber: número que CONTA até o valor (600ms)
    - AnimatedCurrency: idem, formatado em R$
@@ -25,7 +25,7 @@ export function useReducedMotion(): boolean {
   return !!reduced;
 }
 
-/** Conta de 0 até `value` em ~600ms com a curva do Orbis (desacelera no fim). */
+/** Conta de 0 até `value` em ~600ms com a curva da Vant (desacelera no fim). */
 export function useCountUp(value: number, duration = 600): number {
   const reduced = useReducedMotion();
   const [shown, setShown] = useState(reduced ? value : 0);
@@ -40,7 +40,7 @@ export function useCountUp(value: number, duration = 600): number {
     let raf = 0;
     const tick = (t: number) => {
       const p = Math.min(1, (t - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic ~ curva do Orbis
+      const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic ~ curva da Vant
       setShown(from + (value - from) * eased);
       if (p < 1) raf = requestAnimationFrame(tick);
       else fromRef.current = value;

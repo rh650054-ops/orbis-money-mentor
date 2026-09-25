@@ -105,7 +105,7 @@ export default function Auth() {
           }
           throw error;
         }
-        toast({ title: "Login realizado!", description: "Bem-vindo de volta ao Orbis." });
+        toast({ title: "Login realizado!", description: "Bem-vindo de volta à Vant." });
         navigate("/", { replace: true });
       } else {
         const cleanedCpf = cpf.replace(/\D/g, '');
@@ -150,7 +150,7 @@ export default function Auth() {
 
         if (signUpError) {
           if (signUpError.message.includes("already registered") || signUpError.message.includes("User already")) {
-            throw new Error("Este CPF já possui uma conta no Orbis. Faça login.");
+            throw new Error("Este CPF já possui uma conta na Vant. Faça login.");
           }
           throw signUpError;
         }
@@ -185,7 +185,7 @@ export default function Auth() {
 
         toast({
           title: "Conta criada! 🎉",
-          description: "Bem-vindo ao Orbis. Você ganhou 3 dias de teste grátis.",
+          description: "Bem-vindo à Vant. Você ganhou 3 dias de teste grátis.",
         });
         // Marca a conta como "Onboarding 2.0" (o Layout não mostra a missão antiga pra ela)
         if (signUpData?.user) {
@@ -225,8 +225,8 @@ export default function Auth() {
           {/* Marca: logo maior, título do momento e a assinatura da casa */}
           <div className="flex flex-col items-center gap-3 mb-6">
             <img
-              src="/orbis-logo.png"
-              alt="Orbis"
+              src="/vant-logo.png"
+              alt="Vant"
               className="w-20 h-20 object-contain animate-orbis-spin-in drop-shadow-[0_10px_28px_hsl(45_100%_48%_/_0.30)]"
             />
             <div className="text-center space-y-1">

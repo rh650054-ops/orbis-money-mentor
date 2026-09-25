@@ -1,6 +1,6 @@
 /* ============================================================
    CLIMA CENA — a foto, o boneco vivo e o tempo por cima.
-   Estado vem do backend (clima-vendedor). Tocar na cena faz o Orbis pular
+   Estado vem do backend (clima-vendedor). Tocar na cena faz a Vant pular
    e falar a próxima frase (o pai controla a fala). CSS em styles/clima.css.
    ============================================================ */
 import { useEffect, useMemo, useRef } from "react";
@@ -43,7 +43,7 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
   const boneco = estado === "frio" ? "frio" : estado === "chuva" || estado === "tempestade" ? "chuva" : estado === "noite" ? "noite" : "calor";
   // o fundo tem que ser o da MESMA foto do boneco: a foto de trás já tem o
   // personagem dentro, e o recorte encaixa exatamente em cima dele. Misturar
-  // (boneco de frio no fundo de calor) mostrava dois Orbis na mesma cena.
+  // (boneco de frio no fundo de calor) mostrava duas Vant na mesma cena.
   const fundo = estado === "chuva" || estado === "tempestade" ? "chuva" : estado === "noite" ? "noite" : estado === "frio" ? "frio" : "calor";
   const filtro = estado === "nublado" ? "nublado" : "";
   const acao = estado === "frio" ? "frio" : estado === "tempestade" ? "tempestade" : estado === "calor" ? "calor" : "";
@@ -54,7 +54,7 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
 
   /* MOVIMENTO DO BONECO — feito em JavaScript de propósito.
      Quando o celular está no modo economia de bateria (ou com "reduzir
-     animações" ligado), o navegador CONGELA as animações de CSS e o Orbis
+     animações" ligado), o navegador CONGELA as animações de CSS e a Vant
      ficava parado feito estátua. Desenhar quadro a quadro aqui continua
      funcionando nesses celulares. */
   const refBoneco = useRef<HTMLDivElement>(null);
@@ -97,7 +97,7 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
   }, [acao]);
 
   return (
-    <div className="cl-cena" onClick={onToque} role="button" aria-label="Toque pra ouvir o Orbis">
+    <div className="cl-cena" onClick={onToque} role="button" aria-label="Toque pra ouvir a Vant">
       <div className="cl-mundo">
         <img className={`cl-fundo ${filtro}`} src={`${BASE}/${fundo}.jpg${V}`} alt="" draggable={false} />
         {estado === "nublado" && <span className="cl-fx cl-veu-cinza" />}
@@ -142,7 +142,7 @@ export function ClimaCena({ estado, temp, condicao, linha, cidade, fontes, conco
         {/* o boneco: fora respira/pula, dentro reage ao clima (movimento em JS, ver acima) */}
         <div className="cl-boneco" ref={refBoneco}>
           <div className="cl-corpo" ref={refCorpo}>
-            <img src={`${BASE}/${boneco}-boneco.webp${V}`} alt="Orbis" draggable={false} />
+            <img src={`${BASE}/${boneco}-boneco.webp${V}`} alt="Vant" draggable={false} />
             {estado === "frio" && (<><span className="cl-halito" style={boca} /><span className="cl-halito b" style={boca} /></>)}
           </div>
         </div>

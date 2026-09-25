@@ -87,7 +87,7 @@ export function RelatorioShareCard({ stats }: { stats: RecapStats }) {
       if (nav.canShare && nav.canShare({ files: [file] }) && nav.share) {
         await nav.share({
           files: [file],
-          title: "Meu resultado no Orbis",
+          title: "Meu resultado na Vant",
           text: `${stats.titulo} • ${formatCurrency(stats.faturamento)} de faturamento`,
         });
       } else {

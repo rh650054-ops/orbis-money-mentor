@@ -1,5 +1,5 @@
 /* ============================================================
-   ROSTO DO ORBIS POR CLIMA — só no chip da Home (Rick, 11/09).
+   ROSTO DA VANT POR CLIMA — só no chip da Home (Rick, 11/09).
    O corpo, o boné e o capuz continuam sendo a foto. Só a CARA é
    desenhada por cima, no lugar exato do círculo branco de cada
    imagem (posição medida em pixels), pra ela mudar de expressão:

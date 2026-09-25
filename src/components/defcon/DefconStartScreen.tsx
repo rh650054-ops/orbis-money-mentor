@@ -36,7 +36,7 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
           {primeiroDia && (
             <span className="inline-flex items-center gap-1.5 rounded-full px-3 h-[26px] mb-3 text-[10.5px] font-extrabold tracking-[.1em] uppercase"
               style={{ background: "rgba(61,214,140,.12)", color: "#3DD68C", border: "1px solid rgba(61,214,140,.35)" }}>
-              Seu primeiro dia com o Orbis
+              Seu primeiro dia com a Vant
             </span>
           )}
           <h1 className="text-4xl font-black text-foreground tracking-tight leading-none">
@@ -45,7 +45,7 @@ export function DefconStartScreen({ dailyGoal, totalBlocks, onStart, onExit, onb
             DESAFIO
           </h1>
           <p className="text-xs text-muted-foreground font-mono mt-3 max-w-[240px] mx-auto">
-            {primeiroDia ? "A meta veio do seu plano. Registra cada venda com um toque — o resto o Orbis faz." : "Blocos de 60min. Sem distrações. Apenas vendas."}
+            {primeiroDia ? "A meta veio do seu plano. Registra cada venda com um toque — o resto a Vant faz." : "Blocos de 60min. Sem distrações. Apenas vendas."}
           </p>
         </div>
 

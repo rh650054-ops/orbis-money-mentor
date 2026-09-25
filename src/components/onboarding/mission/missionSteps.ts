@@ -54,7 +54,7 @@ export const missionSteps: MissionStep[] = [
     phase: 1,
     route: "/",
     special: "card-registration",
-    title: "Bem-vindo ao Orbis 🔥",
+    title: "Bem-vindo à Vant 🔥",
     instruction:
       "Vamos preparar seu corre em poucos passos. Primeiro: garante seu acesso.",
     advanceOn: "next",
@@ -66,7 +66,7 @@ export const missionSteps: MissionStep[] = [
     selector: '[data-tour="meta-input"]',
     title: "Configure suas metas",
     instruction:
-      "Diz quanto quer faturar no mês e quantas horas/dias trabalha. O Orbis calcula sua meta de cada dia.",
+      "Diz quanto quer faturar no mês e quantas horas/dias trabalha. A Vant calcula sua meta de cada dia.",
     cta: "👉 toque e preencha suas metas",
     advanceOn: "action",
     actionEvent: "goal-set",
@@ -78,7 +78,7 @@ export const missionSteps: MissionStep[] = [
     route: "/",
     title: "Tudo pronto! ✅",
     instruction:
-      "Sua meta está definida. Agora é só explorar o Orbis à vontade — cada tela vai se explicar sozinha na primeira vez que você entrar nela. Bora vender! 🔥",
+      "Sua meta está definida. Agora é só explorar a Vant à vontade — cada tela vai se explicar sozinha na primeira vez que você entrar nela. Bora vender! 🔥",
     cta: "Próximo 👇",
     advanceOn: "next",
     optional: true,
@@ -88,7 +88,7 @@ export const missionSteps: MissionStep[] = [
     phase: 2,
     route: "/",
     special: "pwa-install",
-    title: "Instale o Orbis no celular",
+    title: "Instale a Vant no celular",
     instruction:
       "Deixa o app na tela inicial — abre mais rápido e fica igual um app de verdade.",
     advanceOn: "next",

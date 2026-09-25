@@ -1,5 +1,5 @@
 /* ============================================================
-   NOVIDADES ORBIS 2.0 — o "relatório de lançamento".
+   NOVIDADES VANT 2.0 — o "relatório de lançamento".
    Aparece UMA vez por usuário, a partir de 01/09/2026, na primeira
    abertura do app: o que mudou hoje + o que vem em setembro.
    Card central (campo de visão), rolável, no design system.
@@ -20,7 +20,7 @@ const FEITO = [
   ["Calote e recebimento", "Registre o calote do dia e o dinheiro que caiu depois (dinheiro, pix ou cartão)."],
   ["Onboarding", "Quem chega agora monta o plano em 40 segundos e já sai com a meta do dia."],
   ["Cards de primeira vez", "Cada tela explica só o principal na primeira abertura — e nunca mais incomoda."],
-  ["Hora combinada", "Marque que horas começa a vender; o Orbis te dá um toque se o dia começar sem você."],
+  ["Hora combinada", "Marque que horas começa a vender; a Vant te dá um toque se o dia começar sem você."],
   ["DEFCON 4 offline", "Sem sinal? Continua registrando — e sem internet nenhuma, um botão abre o DEFCON 4 offline — a mesma tela, tudo salvo no celular. Sobe sozinho quando o sinal volta."],
   ["Dias de folga", "Marque no planejamento os dias que você trabalha: folga não quebra sua constância."],
 ];
@@ -78,7 +78,7 @@ export default function NovidadesOrbis2({ userId }: { userId?: string }) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[85] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Novidades do Orbis 2.0">
+    <div className="fixed inset-0 z-[85] flex items-center justify-center" role="dialog" aria-modal="true" aria-label="Novidades da Vant 2.0">
       <button type="button" aria-label="Fechar" onClick={fechar} className="absolute inset-0"
         style={{ background: "rgba(0,0,0,.82)", opacity: mostrando ? 1 : 0, transition: reduced ? undefined : "opacity 250ms cubic-bezier(0.2,0,0,1)" }} />
       <div className="relative w-full max-w-md mx-4 rounded-[22px] border flex flex-col"
@@ -98,7 +98,7 @@ export default function NovidadesOrbis2({ userId }: { userId?: string }) {
           </span>
           <div>
             <p className="text-[10px] font-extrabold uppercase tracking-[.16em]" style={{ color: "#F5B800" }}>Setembro · versão 2.0</p>
-            <h2 className="font-display text-[19px] font-extrabold leading-tight">O Orbis mudou de pele</h2>
+            <h2 className="font-display text-[19px] font-extrabold leading-tight">A Vant mudou de pele</h2>
           </div>
         </div>
 

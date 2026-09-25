@@ -32,7 +32,7 @@ export default function MissionWelcome({ nickname, onAdvance }: MissionWelcomePr
               Fase 1 de 2
             </p>
             <h1 className="text-2xl font-bold text-foreground mb-2">
-              Bem-vindo ao Orbis, {name}!
+              Bem-vindo à Vant, {name}!
             </h1>
             <p className="text-sm text-muted-foreground mb-8">
               Vamos preparar seu corre em poucos passos. Sua primeira missão começa agora.

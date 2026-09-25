@@ -118,7 +118,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                   color: C.goldBright,
                 }}
               >
-                ORBIS · RANKING
+                VANT · RANKING
               </span>
               <Sparkles size={28} color={C.goldBright} />
             </div>
@@ -324,7 +324,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                 letterSpacing: 1,
               }}
             >
-              Eu sou Orbis. Eu vendo todo dia.
+              Eu sou Vant. Eu vendo todo dia.
             </div>
             <div
               style={{
@@ -334,7 +334,7 @@ export const RankingShareCard = forwardRef<HTMLDivElement, RankingShareCardProps
                 fontWeight: 600,
               }}
             >
-              ORBISAPP.COM.BR
+              APP.ORBIS.INF.BR
             </div>
           </div>
         </div>

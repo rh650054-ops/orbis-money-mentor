@@ -1,5 +1,5 @@
 /* ============================================================
-   COBRANÇA DO CORRE — o Orbis cobrando o compromisso de horário.
+   COBRANÇA DO CORRE — a Vant cobrando o compromisso de horário.
    No onboarding o usuário PROMETEU que horas começa a vender
    (hora_inicio do plano). Este card aparece no dashboard quando:
      - já passou da hora que ele prometeu (com 30min de tolerância),

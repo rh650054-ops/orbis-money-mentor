@@ -93,7 +93,7 @@
 .cl-estrelas { background-image: radial-gradient(circle, rgba(255,255,255,.9) 0 1.4px, transparent 2.2px), radial-gradient(circle, rgba(255,255,255,.6) 0 1px, transparent 1.8px); background-size: 90px 70px, 140px 110px; background-position: 10px 5px, 60px 20px; mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 55%); -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 30%, transparent 55%); animation: cl-brilha 3s ease-in-out infinite; }
 .cl-escuro { background: linear-gradient(180deg, rgba(13,12,11,.12) 0%, transparent 25%, transparent 55%, rgba(13,12,11,.92) 100%); }
 
-/* balão que sobe quando o Orbis fala */
+/* balão que sobe quando a Vant fala */
 @keyframes cl-sobe { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
 .cl-balao { animation: cl-sobe .45s cubic-bezier(.2,.8,.2,1) both; }
 .cl-chip-agora { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; background: rgba(0,0,0,.35); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,.18); font-size: 11.5px; font-weight: 700; white-space: nowrap; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }

@@ -17,7 +17,7 @@ export default class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: unknown) {
-    console.error("[Orbis] App render failure:", error);
+    console.error("[Vant] App render failure:", error);
   }
 
   private recover = async () => {
@@ -37,15 +37,15 @@ export default class AppErrorBoundary extends Component<Props, State> {
     return (
       <main className="min-h-[100dvh] bg-background text-foreground flex items-center justify-center px-6">
         <section className="w-full max-w-sm text-center space-y-5">
-          <img src="/orbis-logo.png" alt="Orbis" className="w-16 h-16 mx-auto object-contain opacity-90" />
+          <img src="/vant-logo.png" alt="Vant" className="w-16 h-16 mx-auto object-contain opacity-90" />
           <div className="space-y-2">
-            <h1 className="text-2xl font-black tracking-tight">O Orbis deu uma travada.</h1>
+            <h1 className="text-2xl font-black tracking-tight">A Vant deu uma travada.</h1>
             <p className="text-sm text-muted-foreground">
               Atualize o app para carregar a versão mais recente.
             </p>
           </div>
           <Button onClick={this.recover} className="w-full h-12 font-bold">
-            Recarregar Orbis
+            Recarregar Vant
           </Button>
         </section>
       </main>

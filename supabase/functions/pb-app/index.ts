@@ -1,4 +1,4 @@
-// Orbis — pb-app: cria (ou reconsulta) a APLICAÇÃO Connect do Orbis no PagBank.
+// Vant — pb-app: cria (ou reconsulta) a APLICAÇÃO Connect da Vant no PagBank.
 //
 // Por que existe: no PagBank a aplicação não nasce num painel — nasce de uma
 // chamada de API autenticada com o token da conta. Em vez do Rick copiar
@@ -10,7 +10,7 @@
 // A resposta NUNCA devolve o segredo: só diz o que chegou e se foi salvo.
 //
 // Duas portas de entrada, as duas de administrador:
-//   1) POST com o login de um admin do Orbis  → { acao: 'ver' | 'criar' }
+//   1) POST com o login de um admin da Vant  → { acao: 'ver' | 'criar' }
 //   2) GET  ?nonce=...  → senha de uso único criada direto no banco (instalação).
 //      O nonce vale UMA vez e por 15 minutos. Nenhum segredo vai na URL.
 //
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       if (!acao) acao = "criar";
     }
 
-    // ---- porta 1: login de admin do Orbis
+    // ---- porta 1: login de admin da Vant
     if (!liberado) {
       const supa = createClient(URL_SUPA, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
         global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } },
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
         Accept: "application/json",
       },
       body: JSON.stringify({
-        name: "Orbis",
+        name: "Vant",
         description: "Gestao de vendas para vendedores autonomos",
         site: "https://app.orbis.inf.br",
         redirect_uri: REDIRECT,

@@ -1,9 +1,9 @@
-// Orbis — CRM de SUPORTE do Yan (API de dados). A interface é o yan.html (na Vercel),
+// Vant — CRM de SUPORTE do Yan (API de dados). A interface é o yan.html (na Vercel),
 // que chama estes endpoints. Os dados são lidos no servidor com a service key
 // (nunca expõe a base com chave pública). verify_jwt = false — a trava é o token.
 //
 // SEGURANÇA (09/09/2026): a senha do painel era uma constante escrita AQUI DENTRO
-// ("yan-orbis-..."). O repositório do Orbis é público no GitHub, então essa senha
+// ("yan-orbis-..."). O repositório da Vant é público no GitHub, então essa senha
 // estava na internet — e ela abre a lista completa de clientes. Agora a chave vem
 // da tabela painel_tokens (sem RLS pra cliente nenhum, só o servidor lê) e é
 // comparada em tempo constante. Trocar a chave virou um UPDATE, sem deploy.
@@ -15,7 +15,7 @@
 const SB = Deno.env.get("SUPABASE_URL")!;
 const SVC = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const MSG_DEFAULT =
-  "Oi {nome}! Aqui é o Yan, do Orbis. Vi que você entrou no app — seja bem-vindo! Posso te dar uma força rapidinho pra você começar a usar e aproveitar seus dias grátis?";
+  "Oi {nome}! Aqui é o Yan, da Vant. Vi que você entrou no app — seja bem-vindo! Posso te dar uma força rapidinho pra você começar a usar e aproveitar seus dias grátis?";
 
 async function rest(path: string, init: RequestInit = {}): Promise<any> {
   const r = await fetch(`${SB}/rest/v1/${path}`, {
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
       const cfg = await rest(`crm_config?select=msg_boas_vindas&id=eq.1`).catch(() => []);
       return j({ msg: cfg?.[0]?.msg_boas_vindas || MSG_DEFAULT });
     }
-    return new Response("Orbis CRM (Yan) — use o yan.html na Vercel. API ativa.", { headers: { "content-type": "text/plain; charset=utf-8" } });
+    return new Response("Vant CRM (Yan) — use o yan.html na Vercel. API ativa.", { headers: { "content-type": "text/plain; charset=utf-8" } });
   } catch (e) {
     console.error("yan", String(e).slice(0, 300));
     return j({ erro: "erro_interno" }, 500);

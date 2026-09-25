@@ -27,7 +27,7 @@ const K_OPINIAO = "orbis_clima_opiniao_v2";
 const TTL_TEMPO = 30 * 60 * 1000;
 
 /* Faixa do dia no fuso de Brasília. A opinião vale por FAIXA, não pelo dia
-   inteiro: a que o Orbis deu de madrugada ("vai dormir") não pode continuar
+   inteiro: a que a Vant deu de madrugada ("vai dormir") não pode continuar
    na tela às 9 da manhã. (Rick, 11/09) */
 function periodoBR(): "madrugada" | "manha" | "tarde" | "noite" {
   const h = Number(new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", hour12: false }).format(new Date()));

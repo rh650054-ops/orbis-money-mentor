@@ -1,6 +1,6 @@
 /* ============================================================
    COBRADOR DE CALOTE — pedaços compartilhados.
-   O Orbis gera o Pix na carteira DO PRÓPRIO VENDEDOR (edge function
+   A Vant gera o Pix na carteira DO PRÓPRIO VENDEDOR (edge function
    cobranca-criar) e devolve link + copia-e-cola + QR. A mensagem sai
    pelo WhatsApp DELE, não por robô: a gente só abre o app com o texto
    pronto (deep link wa.me). Quando o cliente paga, o webhook do

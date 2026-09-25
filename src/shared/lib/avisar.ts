@@ -1,7 +1,7 @@
 import { toast } from "@/shared/hooks/use-toast";
 
 /**
- * Canal único pra tratar erro no Orbis.
+ * Canal único pra tratar erro na Vant.
  *
  * - silencioso: cache/preferência/localStorage — não atrapalha o usuário, mas fica registrado.
  * - erro:       leitura de dados (Supabase etc.) — loga no console com contexto.

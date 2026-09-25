@@ -1,7 +1,7 @@
 // Arte "RECAP" do Relatório (semana / mês / período) — estilo Strava premium.
 // Desenho puro em canvas, sem React, pra dar pra testar fora do app.
 import { formatCurrency } from "@/shared/lib/utils";
-import { ORBIS_LOGO, ORBIS_WORDMARK } from "@/assets/orbisLogoData";
+import { VANT_LOGO, VANT_WORDMARK } from "@/assets/vantLogoData";
 
 export interface RecapDia {
   label: string;   // rótulo curto embaixo da barra ("S", "T"… ou "24")
@@ -145,14 +145,17 @@ export async function buildRecapCanvas(template: RecapTemplate, s: RecapStats): 
     ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
   };
 
-  const [logoImg, wordImg] = await Promise.all([loadImg(ORBIS_LOGO), loadImg(ORBIS_WORDMARK)]);
+  const [logoImg, wordImg] = await Promise.all([loadImg(VANT_LOGO), loadImg(VANT_WORDMARK)]);
   const drawLogo = (cx: number, cy: number, w: number) => {
     if (logoImg) {
       const r = logoImg.height / logoImg.width;
       ctx.drawImage(logoImg, cx - w / 2, cy - (w * r) / 2, w, w * r);
     } else {
-      ctx.strokeStyle = WHITE; ctx.lineWidth = w * 0.06;
-      ctx.beginPath(); ctx.arc(cx, cy, w * 0.45, 0, Math.PI * 2); ctx.stroke();
+      // seta da Vant desenhada na mão (mesmos pontos do SVG oficial, caixa 100x100)
+      ctx.save(); ctx.translate(cx - w / 2, cy - w / 2); ctx.scale(w / 100, w / 100); ctx.fillStyle = WHITE;
+      ctx.fill(new Path2D("M100 2 L0 54.8 L66.7 29.8 L46.6 58.3 L24.6 92.6 L60.8 51.8 Z"));
+      ctx.fill(new Path2D("M45.6 46.3 L11 60.3 L27.2 60.3 L11.7 94.2 L29.1 71.3 Z"));
+      ctx.restore();
     }
   };
   const drawWordmark = (cx: number, cy: number, w: number) => {
@@ -160,7 +163,7 @@ export async function buildRecapCanvas(template: RecapTemplate, s: RecapStats): 
       const r = wordImg.height / wordImg.width;
       ctx.drawImage(wordImg, cx - w / 2, cy - (w * r) / 2, w, w * r);
     } else {
-      text("ORBIS", cx, cy, w * 0.28, WHITE, "center");
+      text("VANT", cx, cy, w * 0.28, WHITE, "center");
     }
   };
 
@@ -287,7 +290,7 @@ export async function buildRecapCanvas(template: RecapTemplate, s: RecapStats): 
 
   // ===== RODAPÉ =====
   drawWordmark(W / 2, Y.footer, 170);
-  spaced("MEU CORRE NO ORBIS", W / 2, Y.footer + 52, 20, MUTED, "center", 700);
+  spaced("MEU CORRE NA VANT", W / 2, Y.footer + 52, 20, MUTED, "center", 700);
 
   return canvas;
 }

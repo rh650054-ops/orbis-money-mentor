@@ -42,7 +42,7 @@ const TIERS: Tier[] = [
     bgGradient: "from-success/10 via-transparent to-transparent",
     rewards: [
       "Selo Semente no perfil",
-      "Acesso à comunidade Orbis",
+      "Acesso à comunidade Vant",
       "Trilha de planejamento avançado",
     ],
   },
@@ -103,7 +103,7 @@ const TIERS: Tier[] = [
     bgGradient: "from-tier-legendary/10 via-transparent to-transparent",
     rewards: [
       "Mentoria 1:1 com fundador",
-      "Acesso vitalício ao Orbis",
+      "Acesso vitalício à Vant",
       "Reconhecimento na Hall of Fame",
     ],
   },

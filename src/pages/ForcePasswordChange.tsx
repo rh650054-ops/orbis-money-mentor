@@ -141,7 +141,7 @@ export default function ForcePasswordChange() {
                   className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                   disabled={loading}
                 >
-                  {loading ? "Salvando..." : "Salvar e entrar no Orbis"}
+                  {loading ? "Salvando..." : "Salvar e entrar na Vant"}
                 </Button>
               </form>
             )}

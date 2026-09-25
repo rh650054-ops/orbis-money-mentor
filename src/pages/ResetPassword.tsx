@@ -77,8 +77,8 @@ export default function ResetPassword() {
       <div className="w-full max-w-[420px] space-y-5">
         <div className="flex flex-col items-center gap-3">
           <img
-            src="/orbis-logo.png"
-            alt="Orbis"
+            src="/vant-logo.png"
+            alt="Vant"
             className="w-14 h-14 object-contain animate-orbis-spin-in"
           />
           <div className="text-center">
