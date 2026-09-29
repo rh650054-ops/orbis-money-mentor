@@ -8,6 +8,8 @@ import { useToast } from "@/shared/hooks/use-toast";
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdminAccess } from "@/hooks/useAdminAccess";
+import AlterarSenhaCard from "@/components/settings/AlterarSenhaCard";
+import ConfirmarEmailCard from "@/components/settings/ConfirmarEmailCard";
 
 const STORAGE_KEYS = {
   sounds: "orbis_sounds_enabled",
@@ -116,6 +118,13 @@ export default function Settings() {
             <Switch checked={soundsEnabled} onCheckedChange={handleSoundsToggle} />
           </CardContent>
         </Card>
+      </div>
+
+      {/* Conta */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Conta</p>
+        <ConfirmarEmailCard userId={user?.id} />
+        <AlterarSenhaCard email={user?.email} />
       </div>
 
       {/* Info / Links */}

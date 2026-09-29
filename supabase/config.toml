@@ -36,3 +36,10 @@ verify_jwt = false
 
 [functions.google-calendar-refresh]
 verify_jwt = false
+
+# BUG-001: recuperacao de senha por e-mail
+[functions.recuperar-senha]
+verify_jwt = false   # roda sem login (quem esqueceu a senha nao esta logado); freio + resposta neutra dentro da funcao
+
+[functions.email-confirmar]
+verify_jwt = true
