@@ -43,3 +43,6 @@ verify_jwt = false   # roda sem login (quem esqueceu a senha nao esta logado); f
 
 [functions.email-confirmar]
 verify_jwt = true
+
+[functions.email-confirmar-link]
+verify_jwt = false   # link de 1 clique vindo do e-mail; a prova e o token (sha256, 24h, uso unico)

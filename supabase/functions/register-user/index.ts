@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { enviarEmail, layoutEmail, sha256Hex, EMAIL_RE } from "../_shared/email.ts";
 
 function isValidCpf(cpf: string): boolean {
   if (!/^\d{11}$/.test(cpf) || /^(\d)\1{10}$/.test(cpf)) return false;
@@ -195,6 +196,38 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error("register-user: reconcile unlinked falhou", (e as { message?: string })?.message);
+      }
+
+      // BUG-001 (29/09): confirmacao de e-mail JA NO INICIO. Manda um link de 1 clique;
+      // ao clicar, email-confirmar-link marca profiles.email_verificado_em e a pessoa
+      // recupera a senha sozinha depois. NUNCA bloqueia o cadastro se o envio falhar.
+      try {
+        const emailLimpo = String(email ?? "").trim().toLowerCase();
+        if (EMAIL_RE.test(emailLimpo)) {
+          const token = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+            .map((b) => b.toString(16).padStart(2, "0")).join("");
+          await supabase.from("email_codigos").upsert({
+            user_id: authData.user.id,
+            email: emailLimpo,
+            codigo_hash: await sha256Hex(`link:${token}`),
+            expira_em: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
+            tentativas: 0,
+            enviado_em: new Date().toISOString(),
+          });
+          const link = `${supabaseUrl}/functions/v1/email-confirmar-link?t=${token}`;
+          await enviarEmail({
+            to: emailLimpo,
+            subject: "Confirme seu e-mail na Vant",
+            html: layoutEmail(
+              `Bem-vindo, ${name}!`,
+              `<p>Falta um toque pra sua conta ficar completa: confirme que este e-mail é seu.</p>
+               <p style="margin:20px 0"><a href="${link}" style="display:inline-block;background:#f5c518;color:#111;font-weight:700;padding:14px 22px;border-radius:10px;text-decoration:none">Confirmar meu e-mail</a></p>
+               <p>Com o e-mail confirmado, se um dia esquecer a senha você recupera sozinho, na hora. O link vale por 24 horas.</p>`,
+            ),
+          });
+        }
+      } catch (e) {
+        console.error("register-user: e-mail de confirmacao falhou", (e as { message?: string })?.message);
       }
     }
 
