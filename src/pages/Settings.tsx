@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Bell, Volume2, Shield, HelpCircle, Info, ChevronRight, Check, X, Gift, Ticket, ShieldAlert, Clock } from "lucide-react";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
@@ -18,6 +18,8 @@ const STORAGE_KEYS = {
 
 export default function Settings() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const abrirEmail = searchParams.get("confirmar") === "email";
   const { toast } = useToast();
   const { user } = useAuth();
   const { whitelisted, role } = useAdminAccess(user?.id);
@@ -123,7 +125,7 @@ export default function Settings() {
       {/* Conta */}
       <div className="space-y-3">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1">Conta</p>
-        <ConfirmarEmailCard userId={user?.id} />
+        <ConfirmarEmailCard userId={user?.id} abrir={abrirEmail} />
         <AlterarSenhaCard email={user?.email} />
       </div>
 

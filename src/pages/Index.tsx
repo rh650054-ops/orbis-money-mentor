@@ -24,6 +24,7 @@ import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha, Com
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
+import ConfirmarEmailNudge from "@/components/ConfirmarEmailNudge";
 import { NovidadeClima } from "@/components/clima/NovidadeClima";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
 import { avisar } from "@/shared/lib/avisar";
@@ -516,6 +517,9 @@ export default function Index() {
 
       {/* Lançamento do Clima do vendedor (Rick, 11/09): 1x por pessoa */}
       <NovidadeClima userId={user.id} />
+
+      {/* BUG-001 (29/09): recuperação de senha exige e-mail confirmado — pede cedo */}
+      <ConfirmarEmailNudge userId={user.id} />
 
       {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
       {contaNova && (
