@@ -54,6 +54,7 @@ import { NovaContaSheet } from "@/components/financas/NovaContaSheet";
 import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
 import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
+import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
 
 /* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
    componente pra não remontar a cada tecla. */
@@ -2635,6 +2636,9 @@ export default function Finances() {
                   )}
                 </section>
               </div>
+
+              {/* ===== RAIO-X DO EXTRATO (Rick 29/09: logo abaixo de Contas a pagar) ===== */}
+              <RaioXEntrada userId={user?.id} />
 
               {/* ===== CAIXINHAS ===== */}
               <div className="flex flex-col gap-2.5">

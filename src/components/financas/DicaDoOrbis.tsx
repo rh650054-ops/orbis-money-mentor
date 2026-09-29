@@ -48,13 +48,28 @@ function dataLocal(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+/** JSON vazando pra tela ('{"titulo": ...', '"texto": ...') — nunca pode aparecer. */
+function pareceJson(v: string | undefined): boolean {
+  const t = (v ?? "").trim();
+  return t.startsWith("{") || /"(titulo|texto)"\s*:/i.test(t);
+}
+/** Última linha de defesa: se ainda vier JSON, tira chaves, aspas e os nomes dos campos. */
+function limpaDica(v: string): string {
+  const t = (v ?? "").trim();
+  if (!pareceJson(t)) return t;
+  return t.replace(/[{}\[\]]/g, " ").replace(/"(titulo|texto)"\s*:/gi, " ").replace(/"/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }: Props) {
   const [dica, setDica] = useState<Dica | null>(() => {
     try {
       const raw = localStorage.getItem(chave(userId));
       if (!raw) return null;
       const j = JSON.parse(raw) as Dica;
-      return j && j.texto ? j : null;
+      // Dica guardada antes da correção de 29/09 podia ser JSON cru ('{"titulo": ...').
+      // Se parecer JSON, descarta — a próxima carga busca uma limpa.
+      if (!j || !j.texto || pareceJson(j.titulo) || pareceJson(j.texto)) return null;
+      return j;
     } catch { return null; }
   });
   const [carregando, setCarregando] = useState(false);
@@ -77,7 +92,8 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
         return;
       }
       if (!d.texto) throw new Error("vazia");
-      const nova: Dica = { titulo: (d.titulo || "").trim(), texto: d.texto.trim(), fonte: "ia", quando: new Date().toISOString() };
+      const nova: Dica = { titulo: limpaDica(d.titulo || ""), texto: limpaDica(d.texto), fonte: "ia", quando: new Date().toISOString() };
+      if (!nova.texto) throw new Error("vazia");
       setDica(nova);
       try { localStorage.setItem(chave(userId), JSON.stringify(nova)); } catch (e) { avisar.silencioso("DicaDoOrbis: guardar dica", e); }
     } catch (e) {

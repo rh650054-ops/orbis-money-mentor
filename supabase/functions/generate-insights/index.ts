@@ -6,6 +6,29 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Tira {titulo, texto} do que a IA devolveu SEM deixar JSON vazar pra tela.
+// 1) JSON válido → usa. 2) JSON quebrado (quebra de linha dentro da string, aspas sem
+// escape, resposta cortada) → pesca os campos por regex, aceitando string sem fechar.
+// 3) Nada disso → texto puro, com chaves/aspas/"titulo:" varridos. (Bug visto em
+// 29/09: o card mostrava '{"titulo": "Lucro de R$180...' porque o parse falhava e o
+// fallback dividia o JSON cru por frases.)
+function extrairDica(raw: string): { titulo: string; texto: string } {
+  const limpaStr = (v: string) => v.replace(/\\n/g, " ").replace(/\\"/g, '"').replace(/\s+/g, " ").trim();
+  try {
+    const m = raw.match(/\{[\s\S]*\}/);
+    const j = m ? JSON.parse(m[0]) : null;
+    const t = String(j?.titulo ?? "").trim(), x = String(j?.texto ?? "").trim();
+    if (x) return { titulo: t, texto: x };
+  } catch { /* segue pro regex */ }
+  const rt = raw.match(/"titulo"\s*:\s*"((?:[^"\\]|\\.)*)"?/);
+  const rx = raw.match(/"texto"\s*:\s*"((?:[^"\\]|\\.)*)"?/);
+  if (rx && rx[1]?.trim()) return { titulo: limpaStr(rt?.[1] ?? ""), texto: limpaStr(rx[1]) };
+  const limpo = raw.replace(/[{}\[\]]/g, " ").replace(/"(titulo|texto)"\s*:/gi, " ").replace(/[*_#`"]/g, "").replace(/\s+/g, " ").trim();
+  const partes = limpo.split(/(?<=[.!?])\s+/);
+  const titulo = (partes.shift() ?? limpo).slice(0, 90);
+  return { titulo, texto: partes.join(" ").slice(0, 400) || limpo.slice(0, 400) };
+}
+
 // Chama o Gemini (mesma chave gratis do chat). Recebe system + user prompt e devolve texto.
 async function callGemini(systemPrompt: string, userPrompt: string, jsonMode = false): Promise<string> {
   const key = Deno.env.get("GEMINI_API_KEY");
@@ -294,20 +317,7 @@ Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres",
         ORBIS_COACH + "\nAgora você é o mentor FINANCEIRO dele: contas primeiro, caixinha depois. Nunca sugira crédito/empréstimo. Responda só o JSON pedido.",
         userPrompt,
       );
-      let titulo = "";
-      let texto = "";
-      try {
-        const m = raw.match(/\{[\s\S]*\}/);
-        const j = m ? JSON.parse(m[0]) : null;
-        titulo = String(j?.titulo ?? "").trim();
-        texto = String(j?.texto ?? "").trim();
-      } catch { /* cai no texto puro */ }
-      if (!texto) {
-        const limpo = raw.replace(/[*_#`]/g, "").trim();
-        const partes = limpo.split(/(?<=[.!?])\s+/);
-        titulo = (partes.shift() ?? limpo).slice(0, 90);
-        texto = partes.join(" ").slice(0, 400) || limpo.slice(0, 400);
-      }
+      const { titulo, texto } = extrairDica(raw);
       return new Response(JSON.stringify({ titulo: titulo.slice(0, 120), texto: texto.slice(0, 500) }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 

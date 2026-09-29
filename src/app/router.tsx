@@ -63,6 +63,7 @@ const AdminCofre = lazyWithReload(() => import("@/pages/AdminCofre"));
 const AdminAntiCheat = lazyWithReload(() => import("@/pages/AdminAntiCheat"));
 const AdminExtratoConfig = lazyWithReload(() => import("@/pages/AdminExtratoConfig"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
+const RaioXExtrato = lazyWithReload(() => import("@/pages/RaioXExtrato"));
 const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
 const OnboardingNovo = lazyWithReload(() => import("@/pages/onboarding/OnboardingNovo"));
@@ -137,6 +138,7 @@ export function AppRouter() {
                     <Route path="/insights" element={<Insights />} />
                     <Route path="/chat" element={<Chat />} />
                     <Route path="/finances" element={<Finances />} />
+                    <Route path="/financas/extrato" element={<RaioXExtrato />} />
                     <Route path="/clima" element={<Clima />} />
                     <Route path="/tributario" element={<Tributario />} />
                     <Route path="/daily-goals" element={<DailyGoals />} />
