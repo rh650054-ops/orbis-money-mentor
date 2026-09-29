@@ -6,6 +6,8 @@
 // O arquivo em si e descartado; fica so o sha256 (extrato_arquivos.hash) pra nao ler o
 // mesmo extrato duas vezes. Lancamento repetido (mesmo dia+valor+tipo+descricao) nao
 // duplica, entao mandar de novo ou mandar dois bancos e seguro.
+// PDF grande (varios meses) e cortado em partes de ~4 paginas NO APARELHO e cada parte
+// chega aqui como um arquivo separado.
 // PRIMARIO: Claude (visao, prompt estatico em cache). FALLBACK: Gemini.
 // Recebe { file: base64, mime }.
 // Devolve { ok, arquivo_id, banco, mes, periodo_inicio, periodo_fim, lidos, novos,
@@ -185,7 +187,7 @@ async function callClaude(key: string, model: string, promptEstatico: string, pr
 }
 
 async function callGemini(key: string, prompt: string, fileB64: string, mime: string): Promise<string> {
-  const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest,gemini-1.5-flash")
+  const models = (Deno.env.get("GEMINI_VISION_MODELS") ?? "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-flash-latest")
     .split(",").map((s) => s.trim()).filter(Boolean);
   const reqBody = JSON.stringify({
     contents: [{ parts: [{ text: prompt }, { inlineData: { mimeType: mime, data: fileB64 } }] }],
@@ -250,14 +252,23 @@ Deno.serve(async (req) => {
         lidos: (jaTem as any).lancamentos, novos: 0, repetidos: 0, nao_identificados: 0 });
     }
 
-    // Trava de uso (falha FECHADA: visao e cara). 8 arquivos/dia da pra 2-3 bancos com folga.
+    // Trava de uso (falha FECHADA: visao e cara). Conta por PARTE enviada (PDF grande
+    // e cortado em blocos de ~4 paginas no aparelho): 40/dia = um ano inteiro de extrato
+    // de 2-3 bancos. Se a IA falhar, a parte e devolvida (refund) — erro nosso nao
+    // consome a cota do vendedor.
+    let cotaConsumida = false;
     try {
-      const { data: usage } = await supaUser.rpc("bump_ai_usage", { p_feature: "extrato_raio_x", p_limit: 8 });
+      const { data: usage } = await supaUser.rpc("bump_ai_usage", { p_feature: "extrato_raio_x", p_limit: 40 });
       if ((usage as any)?.over) return json({ error: "limite_diario", dica: "Você já mandou bastante extrato hoje. Volta amanhã." }, 200);
+      cotaConsumida = !(usage as any)?.admin;
     } catch (e) {
       console.error("bump_ai_usage extrato_raio_x falhou", String(e).slice(0, 120));
       return json({ error: "trava_indisponivel", dica: "Tenta de novo em instantes." }, 503);
     }
+    const devolverCota = async () => {
+      if (!cotaConsumida) return;
+      try { await supaUser.rpc("refund_ai_usage", { p_feature: "extrato_raio_x" }); } catch { /* best-effort */ }
+    };
 
     const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
     const promptDinamico = buildPromptDinamico(nome, hojeBR);
@@ -275,8 +286,13 @@ Deno.serve(async (req) => {
       catch (e) { lastErr = String((e as Error)?.message || e); }
     }
     if (!text) {
-      if (!anthropicKey && !geminiKey) return json({ error: "sem_chave_ia" }, 500);
-      return json({ error: lastErr || "leitura_indisponivel", dica: "Tenta de novo em instantes." }, 503);
+      await devolverCota();
+      // Sem motor de IA (credito acabou, chave faltando, provedor fora): e problema
+      // NOSSO, nao do arquivo. Loga o motivo tecnico e avisa o vendedor sem culpa-lo.
+      console.error("extrato-analisar: nenhum motor respondeu", lastErr || "sem_chave");
+      const dica = "O leitor de extratos está fora do ar agora. Seu arquivo não foi perdido — tenta de novo mais tarde.";
+      if (!anthropicKey && !geminiKey) return json({ error: "sem_chave_ia", dica }, 500);
+      return json({ error: "leitura_indisponivel", motivo: lastErr, dica }, 503);
     }
 
     let parsed: any = null;
@@ -285,7 +301,7 @@ Deno.serve(async (req) => {
       if (m) { try { parsed = JSON.parse(m[0]); } catch { /* noop */ } }
     }
     if (!parsed) parsed = reparaJsonTruncado(text);
-    if (!parsed) return json({ error: "leitura_falhou" }, 422);
+    if (!parsed) { await devolverCota(); return json({ error: "leitura_falhou", dica: "A leitura veio embaralhada. Tenta mandar de novo." }, 422); }
 
     const documento = String(parsed?.documento ?? "outro");
     const itensRaw: any[] = Array.isArray(parsed?.itens) ? parsed.itens : [];

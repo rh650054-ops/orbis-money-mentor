@@ -135,23 +135,69 @@ export function useRaioXExtrato(userId: string | undefined, mes: string | null) 
   return { resumo, categorias, loading, reload, lista, mover, apagarArquivo };
 }
 
-/** Manda UM arquivo pra IA ler. A tela chama em sequência pra cada arquivo escolhido. */
-export async function enviarExtrato(file: File): Promise<UploadRetorno> {
+/** Progresso do envio de um arquivo (usado quando o PDF é quebrado em partes). */
+export interface EnvioProgresso { parte: number; total: number }
+
+interface RespostaFn { ok?: boolean; error?: string; dica?: string; banco?: string | null; mes?: string; lidos?: number; novos?: number; repetidos?: number; ja_lido?: boolean }
+
+function mensagemErro(res: RespostaFn | null): string {
+  if (res?.dica) return res.dica;
+  switch (res?.error) {
+    case "limite_diario": return "Você já mandou bastante extrato hoje. Volta amanhã.";
+    case "leitura_indisponivel": case "sem_chave_ia": case "trava_indisponivel":
+      return "O leitor de extratos está fora do ar agora. Seu arquivo não foi perdido — tenta de novo mais tarde.";
+    default: return "Não consegui ler esse arquivo. Tenta o PDF do mês ou um print mais nítido.";
+  }
+}
+
+/** Manda UM pedaço (imagem, ou PDF já cortado) pra IA ler. */
+async function enviarParte(file: File): Promise<UploadRetorno> {
   try {
     if (file.size > 9_000_000) return { ok: false, erro: "Arquivo muito grande (máx. 9 MB). Manda o PDF do mês ou prints menores." };
     const b64 = await fileToB64(file);
     const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
     const { data, error } = await supabase.functions.invoke("extrato-analisar", { body: { file: b64, mime } });
-    const res = data as { ok?: boolean; error?: string; dica?: string; banco?: string | null; mes?: string; lidos?: number; novos?: number; repetidos?: number; ja_lido?: boolean } | null;
-    if (error || !res?.ok) {
-      const msg = res?.dica
-        ?? (res?.error === "limite_diario" ? "Você já mandou bastante extrato hoje. Volta amanhã."
-          : "Não consegui ler esse arquivo. Tenta o PDF do mês ou um print mais nítido.");
-      return { ok: false, erro: msg };
-    }
+    const res = data as RespostaFn | null;
+    if (error || !res?.ok) return { ok: false, erro: mensagemErro(res) };
     return { ok: true, banco: res.banco ?? null, mes: res.mes, lidos: n(res.lidos), novos: n(res.novos), repetidos: n(res.repetidos), jaLido: !!res.ja_lido };
   } catch (e) {
     avisar.erro("RaioX: enviar", e);
     return { ok: false, erro: "Não consegui enviar agora. Tenta de novo." };
   }
+}
+
+/**
+ * Manda UM arquivo pra IA ler. PDF grande (extrato de vários meses / um ano
+ * inteiro) é cortado em partes de poucas páginas no aparelho e cada parte vai
+ * separada — assim a IA nunca estoura o limite e nada fica de fora.
+ * Devolve o somatório das partes; `meses` lista todos os meses tocados.
+ */
+export async function enviarExtrato(file: File, onProgresso?: (p: EnvioProgresso) => void): Promise<UploadRetorno & { meses?: string[] }> {
+  const ehPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+  if (!ehPdf) return enviarParte(file);
+
+  const { dividirPdf } = await import("@/shared/lib/pdf-split");
+  const partes = await dividirPdf(file);
+  if (partes.length === 1) return enviarParte(partes[0]!.file);
+
+  let lidos = 0, novos = 0, repetidos = 0, okCount = 0, banco: string | null = null, ultimoErro = "";
+  const meses = new Set<string>();
+  for (const p of partes) {
+    onProgresso?.({ parte: p.parte, total: p.total });
+    const r = await enviarParte(p.file);
+    if (r.ok) {
+      okCount++; lidos += n(r.lidos); novos += n(r.novos); repetidos += n(r.repetidos);
+      if (r.mes) meses.add(r.mes);
+      if (!banco && r.banco) banco = r.banco;
+    } else {
+      ultimoErro = r.erro ?? "";
+      // Sem IA disponível, não adianta insistir nas outras partes.
+      if (/fora do ar|bastante extrato hoje/.test(ultimoErro)) break;
+    }
+  }
+  if (okCount === 0) return { ok: false, erro: ultimoErro || "Não consegui ler esse arquivo." };
+  const falhas = partes.length - okCount;
+  const mesesArr = [...meses].sort();
+  return { ok: true, banco, mes: mesesArr[mesesArr.length - 1], meses: mesesArr, lidos, novos, repetidos, jaLido: false,
+    ...(falhas > 0 ? { erro: `${falhas} parte${falhas === 1 ? "" : "s"} não deu pra ler` } : {}) };
 }

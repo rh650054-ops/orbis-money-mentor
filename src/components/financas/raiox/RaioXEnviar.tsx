@@ -3,10 +3,10 @@
    andamento de cada um. O mês é identificado no próprio arquivo. */
 import { useRef, useState } from "react";
 import { Loader2, Trash2, FileText, Check, AlertTriangle } from "lucide-react";
-import { enviarExtrato, type RaioXArquivo } from "@/hooks/useRaioXExtrato";
+import { enviarExtrato, type RaioXArquivo, type EnvioProgresso } from "@/hooks/useRaioXExtrato";
 import { mesNome } from "./raiox-utils";
 
-interface Item { nome: string; estado: "fila" | "lendo" | "ok" | "erro"; msg?: string; banco?: string | null }
+interface Item { nome: string; estado: "fila" | "lendo" | "ok" | "erro"; msg?: string; banco?: string | null; progresso?: EnvioProgresso }
 
 interface Props {
   mes: string | null;
@@ -31,11 +31,13 @@ export default function RaioXEnviar({ mes, arquivos, onTerminou, onApagar }: Pro
     for (let i = 0; i < files.length; i++) {
       const f = files[i]!;
       setItens((prev) => prev.map((it, j) => (j === i ? { ...it, estado: "lendo" } : it)));
-      const r = await enviarExtrato(f);
-      if (r.ok && r.mes) meses.push(r.mes);
+      const r = await enviarExtrato(f, (progresso) =>
+        setItens((prev) => prev.map((it, j) => (j === i ? { ...it, progresso } : it))));
+      if (r.ok) for (const m of r.meses ?? (r.mes ? [r.mes] : [])) meses.push(m);
+      const resumoMeses = (ms: string[]) => ms.length > 1 ? ` · ${mesNome(ms[0]!)} a ${mesNome(ms[ms.length - 1]!)}` : ms[0] ? ` · ${mesNome(ms[0])}` : "";
       setItens((prev) => prev.map((it, j) => j !== i ? it : r.ok
-        ? { ...it, estado: "ok", banco: r.banco, msg: r.jaLido ? "já tinha sido lido" : `${r.novos} lançamento${r.novos === 1 ? "" : "s"}${r.repetidos ? ` · ${r.repetidos} já tinha` : ""}${r.mes ? ` · ${mesNome(r.mes)}` : ""}` }
-        : { ...it, estado: "erro", msg: r.erro }));
+        ? { ...it, estado: "ok", banco: r.banco, progresso: undefined, msg: r.jaLido ? "já tinha sido lido" : `${r.novos} lançamento${r.novos === 1 ? "" : "s"}${r.repetidos ? ` · ${r.repetidos} já tinha` : ""}${resumoMeses(r.meses ?? (r.mes ? [r.mes] : []))}${r.erro ? ` · ${r.erro}` : ""}` }
+        : { ...it, estado: "erro", progresso: undefined, msg: r.erro }));
     }
     setRodando(false);
     await onTerminou(meses);
@@ -55,7 +57,7 @@ export default function RaioXEnviar({ mes, arquivos, onTerminou, onApagar }: Pro
       <div>
         <h1 className="text-[22px] font-black tracking-tight text-foreground">Manda o extrato</h1>
         <p className="text-[12.5px] mt-1.5 leading-snug" style={{ color: "#a9a49c" }}>
-          PDF ou print da lista de movimentações. Pode mandar de vários bancos — a Vant junta tudo no mesmo mês.
+          PDF ou print da lista de movimentações. Pode mandar de vários bancos e de vários meses de uma vez — a Vant separa tudo por mês sozinha.
         </p>
       </div>
 
@@ -87,7 +89,9 @@ export default function RaioXEnviar({ mes, arquivos, onTerminou, onApagar }: Pro
               <div className="min-w-0 flex-1">
                 <b className="block text-[13px] truncate text-foreground">{it.banco ? `${it.banco} · ` : ""}{it.nome}</b>
                 <span className="block text-[11px] font-semibold leading-snug" style={{ color: it.estado === "erro" ? "#FF8A7A" : "#7e7869" }}>
-                  {it.estado === "fila" ? "na fila" : it.estado === "lendo" ? "lendo… leva uns 20 segundos" : it.msg}
+                  {it.estado === "fila" ? "na fila"
+                    : it.estado === "lendo" ? (it.progresso ? `lendo parte ${it.progresso.parte} de ${it.progresso.total}… uns 20 segundos cada` : "lendo… leva uns 20 segundos")
+                    : it.msg}
                 </span>
               </div>
             </div>
