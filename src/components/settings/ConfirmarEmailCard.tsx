@@ -13,10 +13,11 @@ type Etapa = "fechado" | "email" | "codigo";
  * Confirmação do e-mail pessoal (código de 6 dígitos via edge function `email-confirmar`).
  * Com o e-mail confirmado o usuário recupera a senha sozinho em /forgot-password.
  */
-export default function ConfirmarEmailCard({ userId, abrir = false }: { userId: string | undefined; abrir?: boolean }) {
+export default function ConfirmarEmailCard({ userId, abrir = false, somenteSeNaoConfirmado = false }: { userId: string | undefined; abrir?: boolean; somenteSeNaoConfirmado?: boolean }) {
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [verificado, setVerificado] = useState(false);
+  const [carregou, setCarregou] = useState(false);
   const [etapa, setEtapa] = useState<Etapa>(abrir ? "email" : "fechado");
   const [codigo, setCodigo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,6 +32,7 @@ export default function ConfirmarEmailCard({ userId, abrir = false }: { userId: 
       .then(({ data }: { data: { email: string | null; email_verificado_em: string | null } | null }) => {
         setEmail(data?.email ?? "");
         setVerificado(!!data?.email_verificado_em);
+        setCarregou(true);
         if (abrir) setTimeout(() => document.getElementById("email-rec")?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
       });
   }, [userId, abrir]);
@@ -62,6 +64,8 @@ export default function ConfirmarEmailCard({ userId, abrir = false }: { userId: 
     setCodigo("");
     toast({ title: "✅ E-mail confirmado", description: "Agora você recupera a senha sozinho se precisar." });
   };
+
+  if (somenteSeNaoConfirmado && (!carregou || verificado)) return null;
 
   return (
     <Card>

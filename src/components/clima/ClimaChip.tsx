@@ -13,7 +13,27 @@ export function ClimaChip() {
   const navigate = useNavigate();
   const { tempo, erro } = useClima({ comOpiniao: false });
   if (!tempo) {
-    if (erro) return null; // sem posição/erro: o chip some, não atrapalha a Home
+    /* BUG-003 (29/09): antes, sem posição (GPS negado/perguntar) ou com falha, o
+       chip SUMIA — e a Home ficava sem NENHUM caminho pro /clima ("o clima
+       desapareceu"). Agora vira um chip neutro que leva pra tela do clima, onde
+       existe o botão de liberar a localização. */
+    if (erro) {
+      const sem = erro === "sem_posicao";
+      return (
+        <button
+          type="button"
+          onClick={() => navigate("/clima")}
+          aria-label={sem ? "Clima: ative a localização" : "Clima indisponível, toque para tentar de novo"}
+          className="orbis-press inline-flex items-center gap-[7px] h-[38px] px-[11px] rounded-full shrink-0 whitespace-nowrap"
+          style={{ border: "1px solid rgba(255,255,255,.14)", background: "#131211" }}
+        >
+          <span className="flex flex-col gap-[2px] leading-none text-left">
+            <span className="text-[12.5px] font-extrabold">Clima</span>
+            <span className="text-[10px] font-extrabold tracking-[.02em]" style={{ color: "var(--orbis-gold)" }}>{sem ? "ativar" : "tentar de novo"}</span>
+          </span>
+        </button>
+      );
+    }
     return <span className="w-[112px] h-10 rounded-full animate-pulse shrink-0" style={{ background: "#131211", border: "1px solid rgba(255,255,255,.08)" }} aria-hidden />;
   }
   const e = tempo.estado;

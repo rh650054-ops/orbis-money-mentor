@@ -6,6 +6,7 @@ import { Label } from "@/shared/ui/label";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { traduzirErroAuth } from "@/shared/lib/erro-auth";
 import { avisar } from "@/shared/lib/avisar";
 import { KeyRound, CheckCircle2, ShieldCheck } from "lucide-react";
 
@@ -51,7 +52,7 @@ export default function ForcePasswordChange() {
     // 1. Atualiza a senha no Auth
     const { error: authError } = await supabase.auth.updateUser({ password });
     if (authError) {
-      toast({ title: "Erro ao salvar", description: authError.message, variant: "destructive" });
+      toast({ title: "Erro ao salvar", description: traduzirErroAuth(authError, "force-change"), variant: "destructive" });
       setLoading(false);
       return;
     }

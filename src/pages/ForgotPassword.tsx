@@ -70,7 +70,7 @@ export default function ForgotPassword() {
                 </div>
                 <p className="text-sm text-foreground font-semibold">Se esse CPF tiver um e-mail confirmado, o link já está a caminho.</p>
                 <p className="text-xs text-muted-foreground">
-                  Olha a caixa de entrada (e o spam). O link vale por 1 hora. Não chegou? Você ainda pode recuperar pelo WhatsApp.
+                  Olha a caixa de entrada e o spam — pode levar 2 minutos. O link vale por 1 hora. Se pedir várias vezes seguidas, espera 1 hora antes de tentar de novo. Não chegou? Você ainda pode recuperar pelo WhatsApp.
                 </p>
               </div>
             ) : (

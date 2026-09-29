@@ -6,7 +6,7 @@
 //  - so manda para e-mail CONFIRMADO (profiles.email_verificado_em NOT NULL);
 //  - o link de recovery e gerado pelo servidor (auth.admin.generateLink) para o
 //    e-mail INTERNO da conta e enviado ao e-mail pessoal; expira conforme o Auth (1h);
-//  - freio: 3 pedidos por CPF/h e 10 por IP/h (cadastro_pode_tentar, service_role only);
+//  - freio: 5 pedidos por CPF/h e 10 por IP/h (3 era apertado: quem nao ve o e-mail e insiste caia no bloqueio) (cadastro_pode_tentar, service_role only);
 //  - resposta identica em todos os caminhos (evita enumeracao).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { enviarEmail, layoutEmail, sha256Hex } from "../_shared/email.ts";
@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     const ip = (req.headers.get("x-forwarded-for") ?? "?").split(",")[0]!.trim();
     const [{ data: podeIp }, { data: podeCpf }] = await Promise.all([
       admin.rpc("cadastro_pode_tentar", { p_chave: `rec:ip:${ip}`, p_teto: 10, p_janela_min: 60 }),
-      admin.rpc("cadastro_pode_tentar", { p_chave: `rec:cpf:${(await sha256Hex(cpf)).slice(0, 32)}`, p_teto: 3, p_janela_min: 60 }),
+      admin.rpc("cadastro_pode_tentar", { p_chave: `rec:cpf:${(await sha256Hex(cpf)).slice(0, 32)}`, p_teto: 5, p_janela_min: 60 }),
     ]);
     if (podeIp === false || podeCpf === false) return ok();
 

@@ -6,6 +6,7 @@ import { Label } from "@/shared/ui/label";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { traduzirErroAuth } from "@/shared/lib/erro-auth";
 import { KeyRound, CheckCircle2 } from "lucide-react";
 
 export default function ResetPassword() {
@@ -56,7 +57,7 @@ export default function ResetPassword() {
     if (error) {
       toast({
         title: "Não foi possível atualizar",
-        description: error.message,
+        description: traduzirErroAuth(error, "reset"),
         variant: "destructive",
       });
       return;

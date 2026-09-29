@@ -6,6 +6,7 @@ import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { traduzirErroAuth } from "@/shared/lib/erro-auth";
 import { avisar } from "@/shared/lib/avisar";
 import { LogIn, UserPlus, IdCard, Mail, KeyRound, User, Phone, MapPin } from "lucide-react";
 import { validateCPF, cpfToInternalEmail } from "@/shared/lib/cpf-validation";
@@ -196,7 +197,7 @@ export default function Auth() {
     } catch (error: any) {
       toast({
         title: "Erro",
-        description: error.message || "Ocorreu um erro. Tente novamente.",
+        description: traduzirErroAuth(error, "login-cadastro"),
         variant: "destructive",
       });
     } finally {
