@@ -26,6 +26,8 @@ const FREE_PATHS = [
   "/settings",
   // Placar offline: sem internet não dá pra checar assinatura — nunca bloqueia.
   "/offline",
+  // Caixa da Vant: painel dos sócios, com trava própria (caixa_socios no banco).
+  "/caixa",
 ];
 
 export default function PaywallGate() {

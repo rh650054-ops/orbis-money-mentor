@@ -64,6 +64,7 @@ const AdminAntiCheat = lazyWithReload(() => import("@/pages/AdminAntiCheat"));
 const AdminExtratoConfig = lazyWithReload(() => import("@/pages/AdminExtratoConfig"));
 const MeuExtrato = lazyWithReload(() => import("@/pages/MeuExtrato"));
 const RaioXExtrato = lazyWithReload(() => import("@/pages/RaioXExtrato"));
+const Caixa = lazyWithReload(() => import("@/pages/Caixa"));
 const BilhetePreview = lazyWithReload(() => import("@/pages/BilhetePreview"));
 const Install = lazyWithReload(() => import("@/pages/Install"));
 const OnboardingNovo = lazyWithReload(() => import("@/pages/onboarding/OnboardingNovo"));
@@ -126,6 +127,8 @@ export function AppRouter() {
           <Route path="/offline" element={<ModoOffline />} />
           <Route path="/defcon" element={<DefconChallenge />} />
           <Route path="/bilhete" element={<BilhetePreview />} />
+          {/* Caixa da Vant: painel financeiro dos sócios, fora do Layout (login próprio) */}
+          <Route path="/caixa" element={<Caixa />} />
           <Route
             path="/*"
             element={

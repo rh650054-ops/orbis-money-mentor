@@ -5,7 +5,7 @@
      • dourado:  "Você passou Ana · agora é #13"
    Toque em "Ver ranking" leva pro /ranking e marca como visto.
    ============================================================ */
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { ChevronRight, Swords, TrendingDown, TrendingUp, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRankingAlertas, textoAlerta } from "@/hooks/useRankingAlertas";
@@ -16,6 +16,7 @@ import { pulsoFala } from "@/shared/lib/pulso";
 export default function RankingAlertas() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { alertas, dispensar, dispensarTodos } = useRankingAlertas(user?.id);
 
   // Anota no pulso quando um alerta APARECE de verdade (uma vez por alerta).
@@ -32,7 +33,8 @@ export default function RankingAlertas() {
     }
   }, [alertas]);
 
-  if (!user || alertas.length === 0) return null;
+  // O Caixa da Vant (painel dos sócios) não é tela de vendedor: sem banner de ranking lá.
+  if (!user || alertas.length === 0 || location.pathname.startsWith("/caixa")) return null;
 
   return (
     <div className="fixed left-0 right-0 z-[70] px-3 pointer-events-none" style={{ top: "calc(env(safe-area-inset-top) + 8px)" }}>
