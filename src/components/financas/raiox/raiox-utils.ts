@@ -49,7 +49,8 @@ export function variacao(atual: number, anterior: number): { texto: string; sobe
 export function fraseVilao(v: RaioXVilao, mesAnteriorNome: string): string {
   const partes: string[] = [];
   const unidade = v.categoria === "delivery" ? "pedidos" : v.categoria === "transporte_app" ? "corridas" : v.categoria === "pix_pessoas" ? "Pix" : "vezes";
-  partes.push(`${moeda(v.total)} em ${v.qtd} ${v.qtd === 1 ? unidade.replace(/s$/, "") : unidade}`);
+  const singular: Record<string, string> = { pedidos: "pedido", corridas: "corrida", Pix: "Pix", vezes: "vez" };
+  partes.push(`${moeda(v.total)} em ${v.qtd} ${v.qtd === 1 ? singular[unidade] ?? unidade : unidade}`);
   if (v.anterior > 0) {
     const r = v.total / v.anterior;
     if (r >= 1.9) partes.push(`— ${r >= 2.9 ? "o triplo" : "o dobro"} de ${mesAnteriorNome}`);
@@ -74,5 +75,16 @@ export const COR_CAT: Record<string, string> = {
   pix_pessoas: "#B07CFF", assinaturas: "#8a8378", contas_casa: "#4FA3FF", celular_internet: "#4FA3FF",
   farmacia: "#3DD68C", roupas: "#B07CFF", lazer: "#B07CFF", parcelas: "#FF5A45", saque: "#8a8378",
   taxas: "#FF5A45", apostas: "#FF5A45", transferencia_propria: "#8a8378", outros: "#8a8378", nao_identificado: "#8a8378",
+  fatura_cartao: "#FF8A3D", impostos: "#FFC800",
 };
+
+/** "MOHAMED NACIF" -> "Mohamed Nacif" */
+export const bonito = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
 export const corCat = (slug: string) => COR_CAT[slug] ?? "#8a8378";
+
+/** "1.234,56" / "1234,5" / "12.50" / "2.000" -> número. Ponto seguido de 3 dígitos = milhar. */
+export function lerValor(s: string): number {
+  const t = s.trim().replace(/[^\d.,]/g, "");
+  const br = t.includes(",") ? t.replace(/\./g, "").replace(",", ".") : /\.\d{3}(\D|$)/.test(t) ? t.replace(/\./g, "") : t;
+  return Math.round((Number(br) || 0) * 100) / 100;
+}

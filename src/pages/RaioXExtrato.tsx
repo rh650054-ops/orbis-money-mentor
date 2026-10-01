@@ -3,17 +3,21 @@
 
    O vendedor manda o extrato dos bancos que usa (quantos quiser), a IA lê e
    categoriza, e esta tela mostra pra onde o dinheiro foi no mês, o que tá
-   pesando e a divisão corre × pessoal. Quatro visões numa rota só (a visão
-   fica na URL, então voltar funciona): resumo, enviar, categoria, não identificados.
+   pesando e a divisão corre × pessoal. As visões ficam na URL (voltar funciona):
+   resumo, enviar, categoria, não identificados, perguntas, entre contas, lançar na mão.
    ============================================================ */
 import { useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRaioXExtrato, useRaioXMeses } from "@/hooks/useRaioXExtrato";
+import { useRaioXPerguntas, marcarContaUso } from "@/hooks/useRaioXInteligencia";
 import RaioXResumo from "@/components/financas/raiox/RaioXResumo";
 import RaioXEnviar from "@/components/financas/raiox/RaioXEnviar";
 import RaioXLancamentos from "@/components/financas/raiox/RaioXLancamentos";
+import RaioXPerguntas from "@/components/financas/raiox/RaioXPerguntas";
+import RaioXEntreContas from "@/components/financas/raiox/RaioXEntreContas";
+import RaioXManual from "@/components/financas/raiox/RaioXManual";
 import { mesAtualIso, mesNome } from "@/components/financas/raiox/raiox-utils";
 
 const MES_RE = /^\d{4}-\d{2}-01$/;
@@ -28,7 +32,20 @@ export default function RaioXExtrato() {
   const mesUrl = params.get("mes");
   const mes = useMemo(() => (mesUrl && MES_RE.test(mesUrl) ? mesUrl : (meses[0]?.mes ?? mesAtualIso())), [mesUrl, meses]);
   const view = params.get("v") ?? "";
-  const { resumo, categorias, loading, lista, mover, apagarArquivo } = useRaioXExtrato(user?.id, mes);
+  const { resumo, categorias, loading, reload, lista, mover, apagarArquivo } = useRaioXExtrato(user?.id, mes);
+  const { perguntas, loading: carregandoPerguntas, reload: recarregarPerguntas, responder } = useRaioXPerguntas(user?.id);
+
+  // Toda resposta/mudança refaz a análise no banco: recarrega resumo e perguntas.
+  const responderEAtualizar = async (id: string, r: string, min?: number) => {
+    const n = await responder(id, r, min);
+    await Promise.all([reload(), recarregarMeses()]);
+    return n;
+  };
+  const moverEAtualizar = async (id: string, categoria: string) => {
+    const n = await mover(id, categoria);
+    await recarregarPerguntas();
+    return n;
+  };
 
   const ir = (v: string, extra?: Record<string, string>) => {
     const p = new URLSearchParams();
@@ -73,16 +90,23 @@ export default function RaioXExtrato() {
           arquivos={resumo?.arquivos ?? []}
           onApagar={async (id) => { const ok = await apagarArquivo(id); await recarregarMeses(); return ok; }}
           onTerminou={async (tocados) => {
-            await recarregarMeses();
+            await Promise.all([recarregarMeses(), recarregarPerguntas()]);
             const alvo = tocados[tocados.length - 1];
             if (alvo && MES_RE.test(alvo)) { const p = new URLSearchParams(); p.set("mes", alvo); setParams(p); }
             else if (tocados.length > 0) ir("");
           }}
         />
+      ) : view === "perguntas" ? (
+        <RaioXPerguntas perguntas={perguntas} loading={carregandoPerguntas} onResponder={responderEAtualizar} />
+      ) : view === "entre" ? (
+        <RaioXEntreContas mes={mes} lista={lista} mover={moverEAtualizar} />
+      ) : view === "manual" ? (
+        <RaioXManual categorias={categorias} bancos={resumo?.bancos ?? []}
+          onSalvo={async (m) => { await recarregarMeses(); const p = new URLSearchParams(); p.set("mes", m); setParams(p); }} />
       ) : view === "nid" ? (
-        <RaioXLancamentos mes={mes} categoria={null} info={null} categorias={categorias} lista={lista} mover={mover} />
+        <RaioXLancamentos mes={mes} categoria={null} info={null} categorias={categorias} lista={lista} mover={moverEAtualizar} />
       ) : catSlug ? (
-        <RaioXLancamentos mes={mes} categoria={catSlug} info={info} categorias={categorias} lista={lista} mover={mover} />
+        <RaioXLancamentos mes={mes} categoria={catSlug} info={info} categorias={categorias} lista={lista} mover={moverEAtualizar} />
       ) : (
         <RaioXResumo
           mes={mes} meses={meses} resumo={resumo} loading={loading || carregandoMeses}
@@ -90,6 +114,10 @@ export default function RaioXExtrato() {
           onCategoria={(slug) => ir(`cat:${slug}`)}
           onNaoIdentificados={() => ir("nid")}
           onEnviar={() => ir("enviar")}
+          onPerguntas={() => ir("perguntas")}
+          onEntreContas={() => ir("entre")}
+          onManual={() => ir("manual")}
+          onContaUso={async (banco, uso) => { if (await marcarContaUso(banco, uso)) await reload(); }}
         />
       )}
     </div>

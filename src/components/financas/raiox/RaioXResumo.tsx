@@ -1,7 +1,9 @@
-/* Raio-X do extrato — resumo do mês: saiu × entrou, o que tá levando o dinheiro,
-   categorias com barra e comparação, e a divisão corre × pessoal. Tudo vem do RPC
-   extrato_resumo — nenhum número é inventado aqui. */
-import type { RaioXResumo as Resumo, RaioXMes } from "@/hooks/useRaioXExtrato";
+/* Raio-X do extrato — resumo do mês: saiu × entrou (sem contar dinheiro que só mudou
+   de conta), perguntas pendentes, o que tá levando o dinheiro, categorias com barra e
+   comparação, e as contas (RaioXContas). Tudo vem do RPC extrato_resumo — nenhum
+   número é inventado aqui. */
+import type { RaioXResumo as Resumo, RaioXMes, RaioXConta } from "@/hooks/useRaioXExtrato";
+import RaioXContas from "./RaioXContas";
 import { moeda, mesNome, mesAnteriorIso, variacao, fraseVilao, corCat } from "./raiox-utils";
 
 interface Props {
@@ -13,12 +15,16 @@ interface Props {
   onCategoria: (slug: string) => void;
   onNaoIdentificados: () => void;
   onEnviar: () => void;
+  onPerguntas: () => void;
+  onEntreContas: () => void;
+  onManual: () => void;
+  onContaUso: (banco: string, uso: RaioXConta["uso"]) => void;
 }
 
-export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCategoria, onNaoIdentificados, onEnviar }: Props) {
+export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCategoria, onNaoIdentificados, onEnviar, onPerguntas, onEntreContas, onManual, onContaUso }: Props) {
   const mesesBarra = [...meses.map((m) => m.mes), mes].filter((v, i, a) => a.indexOf(v) === i).sort();
   const antNome = mesNome(mesAnteriorIso(mes));
-  const cats = (resumo?.categorias ?? []).filter((c) => c.categoria !== "transferencia_propria");
+  const cats = resumo?.categorias ?? [];
   const maior = cats[0]?.total ?? 0;
   const vazio = !loading && (!resumo || resumo.lancamentos === 0);
 
@@ -51,6 +57,15 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
         </section>
       ) : resumo && (
         <>
+          {resumo.perguntas > 0 && (
+            <button type="button" onClick={onPerguntas} className="w-full text-left rounded-2xl p-3 flex gap-2.5 items-center" style={{ background: "rgba(255,200,0,.08)", border: "1px solid rgba(255,200,0,.45)" }}>
+              <span className="text-[22px] leading-none">🤔</span>
+              <span className="flex-1 min-w-0">
+                <b className="block text-[13.5px]" style={{ color: "#FFC800" }}>A Vant tem {resumo.perguntas} {resumo.perguntas === 1 ? "pergunta" : "perguntas"} pra você</b>
+                <span className="block text-[11.5px] leading-snug" style={{ color: "#a9a49c" }}>Pix pra mesma pessoa, lugar que não reconheci… responde e eu acerto tudo.</span>
+              </span>
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
               <span className="orbis-section">Saiu</span>
@@ -62,7 +77,7 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
             <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
               <span className="orbis-section">Entrou</span>
               <div className="text-[22px] font-black tracking-tight tabular-nums mt-1.5" style={{ color: "#3DD68C" }}>{moeda(resumo.entrou)}</div>
-              <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>Pix, cartão e transferências</small>
+              <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>{resumo.vendas > 0 ? `${moeda(resumo.vendas)} de vendas` : "Pix, cartão e transferências"}</small>
             </div>
           </div>
 
@@ -116,30 +131,16 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
             })}
           </section>
 
-          {resumo.saiu > 0 && (
-            <>
-              <div className="flex justify-between items-baseline px-0.5 mt-1">
-                <h2 className="text-[15px] font-extrabold tracking-tight text-foreground">Corre × pessoal</h2>
-                <span className="text-[11px] font-bold" style={{ color: "#7e7869" }}>o que é do trabalho</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-                  <span className="orbis-section" style={{ color: "#4FA3FF" }}>Do corre</span>
-                  <div className="text-[20px] font-black tracking-tight tabular-nums mt-1.5 text-foreground">{moeda(resumo.corre)}</div>
-                  <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>mercadoria, passagem, gelo, embalagem</small>
-                </div>
-                <div className="rounded-2xl border p-3" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-                  <span className="orbis-section" style={{ color: "#B07CFF" }}>Pessoal</span>
-                  <div className="text-[20px] font-black tracking-tight tabular-nums mt-1.5 text-foreground">{moeda(resumo.pessoal)}</div>
-                  <small className="block text-[11px] font-semibold mt-1" style={{ color: "#7e7869" }}>{Math.round((resumo.pessoal / resumo.saiu) * 100)}% do que saiu</small>
-                </div>
-              </div>
-            </>
-          )}
+          <RaioXContas resumo={resumo} onEntreContas={onEntreContas} onContaUso={onContaUso} />
 
-          <button type="button" onClick={onEnviar} className="w-full h-11 rounded-xl text-[14px] font-extrabold border" style={{ background: "#141413", color: "#F4F1EA", borderColor: "rgba(255,255,255,.08)" }}>
-            + mandar outro extrato
-          </button>
+          <div className="grid grid-cols-2 gap-2.5">
+            <button type="button" onClick={onManual} className="h-11 rounded-xl text-[13.5px] font-extrabold border" style={{ background: "#141413", color: "#F4F1EA", borderColor: "rgba(255,255,255,.08)" }}>
+              + lançar na mão
+            </button>
+            <button type="button" onClick={onEnviar} className="h-11 rounded-xl text-[13.5px] font-extrabold border" style={{ background: "#141413", color: "#F4F1EA", borderColor: "rgba(255,255,255,.08)" }}>
+              + mandar extrato
+            </button>
+          </div>
         </>
       )}
     </div>

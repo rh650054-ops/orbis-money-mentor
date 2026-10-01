@@ -21,20 +21,30 @@ export interface RaioXVilao {
 export interface RaioXArquivo {
   id: string; banco: string | null; lancamentos: number; inicio: string | null; fim: string | null; origem: string; quando: string;
 }
+export interface RaioXConta { banco: string; uso: "vendas" | "pessoal"; auto: boolean; saiu: number; entrou: number; qtd: number }
+export interface RaioXRecorrente { chave: string; nome: string; categoria: string; total: number; qtd: number }
 export interface RaioXResumo {
   mes: string; saiu: number; entrou: number; lancamentos: number; bancos: string[];
   corre: number; pessoal: number; nao_identificados: number;
+  /** Dinheiro que só mudou de lugar (entre contas do mesmo dono) — fora dos totais. */
+  entre_contas: { saiu: number; entrou: number; qtd: number; pares: number };
+  /** Pagamento de fatura de cartão. detalhada = a fatura do cartão foi enviada (aí não conta de novo). */
+  fatura: { total: number; detalhada: boolean };
+  vendas: number; vendas_qtd: number; manuais: number; perguntas: number;
+  contas: RaioXConta[]; recorrentes: RaioXRecorrente[];
   categorias: RaioXCategoria[]; viloes: RaioXVilao[]; arquivos: RaioXArquivo[];
 }
 export interface RaioXLancamento {
   id: string; data: string; hora: string | null; descricao: string; comerciante: string | null;
   valor: number; categoria: string; esfera: string; confianca: string; banco: string | null;
+  tipo: "saida" | "entrada"; movimento: "normal" | "entre_contas" | "fatura"; recorrente: boolean;
+  origem: "arquivo" | "manual" | "pluggy"; par_banco: string | null;
 }
 export interface RaioXMes { mes: string; lancamentos: number; bancos: string[] }
 export interface RaioXCategoriaDef { slug: string; rotulo: string; icone: string; esfera_padrao: "corre" | "pessoal"; tipo: "saida" | "entrada"; ordem: number }
 
 export interface UploadRetorno {
-  ok: boolean; erro?: string; banco?: string | null; mes?: string; lidos?: number; novos?: number; repetidos?: number; jaLido?: boolean;
+  ok: boolean; erro?: string; banco?: string | null; titular?: string | null; mes?: string; lidos?: number; novos?: number; repetidos?: number; jaLido?: boolean;
 }
 
 function fileToB64(file: File): Promise<string> {
@@ -55,6 +65,11 @@ function normalizaResumo(raw: unknown): RaioXResumo | null {
     mes: String(r.mes), saiu: n(r.saiu), entrou: n(r.entrou), lancamentos: n(r.lancamentos),
     bancos: Array.isArray(r.bancos) ? r.bancos.map(String) : [],
     corre: n(r.corre), pessoal: n(r.pessoal), nao_identificados: n(r.nao_identificados),
+    entre_contas: { saiu: n(r.entre_contas?.saiu), entrou: n(r.entre_contas?.entrou), qtd: n(r.entre_contas?.qtd), pares: n(r.entre_contas?.pares) },
+    fatura: { total: n(r.fatura?.total), detalhada: !!r.fatura?.detalhada },
+    vendas: n(r.vendas), vendas_qtd: n(r.vendas_qtd), manuais: n(r.manuais), perguntas: n(r.perguntas),
+    contas: (Array.isArray(r.contas) ? r.contas : []).map((c) => ({ ...c, saiu: n(c.saiu), entrou: n(c.entrou), qtd: n(c.qtd) })),
+    recorrentes: (Array.isArray(r.recorrentes) ? r.recorrentes : []).map((x) => ({ ...x, total: n(x.total), qtd: n(x.qtd) })),
     categorias: (Array.isArray(r.categorias) ? r.categorias : []).map((c) => ({ ...c, total: n(c.total), qtd: n(c.qtd), pct: n(c.pct), anterior: n(c.anterior) })),
     viloes: (Array.isArray(r.viloes) ? r.viloes : []).map((v) => ({ ...v, total: n(v.total), qtd: n(v.qtd), media: n(v.media), anterior: n(v.anterior), madrugada: n(v.madrugada), top_total: v.top_total == null ? null : n(v.top_total), top_qtd: v.top_qtd == null ? null : n(v.top_qtd) })),
     arquivos: Array.isArray(r.arquivos) ? r.arquivos : [],
@@ -104,12 +119,12 @@ export function useRaioXExtrato(userId: string | undefined, mes: string | null) 
     return () => { vivo = false; };
   }, []);
 
-  const lista = useCallback(async (categoria: string | null, tipo: "saida" | "entrada" = "saida"): Promise<RaioXLancamento[]> => {
+  const lista = useCallback(async (categoria: string | null, tipo: "saida" | "entrada" | null = "saida"): Promise<RaioXLancamento[]> => {
     if (!mes) return [];
     try {
       const { data, error } = await (supabase as any).rpc("extrato_lista", { p_mes: mes, p_categoria: categoria, p_tipo: tipo });
       if (error) throw error;
-      return ((data ?? []) as any[]).map((l) => ({ ...l, valor: n(l.valor), hora: l.hora ? String(l.hora).slice(0, 5) : null }));
+      return ((data ?? []) as any[]).map((l) => ({ ...l, valor: n(l.valor), hora: l.hora ? String(l.hora).slice(0, 5) : null, recorrente: !!l.recorrente }));
     } catch (e) { avisar.erro("RaioX: lista", e); return []; }
   }, [mes]);
 
@@ -138,7 +153,9 @@ export function useRaioXExtrato(userId: string | undefined, mes: string | null) 
 /** Progresso do envio de um arquivo (usado quando o PDF é quebrado em partes). */
 export interface EnvioProgresso { parte: number; total: number }
 
-interface RespostaFn { ok?: boolean; error?: string; dica?: string; banco?: string | null; mes?: string; lidos?: number; novos?: number; repetidos?: number; ja_lido?: boolean }
+interface RespostaFn { ok?: boolean; error?: string; dica?: string; banco?: string | null; titular?: string | null; mes?: string; lidos?: number; novos?: number; repetidos?: number; ja_lido?: boolean }
+/** Banco/titular lidos na parte 1 — as páginas seguintes do PDF não repetem o cabeçalho. */
+interface Dicas { banco?: string | null; titular?: string | null }
 
 function mensagemErro(res: RespostaFn | null): string {
   if (res?.dica) return res.dica;
@@ -151,15 +168,17 @@ function mensagemErro(res: RespostaFn | null): string {
 }
 
 /** Manda UM pedaço (imagem, ou PDF já cortado) pra IA ler. */
-async function enviarParte(file: File): Promise<UploadRetorno> {
+async function enviarParte(file: File, dicas: Dicas = {}): Promise<UploadRetorno> {
   try {
     if (file.size > 9_000_000) return { ok: false, erro: "Arquivo muito grande (máx. 9 MB). Manda o PDF do mês ou prints menores." };
     const b64 = await fileToB64(file);
     const mime = file.type || (file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg");
-    const { data, error } = await supabase.functions.invoke("extrato-analisar", { body: { file: b64, mime } });
+    const { data, error } = await supabase.functions.invoke("extrato-analisar", {
+      body: { file: b64, mime, banco_hint: dicas.banco ?? null, titular_hint: dicas.titular ?? null },
+    });
     const res = data as RespostaFn | null;
     if (error || !res?.ok) return { ok: false, erro: mensagemErro(res) };
-    return { ok: true, banco: res.banco ?? null, mes: res.mes, lidos: n(res.lidos), novos: n(res.novos), repetidos: n(res.repetidos), jaLido: !!res.ja_lido };
+    return { ok: true, banco: res.banco ?? null, titular: res.titular ?? null, mes: res.mes, lidos: n(res.lidos), novos: n(res.novos), repetidos: n(res.repetidos), jaLido: !!res.ja_lido };
   } catch (e) {
     avisar.erro("RaioX: enviar", e);
     return { ok: false, erro: "Não consegui enviar agora. Tenta de novo." };
@@ -180,15 +199,16 @@ export async function enviarExtrato(file: File, onProgresso?: (p: EnvioProgresso
   const partes = await dividirPdf(file);
   if (partes.length === 1) return enviarParte(partes[0]!.file);
 
-  let lidos = 0, novos = 0, repetidos = 0, okCount = 0, banco: string | null = null, ultimoErro = "";
+  let lidos = 0, novos = 0, repetidos = 0, okCount = 0, banco: string | null = null, titular: string | null = null, ultimoErro = "";
   const meses = new Set<string>();
   for (const p of partes) {
     onProgresso?.({ parte: p.parte, total: p.total });
-    const r = await enviarParte(p.file);
+    const r = await enviarParte(p.file, { banco, titular });
     if (r.ok) {
       okCount++; lidos += n(r.lidos); novos += n(r.novos); repetidos += n(r.repetidos);
       if (r.mes) meses.add(r.mes);
       if (!banco && r.banco) banco = r.banco;
+      if (!titular && r.titular) titular = r.titular;
     } else {
       ultimoErro = r.erro ?? "";
       // Sem IA disponível, não adianta insistir nas outras partes.

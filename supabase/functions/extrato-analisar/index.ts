@@ -7,11 +7,14 @@
 // mesmo extrato duas vezes. Lancamento repetido (mesmo dia+valor+tipo+descricao) nao
 // duplica, entao mandar de novo ou mandar dois bancos e seguro.
 // PDF grande (varios meses) e cortado em partes de ~4 paginas NO APARELHO e cada parte
-// chega aqui como um arquivo separado.
+// chega aqui como um arquivo separado. So a 1a pagina tem o cabecalho do banco, entao o
+// aparelho manda a dica de banco/titular da parte 1 nas seguintes (banco_hint/titular_hint).
+// Depois de gravar, roda extrato_analisar_padroes (banco): entre contas, fatura, regras do
+// usuario, consolidacao, recorrencia, contas de vendas e perguntas.
 // PRIMARIO: Claude (visao, prompt estatico em cache). FALLBACK: Gemini.
-// Recebe { file: base64, mime }.
+// Recebe { file: base64, mime, banco_hint?, titular_hint? }.
 // Devolve { ok, arquivo_id, banco, mes, periodo_inicio, periodo_fim, lidos, novos,
-//           repetidos, nao_identificados, ja_lido, motor }.
+//           repetidos, nao_identificados, ja_lido, motor, titular }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -24,6 +27,7 @@ const CATEGORIAS_SAIDA = [
   "mercadoria", "insumos", "onibus", "combustivel", "transporte_app", "delivery", "restaurante",
   "mercado", "pix_pessoas", "assinaturas", "contas_casa", "celular_internet", "farmacia", "roupas",
   "lazer", "parcelas", "saque", "taxas", "apostas", "transferencia_propria", "outros", "nao_identificado",
+  "fatura_cartao", "impostos",
 ];
 const CATEGORIAS_ENTRADA = ["pix_recebido", "cartao_recebido", "transferencia_recebida", "estorno", "outros_entrada"];
 const TODAS = new Set([...CATEGORIAS_SAIDA, ...CATEGORIAS_ENTRADA]);
@@ -40,7 +44,8 @@ TAREFA: listar TODOS os lancamentos (movimentacoes) visiveis no documento, um po
 - "h" = hora HH:MM se aparecer, senao null.
 - "v" = valor SEMPRE positivo (numero). "t" = "s" (saida: dinheiro saiu, debito, Pix enviado, pagamento, compra) ou "e" (entrada: dinheiro entrou, Pix recebido, credito, deposito, estorno).
 - "desc" = descricao CURTA (max 40 caracteres): o nome do estabelecimento ou da pessoa. NUNCA inclua agencia, conta, CPF, CNPJ, chave Pix, ID da transacao ou numero de cartao. Ex: "Pix enviado Joao Silva", "iFood", "Uber", "Atacadao".
-- "c" = nome curto do comerciante ou pessoa (max 20 caracteres, sem banco/agencia): "IFOOD", "UBER", "ATACADAO", "JOAO SILVA", "NETFLIX". E a chave que agrupa o mesmo lugar em varias compras.
+- "c" = nome do comerciante ou pessoa do OUTRO lado, como aparece, ate 30 caracteres, sem banco/agencia/numero: "IFOOD", "UBER", "ATACADAO", "JOAO SILVA", "NETFLIX". Se a linha so diz "PIX ENVIADO"/"TRANSFERENCIA" sem nome, "c" = "". E a chave que agrupa o mesmo lugar em varias compras.
+- "p" = "pf" se o outro lado e uma PESSOA (nome de gente), "pj" se e EMPRESA/loja/app/orgao, null se nao der pra saber.
 - "k" = categoria, UM destes slugs:
   SAIDAS (t="s"):
    mercadoria = compra do que ele REVENDE (atacadista, distribuidora de bebidas, doceria/fabrica, "mercadoria", fornecedor, Assai/Atacadao/Makro quando for compra grande de estoque)
@@ -58,17 +63,19 @@ TAREFA: listar TODOS os lancamentos (movimentacoes) visiveis no documento, um po
    farmacia = drogaria, farmacia
    roupas = roupa, tenis, Shopee, Shein, Renner, C&A, Riachuelo, Centauro
    lazer = cinema, ingresso, jogos (Steam, PlayStation, Xbox, Free Fire, Garena), balada, viagem
-   parcelas = parcela de emprestimo, financiamento, crediario, PAGAMENTO DE FATURA de cartao, consignado
+   parcelas = parcela de emprestimo, financiamento, crediario, consignado
+   fatura_cartao = PAGAMENTO DE FATURA de cartao de credito (ex: "Pagamento fatura", "Fatura PicPay Card", "Pgto cartao Nubank")
+   impostos = DAS do MEI, Simples Nacional, Receita Federal, DARF, IPVA, multa de transito
    saque = saque em dinheiro, caixa eletronico
    taxas = tarifa bancaria, IOF, juros, anuidade, multa
    apostas = bet, Betano, bet365, Blaze, Esportes da Sorte, Sportingbet, Pixbet, loteria, tigrinho
-   transferencia_propria = transferencia/Pix pro PROPRIO titular (mesmo nome do titular do extrato ou muito parecido com a dica de nome), ou "aplicacao", "resgate", "poupanca", "caixinha", "cofrinho" — dinheiro que so mudou de lugar
+   transferencia_propria = transferencia/Pix pro PROPRIO titular (mesmo nome do titular do extrato ou muito parecido com a dica de nome — inclusive pra conta dele em OUTRO banco), ou "aplicacao", "resgate", "poupanca", "caixinha", "cofrinho" — dinheiro que so mudou de lugar
    outros = saida clara que nao cabe em nada acima
    nao_identificado = NAO da pra saber o que e (descricao generica tipo "Compra no debito", "Pagamento", codigo sem nome) — na duvida, use este. NAO chute.
   ENTRADAS (t="e"):
    pix_recebido = Pix recebido de qualquer pessoa/empresa
    cartao_recebido = repasse de maquininha/adquirente (Stone, PagSeguro, Mercado Pago, Cielo, Rede, Getnet, SumUp, InfinitePay, Ton)
-   transferencia_recebida = TED/DOC/transferencia recebida que nao e Pix, ou transferencia do proprio titular entrando
+   transferencia_recebida = TED/DOC/transferencia recebida que nao e Pix, ou dinheiro do PROPRIO titular entrando (de outra conta dele)
    estorno = estorno, devolucao, reembolso, cashback
    outros_entrada = qualquer outra entrada (salario, deposito em dinheiro, rendimento)
 - "banco" = nome do banco/instituicao do extrato (ex: "Nubank", "Caixa", "Mercado Pago"). Se nao der pra saber, "".
@@ -78,18 +85,25 @@ TAREFA: listar TODOS os lancamentos (movimentacoes) visiveis no documento, um po
 
 ECONOMIA (o mes tem MUITAS linhas): JSON compacto, sem espacos extras, sem texto fora do JSON, sem markdown.
 Responda SOMENTE um JSON valido:
-{"documento":"extrato","banco":"Nubank","titular":"Joao Silva","periodo_inicio":"2026-08-01","periodo_fim":"2026-08-31","itens":[{"d":"2026-08-03","h":"22:41","desc":"iFood","c":"IFOOD","v":47.9,"t":"s","k":"delivery"},{"d":"2026-08-03","h":null,"desc":"Pix recebido Maria Souza","c":"MARIA SOUZA","v":12,"t":"e","k":"pix_recebido"}]}`;
+{"documento":"extrato","banco":"Nubank","titular":"Joao Silva","periodo_inicio":"2026-08-01","periodo_fim":"2026-08-31","itens":[{"d":"2026-08-03","h":"22:41","desc":"iFood","c":"IFOOD","p":"pj","v":47.9,"t":"s","k":"delivery"},{"d":"2026-08-03","h":null,"desc":"Pix recebido Maria Souza","c":"MARIA SOUZA","p":"pf","v":12,"t":"e","k":"pix_recebido"}]}`;
 
-function buildPromptDinamico(nome: string, hoje: string): string {
-  const hint = nome ? ` Dica: o titular provavelmente se chama "${nome}" — transferencia pra esse nome e transferencia_propria.` : "";
-  return `Hoje e ${hoje}.${hint}`;
+function buildPromptDinamico(nome: string, hoje: string, bancoHint: string, titularHint: string): string {
+  const quem = titularHint || nome;
+  const hint = quem ? ` Dica: o titular provavelmente se chama "${quem}" — transferencia pra esse nome e transferencia_propria.` : "";
+  const banco = bancoHint ? ` Este arquivo e continuacao de um extrato do banco "${bancoHint}" (as paginas seguintes nao repetem o cabecalho): use banco="${bancoHint}".` : "";
+  return `Hoje e ${hoje}.${hint}${banco}`;
 }
+
+// Texto que vem do aparelho e entra no prompt: curto, sem aspas/quebras (anti-injecao).
+const limpaHint = (v: unknown) => String(v ?? "").replace(/["'`\r\n{}<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 40);
+// Tira numero de documento/conta (CPF/CNPJ com ponto, agencia, ID) — mesma regra do extrato_limpa_desc().
+const limpaNumeros = (s: string) => s.replace(/\d[\d.\-\/]{3,}\d/g, "").replace(/\d{5,}/g, "").replace(/\s+/g, " ").trim();
 
 // ---- Dicionario de comerciantes (deterministico, ganha da IA) ----
 // Regra: so marcas INEQUIVOCAS. Atacadao/Assai etc. ficam com a IA (pode ser estoque ou casa).
 const DICIONARIO: Array<[RegExp, string]> = [
   [/\bUBER\s*EATS\b/, "delivery"],
-  [/\b(IFOOD|RAPPI|ZE\s*DELIVERY|AIQFOME|DAKI)\b/, "delivery"],
+  [/\b(IFOOD|IFD|RAPPI|ZE\s*DELIVERY|AIQFOME|DAKI)\b/, "delivery"],
   [/\b(UBER|99\s?(POP|APP|TAXI|MOTO)?|INDRIVE|IN\s*DRIVE|CABIFY)\b/, "transporte_app"],
   [/\b(NETFLIX|SPOTIFY|AMAZON\s*PRIME|PRIME\s*VIDEO|DISNEY|HBO|GLOBOPLAY|YOUTUBE|DEEZER|PARAMOUNT|CRUNCHYROLL|ICLOUD|APPLE\s*COM|GOOGLE\s*(PLAY|ONE|STORAGE)|CANVA|TELECINE)\b/, "assinaturas"],
   [/\b(CLARO|VIVO|TIM\s*S\s*A|TIM\s*CELULAR|OI\s*MOVEL|RECARGA\s*(CELULAR|TIM|CLARO|VIVO)|ALGAR|NEXTEL)\b/, "celular_internet"],
@@ -103,7 +117,9 @@ const DICIONARIO: Array<[RegExp, string]> = [
   [/\b(SHOPEE|SHEIN|RENNER|RIACHUELO|CENTAURO|NETSHOES|MARISA|PERNAMBUCANAS|KALUNGA)\b/, "roupas"],
   [/\b(MC\s*DONALD\w*|MCDONALDS|BURGER\s*KING|SUBWAY|HABIB\w*|GIRAFFAS|PIZZARIA|LANCHONETE|RESTAURANTE|CHURRASCARIA|SPOLETO|OUTBACK|STARBUCKS|CACAU\s*SHOW|KOPENHAGEN)\b/, "restaurante"],
   [/\b(STEAM|PLAYSTATION|XBOX|NINTENDO|RIOT|GARENA|FREE\s*FIRE|CINEMARK|CINEPOLIS|KINOPLEX|INGRESSO\w*|SYMPLA|EVENTIM)\b/, "lazer"],
-  [/\b(EMPRESTIMO|FINANCIAMENTO|CREDIARIO|CONSIGNADO|PAGAMENTO\s*(DE\s*)?FATURA|PGTO\s*FATURA|FATURA\s*CARTAO|CREDITO\s*PESSOAL|PARCELA)\b/, "parcelas"],
+  [/\b(PAGAMENTO\s*(DE\s*)?FATURA|PGTO\s*FATURA|FATURA\s*CARTAO|FATURA|PICPAY\s*CARD)\b/, "fatura_cartao"],
+  [/\b(RECEITA\s*FED\w*|SIMPLES\s*NACIONAL|DARF|PGMEI|DAS\s*MEI)\b/, "impostos"],
+  [/\b(EMPRESTIMO|FINANCIAMENTO|CREDIARIO|CONSIGNADO|CREDITO\s*PESSOAL|PARCELA)\b/, "parcelas"],
   [/\b(APLICACAO|RESGATE|POUPANCA|CAIXINHA|COFRINHO|RDB|CDB|TESOURO|INVESTIMENTO)\b/, "transferencia_propria"],
 ];
 const DICIONARIO_ENTRADA: Array<[RegExp, string]> = [
@@ -217,6 +233,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const fileB64 = typeof body?.file === "string" ? body.file.replace(/^data:[^;]+;base64,/, "") : "";
     const mime = typeof body?.mime === "string" ? body.mime : "application/pdf";
+    // Dicas da parte 1 (so ela tem o cabecalho do banco). Texto do aparelho: limpo antes do prompt.
+    const bancoHint = limpaHint(body?.banco_hint);
+    const titularHint = limpaHint(body?.titular_hint);
     if (!fileB64) return json({ error: "sem_arquivo" }, 400);
     // ~12MB de base64 (~9MB de arquivo): extrato de mes em PDF cabe folgado.
     if (fileB64.length > 12_000_000) return json({ error: "arquivo_grande", dica: "Arquivo muito grande. Manda o PDF do mês ou prints menores." }, 413);
@@ -244,10 +263,10 @@ Deno.serve(async (req) => {
     let bytes: Uint8Array;
     try { bytes = Uint8Array.from(atob(fileB64), (c) => c.charCodeAt(0)); } catch { return json({ error: "arquivo_invalido" }, 400); }
     const hash = await sha256Hex(bytes);
-    const { data: jaTem } = await admin.from("extrato_arquivos").select("id, banco, mes, lancamentos, periodo_inicio, periodo_fim")
+    const { data: jaTem } = await admin.from("extrato_arquivos").select("id, banco, titular, mes, lancamentos, periodo_inicio, periodo_fim")
       .eq("user_id", uid).eq("hash", hash).maybeSingle();
     if (jaTem) {
-      return json({ ok: true, ja_lido: true, arquivo_id: (jaTem as any).id, banco: (jaTem as any).banco, mes: (jaTem as any).mes,
+      return json({ ok: true, ja_lido: true, arquivo_id: (jaTem as any).id, banco: (jaTem as any).banco, titular: (jaTem as any).titular, mes: (jaTem as any).mes,
         periodo_inicio: (jaTem as any).periodo_inicio, periodo_fim: (jaTem as any).periodo_fim,
         lidos: (jaTem as any).lancamentos, novos: 0, repetidos: 0, nao_identificados: 0 });
     }
@@ -271,7 +290,7 @@ Deno.serve(async (req) => {
     };
 
     const hojeBR = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
-    const promptDinamico = buildPromptDinamico(nome, hojeBR);
+    const promptDinamico = buildPromptDinamico(nome, hojeBR, bancoHint, titularHint);
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY");
     const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -309,15 +328,14 @@ Deno.serve(async (req) => {
       return json({ error: "nao_e_extrato", dica: "Isso não parece um extrato com a lista de movimentações. Manda o extrato do mês (PDF ou print da lista)." }, 200);
     }
 
-    // Regras do usuario (o que ele ja ensinou pelo "mover") ganham de tudo.
-    const { data: regras } = await admin.from("extrato_regras_usuario").select("comerciante, categoria, esfera").eq("user_id", uid);
-    const regraPorCom = new Map<string, { categoria: string; esfera: string }>();
-    for (const r of (regras ?? []) as any[]) regraPorCom.set(String(r.comerciante), { categoria: r.categoria, esfera: r.esfera });
+    // As regras que o usuario ensinou (por chave da contraparte) sao aplicadas no banco,
+    // em extrato_analisar_padroes — la tambem roda entre-contas, consolidacao e perguntas.
     const { data: cats } = await admin.from("extrato_categorias").select("slug, esfera_padrao");
     const esferaPadrao = new Map<string, string>();
     for (const c of (cats ?? []) as any[]) esferaPadrao.set(c.slug, c.esfera_padrao);
 
-    const banco = String(parsed?.banco ?? "").replace(/[\r\n"']/g, " ").trim().slice(0, 40) || null;
+    const banco = limpaHint(parsed?.banco) || bancoHint || null;
+    const titular = limpaNumeros(limpaHint(parsed?.titular)) || titularHint || "";
     const isoRe = /^\d{4}-\d{2}-\d{2}$/;
     const rows: any[] = [];
     const seen = new Set<string>();
@@ -330,12 +348,13 @@ Deno.serve(async (req) => {
       const tipo = it?.t === "e" ? "entrada" : "saida";
       const hora = typeof it?.h === "string" && /^\d{2}:\d{2}/.test(it.h) ? it.h.slice(0, 5) : null;
       // Descricao: curta e sem numero longo (conta/CPF/ID) mesmo que a IA deixe escapar.
-      const descricao = String(it?.desc ?? "").replace(/\d{5,}/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "Lançamento";
+      const descricao = limpaNumeros(String(it?.desc ?? "")).slice(0, 60) || "Lançamento";
       const descNorm = norm(descricao) || "LANCAMENTO";
-      const comerciante = (norm(String(it?.c ?? "")) || descNorm).slice(0, 40);
+      const comerciante = (norm(limpaNumeros(String(it?.c ?? ""))) || descNorm).slice(0, 40);
+      const pessoa = it?.p === "pf" || it?.p === "pj" ? it.p : null;
 
       let categoria = String(it?.k ?? "");
-      let confianca: "regra" | "ia" | "usuario" | "baixa" = "ia";
+      let confianca: "regra" | "ia" | "baixa" = "ia";
       const alvo = `${comerciante} ${descNorm}`;
       const dic = tipo === "saida" ? DICIONARIO : DICIONARIO_ENTRADA;
       const hit = dic.find(([re]) => re.test(alvo));
@@ -346,11 +365,7 @@ Deno.serve(async (req) => {
         confianca = "baixa";
       }
       if (categoria === "nao_identificado") confianca = "baixa";
-      let esfera = esferaPadrao.get(categoria) ?? "pessoal";
-      const regra = regraPorCom.get(comerciante);
-      if (regra && (tipo === "saida" ? CATEGORIAS_SAIDA : CATEGORIAS_ENTRADA).includes(regra.categoria)) {
-        categoria = regra.categoria; esfera = regra.esfera; confianca = "usuario";
-      }
+      const esfera = esferaPadrao.get(categoria) ?? "pessoal";
       if (categoria === "nao_identificado") naoIdent++;
 
       // Dedupe dentro do proprio arquivo (a unique do banco cuida do resto).
@@ -359,7 +374,7 @@ Deno.serve(async (req) => {
       seen.add(chave);
       const mesKey = data.slice(0, 7);
       contaMes.set(mesKey, (contaMes.get(mesKey) ?? 0) + 1);
-      rows.push({ user_id: uid, data, hora, descricao, descricao_norm: descNorm, comerciante, valor, tipo, categoria, esfera, confianca, banco });
+      rows.push({ user_id: uid, data, hora, descricao, descricao_norm: descNorm, comerciante, valor, tipo, categoria, esfera, confianca, banco, pessoa });
     }
     if (rows.length === 0) return json({ error: "nao_e_extrato", dica: "Não achei nenhuma movimentação legível nesse arquivo." }, 200);
 
@@ -370,7 +385,8 @@ Deno.serve(async (req) => {
     const pFim = isoRe.test(String(parsed?.periodo_fim)) ? parsed.periodo_fim : datas[datas.length - 1];
 
     const { data: arq, error: eArq } = await admin.from("extrato_arquivos")
-      .insert({ user_id: uid, banco, mes: `${mesTop}-01`, hash, lancamentos: 0, periodo_inicio: pIni, periodo_fim: pFim, origem: "arquivo" })
+      .insert({ user_id: uid, banco, titular: titular || null, documento: documento === "cartao" ? "cartao" : "extrato",
+        mes: `${mesTop}-01`, hash, lancamentos: 0, periodo_inicio: pIni, periodo_fim: pFim, origem: "arquivo" })
       .select("id").single();
     if (eArq || !arq) { console.error("extrato_arquivos insert", eArq?.message); return json({ error: "gravar_falhou" }, 500); }
     const arquivoId = (arq as any).id as string;
@@ -387,8 +403,23 @@ Deno.serve(async (req) => {
     }
     await admin.from("extrato_arquivos").update({ lancamentos: novos }).eq("id", arquivoId);
 
-    return json({ ok: true, motor, arquivo_id: arquivoId, banco, mes: `${mesTop}-01`, periodo_inicio: pIni, periodo_fim: pFim,
-      lidos: rows.length, novos, repetidos: rows.length - novos, nao_identificados: naoIdent, ja_lido: false });
+    // Nome do titular lido no cabecalho: ajuda a reconhecer "conta minha em outro banco".
+    const titularNorm = norm(titular);
+    if (titularNorm.split(" ")[0]!.length >= 4) {
+      await admin.from("extrato_titulares")
+        .upsert({ user_id: uid, nome: titularNorm, origem: "extrato" }, { onConflict: "user_id,nome", ignoreDuplicates: true });
+    }
+
+    // Inteligencia do banco: entre contas, fatura, regras, consolidacao, recorrencia, perguntas.
+    let analise: unknown = null;
+    try {
+      const { data: a, error: eA } = await admin.rpc("extrato_analisar_padroes", { p_uid: uid });
+      if (eA) console.error("extrato_analisar_padroes", eA.message); else analise = a;
+    } catch (e) { console.error("extrato_analisar_padroes falhou", String(e).slice(0, 150)); }
+
+    return json({ ok: true, motor, arquivo_id: arquivoId, banco, titular: titular || null, mes: `${mesTop}-01`, periodo_inicio: pIni, periodo_fim: pFim,
+      lidos: rows.length, novos, repetidos: rows.length - novos, nao_identificados: naoIdent, ja_lido: false,
+      perguntas: (analise as { perguntas?: number } | null)?.perguntas ?? null });
   } catch (e) {
     console.error("extrato-analisar erro", String(e).slice(0, 300));
     return json({ error: "erro_interno" }, 500);

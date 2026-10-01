@@ -5,8 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import type { RaioXLancamento, RaioXCategoriaDef, RaioXCategoria } from "@/hooks/useRaioXExtrato";
 import { toast } from "@/shared/hooks/use-toast";
+import { apagarManual } from "@/hooks/useRaioXInteligencia";
 import { formatCurrency } from "@/shared/lib/utils";
-import { diaCurto, moeda, mesNome, mesAnteriorIso, corCat } from "./raiox-utils";
+import { diaCurto, moeda, mesNome, mesAnteriorIso, corCat, bonito } from "./raiox-utils";
 
 interface Props {
   mes: string;
@@ -48,7 +49,14 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
     return [...m.entries()].filter(([, q]) => q > 1).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([c]) => c);
   }, [itens]);
   const visiveis = (itens ?? []).filter((l) => !filtro || l.comerciante === filtro);
-  const bonito = (s: string) => s.toLowerCase().replace(/(^|\s)\S/g, (m) => m.toUpperCase());
+
+  const handleApagar = async (l: RaioXLancamento) => {
+    setMovendo(l.id);
+    const ok = await apagarManual(l.id);
+    setMovendo(null);
+    if (ok) setItens((prev) => (prev ?? []).filter((x) => x.id !== l.id));
+    toast({ title: ok ? "Lançamento apagado" : "Não consegui apagar" });
+  };
 
   const handleMover = async (l: RaioXLancamento, destino: RaioXCategoriaDef) => {
     setMovendo(l.id);
@@ -126,7 +134,9 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
                 </span>
                 <div className="flex-1 min-w-0">
                   <b className="block text-[13px] text-foreground leading-snug" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{l.descricao}</b>
-                  <span className="text-[11px] font-semibold" style={{ color: "#7e7869" }}>{[l.hora, l.banco].filter(Boolean).join(" · ") || "—"}</span>
+                  <span className="text-[11px] font-semibold" style={{ color: "#7e7869" }}>
+                    {[l.hora, l.banco, l.recorrente ? "🔁 todo mês" : null, l.origem === "manual" ? "✍️ na mão" : null].filter(Boolean).join(" · ") || "—"}
+                  </span>
                 </div>
                 <span className="text-[14px] font-black tabular-nums text-foreground">{formatCurrency(l.valor)}</span>
                 <button type="button" onClick={() => setAberto(abertoAqui ? null : l.id)} className="text-[10px] font-extrabold rounded-lg px-1.5 py-1 border shrink-0"
@@ -142,6 +152,11 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
                       {movendo === l.id ? "…" : `${c.icone} ${c.rotulo}`}
                     </button>
                   ))}
+                  {l.origem === "manual" && (
+                    <button type="button" disabled={movendo !== null} onClick={() => handleApagar(l)} className="rounded-full px-2.5 py-1.5 text-[11.5px] font-bold border disabled:opacity-60" style={{ color: "#FF8A7A", borderColor: "rgba(255,90,69,.35)" }}>
+                      🗑 apagar
+                    </button>
+                  )}
                   {!todas && <button type="button" onClick={() => setTodas(true)} className="rounded-full px-2.5 py-1.5 text-[11.5px] font-bold border" style={{ background: "transparent", color: "#7e7869", borderColor: "rgba(255,255,255,.08)" }}>outro…</button>}
                 </div>
               )}
