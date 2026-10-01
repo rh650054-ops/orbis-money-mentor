@@ -1,6 +1,7 @@
 /* Caixa da Vant — IA: consumo direto das APIs (Anthropic e OpenAI), crédito que sobra
    e em quantos dias acaba. Consumo NÃO mexe no saldo (o dinheiro saiu na recarga). */
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Loader2, RefreshCw } from "lucide-react";
 import type { CaixaLancamento } from "@/hooks/useCaixa";
 import { Modal } from "./caixa-ui";
@@ -19,10 +20,11 @@ interface Props {
   onSalvarConfig: (chave: string, valor: unknown) => Promise<boolean>;
 }
 
-function contas(p: Prov, l: CaixaLancamento[], cred: Credito | null) {
+function contas(p: Prov, l: CaixaLancamento[], cred: Credito | null, cambio: number) {
   const consumo = l.filter((x) => x.origem === p && !x.afeta_saldo);
   const recargas = l.filter((x) => x.origem === "manual" && x.categoria === "ia" && x.afeta_saldo && x.status === "pago" && new RegExp(NOME[p], "i").test(x.descricao));
-  const usd = (x: CaixaLancamento) => Math.abs(Number(x.valor_original) || 0);
+  // Recarga lançada em reais (sem US$) vira dólar pela cotação do painel.
+  const usd = (x: CaixaLancamento) => Math.abs(Number(x.valor_original) || 0) || Math.abs(x.valor) / (cambio || 5.5);
   const hoje = hojeBR();
   const d7 = new Date(Date.now() - 7 * 86400000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const mes = hoje.slice(0, 7);
@@ -45,11 +47,44 @@ function contas(p: Prov, l: CaixaLancamento[], cred: Credito | null) {
   return { consumo, consumoMes, consumoHoje, porDia, restante, base, diasRestantes, recargas: soma(recargas) };
 }
 
+const RECURSO: Record<string, string> = {
+  clima: "Clima do dia", insights: "Dica da Vant", chat: "Mentor (chat)", import_pdf: "Importar PDF",
+  extrato: "Extrato do DEFCON", extrato_raio_x: "Raio-X do extrato", estudio: "Estúdio de arte",
+};
+interface UsoApp { feature: string; hoje: number; sete: number; mes: number; pessoas: number }
+
+/** O lado do APP: quantas chamadas de IA os vendedores fizeram (tabela ai_usage). Não é dinheiro —
+ *  é o que deveria aparecer como consumo nas APIs. Se o app chamou e a API não mostra gasto, tem algo errado. */
+function UsoNoApp() {
+  const [uso, setUso] = useState<UsoApp[] | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    (supabase as any).rpc("caixa_ia_app").then((r: { data: UsoApp[] | null }) => { if (vivo) setUso((r.data ?? []).map((u) => ({ ...u, hoje: Number(u.hoje) || 0, sete: Number(u.sete) || 0, mes: Number(u.mes) || 0, pessoas: Number(u.pessoas) || 0 }))); });
+    return () => { vivo = false; };
+  }, []);
+  const tot = (k: "hoje" | "sete" | "mes") => (uso ?? []).reduce((a, u) => a + u[k], 0);
+  return (
+    <div className="cx-card cx-sec">
+      <div className="cx-hd"><h2>Uso de IA no app</h2><span>chamadas dos vendedores · hoje {tot("hoje")} · 7 dias {tot("sete")} · mês {tot("mes")}</span></div>
+      {uso === null ? <p className="cx-empty">Carregando…</p> : uso.length === 0 ? <p className="cx-empty">Nenhuma chamada de IA no app nos últimos dias.</p> : (
+        <div className="cx-tblwrap"><table className="cx-tbl">
+          <thead><tr><th>Recurso</th><th className="r">Hoje</th><th className="r">7 dias</th><th className="r">No mês</th><th className="r">Pessoas no mês</th></tr></thead>
+          <tbody>{uso.map((u) => (
+            <tr key={u.feature}><td>{RECURSO[u.feature] ?? u.feature}</td><td className="r num">{u.hoje}</td><td className="r num">{u.sete}</td><td className="r num"><b>{u.mes}</b></td><td className="r num mut">{u.pessoas}</td></tr>
+          ))}</tbody>
+        </table></div>
+      )}
+      <p className="cx-nota">Isso vem do próprio app (cada vez que um vendedor usa a IA). O dinheiro de verdade vem das APIs, lá em cima. Os dois juntos mostram quanto custa cada chamada.</p>
+    </div>
+  );
+}
+
 function Barras({ l }: { l: CaixaLancamento[] }) {
   const dias: string[] = [];
   for (let i = 29; i >= 0; i--) dias.push(new Date(Date.now() - i * 86400000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }));
   const val = (p: Prov, d: string) => l.filter((x) => x.origem === p && x.data === d).reduce((a, x) => a + Math.abs(Number(x.valor_original) || 0), 0);
   const tot = dias.map((d) => val("anthropic", d) + val("openai", d));
+  if (tot.every((t) => t === 0)) return <p className="cx-empty">Sem consumo registrado ainda. Ele chega sozinho quando as chaves Admin estiverem no Supabase.</p>;
   const mx = Math.max(...tot, 0.01);
   const W = 1000, H = 230, L = 44, B = 24, T = 10, bw = (W - L - 8) / 30;
   const y = (v: number) => T + (1 - v / mx) * (H - T - B);
@@ -92,8 +127,9 @@ export default function CaixaIA({ lancamentos, config, cambio, onSync, onSalvarC
       <div className="cx-grid cx-g2">
         {(["anthropic", "openai"] as Prov[]).map((p) => {
           const cred = (config[`credito_${p}`] ?? null) as Credito | null;
-          const c = contas(p, lancamentos, cred);
+          const c = contas(p, lancamentos, cred, cambio);
           const st = estado[p] as { ok?: boolean; erro?: string } | undefined;
+          const semChaveP = st?.erro === "chave_nao_configurada";
           const alerta = c.diasRestantes !== null && c.diasRestantes < 10;
           return (
             <div className="cx-card" key={p} style={alerta ? { borderColor: "rgba(255,90,69,.4)" } : undefined}>
@@ -107,17 +143,21 @@ export default function CaixaIA({ lancamentos, config, cambio, onSync, onSalvarC
               </div>
               <div style={{ marginTop: 12, paddingTop: 10, borderTop: "1px solid var(--line)" }}>
                 <span className="k">Crédito que sobra</span>
-                <div className="num" style={{ fontSize: 24, fontWeight: 900, marginTop: 4, color: c.restante !== null && c.restante < 3 ? "var(--bad)" : "var(--ink)" }}>
+                <div className="num" style={{ fontSize: 24, fontWeight: 900, marginTop: 4, color: !semChaveP && c.restante !== null && c.restante < 3 ? "var(--bad)" : "var(--ink)" }}>
                   {c.restante === null ? "—" : `US$ ${c.restante.toFixed(2)}`}
                   {c.diasRestantes !== null && <span style={{ fontSize: 13, color: alerta ? "var(--bad)" : "var(--ink3)", fontWeight: 800 }}> · acaba em ~{c.diasRestantes} dia{c.diasRestantes === 1 ? "" : "s"}</span>}
                 </div>
-                <small className="mut">{c.base || "lança a recarga como gasto na categoria IA pra eu calcular"}</small>
+                <small className="mut">{semChaveP
+                  ? (c.restante !== null ? "só o que foi recarregado — sem a chave Admin não dá pra saber quanto já foi gasto" : "sem recarga lançada e sem a chave Admin")
+                  : c.base || "lança a recarga como gasto na categoria IA pra eu calcular"}</small>
                 <div><button type="button" className="cx-btn sm" style={{ marginTop: 8 }} onClick={() => setEditCred(p)}>informar saldo do console</button></div>
               </div>
             </div>
           );
         })}
       </div>
+
+      <UsoNoApp />
 
       <div className="cx-card cx-sec">
         <div className="cx-hd"><h2>Por dia</h2><span>últimos 30 dias, em US$</span></div>
