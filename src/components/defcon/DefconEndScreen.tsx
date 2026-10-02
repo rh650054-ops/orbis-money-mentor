@@ -975,7 +975,6 @@ export function DefconEndScreen({
         {/* COBRADOR DE CALOTE + CONCILIAÇÃO — portados do fechamento novo quando
             o Rick pediu o relatório antigo de volta (09/09). Os dois somem sozinhos
             quando não há nada a cobrar nem carteira ligada. */}
-        <CobradorCard userId={userId} faltouCair={calote} />
         <ConciliacaoDia userId={userId} />
 
         {/* Celebração — bateu/ultrapassou a meta */}
@@ -1183,6 +1182,11 @@ export function DefconEndScreen({
             </p>
           </div>
         )}
+
+        {/* COBRADOR — depois do "como entrou", e só com calote de verdade (o mesmo
+            critério da métrica "Calote"). Com banco ligado, a diferença pode ser Pix
+            que o banco ainda não mostrou: o card fala isso em vez de chamar de calote. */}
+        <CobradorCard userId={userId} faltouCair={hasCalote ? calote : 0} pixAindaPodeCair={travado} />
 
         {/* 5. RELATÓRIO DO DIA — no estilo do relatório de bloco de hora */}
         {(totalApproaches > 0 || totalSalesCount > 0 || totalSold > 0) && (

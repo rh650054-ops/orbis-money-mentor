@@ -114,12 +114,13 @@ export interface BancoLigado {
   institution_logo: string | null;
   status: string | null;
   last_synced_at: string | null;
+  created_at?: string | null;
 }
 
 export async function carregarBancos(): Promise<BancoLigado[]> {
   const { data } = await supabase
     .from("bank_connections" as any)
-    .select("id, item_id, institution_name, institution_logo, status, last_synced_at")
+    .select("id, item_id, institution_name, institution_logo, status, last_synced_at, created_at")
     .order("created_at", { ascending: true });
   return ((data as any[]) || []) as BancoLigado[];
 }
