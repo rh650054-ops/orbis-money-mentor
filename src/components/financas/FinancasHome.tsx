@@ -14,6 +14,7 @@ import { ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { avisar } from "@/shared/lib/avisar";
+import { FinancasPainel } from "./FinancasPainel";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -187,5 +188,11 @@ export function FinancasHome({ userId }: { userId?: string }) {
   }, [userId]);
 
   if (!h || !h.tem_banco) return null;
-  return <FinancasHomeView h={h} onPiloto={() => navigate("/financas/extrato")} />;
+  return (
+    <div className="space-y-2.5">
+      <FinancasHomeView h={h} onPiloto={() => navigate("/financas/extrato")} />
+      {/* etapa 4: cartão, dívidas e guardado, lidos do banco toda madrugada */}
+      <FinancasPainel userId={userId} />
+    </div>
+  );
 }
