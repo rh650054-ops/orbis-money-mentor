@@ -2,6 +2,23 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 02/10/2026 — Open Finance, etapa 1: Pix travado
+
+**O que mudou pro vendedor**
+- **DEFCON**: quem tem banco ligado vê uma linha discreta **"Pix na conta R$ X · hh:mm"** durante o turno.
+- **Relatório do dia**: o Pix vem **travado do banco** (cadeado, não dá pra editar), card **"Vai pro ranking · só Pix conferido"** e seis métricas do dia.
+- **Ranking misto** (vale a partir de 02/10/2026): quem tem banco ligado conta **só o Pix que caiu no banco** naquele dia; quem não tem continua como antes (o que lançou no DEFCON). Se o banco cair e não houver Pix lido no dia, o dia volta a usar o lançado.
+- O vendedor pode fechar o app: o servidor lê o banco de hora em hora, então o Pix das 21h ainda entra no dia certo.
+- Transferência entre contas do próprio vendedor (mesmo CPF) não conta como venda.
+
+**Por dentro**
+- Migration `20261002200000_pix_travado.sql` (aplicada 02/10 ~16h10): colunas `is_pix`, `transacted_at`, `own_transfer` em `auto_detected_sales`; função interna `banco_pix_por_dia`; `banco_pix_do_dia` e `get_weekly_ranking_verified` reescritas com as mesmas assinaturas. O dia do Pix é o dia em Brasília.
+- Importador único `supabase/functions/_shared/pluggy-entradas.ts`. `pluggy-sync` (v11) passou a usá-lo; `pluggy-hora` (v1, nova, `verify_jwt = false`, protegida pelo cabeçalho `x-orbis-cron` com o token de `painel_tokens`, igual ao `mp-sync`). `pluggy-item` e `pluggy-webhook` não mudaram.
+- Cron (`20261002201000_pluggy_hora_cron.sql`): `pluggy-hora` no minuto 7, das 8h às 23h BRT; `pluggy-fecha-dia` às 0h02 BRT (3 min antes da liquidação do X1).
+- App: PR #20 (merge `2ff4515`), deploy de produção na Vercel READY.
+- Conferência no ar: 2 jobs no `cron.job`; disparo manual da `pluggy-hora` → `{conexoes: 3, lidas: 73, pix: 84, pedidos: 2, falhas: 0}`; ranking de outubro: só Rick (150 → 170) e Mohamed (1.677 → 1.433) mudaram por causa da regra nova.
+- Pendências conhecidas: a conexão antiga **MeuPluggy** do Rick (de 10/09, sandbox) responde 404 `ITEM_NOT_FOUND` na Pluggy a cada leitura — inofensivo, mas vale marcar como `deleted`. O contador `pix` do log conta também créditos fora da janela de datas (por isso pode passar de `lidas`).
+
 ## 02/10/2026 — Sala de Competição: versões A e B unificadas
 
 **O que mudou pro vendedor**
