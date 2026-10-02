@@ -2,6 +2,26 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 02/10/2026 — Open Finance, etapa 3: Finanças com saldo e fôlego + Piloto Automático
+
+**O que mudou pro vendedor** (só quem tem banco ligado; o resto vê Finanças igual)
+- **Quanto você tem agora**: a soma dos saldos dos bancos ligados, com o saldo de cada um e a hora da leitura.
+- **Fôlego**: quantos dias ele aguenta sem vender pagando só as contas fixas (saldo ÷ contas fixas por dia), em quadradinhos; o último cheio fica amarelo.
+- **Entrou / saiu / sobrou** do mês, lidos do banco. Transferência entre contas do próprio vendedor não conta.
+- **Um alerta só**, o mais urgente: saldo negativo, conta vencida ou conta que vence em até 7 dias (com quanto sobra depois de pagar).
+- **No negativo** o card inteiro vira vermelho e mostra o que mais saiu nos últimos 7 dias.
+- **Piloto Automático**: cada movimentação do banco entra sozinha no Raio-X, já com categoria. O card mostra quantos gastos entraram no mês e quantos ficaram pra conferir.
+
+**Selo verificado (ajuste do mesmo dia)**
+- O selo azul passou a valer só pra quem tem **Vant Pro ativo e banco ligado**. Antes, `usuario_verificado()` ainda dava o selo antigo de veterano (conta com 90+ dias e 5+ dias de DEFCON): 43 pessoas sem Pro apareciam com a estrela. Yan e Zeck, marcados à mão em 07/09 sem Pro, também saíram (`verificado_por = 'removido_sem_pro'`). Hoje: Rick e Mohamed.
+
+**Por dentro**
+- Banco: tabela `bank_saldos` (saldo por conta da Pluggy, só o dono lê), coluna `extrato_lancamentos.pluggy_tx_id` com índice único por vendedor, função `financas_home()` (roda como o vendedor, com RLS).
+- `pluggy-hora` v3: além do Pix do ranking, chama `importarPiloto` (`_shared/pluggy-piloto.ts`): grava os saldos e lê o mês corrente inteiro, saídas e entradas. Categoria: dicionário do Raio-X primeiro, depois a categoria da Pluggy, depois `extrato_analisar_padroes`. Descrição sem números de conta ou CPF. Se já existe PDF daquele banco no mês, o PDF manda e nada duplica.
+- Primeira leitura (02/10, ~19h): 3 saldos e 132 movimentações de outubro no Raio-X, sem duplicata na segunda rodada. Rick: R$ 504,61, fôlego de 12 dias. Mohamed: R$ 1.571,69, fôlego de 13 dias, alerta da conta "NUBANK credito" vencida em 14/09.
+- Ficaram 48 linhas de 29–30/09 do Mohamed, da primeira rodada (antes de travar a janela no mês corrente). São movimentações reais e não aparecem na home de outubro.
+- Migrations: `20261002220000_financas_home_piloto.sql`, `20261002223000_selo_so_pro_com_banco.sql`.
+
 ## 02/10/2026 — Open Finance, etapa 2: Vant Pro, paywall e selo
 
 **O que mudou pro vendedor**
