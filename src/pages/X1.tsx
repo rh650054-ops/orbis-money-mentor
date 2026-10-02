@@ -4,11 +4,14 @@
    você agora (luta rolando / desafio recebido), MISSÕES DA SEMANA e o feed
    LUTAS AO VIVO. Carteira sempre no topo.
    Fluxo: ESCOLHER OPONENTE → /x1/escolher → LUTAR HOJE → /x1/luta/:id.
+   SALA (Rick + Mohamed, 02/10): "ABRIR SALA" → /x1/sala/nova. A lista
+   "SUAS LUTAS DE HOJE" mostra TODAS as lutas do dia (até 3 X1 ao mesmo
+   tempo) + salas: convite recebido, salas em que você está, salas abertas.
    Sem API externa. Todo hook acima do primeiro return.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Wallet, Swords, Check, X, Loader2, Flame, Trophy, ChevronRight } from "lucide-react";
+import { ArrowLeft, Wallet, Swords, Check, X, Loader2, Flame, Trophy, ChevronRight, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +22,7 @@ import { X1Avatar, X1Faces } from "@/components/x1/X1Avatar";
 import { FighterCardArena } from "@/components/x1/FighterCard";
 import { VitoriaScreen } from "@/components/x1/VitoriaScreen";
 import { fmt, primeiroNome, quandoTexto, expiraEm, erroBonito, carregarRecorde, carregarPessoas, resultadoDe, chaveVisto, voltaPraVoce, type Duelo, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
+import { carregarSalasHoje, divisaoPote, type SalaResumo } from "@/components/x1/x1-sala-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -50,6 +54,7 @@ export default function X1() {
   const [pessoas, setPessoas] = useState<Record<string, Pessoa>>({});
   const [missoes, setMissoes] = useState<Missao[]>([]);
   const [vivas, setVivas] = useState<LutaViva[]>([]);
+  const [salas, setSalas] = useState<SalaResumo[]>([]);
   const [oQueVendo, setOQueVendo] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [agindo, setAgindo] = useState<string | null>(null);
@@ -63,7 +68,7 @@ export default function X1() {
 
   const carregar = useCallback(async () => {
     if (!uid) return;
-    const [rec, pos, w, d, ms, lv, pp] = await Promise.all([
+    const [rec, pos, w, d, ms, lv, pp, sl] = await Promise.all([
       carregarRecorde(uid),
       (supabase as any).rpc("x1_arena_rank", { p_user: uid }),
       supabase.from("x1_wallets" as any).select("balance").eq("user_id", uid).maybeSingle(),
@@ -73,7 +78,9 @@ export default function X1() {
       (supabase as any).rpc("x1_missoes"),
       (supabase as any).rpc("x1_lutas_ao_vivo"),
       supabase.from("public_profiles").select("user_id, nickname, avatar_url, what_i_sell").eq("user_id", uid).maybeSingle(),
+      carregarSalasHoje().catch(() => [] as SalaResumo[]),
     ]);
+    setSalas(sl);
     setRecorde(rec);
     setArenaPos(typeof pos.data === "number" && rec.duelos > 0 ? pos.data : null);
     setSaldo(Number((w.data as any)?.balance) || 0);
@@ -94,13 +101,20 @@ export default function X1() {
     const t = setInterval(async () => {
       const { data } = await (supabase as any).rpc("x1_lutas_ao_vivo");
       setVivas(((data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: Number(l.stakes_amount) || 0 })) as LutaViva[]);
+      setSalas(await carregarSalasHoje().catch(() => [] as SalaResumo[]));
     }, 30000);
     return () => clearInterval(t);
   }, [uid]);
 
   const outro = useCallback((c: Duelo) => (c.challenger_id === uid ? c.opponent_id || "" : c.challenger_id), [uid]);
   const pessoa = useCallback((id: string): Pessoa => pessoas[id] || { user_id: id, nome: "Vendedor", avatar_url: null }, [pessoas]);
-  const minhaLuta = useMemo(() => duelos.find((c) => c.status === "active" && c.scheduled_date === hoje) || null, [duelos, hoje]);
+  // vários X1 ao mesmo tempo: todas as lutas ativas de hoje, não só a primeira
+  const lutasHoje = useMemo(() => duelos.filter((c) => c.status === "active" && c.scheduled_date === hoje), [duelos, hoje]);
+  const placarDe = useMemo(() => new Map(vivas.map((v) => [v.id, v])), [vivas]);
+  const salasConvite = useMemo(() => salas.filter((x) => x.meu_status === "convidado"), [salas]);
+  const salasMinhas = useMemo(() => salas.filter((x) => x.meu_status === "dentro"), [salas]);
+  const salasAbertas = useMemo(() => salas.filter((x) => !x.meu_status || x.meu_status === "saiu" || x.meu_status === "recusou").filter((x) => x.dentro < x.vagas).slice(0, 3), [salas]);
+  const totalHoje = lutasHoje.length + salasMinhas.length + salasConvite.length;
   const desafios = useMemo(() => duelos.filter((c) => c.status === "pending" && c.last_proposed_by !== uid), [duelos, uid]);
   const esperando = useMemo(() => duelos.filter((c) => c.status === "pending" && c.last_proposed_by === uid), [duelos, uid]);
   const historico = useMemo(() => duelos.filter((c) => c.status === "finished").slice(0, 6), [duelos]);
@@ -148,14 +162,58 @@ export default function X1() {
       <FighterCardArena className="x1-slam" nome={eu_.nome} avatar={eu_.avatar_url} r={recorde} sub={oQueVendo} posicao={arenaPos} />
 
       {/* O QUE PRECISA DE VOCÊ AGORA */}
-      {minhaLuta ? (
-        <button type="button" onClick={() => navigate(`/x1/luta/${minhaLuta.id}`)} className="x1-btn vermelho x1-pulse x1-up" style={{ "--i": 1 } as React.CSSProperties}>
-          <span className="w-2 h-2 rounded-full x1-live" style={{ background: "#fff" }} /> SUA LUTA TÁ ROLANDO · VER
-        </button>
-      ) : (
-        <button type="button" onClick={() => navigate("/x1/escolher")} className="x1-btn ouro x1-pulse x1-up" style={{ "--i": 1 } as React.CSSProperties}>
-          <Swords className="w-5 h-5" strokeWidth={2.6} /> ESCOLHER OPONENTE
-        </button>
+      <div className="grid grid-cols-2 gap-2 x1-up" style={{ "--i": 1 } as React.CSSProperties}>
+        <button type="button" onClick={() => navigate("/x1/escolher")} className="x1-btn vermelho" style={{ height: 52, fontSize: 13.5 }}><Swords className="w-4 h-4" strokeWidth={2.6} /> DESAFIAR 1×1</button>
+        <button type="button" onClick={() => navigate("/x1/sala/nova")} className="x1-btn ouro" style={{ height: 52, fontSize: 13.5 }}><Users className="w-4 h-4" strokeWidth={2.6} /> ABRIR SALA</button>
+      </div>
+
+      {(totalHoje > 0 || salasAbertas.length > 0) && (
+        <div className="space-y-2 x1-up" style={{ "--i": 2 } as React.CSSProperties}>
+          {totalHoje > 0 && <p className="inline-flex items-center gap-2 text-[10px] font-black tracking-[.14em] mt-1" style={{ color: "#ff7d8c" }}><i className="w-[7px] h-[7px] rounded-full x1-live" style={{ background: RED }} /> SUAS LUTAS DE HOJE · {lutasHoje.length + salasMinhas.length} ROLANDO</p>}
+          {salasConvite.map((x) => (
+            <button key={x.id} type="button" onClick={() => navigate(`/x1/sala/${x.id}`)} className="w-full flex items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left" style={{ borderColor: `${RED}80`, background: "linear-gradient(160deg,#2a0c11,#0e0e10)" }}>
+              <X1Avatar url={x.dono_avatar} nome={x.dono_nome} size={40} cor={RED} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#ff7d8c" }}>TE CHAMOU PRA SALA</p>
+                <p className="text-[13.5px] font-black truncate leading-tight">{primeiroNome(x.convidado_por_nome || x.dono_nome)} · "{x.nome}" · {x.stakes_amount > 0 ? fmt(x.stakes_amount) : "honra"}</p>
+                <p className="text-[10px] font-black tracking-[.1em]" style={{ color: "#8a8378" }}>{x.dentro} DENTRO · {x.vagas - x.dentro} VAGAS · ENTRA ATÉ 18H</p>
+              </div>
+              <Chip cor="#ff7d8c" fundo="#2a0c11" borda={`${RED}66`}>ENTRAR</Chip>
+            </button>
+          ))}
+          {salasMinhas.map((x) => { const pote = divisaoPote(x.stakes_amount, x.dentro).pote; return (
+            <button key={x.id} type="button" onClick={() => navigate(`/x1/sala/${x.id}`)} className="w-full flex items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left" style={{ borderColor: `${GOLD}73`, background: "linear-gradient(160deg,#1a1305,#0e0e10)" }}>
+              <span className="inline-flex shrink-0">{x.rostos.slice(0, 3).map((r, i) => <X1Avatar key={i} url={r.avatar} nome={r.nome} size={30} cor={i === 0 ? GOLD : "#8a8378"} style={{ marginLeft: i ? -9 : 0 }} />)}{x.dentro > 3 && <span className="w-[30px] h-[30px] rounded-full inline-flex items-center justify-center text-[10px] font-black" style={{ marginLeft: -9, background: "#2a2823", border: "2px solid #3a3833", color: "#b3ab9c" }}>+{x.dentro - 3}</span>}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black tracking-[.14em]" style={{ color: GOLD }}>SALA{x.minha_posicao ? ` · VOCÊ EM ${x.minha_posicao}º` : ""}</p>
+                <p className="text-[13.5px] font-black truncate leading-tight">{x.nome}{x.stakes_amount > 0 ? ` · pote ${fmt(pote)}` : ""}</p>
+                <p className="text-[10px] font-black tracking-[.1em] truncate" style={{ color: "#8a8378" }}>{x.dentro < 2 ? "ESPERANDO MAIS LUTADORES" : x.lider_id === uid ? `VOCÊ LIDERA · ${fmt(x.lider_total)}` : x.lider_total > 0 ? `${primeiroNome(x.lider_nome).toUpperCase()} LIDERA · ${fmt(x.lider_total)}` : "NINGUÉM VENDEU AINDA"}</p>
+              </div>
+              <Chip cor={GOLD} fundo="#1a1305" borda="#3a2f0c">VER</Chip>
+            </button>
+          ); })}
+          {lutasHoje.map((c) => { const ele = pessoa(outro(c)); const v = placarDe.get(c.id); const souCh = c.challenger_id === uid; const meu = v ? (souCh ? v.ch_total : v.op_total) : 0; const dele = v ? (souCh ? v.op_total : v.ch_total) : 0; return (
+            <button key={c.id} type="button" onClick={() => navigate(`/x1/luta/${c.id}`)} className="w-full flex items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left" style={{ background: "#0e0e10", borderColor: "#22201a" }}>
+              <X1Faces eu={{ url: eu?.avatar_url, nome: eu?.nome }} ele={{ url: ele.avatar_url, nome: ele.nome }} size={30} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#8a8378" }}>X1 · {c.stakes_amount > 0 ? `${fmt(c.stakes_amount)} · VOLTA ${fmt(voltaPraVoce(c.stakes_amount))}` : "AMISTOSO"}</p>
+                <p className="text-[13.5px] font-black truncate tabular-nums"><span style={{ color: meu > dele ? OK : "#fff" }}>Você {Math.round(meu)}</span> <span style={{ color: GOLD }}>×</span> <span style={{ color: dele > meu ? OK : "#fff" }}>{Math.round(dele)} {primeiroNome(ele.nome)}</span></p>
+              </div>
+              <Chip>VER</Chip>
+            </button>
+          ); })}
+          {salasAbertas.length > 0 && <p className="text-[10px] font-black tracking-[.14em] pt-1" style={{ color: "#8a8378" }}>SALAS ABERTAS PRA ENTRAR</p>}
+          {salasAbertas.map((x) => (
+            <button key={x.id} type="button" onClick={() => navigate(`/x1/sala/${x.id}`)} className="w-full flex items-center gap-2.5 rounded-[16px] border px-3 py-2.5 text-left" style={{ background: "#0e0e10", borderColor: "#22201a" }}>
+              <X1Avatar url={x.dono_avatar} nome={x.dono_nome} size={34} cor="#8a8378" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-black truncate leading-tight">{x.nome}</p>
+                <p className="text-[10.5px]" style={{ color: "#8a8378" }}>de {primeiroNome(x.dono_nome)} · {x.stakes_amount > 0 ? `${fmt(x.stakes_amount)} cada` : "honra"} · {x.dentro}/{x.vagas}</p>
+              </div>
+              <Chip cor={GOLD} fundo="#1a1305" borda="#3a2f0c">ENTRAR</Chip>
+            </button>
+          ))}
+        </div>
       )}
 
       {desafios.map((c, i) => { const ele = pessoa(outro(c)); const ocupado = agindo === c.id; return (
@@ -257,7 +315,7 @@ export default function X1() {
 
       {carregando && <div className="flex justify-center py-4"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "#8a8378" }} /></div>}
 
-      {!minhaLuta && (
+      {lutasHoje.length === 0 && salasMinhas.length === 0 && (
         <button type="button" onClick={() => navigate("/defcon")} className="x1-btn fantasma x1-up" style={{ "--i": 7 } as React.CSSProperties}>
           <Flame className="w-4 h-4" strokeWidth={2.6} style={{ color: HOT }} /> Abrir o DEFCON (quem tá vendendo aparece "na arena")
         </button>

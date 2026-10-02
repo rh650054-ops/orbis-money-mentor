@@ -1,0 +1,15 @@
+X1 competition room, several fights per day, and fix for the app freezing at peak
+
+Room (Rick + Mohamed): 2-8 fighters, same stake for everyone, pot minus
+10%, 2 fighters winner takes all, 3+ split 70/30. Screens: open a room,
+lobby with invites and share link, live scoreboard. Arena home now lists
+every fight of the day and every room instead of only the first fight.
+
+Freeze fix: recalculate_ranking_positions skips when another recalculation
+of the same month is running and only writes rows whose position changed;
+defcon_sales gets indexes on session_id and (user_id, created_at). Both
+were already applied in Supabase.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_0179FrSZjH3a7gqx8UXAoD9y
+

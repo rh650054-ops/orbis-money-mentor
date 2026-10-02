@@ -81,6 +81,8 @@ const Cobrar = lazyWithReload(() => import("@/pages/Cobrar"));
 const Clima = lazyWithReload(() => import("@/pages/Clima"));
 const X1Escolher = lazyWithReload(() => import("@/pages/X1Escolher"));
 const X1Luta = lazyWithReload(() => import("@/pages/X1Luta"));
+const X1Sala = lazyWithReload(() => import("@/pages/X1Sala"));
+const X1SalaNova = lazyWithReload(() => import("@/pages/X1SalaNova"));
 const Rewards = lazyWithReload(() => import("@/pages/Rewards"));
 const DefconChallenge = lazyWithReload(() => import("@/pages/DefconChallenge"));
 const BankConnections = lazyWithReload(() => import("@/pages/BankConnections"));
@@ -155,6 +157,8 @@ export function AppRouter() {
                     <Route path="/pb/retorno" element={<MpRetorno />} />
                     <Route path="/x1/escolher" element={<X1Escolher />} />
                     <Route path="/x1/luta/:id" element={<X1Luta />} />
+                    <Route path="/x1/sala/nova" element={<X1SalaNova />} />
+                    <Route path="/x1/sala/:id" element={<X1Sala />} />
                     <Route path="/rewards" element={<Rewards />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/my-account" element={<MyAccount />} />
