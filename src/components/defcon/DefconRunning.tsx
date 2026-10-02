@@ -14,6 +14,7 @@ import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
+import { usePixDoBanco, horaDaLeitura } from "@/components/conectar/banco-pix";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
@@ -81,6 +82,7 @@ export function DefconRunning({
   quickSaleValue,
   x1Live,
 }: DefconRunningProps) {
+  const { pix: pixBanco } = usePixDoBanco(!!userId && !onboardingMode);
   const [showAddSale, setShowAddSale] = useState(false);
   const [saleValue, setSaleValue] = useState("");
   const [showConfirmEnd, setShowConfirmEnd] = useState(false);
@@ -734,6 +736,19 @@ export function DefconRunning({
             </>
           )}
         </div>
+
+        {/* PIX NA CONTA — linha discreta (Open Finance). Só existe pra quem tem banco
+            ligado; atualiza ~de hora em hora (o servidor lê o banco) e o horário
+            diz quando foi a última leitura. Mesmo mono dos rótulos, verde apagado. */}
+        {pixBanco.temBanco && (
+          <div className="w-full flex justify-center -mt-1">
+            <span className="inline-flex items-center gap-2 text-[9.5px] font-mono uppercase tracking-[0.18em] text-success/60">
+              Pix na conta
+              <b className="text-[11px] tracking-[0.05em] text-success/90 tabular-nums">{formatCurrency(pixBanco.total)}</b>
+              {pixBanco.ultimaSync && <span className="tracking-[0.1em] text-muted-foreground/50">· {horaDaLeitura(pixBanco.ultimaSync)}</span>}
+            </span>
+          </div>
+        )}
 
         {/* Quick sale buttons */}
         <div data-tour="defcon-quick-sale" className="w-full flex justify-center">

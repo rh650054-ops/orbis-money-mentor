@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown } from "lucide-react";
+import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown, Lock, Trophy } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { CobradorCard } from "@/components/cobranca/CobradorCard";
 import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
@@ -15,6 +15,7 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
+import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -57,6 +58,18 @@ export function DefconEndScreen({
   onRestart,
 }: DefconEndScreenProps) {
   const [pix, setPix] = useState("");
+  // PIX TRAVADO (Open Finance, 02/10): com banco ligado, o Pix do dia é o que o
+  // banco diz — cadeado, sem digitar. Ao abrir o relatório pedimos uma leitura
+  // na hora e relemos aos 20 s e 50 s (a Pluggy responde pelo webhook).
+  const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
+  useEffect(() => {
+    if (!userId) return;
+    let vivo = true;
+    void puxarBancoAgora();
+    const t1 = setTimeout(() => { if (vivo) void relerBanco(); }, 20_000);
+    const t2 = setTimeout(() => { if (vivo) void relerBanco(); }, 50_000);
+    return () => { vivo = false; clearTimeout(t1); clearTimeout(t2); };
+  }, [userId, relerBanco]);
   const [cartao, setCartao] = useState("");
   const [dinheiro, setDinheiro] = useState("");
   // O vendedor encostou nos campos de recebimento? Sem isso não dá pra
@@ -515,9 +528,13 @@ export function DefconEndScreen({
     }
   };
 
-  const pixNum = parseFloat(pix) || 0;
   const cartaoNum = parseFloat(cartao) || 0;
   const dinheiroNum = parseFloat(dinheiro) || 0;
+  // Pix travado: entra o que o banco leu, até o limite do que foi vendido. O que
+  // caiu a mais (Pix sem venda lançada) aparece à parte e não vira venda.
+  const travado = pixBanco.temBanco;
+  const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.total, totalSold, dinheiroNum, cartaoNum);
+  const pixNum = travado ? pixDoBancoNoDia.entra : (parseFloat(pix) || 0);
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
   // Meio centavo de margem: 10,70 + 5,60 dá 16,299999999999997 em ponto
   // flutuante. Sem isso o app inventava um calote de R$ 0,000000000000004,
@@ -1052,7 +1069,26 @@ export function DefconEndScreen({
               )}
             </div>
 
-            <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
+            {travado ? (
+              <div className="rounded-xl bg-success/10 border border-success/35 px-3.5 py-3 flex items-center gap-3">
+                <img src={pixLogo} alt="" className="w-9 h-9 rounded-lg object-contain bg-success/15 p-1.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">Pix</p>
+                  <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
+                    <Lock className="w-3 h-3 shrink-0" /> pelo banco · {pixBanco.qtd} Pix{pixBanco.ultimaSync ? ` · ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}
+                  </p>
+                </div>
+                <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixBanco.total)}</span>
+              </div>
+            ) : (
+              <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
+            )}
+            {travado && pixDoBancoNoDia.aMais > 0 && (
+              <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
+                Caiu <b className="text-foreground">{formatCurrency(pixDoBancoNoDia.aMais)}</b> de Pix além do que você lançou de venda.
+                Conta no ranking (é Pix na conta), mas não vira venda no seu dia.
+              </p>
+            )}
             <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
             <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={(v) => { setMexeu(true); setDinheiro(v); }} accent="text-muted-foreground" />
 
@@ -1129,6 +1165,25 @@ export function DefconEndScreen({
           </div>
         )}
 
+        {/* VAI PRO RANKING — Pix travado. Só aparece com banco ligado. O servidor
+            continua lendo o banco até 23:59, então o número ainda pode subir. */}
+        {travado && (
+          <div className="rounded-2xl border border-success/40 bg-gradient-to-br from-success/15 via-success/5 to-transparent px-3.5 py-3 space-y-1.5">
+            <div className="flex items-center gap-3">
+              <Trophy className="w-5 h-5 text-success shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-success">Vai pro ranking</p>
+                <p className="text-lg font-black text-success tabular-nums leading-tight">{formatCurrency(pixBanco.total)}</p>
+              </div>
+              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">só Pix conferido</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
+              Pix que cair até 23:59 entra sozinho, mesmo com o app fechado. Dinheiro e cartão não contam no ranking, mas contam no seu dia.
+            </p>
+          </div>
+        )}
+
         {/* 5. RELATÓRIO DO DIA — no estilo do relatório de bloco de hora */}
         {(totalApproaches > 0 || totalSalesCount > 0 || totalSold > 0) && (
           <div className="space-y-2">
@@ -1159,6 +1214,16 @@ export function DefconEndScreen({
               );
             })()}
             {reportView === 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                <Metrica rotulo="Falou com" valor={String(totalApproaches)} sub="pessoas" />
+                <Metrica rotulo="Vendeu pra" valor={String(totalSalesCount)} sub={totalApproaches > 0 ? `${conversionRate.toFixed(0)}% fecharam` : "vendas"} />
+                <Metrica rotulo="Ticket" valor={totalSalesCount > 0 ? formatCurrency(totalSold / totalSalesCount) : "—"} sub="por venda" />
+                <Metrica rotulo="Na rua" valor={horasLabel} sub={blocks.length > 0 ? `${blocks.length} ${blocks.length === 1 ? "bloco" : "blocos"}` : "trabalhadas"} />
+                <Metrica rotulo="Por hora" valor={workedMinutes && workedMinutes > 0 ? formatCurrency(totalSold / (workedMinutes / 60)) : "—"} sub="vendido" />
+                <Metrica rotulo="Calote" valor={formatCurrency(hasCalote ? calote : 0)} sub="fiado em aberto" alerta={hasCalote} />
+              </div>
+            )}
+            {reportView === 0 && (
             <div className="rounded-2xl bg-card border border-border divide-y divide-border/60 overflow-hidden">
               <ReportRow label="⏱️ Horas trabalhadas" value={horasLabel} />
               {folga && folga.total >= 60 && (
@@ -1178,14 +1243,8 @@ export function DefconEndScreen({
                   )}
                 </div>
               )}
+              {/* Abordagens, vendas e conversão foram pros quadradinhos acima. */}
               <ReportRow label="💰 Vendido" value={formatCurrency(totalSold)} />
-              <ReportRow label="👤 Abordagens" value={String(totalApproaches)} />
-              <ReportRow label="🛒 Vendas" value={String(totalSalesCount)} valueClass="text-success" />
-              <ReportRow
-                label="📊 Conversão"
-                value={`${conversionRate.toFixed(0)}%`}
-                valueClass={conversionRate >= 30 ? "text-success" : conversionRate >= 15 ? "text-warning" : "text-destructive"}
-              />
               {(paceDoDia ?? salesRhythmMin) != null && (
                 <ReportRow
                   label="⏳ Tempo médio por venda"
@@ -1447,6 +1506,17 @@ function fmtFolga(seg: number) {
   const h = Math.floor(min / 60);
   const r = min % 60;
   return r > 0 ? `${h}h${String(r).padStart(2, "0")}` : `${h}h`;
+}
+
+/** Quadradinho de métrica do relatório (Falou com / Vendeu pra / Ticket…). */
+function Metrica({ rotulo, valor, sub, alerta = false }: { rotulo: string; valor: string; sub: string; alerta?: boolean }) {
+  return (
+    <div className={`rounded-xl border px-2.5 py-2 min-w-0 ${alerta ? "border-destructive/35 bg-card" : "border-border bg-card"}`}>
+      <p className={`text-[9px] font-black uppercase tracking-[0.12em] truncate ${alerta ? "text-destructive/80" : "text-muted-foreground"}`}>{rotulo}</p>
+      <p className={`text-[15px] font-black tabular-nums leading-tight mt-0.5 truncate ${alerta ? "text-destructive/90" : "text-foreground"}`}>{valor}</p>
+      <p className="text-[9.5px] text-muted-foreground truncate">{sub}</p>
+    </div>
+  );
 }
 
 function ReportRow({ label, value, valueClass = "text-foreground" }: { label: string; value: string; valueClass?: string }) {
