@@ -55,6 +55,7 @@ import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
 import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
 import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
+import { FinancasHome } from "@/components/financas/FinancasHome";
 
 /* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
    componente pra não remontar a cada tecla. */
@@ -2005,6 +2006,10 @@ export default function Finances() {
           </span>
         )}
       </div>
+
+      {/* 0. HOME COM O BANCO (etapa 3 do Open Finance): quanto tem agora, fôlego,
+             entrou/saiu/sobrou e o Piloto Automático. Some sozinho pra quem não tem banco. */}
+      <FinancasHome userId={user?.id} />
 
       {/* 1. LUCRO LÍQUIDO DE HOJE */}
       <Card className="rounded-[18px] border shadow-lg" style={{ background: "linear-gradient(170deg,#141006 0%,#0b0b0d 70%)", borderColor: "#3a2f0c", boxShadow: "0 0 30px rgba(245,184,0,.08)" }}>

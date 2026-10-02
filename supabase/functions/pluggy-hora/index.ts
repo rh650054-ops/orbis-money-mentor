@@ -12,6 +12,7 @@
 // painel_tokens (nome='cron'), o mesmo do mp-sync. Sem ele: 401.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
+import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const MAX_POR_RODADA = 40;
 
@@ -31,14 +32,15 @@ Deno.serve(async (req) => {
 
     // quem está há mais tempo sem leitura vai primeiro
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, status, last_synced_at")
+      .select("id, item_id, user_id, status, last_synced_at, institution_name")
       .neq("status", "deleted")
       .order("last_synced_at", { ascending: true, nullsFirst: true })
       .limit(MAX_POR_RODADA);
     // deno-lint-ignore no-explicit-any
     const lista: any[] = cons ?? [];
 
-    let lidas = 0, pix = 0, pedidos = 0, falhas = 0;
+    let lidas = 0, pix = 0, pedidos = 0, falhas = 0, saldos = 0, piloto = 0;
+    const comNovidade = new Set<string>();
     for (const c of lista) {
       try {
         const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, 1);
@@ -48,13 +50,27 @@ Deno.serve(async (req) => {
         falhas++;
         console.error("pluggy-hora: importar", c.id, (e as Error)?.message);
       }
+      // Piloto Automático (etapa 3): saldo + cada movimentação no Raio-X, já categorizada
+      try {
+        const p = await importarPiloto(admin, apiKey, c.item_id, c.user_id, c.id, c.institution_name ?? null);
+        saldos += p.saldos;
+        piloto += p.gravadas;
+        if (p.gravadas > 0) comNovidade.add(c.user_id);
+      } catch (e) {
+        console.error("pluggy-hora: piloto", c.id, (e as Error)?.message);
+      }
       if (await pedirAtualizacao(apiKey, c.item_id)) pedidos++;
       await admin.from("bank_connections")
         .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
         .eq("id", c.id);
     }
-    console.log("pluggy-hora", { conexoes: lista.length, lidas, pix, pedidos, falhas });
-    return json({ ok: true, conexoes: lista.length, lidas, pix, pedidos, falhas });
+    // a inteligência do Raio-X (entre contas, regras do vendedor, recorrência, perguntas)
+    for (const uid of comNovidade) {
+      const { error } = await admin.rpc("extrato_analisar_padroes", { p_uid: uid });
+      if (error) console.error("pluggy-hora: analisar_padroes", error.message);
+    }
+    console.log("pluggy-hora", { conexoes: lista.length, lidas, pix, pedidos, falhas, saldos, piloto });
+    return json({ ok: true, conexoes: lista.length, lidas, pix, pedidos, falhas, saldos, piloto });
   } catch (e) {
     console.error("pluggy-hora", e);
     return json({ error: "erro_interno" }, 500);
