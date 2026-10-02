@@ -5,7 +5,11 @@
      • 2 a 8 lutadores, aposta igual pra todos (ou honra)
      • pote = apostas − 10% da casa
      • 2 lutadores: vencedor leva tudo · 3+: 1º 70%, 2º 30%
-     • entra até 18h, sai (com devolução) até 12h
+     • empate numa colocação divide a parte
+     • entra até 18h, sai (com devolução) até 12h; menos de 2 à meia-noite
+       cancela e devolve
+   Lib única da Sala (A + B unificadas em 02/10/2026 — a antiga sala-lib.ts
+   da versão B foi absorvida aqui). O placar são as vendas do DEFCON do dia.
    ============================================================ */
 import { supabase } from "@/integrations/supabase/client";
 import { erroBonito } from "./x1-lib";
@@ -14,6 +18,13 @@ export const SALA_VAGAS = [2, 3, 4, 5, 6, 8];
 export const SALA_APOSTAS = [0, 10, 20, 50];
 export const SALA_HORA_ENTRADA = 18;
 export const SALA_HORA_SAIDA = 12;
+
+/** Hora atual em Brasília (0..23). O banco usa a mesma régua (x1_sala_agora_brt). */
+export const horaBRT = () => new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" })).getHours();
+/** Ainda dá pra abrir sala / entrar numa sala hoje (até 18h). */
+export const aindaEntra = () => horaBRT() < SALA_HORA_ENTRADA;
+/** Ainda dá pra sair com a aposta de volta (até 12h). */
+export const aindaSai = () => horaBRT() < SALA_HORA_SAIDA;
 
 /** Quanto sai pra cada colocação com `n` lutadores e aposta `aposta`. */
 export function divisaoPote(aposta: number, n: number): { pote: number; casa: number; primeiro: number; segundo: number } {
@@ -44,7 +55,8 @@ export interface Sala {
 const num = (v: unknown) => Number(v) || 0;
 
 export async function carregarSalasHoje(): Promise<SalaResumo[]> {
-  const { data } = await (supabase as any).rpc("x1_salas_hoje");
+  const { data, error } = await (supabase as any).rpc("x1_salas_hoje");
+  if (error) throw new Error(erroBonito(error.message));
   return ((data as any[]) || []).map((s) => ({
     ...s, stakes_amount: num(s.stakes_amount), vagas: num(s.vagas), dentro: num(s.dentro), lider_total: num(s.lider_total),
     meu_total: s.meu_total == null ? null : num(s.meu_total), minha_posicao: s.minha_posicao == null ? null : num(s.minha_posicao),
@@ -54,8 +66,10 @@ export async function carregarSalasHoje(): Promise<SalaResumo[]> {
 
 export async function carregarSala(id: string): Promise<Sala | null> {
   const { data, error } = await (supabase as any).rpc("x1_sala", { p_id: id });
+  // erro de rede/permissão vira mensagem; "não existe" é só quando o banco não devolve linha
+  if (error) throw new Error(erroBonito(error.message));
   const rows = (data as any[]) || [];
-  if (error || rows.length === 0) return null;
+  if (rows.length === 0) return null;
   const r0 = rows[0];
   const lutadores: SalaLutador[] = rows.map((r) => ({
     user_id: r.user_id, status: r.p_status, nome: r.p_nome || "Vendedor", avatar: r.p_avatar || null, patente: r.p_patente || "NOVATO",
@@ -83,11 +97,12 @@ export const entrarSala = (id: string) => chamar<null>("x1_sala_entrar", { p_id:
 export const sairSala = (id: string) => chamar<null>("x1_sala_sair", { p_id: id });
 export const convidarSala = (id: string, ids: string[]) => chamar<number>("x1_sala_convidar", { p_id: id, p_convidados: ids });
 
-/** Colocação ao vivo: ordena por total e dá a mesma posição pra empate. */
+/** Colocação: ordena por total e dá a mesma posição pra empate (igual ao rank() do banco).
+ *  Sala fechada: vale a posição gravada pelo banco (p_posicao), que é a oficial do prêmio. */
 export function ordenarPlacar(lutadores: SalaLutador[]): (SalaLutador & { pos: number })[] {
   const dentro = lutadores.filter((l) => l.status === "dentro").sort((a, b) => b.total - a.total);
   let pos = 0, ultimo = Number.NaN;
-  return dentro.map((l, i) => { if (l.total !== ultimo) { pos = i + 1; ultimo = l.total; } return { ...l, pos }; });
+  return dentro.map((l, i) => { if (l.total !== ultimo) { pos = i + 1; ultimo = l.total; } return { ...l, pos: l.posicao ?? pos }; });
 }
 
 export const linkSala = (id: string) => `${typeof window !== "undefined" ? window.location.origin : "https://app.orbis.inf.br"}/x1/sala/${id}`;

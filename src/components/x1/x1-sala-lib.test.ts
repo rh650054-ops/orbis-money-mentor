@@ -25,4 +25,9 @@ describe("ordenarPlacar", () => {
     const r = ordenarPlacar([lut("a", 300), lut("b", 640), lut("c", 300), lut("d", 999, "convidado"), lut("e", 0)]);
     expect(r.map((x) => [x.user_id, x.pos])).toEqual([["b", 1], ["a", 2], ["c", 2], ["e", 4]]);
   });
+  it("closed room: the position saved by the database wins", () => {
+    const fechado = (id: string, total: number, posicao: number): SalaLutador => ({ ...lut(id, total), posicao });
+    const r = ordenarPlacar([fechado("a", 500, 1), fechado("b", 500, 1), fechado("c", 100, 3)]);
+    expect(r.map((x) => [x.user_id, x.pos])).toEqual([["a", 1], ["b", 1], ["c", 3]]);
+  });
 });

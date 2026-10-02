@@ -12,6 +12,10 @@
 --   • CORREÇÃO: o check de status não aceitava 'open'/'expired' e o de
 --     money_status não aceitava 'refunded' — a liquidação noturna
 --     (x1_settle_due) estava falhando desde 29/09. Aqui destrava.
+--   • Paridade com o banco (02/10): x1_sala_criar/x1_sala_entrar usam
+--     coalesce(ver,false) e coalesce(bal,0) — quem não tem linha em
+--     profiles/x1_wallets é barrado, não liberado por NULL. Já aplicado
+--     no banco; NÃO reaplicar este arquivo.
 -- ============================================================
 
 -- ---------- 0) checks que travavam a liquidação ----------
@@ -78,11 +82,11 @@ begin
     raise exception 'limite: você já está em 3 salas hoje.'; end if;
   if p_stakes > 0 then
     select coalesce(verificado,false) into ver from public.profiles where user_id = me;
-    if not ver then raise exception 'verificado: pra apostar dinheiro você precisa conectar onde recebe.'; end if;
+    if not coalesce(ver,false) then raise exception 'verificado: pra apostar dinheiro você precisa conectar onde recebe.'; end if;
     select aposta_max into lim from public.x1_recorde(me);
     if p_stakes > lim then raise exception 'patente: sua patente libera aposta até R$ %.', lim; end if;
     select coalesce(balance,0) into bal from public.x1_wallets where user_id = me;
-    if bal < p_stakes then raise exception 'saldo_insuficiente: você tem R$ % e a aposta é R$ %.', bal, p_stakes; end if;
+    if coalesce(bal,0) < p_stakes then raise exception 'saldo_insuficiente: você tem R$ % e a aposta é R$ %.', coalesce(bal,0), p_stakes; end if;
   end if;
   insert into public.x1_salas (dono, nome, scheduled_date, stakes_amount, vagas)
   values (me, coalesce(nullif(left(trim(p_nome),40),''),'Sala de competição'), hoje, p_stakes, p_vagas) returning id into nid;
@@ -133,11 +137,11 @@ begin
     raise exception 'limite: você já está em 3 salas hoje.'; end if;
   if s.stakes_amount > 0 then
     select coalesce(verificado,false) into ver from public.profiles where user_id = me;
-    if not ver then raise exception 'verificado: pra apostar dinheiro você precisa conectar onde recebe.'; end if;
+    if not coalesce(ver,false) then raise exception 'verificado: pra apostar dinheiro você precisa conectar onde recebe.'; end if;
     select aposta_max into lim from public.x1_recorde(me);
     if s.stakes_amount > lim then raise exception 'patente: sua patente libera aposta até R$ %.', lim; end if;
     select coalesce(balance,0) into bal from public.x1_wallets where user_id = me;
-    if bal < s.stakes_amount then raise exception 'saldo_insuficiente: você tem R$ % e a aposta é R$ %.', bal, s.stakes_amount; end if;
+    if coalesce(bal,0) < s.stakes_amount then raise exception 'saldo_insuficiente: você tem R$ % e a aposta é R$ %.', coalesce(bal,0), s.stakes_amount; end if;
     perform public.x1_wallet_apply(me, -s.stakes_amount, 'aposta', null, 'Aposta na sala ' || p_id::text, me);
   end if;
   insert into public.x1_sala_participantes (sala_id, user_id, status, entrou_em) values (p_id, me, 'dentro', now())

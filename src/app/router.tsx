@@ -157,8 +157,10 @@ export function AppRouter() {
                     <Route path="/pb/retorno" element={<MpRetorno />} />
                     <Route path="/x1/escolher" element={<X1Escolher />} />
                     <Route path="/x1/luta/:id" element={<X1Luta />} />
+                    {/* Sala de Competição (X1 em grupo): abrir · placar ao vivo · chamar mais */}
                     <Route path="/x1/sala/nova" element={<X1SalaNova />} />
                     <Route path="/x1/sala/:id" element={<X1Sala />} />
+                    <Route path="/x1/sala/:id/chamar" element={<X1SalaNova />} />
                     <Route path="/rewards" element={<Rewards />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/my-account" element={<MyAccount />} />
