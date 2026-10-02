@@ -58,7 +58,7 @@ export function agruparAlertas(lista: RankingAlerta[]): GrupoAlerta[] {
     // lista já vem do mais novo pro mais antigo
     const doTipo = lista.filter((a) => a.tipo === tipo);
     if (!doTipo.length) continue;
-    const novo = doTipo[0], velho = doTipo[doTipo.length - 1];
+    const novo = doTipo[0]!, velho = doTipo[doTipo.length - 1]!;
     const nomes = [...new Set(doTipo.map((a) => primeiroNome(a.outro_nome)))];
     grupos.push({
       tipo, id: novo.id, ids: doTipo.map((a) => a.id), nomes,
@@ -84,7 +84,7 @@ export function textoGrupo(g: GrupoAlerta): { titulo: string; corpo: string } {
 
 /** Mantido pra quem só tem um evento na mão (service worker, testes). */
 export function textoAlerta(a: RankingAlerta): { titulo: string; corpo: string } {
-  return textoGrupo(agruparAlertas([a])[0]);
+  return textoGrupo(agruparAlertas([a])[0]!);
 }
 
 export function useRankingAlertas(userId: string | undefined) {
