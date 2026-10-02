@@ -200,6 +200,8 @@ async function showX1Alert(d) {
 
 // "🔻 Lucas te ultrapassou" / "🔺 Você passou Ana" — alerta do ranking. Toque abre /ranking.
 async function showRankingAlert(d) {
+  // Uma só por vez: fecha a anterior (iOS empilha; Android já substitui pela tag).
+  await closeTag("orbis-ranking-alert");
   return self.registration.showNotification((d && d.title) || "Ranking", {
     body: (d && d.body) || "",
     icon: ICON,
