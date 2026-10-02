@@ -7,6 +7,7 @@
    Foto real sempre (X1Avatar cai pra iniciais se não tiver).
    ============================================================ */
 import { X1Avatar } from "./X1Avatar";
+import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { fmt, patenteCor, primeiroNome, proximaPatente, xpPct, type Recorde } from "./x1-lib";
 
 const GOLD = "#F5B800";
@@ -87,8 +88,8 @@ export function FighterCardLuta({ nome, avatar, patente, total, lado, lidera, cl
 }
 
 /** Card da grade de seleção */
-export function FighterCardMini({ nome, avatar, patente, vitorias, derrotas, linha, selo, seloCor, potencia, selecionado, onClick, style }: {
-  nome: string; avatar: string | null; patente: string; vitorias: number; derrotas: number; linha: string; selo?: string | null; seloCor?: string; potencia: number; selecionado: boolean; onClick: () => void; style?: React.CSSProperties;
+export function FighterCardMini({ nome, avatar, patente, vitorias, derrotas, linha, selo, seloCor, potencia, selecionado, onClick, style, verificado = false }: {
+  nome: string; avatar: string | null; patente: string; vitorias: number; derrotas: number; linha: string; selo?: string | null; seloCor?: string; potencia: number; selecionado: boolean; onClick: () => void; style?: React.CSSProperties; verificado?: boolean;
 }) {
   const cor = patenteCor(patente);
   const barras = Math.max(1, Math.min(5, Math.round(potencia / 150)));
@@ -99,7 +100,7 @@ export function FighterCardMini({ nome, avatar, patente, vitorias, derrotas, lin
     }}>
       {selo && <span className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2 py-[3px] text-[8.5px] font-black tracking-[.08em]" style={{ top: -8, background: "#0e0e10", border: `1.5px solid ${seloCor || "#2a2823"}`, color: seloCor || "#e9e4d8" }}>{selo}</span>}
       <X1Avatar url={avatar} nome={nome} size={64} cor={selecionado ? GOLD : cor} />
-      <p className="text-[13px] font-black mt-2.5 truncate">{primeiroNome(nome)}</p>
+      <p className="text-[13px] font-black mt-2.5 flex items-center justify-center gap-1 min-w-0"><span className="truncate">{primeiroNome(nome)}</span>{verificado && <SeloVerificado size={13} />}</p>
       <p className="text-[9px] font-black tracking-[.1em] mt-0.5" style={{ color: cor }}>{patente}</p>
       <p className="text-[10.5px] mt-0.5 truncate" style={{ color: "#8a8378" }}>{vitorias}V {derrotas}D{linha ? ` · ${linha}` : ""}</p>
       <div className="flex justify-center gap-[2px] mt-1.5">

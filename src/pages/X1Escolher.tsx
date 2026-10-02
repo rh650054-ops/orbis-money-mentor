@@ -150,7 +150,7 @@ export default function X1Escolher() {
             const seloCor = o.na_arena ? OK : o.revanche ? GOLD : o.diferenca > 0 ? "#ff7d8c" : "#8a8378";
             const linha = o.posicao ? (o.diferenca > 0 ? `${fmt(o.diferenca)} na frente` : o.diferenca < 0 ? `${fmt(-o.diferenca)} atrás` : `#${o.posicao}`) : (o.o_que_vende || "");
             return (
-              <FighterCardMini key={o.user_id} nome={o.nome} avatar={o.avatar_url} patente={o.patente} vitorias={o.vitorias} derrotas={o.derrotas} linha={linha} selo={selo} seloCor={seloCor} potencia={o.potencia} selecionado={sel?.user_id === o.user_id} onClick={() => setSel(o)} style={{ animation: "x1-up .4s ease-out both", animationDelay: `${Math.min(i, 10) * 50}ms` }} />
+              <FighterCardMini key={o.user_id} nome={o.nome} avatar={o.avatar_url} patente={o.patente} vitorias={o.vitorias} derrotas={o.derrotas} linha={linha} selo={selo} seloCor={seloCor} potencia={o.potencia} selecionado={sel?.user_id === o.user_id} verificado={o.verificado} onClick={() => setSel(o)} style={{ animation: "x1-up .4s ease-out both", animationDelay: `${Math.min(i, 10) * 50}ms` }} />
             );
           })}
         </div>

@@ -181,10 +181,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // VANT PRO (02/10/2026): the Pro plans are OFFERS of this same product, so they
+    // land here, not in hotmart-pro. offer.code tells them apart. Annual pays once a
+    // year: its period must be 365 days, or the buyer is locked out after a month.
+    const PRO_OFFERS: Record<string, number> = { "5y86n311": 30, "6vkxbh8c": 365 };
+    const offerCode = String(compra?.offer?.code ?? "").trim();
+    const proDays = PRO_OFFERS[offerCode] ?? null;
+
     // Calculate period end (30 days from now as default for monthly)
     const now = new Date();
     const periodEnd = new Date(now);
-    periodEnd.setDate(periodEnd.getDate() + 30);
+    periodEnd.setDate(periodEnd.getDate() + (proDays ?? 30));
     const graceEnd = new Date(periodEnd);
     graceEnd.setDate(graceEnd.getDate() + 3);
 
@@ -218,6 +225,16 @@ Deno.serve(async (req) => {
         .from("profiles")
         .update({ plan_status: "active", is_trial_active: false })
         .eq("user_id", userId);
+
+      if (proDays) {
+        const { error: proErr } = await supabase.rpc("pro_conceder", {
+          p_user: userId, p_origem: "hotmart",
+          p_codigo: subscriptionId || null, p_produto: offerCode,
+          p_ate: graceEnd.toISOString(),
+        });
+        if (proErr) console.error("pro_conceder:", proErr.message);
+        else console.log(`Vant Pro (${offerCode}) on for user ${userId}`);
+      }
 
       console.log(`Subscription activated for user ${userId}`);
     } else if (
@@ -265,6 +282,11 @@ Deno.serve(async (req) => {
         .from("profiles")
         .update({ plan_status: "expired" })
         .eq("user_id", userId);
+
+      if (proDays) {
+        const { error: proErr } = await supabase.rpc("pro_revogar", { p_user: userId });
+        if (proErr) console.error("pro_revogar:", proErr.message);
+      }
 
       console.log(`Subscription canceled for user ${userId}`);
     }

@@ -18,7 +18,12 @@ const GOLD = "#F5B800";
 const OK = "#3DD68C";
 const RED = "#F2465A";
 
-export function CobradorCard({ userId, faltouCair }: { userId?: string; faltouCair: number }) {
+export function CobradorCard({ userId, faltouCair, pixAindaPodeCair = false }: {
+  userId?: string;
+  faltouCair: number;
+  /** banco ligado: a diferença pode ser Pix que o banco ainda não mostrou (lê de hora em hora até 23:59) */
+  pixAindaPodeCair?: boolean;
+}) {
   const navigate = useNavigate();
   const [lista, setLista] = useState<ClienteDoDia[]>([]);
   const [resumo, setResumo] = useState<ResumoCobranca | null>(null);
@@ -42,28 +47,34 @@ export function CobradorCard({ userId, faltouCair }: { userId?: string; faltouCa
   if (faltouCair < 0.005 && lista.length === 0) return null;
   if (faltouCair < 0.005 && emAberto.length === 0 && pagas.length === 0) return null;
 
-  return (
-    <>
-    <p className="orbis-section mt-6 px-1">Cobrar quem ficou devendo</p>
-    <div className="rounded-[22px] border mt-3 overflow-hidden"
-      style={{ borderColor: faltouCair > 0.005 ? "rgba(242,70,90,.28)" : "rgba(61,214,140,.28)", background: faltouCair > 0.005 ? "radial-gradient(120% 85% at 50% -10%,#3a0c14 0%,#1a0508 42%,#0b0b0d 80%)" : "linear-gradient(180deg,#0b1a14,#0a0a0c)" }}>
+  const falta = faltouCair > 0.005;
+  // Com banco ligado, "faltou" pode ser só Pix atrasado: âmbar, não vermelho.
+  const tom = !falta ? OK : pixAindaPodeCair ? GOLD : "#ff8a97";
+  const titulo = !falta ? "TUDO RECEBIDO HOJE" : pixAindaPodeCair ? "AINDA NÃO CAIU" : "FALTOU CAIR HOJE";
+  const texto = !falta
+    ? "Nada em aberto. Se alguém ficar devendo amanhã, é daqui que você cobra."
+    : pixAindaPodeCair
+      ? "O banco ainda não mostrou esse valor. Pix atrasado entra sozinho até 23:59. Se alguém ficou devendo, cobra por aqui."
+      : "Alguém ficou devendo? A Vant gera o Pix e abre seu WhatsApp com a mensagem pronta.";
 
-      <div className="px-4 pt-4 pb-3">
-        <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: faltouCair > 0.005 ? "#ff8a97" : OK }}>
-          {faltouCair > 0.005 ? "FALTOU CAIR HOJE" : "TUDO RECEBIDO HOJE"}
-        </p>
-        <p className="orbis-num text-[26px] font-black tracking-[-.035em] leading-none mt-1.5">
-          {fmt(faltouCair)}
-        </p>
-        <p className="text-[12.5px] mt-2 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
-          {faltouCair > 0.005
-            ? "A Vant gera o Pix de quem ficou devendo e abre seu WhatsApp com a mensagem pronta. Quando pagar, isso aqui cai sozinho."
-            : "Nada em aberto. Se alguém ficar devendo amanhã, é daqui que você cobra."}
-        </p>
-        {resumo && resumo.pagas_mes > 0 && (
-          <p className="text-[11.5px] font-bold mt-2 inline-flex items-center gap-1.5" style={{ color: OK }}>
-            <Check className="w-3.5 h-3.5" strokeWidth={3} />
-            {fmt(resumo.recuperado_mes)} recuperados esse mês
+  return (
+    <div className="rounded-2xl border overflow-hidden"
+      style={{ borderColor: `${tom}47`, background: "linear-gradient(180deg,#121214,#0b0b0d)" }}>
+
+      <div className="px-4 pt-3.5 pb-3 flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-black tracking-[.15em]" style={{ color: tom }}>{titulo}</p>
+          <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>{texto}</p>
+          {resumo && resumo.pagas_mes > 0 && (
+            <p className="text-[11.5px] font-bold mt-2 inline-flex items-center gap-1.5" style={{ color: OK }}>
+              <Check className="w-3.5 h-3.5" strokeWidth={3} />
+              {fmt(resumo.recuperado_mes)} recuperados esse mês
+            </p>
+          )}
+        </div>
+        {falta && (
+          <p className="orbis-num text-[20px] font-black tracking-[-.03em] leading-none shrink-0 pt-0.5" style={{ color: tom }}>
+            {fmt(faltouCair)}
           </p>
         )}
       </div>
@@ -121,12 +132,13 @@ export function CobradorCard({ userId, faltouCair }: { userId?: string; faltouCa
       )}
 
       <div className="px-4 pb-4">
-        <button type="button" onClick={() => navigate("/cobrar")} className="orbis-cta w-full">
+        <button type="button" onClick={() => navigate("/cobrar")}
+          className="w-full h-11 rounded-[13px] inline-flex items-center justify-center gap-2 text-[12.5px] font-extrabold active:opacity-70"
+          style={{ background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>
           <HandCoins className="w-4 h-4" strokeWidth={2.4} />
-          {lista.length > 0 ? "COBRAR OUTRA PESSOA" : "CRIAR UMA COBRANÇA"}
+          {lista.length > 0 ? "COBRAR OUTRA PESSOA" : "COBRAR ALGUÉM"}
         </button>
       </div>
     </div>
-    </>
   );
 }

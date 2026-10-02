@@ -55,3 +55,18 @@ export function getCheckoutUrl(): string {
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}offDiscount=${encodeURIComponent(code)}`;
 }
+
+/* VANT PRO (02/10/2026): two offers of the same Hotmart product. hotmart-webhook
+   tells them apart by offer.code and turns the Pro on (monthly 30d, annual 365d). */
+export const PRO_CHECKOUT = {
+  anual: "https://pay.hotmart.com/N104683123F?off=6vkxbh8c&checkoutMode=6",
+  mensal: "https://pay.hotmart.com/N104683123F?off=5y86n311&checkoutMode=6",
+} as const;
+export type PlanoPro = keyof typeof PRO_CHECKOUT;
+
+/** Pro checkout link. Only the sck (partner attribution) travels: a coupon would
+ *  swap the offer for another code the webhook does not know as Pro. */
+export function getProCheckoutUrl(plano: PlanoPro): string {
+  const code = storedCoupon();
+  return `${PRO_CHECKOUT[plano]}&sck=${encodeURIComponent(code ?? "vant_pro")}`;
+}

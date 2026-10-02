@@ -1,5 +1,4 @@
 import { CSSProperties, useEffect, useState } from "react";
-import { BadgeCheck } from "lucide-react";
 import { fotoValida } from "@/shared/lib/avatar";
 
 /**
@@ -38,16 +37,20 @@ export function AvatarRanking({
   return <img src={icon} alt={name || ""} className={iconClassName} style={iconStyle} />;
 }
 
-/** Selo azul de verificado — 3+ meses de Vant (ou marcado pela equipe). */
+/** Selo de verificado no estilo do Instagram (Rick, 02/10/2026): estrela azul
+ *  serrilhada com check branco, ao lado do nome. Quem tem é quem ligou o banco. */
+const ESTRELA = "M12 1.5l2.6 2.3 3.4-.6.6 3.4 3.1 1.6-1.6 3.1 1.6 3.1-3.1 1.6-.6 3.4-3.4-.6L12 22.5l-2.6-2.3-3.4.6-.6-3.4-3.1-1.6 1.6-3.1-1.6-3.1 3.1-1.6.6-3.4 3.4.6z";
 export function SeloVerificado({ size = 14, className }: { size?: number; className?: string }) {
   return (
-    <BadgeCheck
+    <svg
+      viewBox="0 0 24 24"
+      role="img"
       aria-label="Verificado"
       className={className}
       style={{ width: size, height: size, display: "inline-block", verticalAlign: "middle", flexShrink: 0 }}
-      color="#ffffff"
-      fill="#2F9BFF"
-      strokeWidth={2}
-    />
+    >
+      <path fill="#0095F6" d={ESTRELA} />
+      <path d="M8 12.5l2.6 2.6L16.5 9" stroke="#fff" strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

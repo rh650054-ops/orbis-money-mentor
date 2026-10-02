@@ -20,14 +20,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Loader2, BadgeCheck, Landmark, ShieldCheck, Trophy,
-  Check, Plus, AlertTriangle, RefreshCw, ChevronRight,
+  ArrowLeft, Loader2, Landmark, Banknote, ReceiptText,
+  Check, Plus, AlertTriangle, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ConciliacaoMes } from "@/components/financas/MercadoPagoConciliacao";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
-import { Selo, Raios, Grao, LogoCarteira, CARTEIRAS, type Carteira } from "@/components/conectar/Selo";
+import { formatCurrency } from "@/shared/lib/utils";
+import { LogoCarteira, CARTEIRAS, type Carteira } from "@/components/conectar/Selo";
+import { PaywallPro } from "@/components/conectar/PaywallPro";
+import { SeloVerificado } from "@/components/ranking/AvatarRanking";
+import { carregarPixDoBanco, horaDaLeitura, PIX_VAZIO, type PixDoBanco } from "@/components/conectar/banco-pix";
 import {
   ligarBanco, salvarBanco, carregarBancos, carregarPro, saudeDoBanco, horaBR,
   type BancoLigado, type StatusPro,
@@ -35,32 +39,16 @@ import {
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
-const CIANO = "#7FD3FF";
-
-/** Checkout do produto "Vant Pro" na Hotmart. Vazio = botão vira lista de espera. */
-const LINK_PRO = "";
+const MUTE = "#7b766e";
 
 interface StatusCarteira { conectado: boolean; provedores: string[]; recebido_hoje: number }
+interface Perfil { nome: string; avatar: string | null }
+
+const fmtReal = (v: number) => formatCurrency(v).replace(/,00$/, "");
+const iniciais = (nome: string) =>
+  nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0] ?? "").join("").toUpperCase() || "V";
 
 /* ---------- peças visuais (fora do componente, sempre) ---------- */
-
-function HeroOuro({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="relative overflow-hidden rounded-[26px] text-center" style={{
-      padding: "26px 18px 20px",
-      background: "radial-gradient(120% 85% at 50% -10%,#4a3405 0%,#241a02 40%,#0a0a0c 82%)",
-      border: "1px solid rgba(245,184,0,.34)",
-      boxShadow: "inset 0 1px 0 rgba(255,255,255,.08), 0 26px 60px -30px rgba(245,184,0,.5)",
-    }}>
-      <span className="absolute pointer-events-none" style={{
-        left: "50%", top: -150, width: 540, height: 540, marginLeft: -270,
-        background: "conic-gradient(from 200deg,transparent 0 18deg,rgba(245,184,0,.13) 18deg 24deg,transparent 24deg 46deg,rgba(245,184,0,.08) 46deg 52deg,transparent 52deg 74deg,rgba(245,184,0,.13) 74deg 80deg,transparent 80deg 360deg)",
-      }} />
-      <Grao />
-      <div className="relative">{children}</div>
-    </div>
-  );
-}
 
 function Cartao({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
@@ -71,14 +59,13 @@ function Cartao({ children, className = "", style }: { children: React.ReactNode
   );
 }
 
-function Beneficio({ icone, cor, titulo, texto, primeiro }: { icone: React.ReactNode; cor: string; titulo: string; texto: string; primeiro?: boolean }) {
+function LinhaVantagem({ icone, titulo, texto, primeiro }: { icone: React.ReactNode; titulo: string; texto: string; primeiro?: boolean }) {
   return (
-    <div className="flex gap-3 items-start py-[13px]" style={{ borderTop: primeiro ? "none" : "1px solid #1e1d21", paddingTop: primeiro ? 2 : undefined }}>
-      <span className="w-10 h-10 rounded-[13px] flex items-center justify-center shrink-0"
-        style={{ background: `${cor}18`, border: `1px solid ${cor}4d`, boxShadow: "inset 0 1px 0 rgba(255,255,255,.07)" }}>{icone}</span>
-      <div>
-        <p className="text-[14px] font-extrabold leading-tight tracking-tight">{titulo}</p>
-        <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: "#7b766e" }}>{texto}</p>
+    <div className="flex items-center gap-3 py-2.5" style={{ borderTop: primeiro ? "none" : "1px solid #1e1d21" }}>
+      <span className="w-9 h-9 rounded-[11px] flex items-center justify-center shrink-0" style={{ background: "#1a1a19" }}>{icone}</span>
+      <div className="min-w-0">
+        <p className="text-[13px] font-extrabold leading-tight">{titulo}</p>
+        <p className="text-[10.5px] font-bold mt-0.5" style={{ color: MUTE }}>{texto}</p>
       </div>
     </div>
   );
@@ -87,43 +74,33 @@ function Beneficio({ icone, cor, titulo, texto, primeiro }: { icone: React.React
 function BotaoOuro({ children, onClick, disabled }: { children: React.ReactNode; onClick: () => void; disabled?: boolean }) {
   return (
     <button type="button" onClick={onClick} disabled={disabled}
-      className="relative overflow-hidden w-full h-[54px] rounded-[16px] inline-flex items-center justify-center gap-2 text-[14.5px] font-black active:translate-y-[2px] transition-transform disabled:opacity-60"
-      style={{ background: "linear-gradient(180deg,#FFD152,#F5B800 55%,#E0A500)", color: "#1a1305", boxShadow: "0 1px 0 rgba(255,255,255,.4) inset, 0 5px 0 #A87E00, 0 16px 34px rgba(245,184,0,.22)" }}>
+      className="relative overflow-hidden w-full h-[50px] rounded-[14px] inline-flex items-center justify-center gap-2 text-[14px] font-black active:translate-y-[1px] transition-transform disabled:opacity-60"
+      style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200", boxShadow: "0 10px 24px -12px rgba(255,200,0,.8)" }}>
       {children}
     </button>
   );
 }
 
-function MolduraOuro({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="relative inline-flex p-[3px] rounded-full shrink-0"
-      style={{ background: "conic-gradient(from 0deg,#FFE9A3,#F5B800,#A87E00,#FFD152,#F5B800,#FFE9A3)" }}>
-      <span className="absolute rounded-full pointer-events-none" style={{ inset: -6, background: "radial-gradient(circle,rgba(245,184,0,.28),transparent 70%)" }} />
-      {children}
-    </span>
-  );
-}
-
-function LinhaBanco({ b }: { b: BancoLigado }) {
+function LinhaBanco({ b, primeiro }: { b: BancoLigado; primeiro?: boolean }) {
   const s = saudeDoBanco(b.status, b.last_synced_at);
   return (
-    <div className="flex items-center gap-3 py-[11px]" style={{ borderTop: "1px solid #1e1d21" }}>
+    <div className="flex items-center gap-3 py-[11px]" style={{ borderTop: primeiro ? "none" : "1px solid #1e1d21" }}>
       {b.institution_logo ? (
-        <img src={b.institution_logo} alt="" className="w-[34px] h-[34px] rounded-[11px] shrink-0 object-contain" style={{ background: "#fff" }} />
+        <img src={b.institution_logo} alt="" className="w-[34px] h-[34px] rounded-[10px] shrink-0 object-contain" style={{ background: "#fff" }} />
       ) : (
-        <span className="w-[34px] h-[34px] rounded-[11px] shrink-0 flex items-center justify-center" style={{ background: "#16151a", border: "1px solid #2a2823" }}>
-          <Landmark className="w-4 h-4" style={{ color: "#7b766e" }} />
+        <span className="w-[34px] h-[34px] rounded-[10px] shrink-0 flex items-center justify-center" style={{ background: "#16151a", border: "1px solid #2a2823" }}>
+          <Landmark className="w-4 h-4" style={{ color: MUTE }} />
         </span>
       )}
       <div className="flex-1 min-w-0">
         <p className="text-[13.5px] font-extrabold truncate">{b.institution_name || "Banco"}</p>
-        <p className="text-[11px] truncate" style={{ color: s.cor }}>
-          {s.texto}{!s.alerta && b.last_synced_at ? ` · ${horaBR(b.last_synced_at)}` : ""}
+        <p className="text-[10.5px] font-bold truncate" style={{ color: s.alerta ? s.cor : MUTE }}>
+          conta · {s.texto}{!s.alerta && b.last_synced_at ? ` ${horaBR(b.last_synced_at)}` : ""}
         </p>
       </div>
       {s.alerta
         ? <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: s.cor }} strokeWidth={2.4} />
-        : <Check className="w-4 h-4 shrink-0" style={{ color: s.cor }} strokeWidth={3} />}
+        : <Check className="w-4 h-4 shrink-0" style={{ color: OK }} strokeWidth={3} />}
     </div>
   );
 }
@@ -139,17 +116,24 @@ export default function Verificar() {
   const [carregando, setCarregando] = useState(true);
   const [ligando, setLigando] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
+  const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [pixHoje, setPixHoje] = useState<PixDoBanco>(PIX_VAZIO);
 
   const recarregar = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [p, b, s] = await Promise.all([
+      const [p, b, s, pf, px] = await Promise.all([
         carregarPro(),
         carregarBancos().catch(() => [] as BancoLigado[]),
         Promise.resolve((supabase as any).rpc("mp_status")).catch(() => ({ data: null })),
+        Promise.resolve(supabase.from("public_profiles").select("nickname, avatar_url").eq("user_id", user.id).maybeSingle()).catch(() => ({ data: null })),
+        carregarPixDoBanco().catch(() => PIX_VAZIO),
       ]);
       setPro(p);
       setBancos(b);
+      const linha = (pf as { data: { nickname?: string | null; avatar_url?: string | null } | null }).data;
+      setPerfil({ nome: (linha?.nickname ?? "").trim(), avatar: linha?.avatar_url ?? null });
+      setPixHoje(px);
       const r = ((s?.data as any[]) || [])[0];
       setCart({
         conectado: !!r?.conectado,
@@ -237,199 +221,144 @@ export default function Verificar() {
 
   /* ---------- bloco das carteiras: grátis, aparece nos três estados ---------- */
   const blocoCarteiras = (
-    <Cartao className="mt-3">
-      <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>ONDE VOCÊ RECEBE · GRÁTIS</p>
-      <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "#a9a49c" }}>
-        Carteira não dá selo — quem verifica é o banco. Mas é ela que faz a Vant conferir o que caiu e gerar as cobranças do calote.
-      </p>
-      {ligadas.map((c) => (
-        <div key={c.id} className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: "1px solid #1e1d21" }}>
-          <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={34} />
-          <p className="flex-1 text-[13.5px] font-extrabold">{c.nome}</p>
-          <span className="inline-flex items-center gap-1 text-[11px] font-black" style={{ color: OK }}>
-            <Check className="w-3.5 h-3.5" strokeWidth={3} /> LIGADA
-          </span>
-        </div>
-      ))}
-      {disponiveis.map((c) => (
-        <button key={c.id} type="button" onClick={() => ligarCarteira(c)} disabled={!!ocupado}
-          className="w-full flex items-center gap-3 mt-3 pt-3 text-left active:opacity-70" style={{ borderTop: "1px solid #1e1d21" }}>
-          <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={34} />
-          <span className="flex-1 min-w-0">
-            <span className="block text-[13.5px] font-extrabold">{c.nome}</span>
-            <span className="block text-[11px]" style={{ color: "#7b766e" }}>{c.linha}</span>
-          </span>
-          {ocupado === c.id
-            ? <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: GOLD }} />
-            : <span className="shrink-0 h-8 px-3 rounded-[10px] inline-flex items-center text-[11px] font-black" style={{ background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>LIGAR</span>}
-        </button>
-      ))}
-    </Cartao>
+    <>
+      <div className="flex items-center justify-between px-0.5 mt-5">
+        <p className="text-[10px] font-black tracking-[.15em]" style={{ color: MUTE }}>MAQUININHAS E CARTEIRAS · GRÁTIS</p>
+        <p className="text-[10.5px] font-bold" style={{ color: MUTE }}>não dão selo</p>
+      </div>
+      <Cartao className="mt-2" style={{ padding: "4px 15px" }}>
+        {ligadas.map((c, i) => (
+          <div key={c.id} className="flex items-center gap-3 py-3" style={{ borderTop: i === 0 ? "none" : "1px solid #1e1d21" }}>
+            <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={34} />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[13.5px] font-extrabold">{c.nome}</span>
+              <span className="block text-[11px]" style={{ color: MUTE }}>pra conciliar e cobrar</span>
+            </span>
+            <span className="inline-flex items-center gap-1 text-[11px] font-black" style={{ color: OK }}>
+              <Check className="w-3.5 h-3.5" strokeWidth={3} /> LIGADA
+            </span>
+          </div>
+        ))}
+        {disponiveis.map((c, i) => (
+          <button key={c.id} type="button" onClick={() => ligarCarteira(c)} disabled={!!ocupado}
+            className="w-full flex items-center gap-3 py-3 text-left active:opacity-70"
+            style={{ borderTop: i === 0 && ligadas.length === 0 ? "none" : "1px solid #1e1d21" }}>
+            <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={34} />
+            <span className="flex-1 min-w-0">
+              <span className="block text-[13.5px] font-extrabold">{c.nome}</span>
+              <span className="block text-[11px]" style={{ color: MUTE }}>{c.linha}</span>
+            </span>
+            {ocupado === c.id
+              ? <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: GOLD }} />
+              : <span className="shrink-0 h-7 px-2.5 rounded-full inline-flex items-center text-[10px] font-black tracking-[.06em]" style={{ background: "#1b1a17", border: "1px solid #26241f", color: MUTE }}>LIGAR</span>}
+          </button>
+        ))}
+      </Cartao>
+    </>
+  );
+
+  const conferirDeNovo = (texto: string) => (
+    <button type="button" onClick={() => void recarregar()}
+      className="w-full mt-4 text-[11.5px] font-extrabold underline underline-offset-[3px]" style={{ color: MUTE }}>
+      {texto}
+    </button>
   );
 
   const topo = (
     <div className="flex items-center justify-between">
-      <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#7b766e" }}>
+      <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b9b3a6" }}>
         <ArrowLeft className="w-5 h-5" />
       </button>
-      <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>
-        {pro.pro ? "VANT PRO" : "SEUS RECEBIMENTOS"}
-      </p>
-      <span className="w-9" />
+      <p className="font-mono text-[10px] font-bold tracking-[.18em]" style={{ color: MUTE }}>VANT PRO</p>
+      {pro.pro
+        ? <span className="w-12 inline-flex justify-end"><span className="rounded-full px-2 py-[3px] text-[9.5px] font-black tracking-[.06em]" style={{ background: "rgba(245,184,0,.12)", border: "1px solid rgba(245,184,0,.4)", color: GOLD }}>ATIVO</span></span>
+        : <span className="w-12" />}
     </div>
   );
 
-  /* ================= A) NÃO É PRO — a oferta ================= */
+  /* ================= A) NÃO É PRO — a paywall ================= */
   if (!pro.pro) {
     return (
-      <div className="px-4 pt-4 pb-28">
+      <div className="px-4 pt-4 pb-28" style={{ background: "radial-gradient(100% 420px at 50% 0%,#1a1305,transparent 70%)" }}>
         {topo}
-        <div className="mt-2">
-          <HeroOuro>
-            <MolduraOuro>
-              <span className="w-[74px] h-[74px] rounded-full flex items-center justify-center" style={{ background: "#0b0b0d", border: "3px solid #000" }}>
-                <Landmark className="w-8 h-8" style={{ color: GOLD }} strokeWidth={2} />
-              </span>
-            </MolduraOuro>
-            <p className="text-[10px] font-black tracking-[.2em] mt-3.5" style={{ color: GOLD }}>VANT PRO</p>
-            <p className="text-[26px] font-black tracking-[-.035em] leading-[1.08] mt-1.5">Todos os seus<br />bancos na Vant</p>
-            <p className="text-[12.5px] mt-2.5 leading-relaxed" style={{ color: "#a9a49c" }}>
-              Nubank, Itaú, Caixa, C6, Bradesco, Santander. A Vant lê o que caiu em cada um e monta seu dia sozinha.
-            </p>
-          </HeroOuro>
-        </div>
-
-        <Cartao className="mt-3">
-          <Beneficio primeiro cor="#B47CFF" titulo="Seus bancos, não só a maquininha"
-            texto="O que sobra do dia inteiro, de qualquer conta, num lugar só."
-            icone={<Landmark className="w-[19px] h-[19px]" style={{ color: "#B47CFF" }} strokeWidth={2.2} />} />
-          <Beneficio cor={CIANO} titulo="Você vira verificado"
-            texto="Conta bancária conferida é o que dá o selo. Carteira não dá."
-            icone={<BadgeCheck className="w-[19px] h-[19px]" style={{ color: CIANO }} strokeWidth={2.2} />} />
-          <Beneficio cor={OK} titulo="Conciliação completa"
-            texto="Todo Pix que caiu, de qualquer banco, batendo com o que você lançou."
-            icone={<ShieldCheck className="w-[19px] h-[19px]" style={{ color: OK }} strokeWidth={2.2} />} />
-          <Beneficio cor={GOLD} titulo="Destaque no ranking"
-            texto="Moldura dourada na sua foto e etiqueta PRO em todas as telas."
-            icone={<Trophy className="w-[19px] h-[19px]" style={{ color: GOLD }} strokeWidth={2.2} />} />
-        </Cartao>
-
-        <Cartao className="mt-3 text-center" style={{ borderColor: "rgba(245,184,0,.34)", background: "linear-gradient(180deg,#171203,#0b0b0d)" }}>
-          <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>VOCÊ JÁ PAGA</p>
-          <p className="text-[15px] font-extrabold mt-1" style={{ color: "#a9a49c" }}>R$ 29,90 <span className="text-[12px] font-bold">Vant</span></p>
-          <p className="text-[9.5px] font-black tracking-[.18em] mt-3" style={{ color: GOLD }}>O PRO CUSTA</p>
-          <p className="text-[38px] font-black tracking-[-.04em] leading-none mt-1" style={{ color: GOLD }}>
-            + R$ 10<span className="text-[15px] font-extrabold">/mês</span>
-          </p>
-          <p className="text-[11.5px] mt-1.5" style={{ color: "#7b766e" }}>Cancela quando quiser, sem multa.</p>
-        </Cartao>
-
-        <div className="mt-3" data-tour="conectar-banco">
-          <BotaoOuro onClick={() => {
-            if (LINK_PRO) { window.location.href = LINK_PRO; return; }
-            toast({ title: "Quase lá", description: "O Pro abre pra todo mundo em instantes. Enquanto isso, ligue sua carteira — é grátis." });
-          }}>
-            <Trophy className="w-[18px] h-[18px]" strokeWidth={2.4} /> QUERO O PRO
-          </BotaoOuro>
-        </div>
-        <p className="text-[11px] text-center mt-2.5" style={{ color: "#7b766e" }}>
-          Sua senha do banco é digitada na tela do próprio banco. A Vant nunca vê.
-        </p>
-
+        <div className="mt-2" data-tour="conectar-banco"><PaywallPro /></div>
         {blocoCarteiras}
       </div>
     );
   }
 
-  /* ================= B) É PRO, SEM BANCO ================= */
+  /* ================= B) É PRO, SEM BANCO — um objetivo só: ligar o banco ================= */
   if (bancos.length === 0) {
     return (
       <div className="px-4 pt-4 pb-28">
         {topo}
-        <div className="mt-2">
-          <HeroOuro>
-            <MolduraOuro>
-              <span className="w-[74px] h-[74px] rounded-full flex items-center justify-center" style={{ background: "#0b0b0d", border: "3px solid #000" }}>
-                <Selo size={44} />
-              </span>
-            </MolduraOuro>
-            <p className="text-[10px] font-black tracking-[.2em] mt-3.5" style={{ color: GOLD }}>PRO ATIVO · FALTA UM PASSO</p>
-            <p className="text-[26px] font-black tracking-[-.035em] leading-[1.08] mt-1.5">Ligue seu banco<br />e pegue o selo</p>
-            <p className="text-[12.5px] mt-2.5 leading-relaxed" style={{ color: "#a9a49c" }}>
-              São 234 bancos disponíveis. Leva menos de um minuto e o selo sai na hora.
-            </p>
-          </HeroOuro>
-        </div>
-
-        <div className="mt-3" data-tour="conectar-banco">
-          <BotaoOuro onClick={abrirBanco} disabled={ligando}>
-            {ligando ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Landmark className="w-[18px] h-[18px]" strokeWidth={2.4} />}
-            {ligando ? "ABRINDO…" : "LIGAR MEU BANCO"}
-          </BotaoOuro>
-          <button type="button" onClick={() => void recarregar()}
-            className="w-full h-10 mt-2 inline-flex items-center justify-center gap-1.5 text-[11.5px] font-bold"
-            style={{ color: "#7b766e" }}>
-            <RefreshCw className="w-3.5 h-3.5" /> já liguei — conferir de novo
-          </button>
-        </div>
-
-        <Cartao className="mt-3">
-          <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "#7b766e" }}>COMO FUNCIONA</p>
-          <div className="mt-2">
-            <Beneficio primeiro cor={CIANO} titulo="Você escolhe o banco e entra"
-              texto="A tela é do próprio banco. Sua senha não passa pela Vant em momento nenhum."
-              icone={<ShieldCheck className="w-[19px] h-[19px]" style={{ color: CIANO }} strokeWidth={2.2} />} />
-            <Beneficio cor={OK} titulo="A Vant só lê o que entrou"
-              texto="Nada de mover dinheiro, transferir ou pagar. Só leitura."
-              icone={<Check className="w-[19px] h-[19px]" style={{ color: OK }} strokeWidth={2.6} />} />
-            <Beneficio cor={GOLD} titulo="O selo sai na hora"
-              texto="Banco conectado é conta conferida. É isso que o verificado significa."
-              icone={<BadgeCheck className="w-[19px] h-[19px]" style={{ color: GOLD }} strokeWidth={2.2} />} />
+        <Cartao className="mt-2 text-center" style={{ padding: "20px 15px 16px", background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", borderColor: "rgba(245,184,0,.42)" }}>
+          <span className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ background: "rgba(245,184,0,.1)", border: "2px dashed rgba(245,184,0,.5)" }}>
+            <Landmark className="w-7 h-7" style={{ color: GOLD }} strokeWidth={2} />
+          </span>
+          <p className="text-[19px] font-black mt-3 text-balance">Falta um passo pro selo</p>
+          <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "#b9b3a6" }}>
+            Liga seu banco. Leva menos de 1 minuto e o selo sai na hora.
+          </p>
+          <div className="mt-3.5" data-tour="conectar-banco">
+            <BotaoOuro onClick={abrirBanco} disabled={ligando}>
+              {ligando ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Landmark className="w-[18px] h-[18px]" strokeWidth={2.4} />}
+              {ligando ? "ABRINDO…" : "LIGAR MEU BANCO"}
+            </BotaoOuro>
           </div>
+          <p className="text-[10.5px] font-bold mt-2.5" style={{ color: MUTE }}>234 bancos · a senha é digitada no seu banco, a Vant não vê</p>
+        </Cartao>
+
+        <Cartao className="mt-3" style={{ padding: "4px 15px" }}>
+          <LinhaVantagem primeiro icone={<Banknote className="w-[18px] h-[18px]" style={{ color: OK }} />} titulo="Pix contado sozinho" texto="vê o que caiu enquanto vende" />
+          <LinhaVantagem icone={<SeloVerificado size={18} />} titulo="Selo no ranking e no X1" texto="ninguém duvida do seu número" />
+          <LinhaVantagem icone={<ReceiptText className="w-[18px] h-[18px]" style={{ color: GOLD }} />} titulo="Gastos organizados" texto="sem digitar nada" />
         </Cartao>
 
         {blocoCarteiras}
+        {conferirDeNovo("já liguei um banco e não apareceu? conferir de novo")}
       </div>
     );
   }
 
-  /* ================= C) É PRO, COM BANCO ================= */
+  /* ================= C) É PRO, COM BANCO — quem você é, seus bancos, o resto ================= */
   const comProblema = bancos.filter((b) => saudeDoBanco(b.status, b.last_synced_at).alerta);
+  const desde = bancos[0]?.created_at ? new Date(bancos[0].created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : null;
+  const nome = perfil?.nome || "Você";
   return (
     <div className="px-4 pt-4 pb-28">
       {topo}
 
-      <div className="mt-2">
-        <HeroOuro>
-          <MolduraOuro>
-            <span className="w-[74px] h-[74px] rounded-full flex items-center justify-center" style={{ background: "#0b0b0d", border: "3px solid #000" }}>
-              <Selo size={46} />
-            </span>
-          </MolduraOuro>
-          <p className="text-[10px] font-black tracking-[.2em] mt-3.5" style={{ color: GOLD }}>
-            {pro.verificado ? "VENDEDOR VERIFICADO" : "PRO ATIVO"}
+      <Cartao className="mt-2 flex items-center gap-3" style={{ padding: 14, background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", borderColor: "rgba(245,184,0,.42)" }}>
+        {perfil?.avatar
+          ? <img src={perfil.avatar} alt="" className="w-14 h-14 rounded-full object-cover shrink-0" style={{ border: `3px solid ${GOLD}` }} />
+          : <span className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-[18px] font-black" style={{ border: `3px solid ${GOLD}`, background: "rgba(255,200,0,.14)", color: GOLD }}>{iniciais(nome)}</span>}
+        <div className="flex-1 min-w-0">
+          <p className="text-[17px] font-black flex items-center gap-1 min-w-0">
+            <span className="truncate">{nome}</span>{pro.verificado && <SeloVerificado size={17} />}
           </p>
-          <p className="text-[24px] font-black tracking-[-.035em] leading-[1.1] mt-1.5">
-            {bancos.length} {bancos.length === 1 ? "banco ligado" : "bancos ligados"}
+          <p className="text-[11.5px]" style={{ color: "#b9b3a6" }}>
+            {pro.verificado ? "Vendedor verificado" : "Pro ativo"}{desde ? ` · desde ${desde}` : ""}
           </p>
-          <p className="text-[12.5px] mt-2.5 leading-relaxed" style={{ color: "#a9a49c" }}>
-            {comProblema.length > 0
-              ? `${comProblema.length} ${comProblema.length === 1 ? "banco precisa" : "bancos precisam"} de atenção — confere abaixo.`
-              : "Tudo em dia. Seus recebimentos entram sozinhos."}
-          </p>
-        </HeroOuro>
-      </div>
-
-      <Cartao className="mt-3" style={{ padding: "6px 15px 12px" }}>
-        <p className="text-[9.5px] font-black tracking-[.18em] pt-3 pb-1" style={{ color: "#7b766e" }}>SEUS BANCOS</p>
-        {bancos.map((b) => <LinhaBanco key={b.id} b={b} />)}
-        <button type="button" onClick={abrirBanco} disabled={ligando}
-          className="w-full h-11 rounded-[13px] mt-3 inline-flex items-center justify-center gap-2 text-[12.5px] font-extrabold"
-          style={{ background: "#131316", border: "1px solid #232327", color: "#d9d4cc" }}>
-          {ligando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" strokeWidth={2.6} />}
-          {ligando ? "abrindo…" : "ligar mais um banco"}
-        </button>
+          <p className="text-[10.5px] font-bold mt-0.5" style={{ color: MUTE }}>Seu selo aparece no ranking, no X1 e no perfil.</p>
+        </div>
       </Cartao>
+
+      <div className="flex items-center justify-between px-0.5 mt-5">
+        <p className="text-[10px] font-black tracking-[.15em]" style={{ color: MUTE }}>BANCOS LIGADOS · {bancos.length}</p>
+        <p className="text-[10.5px] font-bold" style={{ color: comProblema.length > 0 ? "#ff7a1a" : OK }}>
+          {comProblema.length > 0 ? `${comProblema.length} ${comProblema.length === 1 ? "precisa" : "precisam"} de atenção` : "● tudo em dia"}
+        </p>
+      </div>
+      <Cartao className="mt-2" style={{ padding: "0 15px" }}>
+        {bancos.map((b, i) => <LinhaBanco key={b.id} b={b} primeiro={i === 0} />)}
+      </Cartao>
+      <button type="button" onClick={abrirBanco} disabled={ligando}
+        className="w-full h-9 rounded-[11px] mt-2 inline-flex items-center justify-center gap-2 text-[12px] font-extrabold"
+        style={{ background: "#141413", border: "1px solid #26241f", color: "#F4F1EA" }}>
+        {ligando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" strokeWidth={2.6} />}
+        {ligando ? "abrindo…" : "ligar outro banco"}
+      </button>
 
       {comProblema.length > 0 && (
         <Cartao className="mt-3" style={{ borderColor: "rgba(255,122,26,.3)", background: "linear-gradient(180deg,#1a1005,#0b0b0d)" }}>
@@ -438,34 +367,42 @@ export default function Verificar() {
             <div>
               <p className="text-[13.5px] font-extrabold leading-tight">Banco fora do ar não é culpa sua</p>
               <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: "#a9a49c" }}>
-                Acontece com todos os bancos, às vezes por dias. Seus outros bancos continuam em dia e nada se perde — quando ele voltar, a Vant busca o que ficou pra trás.
+                Acontece com todos os bancos, às vezes por dias. Nada se perde: quando ele voltar, a Vant busca o que ficou pra trás.
               </p>
             </div>
           </div>
         </Cartao>
       )}
 
-      <button type="button" onClick={() => void recarregar()}
-        className="w-full h-11 rounded-[13px] mt-3 inline-flex items-center justify-center gap-2 text-[12.5px] font-extrabold"
-        style={{ background: "#131316", border: "1px solid #232327", color: "#7b766e" }}>
-        <RefreshCw className="w-4 h-4" /> conferir de novo
-      </button>
+      <Cartao className="mt-3" style={{ padding: "12px 15px" }}>
+        <p className="text-[10px] font-black tracking-[.15em]" style={{ color: MUTE }}>HOJE PELOS SEUS BANCOS</p>
+        <div className="flex items-end justify-between mt-2 gap-3">
+          <div>
+            <p className="text-[10.5px] font-bold" style={{ color: MUTE }}>Caiu no Pix</p>
+            <p className="text-[19px] font-black tabular-nums" style={{ color: OK }}>{fmtReal(pixHoje.total)}</p>
+          </div>
+          <p className="text-[10.5px] font-bold text-right" style={{ color: MUTE }}>
+            {pixHoje.qtd} Pix{pixHoje.ultimaSync ? ` · lido ${horaDaLeitura(pixHoje.ultimaSync)}` : ""}
+          </p>
+        </div>
+        <p className="text-[10.5px] font-bold mt-2" style={{ color: MUTE }}>Pix conferido vai pro ranking. Leitura de hora em hora até 23:59.</p>
+      </Cartao>
 
       {blocoCarteiras}
+      {conferirDeNovo("conferir de novo")}
 
       {/* Conciliação do mês: veio da tela de Finanças (Rick, 09/09). O lugar dela
           é aqui, junto das conexões que produzem esse número. */}
-      <div className="mt-3"><ConciliacaoMes userId={user.id} /></div>
+      <div className="mt-4"><ConciliacaoMes userId={user.id} /></div>
 
       <button type="button" onClick={() => navigate("/cobrar")}
         className="w-full flex items-center gap-3 mt-3 rounded-[20px] border p-[15px] text-left active:opacity-70"
-        style={{ borderColor: "rgba(245,184,0,.3)", background: "linear-gradient(180deg,#171203,#0b0b0d)" }}>
+        style={{ borderColor: "#1e1d21", background: "linear-gradient(180deg,#101013,#0b0b0d)" }}>
         <span className="flex-1 min-w-0">
-          <span className="block text-[9.5px] font-black tracking-[.18em]" style={{ color: GOLD }}>COBRADOR DE CALOTE</span>
-          <span className="block text-[14px] font-extrabold mt-1">Cobrar quem ficou devendo</span>
-          <span className="block text-[11.5px] mt-0.5" style={{ color: "#7b766e" }}>A Vant gera o Pix e abre seu WhatsApp.</span>
+          <span className="block text-[14px] font-extrabold">Cobrar quem ficou devendo</span>
+          <span className="block text-[11.5px] mt-0.5" style={{ color: MUTE }}>A Vant gera o Pix e abre seu WhatsApp.</span>
         </span>
-        <ChevronRight className="w-5 h-5 shrink-0" style={{ color: GOLD }} strokeWidth={2.6} />
+        <ChevronRight className="w-5 h-5 shrink-0" style={{ color: MUTE }} strokeWidth={2.6} />
       </button>
     </div>
   );
