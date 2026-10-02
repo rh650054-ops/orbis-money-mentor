@@ -2,6 +2,23 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 02/10/2026 — Open Finance, etapa 2: Vant Pro, paywall e selo
+
+**O que mudou pro vendedor**
+- **Paywall do Vant Pro** (aba Vender, pra quem não é Pro): Anual R$ 359,90 já marcado (R$ 29,99/mês, economiza R$ 238), Mensal R$ 49,90, tabela "Os dois têm / Só no Pro" com 7 benefícios, botão direto pro checkout da Hotmart.
+- **Tela Vant Pro** reorganizada: seu nome com o selo em cima, bancos em linhas, "Hoje pelos seus bancos" (Pix do dia), carteiras embaixo com "não dão selo". Pro sem banco vê uma tela só pra ligar o banco.
+- **Selo estilo Instagram** (estrela azul com check) ao lado do nome: ranking, pódio, perfil e escolha de oponente do X1.
+- **Card do calote** no fim do DEFCON: só aparece com calote de verdade, embaixo do "como entrou". Com banco ligado diz **"Ainda não caiu"** (Pix atrasado entra até 23:59) em vez de chamar de calote.
+- **Ranking misto só pra Pro**: o Pix do banco substitui o lançado apenas pra quem tem Vant Pro ativo. Hoje: Rick e Mohamed.
+
+**Por dentro**
+- `hotmart-webhook` v41: ofertas `5y86n311` (Pro mensal, 30 dias) e `6vkxbh8c` (Pro anual, 365 dias) ligam o Pro via `pro_conceder`; cancelamento/estorno/chargeback chamam `pro_revogar`. O anual deixou de bloquear em 33 dias. Publicado antes do app.
+- Checkout do Pro leva só o `sck` do parceiro (cupom trocaria a oferta por um código que o webhook não conhece como Pro).
+- Migration `20261002210000_ranking_misto_so_pro.sql` (aplicada 02/10 ~18h45): CTE `bancos` filtra `orbis_pro_ativo(user)`. Comparação antigo × novo, todos os vendedores, semana e mês, ao vivo e extrato: só Rick e Mohamed mudam.
+- `SeloVerificado` (AvatarRanking.tsx) virou SVG da estrela; `PaywallPro.tsx` novo; `Verificar.tsx` reescrita nos três estados.
+- App: PR #21 (merge `ab849a8`), deploy de produção na Vercel READY.
+- Ficou pra etapa 3: Corre/Casa por banco (ainda não tem onde gravar).
+
 ## 02/10/2026 — Open Finance, etapa 1: Pix travado
 
 **O que mudou pro vendedor**
