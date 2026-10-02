@@ -25,11 +25,12 @@ create table if not exists public.bank_saldos (
 );
 create index if not exists bank_saldos_user_idx on public.bank_saldos (user_id);
 alter table public.bank_saldos enable row level security;
-drop policy if exists bank_saldos_dono_le on public.bank_saldos;
-create policy bank_saldos_dono_le on public.bank_saldos
-  for select to authenticated using (user_id = (select auth.uid()));
-revoke all on public.bank_saldos from anon;
--- escrita só pelo servidor (service role)
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='bank_saldos' and policyname='bank_saldos_dono_le') then
+    create policy bank_saldos_dono_le on public.bank_saldos for select to authenticated using (user_id = (select auth.uid()));
+  end if;
+end $$;
+-- escrita só pelo servidor (service role); sem policy de insert/update
 
 create or replace function public.financas_home()
 returns jsonb
@@ -109,5 +110,4 @@ language sql stable security invoker set search_path to 'public' as $$
     )
   );
 $$;
-revoke all on function public.financas_home() from public, anon;
 grant execute on function public.financas_home() to authenticated;
