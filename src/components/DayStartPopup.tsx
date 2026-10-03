@@ -1,8 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
-import { Button } from "@/shared/ui/button";
-import { Target, Clock, Zap, FileText, Flame, Rocket, Trophy, CalendarDays } from "lucide-react";
+import { Zap, FileText, Check, Play } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate } from "@/shared/lib/date-utils";
@@ -87,6 +86,7 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
         }
       } else if (session.status === 'active') {
         setDayStatus('in_progress');
+        setTotalSold(session.total_vendido || 0);
       } else {
         setDayStatus('not_started');
       }
@@ -138,150 +138,83 @@ export const DayStartPopup = ({ userId, onStart, onEditPlanning }: DayStartPopup
     navigate('/daily-goals');
   };
 
-  // Title based on day status
-  const getTitle = () => {
-    if (isLoading || dayStatus === null) return "⏳ Carregando...";
-    if (dayStatus === 'finished') return "📊 Relatório do Dia";
-    if (dayStatus === 'in_progress') return "⚡ Seu Dia em Andamento";
-    return "⚡ Seu Dia Hoje";
-  };
+  /* VISUAL NO PADRÃO VANT (Rick, 03/10): o mesmo card da Foco — preto, a borda e
+     o rótulo mudam de cor com o momento (vermelho antes, verde rodando, dourado
+     fechado), número grande, barra, linha SEMANA · MÊS · HORAS e o botão 3D. */
+  const tom = dayStatus === "finished"
+    ? { cor: "#F5B800", borda: "rgba(245,184,0,.38)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(245,184,0,.20), transparent 60%), linear-gradient(170deg,#1a1408 0%,#0b0b0b 70%)" }
+    : dayStatus === "in_progress"
+    ? { cor: "#3DD68C", borda: "rgba(61,214,140,.38)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(61,214,140,.18), transparent 60%), linear-gradient(170deg,#0a1711 0%,#0b0b0b 70%)" }
+    : { cor: "#F2465A", borda: "rgba(242,70,90,.38)", fundo: "radial-gradient(120% 80% at 80% -10%, rgba(242,70,90,.22), transparent 60%), linear-gradient(170deg,#170a0c 0%,#0b0b0b 70%)" };
+  const brl0 = (v: number) => formatCurrency(v).replace(/,00$/, "");
+  const ritmo = workHours > 0 ? dailyGoal / workHours : 0;
+  const pct = Math.max(0, Math.min(100, dayStatus === "finished" ? percentageAchieved : dailyGoal > 0 ? (totalSold / dailyGoal) * 100 : 0));
+  const titulo = isLoading || dayStatus === null ? "Carregando…" : dayStatus === "finished" ? "Dia fechado." : dayStatus === "in_progress" ? "Tá rodando." : "Bora pro corre.";
+  const tag = dayStatus === "finished" ? "DEFCON 4 · ENCERRADO" : dayStatus === "in_progress" ? "DEFCON 4 · AO VIVO" : "DEFCON 4 · MISSÃO DO DIA";
+  const numero = dayStatus === "finished" || (dayStatus === "in_progress" && totalSold > 0) ? totalSold : dailyGoal;
+  const rotuloNumero = dayStatus === "finished" ? "Vendido hoje" : dayStatus === "in_progress" && totalSold > 0 ? "Vendido até agora" : "Meta de hoje";
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) markSeenToday(); setIsOpen(open); }}>
       <DialogContent
-        className="w-[88vw] max-w-[360px] max-h-[92dvh] p-0 gap-0 overflow-hidden border border-primary/25 rounded-3xl shadow-[0_26px_70px_-20px_rgba(0,0,0,0.85)]"
-        style={{ background: "radial-gradient(120% 80% at 50% -10%, rgba(246,180,10,0.10), transparent), #0c0c10" }}
+        className="w-[90vw] max-w-[380px] max-h-[92dvh] p-0 gap-0 overflow-hidden rounded-[26px] border shadow-[0_30px_80px_-24px_rgba(0,0,0,.95)]"
+        style={{ borderColor: tom.borda, background: tom.fundo }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="pointer-events-none absolute -top-20 -right-16 w-48 h-48 rounded-full blur-3xl" style={{ background: "hsl(var(--primary) / 0.28)" }} />
-        <div className="pointer-events-none absolute -bottom-24 -left-20 w-52 h-52 rounded-full blur-3xl" style={{ background: "rgba(79,216,245,0.16)" }} />
-        {/* Header gamificado */}
-        <div className="relative px-5 pt-6 pb-4 text-center">
-          <div className="relative mx-auto mb-2 w-12 h-12">
-            <div className="absolute inset-0 rounded-2xl blur-lg" style={{ background: "hsl(var(--primary) / 0.55)" }} />
-            <div className="relative w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "linear-gradient(180deg, hsl(45 100% 60%), hsl(var(--primary)))", boxShadow: "0 10px 26px -8px hsl(var(--primary) / 0.75)" }}>
-              {dayStatus === 'finished'
-                ? <Trophy className="w-6 h-6 text-[#1a1300]" strokeWidth={2.4} />
-                : dayStatus === 'in_progress'
-                ? <Flame className="w-6 h-6 text-[#1a1300]" strokeWidth={2.4} />
-                : <Rocket className="w-6 h-6 text-[#1a1300]" strokeWidth={2.4} />}
-            </div>
-          </div>
-          <p className="text-[11px] font-black uppercase tracking-[0.26em]" style={{ color: "hsl(var(--primary))" }}>
-            {dayStatus === 'finished' ? 'Missão cumprida' : dayStatus === 'in_progress' ? 'Missão em andamento' : 'Missão do dia'}
-          </p>
-          <DialogHeader className="space-y-0">
-            <DialogTitle className="text-2xl font-black text-foreground leading-tight">
-              {getTitle().replace(/^[^\s]+\s/, '')}
-            </DialogTitle>
+        <div className="px-5 pt-5 pb-5">
+          <span className="inline-flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[.2em] uppercase" style={{ color: tom.cor }}>
+            {dayStatus === "in_progress"
+              ? <span className="inline-block w-2 h-2 rounded-full" style={{ background: "#3DD68C", boxShadow: "0 0 0 4px rgba(61,214,140,.18)" }} />
+              : dayStatus === "finished" ? <Check className="w-3 h-3" strokeWidth={3} /> : <Zap className="w-3 h-3" fill="currentColor" strokeWidth={0} />}
+            {tag}
+          </span>
+          <DialogHeader className="space-y-0 text-left">
+            <DialogTitle className="font-display text-[24px] font-extrabold tracking-tight leading-tight mt-2 text-left">{titulo}</DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground mt-1">
-            {dayStatus === 'finished' ? 'Veja como foi o seu dia 👇' : dayStatus === 'in_progress' ? 'Você já começou. Mantém o ritmo! 🔥' : 'Bora bater a meta e subir no ranking 🔥'}
+
+          <p className="orbis-mini mt-4">{rotuloNumero}</p>
+          <p className="orbis-num text-[40px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={dayStatus === "not_started" || dayStatus === null ? undefined : { color: "var(--orbis-ok, #3DD68C)" }}>
+            {brl0(numero)}
           </p>
-        </div>
+          <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2, #b9b3a6)" }}>
+            {dayStatus === "finished"
+              ? <><b className="text-foreground">{Math.round(percentageAchieved)}%</b> da meta de {brl0(dailyGoal)}</>
+              : dayStatus === "in_progress" && totalSold > 0
+              ? <>Meta <b className="text-foreground">{brl0(dailyGoal)}</b> · falta <b className="text-foreground">{brl0(Math.max(0, dailyGoal - totalSold))}</b></>
+              : workHours > 0
+              ? <><b className="text-foreground">{workHours} blocos</b> de 1h · ritmo de <b className="text-foreground">{brl0(ritmo)}</b> por hora</>
+              : "Quem vende mais sobe no ranking."}
+          </p>
+          <div className="h-1.5 rounded-full mt-3.5 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
+            <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${pct}%`, background: dayStatus === "not_started" ? "linear-gradient(90deg,#F5B800,#FFC63A)" : "linear-gradient(90deg,#3DD68C,#46E09A)" }} />
+          </div>
 
-        <div className="relative z-10 px-5 pb-6 space-y-3.5">
-          {/* Resumo do dia (se finalizado) */}
-          {dayStatus === 'finished' && (
-            <div className="rounded-2xl border border-success/40 bg-success/10 px-4 py-3.5 flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Total vendido</p>
-                <p className="text-xl font-black text-success leading-tight">{formatCurrency(totalSold)}</p>
+          {/* SEMANA · MÊS · HORAS — mesma linha de números da Foco */}
+          <div className="flex mt-4 pt-3.5 border-t" style={{ borderColor: "rgba(255,255,255,.09)" }}>
+            {([["Semana", brl0(weeklyGoal)], ["Mês", brl0(monthlyGoal)], ["Horas", `${workHours}h`]] as const).map(([k, v], i) => (
+              <div key={k} className={`flex-1 min-w-0 ${i ? "border-l pl-3" : ""}`} style={i ? { borderColor: "rgba(255,255,255,.09)" } : undefined}>
+                <p className="text-[9.5px] font-bold uppercase tracking-[.08em]" style={{ color: "var(--orbis-fg-3, #7b766e)" }}>{k}</p>
+                <p className="orbis-num text-[15px] font-bold mt-1 whitespace-nowrap truncate">{v}</p>
               </div>
-              <div className="text-right">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">da meta</p>
-                <p className="text-xl font-black text-foreground leading-tight">{percentageAchieved.toFixed(0)}%</p>
-              </div>
-            </div>
+            ))}
+          </div>
+
+          {isLoading ? (
+            <button type="button" disabled className="w-full h-[54px] rounded-[16px] mt-5 text-[14px] font-bold" style={{ background: "#16151a", color: "#7b766e" }}>Carregando…</button>
+          ) : dayStatus === "in_progress" ? (
+            <button type="button" onClick={handleViewReport} className="w-full h-[54px] rounded-[17px] mt-5 font-extrabold text-[15.5px] flex items-center justify-center gap-2 active:scale-[.98] transition"
+              style={{ background: "linear-gradient(180deg,#46E09A,#3DD68C)", color: "#06170e", boxShadow: "0 12px 28px -12px rgba(61,214,140,.8)" }}>
+              <Play className="w-[17px] h-[17px]" fill="#06170e" strokeWidth={0} /> VOLTAR PRO DEFCON
+            </button>
+          ) : dayStatus === "finished" ? (
+            <button type="button" onClick={handleViewReport} className="orbis-cta w-full mt-5"><FileText className="w-4 h-4" strokeWidth={2.4} /> VER O RELATÓRIO DE HOJE</button>
+          ) : (
+            <button type="button" onClick={handleStartDay} className="w-full h-[54px] rounded-[17px] mt-5 font-extrabold text-[15.5px] tracking-wide flex items-center justify-center gap-2 active:scale-[.98] transition"
+              style={{ background: "linear-gradient(180deg,#F2465A,#E5354A)", color: "#fff", boxShadow: "0 12px 28px -10px rgba(229,53,74,.9)" }}>
+              <Zap className="w-[17px] h-[17px]" fill="#fff" strokeWidth={0} /> INICIAR MEU DIA
+            </button>
           )}
-
-          {/* Meta de hoje — destaque gamificado */}
-          <div className="relative overflow-hidden rounded-2xl border px-4 py-4" style={{ borderColor: "hsl(var(--primary) / 0.4)", background: "linear-gradient(180deg, hsl(var(--primary) / 0.16), rgba(255,255,255,0.02))" }}>
-            <div className="pointer-events-none absolute -right-6 -top-8 w-28 h-28 rounded-full blur-2xl" style={{ background: "hsl(var(--primary) / 0.3)" }} />
-            <div className="relative flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "hsl(var(--primary) / 0.2)", border: "1px solid hsl(var(--primary) / 0.45)" }}>
-                <Target className="w-6 h-6" style={{ color: "hsl(var(--primary))" }} strokeWidth={2.4} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground font-black">Meta de hoje</p>
-                <p className="text-[32px] font-black leading-none truncate" style={{ color: "hsl(var(--primary))", textShadow: "0 0 26px hsl(var(--primary) / 0.45)" }}>{formatCurrency(dailyGoal)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Semana · Mês · Horas — cards coloridos */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-xl p-2.5 text-center border" style={{ borderColor: "rgba(79,216,245,0.35)", background: "rgba(79,216,245,0.10)" }}>
-              <div className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center mb-1.5" style={{ background: "rgba(79,216,245,0.18)" }}>
-                <Zap className="w-3.5 h-3.5" style={{ color: "#4FD8F5" }} />
-              </div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Semana</p>
-              <p className="text-[13px] font-black text-foreground truncate">{formatCurrency(weeklyGoal)}</p>
-            </div>
-            <div className="rounded-xl p-2.5 text-center border" style={{ borderColor: "rgba(180,124,255,0.35)", background: "rgba(180,124,255,0.10)" }}>
-              <div className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center mb-1.5" style={{ background: "rgba(180,124,255,0.18)" }}>
-                <CalendarDays className="w-3.5 h-3.5" style={{ color: "#B47CFF" }} />
-              </div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Mês</p>
-              <p className="text-[13px] font-black text-foreground truncate">{formatCurrency(monthlyGoal)}</p>
-            </div>
-            <div className="rounded-xl p-2.5 text-center border" style={{ borderColor: "rgba(246,180,10,0.35)", background: "rgba(246,180,10,0.10)" }}>
-              <div className="w-7 h-7 mx-auto rounded-lg flex items-center justify-center mb-1.5" style={{ background: "rgba(246,180,10,0.18)" }}>
-                <Clock className="w-3.5 h-3.5" style={{ color: "#F6B40A" }} />
-              </div>
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Horas</p>
-              <p className="text-[13px] font-black text-foreground truncate">{workHours}h</p>
-            </div>
-          </div>
-
-          {/* Botões */}
-          <div className="flex gap-2 pt-1.5">
-            <Button
-              onClick={handleClose}
-              variant="ghost"
-              className="h-12 px-3 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40"
-            >
-              Depois
-            </Button>
-
-            {!isLoading && dayStatus === 'not_started' && (
-              <Button
-                onClick={handleStartDay}
-                className="relative overflow-hidden flex-1 h-12 text-primary-foreground font-black text-[15px] rounded-xl active:scale-[0.98] transition-transform"
-                style={{ background: "linear-gradient(180deg, hsl(45 100% 58%), hsl(var(--primary)))", boxShadow: "0 12px 30px -8px hsl(var(--primary) / 0.7)" }}
-              >
-                <Rocket className="w-4 h-4 mr-1.5" strokeWidth={2.6} />
-                Iniciar meu dia
-              </Button>
-            )}
-
-            {!isLoading && dayStatus === 'in_progress' && (
-              <Button
-                onClick={handleViewReport}
-                className="flex-1 h-12 text-primary-foreground font-black text-[15px] rounded-xl active:scale-[0.98] transition-transform"
-                style={{ background: "linear-gradient(180deg, hsl(45 100% 58%), hsl(var(--primary)))", boxShadow: "0 12px 30px -8px hsl(var(--primary) / 0.7)" }}
-              >
-                <Flame className="w-4 h-4 mr-1.5" strokeWidth={2.6} />
-                Continuar
-              </Button>
-            )}
-
-            {!isLoading && dayStatus === 'finished' && (
-              <Button
-                onClick={handleViewReport}
-                className="flex-1 h-12 text-primary-foreground font-black text-[15px] rounded-xl active:scale-[0.98] transition-transform"
-                style={{ background: "linear-gradient(180deg, hsl(45 100% 58%), hsl(var(--primary)))", boxShadow: "0 12px 30px -8px hsl(var(--primary) / 0.7)" }}
-              >
-                <FileText className="w-4 h-4 mr-1.5" />
-                Ver relatório
-              </Button>
-            )}
-
-            {isLoading && (
-              <Button disabled className="flex-1 h-12 bg-muted text-muted-foreground font-semibold text-sm rounded-xl">
-                Carregando...
-              </Button>
-            )}
-          </div>
+          <button type="button" onClick={handleClose} className="w-full h-10 mt-1.5 text-[12.5px] font-bold" style={{ color: "var(--orbis-fg-3, #7b766e)" }}>agora não</button>
         </div>
       </DialogContent>
     </Dialog>
