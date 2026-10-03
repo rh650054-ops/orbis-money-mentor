@@ -17,6 +17,7 @@ import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
 import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, proximaLeitura } from "@/components/conectar/banco-pix";
+import { TeaserPro } from "@/components/conectar/TeaserPro";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -1235,6 +1236,9 @@ export function DefconEndScreen({
 
         {/* GUARDA UM PEDAÇO? — caixinha pela meta (Lote 6): sugestão pelo Pix do dia */}
         {userId && totalSold > 0 && <CaixinhaMeta pixHoje={travado ? pixBanco.total : pixNum} />}
+
+        {/* TEASER (teste/sem banco): como seria o Pix de hoje com o banco ligado. */}
+        {!travado && totalSold > 0 && <TeaserPro momento="relatorio" />}
 
         {/* 5. RELATÓRIO DO DIA — no estilo do relatório de bloco de hora */}
         {(totalApproaches > 0 || totalSalesCount > 0 || totalSold > 0) && (

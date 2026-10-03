@@ -17,6 +17,8 @@ import { RankingPodium } from "@/components/ranking/RankingPodium";
 import { leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
 import { TrialNudge } from "@/components/TrialNudge";
+import { TeaserPro } from "@/components/conectar/TeaserPro";
+import { useTravaBanco } from "@/components/x1/x1-trava-lib";
 import { RankingList } from "@/components/ranking/RankingList";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -73,6 +75,7 @@ function renderAvatar(avatar: string | null, name: string | null, size: "sm" | "
 
 export default function Ranking() {
   const { user } = useAuth();
+  const { semBanco } = useTravaBanco(user?.id);
   // Checklist "Conhecer o ranking": marca a visita (lido pelo dashboard)
   useEffect(() => {
     if (!user) return;
@@ -324,6 +327,8 @@ export default function Ranking() {
         </h1>
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
+
+      {semBanco && <TeaserPro momento="ranking" className="mb-3" />}
 
       {showRankNudge && user && (
         <TrialNudge

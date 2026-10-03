@@ -774,8 +774,8 @@ export default function Profile() {
                   <Crown className="w-5 h-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold leading-tight">Vant BLACK</p>
-                  <p className="text-xs text-muted-foreground">Plano Mensal Premium</p>
+                  <p className="text-base font-semibold leading-tight">Vant Pro</p>
+                  <p className="text-xs text-muted-foreground">Banco ligado, selo, X1 e Finanças</p>
                 </div>
               </div>
               <Badge className="bg-success/15 text-success border border-success/30 text-xs px-1.5 py-0 h-5 font-semibold shrink-0">
@@ -786,7 +786,7 @@ export default function Profile() {
             {/* Preço */}
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold text-foreground">R$ 29,99</span>
-              <span className="text-xs text-muted-foreground">/mês</span>
+              <span className="text-xs text-muted-foreground">/mês no anual</span>
             </div>
 
             {/* Recursos compactos */}
@@ -805,7 +805,7 @@ export default function Profile() {
               className="w-full h-11 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
             >
               <Crown className="w-4 h-4 mr-2" />
-              {isUpgrading ? "Processando..." : "Assinar Agora"}
+              {isUpgrading ? "Processando..." : "Assinar o Vant Pro"}
             </Button>
 
             <p className="text-xs text-center text-muted-foreground">

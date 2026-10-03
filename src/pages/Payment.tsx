@@ -135,7 +135,7 @@ export default function Payment() {
               </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
-              Ative o Plano Visionário
+              Ative o Vant Pro
             </h1>
             <p className="text-sm text-muted-foreground mt-1.5">
               Continue dominando seus números com a Vant
@@ -202,7 +202,7 @@ export default function Payment() {
                   <span className="text-4xl font-black text-primary leading-none">R$ 29,99</span>
                   <span className="text-sm text-muted-foreground">/mês</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Cancele quando quiser • Sem multa</p>
+                <p className="text-xs text-muted-foreground mt-1">No anual (R$ 359,90/ano) • ou R$ 49,90 no mensal • 7 dias de garantia</p>
               </div>
 
               {/* Actions */}
@@ -212,7 +212,7 @@ export default function Payment() {
                   className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
                 >
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Assinar agora — R$ 29,99/mês
+                  Assinar o Vant Pro — R$ 29,99/mês
                 </Button>
 
                 <Button

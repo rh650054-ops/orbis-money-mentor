@@ -2,12 +2,14 @@
    /pro — a paywall do Vant Pro como tela própria (fluxo da aba Vender,
    03/10/2026): Vender → convite pra conectar → aqui → Hotmart → widget do
    banco. Quem já é Pro não precisa dela: volta pra Vender.
+   Cortesia (equipe/influenciador): só o Open Finance, R$ 10/mês.
    ============================================================ */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { PaywallPro } from "@/components/conectar/PaywallPro";
+import { PaywallPro, PaywallCortesia } from "@/components/conectar/PaywallPro";
+import { supabase } from "@/integrations/supabase/client";
 import { carregarPro } from "@/components/conectar/pluggy";
 
 const MUTE = "#7b766e";
@@ -16,11 +18,15 @@ export default function Pro() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [ehPro, setEhPro] = useState<boolean | null>(null);
+  // app de cortesia (equipe/influenciador): a oferta é só o Open Finance a R$ 10
+  const [cortesia, setCortesia] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
     let vivo = true;
     carregarPro().then((p) => { if (vivo) setEhPro(p.pro); });
+    supabase.from("profiles").select("billing_exempt").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (vivo) setCortesia(!!(data as { billing_exempt?: boolean } | null)?.billing_exempt); });
     return () => { vivo = false; };
   }, [user?.id]);
 
@@ -38,7 +44,7 @@ export default function Pro() {
         <p className="font-mono text-[10px] font-bold tracking-[.18em]" style={{ color: MUTE }}>VANT PRO</p>
         <span className="w-9" />
       </div>
-      <div className="mt-1" data-tour="conectar-banco"><PaywallPro /></div>
+      <div className="mt-1" data-tour="conectar-banco">{cortesia ? <PaywallCortesia email={user.email} /> : <PaywallPro />}</div>
     </div>
   );
 }

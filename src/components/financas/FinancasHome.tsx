@@ -8,6 +8,7 @@
    Saldo negativo troca o card inteiro (1B): número vermelho + o que levou lá.
    Tudo vem de uma RPC só: financas_home().
    ============================================================ */
+import { TeaserPro } from "@/components/conectar/TeaserPro";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
@@ -204,7 +205,9 @@ export function FinancasHome({ userId }: { userId?: string }) {
     return () => { vivo = false; };
   }, [userId, versao]);
 
-  if (!h || !h.tem_banco) return null;
+  if (!h) return null;
+  // teste/sem banco: mostra como seria a Finanças com o banco ligado (teaser → /pro)
+  if (!h.tem_banco) return <TeaserPro momento="financas" />;
   return (
     <div className="space-y-2.5">
       {h.precisa_papel && h.contas && <PapelEscolha contas={h.contas} onPronto={() => setVersao((v) => v + 1)} />}

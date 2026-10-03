@@ -45,12 +45,21 @@ export function getReferralCode(): string | null {
   return storedCoupon();
 }
 
-/** Link do checkout Hotmart já com o cupom do influenciador (se houver). */
+/** Link do checkout Hotmart já com o cupom do influenciador (se houver).
+ *  03/10/2026 (Rick): o plano básico de R$ 29,90 SAIU DE VENDA pra quem chega
+ *  novo. Quem já assinava continua; todo botão "assinar" do app passa a abrir o
+ *  Vant Pro anual (R$ 359,90/ano = R$ 29,99/mês). O sck (código do parceiro)
+ *  continua viajando até a Hotmart e voltando no webhook — é o que fecha a
+ *  comissão. Cupom de desconto não entra: trocaria a oferta por um código que
+ *  o webhook não reconhece como Pro. O link antigo fica em getLegacyCheckoutUrl. */
 export function getCheckoutUrl(): string {
+  return getProCheckoutUrl("anual");
+}
+
+/** O checkout do plano básico antigo (R$ 29,90). Não está mais em nenhum botão. */
+export function getLegacyCheckoutUrl(): string {
   const code = storedCoupon();
   if (!code) return HOTMART_CHECKOUT_URL;
-  // O sck viaja até a Hotmart e VOLTA no webhook de venda — é o que fecha a
-  // comissão sozinha, mesmo se a pessoa pagar com outro e-mail.
   const url = HOTMART_CHECKOUT_URL.replace("sck=orbis_app", `sck=${encodeURIComponent(code)}`);
   const sep = url.includes("?") ? "&" : "?";
   return `${url}${sep}offDiscount=${encodeURIComponent(code)}`;

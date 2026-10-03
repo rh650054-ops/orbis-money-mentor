@@ -13,6 +13,9 @@ const FREE_PATHS = [
   // do vendedor (LGPD) e ele precisa disso justamente na hora de aceitar. Sem estas
   // duas linhas, quem estava com o teste expirado clicava pra ler e caía no modal
   // de "assine agora" — parecia que o link estava quebrado.
+  // A paywall do Vant Pro e a aba Vender precisam abrir com o teste vencido:
+  // é onde a pessoa assina. Sem isso o modal cobria o próprio botão de assinar.
+  "/pro",
   "/termos",
   "/privacidade",
   "/payment",

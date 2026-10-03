@@ -60,9 +60,9 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
         {/* Preço em destaque */}
         <div className="px-6">
           <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3 flex items-baseline justify-center gap-1.5">
-            <span className="text-3xl font-black text-foreground">R$0,99</span>
-            <span className="text-sm text-muted-foreground">/ dia</span>
-            <span className="text-xs text-muted-foreground ml-1">(R$29,99/mês)</span>
+            <span className="text-3xl font-black text-foreground">R$ 29,99</span>
+            <span className="text-sm text-muted-foreground">/mês</span>
+            <span className="text-xs text-muted-foreground ml-1">no Vant Pro anual</span>
           </div>
         </div>
 
@@ -75,7 +75,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
             size="lg"
           >
             <CreditCard className="w-5 h-5 mr-2" />
-            Assinar agora
+            Assinar o Vant Pro
           </Button>
           <Button onClick={handleSkip} disabled={!armed} variant="ghost" className="w-full rounded-xl">
             Agora não — usar meus 3 dias grátis

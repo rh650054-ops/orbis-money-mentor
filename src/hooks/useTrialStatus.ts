@@ -112,7 +112,7 @@ export function useTrialStatus(userId: string | undefined) {
       if (daysRemaining === 1 && profile.is_trial_active) {
         toast({
           title: "🔥 Falta 1 dia!",
-          description: "Seu teste gratuito termina amanhã. Ative o plano Visionário para continuar!",
+          description: "Seu teste gratuito termina amanhã. Assine o Vant Pro para continuar!",
           duration: 8000,
         });
       } else if (daysRemaining === 0 && profile.is_trial_active) {

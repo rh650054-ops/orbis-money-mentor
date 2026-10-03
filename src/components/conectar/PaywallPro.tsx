@@ -8,7 +8,7 @@
    grudado no rodapé; o mensal vira link. Abre o checkout da Hotmart.
    ============================================================ */
 import { useState } from "react";
-import { getProCheckoutUrl, type PlanoPro } from "@/shared/lib/checkout";
+import { getProCheckoutUrl, BANCO_EXTRA_CHECKOUT, type PlanoPro } from "@/shared/lib/checkout";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { SO_PRO, ECONOMIA_ANUAL } from "./pro-lib";
 
@@ -60,6 +60,45 @@ function Plano({ ativo, onClick, titulo, preco, sub, risca, economia, selo }: {
         {economia && <span className="rounded-full px-2 py-[3px] text-[10px] font-black tracking-[.06em]" style={{ background: OK, color: "#0b1d14" }}>{economia}</span>}
       </span>
     </button>
+  );
+}
+
+/** Equipe e influenciadores (app de cortesia, Rick 03/10/2026): não pagam o Pro,
+ *  mas o Open Finance custa R$ 10/mês — a mesma oferta do "banco extra". Com
+ *  ela ativa, viram Pro pro banco (selo, X1, Finanças). */
+export function PaywallCortesia({ email }: { email?: string | null }) {
+  const link = BANCO_EXTRA_CHECKOUT ? `${BANCO_EXTRA_CHECKOUT}&sck=cortesia_of${email ? `&email=${encodeURIComponent(email)}` : ""}` : null;
+  return (
+    <div className="space-y-3">
+      <div className="text-center pt-2 space-y-2">
+        <SeloGrande />
+        <h1 className="text-[24px] font-black tracking-[-.025em] leading-[1.08] text-balance">Seu número<br />com <span style={{ color: "#4FB3FF" }}>selo do banco</span></h1>
+        <p className="text-[12px] leading-snug mx-auto max-w-[280px]" style={{ color: INK2 }}>Seu app é por conta da Vant. O banco ligado custa só a leitura: R$ 10 por mês.</p>
+      </div>
+      <div className="rounded-[18px] p-[14px] grid gap-1.5" style={{ border: "1px solid transparent", background: "linear-gradient(#171206,#0f0d08) padding-box, linear-gradient(135deg,#FFE27A,#B88E00 60%,#FFC800) border-box", boxShadow: "0 18px 40px -22px rgba(255,200,0,.9)" }}>
+        <span className="flex items-center justify-between gap-2">
+          <span className="text-[15px] font-black">Open Finance</span>
+          <span className="text-[24px] font-black tracking-[-.02em] tabular-nums leading-none" style={{ color: GOLD }}>R$ 10<span className="text-[11px] tracking-normal" style={{ color: MUTE }}>/mês</span></span>
+        </span>
+        <span className="text-[10.5px] font-bold" style={{ color: MUTE }}>1 banco · selo, Pix contado, X1 e Finanças · cancela quando quiser</span>
+      </div>
+      <div className="rounded-[18px] px-3 pt-1 pb-2" style={{ background: "#0f0f10", border: `1px solid ${LINHA}` }}>
+        <p className="text-[10px] font-black tracking-[.15em] pt-2.5 pb-1" style={{ color: GOLD }}>O QUE LIBERA</p>
+        {SO_PRO.slice(0, 4).map((b) => (
+          <div key={b.nome} className="flex items-center gap-2.5 py-2" style={{ borderTop: `1px solid ${LINHA}` }}>
+            <span className="w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[11px] font-black" style={{ background: "rgba(245,184,0,.14)", border: "1px solid rgba(245,184,0,.5)", color: GOLD }}>✓</span>
+            <span className="min-w-0"><span className="block text-[12.5px] font-extrabold">{b.nome}</span><span className="block text-[10.5px] leading-snug" style={{ color: MUTE }}>{b.linha}</span></span>
+          </div>
+        ))}
+      </div>
+      {link && (
+        <a href={link} className="w-full h-[56px] rounded-[16px] inline-flex items-center justify-center text-[15px] font-black tracking-[.02em] active:translate-y-[1px]"
+          style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200", boxShadow: "0 10px 24px -12px rgba(255,200,0,.8)" }}>
+          LIGAR O BANCO · R$ 10/MÊS
+        </a>
+      )}
+      <p className="text-[10.5px] font-bold text-center" style={{ color: MUTE }}>Paga com o mesmo e-mail da conta. Libera sozinho em até 1 minuto; depois é só voltar e ligar o banco.</p>
+    </div>
   );
 }
 

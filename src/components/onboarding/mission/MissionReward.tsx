@@ -76,7 +76,7 @@ export default function MissionReward({ onAdvance }: MissionRewardProps) {
           onClick={handleSubscribe}
           className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          Assinar agora e garantir tudo
+          Assinar o Vant Pro e garantir tudo
         </button>
       </div>
     </div>

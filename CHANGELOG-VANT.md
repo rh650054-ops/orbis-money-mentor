@@ -180,9 +180,15 @@ Registro do que mudou no app, em português, do mais novo pro mais antigo.
 - **Paywall nova (`/pro`):** selo azul do Instagram, grande, título com azul em "selo do banco", anual em cartão com borda dourada (R$ 29,99/mês, R$ 598,80 riscado, "economiza R$ 238"), mensal discreto, lista "Só no Pro" com 8 itens (Selo Verificado, Pix contado na rua, Arena Pro, Caça-Sinal, IA de Ganhos, Financeiro Completo, Estoque de Produtos, Comprovante de renda), um botão só grudado no rodapé e o mensal como link.
 - **Trava do X1:** sem banco ligado, DESAFIAR 1×1 e ABRIR SALA ficam borrados e um cartão com cadeado explica e leva pra aba Vender. Encarar, aceitar desafio, Cinturão e os atalhos pra `/x1/escolher` e `/x1/sala/nova` também respeitam a trava. Lutas e salas ao vivo continuam visíveis (vitrine).
 
+- **Plano básico sai de venda (Rick, 03/10):** quem chega novo tem o teste de 3 dias só com o básico e, no fim, assina o Vant Pro (R$ 29,99/mês no anual ou R$ 49,90 no mensal). Todo botão "assinar" do app (fim do teste, empurrões, Minha conta, Benefícios, Estúdio) abre o Pro; o modal de teste vencido mostra a paywall inteira. Quem já paga R$ 29,90 continua como está, mas vê a paywall do Pro pra ligar banco, X1 e Finanças.
+- **Teaser no teste:** sem banco ligado, o relatório do dia, o Ranking e a Finanças mostram um cartão "como seria com o banco ligado" (número de exemplo borrado + VER O VANT PRO).
+- **Equipe e influenciadores (cortesia):** não pagam o Pro, mas o Open Finance custa R$ 10/mês pela oferta que já existia (`otgozkn9`). Com ela ativa, viram Pro pro banco: selo, X1, Finanças. A paywall deles mostra só essa oferta.
+
 **Por dentro**
+- `checkout.ts`: `getCheckoutUrl()` passa a abrir o Pro anual (o link antigo fica em `getLegacyCheckoutUrl`). `/pro` entrou nos caminhos livres do `PaywallGate`. `TeaserPro.tsx` (novo) em `DefconEndScreen`, `Ranking` e `FinancasHome`. `PaywallCortesia` em `PaywallPro.tsx`; `Pro.tsx` escolhe pela `billing_exempt`.
+- Migration `20261003230000_cortesia_open_finance_10.sql` (**aplicar antes do merge**): `cortesia_com_banco_pago()`, `orbis_pro_ativo`/`orbis_pro_status` aceitam cortesia + R$ 10, `open_finance_limite` conta os R$ 10 como o primeiro banco nesse caso.
 - `ConviteBanco.tsx` (novo), `PaywallPro.tsx` (refeita, constantes em `pro-lib.ts`), `pages/Pro.tsx` + rota `/pro` (quem já é Pro volta pra Vender), `X1Trava.tsx` + `x1-trava-lib.ts` (hook `useTravaBanco` lê `orbis_pro_status`).
-- Sem mudança no banco nem nas funções do servidor. Testes: 13 passando em `conectar/`; `tsc` igual à base (67); `eslint` 0 erros.
+- Testes: 57 passando no projeto; `tsc` igual à base (67); `eslint` 0 erros novos.
 
 ## 02/10/2026 — Open Finance, etapa 4: Cartão, Dívidas e Guardado
 

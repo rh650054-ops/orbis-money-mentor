@@ -1,12 +1,12 @@
 import { Dialog, DialogContent } from "@/shared/ui/dialog";
 import { Button } from "@/shared/ui/button";
-import { CreditCard, LogOut, RefreshCw, Lock, TrendingUp, Brain, Target, Flame, X, Check } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/shared/hooks/use-toast";
 import { useState } from "react";
 
-import { getCheckoutUrl } from "@/shared/lib/checkout";
+import { PaywallPro } from "@/components/conectar/PaywallPro";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -17,10 +17,6 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
-
-  const handleActivatePlan = () => {
-    window.open(getCheckoutUrl(), "_blank");
-  };
 
   const handleCheckAccess = async () => {
     setIsChecking(true);
@@ -88,90 +84,19 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
         <div className="absolute -bottom-24 -left-24 w-56 h-56 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative overflow-y-auto max-h-[92dvh] px-5 py-6 sm:px-7 sm:py-7">
-          {/* Header */}
-          <div className="flex flex-col items-center text-center mb-5">
-            <div className="relative mb-3">
-              <div className="absolute inset-0 bg-primary/30 blur-xl rounded-full" />
-              <div className="relative w-14 h-14 rounded-full bg-gradient-to-br from-primary to-[hsl(45_100%_38%)] flex items-center justify-center shadow-[0_8px_24px_-4px_hsl(var(--primary)/0.6)]">
-                <Lock className="w-6 h-6 text-primary-foreground" strokeWidth={2.5} />
-              </div>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground leading-tight">
-              Você chegou longe. Não pare agora.
-            </h2>
+          {/* Header — 03/10/2026 (Rick): o teste de 3 dias acabou e o que se
+              assina agora é o Vant Pro. A paywall inteira mora aqui dentro. */}
+          <div className="flex flex-col items-center text-center mb-3">
+            <p className="font-mono text-[10px] font-bold tracking-[.18em]" style={{ color: "#7b766e" }}>SEUS 3 DIAS ACABARAM</p>
             <p className="text-sm text-muted-foreground mt-1.5 max-w-[320px]">
-              Seus 3 dias acabaram — mas seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados. Reative pra não perder nada.
+              Seu histórico, sua ofensiva 🔥 e seu lugar no ranking estão guardados. Assina o Vant Pro e segue de onde parou.
             </p>
           </div>
 
-          {/* What you LOSE */}
-          <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 mb-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-destructive/90 mb-2.5 flex items-center gap-1.5">
-              <X className="w-3.5 h-3.5" />
-              Sem assinatura você perde
-            </p>
-            <ul className="space-y-1.5 text-[13px] text-foreground/80">
-              <li className="flex items-start gap-2">
-                <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Seu histórico de vendas e relatórios travam</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-destructive/70 mt-0.5">•</span>
-                <span>O mentor de rua (IA) para de te ajudar a vender</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-destructive/70 mt-0.5">•</span>
-                <span>Você sai do ranking e perde sua ofensiva 🔥</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* What you GET */}
-          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 mb-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-primary mb-2.5 flex items-center gap-1.5">
-              <Check className="w-3.5 h-3.5" />
-              Continuando na Vant você
-            </p>
-            <ul className="space-y-2 text-[13px] text-foreground/90">
-              <li className="flex items-start gap-2.5">
-                <Target className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Domina seus números</strong> em tempo real</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Brain className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Tem o mentor de rua (IA)</strong> no bolso, todo dia</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <TrendingUp className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Organiza a rotina</strong> e bate metas com ritmo</span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Flame className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <span><strong className="text-foreground">Sobe no ranking</strong> e constrói sua ofensiva 🔥</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Price */}
-          <div className="text-center mb-4">
-            <div className="inline-flex items-baseline gap-1">
-              <span className="text-3xl font-black text-primary leading-none">R$ 29,99</span>
-              <span className="text-sm text-muted-foreground">/mês</span>
-            </div>
-            <p className="text-sm font-semibold text-foreground/90 mt-1">Só R$ 0,99 por dia — o preço de uma bala que você vende.</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Cancele quando quiser • Sem multa</p>
-          </div>
+          <PaywallPro />
 
           {/* Actions */}
-          <div className="space-y-2">
-            <Button
-              onClick={handleActivatePlan}
-              className="w-full h-12 text-sm font-bold bg-gradient-to-r from-primary to-[hsl(45_100%_38%)] hover:opacity-90 text-primary-foreground shadow-[0_8px_20px_-6px_hsl(var(--primary)/0.6)]"
-            >
-              <CreditCard className="w-4 h-4 mr-2" />
-              Reativar agora — R$ 29,99/mês
-            </Button>
-
+          <div className="space-y-2 mt-3">
             <Button
               onClick={handleCheckAccess}
               variant="outline"

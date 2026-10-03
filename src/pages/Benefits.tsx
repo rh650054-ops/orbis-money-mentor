@@ -85,7 +85,7 @@ export default function Benefits() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full mb-4">
             <Sparkles className="w-4 h-4" />
-            <span className="text-sm font-semibold">Plano Visionário</span>
+            <span className="text-sm font-semibold">Vant Pro</span>
           </div>
           
           <h1 className="text-5xl md:text-6xl font-bold mb-4 text-primary">
@@ -100,7 +100,7 @@ export default function Benefits() {
             <div className="text-6xl font-bold text-primary">
               R$ 29,99
             </div>
-            <div className="text-sm text-muted-foreground">por mês • cancele quando quiser</div>
+            <div className="text-sm text-muted-foreground">por mês no anual • ou R$ 49,90 no mensal</div>
           </div>
         </div>
 
@@ -140,7 +140,7 @@ export default function Benefits() {
               className="w-full sm:w-auto px-12 h-16 text-xl font-bold shadow-lg hover:shadow-xl"
               onClick={() => window.open(getCheckoutUrl(), "_blank")}
             >
-              🚀 Assinar por R$ 29,99/mês
+              🚀 Assinar o Vant Pro — R$ 29,99/mês
             </Button>
             
             <div className="text-sm text-muted-foreground">

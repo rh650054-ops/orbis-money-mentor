@@ -105,7 +105,7 @@ export function TrialNudge({ userId, title, benefit, momentKey, oncePerDay = tru
           boxShadow: "0 10px 26px -8px hsl(var(--primary) / 0.6)",
         }}
       >
-        Assinar agora e não perder nada
+        Assinar o Vant Pro e não perder nada
       </button>
       <button
         onClick={() => setClosed(true)}
