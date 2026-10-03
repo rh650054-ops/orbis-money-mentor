@@ -15,7 +15,7 @@ const limpaNumeros = (s: string) =>
 
 /** Mesma normalização do extrato_norm() no banco. */
 export function norm(s: string): string {
-  return s.toUpperCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+  return s.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[0-9]+/g, " ").replace(/[^A-Z ]+/g, " ").replace(/\s+/g, " ").trim();
 }
 

@@ -121,8 +121,21 @@ export async function carregarBancos(): Promise<BancoLigado[]> {
   const { data } = await supabase
     .from("bank_connections" as any)
     .select("id, item_id, institution_name, institution_logo, status, last_synced_at, created_at")
+    .or("status.is.null,status.neq.deleted") // banco desconectado some da tela (03/10)
     .order("created_at", { ascending: true });
   return ((data as any[]) || []) as BancoLigado[];
+}
+
+/** Desconecta um banco: a Pluggy apaga o acesso e a conexão sai da Vant (03/10). */
+export async function desligarBanco(conexaoId: string): Promise<{ ok: true; banco: string } | { ok: false; erro: string }> {
+  try {
+    const { data, error } = await supabase.functions.invoke("pluggy-desligar", { body: { conexao_id: conexaoId } });
+    if (error || data?.error) return { ok: false, erro: String(data?.error ?? "erro") };
+    return { ok: true, banco: String(data?.banco ?? "Banco") };
+  } catch (e) {
+    avisar.erro("pluggy: desligar banco", e);
+    return { ok: false, erro: "sem_internet" };
+  }
 }
 
 export interface StatusPro { pro: boolean; origem: string | null; ate: string | null; bancos: number; verificado: boolean }

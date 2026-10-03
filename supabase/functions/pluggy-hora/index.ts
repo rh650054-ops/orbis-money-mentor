@@ -1,5 +1,8 @@
-// Vant — pluggy-hora: leitura de hora em hora do Pix de quem tem banco ligado.
-// Roda pelo cron (8h → 23h em Brasília, + 0h05 pra fechar o dia anterior).
+// Vant — pluggy-hora: leitura do Pix de quem tem banco ligado.
+// Roda pelo cron a cada 15 min (8h → 23h52 em Brasília), + 0h02 pra fechar o dia.
+// O PEDIDO de atualização à Pluggy é no máximo 1 por hora por banco (limite
+// da Pluggy: o cron das :07 batia em 59min59s e metade voltava 409). A leitura
+// do que a Pluggy já tem roda em todas as rodadas.
 // O vendedor pode fechar o app às 19h: o Pix das 21h ainda entra no ranking,
 // porque quem lê o banco é o servidor, não o celular dele.
 //
@@ -15,6 +18,7 @@ import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const MAX_POR_RODADA = 40;
+const PEDIDO_MIN = 61 * 60_000; // 61 min entre pedidos à Pluggy
 
 Deno.serve(async (req) => {
   const json = (o: unknown, s = 200) =>
@@ -32,7 +36,7 @@ Deno.serve(async (req) => {
 
     // quem está há mais tempo sem leitura vai primeiro
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, status, last_synced_at, institution_name")
+      .select("id, item_id, user_id, status, last_synced_at, institution_name, pluggy_pedido_em")
       .neq("status", "deleted")
       .order("last_synced_at", { ascending: true, nullsFirst: true })
       .limit(MAX_POR_RODADA);
@@ -59,10 +63,15 @@ Deno.serve(async (req) => {
       } catch (e) {
         console.error("pluggy-hora: piloto", c.id, (e as Error)?.message);
       }
-      if (await pedirAtualizacao(apiKey, c.item_id)) pedidos++;
-      await admin.from("bank_connections")
-        .update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-        .eq("id", c.id);
+      const agora = new Date().toISOString();
+      // deno-lint-ignore no-explicit-any
+      const mudar: Record<string, any> = { last_synced_at: agora, updated_at: agora };
+      const ultimo = c.pluggy_pedido_em ? Date.parse(c.pluggy_pedido_em) : 0;
+      if (Date.now() - ultimo >= PEDIDO_MIN && await pedirAtualizacao(apiKey, c.item_id)) {
+        pedidos++;
+        mudar.pluggy_pedido_em = agora;
+      }
+      await admin.from("bank_connections").update(mudar).eq("id", c.id);
     }
     // a inteligência do Raio-X (entre contas, regras do vendedor, recorrência, perguntas)
     for (const uid of comNovidade) {
