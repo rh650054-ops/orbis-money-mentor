@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
-import { pixQueEntraNoDia, horaDaLeitura } from "./banco-pix";
+import { pixQueEntraNoDia, horaDaLeitura, proximaLeitura } from "./banco-pix";
 
 describe("pixQueEntraNoDia", () => {
   it("bank Pix fits inside what was sold", () => {
@@ -23,5 +23,12 @@ describe("horaDaLeitura", () => {
   it("shows Brasília time", () => {
     expect(horaDaLeitura("2026-10-02T16:40:00Z")).toBe("13:40");
     expect(horaDaLeitura(null)).toBe("");
+  });
+});
+
+describe("proximaLeitura", () => {
+  it("is ~65 min after the last bank read, in Brasília time", () => {
+    expect(proximaLeitura("2026-10-03T15:50:00Z")).toBe("13:55");
+    expect(proximaLeitura(null)).toBe("");
   });
 });

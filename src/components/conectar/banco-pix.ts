@@ -46,6 +46,11 @@ export async function puxarBancoAgora(): Promise<void> {
 export const horaDaLeitura = (iso: string | null) =>
   iso ? new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" }) : "";
 
+/** Quando vem a próxima leitura do banco: a Pluggy libera 1 por hora por banco,
+ *  e o robô (pluggy-hora) passa a cada 5 min — então ~65 min depois da última. */
+export const proximaLeitura = (iso: string | null) =>
+  iso ? horaDaLeitura(new Date(Date.parse(iso) + 65 * 60_000).toISOString()) : "";
+
 /** Lê o Pix do banco e repete a cada `intervaloMs` (padrão 5 min). */
 export function usePixDoBanco(ativo: boolean, intervaloMs = 5 * 60_000) {
   const [pix, setPix] = useState<PixDoBanco>(PIX_VAZIO);

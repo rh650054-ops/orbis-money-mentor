@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown, Lock, Trophy } from "lucide-react";
+import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown, Lock, Trophy, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { CobradorCard } from "@/components/cobranca/CobradorCard";
 import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
@@ -15,7 +15,7 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
-import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, proximaLeitura } from "@/components/conectar/banco-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -58,17 +58,29 @@ export function DefconEndScreen({
   onRestart,
 }: DefconEndScreenProps) {
   const [pix, setPix] = useState("");
-  // PIX TRAVADO (Open Finance, 02/10): com banco ligado, o Pix do dia é o que o
-  // banco diz — cadeado, sem digitar. Ao abrir o relatório pedimos uma leitura
-  // na hora e relemos aos 20 s e 50 s (a Pluggy responde pelo webhook).
-  const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
+  // PIX TRAVADO (Open Finance; religado 03/10 a pedido do Rick): com banco
+  // ligado, o Pix do dia é o que o banco diz — cadeado, sem digitar.
+  // Ao finalizar: pede uma leitura NA HORA (pluggy-sync importa o que já está
+  // na Pluggy e, se passou 1 h, pede atualização ao banco) e relê assim que
+  // ela volta. Depois fica vivo: relê a cada 30 s e pede leitura nova a cada
+  // 5 min enquanto a tela estiver aberta — o valor sobe sozinho conforme cai.
+  const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 30_000);
+  const [lendoBanco, setLendoBanco] = useState(false);
   useEffect(() => {
     if (!userId) return;
     let vivo = true;
-    void puxarBancoAgora();
+    const puxar = async () => {
+      if (vivo) setLendoBanco(true);
+      await puxarBancoAgora();
+      if (!vivo) return;
+      await relerBanco();
+      if (vivo) setLendoBanco(false);
+    };
+    void puxar();
     const t1 = setTimeout(() => { if (vivo) void relerBanco(); }, 20_000);
     const t2 = setTimeout(() => { if (vivo) void relerBanco(); }, 50_000);
-    return () => { vivo = false; clearTimeout(t1); clearTimeout(t2); };
+    const ciclo = setInterval(() => { void puxar(); }, 5 * 60_000);
+    return () => { vivo = false; clearTimeout(t1); clearTimeout(t2); clearInterval(ciclo); };
   }, [userId, relerBanco]);
   const [cartao, setCartao] = useState("");
   const [dinheiro, setDinheiro] = useState("");
@@ -532,19 +544,21 @@ export function DefconEndScreen({
   const dinheiroNum = parseFloat(dinheiro) || 0;
   // Pix travado: entra o que o banco leu, até o limite do que foi vendido. O que
   // caiu a mais (Pix sem venda lançada) aparece à parte e não vira venda.
-  // 03/10 (Rick): o Pix do banco NÃO substitui mais o que o vendedor digita —
-  // o dia e o ranking usam o que ele lança. O banco vira só uma referência
-  // ("pelo banco caiu R$ X") e aparece apenas pro perfil de teste do Open Finance.
-  const travado = false;
-  const mostraBanco = pixBanco.temBanco;
+  // 03/10 13:34 (Rick): volta a travar. Quem tem banco (Pro/teste do Open
+  // Finance) vê só o que CAIU; o que ele lançou e ainda não caiu aparece como
+  // "ainda não caiu", não como calote. Sem banco, segue digitando como sempre.
+  const travado = pixBanco.temBanco;
   const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.total, totalSold, dinheiroNum, cartaoNum);
-  const pixNum = parseFloat(pix) || 0;
+  const pixNum = travado ? pixDoBancoNoDia.entra : (parseFloat(pix) || 0);
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
   // Meio centavo de margem: 10,70 + 5,60 dá 16,299999999999997 em ponto
   // flutuante. Sem isso o app inventava um calote de R$ 0,000000000000004,
   // nunca mostrava "100% recebido" e ainda travava o fechamento do dia.
   const calote = faltou(totalSold, totalRecebido);
-  const hasCalote = calote > 0 && (totalRecebido > 0 || mexeu);
+  // Com Pix travado, a diferença é Pix que ainda pode cair: não é calote e não
+  // segura o "Finalizar".
+  const hasCalote = !travado && calote > 0 && (totalRecebido > 0 || mexeu);
+  const aindaNaoCaiu = travado ? calote : 0;
   const fullyReceived = totalSold > 0 && calote === 0;
 
   // Salva a CONTAGEM de kits não pagos na linha do dia (mesma data do sync do DEFCON).
@@ -1078,17 +1092,23 @@ export function DefconEndScreen({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">Pix</p>
                   <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
-                    <Lock className="w-3 h-3 shrink-0" /> pelo banco · {pixBanco.qtd} Pix{pixBanco.ultimaSync ? ` · ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}
+                    <Lock className="w-3 h-3 shrink-0" /> pelo banco · {pixBanco.qtd} Pix
+                  </p>
+                  <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
+                    {lendoBanco
+                      ? <><RefreshCw className="w-3 h-3 shrink-0 animate-spin" /> conferindo o banco agora…</>
+                      : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)} · próx. ${proximaLeitura(pixBanco.ultimaSync)}` : ""}</>}
                   </p>
                 </div>
-                <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixBanco.total)}</span>
+                <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixDoBancoNoDia.entra)}</span>
               </div>
             ) : (
               <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
             )}
-            {mostraBanco && (
-              <p className="text-[11px] text-muted-foreground px-1 leading-relaxed flex items-center gap-1">
-                <Lock className="w-3 h-3 shrink-0" /> Pelo banco caiu <b className="text-foreground">{formatCurrency(pixBanco.total)}</b> de Pix hoje{pixBanco.ultimaSync ? ` (lido ${horaDaLeitura(pixBanco.ultimaSync)})` : ""}. Só referência: vale o que você lançou.
+            {travado && pixDoBancoNoDia.aMais > 0 && (
+              <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
+                Caiu <b className="text-foreground">{formatCurrency(pixDoBancoNoDia.aMais)}</b> de Pix além do que você lançou de venda.
+                Conta no ranking (é Pix na conta), mas não vira venda no seu dia.
               </p>
             )}
             <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
@@ -1101,6 +1121,13 @@ export function DefconEndScreen({
                 <span className={`text-sm font-bold tabular-nums ${fullyReceived ? 'text-success' : hasCalote ? 'text-destructive/80' : 'text-foreground'}`}>
                   {formatCurrency(totalRecebido)} <span className="text-muted-foreground font-normal">/ {formatCurrency(totalSold)}</span>
                 </span>
+              </div>
+            )}
+
+            {aindaNaoCaiu > 0 && (
+              <div className="rounded-xl bg-warning/10 border border-warning/30 px-3.5 py-2.5 text-xs leading-relaxed">
+                <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} ainda não caíram</span>
+                <span className="text-muted-foreground"> na conta. A Vant continua olhando o banco: o que cair até 23:59 entra sozinho no seu dia e no ranking.</span>
               </div>
             )}
 
@@ -1189,7 +1216,7 @@ export function DefconEndScreen({
         {/* COBRADOR — depois do "como entrou", e só com calote de verdade (o mesmo
             critério da métrica "Calote"). Com banco ligado, a diferença pode ser Pix
             que o banco ainda não mostrou: o card fala isso em vez de chamar de calote. */}
-        <CobradorCard userId={userId} faltouCair={hasCalote ? calote : 0} pixAindaPodeCair={travado} />
+        <CobradorCard userId={userId} faltouCair={hasCalote ? calote : aindaNaoCaiu} pixAindaPodeCair={travado} />
 
         {/* 5. RELATÓRIO DO DIA — no estilo do relatório de bloco de hora */}
         {(totalApproaches > 0 || totalSalesCount > 0 || totalSold > 0) && (
