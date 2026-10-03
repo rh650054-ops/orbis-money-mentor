@@ -738,14 +738,20 @@ export function DefconRunning({
         </div>
 
         {/* PIX NA CONTA — linha discreta (Open Finance). Só existe pra quem tem banco
-            ligado; atualiza ~de hora em hora (o servidor lê o banco) e o horário
-            diz quando foi a última leitura. Mesmo mono dos rótulos, verde apagado. */}
+            ligado; o banco libera 1 leitura por hora, então mostra a hora da última
+            leitura do banco e a da próxima. Mesmo mono dos rótulos, verde apagado. */}
         {pixBanco.temBanco && (
           <div className="w-full flex justify-center -mt-1">
             <span className="inline-flex items-center gap-2 text-[9.5px] font-mono uppercase tracking-[0.18em] text-success/60">
               Pix na conta
               <b className="text-[11px] tracking-[0.05em] text-success/90 tabular-nums">{formatCurrency(pixBanco.total)}</b>
-              {pixBanco.ultimaSync && <span className="tracking-[0.1em] text-muted-foreground/50">· {horaDaLeitura(pixBanco.ultimaSync)}</span>}
+              {/* hora em que o BANCO foi lido (não a hora em que a Vant leu a Pluggy) e
+                  quando vem a próxima: o banco só libera 1 leitura por hora (03/10) */}
+              {pixBanco.ultimaSync && (
+                <span className="tracking-[0.1em] text-muted-foreground/50">
+                  · banco {horaDaLeitura(pixBanco.ultimaSync)} · próx. {horaDaLeitura(new Date(Date.parse(pixBanco.ultimaSync) + 65 * 60_000).toISOString())}
+                </span>
+              )}
             </span>
           </div>
         )}

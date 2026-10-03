@@ -27,6 +27,12 @@ Registro do que mudou no app, em português, do mais novo pro mais antigo.
 **Por dentro**
 - Migration `20261003130000_cobrador_completo.sql`: coluna `cobrancas.lembrar_em` e `cobrancas_painel()`.
 - `components/cobranca/QuemTeDeve.tsx` (Resumo, Lista, Fila, Lembrete) + teste.
+## 03/10/2026 — Pix no DEFCON mais rápido
+
+- Rick (11h41): o Pix de R$ 20 já tinha caído no C6 e o DEFCON mostrava "Pix na conta R$ 0 · 11:37".
+- Causa: a Pluggy só libera 1 atualização por hora por banco, e o cron de 15 em 15 min com a regra de 61 min fazia 1 pedido a cada 75 min (10h37 → 11h52). E o "11:37" era a hora em que a Vant leu a Pluggy, não a hora em que o banco foi lido.
+- Agora: leitura a cada 5 min (o pedido ao banco sai assim que completa 1 hora, no máximo ~65 min) e o DEFCON mostra "banco 10:37 · próx. 11:42", sem fingir que está atualizado.
+- Migration `20261003140000_pix_mais_rapido.sql` (cron `*/5` + `banco_pix_do_dia.ultima_sync` = hora da leitura do banco).
 
 ## 03/10/2026 — Rastreador de gastos + cada gasto do banco numa categoria
 
