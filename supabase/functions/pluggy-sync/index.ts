@@ -4,7 +4,7 @@
 // A atualizacao de verdade chega depois pelo pluggy-webhook (item/updated);
 // aqui e o melhor que da pra ter NA HORA, sem o vendedor esperar.
 //
-// Freio: nao pede atualizacao na Pluggy mais que 1x a cada 10 min por conexao.
+// Freio: a Pluggy aceita 1 pedido de atualizacao por hora por banco (03/10).
 // 02/10/2026: o importador mora em _shared/pluggy-entradas.ts (o mesmo do
 // pluggy-hora) e agora grava is_pix, transacted_at e own_transfer.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(URL_SUPA, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, status, last_synced_at").eq("user_id", uid).neq("status", "deleted");
+      .select("id, item_id, status, last_synced_at, pluggy_pedido_em").eq("user_id", uid).neq("status", "deleted");
     // deno-lint-ignore no-explicit-any
     const lista: any[] = cons ?? [];
     if (lista.length === 0) return json({ ok: true, conexoes: 0, entradas: 0 });
@@ -44,13 +44,18 @@ Deno.serve(async (req) => {
     let entradas = 0;
     let pediu = 0;
     for (const c of lista) {
-      const ha = c.last_synced_at ? Date.now() - new Date(c.last_synced_at).getTime() : Infinity;
-      if (ha > 10 * 60_000 && await pedirAtualizacao(apiKey, c.item_id)) pediu++;
+      // a Pluggy aceita 1 pedido por hora por banco (03/10): conta o último pedido, não a última leitura
+      const ha = c.pluggy_pedido_em ? Date.now() - new Date(c.pluggy_pedido_em).getTime() : Infinity;
+      let pediuEste = false;
+      if (ha > 61 * 60_000 && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
       try {
         const r = await importarEntradas(admin, apiKey, c.item_id, uid, c.id, 2);
         entradas += r.gravadas;
       } catch (e) { console.error("pluggy-sync: importar", (e as Error)?.message); }
-      await admin.from("bank_connections").update({ last_synced_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq("id", c.id);
+      const agora = new Date().toISOString();
+      await admin.from("bank_connections")
+        .update(pediuEste ? { last_synced_at: agora, updated_at: agora, pluggy_pedido_em: agora } : { last_synced_at: agora, updated_at: agora })
+        .eq("id", c.id);
     }
     return json({ ok: true, conexoes: lista.length, entradas, pediu_atualizacao: pediu });
   } catch (e) {

@@ -2,6 +2,19 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Vant Pro: Pix que faltava, tela nova e desconectar banco
+
+**O que mudou pro vendedor**
+- **Tela Vant Pro nova**, igual ao mockup "depois de conectar": escudo azul "Você é um vendedor VERIFICADO", **Comprovado hoje** (o que caiu na conta × o que você lançou, com o que ainda não caiu ou o que caiu a mais), "Onde você recebe" com bancos e carteiras ATIVO, e **Gerenciar conexões**.
+- **Desconectar banco**: em Gerenciar conexões, "Desconectar" → "Confirmar". A Pluggy apaga o acesso na hora; o que já foi lido fica no histórico, mas não conta mais.
+- **Pix que sumia**: o Pix das 10h de 02/10 (R$ 20) ia pro dia 01/10, porque o DEFCON de 02/10 só abriu às 13h52. Agora o dia de um DEFCON vai até as 6h da manhã seguinte; depois disso vale o dia do relógio. Rick em 02/10: R$ 170 (R$ 20 + R$ 150).
+- **Pix em dobro**: o MeuPluggy espelha a conta do C6 e cada Pix contava duas vezes. Agora o mesmo Pix lido por duas conexões conta uma vez.
+- **Leitura mais frequente**: o banco é lido a cada 15 min (antes 1 h). O pedido de atualização à Pluggy continua 1 por hora por banco, que é o limite deles. Antes o cron batia em 59min59s e metade dos pedidos voltava recusada (409).
+
+**Por dentro**
+- Migration `20261003100000_pix_janela_desconectar.sql`: `banco_pix_por_dia` (janela com teto às 6h, ignora conexão `deleted`, tira duplicata entre conexões), `vant_pro_hoje()`, coluna `bank_connections.pluggy_pedido_em`, Rick em `open_finance_testers`, cron `pluggy-hora` em `7,22,37,52`.
+- Edge function nova `pluggy-desligar` (login obrigatório; só desliga conexão do próprio vendedor). `pluggy-hora` v4 e `pluggy-sync` v12 respeitam o limite de 1 pedido/hora. `pluggy-item` e `pluggy-webhook` intactos.
+- O ranking **não** mudou: segue a regra de 03/10 do Mohamed (o que o vendedor lança).
 ## 02/10/2026 — Open Finance, etapa 4: Cartão, Dívidas e Guardado
 
 **O que mudou pro vendedor** (só quem tem banco ligado)

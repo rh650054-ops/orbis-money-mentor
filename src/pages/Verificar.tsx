@@ -21,19 +21,19 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Landmark, Banknote, ReceiptText,
-  Check, Plus, AlertTriangle, ChevronRight,
+  Check, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ConciliacaoMes } from "@/components/financas/MercadoPagoConciliacao";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
-import { formatCurrency } from "@/shared/lib/utils";
 import { LogoCarteira, CARTEIRAS, type Carteira } from "@/components/conectar/Selo";
 import { PaywallPro } from "@/components/conectar/PaywallPro";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
-import { carregarPixDoBanco, horaDaLeitura, PIX_VAZIO, type PixDoBanco } from "@/components/conectar/banco-pix";
+import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHoje } from "@/components/conectar/ProConectado";
+import { GerenciarConexoes } from "@/components/conectar/GerenciarConexoes";
 import {
-  ligarBanco, salvarBanco, carregarBancos, carregarPro, saudeDoBanco, horaBR,
+  ligarBanco, salvarBanco, carregarBancos, carregarPro,
   type BancoLigado, type StatusPro,
 } from "@/components/conectar/pluggy";
 
@@ -44,7 +44,6 @@ const MUTE = "#7b766e";
 interface StatusCarteira { conectado: boolean; provedores: string[]; recebido_hoje: number }
 interface Perfil { nome: string; avatar: string | null }
 
-const fmtReal = (v: number) => formatCurrency(v).replace(/,00$/, "");
 const iniciais = (nome: string) =>
   nome.trim().split(/\s+/).slice(0, 2).map((p) => p[0] ?? "").join("").toUpperCase() || "V";
 
@@ -81,30 +80,6 @@ function BotaoOuro({ children, onClick, disabled }: { children: React.ReactNode;
   );
 }
 
-function LinhaBanco({ b, primeiro }: { b: BancoLigado; primeiro?: boolean }) {
-  const s = saudeDoBanco(b.status, b.last_synced_at);
-  return (
-    <div className="flex items-center gap-3 py-[11px]" style={{ borderTop: primeiro ? "none" : "1px solid #1e1d21" }}>
-      {b.institution_logo ? (
-        <img src={b.institution_logo} alt="" className="w-[34px] h-[34px] rounded-[10px] shrink-0 object-contain" style={{ background: "#fff" }} />
-      ) : (
-        <span className="w-[34px] h-[34px] rounded-[10px] shrink-0 flex items-center justify-center" style={{ background: "#16151a", border: "1px solid #2a2823" }}>
-          <Landmark className="w-4 h-4" style={{ color: MUTE }} />
-        </span>
-      )}
-      <div className="flex-1 min-w-0">
-        <p className="text-[13.5px] font-extrabold truncate">{b.institution_name || "Banco"}</p>
-        <p className="text-[10.5px] font-bold truncate" style={{ color: s.alerta ? s.cor : MUTE }}>
-          conta · {s.texto}{!s.alerta && b.last_synced_at ? ` ${horaBR(b.last_synced_at)}` : ""}
-        </p>
-      </div>
-      {s.alerta
-        ? <AlertTriangle className="w-4 h-4 shrink-0" style={{ color: s.cor }} strokeWidth={2.4} />
-        : <Check className="w-4 h-4 shrink-0" style={{ color: OK }} strokeWidth={3} />}
-    </div>
-  );
-}
-
 /* ---------- a tela ---------- */
 
 export default function Verificar() {
@@ -117,7 +92,8 @@ export default function Verificar() {
   const [ligando, setLigando] = useState(false);
   const [ocupado, setOcupado] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
-  const [pixHoje, setPixHoje] = useState<PixDoBanco>(PIX_VAZIO);
+  const [proHoje, setProHoje] = useState<ProHoje | null>(null);
+  const [gerenciar, setGerenciar] = useState(false);
 
   const recarregar = useCallback(async () => {
     if (!user?.id) return;
@@ -127,13 +103,13 @@ export default function Verificar() {
         carregarBancos().catch(() => [] as BancoLigado[]),
         Promise.resolve((supabase as any).rpc("mp_status")).catch(() => ({ data: null })),
         Promise.resolve(supabase.from("public_profiles").select("nickname, avatar_url").eq("user_id", user.id).maybeSingle()).catch(() => ({ data: null })),
-        carregarPixDoBanco().catch(() => PIX_VAZIO),
+        carregarProHoje().catch(() => null),
       ]);
       setPro(p);
       setBancos(b);
       const linha = (pf as { data: { nickname?: string | null; avatar_url?: string | null } | null }).data;
       setPerfil({ nome: (linha?.nickname ?? "").trim(), avatar: linha?.avatar_url ?? null });
-      setPixHoje(px);
+      setProHoje(px);
       const r = ((s?.data as any[]) || [])[0];
       setCart({
         conectado: !!r?.conectado,
@@ -321,74 +297,31 @@ export default function Verificar() {
     );
   }
 
-  /* ================= C) É PRO, COM BANCO — quem você é, seus bancos, o resto ================= */
-  const comProblema = bancos.filter((b) => saudeDoBanco(b.status, b.last_synced_at).alerta);
+  /* ================= C) É PRO, COM BANCO — o mockup "depois de conectar" (03/10) ================= */
   const desde = bancos[0]?.created_at ? new Date(bancos[0].created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : null;
   const nome = perfil?.nome || "Você";
   return (
-    <div className="px-4 pt-4 pb-28">
+    <div className="px-4 pt-4 pb-28 space-y-3">
       {topo}
-
-      <Cartao className="mt-2 flex items-center gap-3" style={{ padding: 14, background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", borderColor: "rgba(245,184,0,.42)" }}>
-        {perfil?.avatar
-          ? <img src={perfil.avatar} alt="" className="w-14 h-14 rounded-full object-cover shrink-0" style={{ border: `3px solid ${GOLD}` }} />
-          : <span className="w-14 h-14 rounded-full shrink-0 flex items-center justify-center text-[18px] font-black" style={{ border: `3px solid ${GOLD}`, background: "rgba(255,200,0,.14)", color: GOLD }}>{iniciais(nome)}</span>}
-        <div className="flex-1 min-w-0">
-          <p className="text-[17px] font-black flex items-center gap-1 min-w-0">
-            <span className="truncate">{nome}</span>{pro.verificado && <SeloVerificado size={17} />}
-          </p>
-          <p className="text-[11.5px]" style={{ color: "#b9b3a6" }}>
-            {pro.verificado ? "Vendedor verificado" : "Pro ativo"}{desde ? ` · desde ${desde}` : ""}
-          </p>
-          <p className="text-[10.5px] font-bold mt-0.5" style={{ color: MUTE }}>Seu selo aparece no ranking, no X1 e no perfil.</p>
-        </div>
-      </Cartao>
-
-      <div className="flex items-center justify-between px-0.5 mt-5">
-        <p className="text-[10px] font-black tracking-[.15em]" style={{ color: MUTE }}>BANCOS LIGADOS · {bancos.length}</p>
-        <p className="text-[10.5px] font-bold" style={{ color: comProblema.length > 0 ? "#ff7a1a" : OK }}>
-          {comProblema.length > 0 ? `${comProblema.length} ${comProblema.length === 1 ? "precisa" : "precisam"} de atenção` : "● tudo em dia"}
-        </p>
+      <HeroVerificado nome={nome} verificado={pro.verificado} desde={desde} />
+      <ComprovadoHoje h={proHoje} />
+      <div className="flex items-center justify-between px-0.5 pt-1">
+        <p className="text-[15px] font-black">Onde você recebe</p>
+        <span className="rounded-full px-2.5 py-[4px] text-[11px] font-black" style={{ color: OK, border: "1px solid rgba(61,214,140,.45)" }}>
+          {bancos.length + ligadas.length} {bancos.length + ligadas.length === 1 ? "conectada" : "conectadas"}
+        </span>
       </div>
-      <Cartao className="mt-2" style={{ padding: "0 15px" }}>
-        {bancos.map((b, i) => <LinhaBanco key={b.id} b={b} primeiro={i === 0} />)}
-      </Cartao>
-      <button type="button" onClick={abrirBanco} disabled={ligando}
-        className="w-full h-9 rounded-[11px] mt-2 inline-flex items-center justify-center gap-2 text-[12px] font-extrabold"
-        style={{ background: "#141413", border: "1px solid #26241f", color: "#F4F1EA" }}>
-        {ligando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" strokeWidth={2.6} />}
-        {ligando ? "abrindo…" : "ligar outro banco"}
+      <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
+        onLigarBanco={abrirBanco} onLigarCarteira={ligarCarteira} />
+      <button type="button" onClick={() => setGerenciar(true)}
+        className="w-full h-[52px] rounded-[16px] text-[14px] font-black active:opacity-70"
+        style={{ background: "#111114", border: "1px solid #1f1e22", color: "#F4F1EA" }}>
+        Gerenciar conexões
       </button>
-
-      {comProblema.length > 0 && (
-        <Cartao className="mt-3" style={{ borderColor: "rgba(255,122,26,.3)", background: "linear-gradient(180deg,#1a1005,#0b0b0d)" }}>
-          <div className="flex gap-3 items-start">
-            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#ff7a1a" }} strokeWidth={2.3} />
-            <div>
-              <p className="text-[13.5px] font-extrabold leading-tight">Banco fora do ar não é culpa sua</p>
-              <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: "#a9a49c" }}>
-                Acontece com todos os bancos, às vezes por dias. Nada se perde: quando ele voltar, a Vant busca o que ficou pra trás.
-              </p>
-            </div>
-          </div>
-        </Cartao>
-      )}
-
-      <Cartao className="mt-3" style={{ padding: "12px 15px" }}>
-        <p className="text-[10px] font-black tracking-[.15em]" style={{ color: MUTE }}>HOJE PELOS SEUS BANCOS</p>
-        <div className="flex items-end justify-between mt-2 gap-3">
-          <div>
-            <p className="text-[10.5px] font-bold" style={{ color: MUTE }}>Caiu no Pix</p>
-            <p className="text-[19px] font-black tabular-nums" style={{ color: OK }}>{fmtReal(pixHoje.total)}</p>
-          </div>
-          <p className="text-[10.5px] font-bold text-right" style={{ color: MUTE }}>
-            {pixHoje.qtd} Pix{pixHoje.ultimaSync ? ` · lido ${horaDaLeitura(pixHoje.ultimaSync)}` : ""}
-          </p>
-        </div>
-        <p className="text-[10.5px] font-bold mt-2" style={{ color: MUTE }}>Pix conferido vai pro ranking. Leitura de hora em hora até 23:59.</p>
-      </Cartao>
-
-      {blocoCarteiras}
+      <GerenciarConexoes aberto={gerenciar} onAbrir={setGerenciar} bancos={bancos} onMudou={() => void recarregar()} />
+      <p className="text-[11px] leading-relaxed px-1" style={{ color: MUTE }}>
+        A Vant <b style={{ color: "#c9c4b9" }}>só lê</b> o que entrou. Não move dinheiro, não vê senha. Você desliga quando quiser.
+      </p>
       {conferirDeNovo("conferir de novo")}
 
       {/* Conciliação do mês: veio da tela de Finanças (Rick, 09/09). O lugar dela
