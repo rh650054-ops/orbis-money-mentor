@@ -162,6 +162,36 @@ Deno.serve(async (req) => {
       }
     }
 
+    // BANCO EXTRA (03/10/2026): +R$ 10/mês, oferta otgozkn9 do mesmo produto.
+    // Trilho próprio e SAI ANTES de tudo: não pode renovar nem cancelar a
+    // assinatura principal (uma compra de R$ 10 não estende o plano cheio, e
+    // cancelar o banco extra não derruba o app). Cada assinatura ativa = 1 vaga.
+    const BANCO_EXTRA_OFFER = "otgozkn9";
+    if (String(compra?.offer?.code ?? "").trim() === BANCO_EXTRA_OFFER) {
+      const ev = String(event || "").toUpperCase();
+      const liga = ev.includes("PURCHASE_APPROVED") || ev.includes("PURCHASE_COMPLETE") || ev.includes("SUBSCRIPTION_RENEWAL");
+      const desliga = ev.includes("SUBSCRIPTION_CANCELLATION") || ev.includes("PURCHASE_REFUNDED") || ev.includes("PURCHASE_CHARGEBACK");
+      if (!userId) {
+        // fica na caixa-preta (hotmart_eventos); NÃO vai pra unlinked_purchases,
+        // senão o cadastro reivindicaria como se fosse a assinatura principal
+        console.log("banco extra: comprador não identificado", buyerEmail);
+        return new Response(JSON.stringify({ status: "banco_extra_sem_dono" }), { headers: corsHeaders });
+      }
+      if (liga || desliga) {
+        const ate = new Date();
+        ate.setDate(ate.getDate() + 33); // 30 dias + 3 de tolerância
+        const { error: bxErr } = await supabase.rpc("banco_extra_registrar", {
+          p_user: userId, p_chave: subscriptionId || purchaseId, p_ativo: liga, p_ate: ate.toISOString(),
+        });
+        if (bxErr) {
+          console.error("banco_extra_registrar:", bxErr.message);
+          return new Response(JSON.stringify({ error: "banco_extra_falhou" }), { status: 500, headers: corsHeaders });
+        }
+        console.log(`Banco extra ${liga ? "liberado" : "retirado"} para ${userId}`);
+      }
+      return new Response(JSON.stringify({ status: "banco_extra_ok" }), { headers: corsHeaders });
+    }
+
     // If can't identify user, store as unlinked.
     // NÃO é beco sem saída: o gatilho trg_reivindicar_compras (profiles) reivindica
     // esta compra automaticamente quando a pessoa se cadastrar com o mesmo

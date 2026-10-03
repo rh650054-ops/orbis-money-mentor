@@ -20,4 +20,10 @@ describe("conta de trabalho × reserva", () => {
     render(<BancoExtra usados={1} onFechar={() => {}} />);
     expect(screen.getByText("+R$ 10 por mês")).toBeTruthy();
   });
+  it("banco a mais abre o checkout com o e-mail da conta", () => {
+    render(<BancoExtra usados={1} email="rick@vant.com" onFechar={() => {}} />);
+    const a = screen.getByText("QUERO LIGAR MAIS UM BANCO").closest("a");
+    expect(a?.getAttribute("href")).toContain("off=otgozkn9");
+    expect(a?.getAttribute("href")).toContain("email=rick%40vant.com");
+  });
 });

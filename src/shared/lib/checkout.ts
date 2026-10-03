@@ -72,6 +72,6 @@ export function getProCheckoutUrl(plano: PlanoPro): string {
 }
 
 /** Banco a mais no Open Finance: +R$ 10/mês (Rick, 03/10/2026). O Pro inclui 1 banco.
- *  O link da oferta na Hotmart ainda não existe: enquanto for null, a tela mostra
- *  "fale com a gente" em vez de um botão de compra. */
-export const BANCO_EXTRA_CHECKOUT: string | null = null;
+ *  Oferta otgozkn9 do produto Vant: o hotmart-webhook reconhece a oferta e libera
+ *  1 vaga por assinatura ativa (banco_extra_registrar → open_finance_limite). */
+export const BANCO_EXTRA_CHECKOUT: string | null = "https://pay.hotmart.com/N104683123F?off=otgozkn9&checkoutMode=6";

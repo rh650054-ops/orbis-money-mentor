@@ -314,7 +314,7 @@ export default function Verificar() {
           {bancos.length + ligadas.length} {bancos.length + ligadas.length === 1 ? "conectada" : "conectadas"}
         </span>
       </div>
-      {bancoExtra && <BancoExtra usados={bancos.length} onFechar={() => setBancoExtra(false)} />}
+      {bancoExtra && <BancoExtra usados={bancos.length} email={user?.email} onFechar={() => setBancoExtra(false)} />}
       <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
         onLigarBanco={abrirBanco} onLigarCarteira={ligarCarteira} />
       <button type="button" onClick={() => setGerenciar(true)}

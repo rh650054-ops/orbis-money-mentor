@@ -2,6 +2,16 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Banco extra à venda (+R$ 10/mês)
+
+**O que mudou pro vendedor**
+- A tela "Mais um banco" agora tem o botão **QUERO LIGAR MAIS UM BANCO**, que abre o checkout da Hotmart (oferta de R$ 10/mês) com o e-mail da conta já preenchido.
+- Pagou, a vaga libera sozinha em até 1 minuto: é só voltar e ligar o banco. Cancelou ou estornou, a vaga sai. Se a renovação não acontecer, a vaga vence sozinha 33 dias depois da última cobrança.
+
+**Por dentro**
+- Migration `20261003190000_banco_extra_compra.sql`: tabela `bancos_extra_compras` (uma linha por assinatura), `banco_extra_registrar()` (só o servidor) e `open_finance_limite()` somando as vagas pagas e no prazo.
+- `hotmart-webhook` v42: a oferta `otgozkn9` tem trilho próprio e sai antes da assinatura principal — comprar ou cancelar o banco extra nunca renova nem derruba o plano do app. Compra sem dono identificado fica só na caixa-preta (não vira assinatura principal no cadastro).
+
 ## 03/10/2026 — Caça-Sinal no tamanho do mockup v3
 
 **O que mudou pro vendedor**
