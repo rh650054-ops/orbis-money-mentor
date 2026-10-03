@@ -212,7 +212,12 @@ export async function buildCanvas(template: TemplateId, s: ShareStats): Promise<
     cel.forEach(([rot, val, cor], i) => {
       const x = gx0 + (i % 2) * (gw + 30), y = gy0 + Math.floor(i / 2) * (gh + 30);
       ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.roundRect(x, y, gw, gh, 36); ctx.fill(); ctx.stroke();
+      ctx.beginPath();
+      // roundRect não existe em iOS < 16 / Chrome < 99: desenha o canto na mão
+      const r = 36;
+      ctx.moveTo(x + r, y); ctx.arcTo(x + gw, y, x + gw, y + gh, r); ctx.arcTo(x + gw, y + gh, x, y + gh, r);
+      ctx.arcTo(x, y + gh, x, y, r); ctx.arcTo(x, y, x + gw, y, r); ctx.closePath();
+      ctx.fill(); ctx.stroke();
       ctx.font = `900 110px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = cor;
       ctx.fillText(val, x + gw / 2, y + 105);
       label(rot, x + gw / 2, y + 195, 28, MUTED);
@@ -326,7 +331,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   // antigos fora pra gerar de novo com os dados certos.
   useEffect(() => {
     setPreviews({});
-  }, [stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo]);
+  }, [stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo, stats.sobrou, stats.abordagens, stats.pixBanco, stats.posicao]);
 
   useEffect(() => {
     if (!open || Object.keys(previews).length === ORDEM.length) return;
@@ -345,7 +350,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
     })();
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, previews, stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo]);
+  }, [open, previews, stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo, stats.sobrou, stats.abordagens, stats.pixBanco, stats.posicao]);
 
   const onScroll = () => {
     const el = scrollRef.current;

@@ -546,16 +546,6 @@ export default function Index() {
         <div><ConfirmarEmailNudge userId={user.id} /></div>
         <div><CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} /></div>
         <div><WeeklyChallengeDashboardCard /></div>
-        <div>
-          {user && faltaDia <= 0 && dailyProfit > 0 && (
-            <TrialNudge
-              userId={user.id}
-              momentKey="meta_dia"
-              title="Meta do dia batida!"
-              benefit="Quem usa a Vant todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
-            />
-          )}
-        </div>
       </div>
 
       {/* A semana encosta no card da meta, por fora dele (pedido do Rick) —
@@ -610,6 +600,17 @@ export default function Index() {
       <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />
       <CompeticaoRow onClick={() => navigate('/competitions')} />
 
+
+      {/* "Meta do dia batida" (teste) fica FORA da fila de avisos: ele se marca como
+          visto ao montar, então escondido pelo CSS ele gastaria a vez do dia sem aparecer. */}
+      {user && faltaDia <= 0 && dailyProfit > 0 && (
+        <TrialNudge
+          userId={user.id}
+          momentKey="meta_dia"
+          title="Meta do dia batida!"
+          benefit="Quem usa a Vant todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
+        />
+      )}
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 

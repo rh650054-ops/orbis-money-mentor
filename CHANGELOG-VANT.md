@@ -2,6 +2,16 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Correções da revisão (lotes 5, 6 e 7 + banco extra)
+
+- **Cinturão**: a conta do cinturão só roda pelo fechamento do duelo (antes dava pra chamar direto e somar defesa) e nunca conta o mesmo duelo duas vezes.
+- **Banco extra**: o cancelamento da assinatura (que a Hotmart manda sem a oferta) agora reconhece o banco extra pelo código do assinante e tira só a vaga, sem tocar no plano principal. Se der erro ao liberar, a Hotmart pode reenviar (antes o reenvio era ignorado como duplicado). `hotmart-webhook` v43.
+- **Provocação**: 2 toques ao mesmo tempo não furam mais o limite de 3.
+- **Caixinha**: sequência não pula dia vazio; guardar pela meta não mexe mais no alvo do card "Guardar hoje".
+- **Início**: o empurrão "Meta do dia batida" saiu da fila de avisos (ele se marcava como visto mesmo escondido) e voltou pro lugar dele.
+- **Story "Sobrou pra mim"**: funciona em iPhone antigo (iOS 15) e se atualiza quando o lucro chega depois.
+- Migration `20261003220000_correcoes_revisao_lotes.sql`.
+
 ## 03/10/2026 — Lote 7: Dashboard enxuto (um aviso por vez)
 
 **O que mudou pro vendedor**
