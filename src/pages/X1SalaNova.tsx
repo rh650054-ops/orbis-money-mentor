@@ -17,6 +17,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import "@/components/x1/x1.css";
+import { useTravaBanco } from "@/components/x1/x1-trava-lib";
 import { X1Avatar } from "@/components/x1/X1Avatar";
 import { fmt, primeiroNome, carregarRecorde, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
 import { SALA_VAGAS, SALA_APOSTAS, SALA_HORA_ENTRADA, aindaEntra, divisaoPote, criarSala, carregarSala, convidarSala, linkSala, type Sala } from "@/components/x1/x1-sala-lib";
@@ -47,6 +48,9 @@ export default function X1SalaNova() {
   const [params] = useSearchParams();
   const { id: salaId } = useParams<{ id?: string }>();   // presente só em /x1/sala/:id/chamar
   const uid = user?.id;
+  // TRAVA (03/10): sem banco ligado não entra aqui; volta pra Arena, que explica.
+  const { semBanco } = useTravaBanco(uid);
+  useEffect(() => { if (semBanco) navigate("/x1", { replace: true }); }, [semBanco, navigate]);
 
   const [nome, setNome] = useState("");
   const [vagas, setVagas] = useState(4);

@@ -25,6 +25,8 @@ import { carregarSalasHoje, divisaoPote, aindaEntra, SALA_HORA_ENTRADA, type Sal
 import { PistaCard, Disponiveis, CinturaoCard } from "@/components/x1/X1Pista";
 import { TorcidaCerteira } from "@/components/x1/X1Provocacao";
 import { carregarPista, ligarPista, carregarDisponiveis, carregarCinturao, carregarPalpites, type Pista, type Disponivel, type Cinturao } from "@/components/x1/x1-lote5";
+import { TravaX1 } from "@/components/x1/X1Trava";
+import { useTravaBanco } from "@/components/x1/x1-trava-lib";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -67,12 +69,15 @@ export default function X1() {
   const [cinturao, setCinturao] = useState<Cinturao | null>(null);
   const [palpites, setPalpites] = useState({ acertos: 0, total: 0 });
   const [encarando, setEncarando] = useState<string | null>(null);
+  // TRAVA (03/10): só luta quem tem banco ligado. Vitrine continua aberta.
+  const { semBanco } = useTravaBanco(uid);
+  const travado = () => { toast({ title: "Liga seu banco pra lutar", description: "O X1 é só entre vendedores conferidos." }); navigate("/verificar"); };
 
   // deep link antigo (?desafiar=uid) → seleção já com o alvo
   useEffect(() => {
     const alvo = params.get("desafiar");
-    if (alvo) navigate(`/x1/escolher?alvo=${alvo}${params.get("quando") === "amanha" ? "&quando=amanha" : ""}`, { replace: true });
-  }, [params, navigate]);
+    if (alvo && !semBanco) navigate(`/x1/escolher?alvo=${alvo}${params.get("quando") === "amanha" ? "&quando=amanha" : ""}`, { replace: true });
+  }, [params, navigate, semBanco]);
 
   const carregar = useCallback(async () => {
     if (!uid) return;
@@ -150,6 +155,7 @@ export default function X1() {
   }, [uid, duelos, pessoa, outro]);
 
   const responder = async (c: Duelo, action: "accept" | "decline") => {
+    if (action === "accept" && semBanco) { travado(); return; }
     setAgindo(c.id);
     const { error } = await (supabase as any).rpc("x1_negotiate", { p_id: c.id, p_action: action });
     setAgindo(null);
@@ -167,6 +173,7 @@ export default function X1() {
   };
   // ENCARAR = 1 toque: amistoso contra quem está na arena começa na hora (x1_lutar)
   const encarar = async (d: Disponivel) => {
+    if (semBanco) { travado(); return; }
     setEncarando(d.user_id);
     const { data, error } = await (supabase as any).rpc("x1_lutar", { p_opponent: d.user_id, p_stakes: 0 });
     setEncarando(null);
@@ -195,18 +202,19 @@ export default function X1() {
 
       {/* TÔ NA PISTA + DISPONÍVEIS AGORA + CINTURÃO (Lote 5) */}
       <PistaCard pista={pista} eu={eu_} onTrocar={trocarPista} />
-      <Disponiveis lista={disponiveis} encarando={encarando} onEncarar={encarar} onVerTodos={() => navigate("/x1/escolher")} />
-      <CinturaoCard c={cinturao} onDesafiar={(id) => navigate(id ? `/x1/escolher?alvo=${id}` : "/x1/escolher")} />
+      <Disponiveis lista={disponiveis} encarando={encarando} onEncarar={encarar} onVerTodos={() => (semBanco ? travado() : navigate("/x1/escolher"))} />
+      <CinturaoCard c={cinturao} onDesafiar={(id) => (semBanco ? travado() : navigate(id ? `/x1/escolher?alvo=${id}` : "/x1/escolher"))} />
 
-      {/* DOIS CAMINHOS: 1×1 ou SALA */}
-      <div className="grid grid-cols-2 gap-2 x1-up" style={{ "--i": 1 } as React.CSSProperties}>
-        <button type="button" onClick={() => navigate("/x1/escolher")} className={`x1-btn vermelho ${rolando === 0 ? "x1-pulse" : ""}`} style={{ height: 50, fontSize: 13 }}>
+      {/* DOIS CAMINHOS: 1×1 ou SALA — borrados e travados pra quem não tem banco */}
+      <div className="grid grid-cols-2 gap-2 x1-up" style={{ "--i": 1, ...(semBanco ? { filter: "blur(3px)", opacity: .45 } : {}) } as React.CSSProperties} aria-disabled={semBanco}>
+        <button type="button" onClick={() => (semBanco ? travado() : navigate("/x1/escolher"))} className={`x1-btn vermelho ${rolando === 0 && !semBanco ? "x1-pulse" : ""}`} style={{ height: 50, fontSize: 13 }}>
           <Swords className="w-4 h-4" strokeWidth={2.6} /> DESAFIAR 1×1
         </button>
-        <button type="button" onClick={() => navigate("/x1/sala/nova")} className="x1-btn ouro" style={{ height: 50, fontSize: 13 }}>
+        <button type="button" onClick={() => (semBanco ? travado() : navigate("/x1/sala/nova"))} className="x1-btn ouro" style={{ height: 50, fontSize: 13 }}>
           <Users className="w-4 h-4" strokeWidth={2.6} /> ABRIR SALA
         </button>
       </div>
+      {semBanco && <TravaX1 className="x1-up" />}
 
       {/* SUAS LUTAS DE HOJE — todos os X1 ativos + salas (e chamados pra sala) */}
       {(rolando > 0 || salasChamado.length > 0) && (

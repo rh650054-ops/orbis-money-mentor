@@ -28,7 +28,7 @@ import { ConciliacaoMes } from "@/components/financas/MercadoPagoConciliacao";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { LogoCarteira, CARTEIRAS, type Carteira } from "@/components/conectar/Selo";
-import { PaywallPro } from "@/components/conectar/PaywallPro";
+import { ConviteBanco } from "@/components/conectar/ConviteBanco";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHoje } from "@/components/conectar/ProConectado";
 import { GerenciarConexoes } from "@/components/conectar/GerenciarConexoes";
@@ -256,12 +256,12 @@ export default function Verificar() {
     </div>
   );
 
-  /* ================= A) NÃO É PRO — a paywall ================= */
+  /* ================= A) NÃO É PRO — o convite pra conectar (1A), depois a paywall em /pro ================= */
   if (!pro.pro) {
     return (
       <div className="px-4 pt-4 pb-28" style={{ background: "radial-gradient(100% 420px at 50% 0%,#1a1305,transparent 70%)" }}>
         {topo}
-        <div className="mt-2" data-tour="conectar-banco"><PaywallPro /></div>
+        <div className="mt-2" data-tour="conectar-banco"><ConviteBanco onConectar={() => navigate("/pro")} /></div>
         {blocoCarteiras}
       </div>
     );
