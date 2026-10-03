@@ -2,6 +2,11 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Segurança: funções com caminho fixo
+
+**Por dentro**
+- Migration `20261003170000_fixar_search_path_funcoes.sql`: 5 funções auxiliares (`extrato_meses`, `extrato_norm`, `parc_nome_curto`, `parc_pix_mascarado`, `parc_status_indicacao`) agora têm `search_path` fixo, como o alerta de segurança do Supabase pedia. Nada muda pro vendedor.
+
 ## 03/10/2026 — Pix travado no fim do DEFCON (de novo) e ao vivo
 
 **O que mudou pro vendedor**
