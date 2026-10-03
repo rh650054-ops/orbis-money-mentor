@@ -2,6 +2,19 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — X1, lote 5: Tô na pista, Cinturão da cidade, Torcida certeira e Provocação pronta
+
+**O que mudou pro vendedor**
+- **Tô na pista hoje** (interruptor no topo da Arena): ligado, você aparece como disponível e quem te encarar já começa o duelo, sem esperar aceite. Mostra quantos vendedores te veem e quantos estão na pista. Vale até meia-noite.
+- **Disponíveis agora**: quem está na pista ou com o DEFCON aberto, com patente, posição, quanto já vendeu hoje e o botão **ENCARAR** (1 toque = amistoso começando na hora).
+- **Cinturão da cidade**: um campeão por cidade. O primeiro a vencer um X1 na cidade pega o cinturão; quem vence o campeão (da mesma cidade) toma; cada vitória do campeão contra alguém da cidade é uma defesa. Card com o campeão, dias de reinado, defesas, linha do tempo e **DESAFIAR**. Já nasceu com o histórico dos duelos que existiam (ex.: Cotia é do Rick).
+- **Torcida certeira**: quem torce e acerta o vencedor ganha +1 ponto de patente. A arena mostra seus palpites certos.
+- **Provocação pronta** dentro da luta: 5 frases fixas ("Vai desistir? 😏", "Tô só esquentando", "Isso é tudo?", "Revanche amanhã", "Respeito 🤝"), com a sua foto, máximo 3 por luta e uma a cada 2 minutos. Sem texto livre. Quem está no DEFCON recebe a notificação "😏 Fulano te provocou".
+
+**Por dentro**
+- Migration `20261003200000_x1_pista_cinturao_torcida_provocacao.sql`: `x1_pista`, `x1_na_arena` conta a pista, `x1_disponiveis`, `x1_minha_pista`, `x1_pista_ligar`; `x1_cinturao` + histórico + gatilho em `x1_challenges` (ao virar `finished`) + `x1_cinturao_cidade`; `x1_palpites` e `x1_recorde` somando os acertos; `x1_provocacoes` + `x1_provocar` + `x1_provocacoes_da_luta`.
+- Front: `X1Pista.tsx`, `X1Provocacao.tsx`, `x1-lote5.ts` (+ teste); `useX1DefconAlert` avisa provocação nova.
+
 ## 03/10/2026 — Banco extra à venda (+R$ 10/mês)
 
 **O que mudou pro vendedor**
