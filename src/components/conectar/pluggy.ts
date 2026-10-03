@@ -45,7 +45,7 @@ function carregarScript(): Promise<void> {
   return carregando;
 }
 
-export type ErroPluggy = "precisa_pro" | "pluggy_nao_configurado" | "sem_internet" | "cancelou" | "erro";
+export type ErroPluggy = "precisa_pro" | "precisa_banco_extra" | "pluggy_nao_configurado" | "sem_internet" | "cancelou" | "erro";
 
 /** Pede o token curto ao servidor (que confere o Pro), abre o widget e devolve
  *  o item_id do banco conectado, ou { erro: "cancelou" } quando o vendedor desiste.
@@ -58,7 +58,7 @@ export async function ligarBanco(aoAbrir?: () => void): Promise<{ itemId: string
   const { data, error } = await (supabase as any).functions.invoke("pluggy-connect-token");
   if (error || data?.error) {
     const e = String(data?.error ?? "erro");
-    return { erro: (e === "precisa_pro" || e === "pluggy_nao_configurado" ? e : "erro") as ErroPluggy };
+    return { erro: (e === "precisa_pro" || e === "precisa_banco_extra" || e === "pluggy_nao_configurado" ? e : "erro") as ErroPluggy };
   }
   const token = String(data?.accessToken ?? "");
   if (!token) return { erro: "erro" };
@@ -115,12 +115,13 @@ export interface BancoLigado {
   status: string | null;
   last_synced_at: string | null;
   created_at?: string | null;
+  papel?: "trabalho" | "reserva" | null;
 }
 
 export async function carregarBancos(): Promise<BancoLigado[]> {
   const { data } = await supabase
     .from("bank_connections" as any)
-    .select("id, item_id, institution_name, institution_logo, status, last_synced_at, created_at")
+    .select("id, item_id, institution_name, institution_logo, status, last_synced_at, created_at, papel")
     .or("status.is.null,status.neq.deleted") // banco desconectado some da tela (03/10)
     .order("created_at", { ascending: true });
   return ((data as any[]) || []) as BancoLigado[];
@@ -177,3 +178,10 @@ export const horaBR = (iso: string | null) => {
     return new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
   } catch { return ""; }
 };
+
+/** Pra que serve cada banco (Rick, 03/10): trabalho = fluxo de caixa; reserva = guardar. */
+export async function definirPapel(conexaoId: string, papel: "trabalho" | "reserva"): Promise<boolean> {
+  const { error } = await supabase.from("bank_connections" as any).update({ papel }).eq("id", conexaoId);
+  if (error) { avisar.erro("pluggy: papel do banco", error); return false; }
+  return true;
+}

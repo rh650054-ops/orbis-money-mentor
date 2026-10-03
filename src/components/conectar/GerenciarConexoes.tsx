@@ -8,7 +8,8 @@ import { useState } from "react";
 import { Landmark, Loader2 } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
 import { toast } from "@/shared/hooks/use-toast";
-import { desligarBanco, horaBR, saudeDoBanco, type BancoLigado } from "@/components/conectar/pluggy";
+import { definirPapel, desligarBanco, horaBR, saudeDoBanco, type BancoLigado } from "@/components/conectar/pluggy";
+import { PapelToggle, type Papel } from "@/components/conectar/PapelContas";
 
 const RED = "#ff6b7a";
 const MUTE = "#8a857c";
@@ -18,6 +19,16 @@ export function GerenciarConexoes({ aberto, onAbrir, bancos, onMudou }: {
 }) {
   const [confirmar, setConfirmar] = useState<string | null>(null);
   const [saindo, setSaindo] = useState<string | null>(null);
+  const [mudandoPapel, setMudandoPapel] = useState<string | null>(null);
+
+  const mudarPapel = async (b: BancoLigado, p: Papel) => {
+    setMudandoPapel(b.id);
+    const ok = await definirPapel(b.id, p);
+    setMudandoPapel(null);
+    if (!ok) { toast({ title: "Não deu pra salvar", variant: "destructive" }); return; }
+    toast({ title: `${b.institution_name ?? "Banco"}: ${p === "trabalho" ? "conta de trabalho" : "reserva"}` });
+    onMudou();
+  };
 
   const desligar = async (b: BancoLigado) => {
     setSaindo(b.id);
@@ -65,6 +76,12 @@ export function GerenciarConexoes({ aberto, onAbrir, bancos, onMudou }: {
                     </button>
                   )}
                 </div>
+                {!pedindo && (
+                  <div className="flex items-center justify-between gap-2 mt-2 pl-[52px]">
+                    <span className="text-[10.5px] font-bold" style={{ color: MUTE }}>serve pra</span>
+                    <PapelToggle valor={b.papel ?? null} ocupado={mudandoPapel === b.id} onEscolher={(p) => void mudarPapel(b, p)} />
+                  </div>
+                )}
                 {pedindo && (
                   <div className="flex gap-2 mt-2.5">
                     <button type="button" onClick={() => setConfirmar(null)} disabled={!!saindo}

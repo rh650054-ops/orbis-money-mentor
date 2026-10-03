@@ -70,3 +70,8 @@ export function getProCheckoutUrl(plano: PlanoPro): string {
   const code = storedCoupon();
   return `${PRO_CHECKOUT[plano]}&sck=${encodeURIComponent(code ?? "vant_pro")}`;
 }
+
+/** Banco a mais no Open Finance: +R$ 10/mês (Rick, 03/10/2026). O Pro inclui 1 banco.
+ *  O link da oferta na Hotmart ainda não existe: enquanto for null, a tela mostra
+ *  "fale com a gente" em vez de um botão de compra. */
+export const BANCO_EXTRA_CHECKOUT: string | null = null;

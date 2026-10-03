@@ -2,6 +2,18 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Conta de trabalho × reserva + limite de bancos do Pro
+
+**O que mudou pro vendedor**
+- **Pra que serve cada conta?** Com 2 ou mais bancos ligados, Finanças pergunta uma vez: cada banco é **Trabalho** (fluxo de caixa do corre) ou **Reserva** (onde guarda). Dá pra mudar depois em Vant Pro → Gerenciar conexões. Sem precisar desconectar nada.
+- **Quanto você tem agora** mostra o total e, embaixo, **💼 Fluxo de caixa** e **🛟 Reserva** separados. O fôlego continua contando tudo que você tem.
+- **Limite de bancos:** o Vant Pro inclui 1 banco; cada banco a mais custa **+R$ 10/mês**. Quem tenta ligar o segundo sem ter contratado vê a tela "Mais um banco: +R$ 10 por mês" e o banco nem abre. Rick e Mohamed são isentos. O link da oferta na Hotmart ainda falta (até lá a tela pede pra falar com o suporte).
+
+**Por dentro**
+- Migration `20261003150000_conta_trabalho_reserva.sql`: `bank_connections.papel`, tabela `bancos_extra` (extras comprados + isento), `open_finance_limite()`, `financas_home()` com `saldo_trabalho`, `saldo_reserva`, `precisa_papel`, `contas`.
+- Segurança: `bank_connections` só aceita INSERT do servidor (antes o app conseguia criar uma conexão sem banco e ganhar o selo).
+- `pluggy-connect-token` v16: confere o limite antes de abrir o banco.
+
 ## 03/10/2026 — Cobrador completo (mockup cobrador.png)
 
 **O que mudou pro vendedor**

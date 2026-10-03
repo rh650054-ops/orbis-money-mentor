@@ -32,6 +32,7 @@ import { PaywallPro } from "@/components/conectar/PaywallPro";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHoje } from "@/components/conectar/ProConectado";
 import { GerenciarConexoes } from "@/components/conectar/GerenciarConexoes";
+import { BancoExtra } from "@/components/conectar/PapelContas";
 import {
   ligarBanco, salvarBanco, carregarBancos, carregarPro,
   type BancoLigado, type StatusPro,
@@ -94,6 +95,7 @@ export default function Verificar() {
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [proHoje, setProHoje] = useState<ProHoje | null>(null);
   const [gerenciar, setGerenciar] = useState(false);
+  const [bancoExtra, setBancoExtra] = useState(false);
 
   const recarregar = useCallback(async () => {
     if (!user?.id) return;
@@ -148,6 +150,7 @@ export default function Verificar() {
     }
     if ("erro" in r) {
       if (r.erro === "cancelou") { void recarregar(); return; }
+      if (r.erro === "precisa_banco_extra") { setBancoExtra(true); return; }
       toast({
         title: "Não deu certo",
         description: r.erro === "precisa_pro" ? "Assine a Vant Pro pra ligar seu banco."
@@ -311,6 +314,7 @@ export default function Verificar() {
           {bancos.length + ligadas.length} {bancos.length + ligadas.length === 1 ? "conectada" : "conectadas"}
         </span>
       </div>
+      {bancoExtra && <BancoExtra usados={bancos.length} onFechar={() => setBancoExtra(false)} />}
       <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
         onLigarBanco={abrirBanco} onLigarCarteira={ligarCarteira} />
       <button type="button" onClick={() => setGerenciar(true)}

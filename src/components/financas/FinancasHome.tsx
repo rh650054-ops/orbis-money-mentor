@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/shared/lib/utils";
 import { avisar } from "@/shared/lib/avisar";
 import { FinancasPainel } from "./FinancasPainel";
+import { PapelEscolha, type ContaPapel } from "@/components/conectar/PapelContas";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -31,6 +32,9 @@ export interface HomeFinancas {
   entrou: number; saiu: number; sobrou: number;
   alerta: Alerta | null; causas: Causa[] | null;
   piloto: { lancamentos: number; conferir: number };
+  // 03/10: conta de trabalho (fluxo de caixa) × reserva
+  saldo_trabalho?: number | null; saldo_reserva?: number | null;
+  precisa_papel?: boolean; contas?: ContaPapel[];
 }
 
 const reais = (v: number) => formatCurrency(v).replace(/,00$/, "");
@@ -125,6 +129,18 @@ export function FinancasHomeView({ h, onPiloto }: { h: HomeFinancas; onPiloto: (
             <>
               <p className="text-[36px] font-black tabular-nums leading-tight mt-1" style={{ color: GOLD }}>{reais(saldo)}</p>
               <p className="text-[11.5px] mt-1" style={{ color: "#b9b3a6" }}>{linhaBancos}{h.atualizado ? ` · atualizado ${hora(h.atualizado)}` : ""}</p>
+              {h.saldo_reserva != null && (
+                <div className="grid grid-cols-2 gap-2 mt-3 text-left">
+                  <div className="rounded-xl px-2.5 py-2" style={{ background: "rgba(245,184,0,.08)", border: "1px solid rgba(245,184,0,.25)" }}>
+                    <p className="text-[9px] font-black tracking-[.14em]" style={{ color: GOLD }}>💼 FLUXO DE CAIXA</p>
+                    <p className="text-[16px] font-black tabular-nums mt-0.5">{reais(h.saldo_trabalho ?? 0)}</p>
+                  </div>
+                  <div className="rounded-xl px-2.5 py-2" style={{ background: "rgba(90,176,255,.08)", border: "1px solid rgba(90,176,255,.3)" }}>
+                    <p className="text-[9px] font-black tracking-[.14em]" style={{ color: "#5ab0ff" }}>🛟 RESERVA</p>
+                    <p className="text-[16px] font-black tabular-nums mt-0.5">{reais(h.saldo_reserva ?? 0)}</p>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <p className="text-[12.5px] mt-2" style={{ color: "#b9b3a6" }}>Lendo o saldo do seu banco. Aparece aqui na próxima leitura.</p>
@@ -175,6 +191,7 @@ export function FinancasHomeView({ h, onPiloto }: { h: HomeFinancas; onPiloto: (
 export function FinancasHome({ userId }: { userId?: string }) {
   const navigate = useNavigate();
   const [h, setH] = useState<HomeFinancas | null>(null);
+  const [versao, setVersao] = useState(0);
 
   useEffect(() => {
     if (!userId) return;
@@ -185,11 +202,12 @@ export function FinancasHome({ userId }: { userId?: string }) {
       if (vivo) setH(data as HomeFinancas);
     })();
     return () => { vivo = false; };
-  }, [userId]);
+  }, [userId, versao]);
 
   if (!h || !h.tem_banco) return null;
   return (
     <div className="space-y-2.5">
+      {h.precisa_papel && h.contas && <PapelEscolha contas={h.contas} onPronto={() => setVersao((v) => v + 1)} />}
       <FinancasHomeView h={h} onPiloto={() => navigate("/financas/extrato")} />
       {/* etapa 4: cartão, dívidas e guardado, lidos do banco toda madrugada */}
       <FinancasPainel userId={userId} />
