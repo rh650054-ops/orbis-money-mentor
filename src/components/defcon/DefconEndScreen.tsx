@@ -532,9 +532,13 @@ export function DefconEndScreen({
   const dinheiroNum = parseFloat(dinheiro) || 0;
   // Pix travado: entra o que o banco leu, até o limite do que foi vendido. O que
   // caiu a mais (Pix sem venda lançada) aparece à parte e não vira venda.
-  const travado = pixBanco.temBanco;
+  // 03/10 (Rick): o Pix do banco NÃO substitui mais o que o vendedor digita —
+  // o dia e o ranking usam o que ele lança. O banco vira só uma referência
+  // ("pelo banco caiu R$ X") e aparece apenas pro perfil de teste do Open Finance.
+  const travado = false;
+  const mostraBanco = pixBanco.temBanco;
   const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.total, totalSold, dinheiroNum, cartaoNum);
-  const pixNum = travado ? pixDoBancoNoDia.entra : (parseFloat(pix) || 0);
+  const pixNum = parseFloat(pix) || 0;
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
   // Meio centavo de margem: 10,70 + 5,60 dá 16,299999999999997 em ponto
   // flutuante. Sem isso o app inventava um calote de R$ 0,000000000000004,
@@ -1082,10 +1086,9 @@ export function DefconEndScreen({
             ) : (
               <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
             )}
-            {travado && pixDoBancoNoDia.aMais > 0 && (
-              <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
-                Caiu <b className="text-foreground">{formatCurrency(pixDoBancoNoDia.aMais)}</b> de Pix além do que você lançou de venda.
-                Conta no ranking (é Pix na conta), mas não vira venda no seu dia.
+            {mostraBanco && (
+              <p className="text-[11px] text-muted-foreground px-1 leading-relaxed flex items-center gap-1">
+                <Lock className="w-3 h-3 shrink-0" /> Pelo banco caiu <b className="text-foreground">{formatCurrency(pixBanco.total)}</b> de Pix hoje{pixBanco.ultimaSync ? ` (lido ${horaDaLeitura(pixBanco.ultimaSync)})` : ""}. Só referência: vale o que você lançou.
               </p>
             )}
             <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
