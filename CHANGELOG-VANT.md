@@ -2,6 +2,12 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Caça-Sinal no tamanho do mockup v3
+
+**O que mudou pro vendedor**
+- A tela do Caça-Sinal estava com o layout do mockup v3, mas tudo em miniatura. Agora segue as proporções do mockup: título grande, campos de cidade e lugar mais altos, botões PERTO DE MIM e BUSCAR maiores, chips de distância maiores.
+- Card de cada sinal: medalha maior, nome do cruzamento em destaque, cidade + distância ("Cotia · 0,4 km de você"), os três quadros com números grandes (Semáforos, Tempo do sinal, Vendedores ou R$/hora sem centavos), barras de melhores horas mais altas e botões IR AGORA / Já vendi aqui no tamanho do dedo.
+
 ## 03/10/2026 — DEFCON, lote 4: Retomar meu lugar, Clima na Foco e Caça-Sinal na Foco
 
 **O que mudou pro vendedor**
