@@ -30,6 +30,8 @@ export interface Painel {
   tem_emprestimo: boolean; emprestimos: Emprestimo[];
   especial_usado: number; especial_limite: number; juros_mes: { emprestimo: number; especial: number };
   tem_investimento: boolean; investimentos: Investimento[]; guardado: number;
+  /** saldo da(s) conta(s) marcada(s) como Reserva — já incluso em guardado (03/10) */
+  reserva?: number;
   saldo_contas: number; dividas: number; dia_de_rua: number; leitura: string | null;
 }
 type Aba = "cartao" | "dividas" | "guardado";
@@ -214,7 +216,7 @@ export function TelaDividas({ p }: { p: Painel }) {
 
 /* ---------------- 4 · GUARDADO ---------------- */
 const TIPO_INV: Record<string, string> = {
-  FIXED_INCOME: "renda fixa", MUTUAL_FUND: "fundo", SECURITY: "previdência", EQUITY: "ações", COE: "COE", ETF: "ETF", OTHER: "outro",
+  CONTA_RESERVA: "sua conta de reserva", FIXED_INCOME: "renda fixa", MUTUAL_FUND: "fundo", SECURITY: "previdência", EQUITY: "ações", COE: "COE", ETF: "ETF", OTHER: "outro",
 };
 export function TelaGuardado({ p }: { p: Painel }) {
   const numero = p.saldo_contas + p.guardado - p.dividas;
@@ -237,7 +239,7 @@ export function TelaGuardado({ p }: { p: Painel }) {
           ))}
         </Caixa>
       ) : (
-        <Vazio texto="Nada guardado nos bancos ligados. Quando você tiver caixinha, CDB ou poupança, ela aparece aqui sozinha, conferida pelo banco." />
+        <Vazio texto="Nada guardado nos bancos ligados. Quando você tiver caixinha, CDB ou poupança (ou marcar um banco como Reserva), aparece aqui sozinho, conferido pelo banco." />
       )}
       <Caixa tom="gold">
         <div className="text-center">
@@ -267,7 +269,9 @@ export function PainelLista({ p, abrir }: { p: Painel; abrir: (a: Aba) => void }
     { aba: "dividas", icone: <Landmark className="w-[18px] h-[18px]" style={{ color: RED }} />, titulo: "Dívidas",
       sub: devendo > 0 ? `${reais(devendo)} em aberto` : "nenhum empréstimo nem cheque especial" },
     { aba: "guardado", icone: <PiggyBank className="w-[18px] h-[18px]" style={{ color: OK }} />, titulo: "Guardado",
-      sub: p.tem_investimento ? `${reais(p.guardado)} conferido pelo banco` : "nada guardado nos bancos ligados" },
+      sub: p.tem_investimento
+        ? `${reais(p.guardado)} conferido pelo banco${(p.reserva ?? 0) > 0 ? ` · inclui a conta de reserva` : ""}`
+        : "nada guardado nos bancos ligados" },
   ];
   return (
     <div className="rounded-[18px] px-3.5" style={{ background: "#0f0f10", border: `1px solid ${LINHA}` }}>

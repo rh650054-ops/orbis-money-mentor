@@ -27,7 +27,7 @@ export function MesBlindado({ guardado, total, cobertas, contas, diaBlindado, re
   const pct = total > 0 ? Math.min(100, Math.round((guardado / total) * 100)) : 0;
   const blindado = falta <= 0.005;
   return (
-    <div className="flex flex-col gap-2 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}>
+    <div className="flex flex-col gap-2 py-3.5">
       <div className="flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-black tracking-[.16em]" style={{ color: blindado ? OK : "#9a9488" }}>
           <ShieldCheck className="w-3.5 h-3.5" style={{ color: OK }} strokeWidth={2.4} /> MÊS BLINDADO
