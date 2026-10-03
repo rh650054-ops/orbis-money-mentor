@@ -76,7 +76,11 @@ export function PapelEscolha({ contas, onPronto }: { contas: ContaPapel[]; onPro
   );
 }
 
-export function BancoExtra({ usados, onFechar }: { usados: number; onFechar: () => void }) {
+export function BancoExtra({ usados, onFechar, email }: { usados: number; onFechar: () => void; email?: string | null }) {
+  // e-mail da conta já preenchido no checkout: é por ele que o webhook acha o dono da compra
+  const link = BANCO_EXTRA_CHECKOUT
+    ? `${BANCO_EXTRA_CHECKOUT}&sck=banco_extra${email ? `&email=${encodeURIComponent(email)}` : ""}`
+    : null;
   return (
     <div className="rounded-[20px] p-4 text-center" style={{ background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", border: "1px solid rgba(245,184,0,.42)" }}>
       <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>MAIS UM BANCO</p>
@@ -84,12 +88,15 @@ export function BancoExtra({ usados, onFechar }: { usados: number; onFechar: () 
       <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "#b9b3a6" }}>
         Seu Vant Pro inclui 1 banco e você já tem {usados} ligado{usados === 1 ? "" : "s"}. Cada banco a mais custa R$ 10 por mês, porque cada leitura do banco tem custo pra Vant.
       </p>
-      {BANCO_EXTRA_CHECKOUT ? (
-        <a href={BANCO_EXTRA_CHECKOUT} target="_blank" rel="noopener noreferrer"
+      {link ? (
+        <>
+        <a href={link} target="_blank" rel="noopener noreferrer"
           className="mt-3 w-full h-12 rounded-[14px] inline-flex items-center justify-center text-[14px] font-black"
           style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>
           QUERO LIGAR MAIS UM BANCO
         </a>
+        <p className="mt-2 text-[11px] leading-relaxed" style={{ color: MUTE }}>Paga com o mesmo e-mail da sua conta Vant. A vaga libera sozinha em até 1 minuto: depois é só voltar aqui e ligar o banco.</p>
+        </>
       ) : (
         <p className="mt-3 text-[12px] font-extrabold" style={{ color: GOLD }}>Em breve dá pra contratar aqui. Fala com o suporte da Vant pra liberar.</p>
       )}

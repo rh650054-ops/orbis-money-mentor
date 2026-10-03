@@ -162,6 +162,52 @@ Deno.serve(async (req) => {
       }
     }
 
+    // BANCO EXTRA (03/10/2026): +R$ 10/mês, oferta otgozkn9 do mesmo produto.
+    // Trilho próprio e SAI ANTES de tudo: não pode renovar nem cancelar a
+    // assinatura principal (uma compra de R$ 10 não estende o plano cheio, e
+    // cancelar o banco extra não derruba o app). Cada assinatura ativa = 1 vaga.
+    // O cancelamento de assinatura chega SEM a oferta (só o código do assinante,
+    // em data.subscriber.code): se esse código é de um banco extra — e não da
+    // assinatura principal — também cai aqui.
+    const BANCO_EXTRA_OFFER = "otgozkn9";
+    const assinanteCod = String(payload.data?.subscription?.subscriber?.code || payload.data?.subscriber?.code || "");
+    const evBx = String(event || "").toUpperCase();
+    let bxDono: string | null = null;
+    let ehBancoExtra = String(compra?.offer?.code ?? "").trim() === BANCO_EXTRA_OFFER;
+    if (!ehBancoExtra && assinanteCod && evBx.includes("CANCELLATION")) {
+      const [{ data: bx }, { data: principal }] = await Promise.all([
+        supabase.from("bancos_extra_compras").select("user_id").eq("chave", assinanteCod).maybeSingle(),
+        supabase.from("subscriptions").select("id").eq("hotmart_subscription_id", assinanteCod).maybeSingle(),
+      ]);
+      if (bx?.user_id && !principal) { ehBancoExtra = true; bxDono = String(bx.user_id); }
+    }
+    if (ehBancoExtra) {
+      const liga = evBx.includes("PURCHASE_APPROVED") || evBx.includes("PURCHASE_COMPLETE") || evBx.includes("SUBSCRIPTION_RENEWAL");
+      const desliga = evBx.includes("SUBSCRIPTION_CANCELLATION") || evBx.includes("PURCHASE_REFUNDED") || evBx.includes("PURCHASE_CHARGEBACK");
+      const dono = userId ?? bxDono;
+      if (!dono) {
+        // fica na caixa-preta (hotmart_eventos); NÃO vai pra unlinked_purchases,
+        // senão o cadastro reivindicaria como se fosse a assinatura principal
+        console.error("banco extra: comprador não identificado — liberar à mão", buyerEmail);
+        return new Response(JSON.stringify({ status: "banco_extra_sem_dono" }), { headers: corsHeaders });
+      }
+      if (liga || desliga) {
+        const ate = new Date();
+        ate.setDate(ate.getDate() + 33); // 30 dias + 3 de tolerância
+        const { error: bxErr } = await supabase.rpc("banco_extra_registrar", {
+          p_user: dono, p_chave: assinanteCod || purchaseId, p_ativo: liga, p_ate: ate.toISOString(),
+        });
+        if (bxErr) {
+          console.error("banco_extra_registrar:", bxErr.message);
+          // libera o evento pra Hotmart reenviar (senão a nova tentativa vira "duplicado")
+          await supabase.from("processed_hotmart_events").delete().eq("event_id", eventId);
+          return new Response(JSON.stringify({ error: "banco_extra_falhou" }), { status: 500, headers: corsHeaders });
+        }
+        console.log(`Banco extra ${liga ? "liberado" : "retirado"} para ${dono}`);
+      }
+      return new Response(JSON.stringify({ status: "banco_extra_ok" }), { headers: corsHeaders });
+    }
+
     // If can't identify user, store as unlinked.
     // NÃO é beco sem saída: o gatilho trg_reivindicar_compras (profiles) reivindica
     // esta compra automaticamente quando a pessoa se cadastrar com o mesmo

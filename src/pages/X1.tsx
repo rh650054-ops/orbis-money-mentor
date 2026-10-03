@@ -22,6 +22,9 @@ import { FighterCardArena } from "@/components/x1/FighterCard";
 import { VitoriaScreen } from "@/components/x1/VitoriaScreen";
 import { fmt, primeiroNome, quandoTexto, expiraEm, erroBonito, carregarRecorde, carregarPessoas, resultadoDe, chaveVisto, voltaPraVoce, type Duelo, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
 import { carregarSalasHoje, divisaoPote, aindaEntra, SALA_HORA_ENTRADA, type SalaResumo } from "@/components/x1/x1-sala-lib";
+import { PistaCard, Disponiveis, CinturaoCard } from "@/components/x1/X1Pista";
+import { TorcidaCerteira } from "@/components/x1/X1Provocacao";
+import { carregarPista, ligarPista, carregarDisponiveis, carregarCinturao, carregarPalpites, type Pista, type Disponivel, type Cinturao } from "@/components/x1/x1-lote5";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -58,6 +61,12 @@ export default function X1() {
   const [carregando, setCarregando] = useState(true);
   const [agindo, setAgindo] = useState<string | null>(null);
   const [resultado, setResultado] = useState<{ d: Duelo; ele: Pessoa; meu: number; dele: number } | null>(null);
+  // LOTE 5 (03/10): Tô na pista, Disponíveis agora, Cinturão da cidade, Torcida certeira
+  const [pista, setPista] = useState<Pista | null>(null);
+  const [disponiveis, setDisponiveis] = useState<Disponivel[]>([]);
+  const [cinturao, setCinturao] = useState<Cinturao | null>(null);
+  const [palpites, setPalpites] = useState({ acertos: 0, total: 0 });
+  const [encarando, setEncarando] = useState<string | null>(null);
 
   // deep link antigo (?desafiar=uid) → seleção já com o alvo
   useEffect(() => {
@@ -92,6 +101,8 @@ export default function X1() {
     setOQueVendo(p?.what_i_sell || null);
     setPessoas(await carregarPessoas(lista.flatMap((c) => [c.challenger_id, c.opponent_id || ""])));
     setCarregando(false);
+    const [pi, di, ci, pa] = await Promise.all([carregarPista(), carregarDisponiveis(), carregarCinturao(), carregarPalpites()]);
+    setPista(pi); setDisponiveis(di); setCinturao(ci); setPalpites(pa);
   }, [uid]);
   useEffect(() => { void carregar(); }, [carregar]);
   // feed ao vivo (duelos + salas) se atualiza sozinho
@@ -104,6 +115,7 @@ export default function X1() {
       ]);
       setVivas(((data as any[]) || []).map((l) => ({ ...l, ch_total: Number(l.ch_total) || 0, op_total: Number(l.op_total) || 0, stakes_amount: Number(l.stakes_amount) || 0 })) as LutaViva[]);
       if (sl) setSalas(sl);
+      setDisponiveis(await carregarDisponiveis());
     }, 30000);
     return () => clearInterval(t);
   }, [uid]);
@@ -147,6 +159,24 @@ export default function X1() {
     void carregar();
   };
 
+  const trocarPista = async (on: boolean) => {
+    const r = await ligarPista(on);
+    if (!r) { toast({ title: "Não deu pra mudar agora", variant: "destructive" }); return; }
+    setPista(r);
+    toast({ title: on ? "Você tá na pista" : "Saiu da pista", description: on ? "Quem te encarar hoje já começa o duelo." : "Agora só aparece na arena com o DEFCON aberto." });
+  };
+  // ENCARAR = 1 toque: amistoso contra quem está na arena começa na hora (x1_lutar)
+  const encarar = async (d: Disponivel) => {
+    setEncarando(d.user_id);
+    const { data, error } = await (supabase as any).rpc("x1_lutar", { p_opponent: d.user_id, p_stakes: 0 });
+    setEncarando(null);
+    if (error) { toast({ title: "Não rolou", description: erroBonito(error.message), variant: "destructive" }); return; }
+    const r = data as { id: string; status: string };
+    try { navigator.vibrate?.([70, 40, 70, 40, 140]); } catch (e) { avisar.silencioso("X1: vibração", e); }
+    toast({ title: r.status === "active" ? `Começou! Você × ${primeiroNome(d.nome)}` : `${primeiroNome(d.nome)} recebeu seu desafio`, description: r.status === "active" ? "Placar ao vivo, fecha 23:59." : undefined });
+    navigate(`/x1/luta/${r.id}`);
+  };
+
   if (!uid) return null;
   const eu_ = eu || { user_id: uid, nome: "Você", avatar_url: null };
 
@@ -162,6 +192,11 @@ export default function X1() {
 
       {/* SEU CARD */}
       <FighterCardArena className="x1-slam" nome={eu_.nome} avatar={eu_.avatar_url} r={recorde} sub={oQueVendo} posicao={arenaPos} />
+
+      {/* TÔ NA PISTA + DISPONÍVEIS AGORA + CINTURÃO (Lote 5) */}
+      <PistaCard pista={pista} eu={eu_} onTrocar={trocarPista} />
+      <Disponiveis lista={disponiveis} encarando={encarando} onEncarar={encarar} onVerTodos={() => navigate("/x1/escolher")} />
+      <CinturaoCard c={cinturao} onDesafiar={(id) => navigate(id ? `/x1/escolher?alvo=${id}` : "/x1/escolher")} />
 
       {/* DOIS CAMINHOS: 1×1 ou SALA */}
       <div className="grid grid-cols-2 gap-2 x1-up" style={{ "--i": 1 } as React.CSSProperties}>
@@ -310,6 +345,7 @@ export default function X1() {
             </button>
           );
         })}
+        <TorcidaCerteira acertos={palpites.acertos} total={palpites.total} />
       </Card>
 
       {/* HISTÓRICO */}

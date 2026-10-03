@@ -33,6 +33,7 @@ import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHoje } from "@/components/conectar/ProConectado";
 import { GerenciarConexoes } from "@/components/conectar/GerenciarConexoes";
 import { BancoExtra } from "@/components/conectar/PapelContas";
+import { ComprovanteRenda } from "@/components/conectar/ComprovanteRenda";
 import {
   ligarBanco, salvarBanco, carregarBancos, carregarPro,
   type BancoLigado, type StatusPro,
@@ -308,13 +309,14 @@ export default function Verificar() {
       {topo}
       <HeroVerificado nome={nome} verificado={pro.verificado} desde={desde} />
       <ComprovadoHoje h={proHoje} />
+      <ComprovanteRenda />
       <div className="flex items-center justify-between px-0.5 pt-1">
         <p className="text-[15px] font-black">Onde você recebe</p>
         <span className="rounded-full px-2.5 py-[4px] text-[11px] font-black" style={{ color: OK, border: "1px solid rgba(61,214,140,.45)" }}>
           {bancos.length + ligadas.length} {bancos.length + ligadas.length === 1 ? "conectada" : "conectadas"}
         </span>
       </div>
-      {bancoExtra && <BancoExtra usados={bancos.length} onFechar={() => setBancoExtra(false)} />}
+      {bancoExtra && <BancoExtra usados={bancos.length} email={user?.email} onFechar={() => setBancoExtra(false)} />}
       <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
         onLigarBanco={abrirBanco} onLigarCarteira={ligarCarteira} />
       <button type="button" onClick={() => setGerenciar(true)}

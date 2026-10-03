@@ -2,6 +2,59 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Correções da revisão (lotes 5, 6 e 7 + banco extra)
+
+- **Cinturão**: a conta do cinturão só roda pelo fechamento do duelo (antes dava pra chamar direto e somar defesa) e nunca conta o mesmo duelo duas vezes.
+- **Banco extra**: o cancelamento da assinatura (que a Hotmart manda sem a oferta) agora reconhece o banco extra pelo código do assinante e tira só a vaga, sem tocar no plano principal. Se der erro ao liberar, a Hotmart pode reenviar (antes o reenvio era ignorado como duplicado). `hotmart-webhook` v43.
+- **Provocação**: 2 toques ao mesmo tempo não furam mais o limite de 3.
+- **Caixinha**: sequência não pula dia vazio; guardar pela meta não mexe mais no alvo do card "Guardar hoje".
+- **Início**: o empurrão "Meta do dia batida" saiu da fila de avisos (ele se marcava como visto mesmo escondido) e voltou pro lugar dele.
+- **Story "Sobrou pra mim"**: funciona em iPhone antigo (iOS 15) e se atualiza quando o lucro chega depois.
+- Migration `20261003220000_correcoes_revisao_lotes.sql`.
+
+## 03/10/2026 — Lote 7: Dashboard enxuto (um aviso por vez)
+
+**O que mudou pro vendedor**
+- A Início tinha até 5 avisos que podiam aparecer juntos (primeiros passos, confirmar e-mail, cobrança do horário, bilhete dourado do desafio, empurrão do teste). Agora eles entram numa **fila por prioridade e só o primeiro aparece**, logo acima da meta. Resolveu um, o próximo toma o lugar. Sem nenhum aviso, a meta sobe pro topo.
+- Prioridade: primeiros passos (conta nova) → confirmar e-mail → cobrança do horário → bilhete dourado → "meta do dia batida" (teste).
+
+**Por dentro**
+- `Index.tsx`: bloco `.orbis-um-aviso`; cada aviso continua decidindo sozinho se aparece. `orbis.css`: a regra que mostra só o primeiro com conteúdo.
+
+## 03/10/2026 — Open Finance, lote 6: Caixinha pela meta, Story "sobrou pra mim" e Comprovante de renda
+
+**O que mudou pro vendedor**
+- **Guarda um pedaço?** no fim do DEFCON: a Vant pega a caixinha com a data mais próxima, faz a conta (falta ÷ dias até a data = R$/dia) e sugere quanto separar, arredondado pra cima. Dia forte de Pix sugere o dobro. Botões de valor + "outro", **GUARDAR** de 1 toque (entra na caixinha, no "guardado hoje" e na sequência das Finanças), "fica N dias na frente", sequência e barra da caixinha.
+- **Story "Sobrou pra mim"**: nova primeira arte do compartilhar, preta e dourada, com o que sobrou do dia, vendas, abordagens, % que fechou, ✓ Pix do banco (com banco ligado), data e posição no ranking. Nunca mostra os gastos.
+- **Comprovante de renda** (Vant Pro): PDF com o que entrou no banco mês a mês (sem transferência entre contas próprias), Pix recebidos, o que foi lançado no app e dias trabalhados, média mensal confirmada pelo banco, CPF mascarado e código de verificação. Escolhe 3 ou 6 meses.
+
+**Por dentro**
+- Migration `20261003210000_caixinha_meta_comprovante_renda.sql`: `caixinha_sugestao()`, `caixinha_guardar()`, tabela `comprovantes_renda` (cada comprovante gerado fica registrado com o código) e `comprovante_renda()`.
+- Front: `CaixinhaMeta.tsx`, template `sobrou` no `DefconShareCarousel`, `ComprovanteRenda.tsx` + `comprovante-renda.ts` (+ teste `lote6.test.ts`).
+
+## 03/10/2026 — X1, lote 5: Tô na pista, Cinturão da cidade, Torcida certeira e Provocação pronta
+
+**O que mudou pro vendedor**
+- **Tô na pista hoje** (interruptor no topo da Arena): ligado, você aparece como disponível e quem te encarar já começa o duelo, sem esperar aceite. Mostra quantos vendedores te veem e quantos estão na pista. Vale até meia-noite.
+- **Disponíveis agora**: quem está na pista ou com o DEFCON aberto, com patente, posição, quanto já vendeu hoje e o botão **ENCARAR** (1 toque = amistoso começando na hora).
+- **Cinturão da cidade**: um campeão por cidade. O primeiro a vencer um X1 na cidade pega o cinturão; quem vence o campeão (da mesma cidade) toma; cada vitória do campeão contra alguém da cidade é uma defesa. Card com o campeão, dias de reinado, defesas, linha do tempo e **DESAFIAR**. Já nasceu com o histórico dos duelos que existiam (ex.: Cotia é do Rick).
+- **Torcida certeira**: quem torce e acerta o vencedor ganha +1 ponto de patente. A arena mostra seus palpites certos.
+- **Provocação pronta** dentro da luta: 5 frases fixas ("Vai desistir? 😏", "Tô só esquentando", "Isso é tudo?", "Revanche amanhã", "Respeito 🤝"), com a sua foto, máximo 3 por luta e uma a cada 2 minutos. Sem texto livre. Quem está no DEFCON recebe a notificação "😏 Fulano te provocou".
+
+**Por dentro**
+- Migration `20261003200000_x1_pista_cinturao_torcida_provocacao.sql`: `x1_pista`, `x1_na_arena` conta a pista, `x1_disponiveis`, `x1_minha_pista`, `x1_pista_ligar`; `x1_cinturao` + histórico + gatilho em `x1_challenges` (ao virar `finished`) + `x1_cinturao_cidade`; `x1_palpites` e `x1_recorde` somando os acertos; `x1_provocacoes` + `x1_provocar` + `x1_provocacoes_da_luta`.
+- Front: `X1Pista.tsx`, `X1Provocacao.tsx`, `x1-lote5.ts` (+ teste); `useX1DefconAlert` avisa provocação nova.
+
+## 03/10/2026 — Banco extra à venda (+R$ 10/mês)
+
+**O que mudou pro vendedor**
+- A tela "Mais um banco" agora tem o botão **QUERO LIGAR MAIS UM BANCO**, que abre o checkout da Hotmart (oferta de R$ 10/mês) com o e-mail da conta já preenchido.
+- Pagou, a vaga libera sozinha em até 1 minuto: é só voltar e ligar o banco. Cancelou ou estornou, a vaga sai. Se a renovação não acontecer, a vaga vence sozinha 33 dias depois da última cobrança.
+
+**Por dentro**
+- Migration `20261003190000_banco_extra_compra.sql`: tabela `bancos_extra_compras` (uma linha por assinatura), `banco_extra_registrar()` (só o servidor) e `open_finance_limite()` somando as vagas pagas e no prazo.
+- `hotmart-webhook` v42: a oferta `otgozkn9` tem trilho próprio e sai antes da assinatura principal — comprar ou cancelar o banco extra nunca renova nem derruba o plano do app. Compra sem dono identificado fica só na caixa-preta (não vira assinatura principal no cadastro).
+
 ## 03/10/2026 — Caça-Sinal no tamanho do mockup v3
 
 **O que mudou pro vendedor**

@@ -47,6 +47,8 @@ const EMPTY: X1LiveState = {
 export function useX1DefconAlert(userId: string | undefined, active: boolean): X1LiveState {
   const lastLead = useRef<"me" | "opp" | "tie" | null>(null);
   const lastAlertAt = useRef(0);
+  // PROVOCAÇÃO (Lote 5): a última frase do rival já avisada (não repete)
+  const lastProvId = useRef<number | null>(null);
   const [state, setState] = useState<X1LiveState>(EMPTY);
 
   const dismissEvent = useCallback(() => {
@@ -108,6 +110,17 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
         setState((s) => (s.hasDuel ? EMPTY : s));
         return;
       }
+      // provocação nova do rival → notificação com a frase (só as que chegaram depois de abrir)
+      try {
+        const { data: pv } = await (supabase as any).rpc("x1_provocacoes_da_luta", { p_id: duel.id });
+        const dele = ((pv as Array<{ id: number; frase: string; minha: boolean }>) || []).find((p) => !p.minha);
+        if (dele) {
+          if (lastProvId.current !== null && dele.id > lastProvId.current) notify(`😏 ${duel.oppName} te provocou`, `"${dele.frase}" — responde vendendo.`);
+          lastProvId.current = Math.max(lastProvId.current ?? 0, dele.id);
+        } else if (lastProvId.current === null) lastProvId.current = 0;
+      } catch { /* provocação é enfeite: nunca derruba o placar */ }
+      if (!alive) return;
+
       const { data } = await (supabase as any).rpc("x1_placar", { p_id: duel.id });
       const row = ((data as any[]) || [])[0];
       if (!row || !alive) return;

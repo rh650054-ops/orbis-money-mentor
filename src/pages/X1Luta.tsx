@@ -19,6 +19,8 @@ import { X1Avatar } from "@/components/x1/X1Avatar";
 import { FighterCardLuta } from "@/components/x1/FighterCard";
 import { VitoriaScreen } from "@/components/x1/VitoriaScreen";
 import { fmt, primeiroNome, horaBR, rodadaAgora, horasAteMeiaNoite, erroBonito, expiraEm, carregarRecorde, voltaPraVoce, chaveVisto, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
+import { Provocacoes } from "@/components/x1/X1Provocacao";
+import { carregarProvocacoes, type Provocacao } from "@/components/x1/x1-lote5";
 
 const GOLD = "#F5B800";
 const RED = "#F2465A";
@@ -64,6 +66,10 @@ export default function X1Luta() {
   }, [id, uid]);
 
   useEffect(() => { void carregar(); const t = setInterval(carregar, 15000); return () => clearInterval(t); }, [carregar]);
+  // PROVOCAÇÃO (Lote 5): frases prontas dos dois, atualiza junto com o placar
+  const [provs, setProvs] = useState<Provocacao[]>([]);
+  const lerProvs = useCallback(async () => { if (id) setProvs(await carregarProvocacoes(id)); }, [id]);
+  useEffect(() => { void lerProvs(); const t = setInterval(lerProvs, 15000); return () => clearInterval(t); }, [lerProvs]);
   useEffect(() => {
     if (!uid) return;
     carregarRecorde(uid).then(setRecorde);
@@ -229,6 +235,9 @@ export default function X1Luta() {
           </div>
         ); })}
       </div>
+
+      {/* PROVOCAÇÃO PRONTA */}
+      <Provocacoes lutaId={l.id} lista={provs} podeMandar={participo && l.status === "active"} onMandou={() => void lerProvs()} />
 
       {/* TORCIDA */}
       <div className="flex items-center justify-center gap-2 mt-3 x1-up" style={{ "--i": 7 } as React.CSSProperties}>
