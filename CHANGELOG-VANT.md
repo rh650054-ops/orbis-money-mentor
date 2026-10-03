@@ -2,6 +2,19 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Pix travado no fim do DEFCON (de novo) e ao vivo
+
+**O que mudou pro vendedor**
+- **Finalizou o dia com banco ligado → o Pix trava no que caiu na conta.** Cadeado, sem digitar. Antes (desde a madrugada de 03/10) o campo voltava a ser digitável e o banco virava só "referência".
+- **Na hora que finaliza**, a Vant pede uma leitura do banco na hora e já mostra o valor atualizado.
+- **Depois fica ao vivo:** relê a cada 30 s e pede leitura nova a cada 5 min enquanto a tela estiver aberta. Embaixo do Pix aparece "ao vivo · lido 12:50 · próx. 13:55".
+- O que você lançou e ainda não caiu aparece como **"R$ X ainda não caíram"**, não como calote, e não trava o botão de finalizar. O cobrador continua ali caso seja fiado de verdade.
+- Sem banco ligado, nada muda: Pix digitado como sempre.
+
+**Por dentro**
+- `DefconEndScreen.tsx`: `travado = pixBanco.temBanco`; `pixNum` = Pix do banco que cabe no vendido (`pixQueEntraNoDia`); a diferença vira `aindaNaoCaiu`, não `hasCalote`.
+- `banco-pix.ts`: `proximaLeitura()` (última leitura + 65 min), usado também no DEFCON rodando.
+
 ## 03/10/2026 — Conta de trabalho × reserva + limite de bancos do Pro
 
 **O que mudou pro vendedor**
