@@ -2,6 +2,12 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Ranking: Pix do banco volta pra quem é Pro
+
+- Decisão do Rick (9h44): quem tem **Vant Pro ativo e banco ligado** conta no ranking o **Pix que caiu na conta**, atualizado sozinho pelo banco. O resto continua contando o que lançou. Religa o ranking misto que tinha sido desligado na madrugada de 03/10.
+- Semana 28/09–04/10, só dois mudaram: Rick R$ 192 → R$ 332 (02/10 passou de R$ 30 lançados pra R$ 170 do banco); Mohamed R$ 3.946 → R$ 3.650 (02/10 passou de R$ 1.378 lançados pra R$ 1.082 de Pix: dinheiro e cartão não aparecem no banco).
+- Migration `20261003110000_ranking_pix_pro_religado.sql` (mesmo corpo de `20261002210000_ranking_misto_so_pro.sql`). Ficou no banco a tabela `_tmp_rank_antes` (foto do ranking antes, com RLS e sem acesso pelo app); pode apagar pelo SQL Editor.
+
 ## 03/10/2026 — Vant Pro: Pix que faltava, tela nova e desconectar banco
 
 **O que mudou pro vendedor**
