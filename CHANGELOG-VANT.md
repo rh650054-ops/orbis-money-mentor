@@ -177,7 +177,7 @@ Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
 **O que mudou pro vendedor**
 - **Aba Vender sem banco:** a primeira tela agora é o convite "Liga seu banco e vira vendedor conferido", com o que muda pra ele e um botão só: CONECTAR MEU BANCO.
-- **Paywall nova (`/pro`):** selo dourado em relevo, título com ouro só em "selo do banco", anual em cartão com borda dourada (R$ 29,99/mês, R$ 598,80 riscado, "economiza R$ 238"), mensal discreto, lista "Só no Pro" com 8 itens (Selo Verificado, Pix contado na rua, Arena Pro, Caça-Sinal, IA de Ganhos, Financeiro Completo, Estoque de Produtos, Comprovante de renda), um botão só grudado no rodapé e o mensal como link.
+- **Paywall nova (`/pro`):** selo azul do Instagram, grande, título com azul em "selo do banco", anual em cartão com borda dourada (R$ 29,99/mês, R$ 598,80 riscado, "economiza R$ 238"), mensal discreto, lista "Só no Pro" com 8 itens (Selo Verificado, Pix contado na rua, Arena Pro, Caça-Sinal, IA de Ganhos, Financeiro Completo, Estoque de Produtos, Comprovante de renda), um botão só grudado no rodapé e o mensal como link.
 - **Trava do X1:** sem banco ligado, DESAFIAR 1×1 e ABRIR SALA ficam borrados e um cartão com cadeado explica e leva pra aba Vender. Encarar, aceitar desafio, Cinturão e os atalhos pra `/x1/escolher` e `/x1/sala/nova` também respeitam a trava. Lutas e salas ao vivo continuam visíveis (vitrine).
 
 **Por dentro**

@@ -1,6 +1,6 @@
 /* ============================================================
    PAYWALL DO VANT PRO (v4 premium, aprovada pelo Rick, 03/10/2026).
-   O que ele compra abre a tela: o selo dourado em relevo. Título com ouro
+   O que ele compra abre a tela: o selo azul do Instagram, grande. Título com ouro
    só na palavra que importa. Anual é um cartão com borda dourada em
    degradê, preço mensal equivalente grande, preço cheio riscado e a
    economia em verde; mensal fica discreto. Sem tabela básico × pro: uma
@@ -9,6 +9,7 @@
    ============================================================ */
 import { useState } from "react";
 import { getProCheckoutUrl, type PlanoPro } from "@/shared/lib/checkout";
+import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { SO_PRO, ECONOMIA_ANUAL } from "./pro-lib";
 
 const GOLD = "#F5B800";
@@ -17,16 +18,12 @@ const MUTE = "#7b766e";
 const INK2 = "#b9b3a6";
 const LINHA = "rgba(255,255,255,.07)";
 
-/** Selo dourado em relevo — o que o vendedor está comprando. */
-function SeloOuro() {
+/** O selo que ele compra: a estrela azul serrilhada do Instagram, grande e em relevo (Rick, 03/10). */
+function SeloGrande() {
   return (
-    <span aria-hidden className="relative w-[72px] h-[72px] rounded-full mx-auto flex items-center justify-center"
-      style={{
-        background: "radial-gradient(circle at 35% 30%,#FFF1B3,#FFC800 45%,#B88E00 100%)",
-        boxShadow: "0 0 0 6px rgba(255,200,0,.12), 0 0 0 12px rgba(255,200,0,.06), 0 22px 44px -18px rgba(255,200,0,.9)",
-      }}>
-      <span className="absolute inset-1 rounded-full" style={{ border: "1.5px dashed rgba(26,18,0,.35)" }} />
-      <svg viewBox="0 0 24 24" className="w-[34px] h-[34px]"><path d="M8 12.5l2.6 2.6L16.5 9" stroke="#1a1305" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    <span aria-hidden className="relative w-[84px] h-[84px] mx-auto flex items-center justify-center"
+      style={{ filter: "drop-shadow(0 0 18px rgba(0,149,246,.55)) drop-shadow(0 18px 30px rgba(0,149,246,.35))" }}>
+      <SeloVerificado size={84} />
     </span>
   );
 }
@@ -73,13 +70,13 @@ export function PaywallPro() {
   return (
     <div className="relative">
       {/* brilho dourado no topo */}
-      <div aria-hidden className="pointer-events-none absolute -top-[40%] -left-[30%] -right-[30%] h-[70%]" style={{ background: "radial-gradient(60% 60% at 50% 40%,rgba(255,200,0,.26),rgba(255,200,0,0) 70%)" }} />
+      <div aria-hidden className="pointer-events-none absolute -top-[40%] -left-[30%] -right-[30%] h-[70%]" style={{ background: "radial-gradient(60% 60% at 50% 40%,rgba(0,149,246,.22),rgba(0,149,246,0) 70%)" }} />
 
       <div className="relative space-y-2.5">
         <div className="text-center pt-2 space-y-2">
-          <SeloOuro />
+          <SeloGrande />
           <h1 className="text-[24px] font-black tracking-[-.025em] leading-[1.08] text-balance">
-            Seu número<br />com <span style={{ background: "linear-gradient(90deg,#FFE27A,#FFC800 50%,#F5B800)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>selo do banco</span>
+            Seu número<br />com <span style={{ color: "#4FB3FF" }}>selo do banco</span>
           </h1>
           <p className="text-[12px] leading-snug mx-auto max-w-[270px]" style={{ color: INK2 }}>
             O Pix cai, a Vant conta. O gasto sai, a Vant organiza. Você só vende.
