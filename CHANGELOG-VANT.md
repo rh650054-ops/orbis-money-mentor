@@ -2,6 +2,11 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Popup do dia no padrão Vant
+
+- O popup que abre na Início ("Seu Dia em Andamento") ganhou o visual do card da Foco: preto, borda e rótulo na cor do momento (vermelho antes de começar, verde com o DEFCON rodando, dourado com o dia fechado), número grande, barra da meta, linha SEMANA · MÊS · HORAS sem centavos cortados e o botão do momento (INICIAR MEU DIA / VOLTAR PRO DEFCON / VER O RELATÓRIO DE HOJE). Saíram os ícones coloridos azul/roxo e os emojis.
+- Com o DEFCON rodando, mostra quanto já vendeu e quanto falta pra meta.
+
 ## 03/10/2026 — Correções da revisão (lotes 5, 6 e 7 + banco extra)
 
 - **Cinturão**: a conta do cinturão só roda pelo fechamento do duelo (antes dava pra chamar direto e somar defesa) e nunca conta o mesmo duelo duas vezes.
