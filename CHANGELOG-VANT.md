@@ -2,6 +2,17 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Open Finance, lote 6: Caixinha pela meta, Story "sobrou pra mim" e Comprovante de renda
+
+**O que mudou pro vendedor**
+- **Guarda um pedaço?** no fim do DEFCON: a Vant pega a caixinha com a data mais próxima, faz a conta (falta ÷ dias até a data = R$/dia) e sugere quanto separar, arredondado pra cima. Dia forte de Pix sugere o dobro. Botões de valor + "outro", **GUARDAR** de 1 toque (entra na caixinha, no "guardado hoje" e na sequência das Finanças), "fica N dias na frente", sequência e barra da caixinha.
+- **Story "Sobrou pra mim"**: nova primeira arte do compartilhar, preta e dourada, com o que sobrou do dia, vendas, abordagens, % que fechou, ✓ Pix do banco (com banco ligado), data e posição no ranking. Nunca mostra os gastos.
+- **Comprovante de renda** (Vant Pro): PDF com o que entrou no banco mês a mês (sem transferência entre contas próprias), Pix recebidos, o que foi lançado no app e dias trabalhados, média mensal confirmada pelo banco, CPF mascarado e código de verificação. Escolhe 3 ou 6 meses.
+
+**Por dentro**
+- Migration `20261003210000_caixinha_meta_comprovante_renda.sql`: `caixinha_sugestao()`, `caixinha_guardar()`, tabela `comprovantes_renda` (cada comprovante gerado fica registrado com o código) e `comprovante_renda()`.
+- Front: `CaixinhaMeta.tsx`, template `sobrou` no `DefconShareCarousel`, `ComprovanteRenda.tsx` + `comprovante-renda.ts` (+ teste `lote6.test.ts`).
+
 ## 03/10/2026 — X1, lote 5: Tô na pista, Cinturão da cidade, Torcida certeira e Provocação pronta
 
 **O que mudou pro vendedor**

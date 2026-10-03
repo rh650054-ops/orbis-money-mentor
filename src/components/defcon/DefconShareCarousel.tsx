@@ -14,15 +14,24 @@ export interface ShareStats {
   // Rótulo do período na arte (ex.: "DIA 30/08", "ÚLTIMOS 7 DIAS"). Sem ele, a arte
   // sai como sempre saiu no fim do DEFCON ("DEFCON 4").
   periodo?: string;
+  // STORY "SOBROU PRA MIM" (Lote 6): só entra quando o fim do DEFCON manda o lucro.
+  // Nunca mostra gastos — só o que sobrou, vendas, abordagens, conversão e o selo do banco.
+  sobrou?: number;
+  abordagens?: number;
+  pixBanco?: boolean;
+  data?: string;   // "QUI 02/10"
+  posicao?: string; // "#4 OURO"
 }
 
 // Ordem do carrossel. "post" = COM FUNDO (design escuro, ideal WhatsApp/feed/status).
 // As demais são TRANSPARENTES (adesivo pro Story).
-type TemplateId = "post" | "empilhada" | "empilhadaSemHoras" | "destaque" | "faixa";
+type TemplateId = "sobrou" | "post" | "empilhada" | "empilhadaSemHoras" | "destaque" | "faixa";
 const ORDER: TemplateId[] = ["post", "empilhada", "empilhadaSemHoras", "destaque", "faixa"];
+const ordemPara = (s: ShareStats): TemplateId[] => (s.sobrou != null ? ["sobrou", ...ORDER] : ORDER);
 
 // Legenda por arte — pra que serve (aparece embaixo do preview, estilo Strava)
 const CAPTIONS: Record<TemplateId, string> = {
+  sobrou: "Story com fundo · o que sobrou (sem mostrar gastos)",
   post: "Com fundo · WhatsApp, feed e status",
   empilhada: "Transparente · adesivo no Story",
   empilhadaSemHoras: "Transparente · adesivo no Story",
@@ -30,7 +39,7 @@ const CAPTIONS: Record<TemplateId, string> = {
   faixa: "Transparente · faixa pro Story",
 };
 // Artes COM fundo (não transparentes)
-const WITH_BG: Set<TemplateId> = new Set(["post"]);
+const WITH_BG: Set<TemplateId> = new Set(["post", "sobrou"]);
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif`;
 const GOLD = "#FFB627";       // dourado brilhante (FATURAMENTO)
@@ -39,6 +48,7 @@ const MUTED = "#E6A93C";      // dourado suave p/ letreiros (VENDAS/CONVERSÃO/H
 
 // Tamanhos iguais aos das referências enviadas
 const DIMS: Record<TemplateId, [number, number]> = {
+  sobrou: [1080, 1920],    // COM FUNDO — story "sobrou pra mim"
   post: [1080, 1350],      // COM FUNDO — retrato 4:5 (WhatsApp/feed/status)
   empilhada: [1080, 1920], // vertical (story) — transparente
   empilhadaSemHoras: [1080, 1920], // igual, mas sem o bloco HORAS
@@ -186,7 +196,32 @@ export async function buildCanvas(template: TemplateId, s: ShareStats): Promise<
   // Rodapé da arte: período escolhido no Relatório, ou "DEFCON 4" (fim do modo foco)
   const rodape = (s.periodo || "DEFCON 4").toUpperCase();
 
-  if (template === "post") {
+  if (template === "sobrou") {
+    // ===== STORY "SOBROU PRA MIM" — preto e dourado, sem gastos =====
+    drawLogo(W / 2, 250, 220);
+    label("SOBROU PRA MIM", W / 2, 520, 46, GOLD);
+    ctx.font = `900 190px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = GOLD;
+    ctx.fillText(formatCurrency(s.sobrou ?? 0).replace(/,00$/, ""), W / 2, 680);
+    const cel: [string, string, string][] = [
+      ["VENDAS", vendas, WHITE],
+      ["ABORDAGENS", String(s.abordagens ?? 0), WHITE],
+      ["FECHOU", conv, WHITE],
+      s.pixBanco ? ["PIX DO BANCO", "✓", "#3DD68C"] : ["HORAS", horas, WHITE],
+    ];
+    const gw = 430, gh = 250, gx0 = W / 2 - gw - 15, gy0 = 880;
+    cel.forEach(([rot, val, cor], i) => {
+      const x = gx0 + (i % 2) * (gw + 30), y = gy0 + Math.floor(i / 2) * (gh + 30);
+      ctx.fillStyle = "rgba(255,255,255,0.05)"; ctx.strokeStyle = "rgba(255,255,255,0.10)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.roundRect(x, y, gw, gh, 36); ctx.fill(); ctx.stroke();
+      ctx.font = `900 110px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillStyle = cor;
+      ctx.fillText(val, x + gw / 2, y + 105);
+      label(rot, x + gw / 2, y + 195, 28, MUTED);
+    });
+    hline(90, W - 90, 1560);
+    label(s.data ?? rodape, 120, 1640, 30, MUTED, "left");
+    if (s.posicao) { ctx.font = `900 40px ${FONT}`; ctx.textAlign = "right"; ctx.fillStyle = GOLD; ctx.fillText(s.posicao, W - 110, 1640); }
+    drawWordmark(W / 2, 1790, 260);
+  } else if (template === "post") {
     // ===== COM FUNDO (retrato 4:5) — logo topo, faturamento, linha de números, VANT =====
     drawLogo(W / 2, 185, 240);
 
@@ -284,6 +319,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   const [index, setIndex] = useState(0); // 0 = empilhada (padrão)
   const [sharing, setSharing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const ORDEM = ordemPara(stats);
 
   // Gera as 3 artes só quando o usuário abre o compartilhamento
   // Se os números/período mudarem (ex.: trocou o filtro no Relatório), joga os previews
@@ -293,12 +329,12 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   }, [stats.faturamento, stats.vendas, stats.conversao, stats.horas, stats.periodo]);
 
   useEffect(() => {
-    if (!open || Object.keys(previews).length === ORDER.length) return;
+    if (!open || Object.keys(previews).length === ORDEM.length) return;
     let alive = true;
     setLoading(true);
     (async () => {
       const out: Record<string, string> = {};
-      for (const t of ORDER) {
+      for (const t of ORDEM) {
         const c = await buildCanvas(t, stats);
         if (c) out[t] = c.toDataURL("image/png");
       }
@@ -321,7 +357,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   const handleShare = async (templateOverride?: TemplateId) => {
     try {
       setSharing(true);
-      const template = templateOverride ?? ORDER[index] ?? "empilhada";
+      const template = templateOverride ?? ORDEM[index] ?? "empilhada";
       const canvas = await buildCanvas(template, stats);
       if (!canvas) throw new Error("Falha ao gerar imagem");
       const blob = await canvasToBlob(canvas);
@@ -362,7 +398,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   const handleSave = async () => {
     try {
       setSharing(true);
-      const template = ORDER[index] ?? "post";
+      const template = ORDEM[index] ?? "post";
       const canvas = await buildCanvas(template, stats);
       const blob = canvas ? await canvasToBlob(canvas) : null;
       if (!blob) throw new Error("Falha ao gerar imagem");
@@ -387,7 +423,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
   const handleCopy = async () => {
     try {
       setSharing(true);
-      const template = ORDER[index] ?? "post";
+      const template = ORDEM[index] ?? "post";
       const canvas = await buildCanvas(template, stats);
       const blob = canvas ? await canvasToBlob(canvas) : null;
       if (!blob) throw new Error("Falha ao gerar imagem");
@@ -458,7 +494,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
             className="flex overflow-x-auto snap-x snap-mandatory rounded-xl"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            {ORDER.map((t) => (
+            {ORDEM.map((t) => (
               <div key={t} className="snap-center shrink-0 w-full h-72 flex items-center justify-center">
                 {previews[t] && (
                   <div
@@ -482,7 +518,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
           </div>
 
           <div className="flex items-center justify-center gap-1.5">
-            {ORDER.map((t, i) => (
+            {ORDEM.map((t, i) => (
               <span
                 key={t}
                 className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-primary" : "w-1.5 bg-muted-foreground/40"}`}
@@ -490,7 +526,7 @@ export function DefconShareCarousel({ stats }: { stats: ShareStats }) {
             ))}
           </div>
           <p className="text-center text-[11px] font-medium text-foreground -mt-1">
-            {CAPTIONS[ORDER[index] ?? "post"]}
+            {CAPTIONS[ORDEM[index] ?? "post"]}
           </p>
           <p className="text-center text-[10px] text-muted-foreground -mt-2">← arraste pra escolher →</p>
         </>
