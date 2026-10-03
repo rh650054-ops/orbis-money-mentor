@@ -2,6 +2,19 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Rastreador de gastos + cada gasto do banco numa categoria
+
+**O que mudou pro vendedor**
+- **Rastreador de gastos** em Finanças (acima do Raio-X): quanto já saiu no mês, se está acima ou abaixo do **seu normal** (média dos seus últimos 3 meses) pra essa altura do mês, a projeção de fechamento, cada categoria contra o próprio normal e **um alerta** quando alguma dispara. Conta fixa (assinatura, aluguel, parcela) só alerta se passar do mês inteiro.
+- Fonte: o que saiu do banco (Open Finance ou PDF) **+** o que você lança nos custos do dia e não aparece no banco (dinheiro vivo, outra conta).
+- **Cada gasto do banco numa categoria**: o Piloto mandava toda saída pra "Entre minhas contas" (olhava o CPF de quem pagou, que é sempre o próprio vendedor). Agora olha quem recebeu: Pix pra 99 vira Transporte por app, Pix pra pessoa vira Pix pra pessoas, e "Débito de Cartão" (o banco não manda o nome da loja) vira **Compras no débito**. O que já tinha entrado errado foi corrigido sozinho. Rick: "Saiu" de outubro passou de R$ 0 pra R$ 100,67.
+- **Compras do cartão de crédito** agora entram nos gastos; o pagamento da fatura deixa de contar em dobro.
+
+**Por dentro**
+- Migrations `20261003120000_rastreador_gastos.sql` (`rastreador_gastos_mes`, `financas_rastreador`) e `20261003121000_gasto_por_categoria_banco.sql` (categoria `compras_debito`, coluna `extrato_lancamentos.do_cartao`, `extrato_base` sem fatura em dobro).
+- `_shared/pluggy-piloto.ts` (pluggy-hora v5): CPF de quem recebeu, cartão de crédito, conserto das linhas antigas.
+- Função temporária `pluggy-olhar` (só com o token do cron) usada pra ver os dados crus da Pluggy; não está no repositório.
+
 ## 03/10/2026 — Ranking: Pix do banco volta pra quem é Pro
 
 - Decisão do Rick (9h44): quem tem **Vant Pro ativo e banco ligado** conta no ranking o **Pix que caiu na conta**, atualizado sozinho pelo banco. O resto continua contando o que lançou. Religa o ranking misto que tinha sido desligado na madrugada de 03/10.

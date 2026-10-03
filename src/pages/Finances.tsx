@@ -56,6 +56,7 @@ import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
 import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
 import { FinancasHome } from "@/components/financas/FinancasHome";
+import { RastreadorGastos } from "@/components/financas/RastreadorGastos";
 
 /* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
    componente pra não remontar a cada tecla. */
@@ -2641,6 +2642,9 @@ export default function Finances() {
                   )}
                 </section>
               </div>
+
+              {/* ===== RASTREADOR DE GASTOS (Rick 03/10): o mês contra o seu normal ===== */}
+              <RastreadorGastos userId={user?.id} />
 
               {/* ===== RAIO-X DO EXTRATO (Rick 29/09: logo abaixo de Contas a pagar) ===== */}
               <RaioXEntrada userId={user?.id} />
