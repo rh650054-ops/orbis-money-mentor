@@ -217,7 +217,9 @@ export function useDefconChallenge(userId: string | undefined) {
       .update({
         status: "completed",
         ended_at: endedAt.toISOString(),
-        total_sold: totalSoldRef.current,
+        // total_sold NÃO vai aqui (03/10): já foi somado venda a venda no servidor.
+        // Mandar o valor da memória perdia a última venda quando o vendedor
+        // lançava e encerrava no mesmo segundo (o total do dia "diminuía").
       })
       .eq("id", sid)
       .select("started_at")
@@ -1323,7 +1325,7 @@ export function useDefconChallenge(userId: string | undefined) {
     const endedAt = new Date();
     const { data: doneSession, error: endErr } = await supabase
       .from("challenge_sessions")
-      .update({ status: "abandoned", ended_at: endedAt.toISOString(), total_sold: totalSoldRef.current })
+      .update({ status: "abandoned", ended_at: endedAt.toISOString() }) // sem total_sold: ver completeChallenge (03/10)
       .eq("id", sid)
       .select("started_at")
       .maybeSingle();
