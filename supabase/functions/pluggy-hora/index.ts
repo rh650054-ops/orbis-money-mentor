@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         const p = await importarPiloto(admin, apiKey, c.item_id, c.user_id, c.id, c.institution_name ?? null);
         saldos += p.saldos;
         piloto += p.gravadas;
-        if (p.gravadas > 0) comNovidade.add(c.user_id);
+        if (p.gravadas > 0 || ((p as { corrigidas?: number }).corrigidas ?? 0) > 0) comNovidade.add(c.user_id);
       } catch (e) {
         console.error("pluggy-hora: piloto", c.id, (e as Error)?.message);
       }

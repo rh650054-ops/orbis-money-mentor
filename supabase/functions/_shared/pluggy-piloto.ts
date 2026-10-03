@@ -7,6 +7,13 @@
 //     e a inteligência do banco (extrato_analisar_padroes) fecha o resto.
 // Nunca grava número de conta/agência/CPF: a descrição passa por limpaNumeros.
 // Se o vendedor já mandou PDF desse banco no mês, o mês fica com o PDF (não duplica).
+//
+// 03/10/2026 (Rick: "cada gasto tem que entrar numa categoria"):
+//   • "entre minhas contas" numa SAÍDA olha quem RECEBEU (antes olhava quem pagou,
+//     que é sempre o próprio vendedor, e toda saída virava transferência própria);
+//   • "Débito de Cartão" sem nome de loja vai pra "Compras no débito";
+//   • compras do CARTÃO DE CRÉDITO entram também (do_cartao = true);
+//   • o que entrou com a categoria errada pelo bug é corrigido na leitura seguinte.
 
 import { quandoFoi, mesmoDono, diaBRT } from "./pluggy-entradas.ts";
 
@@ -77,9 +84,27 @@ const PLUGGY_ENTRADA: Array<[RegExp, string]> = [
   [/transfer/i, "transferencia_recebida"],
 ];
 
+const soDigitos = (v: unknown) => String(v ?? "").replace(/\D/g, "");
+
+/** Saída pra conta do próprio vendedor: quem RECEBEU tem o CPF dele. */
+// deno-lint-ignore no-explicit-any
+function recebedorEhDono(t: any, cpf: string): boolean {
+  if (cpf.length !== 11) return false;
+  const doc = t?.paymentData?.receiver?.documentNumber;
+  const v = soDigitos(typeof doc === "object" && doc ? doc.value : doc);
+  return v.length === 11 && v === cpf;
+}
+
+/** "Débito de Cartão" sem loja: a Pluggy não manda o nome do comerciante. */
+// deno-lint-ignore no-explicit-any
+const debitoSemLoja = (t: any) =>
+  /^(d[eé]bito de cart[aã]o|compra (no|com) (cart[aã]o de )?d[eé]bito)$/i.test(String(t?.description ?? "").trim())
+  && !t?.merchant?.name && !t?.merchant?.businessName;
+
 // deno-lint-ignore no-explicit-any
 function categoria(t: any, tipo: "saida" | "entrada", alvo: string, proprio: boolean): { cat: string; conf: string } {
   if (proprio) return { cat: tipo === "saida" ? "transferencia_propria" : "transferencia_recebida", conf: "regra" };
+  if (tipo === "saida" && debitoSemLoja(t)) return { cat: "compras_debito", conf: "padrao" };
   const dic = tipo === "saida" ? DIC_SAIDA : DIC_ENTRADA;
   const hit = dic.find(([re]) => re.test(alvo));
   if (hit) return { cat: hit[1], conf: "regra" };
@@ -110,12 +135,13 @@ export async function importarPiloto(
   });
   if (!contasRes.ok) return { saldos: 0, gravadas: 0, erro: `accounts ${contasRes.status}` };
   // deno-lint-ignore no-explicit-any
-  const contas: any[] = ((await contasRes.json().catch(() => ({})))?.results ?? [])
-    .filter((c: { type?: string }) => String(c?.type ?? "").toUpperCase() === "BANK");
+  const todas: any[] = (await contasRes.json().catch(() => ({})))?.results ?? [];
+  const tipoConta = (c: { type?: string }) => String(c?.type ?? "").toUpperCase();
+  const contas = todas.filter((c) => tipoConta(c) === "BANK" || tipoConta(c) === "CREDIT");
 
-  // 1) saldos
+  // 1) saldos (só conta corrente; o cartão mora em bank_cartoes, etapa 4)
   let saldos = 0;
-  for (const c of contas) {
+  for (const c of contas.filter((x) => tipoConta(x) === "BANK")) {
     if (c?.balance == null) continue;
     const { error } = await admin.from("bank_saldos").upsert({
       conta_id: String(c.id), user_id: userId, bank_connection_id: conexaoId,
@@ -150,6 +176,7 @@ export async function importarPiloto(
   // deno-lint-ignore no-explicit-any
   const linhas: any[] = [];
   for (const conta of contas) {
+    const cartao = tipoConta(conta) === "CREDIT";
     let cursor: string | null = null;
     for (let pagina = 0; pagina < 8; pagina++) {
       const u = `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(conta.id)}&dateFrom=${dataDe}` +
@@ -162,35 +189,56 @@ export async function importarPiloto(
         const valor = Math.round(Math.abs(Number(t?.amount) || 0) * 100) / 100;
         if (!(valor > 0)) continue;
         const tipo: "saida" | "entrada" = String(t?.type).toUpperCase() === "DEBIT" ? "saida" : "entrada";
+        // no cartão de crédito só a COMPRA é gasto; pagamento e estorno da fatura ficam de fora
+        if (cartao && tipo !== "saida") continue;
         const q = quandoFoi(t);
         if (q.dia < dataDe || mesesComPdf.has(q.dia.slice(0, 7))) continue;
-        const descricao = limpaNumeros(String(t?.description ?? "")).slice(0, 60) || "Lançamento";
+        const descricao = debitoSemLoja(t) ? "Compra no débito"
+          : limpaNumeros(String(t?.description ?? "")).slice(0, 60) || "Lançamento";
         const descNorm = norm(descricao) || "LANCAMENTO";
         const comerciante = (norm(limpaNumeros(contraparte(t, tipo))) || descNorm).slice(0, 40);
-        const { cat, conf } = categoria(t, tipo, `${comerciante} ${descNorm}`, mesmoDono(t, cpf));
+        const proprio = tipo === "saida" ? recebedorEhDono(t, cpf) : mesmoDono(t, cpf);
+        const { cat, conf } = categoria(t, tipo, `${comerciante} ${descNorm}`, proprio);
         linhas.push({
           user_id: userId, data: q.dia, hora: q.instante ? horaBRT(q.instante) : null,
           descricao, descricao_norm: descNorm, comerciante, valor, tipo,
           categoria: cat, esfera: esfera.get(cat) ?? "pessoal", confianca: conf,
-          banco: banco ?? null, origem: "pluggy", pluggy_tx_id: String(t.id),
+          banco: banco ?? null, origem: "pluggy", pluggy_tx_id: String(t.id), do_cartao: cartao,
         });
       }
       cursor = corpo?.next ? String(corpo.next) : null;
       if (!cursor) break;
     }
   }
-  if (linhas.length === 0) return { saldos, gravadas: 0 };
+  if (linhas.length === 0) return { saldos, gravadas: 0, corrigidas: 0 };
 
   // o que já entrou (mesmo id da Pluggy) não entra de novo — nem se a descrição mudou
   const ids = linhas.map((l) => l.pluggy_tx_id);
-  const ja = new Set<string>();
+  // deno-lint-ignore no-explicit-any
+  const ja = new Map<string, any>();
   for (let i = 0; i < ids.length; i += 100) {
     const { data: existentes } = await admin.from("extrato_lancamentos")
-      .select("pluggy_tx_id").eq("user_id", userId).in("pluggy_tx_id", ids.slice(i, i + 100));
+      .select("id, pluggy_tx_id, categoria, confianca, descricao").eq("user_id", userId).in("pluggy_tx_id", ids.slice(i, i + 100));
     // deno-lint-ignore no-explicit-any
-    for (const e of (existentes ?? []) as any[]) ja.add(String(e.pluggy_tx_id));
+    for (const e of (existentes ?? []) as any[]) ja.set(String(e.pluggy_tx_id), e);
   }
   const novas = linhas.filter((l) => !ja.has(l.pluggy_tx_id));
+
+  // conserto (03/10): o que entrou como "entre minhas contas" pelo bug do CPF, ou como
+  // "Débito de Cartão" sem categoria, ganha a categoria certa. O que o vendedor mexeu fica.
+  let corrigidas = 0;
+  for (const l of linhas) {
+    const e = ja.get(l.pluggy_tx_id);
+    if (!e || e.confianca === "usuario" || e.categoria === l.categoria) continue;
+    const bugCpf = e.categoria === "transferencia_propria" && l.categoria !== "transferencia_propria";
+    const semLoja = l.categoria === "compras_debito" && ["nao_identificado", "outros"].includes(e.categoria);
+    if (!bugCpf && !semLoja) continue;
+    const { error } = await admin.from("extrato_lancamentos").update({
+      categoria: l.categoria, esfera: l.esfera, confianca: l.confianca, movimento: "normal", par_id: null,
+      descricao: l.descricao, descricao_norm: l.descricao_norm, comerciante: l.comerciante,
+    }).eq("id", e.id);
+    if (error) console.error("piloto: corrigir", error.message); else corrigidas++;
+  }
 
   let gravadas = 0;
   for (let i = 0; i < novas.length; i += 200) {
@@ -200,5 +248,5 @@ export async function importarPiloto(
     if (error) { console.error("piloto: upsert", error.message); continue; }
     gravadas += (ins ?? []).length;
   }
-  return { saldos, gravadas };
+  return { saldos, gravadas, corrigidas };
 }
