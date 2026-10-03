@@ -2,6 +2,17 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — DEFCON, lote 4: Retomar meu lugar, Clima na Foco e Caça-Sinal na Foco
+
+**O que mudou pro vendedor**
+- **Retomar meu lugar**: a Foco lembra a melhor posição do vendedor no ranking do mês naquele dia. Se depois alguém passa ele, o dia encerrado mostra "Te passaram no ranking: você estava em #12 hoje e caiu pra #14. Faltam R$ 96 pra passar o #13 de novo" e o botão **RETOMAR MEU LUGAR**, que volta o DEFCON por mais uma hora direto.
+- **Clima na Foco**: o chip do clima (temperatura + aviso: "chuva 15h", "gelada vende", "fica em casa") aparece no topo da Foco, ao lado da data, antes e durante o DEFCON. Toque abre o clima completo.
+- **Caça-Sinal na Foco**: antes de começar o dia aparece **Seu melhor sinal** (o ponto onde ele mais rende, priorizando o dia da semana de hoje, com R$/hora e melhor horário) e o botão **IR PRA LÁ**. Quem ainda não tem histórico vê o **sinal quente mais perto** da última posição. Um toque em "Caça-Sinal" abre a busca completa.
+
+**Por dentro**
+- `src/components/defcon/FocoExtras.tsx` (`RetomarLugar`, `SinalDeHoje`) e `retomar-lugar.ts` (+ teste).
+- `/defcon?mais=1` estende o DEFCON encerrado uma única vez (`extendChallenge`).
+
 ## 03/10/2026 — Finanças, lote 3: Mês blindado, selos, "Resolver agora", recado e projeção
 
 **O que mudou pro vendedor**

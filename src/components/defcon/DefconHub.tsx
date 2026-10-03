@@ -19,6 +19,9 @@ import { CompetitionStatementUpload } from "@/components/defcon/CompetitionState
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
+import { ClimaChip } from "@/components/clima/ClimaChip";
+import { RetomarLugar, SinalDeHoje } from "@/components/defcon/FocoExtras";
+import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 
 // "Pix que caiu depois" — pagamento que entrou tarde, lançado num dia anterior
 // (padrão: ontem). Atualiza o daily_sales daquele dia (total_profit + pix_sales)
@@ -594,6 +597,8 @@ export default function DefconHub() {
   const [ontem, setOntem] = useState({ vendido: 0, meta: 0 });
   const [semana, setSemana] = useState(0);
   const [rank, setRank] = useState<{ pos: number | null; dias: number; acimaValor: number | null }>({ pos: null, dias: 0, acimaValor: null });
+  // RETOMAR MEU LUGAR (Lote 4): a melhor posição de hoje fica no aparelho; se caiu, avisa
+  const [caiuDe, setCaiuDe] = useState<number | null>(null);
   const [horaInicio, setHoraInicio] = useState<number | null>(null);
   const [nome, setNome] = useState("");
   const [carga, setCarga] = useState<{ nome: string; levou: number; vendeu: number; preco: number; custo: number }[]>([]);
@@ -783,6 +788,12 @@ export default function DefconHub() {
         acimaValor = ac ? Math.max(0, (Number((ac as any).faturamento_total_mes) || 0) - (Number(eu.faturamento_total_mes) || 0)) : null;
       }
       setRank({ pos, dias: eu ? Number(eu.dias_trabalhados_mes) || 0 : 0, acimaValor });
+      if (user?.id) {
+        const dia = getBrazilDate();
+        const r = conferirLugar(lerMelhor(user.id, dia), pos);
+        gravarMelhor(user.id, dia, r.melhor);
+        setCaiuDe(r.caiu > 0 ? r.melhor : null);
+      }
     }
     const hi = (plano.data as any)?.hora_inicio;
     setHoraInicio(hi == null ? null : Number(hi));
@@ -985,7 +996,11 @@ export default function DefconHub() {
   return (
     <div className="pb-8 max-w-md mx-auto px-1 orbis-stagger">
       {/* ===== CABEÇALHO ===== */}
-      <p className="orbis-mini pt-1">Foco · {dataLabel}</p>
+      {/* CLIMA NA FOCO (Lote 4): o mesmo chip da Início, ao lado da data */}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <p className="orbis-mini">Foco · {dataLabel}</p>
+        {estado !== "encerrado" && <ClimaChip />}
+      </div>
       <h1 className="font-display text-[24px] font-extrabold tracking-tight mt-1.5 leading-tight">
         {estado === "rodando" ? "Tá rodando." : estado === "encerrado" ? "Dia fechado." : `Bora pro corre${nome ? `, ${nome.split(" ")[0]}` : ""}.`}
       </h1>
@@ -1139,8 +1154,16 @@ export default function DefconHub() {
         );
       })()}
 
+      {/* ===== RETOMAR MEU LUGAR: alguém passou ele depois que fechou o dia ===== */}
+      {estado === "encerrado" && rank.pos && caiuDe != null && (
+        <RetomarLugar de={caiuDe} para={rank.pos} falta={rank.acimaValor} />
+      )}
+
+      {/* ===== CAÇA-SINAL NA FOCO: onde ir hoje (antes de começar) ===== */}
+      {estado === "antes" && <SinalDeHoje />}
+
       {/* ===== PONTE (dia encerrado): a linha do próximo passo ===== */}
-      {estado === "encerrado" && rank.pos && (
+      {estado === "encerrado" && rank.pos && caiuDe == null && (
         <button onClick={() => navigate("/ranking")} className="w-full mt-3.5 flex items-center gap-2.5 px-3.5 py-3 rounded-[14px] text-left text-[12.5px] leading-snug" style={{ border: "1px dashed rgba(245,184,0,.35)", color: "var(--orbis-fg-2)" }}>
           <ArrowRight className="w-4 h-4 shrink-0" style={{ color: "var(--orbis-gold)" }} strokeWidth={2.4} />
           <span>Você está em <b style={{ color: "var(--orbis-gold)" }}>#{rank.pos}</b> este mês.{rank.acimaValor != null && rank.pos > 1 ? <> Faltam {brl0(rank.acimaValor)} pra passar o #{rank.pos - 1} — </> : " "}<b style={{ color: "var(--orbis-gold)" }}>ver o ranking</b></span>
