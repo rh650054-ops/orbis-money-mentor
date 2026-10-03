@@ -1,5 +1,5 @@
 // Vant — pluggy-hora: leitura do Pix de quem tem banco ligado.
-// Roda pelo cron a cada 15 min (8h → 23h52 em Brasília), + 0h02 pra fechar o dia.
+// Roda pelo cron a cada 5 min (8h → 23h55 em Brasília), + 0h02 pra fechar o dia.
 // O PEDIDO de atualização à Pluggy é no máximo 1 por hora por banco (limite
 // da Pluggy: o cron das :07 batia em 59min59s e metade voltava 409). A leitura
 // do que a Pluggy já tem roda em todas as rodadas.
@@ -18,7 +18,7 @@ import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const MAX_POR_RODADA = 40;
-const PEDIDO_MIN = 61 * 60_000; // 61 min entre pedidos à Pluggy
+const PEDIDO_MIN = 61 * 60_000; // 1 pedido por hora (limite da Pluggy, contado do lado dela com alguns segundos a mais)
 
 Deno.serve(async (req) => {
   const json = (o: unknown, s = 200) =>
