@@ -15,6 +15,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import "@/components/x1/x1.css";
+import { useTravaBanco } from "@/components/x1/x1-trava-lib";
 import { X1Avatar } from "@/components/x1/X1Avatar";
 import { FighterCardMini } from "@/components/x1/FighterCard";
 import { fmt, primeiroNome, patenteCor, carregarRecorde, carregarPessoas, erroBonito, voltaPraVoce, type Pessoa, type Recorde, RECORDE_VAZIO } from "@/components/x1/x1-lib";
@@ -47,6 +48,9 @@ export default function X1Escolher() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const uid = user?.id;
+  // TRAVA (03/10): sem banco ligado não entra aqui; volta pra Arena, que explica.
+  const { semBanco } = useTravaBanco(uid);
+  useEffect(() => { if (semBanco) navigate("/x1", { replace: true }); }, [semBanco, navigate]);
 
   const [eu, setEu] = useState<Pessoa | null>(null);
   const [recorde, setRecorde] = useState<Recorde>(RECORDE_VAZIO);
