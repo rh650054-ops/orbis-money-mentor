@@ -2,6 +2,20 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 02/10/2026 — Open Finance, etapa 4: Cartão, Dívidas e Guardado
+
+**O que mudou pro vendedor** (só quem tem banco ligado)
+- Embaixo da home de Finanças, três linhas que abrem uma tela cada:
+  - **Cartão**: fatura atual, limite usado (com aviso quando passa do limite), vencimento, mínimo, e as **parcelas que ainda vêm** mês a mês, com quanto do mês que vem já está comprometido em "dias de rua".
+  - **Dívidas**: empréstimos, cheque especial e fatura vencida numa **ordem de ataque** (o juros mais caro primeiro), com quanto ele paga de juros por mês convertido em dias de rua.
+  - **Guardado**: caixinha, CDB e afins conferidos pelo banco, e o **Seu número**: saldo + guardado − dívidas.
+
+**Por dentro**
+- Banco: `bank_cartoes`, `bank_parcelas`, `bank_emprestimos`, `bank_investimentos` (só o dono lê, só o servidor grava) e cheque especial em `bank_saldos`. Função `financas_painel()` (roda como o vendedor, com RLS). Nada de número de contrato, agência ou conta.
+- Edge function nova `pluggy-dia` (`_shared/pluggy-dia.ts`), uma vez por dia às 3h20 de Brasília (cron `pluggy-dia`). Parcelas agrupadas por compra (sem o "1/3"), fica só a parcela mais nova; empréstimo quitado conta como zero; parcela de fatura a mais de 35 dias é ignorada.
+- Primeira leitura (02/10): Rick: cartão C6 R$ 208,89 de R$ 252,58, guardado R$ 252,62 em 3 CDBs. Mohamed: cartão Nubank R$ 607,82 acima do limite de R$ 600, vencido 14/09; 1 parcela por vir (R$ 56,05); 12 empréstimos InfinitePay, todos quitados.
+- Migrations: `20261002230000_cartao_dividas_guardado.sql`, `20261002231000_pluggy_dia_cron.sql`.
+
 ## 02/10/2026 — Open Finance, etapa 3: Finanças com saldo e fôlego + Piloto Automático
 
 **O que mudou pro vendedor** (só quem tem banco ligado; o resto vê Finanças igual)
