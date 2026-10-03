@@ -24,6 +24,10 @@ import {
   linkZap, mensagemCobranca, soDigitos, telefoneBonito, telefoneServe,
   type ClienteDoDia, type Cobranca,
 } from "@/components/cobranca/cobranca-lib";
+import {
+  carregarPainel, PAINEL_VAZIO, ResumoRecuperado, ListaDevedores, FilaEnvio, BotaoLembrar,
+  type PainelCobranca, type CobrancaAberta, type ItemFila,
+} from "@/components/cobranca/QuemTeDeve";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -92,16 +96,21 @@ export default function Cobrar() {
   const [gerando, setGerando] = useState(false);
   const [cob, setCob] = useState<Cobranca | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [painel, setPainel] = useState<PainelCobranca>(PAINEL_VAZIO);
+  const [fila, setFila] = useState<ItemFila[] | null>(null);
+  const [falhasFila, setFalhasFila] = useState(0);
+  const [criandoTodos, setCriandoTodos] = useState(false);
 
   /* ---- carga inicial: conexão, nome do vendedor, clientes do dia ---- */
   useEffect(() => {
     if (!user?.id) return;
     let vivo = true;
     (async () => {
-      const [st, perfil, cs] = await Promise.all([
+      const [st, perfil, cs, pn] = await Promise.all([
         (supabase as any).rpc("mp_status"),
         supabase.from("profiles").select("nickname").eq("id", user.id).maybeSingle(),
         carregarClientesDoDia().catch(() => [] as ClienteDoDia[]),
+        carregarPainel().catch(() => PAINEL_VAZIO),
       ]);
       if (!vivo) return;
       const s = ((st?.data as any[]) || [])[0];
@@ -110,6 +119,7 @@ export default function Cobrar() {
       setCarteira(provs.includes("pagbank") && !provs.includes("mercadopago") ? "PagBank" : "Mercado Pago");
       setMeuNome(((perfil.data as any)?.nickname as string) ?? null);
       setClientes(cs);
+      setPainel(pn);
       setCarregando(false);
     })().catch(() => { if (vivo) setCarregando(false); });
     return () => { vivo = false; };
@@ -175,6 +185,62 @@ export default function Cobrar() {
     if (k) setCob(k);
   }, [valorNum, clientId, nome, tel, oque]);
 
+  /* ---- COBRAR OS N DE UMA VEZ: cria todos os Pix e monta a fila de envio ---- */
+  const cobrarTodos = useCallback(async (lista: ClienteDoDia[]) => {
+    setCriandoTodos(true);
+    const itens: ItemFila[] = [];
+    let falhas = 0;
+    for (const c of lista) {
+      const { data, error } = await (supabase as any).functions.invoke("cobranca-criar", {
+        body: { client_id: c.client_id, nome: (c.nome || "").trim(), telefone: soDigitos(c.telefone), valor: c.valor, descricao: "" },
+      });
+      if (error || data?.error || !data?.id) { falhas++; continue; }
+      const k = await carregarCobranca(String(data.id));
+      itens.push({ id: String(data.id), nome: c.nome, telefone: c.telefone, valor: c.valor, link: k?.link_url ?? null, enviado: false });
+    }
+    setCriandoTodos(false);
+    setFalhasFila(falhas);
+    if (itens.length === 0) { toast({ title: "Não rolou", description: erroCobranca(null), variant: "destructive" }); return; }
+    setFila(itens);
+    setClientes(await carregarClientesDoDia().catch(() => [] as ClienteDoDia[]));
+  }, []);
+
+  const mensagemDe = (i: { nome: string | null; valor: number; link: string | null }) =>
+    mensagemCobranca({ clienteNome: i.nome, vendedorNome: meuNome, valor: i.valor, descricao: null, link: i.link });
+
+  const mandarDaFila = (i: ItemFila) => {
+    void supabase.from("cobrancas" as any).update({ enviada_em: new Date().toISOString() }).eq("id", i.id)
+      .then(({ error }: { error: unknown }) => { if (error) avisar.erro("Cobrar: marcar enviada (fila)", error); });
+    setFila((f) => (f ?? []).map((x) => (x.id === i.id ? { ...x, enviado: true } : x)));
+    window.open(linkZap(i.telefone, mensagemDe(i)), "_blank", "noopener");
+  };
+
+  const voltarPraLista = async () => {
+    setFila(null); setCob(null); setClientId(null); setNome(""); setTel(""); setValor(""); setOque("");
+    navigate("/cobrar", { replace: true });
+    setPainel(await carregarPainel().catch(() => PAINEL_VAZIO));
+  };
+
+  const abrirAberta = (a: CobrancaAberta) => {
+    if (a.status === "expirada") {
+      // Pix vencido: monta uma cobrança nova com os mesmos dados
+      setClientId(a.client_id); setNome(a.nome || ""); setTel(telefoneBonito(a.telefone)); setValor(textoDeReais(a.valor)); setOque(a.descricao || "");
+      return;
+    }
+    void carregarCobranca(a.id).then((k) => { if (k) setCob(k); });
+  };
+
+  const lembrarDaqui2Dias = () => {
+    if (!cob) return;
+    const quando = new Date(Date.now() + 2 * 86_400_000).toISOString();
+    void supabase.from("cobrancas" as any).update({ lembrar_em: quando }).eq("id", cob.id)
+      .then(({ error }: { error: unknown }) => {
+        if (error) { avisar.erro("Cobrar: lembrar em 2 dias", error); toast({ title: "Não deu pra salvar o lembrete", variant: "destructive" }); return; }
+        setCob({ ...cob, lembrar_em: quando });
+        toast({ title: "Combinado", description: "Daqui a 2 dias ela aparece no topo de Quem te deve." });
+      });
+  };
+
   const copiar = async (t: string) => {
     try { await navigator.clipboard.writeText(t); setCopiado(true); setTimeout(() => setCopiado(false), 2000); toast({ title: "Copiado" }); }
     catch { toast({ title: "Não deu pra copiar", variant: "destructive" }); }
@@ -236,8 +302,9 @@ export default function Cobrar() {
             Caiu na sua conta {cob.paga_em ? `às ${horaBR(cob.paga_em)}` : ""}. A Vant já abateu do seu calote do dia.
           </p>
         </div>
-        <button type="button" onClick={() => navigate("/cobrar")} className="orbis-cta w-full mt-4">
-          <HandCoins className="w-4 h-4" strokeWidth={2.4} /> COBRAR OUTRA PESSOA
+        <div className="mt-3"><ResumoRecuperado p={painel} /></div>
+        <button type="button" onClick={() => void voltarPraLista()} className="orbis-cta w-full mt-4">
+          <HandCoins className="w-4 h-4" strokeWidth={2.4} /> VER QUEM AINDA DEVE
         </button>
       </div>
     );
@@ -295,6 +362,7 @@ export default function Cobrar() {
             {cob.enviada_em ? "MANDAR DE NOVO NO ZAP" : "MANDAR NO ZAP"}
           </button>
         )}
+        {!venceu && cob.enviada_em && <BotaoLembrar lembrarEm={cob.lembrar_em ?? null} onLembrar={lembrarDaqui2Dias} />}
 
         <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
           <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "var(--orbis-fg-3)" }}>O QUE ACONTECE SOZINHO</p>
@@ -309,8 +377,25 @@ export default function Cobrar() {
     );
   }
 
+  /* ================= FILA: COBRAR TODOS DE UMA VEZ ================= */
+  if (fila) {
+    return (
+      <div className="px-4 pt-4 pb-24">
+        <div className="flex items-center justify-between mb-2">
+          <button type="button" onClick={() => void voltarPraLista()} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "var(--orbis-fg-3)" }}>
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "var(--orbis-fg-3)" }}>COBRAR TODOS</p>
+          <span className="w-9" />
+        </div>
+        <FilaEnvio itens={fila} falhas={falhasFila} onMandar={mandarDaFila}
+          onCopiar={(i) => void copiar(mensagemDe(i))} onPronto={() => void voltarPraLista()} />
+      </div>
+    );
+  }
+
   /* ================= FORMULÁRIO ================= */
-  const semCobranca = clientes.filter((c) => !c.cobranca_id);
+  const semCobranca = clientes.filter((c) => !c.cobranca_id && c.valor > 0);
   return (
     <div className="px-4 pt-4 pb-24">
       <div className="flex items-center justify-between">
@@ -321,24 +406,26 @@ export default function Cobrar() {
         <span className="w-9" />
       </div>
 
-      {semCobranca.length > 0 && !clientId && (
-        <div className="rounded-[20px] border mt-2 px-4 pb-3 pt-3.5" style={{ borderColor: "var(--orbis-line)", background: "linear-gradient(180deg,#101013,#0b0b0d)" }}>
-          <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "var(--orbis-fg-3)" }}>CLIENTES DE HOJE</p>
-          {semCobranca.slice(0, 5).map((c) => (
-            <button key={c.client_id} type="button"
-              onClick={() => { setClientId(c.client_id); setNome(c.nome || ""); setTel(telefoneBonito(c.telefone)); setValor(textoDeReais(c.valor)); }}
-              className="w-full text-left flex items-center gap-3 py-2.5 active:opacity-70" style={{ borderTop: "1px solid var(--orbis-line)" }}>
-              <span className="w-[34px] h-[34px] rounded-[11px] shrink-0 flex items-center justify-center text-[11.5px] font-black"
-                style={{ background: "#16151a", border: "1px solid #2a2823", color: "#d9d4cc" }}>{iniciais(c.nome)}</span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-[13.5px] font-extrabold truncate">{c.nome || "Cliente"}</span>
-                <span className="block text-[11px] truncate" style={{ color: "var(--orbis-fg-3)" }}>
-                  {c.hora ? horaBR(c.hora) : "hoje"}{telefoneServe(c.telefone) ? ` · ${telefoneBonito(c.telefone)}` : " · sem telefone"}
-                </span>
-              </span>
-              <span className="orbis-num text-[13.5px] font-extrabold shrink-0" style={{ color: GOLD }}>{fmt(c.valor)}</span>
-            </button>
-          ))}
+      {!clientId && (
+        <div className="space-y-3 mt-2">
+          <ResumoRecuperado p={painel} />
+          <ListaDevedores novos={semCobranca} abertas={painel.abertas}
+            onNovo={(c) => { setClientId(c.client_id); setNome(c.nome || ""); setTel(telefoneBonito(c.telefone)); setValor(textoDeReais(c.valor)); }}
+            onAberta={abrirAberta} />
+          {semCobranca.length >= 2 && (
+            <>
+              <button type="button" onClick={() => void cobrarTodos(semCobranca)} disabled={criandoTodos}
+                className="w-full h-[56px] rounded-[16px] inline-flex items-center justify-center gap-2 text-[15px] font-black disabled:opacity-60"
+                style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200", boxShadow: "0 5px 0 #8a6a00, 0 16px 34px rgba(255,200,0,.25)" }}>
+                {criandoTodos ? <Loader2 className="w-5 h-5 animate-spin" /> : <HandCoins className="w-5 h-5" strokeWidth={2.4} />}
+                {criandoTodos ? "CRIANDO OS PIX…" : `COBRAR OS ${semCobranca.length} DE UMA VEZ`}
+              </button>
+              <p className="text-[11.5px] text-center -mt-1" style={{ color: "var(--orbis-fg-3)" }}>
+                A Vant gera o Pix de cada um e abre seu WhatsApp com a mensagem pronta.
+              </p>
+            </>
+          )}
+          <p className="text-[9.5px] font-black tracking-[.18em] pt-2 px-1" style={{ color: "var(--orbis-fg-3)" }}>OU COBRE ALGUÉM AGORA</p>
         </div>
       )}
 

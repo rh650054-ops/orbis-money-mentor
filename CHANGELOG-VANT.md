@@ -2,6 +2,20 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Cobrador completo (mockup cobrador.png)
+
+**O que mudou pro vendedor**
+- **Quem te deve**: numa lista só, quem levou hoje e não pagou + as cobranças abertas dos últimos 30 dias (esperando pagar, Pix vencido, hora de cobrar de novo).
+- **COBRAR OS N DE UMA VEZ**: com 2 ou mais devendo, um toque cria todos os Pix na conta do vendedor e abre uma fila: "mandar pro José", "mandar pra Maria"… (o WhatsApp abre uma conversa por toque). Quem não tem WhatsApp ganha "copiar link". O mesmo botão aparece no card do fim do DEFCON.
+- **Você recuperou R$ X esse mês** · "2 de 3 cobranças pagas", em cima da lista e na tela de "pagou".
+- **Cobrar de novo daqui a 2 dias**: na cobrança esperando; no dia, ela sobe pro topo da lista com "hora de cobrar de novo".
+- Pix vencido: tocar na pessoa monta uma cobrança nova com os mesmos dados.
+- Depois que alguém paga: **VER QUEM AINDA DEVE** (antes o botão voltava pra mesma tela).
+
+**Por dentro**
+- Migration `20261003130000_cobrador_completo.sql`: coluna `cobrancas.lembrar_em` e `cobrancas_painel()`.
+- `components/cobranca/QuemTeDeve.tsx` (Resumo, Lista, Fila, Lembrete) + teste.
+
 ## 03/10/2026 — Rastreador de gastos + cada gasto do banco numa categoria
 
 **O que mudou pro vendedor**
