@@ -518,31 +518,45 @@ export default function Index() {
       {/* Lançamento do Clima do vendedor (Rick, 11/09): 1x por pessoa */}
       <NovidadeClima userId={user.id} />
 
-      {/* BUG-001 (29/09): recuperação de senha exige e-mail confirmado — pede cedo */}
-      <ConfirmarEmailNudge userId={user.id} />
-
-      {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
-      {contaNova && (
-        <PrimeirosPassos
-          userId={user.id}
-          passos={[
-            { id: "conta", titulo: "Criar sua conta", feito: true },
-            { id: "metas", titulo: "Definir sua meta mensal e diária",
-              dica: "Confere os valores do seu planejamento",
-              feito: monthlyGoal > 0 && dailyGoal > 0, onIr: () => setShowEditPlanning(true) },
-            { id: "defcon", titulo: "Iniciar um DEFCON 4 de teste",
-              dica: "Treino guiado — nada conta no ranking",
-              feito: temDefcon, onIr: () => navigate("/defcon?treino=1") },
-            { id: "ranking", titulo: "Conhecer o ranking",
-              dica: "Vê as patentes e onde você entra",
-              feito: visitouRanking, onIr: () => navigate("/ranking") },
-          ]}
-          onDispensar={() => setContaNova(false)}
-        />
-      )}
-
-      {/* Cobrança do horário combinado (só aparece se ele marcou hora e não vendeu) */}
-      <CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} />
+      {/* DASHBOARD ENXUTO (Lote 7, 03/10): UM aviso por vez acima da meta.
+          Fila por prioridade; cada aviso continua decidindo sozinho se aparece,
+          e o CSS (.orbis-um-aviso) mostra só o primeiro que tiver conteúdo. */}
+      <div className="orbis-um-aviso">
+        <div>
+          {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
+          {contaNova && (
+            <PrimeirosPassos
+              userId={user.id}
+              passos={[
+                { id: "conta", titulo: "Criar sua conta", feito: true },
+                { id: "metas", titulo: "Definir sua meta mensal e diária",
+                  dica: "Confere os valores do seu planejamento",
+                  feito: monthlyGoal > 0 && dailyGoal > 0, onIr: () => setShowEditPlanning(true) },
+                { id: "defcon", titulo: "Iniciar um DEFCON 4 de teste",
+                  dica: "Treino guiado — nada conta no ranking",
+                  feito: temDefcon, onIr: () => navigate("/defcon?treino=1") },
+                { id: "ranking", titulo: "Conhecer o ranking",
+                  dica: "Vê as patentes e onde você entra",
+                  feito: visitouRanking, onIr: () => navigate("/ranking") },
+              ]}
+              onDispensar={() => setContaNova(false)}
+            />
+          )}
+        </div>
+        <div><ConfirmarEmailNudge userId={user.id} /></div>
+        <div><CobrancaDoCorre userId={user.id} vendidoHoje={dailyProfit} onComecar={() => navigate("/daily-goals")} /></div>
+        <div><WeeklyChallengeDashboardCard /></div>
+        <div>
+          {user && faltaDia <= 0 && dailyProfit > 0 && (
+            <TrialNudge
+              userId={user.id}
+              momentKey="meta_dia"
+              title="Meta do dia batida!"
+              benefit="Quem usa a Vant todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
+            />
+          )}
+        </div>
+      </div>
 
       {/* A semana encosta no card da meta, por fora dele (pedido do Rick) —
           por isso os dois moram no MESMO filho do stagger, sem o gap de 28px. */}
@@ -582,8 +596,6 @@ export default function Index() {
         />
       )}
 
-      {/* Bilhete Dourado — reabre o bilhete do desafio (só aparece com desafio ativo) */}
-      <WeeklyChallengeDashboardCard />
 
       {/* Seu jogo: lista neutra (patente, ranking, competições) — a identidade forte
           fica dentro de cada tela, a Home só aponta */}
@@ -598,14 +610,6 @@ export default function Index() {
       <RankingCard userId={user.id} onClick={() => navigate('/ranking')} />
       <CompeticaoRow onClick={() => navigate('/competitions')} />
 
-      {user && faltaDia <= 0 && dailyProfit > 0 && (
-        <TrialNudge
-          userId={user.id}
-          momentKey="meta_dia"
-          title="Meta do dia batida!"
-          benefit="Quem usa a Vant todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
-        />
-      )}
 
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 

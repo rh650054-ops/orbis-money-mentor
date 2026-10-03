@@ -2,6 +2,15 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Lote 7: Dashboard enxuto (um aviso por vez)
+
+**O que mudou pro vendedor**
+- A Início tinha até 5 avisos que podiam aparecer juntos (primeiros passos, confirmar e-mail, cobrança do horário, bilhete dourado do desafio, empurrão do teste). Agora eles entram numa **fila por prioridade e só o primeiro aparece**, logo acima da meta. Resolveu um, o próximo toma o lugar. Sem nenhum aviso, a meta sobe pro topo.
+- Prioridade: primeiros passos (conta nova) → confirmar e-mail → cobrança do horário → bilhete dourado → "meta do dia batida" (teste).
+
+**Por dentro**
+- `Index.tsx`: bloco `.orbis-um-aviso`; cada aviso continua decidindo sozinho se aparece. `orbis.css`: a regra que mostra só o primeiro com conteúdo.
+
 ## 03/10/2026 — Open Finance, lote 6: Caixinha pela meta, Story "sobrou pra mim" e Comprovante de renda
 
 **O que mudou pro vendedor**

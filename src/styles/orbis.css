@@ -209,3 +209,10 @@ html, body { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; overscro
 @media (prefers-reduced-motion: reduce) {
   .orbis-patente.on * { animation-duration: .01s !important; animation-delay: 0s !important; }
 }
+
+/* DASHBOARD ENXUTO (Lote 7, 03/10/2026): fila de avisos da Home — só o PRIMEIRO
+   aviso com conteúdo aparece; os outros esperam a vez. Sem nenhum, a fila some
+   (e não deixa o espaço de 28px do space-y). */
+.orbis-um-aviso > div:empty { display: none; }
+.orbis-um-aviso > div:not(:empty) ~ div { display: none; }
+.orbis-um-aviso:not(:has(> div:not(:empty))) { display: none; }
