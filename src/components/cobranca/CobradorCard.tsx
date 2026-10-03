@@ -136,7 +136,11 @@ export function CobradorCard({ userId, faltouCair, pixAindaPodeCair = false }: {
           className="w-full h-11 rounded-[13px] inline-flex items-center justify-center gap-2 text-[12.5px] font-extrabold active:opacity-70"
           style={{ background: "#16151a", border: "1px solid #2a2823", color: "#e9e4d8" }}>
           <HandCoins className="w-4 h-4" strokeWidth={2.4} />
-          {lista.length > 0 ? "COBRAR OUTRA PESSOA" : "COBRAR ALGUÉM"}
+          {(() => {
+            // mockup cobrador.png: com 2+ devendo, o botão já cobra todos de uma vez
+            const devendo = lista.filter((c) => !c.cobranca_id && c.valor > 0).length;
+            return devendo >= 2 ? `COBRAR OS ${devendo} DE UMA VEZ` : lista.length > 0 ? "COBRAR OUTRA PESSOA" : "COBRAR ALGUÉM";
+          })()}
         </button>
       </div>
     </div>

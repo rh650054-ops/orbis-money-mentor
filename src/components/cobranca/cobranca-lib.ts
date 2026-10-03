@@ -17,7 +17,8 @@ export const primeiroNome = (n: string | null | undefined) =>
   (n || "").trim().split(/\s+/)[0] || "";
 
 export const iniciais = (n: string | null | undefined) => {
-  const p = (n || "?").trim().split(/\s+/).filter(Boolean);
+  // só palavras que começam com letra: "Cabeça (do posto)" vira "CD", não "C("
+  const p = (n || "?").trim().split(/\s+/).map((w) => w.replace(/^[^\p{L}]+/u, "")).filter(Boolean);
   return ((p[0]?.[0] || "?") + (p[1]?.[0] || "")).toUpperCase();
 };
 
@@ -79,6 +80,7 @@ export interface Cobranca {
   paga_em: string | null;
   valor_pago: number | null;
   expira_em: string | null;
+  lembrar_em?: string | null;
 }
 
 export interface ResumoCobranca {
@@ -111,7 +113,7 @@ export async function carregarResumo(): Promise<ResumoCobranca> {
 export async function carregarCobranca(id: string): Promise<Cobranca | null> {
   const { data } = await supabase
     .from("cobrancas" as any)
-    .select("id, cliente_nome, cliente_telefone, valor, descricao, status, link_url, pix_copia_cola, qr_base64, criada_em, enviada_em, paga_em, valor_pago, expira_em")
+    .select("id, cliente_nome, cliente_telefone, valor, descricao, status, link_url, pix_copia_cola, qr_base64, criada_em, enviada_em, paga_em, valor_pago, expira_em, lembrar_em")
     .eq("id", id)
     .maybeSingle();
   if (!data) return null;
