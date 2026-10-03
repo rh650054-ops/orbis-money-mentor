@@ -2,6 +2,7 @@
 // TRAVA DO PRO: conectar banco pelo Open Finance custa (+R$ 10/mes), porque a
 // Pluggy cobra da Vant por isso. Sem Pro, nem gera o token.
 // O client_secret da Pluggy nunca sai do servidor.
+// 03/10/2026: o Pro inclui 1 banco; banco a mais = +R$ 10/mês (open_finance_limite).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -29,6 +30,13 @@ Deno.serve(async (req) => {
     // ---- trava do Pro
     const { data: ehPro } = await supa.rpc("orbis_pro_ativo", { p_user: uid });
     if (ehPro !== true) return json({ error: "precisa_pro" });
+
+    // ---- trava de quantos bancos (Rick, 03/10): o Pro liga 1 banco; cada um a mais
+    // é +R$ 10/mês (bancos_extra). Rick e Mohamed são isentos. Sem vaga, nem abre o banco.
+    const { data: lim } = await supa.rpc("open_finance_limite", {});
+    if (lim && lim.pode_conectar === false) {
+      return json({ error: "precisa_banco_extra", usados: lim.usados, limite: lim.limite });
+    }
 
     const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
     const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
