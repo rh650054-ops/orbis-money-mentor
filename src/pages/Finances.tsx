@@ -2020,7 +2020,8 @@ export default function Finances() {
           {/* O MÊS é o número grande (Rick, 09/09). "Quanto sobrou pra mim" é a
               pergunta que ele faz; o dia isolado não responde ela. Hoje continua
               aqui, do lado, junto da média e do fiado. */}
-          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>SOBROU PRA VOCÊ ESSE MÊS</p>
+          {/* (Rick 03/10: "sobrou pra você" não ficou claro) nome direto + a conta na tela */}
+          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>SEU LUCRO NO MÊS</p>
           {isLoadingData ? (
             <Skeleton className="h-11 w-44 mt-2" />
           ) : (
@@ -2036,15 +2037,21 @@ export default function Finances() {
             return (
               <div className="flex items-center justify-between gap-3 mt-3">
                 <div className="min-w-0">
-                  <p className="text-[13px]" style={{ color: "#a9a49c" }}>de <b className="text-foreground tabular-nums">{formatCurrency(vendido)}</b> vendidos</p>
+                  <p className="text-[13px]" style={{ color: "#a9a49c" }}>
+                    vendeu <b className="text-foreground tabular-nums">{formatCurrency(vendido)}</b> − custos <b className="tabular-nums" style={{ color: "#ff8a7a" }}>{formatCurrency(Math.max(0, vendido - summary.monthlyNetProfit))}</b>
+                  </p>
+                  <p className="text-[11.5px] mt-0.5" style={{ color: "#7b766e" }}>o que ficou pra você depois de mercadoria, transporte e comida</p>
                   <p className="text-[12px] mt-1 tabular-nums" style={{ color: "#7b766e" }}>
                     hoje <b className="text-foreground">{formatCurrency(summary.netToday)}</b> · média <b className="text-foreground">{formatCurrency(summary.mediaDiariaLiquida)}</b>/dia
                     {summary.debtToday > 0 && <> · fiado <b style={{ color: "#F2B43A" }}>{formatCurrency(summary.debtToday)}</b></>}
                   </p>
                 </div>
-                <Anel pct={margem} size={60} stroke={7} cor={margem >= 50 ? "#3DD68C" : "#F5B800"}>
-                  <span className="text-[13px] font-black tabular-nums">{Math.round(margem)}%</span>
-                </Anel>
+                <div className="flex flex-col items-center shrink-0">
+                  <Anel pct={margem} size={60} stroke={7} cor={margem >= 50 ? "#3DD68C" : "#F5B800"}>
+                    <span className="text-[13px] font-black tabular-nums">{Math.round(margem)}%</span>
+                  </Anel>
+                  <span className="text-[9.5px] font-black tracking-[.1em] mt-1" style={{ color: "#7b766e" }}>DE LUCRO</span>
+                </div>
               </div>
             );
           })()}
@@ -2538,6 +2545,89 @@ export default function Finances() {
           });
           return (
             <>
+              {/* ===== MÊS BLINDADO (Rick 03/10: sozinho no topo, com as caixinhas logo embaixo) ===== */}
+              {abertas.length > 0 && (
+                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(61,214,140,.22)" }}>
+                  <MesBlindado
+                    guardado={guardadoContas}
+                    total={totalContas}
+                    cobertas={cobertas}
+                    contas={abertas.length}
+                    diaBlindado={diaBlindado}
+                    recado={recado}
+                    onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
+                  />
+                </section>
+              )}
+
+              {/* ===== CAIXINHAS ===== */}
+              <div className="flex flex-col gap-2.5">
+                <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")} className="flex items-center justify-between gap-2 px-1 w-full text-left">
+                  <p className="orbis-section">Caixinhas{ativas.length > 0 ? ` · ${ativas.length} ${ativas.length === 1 ? "ativa" : "ativas"}` : ""}</p>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap" style={{ color: "#7e7869" }}>
+                    {juntou > 0 && <>juntou <b className="text-foreground tabular-nums">{formatCurrency(juntou)}</b></>}
+                    <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
+                  </span>
+                </button>
+                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+                  {ativas.map((g) => {
+                    const alvo = Number(g.target_amount) || 0;
+                    const tem = Number(g.current_amount) || 0;
+                    const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
+                    const ritmo = metaRitmoDia(g);
+                    const falta = Math.max(0, alvo - tem);
+                    const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
+                    const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
+                    // projeção (Lote 3): até 2 meses mostra a data em que chega; depois, em meses
+                    const diasCx = ritmo > 0 && falta > 0 ? Math.ceil(falta / ritmo) : 0;
+                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null
+                      : meses <= 2 ? `chega ~${dataEmDiasUteis(diasCx).data}`
+                      : `~ ${Math.round(meses)} meses`;
+                    const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => { setPorta("objetivos"); setMetaAberta(g.id); }}
+                        className="w-full flex items-center gap-3.5 min-h-[72px] py-3 text-left"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                      >
+                        <Anel pct={pct} size={50} stroke={6} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}>
+                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-[30px] h-[30px] rounded-full object-cover" /> : <span className="text-[16px] leading-none">{g.icon && !/^https?:/.test(g.icon) ? g.icon : "🎯"}</span>}
+                        </Anel>
+                        <span className="flex-1 min-w-0 flex flex-col gap-1">
+                          <span className="text-[15px] font-bold truncate">{g.name}</span>
+                          <span className="orbis-num text-[12.5px]" style={{ color: "#7e7869" }}><b className="text-foreground">{formatCurrency(tem)}</b> de {formatCurrency(alvo)}</span>
+                        </span>
+                        <span className="flex flex-col items-end gap-[3px] shrink-0">
+                          <span className="orbis-num text-[21px] font-extrabold leading-none" style={{ color: pct >= 100 ? "#3DD68C" : "#F5B800" }}>{Math.round(pct)}%</span>
+                          <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: "#7e7869" }}>
+                            {pct >= 100 ? "conquistada" : ritmo > 0 ? `${formatCurrency(ritmo)}/dia${mesesLabel ? ` · ${mesesLabel}` : ""}` : `faltam ${formatCurrency(falta)}`}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {/* CRIAR CAIXINHA — o convite, sempre visível */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGoalOpen(true)}
+                    className="w-full flex items-center gap-3.5 min-h-[78px] px-3 py-3 my-3 rounded-[14px] text-left active:scale-[0.99] transition-transform"
+                    style={{ border: "1.5px dashed rgba(245,184,0,.45)", background: "rgba(245,184,0,.05)" }}
+                  >
+                    <span className="inline-flex items-center justify-center w-[50px] h-[50px] rounded-full shrink-0" style={{ background: "linear-gradient(180deg,#ffc63a,#F5B800)", boxShadow: "0 4px 0 #b88700" }}>
+                      <Plus className="w-6 h-6" style={{ color: "#1a1200" }} strokeWidth={3} />
+                    </span>
+                    <span className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
+                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e a Vant diz quanto por dia.</span>
+                    </span>
+                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
+                  </button>
+                </section>
+              </div>
+
               {/* ===== CONTAS A PAGAR ===== */}
               <div className="flex flex-col gap-2.5">
                 <div className="flex items-center justify-between gap-2 px-1">
@@ -2554,15 +2644,6 @@ export default function Finances() {
                     </button>
                   ) : (
                     <>
-                      <MesBlindado
-                        guardado={guardadoContas}
-                        total={totalContas}
-                        cobertas={cobertas}
-                        contas={abertas.length}
-                        diaBlindado={diaBlindado}
-                        recado={recado}
-                        onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
-                      />
 
                       {/* uma linha por conta, com o Paguei */}
                       <div className="flex flex-col py-1">
@@ -2680,74 +2761,6 @@ export default function Finances() {
 
               {/* ===== RAIO-X DO EXTRATO (Rick 29/09: logo abaixo de Contas a pagar) ===== */}
               <RaioXEntrada userId={user?.id} />
-
-              {/* ===== CAIXINHAS ===== */}
-              <div className="flex flex-col gap-2.5">
-                <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")} className="flex items-center justify-between gap-2 px-1 w-full text-left">
-                  <p className="orbis-section">Caixinhas{ativas.length > 0 ? ` · ${ativas.length} ${ativas.length === 1 ? "ativa" : "ativas"}` : ""}</p>
-                  <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap" style={{ color: "#7e7869" }}>
-                    {juntou > 0 && <>juntou <b className="text-foreground tabular-nums">{formatCurrency(juntou)}</b></>}
-                    <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
-                  </span>
-                </button>
-                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-                  {ativas.map((g) => {
-                    const alvo = Number(g.target_amount) || 0;
-                    const tem = Number(g.current_amount) || 0;
-                    const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
-                    const ritmo = metaRitmoDia(g);
-                    const falta = Math.max(0, alvo - tem);
-                    const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
-                    const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
-                    // projeção (Lote 3): até 2 meses mostra a data em que chega; depois, em meses
-                    const diasCx = ritmo > 0 && falta > 0 ? Math.ceil(falta / ritmo) : 0;
-                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null
-                      : meses <= 2 ? `chega ~${dataEmDiasUteis(diasCx).data}`
-                      : `~ ${Math.round(meses)} meses`;
-                    const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => { setPorta("objetivos"); setMetaAberta(g.id); }}
-                        className="w-full flex items-center gap-3.5 min-h-[72px] py-3 text-left"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                      >
-                        <Anel pct={pct} size={50} stroke={6} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}>
-                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-[30px] h-[30px] rounded-full object-cover" /> : <span className="text-[16px] leading-none">{g.icon && !/^https?:/.test(g.icon) ? g.icon : "🎯"}</span>}
-                        </Anel>
-                        <span className="flex-1 min-w-0 flex flex-col gap-1">
-                          <span className="text-[15px] font-bold truncate">{g.name}</span>
-                          <span className="orbis-num text-[12.5px]" style={{ color: "#7e7869" }}><b className="text-foreground">{formatCurrency(tem)}</b> de {formatCurrency(alvo)}</span>
-                        </span>
-                        <span className="flex flex-col items-end gap-[3px] shrink-0">
-                          <span className="orbis-num text-[21px] font-extrabold leading-none" style={{ color: pct >= 100 ? "#3DD68C" : "#F5B800" }}>{Math.round(pct)}%</span>
-                          <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: "#7e7869" }}>
-                            {pct >= 100 ? "conquistada" : ritmo > 0 ? `${formatCurrency(ritmo)}/dia${mesesLabel ? ` · ${mesesLabel}` : ""}` : `faltam ${formatCurrency(falta)}`}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-
-                  {/* CRIAR CAIXINHA — o convite, sempre visível */}
-                  <button
-                    type="button"
-                    onClick={() => setIsAddGoalOpen(true)}
-                    className="w-full flex items-center gap-3.5 min-h-[78px] px-3 py-3 my-3 rounded-[14px] text-left active:scale-[0.99] transition-transform"
-                    style={{ border: "1.5px dashed rgba(245,184,0,.45)", background: "rgba(245,184,0,.05)" }}
-                  >
-                    <span className="inline-flex items-center justify-center w-[50px] h-[50px] rounded-full shrink-0" style={{ background: "linear-gradient(180deg,#ffc63a,#F5B800)", boxShadow: "0 4px 0 #b88700" }}>
-                      <Plus className="w-6 h-6" style={{ color: "#1a1200" }} strokeWidth={3} />
-                    </span>
-                    <span className="flex-1 min-w-0 flex flex-col gap-1">
-                      <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
-                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e a Vant diz quanto por dia.</span>
-                    </span>
-                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
-                  </button>
-                </section>
-              </div>
 
               <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
             </>

@@ -2,6 +2,16 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Finanças: caixinhas no alto, reserva em "Guardado" e lucro do mês explicado
+
+**O que mudou pro vendedor**
+- **Ordem nova**: o **Mês blindado** virou um card próprio e as **Caixinhas** vêm logo embaixo dele. Depois as Contas a pagar, o Rastreador e o Raio-X. Antes as caixinhas ficavam lá no fim.
+- **Guardado** (Vant Pro): a conta marcada como **Reserva** (ex.: Santander) agora entra no Guardado, junto dos CDBs e caixinhas lidos do banco, com a linha "sua conta de reserva". O "seu número" não conta essa conta duas vezes.
+- **"Sobrou pra você esse mês" virou "SEU LUCRO NO MÊS"**, com a conta na tela: "vendeu R$ 841 − custos R$ 159,25", a frase "o que ficou pra você depois de mercadoria, transporte e comida" e o anel com "DE LUCRO" embaixo.
+
+**Por dentro**
+- Migration `20261003230000_guardado_conta_reserva.sql`: `financas_painel()` com o CTE `res` (saldo das contas `papel = 'reserva'`), campo `reserva`, `guardado` somando a reserva e `saldo_contas` sem ela.
+
 ## 03/10/2026 — Popup do dia no padrão Vant
 
 - O popup que abre na Início ("Seu Dia em Andamento") ganhou o visual do card da Foco: preto, borda e rótulo na cor do momento (vermelho antes de começar, verde com o DEFCON rodando, dourado com o dia fechado), número grande, barra da meta, linha SEMANA · MÊS · HORAS sem centavos cortados e o botão do momento (INICIAR MEU DIA / VOLTAR PRO DEFCON / VER O RELATÓRIO DE HOJE). Saíram os ícones coloridos azul/roxo e os emojis.
