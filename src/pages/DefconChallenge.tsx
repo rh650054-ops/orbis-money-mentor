@@ -25,6 +25,9 @@ export default function DefconChallenge() {
   const [params] = useSearchParams();
   const treino = params.get("treino") === "1";
   const primeiroDia = params.get("primeiro") === "1"; // veio direto do onboarding
+  // "RETOMAR MEU LUGAR" (Foco, Lote 4): /defcon?mais=1 volta o DEFCON encerrado por mais uma hora
+  const maisUmaHora = params.get("mais") === "1";
+  const estendeuRef = useRef(false);
   const { user, loading: authLoading } = useAuth();
   const realDefcon = useDefconChallenge(treino ? undefined : user?.id);
   const onbDefcon = useDefconOnboarding(user?.id);
@@ -85,6 +88,15 @@ export default function DefconChallenge() {
         .then(({ error }) => { if (error) avisar.erro("DefconChallenge: gravar distância da sessão", error); });
     }
   }, [defcon.phase, defcon.sessionId, treino]);
+
+  // RETOMAR MEU LUGAR: chegou com ?mais=1 e o dia está encerrado → mais uma hora, uma vez só.
+  useEffect(() => {
+    if (treino || !maisUmaHora || estendeuRef.current) return;
+    if (defcon.phase !== "finished" && defcon.phase !== "abandoned") return;
+    estendeuRef.current = true;
+    navigate("/defcon", { replace: true });
+    void defcon.extendChallenge?.();
+  }, [defcon.phase, maisUmaHora, treino, navigate, defcon]);
 
   // Valor da "venda rápida" = valor mais frequente do dia (mesmo critério dos
   // botões de venda rápida na tela). 0 = ainda sem nenhuma venda registrada.
