@@ -57,6 +57,8 @@ import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbi
 import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
 import { FinancasHome } from "@/components/financas/FinancasHome";
 import { RastreadorGastos } from "@/components/financas/RastreadorGastos";
+import { MesBlindado, SeloConta } from "@/components/financas/MesBlindado";
+import { diasUteisAteBlindar, guardadoMedioDia, recadoBlindado, seloConta } from "@/components/financas/blindagem";
 
 /* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
    componente pra não remontar a cada tecla. */
@@ -2512,7 +2514,28 @@ export default function Finances() {
           const visiveis = contasTodas ? lista : lista.slice(0, 6);
           const ativas = goalsOrdenadas.filter((g) => g.status !== "completed" && g.status !== "concluida");
           const juntou = goals.reduce((t, g) => t + (Number(g.current_amount) || 0), 0);
-          const diasFaltam = ritmoSustentavel > 0 ? Math.ceil(blindado.falta / ritmoSustentavel) : 0;
+          // LOTE 3 (03/10): projeção "no ritmo de hoje, dia 19" usa o que ele GUARDA
+          // de fato (média dos dias de trabalho das últimas 2 semanas); o recado
+          // compara isso com o que as contas pedem.
+          const faltaContas = Math.max(0, totalContas - guardadoContas);
+          const guardaDia = guardadoMedioDia(diasGuardados, workingDays, new Date());
+          const diasBlind = diasUteisAteBlindar(faltaContas, guardaDia);
+          const rotuloDia = (n: number) => {
+            const q = dataEmDiasUteis(n);
+            const mesmoMes = q.data.slice(3, 5) === getBrazilDate().slice(5, 7);
+            return mesmoMes ? `dia ${q.data.slice(0, 2)}` : `dia ${q.data}`;
+          };
+          const diaBlindado = diasBlind != null && diasBlind > 0 ? rotuloDia(diasBlind) : null;
+          const proximaConta = lista.find((b) => !isOverdue(b) && remaining(b) > 0.005 && nextDueDate(b) && !(b.recurring && b.paid_cycle === cicloAtual));
+          const proximaNd = proximaConta ? nextDueDate(proximaConta) : null;
+          const recado = recadoBlindado({
+            falta: faltaContas,
+            ritmoContas: ritmoSustentavel,
+            guardaDia,
+            lucroDia: summary.mediaDiariaLiquida,
+            proxima: proximaConta && proximaNd ? { nome: proximaConta.name, dia: `dia ${toYMD(proximaNd).slice(8, 10)}` } : null,
+            diaBlindado,
+          });
           return (
             <>
               {/* ===== CONTAS A PAGAR ===== */}
@@ -2531,27 +2554,15 @@ export default function Finances() {
                     </button>
                   ) : (
                     <>
-                      {/* já guardado */}
-                      <div className="flex flex-col gap-2 py-3.5" style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}>
-                        <div className="flex items-center justify-between gap-2.5">
-                          <span className="inline-flex items-center gap-1.5 text-[12.5px] font-bold" style={{ color: "#b9b3a6" }}>
-                            <ShieldCheck className="w-[15px] h-[15px]" style={{ color: "#3DD68C" }} strokeWidth={2.2} /> Já guardado
-                          </span>
-                          <span className="orbis-num text-[12.5px] whitespace-nowrap" style={{ color: "#7e7869" }}><b className="text-[14px]" style={{ color: "#3DD68C" }}>{formatCurrency(guardadoContas)}</b> de {formatCurrency(totalContas)}</span>
-                        </div>
-                        <div className="h-2 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.1)" }}>
-                          <div className="orbis-fill h-full rounded-full" style={{ width: `${Math.min(100, pctContas)}%`, background: "#3DD68C" }} />
-                        </div>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-[11.5px] min-w-0 truncate" style={{ color: "#7e7869" }}>
-                            {cobertas} de {abertas.length} {cobertas === 1 ? "coberta" : "cobertas"}
-                            {blindado.falta <= 0.005 ? " · mês blindado" : diasFaltam > 0 ? <> · fecha o mês sem dever em <b className="tabular-nums" style={{ color: "#b9b3a6" }}>{diasFaltam} {diasFaltam === 1 ? "dia" : "dias"}</b></> : null}
-                          </p>
-                          <button type="button" onClick={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }} aria-label="Ajustar total guardado" className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ border: "1px solid rgba(255,255,255,.1)", color: "#7e7869" }}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
+                      <MesBlindado
+                        guardado={guardadoContas}
+                        total={totalContas}
+                        cobertas={cobertas}
+                        contas={abertas.length}
+                        diaBlindado={diaBlindado}
+                        recado={recado}
+                        onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
+                      />
 
                       {/* uma linha por conta, com o Paguei */}
                       <div className="flex flex-col py-1">
@@ -2567,6 +2578,8 @@ export default function Finances() {
                           const faturaAberta = Boolean(b.is_credit_card) && amount <= 0;
                           const urgente = n != null && n <= 3 && !pagoCiclo;
                           const destaque = !pagoCiclo && !over && quitada && urgente;
+                          const selo = seloConta({ paga: pagoCiclo, vencida: over, coberta: quitada, diasAteVencer: n });
+                          const resolver = over && !quitada && !pagoCiclo;
                           const cor = pagoCiclo ? "#3DD68C" : over ? "#FF5C5C" : urgente ? "#F5B800" : "#7e7869";
                           const rotulo = pagoCiclo
                             ? <>paga este mês · <span style={{ color: "#7e7869" }}>volta {nd ? nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : ""}</span></>
@@ -2595,11 +2608,20 @@ export default function Finances() {
                                   : <Receipt className="w-[17px] h-[17px]" style={{ color: destaque ? "#F5B800" : "#b9b3a6" }} strokeWidth={2.1} />}
                               </span>
                               <span className="flex-1 min-w-0 flex flex-col gap-1">
-                                <span className="flex items-baseline gap-2 min-w-0">
+                                <span className="flex items-center gap-2 min-w-0">
                                   <span className="text-[15px] font-bold truncate" style={{ color: pagoCiclo ? "#b9b3a6" : undefined }}>{b.name}</span>
                                   <span className="orbis-num text-[13px] font-extrabold shrink-0" style={{ color: pagoCiclo ? "#7e7869" : undefined }}>{formatCurrency(amount)}</span>
                                 </span>
-                                {pagoCiclo || quitada || over || faturaAberta ? (
+                                {selo && !pagoCiclo && !faturaAberta ? (
+                                  <span className="flex items-center gap-1.5 min-w-0">
+                                    <SeloConta texto={selo.texto} cor={selo.cor} />
+                                    <span className="orbis-num text-[11px] whitespace-nowrap truncate" style={{ color: "#7e7869" }}>
+                                      {over ? `guardado ${formatCurrency(saved)}`
+                                        : quitada ? (n != null && n > 1 ? rotulo : `${formatCurrency(saved)} guardado`)
+                                        : `${formatCurrency(saved)} guardado`}
+                                    </span>
+                                  </span>
+                                ) : pagoCiclo || quitada || over || faturaAberta ? (
                                   <span className="text-[12px] font-extrabold whitespace-nowrap truncate" style={{ color: cor }}>
                                     {rotulo}{quitada && !pagoCiclo && !over ? <span style={{ color: "#3DD68C" }}> · coberta</span> : null}
                                   </span>
@@ -2615,6 +2637,16 @@ export default function Finances() {
                               {pagoCiclo ? (
                                 <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleBillPaid(b); }} className="inline-flex items-center gap-1 h-10 px-2.5 text-[12px] font-bold shrink-0" style={{ color: "#7e7869" }}>
                                   <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.4} /> desfazer
+                                </button>
+                              ) : resolver ? (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); openDeposit({ kind: "bill", bill: b }, remaining(b)); }}
+                                  className="inline-flex flex-col items-center justify-center h-11 px-2.5 rounded-xl shrink-0 whitespace-nowrap active:scale-95 transition-transform leading-tight"
+                                  style={{ background: "linear-gradient(180deg,#ff6b6b,#e04545)", color: "#1a0505", boxShadow: "0 3px 0 #9e2a2a" }}
+                                >
+                                  <span className="text-[12.5px] font-black">Resolver agora</span>
+                                  <span className="orbis-num text-[10px] font-extrabold opacity-80">guardar {formatCurrency(remaining(b))}</span>
                                 </button>
                               ) : (
                                 <button
@@ -2667,7 +2699,11 @@ export default function Finances() {
                     const falta = Math.max(0, alvo - tem);
                     const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
                     const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
-                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null : meses < 1 ? "~ 1 mês" : `~ ${Math.round(meses)} ${Math.round(meses) === 1 ? "mês" : "meses"}`;
+                    // projeção (Lote 3): até 2 meses mostra a data em que chega; depois, em meses
+                    const diasCx = ritmo > 0 && falta > 0 ? Math.ceil(falta / ritmo) : 0;
+                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null
+                      : meses <= 2 ? `chega ~${dataEmDiasUteis(diasCx).data}`
+                      : `~ ${Math.round(meses)} meses`;
                     const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
                     return (
                       <button

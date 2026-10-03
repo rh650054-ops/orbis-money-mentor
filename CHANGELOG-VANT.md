@@ -2,6 +2,19 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 03/10/2026 — Finanças, lote 3: Mês blindado, selos, "Resolver agora", recado e projeção
+
+**O que mudou pro vendedor**
+- **Mês blindado** no topo das Contas a pagar: o % do mês já guardado em número grande, "3 de 5 contas cobertas", e "Faltam R$ 590 pra fechar o mês sem dever nada. **No ritmo de hoje, dia 19**" (o ritmo é o que ele guardou de verdade nos dias de trabalho das últimas 2 semanas).
+- **Recado** logo embaixo: "Você guarda 18% do lucro. Suas contas pedem 27%. Com R$ 28 a mais por dia, o Aluguel chega pago no dia 10 sem aperto." Quando o ritmo dá conta, o recado elogia e diz o dia em que o mês fecha.
+- **Selo em cada conta**: VENCEU ONTEM / VENCEU HÁ N DIAS (vermelho), BLINDADA (verde, já está toda guardada), VENCE HOJE / VENCE AMANHÃ (amarelo).
+- **Resolver agora**: conta vencida que ainda não está guardada troca o "Paguei" por um botão vermelho que já abre o guardar com o valor que falta.
+- **Projeção nas caixinhas**: até 2 meses, mostra a data em que a caixinha chega ("chega ~12/11"); mais longe que isso, em meses.
+
+**Por dentro**
+- `src/components/financas/blindagem.ts` (+ teste): `guardadoMedioDia`, `diasUteisAteBlindar`, `recadoBlindado`, `seloConta`.
+- `src/components/financas/MesBlindado.tsx`: card do mês blindado + `SeloConta`.
+
 ## 03/10/2026 — Segurança: funções com caminho fixo
 
 **Por dentro**
