@@ -115,9 +115,9 @@ export function SeuDinheiro({ h, onVerBancos }: { h: HomeFinancas; onVerBancos: 
           <p className="text-[13px] font-semibold" style={{ color: SUB }}>
             disponível agora · {nBancos} {nBancos === 1 ? "banco" : "bancos"}{lido}
           </p>
-          {h.saldo_reserva != null && (
+          {h.saldo_pessoal != null && (
             <p className="text-[12.5px] font-bold tabular-nums" style={{ color: MUTE }}>
-              trabalho <b className="text-foreground">{reais(h.saldo_trabalho ?? 0)}</b> · reserva <b className="text-foreground">{reais(h.saldo_reserva ?? 0)}</b>
+              trabalho <b className="text-foreground">{reais(h.saldo_trabalho ?? 0)}</b> · pessoal <b className="text-foreground">{reais(h.saldo_pessoal ?? 0)}</b>
             </p>
           )}
         </>
@@ -225,7 +225,7 @@ export function Movimento({ h, onVer }: { h: HomeFinancas; onVer: () => void }) 
 export function BancosLista({ h, onGerenciar }: { h: HomeFinancas; onGerenciar: () => void }) {
   const linhas = h.contas && h.contas.length > 0
     ? h.contas.map((c) => ({ id: c.id, banco: c.banco ?? "Banco", saldo: c.saldo, papel: c.papel }))
-    : h.bancos.map((b, i) => ({ id: String(i), banco: b.banco ?? "Banco", saldo: b.saldo as number | null, papel: null as "trabalho" | "reserva" | null }));
+    : h.bancos.map((b, i) => ({ id: String(i), banco: b.banco ?? "Banco", saldo: b.saldo as number | null, papel: null as "trabalho" | "pessoal" | null }));
   return (
     <section className="orbis-card-in rounded-[18px] border px-4 py-3" style={{ background: "#0e0e10", borderColor: LINHA }}>
       <div className="flex items-center justify-between gap-2 pb-1">
@@ -245,7 +245,7 @@ export function BancosLista({ h, onGerenciar }: { h: HomeFinancas; onGerenciar: 
               <span className="text-[9.5px] font-black tracking-[.1em] uppercase rounded-full px-2 py-0.5 shrink-0"
                 style={l.papel === "trabalho"
                   ? { color: GOLD, border: "1px solid rgba(245,184,0,.45)", background: "#1a1305" }
-                  : { color: "#8cc4ff", border: "1px solid rgba(90,176,255,.4)", background: "#0b1520" }}>
+                  : { color: "#d8d2c6", border: "1px solid rgba(255,255,255,.18)", background: "#16161a" }}>
                 {l.papel}
               </span>
             )}

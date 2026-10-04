@@ -115,7 +115,7 @@ export interface BancoLigado {
   status: string | null;
   last_synced_at: string | null;
   created_at?: string | null;
-  papel?: "trabalho" | "reserva" | null;
+  papel?: "trabalho" | "pessoal" | null;
 }
 
 export async function carregarBancos(): Promise<BancoLigado[]> {
@@ -180,8 +180,44 @@ export const horaBR = (iso: string | null) => {
 };
 
 /** Pra que serve cada banco (Rick, 03/10): trabalho = fluxo de caixa; reserva = guardar. */
-export async function definirPapel(conexaoId: string, papel: "trabalho" | "reserva"): Promise<boolean> {
-  const { error } = await supabase.from("bank_connections" as any).update({ papel }).eq("id", conexaoId);
-  if (error) { avisar.erro("pluggy: papel do banco", error); return false; }
+/* ---------- conta de TRABALHO × PESSOAL (04/10) ----------
+   Só Pix que cai em conta de trabalho vira venda. O papel só muda pela RPC
+   (o banco recusa gravação direta) e, depois da 1ª escolha, 1 troca a cada 7 dias. */
+export type ResultadoPapel = { ok: true } | { ok: false; erro: "trava"; liberadaEm: string | null } | { ok: false; erro: "falha" };
+
+export async function definirPapel(conexaoId: string, papel: "trabalho" | "pessoal"): Promise<ResultadoPapel> {
+  const { data, error } = await (supabase as any).rpc("open_finance_definir_papel", { p_conexao: conexaoId, p_papel: papel });
+  if (error) { avisar.erro("pluggy: papel do banco", error); return { ok: false, erro: "falha" }; }
+  const r = (data ?? {}) as { ok?: boolean; erro?: string; liberada_em?: string };
+  if (r.ok) return { ok: true };
+  if (r.erro === "trava") return { ok: false, erro: "trava", liberadaEm: r.liberada_em ?? null };
+  return { ok: false, erro: "falha" };
+}
+
+export interface ContaVenda {
+  id: string; banco: string | null; logo: string | null; papel: "trabalho" | "pessoal" | null; saldo: number | null;
+  sugestao: "trabalho" | "pessoal" | null; motivo: string | null; entradas_30d: number;
+  pode_trocar: boolean; troca_liberada_em: string | null; conta_venda: boolean;
+}
+
+/** Cada banco ligado com o papel, o saldo e a sugestão da Vant pelo histórico. */
+export async function carregarContasVenda(): Promise<ContaVenda[]> {
+  const { data, error } = await (supabase as any).rpc("open_finance_contas");
+  if (error) { avisar.silencioso("open_finance_contas", error); return []; }
+  return ((data as any[]) || []).map((c) => ({ ...c, saldo: c.saldo == null ? null : Number(c.saldo), entradas_30d: Number(c.entradas_30d) || 0 })) as ContaVenda[];
+}
+
+/* ---------- reserva = uma CAIXINHA do banco (04/10) ---------- */
+export interface Caixinha { id: string; banco: string | null; nome: string | null; tipo: string | null; saldo: number; reserva: boolean; atualizado_em: string | null }
+
+export async function carregarCaixinhas(): Promise<Caixinha[]> {
+  const { data, error } = await (supabase as any).rpc("open_finance_caixinhas");
+  if (error) { avisar.silencioso("open_finance_caixinhas", error); return []; }
+  return ((data as any[]) || []).map((c) => ({ ...c, saldo: Number(c.saldo) || 0, reserva: !!c.reserva })) as Caixinha[];
+}
+
+export async function marcarReserva(id: string, reserva: boolean): Promise<boolean> {
+  const { error } = await (supabase as any).rpc("open_finance_marcar_reserva", { p_id: id, p_reserva: reserva });
+  if (error) { avisar.erro("open_finance_marcar_reserva", error); return false; }
   return true;
 }

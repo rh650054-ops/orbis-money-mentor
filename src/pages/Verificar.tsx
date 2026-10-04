@@ -32,12 +32,11 @@ import { ConviteBanco } from "@/components/conectar/ConviteBanco";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHoje } from "@/components/conectar/ProConectado";
 import { GerenciarConexoes } from "@/components/conectar/GerenciarConexoes";
-import { BancoExtra } from "@/components/conectar/PapelContas";
+import { BancoExtra, ContasDeVenda } from "@/components/conectar/PapelContas";
 import { ComprovanteRenda } from "@/components/conectar/ComprovanteRenda";
 import {
   ligarBanco, salvarBanco, carregarBancos, carregarPro,
-  type BancoLigado, type StatusPro,
-} from "@/components/conectar/pluggy";
+  type BancoLigado, type StatusPro, carregarContasVenda, type ContaVenda } from "@/components/conectar/pluggy";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -97,19 +96,22 @@ export default function Verificar() {
   const [proHoje, setProHoje] = useState<ProHoje | null>(null);
   const [gerenciar, setGerenciar] = useState(false);
   const [bancoExtra, setBancoExtra] = useState(false);
+  const [contasVenda, setContasVenda] = useState<ContaVenda[]>([]);
 
   const recarregar = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [p, b, s, pf, px] = await Promise.all([
+      const [p, b, s, pf, px, cv] = await Promise.all([
         carregarPro(),
         carregarBancos().catch(() => [] as BancoLigado[]),
         Promise.resolve((supabase as any).rpc("mp_status")).catch(() => ({ data: null })),
         Promise.resolve(supabase.from("public_profiles").select("nickname, avatar_url").eq("user_id", user.id).maybeSingle()).catch(() => ({ data: null })),
         carregarProHoje().catch(() => null),
+        carregarContasVenda().catch(() => [] as ContaVenda[]),
       ]);
       setPro(p);
       setBancos(b);
+      setContasVenda(cv);
       const linha = (pf as { data: { nickname?: string | null; avatar_url?: string | null } | null }).data;
       setPerfil({ nome: (linha?.nickname ?? "").trim(), avatar: linha?.avatar_url ?? null });
       setProHoje(px);
@@ -172,7 +174,7 @@ export default function Verificar() {
       return;
     }
     toast({
-      title: `${salvo.banco} conectado`,
+      title: bancos.length >= 1 ? `${salvo.banco} conectado · diz pra que serve` : `${salvo.banco} conectado`,
       description: salvo.entradas > 0
         ? `${salvo.entradas} ${salvo.entradas === 1 ? "entrada" : "entradas"} dos últimos 7 dias já estão aqui.`
         : salvo.verificado ? "Você agora é verificado." : "Estamos puxando seus recebimentos.",
@@ -317,8 +319,11 @@ export default function Verificar() {
         </span>
       </div>
       {bancoExtra && <BancoExtra usados={bancos.length} email={user?.email} onFechar={() => setBancoExtra(false)} />}
+      {/* 04/10: com 2+ bancos, pergunta logo aqui pra que serve cada conta (trabalho × pessoal) */}
+      {contasVenda.length >= 2 && contasVenda.some((c) => !c.papel) && <ContasDeVenda contas={contasVenda} onMudou={() => void recarregar()} />}
       <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
         onLigarBanco={abrirBanco} onLigarCarteira={ligarCarteira} />
+      {contasVenda.length >= 2 && contasVenda.every((c) => c.papel) && <ContasDeVenda contas={contasVenda} onMudou={() => void recarregar()} />}
       <button type="button" onClick={() => setGerenciar(true)}
         className="w-full h-[52px] rounded-[16px] text-[14px] font-black active:opacity-70"
         style={{ background: "#111114", border: "1px solid #1f1e22", color: "#F4F1EA" }}>

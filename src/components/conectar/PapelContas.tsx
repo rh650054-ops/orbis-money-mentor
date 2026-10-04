@@ -1,78 +1,129 @@
 /* ============================================================
-   CONTA DE TRABALHO × CONTA DE RESERVA (Rick, 03/10/2026)
-   • PapelEscolha: com 2+ bancos ligados e algum sem papel, Finanças pergunta
-     UMA vez "pra que serve cada conta?". Trabalho = fluxo de caixa do corre;
-     Reserva = onde guarda. Dá pra mudar depois em Vant Pro → Gerenciar conexões.
-   • PapelToggle: o par de botões, reaproveitado no Gerenciar conexões.
+   PRA QUE SERVE CADA CONTA — TRABALHO × PESSOAL (04/10/2026, Mohamed)
+   Fica no Vender, logo onde o banco é ligado (saiu das Finanças).
+   • Só o Pix que cai em conta de TRABALHO vira venda (DEFCON, relatório e
+     ranking). Conta PESSOAL fica fora das vendas e entra só nos gastos.
+   • A Vant sugere o papel pelo histórico do banco (muitas entradas pequenas
+     no mesmo dia = cara de conta de vendas). Quem decide é o vendedor.
+   • Trava: depois da 1ª escolha, 1 troca a cada 7 dias; virar trabalho depois
+     não puxa Pix antigo pro ranking. (A regra mora no banco de dados.)
+   • A reserva deixou de ser uma conta: é uma caixinha (ver ReservaCaixinha).
    • BancoExtra: o Pro inclui 1 banco; cada um a mais é +R$ 10/mês.
    ============================================================ */
 import { useState } from "react";
-import { Briefcase, LifeBuoy, Loader2 } from "lucide-react";
+import { Briefcase, Home, Loader2, Sparkles, Lock } from "lucide-react";
 import { toast } from "@/shared/hooks/use-toast";
 import { BANCO_EXTRA_CHECKOUT } from "@/shared/lib/checkout";
-import { definirPapel } from "@/components/conectar/pluggy";
+import { definirPapel, type ContaVenda } from "@/components/conectar/pluggy";
 
-export type Papel = "trabalho" | "reserva";
+export type Papel = "trabalho" | "pessoal";
 const GOLD = "#F5B800";
-const AZUL = "#5ab0ff";
+const SUB = "#b9b3a6";
 const MUTE = "#8a857c";
+const LINHA = "rgba(255,255,255,.07)";
 
-export function PapelToggle({ valor, onEscolher, ocupado }: { valor: Papel | null; onEscolher: (p: Papel) => void; ocupado?: boolean }) {
-  const botao = (p: Papel, rotulo: string, cor: string, Icone: typeof Briefcase) => {
+const ROTULO: Record<Papel, string> = { trabalho: "Trabalho", pessoal: "Pessoal" };
+const ddmm = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }) : "";
+const reais = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }).replace(/,00$/, "");
+
+export function PapelToggle({ valor, onEscolher, ocupado, travado }: { valor: Papel | null; onEscolher: (p: Papel) => void; ocupado?: boolean; travado?: boolean }) {
+  const botao = (p: Papel, cor: string, Icone: typeof Briefcase) => {
     const on = valor === p;
     return (
-      <button type="button" disabled={ocupado} onClick={() => onEscolher(p)}
-        className="h-8 px-2.5 rounded-[10px] inline-flex items-center gap-1.5 text-[11.5px] font-black disabled:opacity-60"
+      <button type="button" disabled={ocupado || (travado && !on)} onClick={() => onEscolher(p)} aria-pressed={on}
+        className="h-8 px-2.5 rounded-[10px] inline-flex items-center gap-1.5 text-[11.5px] font-black disabled:opacity-50"
         style={on ? { background: `${cor}22`, border: `1.5px solid ${cor}`, color: cor } : { background: "#16161a", border: "1px solid #2a2a2e", color: MUTE }}>
-        <Icone className="w-3.5 h-3.5" /> {rotulo}
+        <Icone className="w-3.5 h-3.5" /> {ROTULO[p]}
       </button>
     );
   };
   return (
     <div className="flex gap-1.5 shrink-0">
-      {botao("trabalho", "Trabalho", GOLD, Briefcase)}
-      {botao("reserva", "Reserva", AZUL, LifeBuoy)}
+      {botao("trabalho", GOLD, Briefcase)}
+      {botao("pessoal", "#d8d2c6", Home)}
     </div>
   );
 }
 
+/** Conta como o Financeiro recebe (financas_home). */
 export interface ContaPapel { id: string; banco: string | null; papel: Papel | null; saldo: number | null }
 
-export function PapelEscolha({ contas, onPronto }: { contas: ContaPapel[]; onPronto: () => void }) {
-  const [papeis, setPapeis] = useState<Record<string, Papel | null>>(
-    Object.fromEntries(contas.map((c) => [c.id, c.papel])),
-  );
-  const [salvando, setSalvando] = useState<string | null>(null);
-  const nomes = contas.map((c) => c.banco ?? "Banco").join(" e ");
+/** Mensagem do resultado de definirPapel (trava de 7 dias / falha). */
+export function avisoPapel(r: Awaited<ReturnType<typeof definirPapel>>, banco: string, p: Papel): boolean {
+  if (r.ok) {
+    toast({ title: `${banco}: conta ${p === "trabalho" ? "de trabalho" : "pessoal"}`, description: p === "trabalho" ? "Pix que cair nela conta como venda." : "Fica fora das vendas e do ranking." });
+    return true;
+  }
+  if (r.erro === "trava") {
+    toast({ title: "Essa conta já trocou de papel essa semana", description: `Dá pra trocar de novo a partir de ${ddmm(r.liberadaEm)}.`, variant: "destructive" });
+    return false;
+  }
+  toast({ title: "Não deu pra salvar", description: "Tenta de novo.", variant: "destructive" });
+  return false;
+}
 
-  const escolher = async (id: string, p: Papel) => {
-    setSalvando(id);
-    const ok = await definirPapel(id, p);
+/** O card do Vender: cada conta ligada, a sugestão da Vant e o papel. */
+export function ContasDeVenda({ contas, onMudou }: { contas: ContaVenda[]; onMudou: () => void }) {
+  const [salvando, setSalvando] = useState<string | null>(null);
+  const faltam = contas.filter((c) => !c.papel).length;
+
+  const escolher = async (c: ContaVenda, p: Papel) => {
+    if (c.papel === p) return;
+    setSalvando(c.id);
+    const r = await definirPapel(c.id, p);
     setSalvando(null);
-    if (!ok) { toast({ title: "Não deu pra salvar", description: "Tenta de novo.", variant: "destructive" }); return; }
-    const novo = { ...papeis, [id]: p };
-    setPapeis(novo);
-    if (Object.values(novo).every(Boolean)) onPronto();
+    if (avisoPapel(r, c.banco ?? "Banco", p)) onMudou();
   };
 
   return (
-    <div className="rounded-[18px] p-4" style={{ background: "linear-gradient(170deg,#101a26,#0b0b0d 70%)", border: "1px solid rgba(90,176,255,.35)" }}>
-      <p className="text-[10px] font-black tracking-[.16em]" style={{ color: AZUL }}>PRA QUE SERVE CADA CONTA?</p>
-      <p className="text-[14px] font-extrabold mt-1 leading-snug">Você tem {contas.length} contas conectadas: {nomes}.</p>
-      <p className="text-[11.5px] mt-1 leading-relaxed" style={{ color: "#b9b3a6" }}>
-        <b style={{ color: GOLD }}>Trabalho</b> é o fluxo de caixa do corre. <b style={{ color: AZUL }}>Reserva</b> é onde você guarda. A Vant mostra cada uma separada.
+    <section className="rounded-[18px] p-4"
+      style={faltam > 0
+        ? { background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", border: "1px solid rgba(245,184,0,.45)" }
+        : { background: "#111114", border: "1px solid #1f1e22" }}>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[10px] font-black tracking-[.16em]" style={{ color: faltam > 0 ? GOLD : MUTE }}>PRA QUE SERVE CADA CONTA?</p>
+        {faltam > 0 && <span className="text-[10.5px] font-black rounded-full px-2 py-0.5" style={{ color: "#1a1200", background: GOLD }}>falta {faltam}</span>}
+      </div>
+      <p className="text-[12.5px] mt-1.5 leading-relaxed" style={{ color: SUB }}>
+        Só o Pix que cai em conta de <b style={{ color: GOLD }}>trabalho</b> conta como venda e vai pro ranking. Conta <b className="text-foreground">pessoal</b> fica fora das vendas.
       </p>
       <div className="mt-2.5 rounded-xl px-3" style={{ background: "rgba(0,0,0,.3)" }}>
-        {contas.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-2 py-2.5" style={{ borderTop: i === 0 ? "none" : "1px solid rgba(255,255,255,.07)" }}>
-            <span className="flex-1 min-w-0 text-[13px] font-extrabold truncate">{c.banco ?? "Banco"}</span>
-            {salvando === c.id && <Loader2 className="w-4 h-4 animate-spin" style={{ color: MUTE }} />}
-            <PapelToggle valor={papeis[c.id] ?? null} ocupado={!!salvando} onEscolher={(p) => void escolher(c.id, p)} />
-          </div>
-        ))}
+        {contas.map((c, i) => {
+          const sugere = !c.papel && c.sugestao;
+          return (
+            <div key={c.id} className="py-3" style={{ borderTop: i === 0 ? "none" : `1px solid ${LINHA}` }}>
+              <div className="flex items-baseline gap-2">
+                <span className="flex-1 min-w-0 text-[14px] font-extrabold truncate">{c.banco ?? "Banco"}</span>
+                {c.saldo != null && <span className="text-[12px] font-bold tabular-nums shrink-0" style={{ color: MUTE }}>{reais(c.saldo)}</span>}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <PapelToggle valor={c.papel} ocupado={!!salvando} travado={!c.pode_trocar} onEscolher={(p) => void escolher(c, p)} />
+                {salvando === c.id && <Loader2 className="w-4 h-4 animate-spin" style={{ color: MUTE }} />}
+              </div>
+              {sugere && (
+                <button type="button" onClick={() => void escolher(c, c.sugestao!)} disabled={!!salvando}
+                  className="mt-2 w-full text-left rounded-lg px-2.5 py-2 flex items-start gap-2 active:opacity-70"
+                  style={{ background: "rgba(245,184,0,.07)", border: "1px dashed rgba(245,184,0,.35)" }}>
+                  <Sparkles className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: GOLD }} />
+                  <span className="text-[11.5px] leading-snug" style={{ color: SUB }}>
+                    A Vant acha que é <b style={{ color: GOLD }}>{ROTULO[c.sugestao!].toLowerCase()}</b>. {c.motivo} <b className="text-foreground">Usar</b>
+                  </span>
+                </button>
+              )}
+              {!c.pode_trocar && (
+                <p className="mt-1.5 text-[10.5px] font-bold flex items-center gap-1" style={{ color: MUTE }}>
+                  <Lock className="w-3 h-3" /> troca liberada em {ddmm(c.troca_liberada_em)}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <p className="text-[10.5px] mt-2" style={{ color: MUTE }}>Dá pra mudar depois em Vant Pro → Gerenciar conexões.</p>
-    </div>
+      <p className="text-[10.5px] mt-2 leading-relaxed" style={{ color: MUTE }}>
+        Depois da primeira escolha, cada conta troca de papel 1 vez por semana. Virou trabalho depois? Vale daqui pra frente: Pix antigo não entra no ranking.
+      </p>
+    </section>
   );
 }
 

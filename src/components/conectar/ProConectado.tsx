@@ -131,7 +131,7 @@ export function OndeRecebe({ bancos, ligadas, disponiveis, ocupado, ligando, onL
             <div className="flex-1 min-w-0">
               <p className="text-[15px] font-black truncate">{b.institution_name || "Banco"}</p>
               <p className="text-[11.5px] truncate" style={{ color: s.alerta ? s.cor : MUTE }}>
-                {s.alerta ? s.texto : `${b.papel === "reserva" ? "reserva" : b.papel === "trabalho" ? "trabalho" : "banco"} · conferido ${horaBR(b.last_synced_at)}`}
+                {s.alerta ? s.texto : `${b.papel === "pessoal" ? "pessoal" : b.papel === "trabalho" ? "trabalho · vira venda" : "banco"} · conferido ${horaBR(b.last_synced_at)}`}
               </p>
             </div>
             {s.alerta
