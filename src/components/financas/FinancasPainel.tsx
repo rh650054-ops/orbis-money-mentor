@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { ChevronRight, CreditCard, Landmark, PiggyBank } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Gaveta } from "@/shared/components/gaveta";
 import { formatCurrency } from "@/shared/lib/utils";
 import { avisar } from "@/shared/lib/avisar";
 
@@ -20,7 +20,10 @@ const RED = "#ff8a7a";
 const MUTE = "#7b766e";
 const LINHA = "rgba(255,255,255,.07)";
 
-interface Cartao { banco: string | null; nome: string; fatura: number | null; limite: number | null; disponivel: number | null; vence: string | null; minimo: number | null }
+/** fatura = quanto do limite está usado (o "balance" que o banco manda — já inclui as parcelas que vêm).
+ *  vence = o próximo vencimento. O banco às vezes manda a data da fatura passada (dado atrasado do
+ *  Open Finance): o banco de dados empurra pro mês seguinte e marca vence_estimado. */
+interface Cartao { banco: string | null; nome: string; fatura: number | null; limite: number | null; disponivel: number | null; vence: string | null; vence_estimado?: boolean; minimo: number | null }
 interface Parcela { descricao: string; valor: number; atual: number; total: number; ate: string }
 interface Emprestimo { banco: string | null; nome: string; saldo_devedor: number | null; parcela: number | null; total: number | null; pagas: number | null; atrasadas: number; taxa_mes: number | null; vence: string | null }
 interface Investimento { banco: string | null; nome: string; tipo: string | null; saldo: number }
@@ -81,19 +84,21 @@ export function TelaCartao({ p }: { p: Painel }) {
     <div className="space-y-2.5">
       {p.cartoes.map((c, i) => {
         const fatura = Math.max(0, c.fatura ?? 0);
-        const venceu = !!c.vence && c.vence < hoje && fatura > 0;
+        // 04/10: "venceu" só com data fresca do banco. Data velha (Open Finance atrasado) não
+        // vira alarme de rotativo: a fatura pode já estar paga e o banco ainda não contou.
+        const venceu = !c.vence_estimado && !!c.vence && c.vence < hoje && fatura > 0;
         const cobre = p.saldo_contas >= fatura;
         const usoPct = c.limite ? (fatura / c.limite) * 100 : 0;
         return (
           <Caixa key={i} tom={venceu ? "red" : undefined}>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <Rotulo cor={venceu ? RED : MUTE}>FATURA ATUAL · {(c.banco ?? c.nome).toUpperCase()}</Rotulo>
+                <Rotulo cor={venceu ? RED : MUTE}>USADO NO CARTÃO · {(c.banco ?? c.nome).toUpperCase()}</Rotulo>
                 <p className="text-[26px] font-black tabular-nums leading-tight mt-1" style={{ color: venceu ? RED : "#F4F1EA" }}>{reais(fatura)}</p>
               </div>
               {c.vence && (
                 <div className="text-right shrink-0">
-                  <Rotulo cor={venceu ? RED : MUTE}>{venceu ? "VENCEU" : "VENCE"}</Rotulo>
+                  <Rotulo cor={venceu ? RED : MUTE}>{venceu ? "VENCEU" : c.vence_estimado ? "PRÓX. FATURA" : "VENCE"}</Rotulo>
                   <p className="text-[17px] font-black" style={{ color: venceu ? RED : "#F4F1EA" }}>{ddmm(c.vence)}</p>
                 </div>
               )}
@@ -102,12 +107,17 @@ export function TelaCartao({ p }: { p: Painel }) {
               <>
                 <Barra pct={usoPct} cor={usoPct > 100 ? "linear-gradient(90deg,#c2412f,#ff5a45)" : "linear-gradient(90deg,#B88E00,#FFC800)"} />
                 <div className="flex justify-between mt-1.5 text-[10.5px] font-bold" style={{ color: MUTE }}>
-                  <span>limite usado {reais(fatura)} de {reais(c.limite)}</span>
+                  <span>{reais(fatura)} de {reais(c.limite)} de limite</span>
                   <span style={{ color: usoPct > 100 ? RED : cobre ? OK : GOLD }}>
                     {usoPct > 100 ? "passou do limite" : cobre ? "cabe no saldo ✓" : "saldo não cobre"}
                   </span>
                 </div>
               </>
+            )}
+            {c.vence_estimado && (
+              <p className="text-[10.5px] mt-2 leading-relaxed" style={{ color: MUTE }}>
+                O banco ainda não mandou a fatura nova. A data é a estimada pelo mês.
+              </p>
             )}
             {venceu && c.minimo != null && (
               <p className="text-[11.5px] mt-2.5 leading-relaxed" style={{ color: "#b9b3a6" }}>
@@ -162,7 +172,7 @@ export function TelaCartao({ p }: { p: Painel }) {
 /* ---------------- 3 · DÍVIDAS ---------------- */
 export function TelaDividas({ p }: { p: Painel }) {
   const juros = (p.juros_mes.emprestimo ?? 0) + (p.juros_mes.especial ?? 0);
-  const faturaAtrasada = p.cartoes.filter((c) => c.vence && c.vence < hojeISO() && (c.fatura ?? 0) > 0);
+  const faturaAtrasada = p.cartoes.filter((c) => !c.vence_estimado && c.vence && c.vence < hojeISO() && (c.fatura ?? 0) > 0);
   const itens = [
     ...faturaAtrasada.map((c) => ({ nome: `Fatura ${c.banco ?? "do cartão"}`, sub: `venceu ${ddmm(c.vence)} · vira rotativo`, valor: c.fatura ?? 0, taxa: 0.14, tag: "ATACAR" })),
     ...(p.especial_usado > 0 ? [{ nome: "Cheque especial", sub: "juros médio de 8% ao mês", valor: p.especial_usado, taxa: 0.08, tag: "" }] : []),
@@ -265,7 +275,7 @@ export function PainelLista({ p, abrir }: { p: Painel; abrir: (a: Aba) => void }
   const devendo = p.emprestimos.reduce((s, e) => s + (e.saldo_devedor ?? 0), 0) + p.especial_usado;
   const linhas: { aba: Aba; icone: React.ReactNode; titulo: string; sub: string }[] = [
     { aba: "cartao", icone: <CreditCard className="w-[18px] h-[18px]" style={{ color: GOLD }} />, titulo: "Cartão",
-      sub: p.tem_cartao ? `fatura ${reais(fatura)}${p.parcelas.length ? ` · ${p.parcelas.length} parcela${p.parcelas.length > 1 ? "s" : ""} rolando` : ""}` : "liga pra ver aqui" },
+      sub: p.tem_cartao ? `${reais(fatura)} usado${p.parcelas.length ? ` · ${p.parcelas.length} parcela${p.parcelas.length > 1 ? "s" : ""} rolando` : ""}` : "liga pra ver aqui" },
     { aba: "dividas", icone: <Landmark className="w-[18px] h-[18px]" style={{ color: RED }} />, titulo: "Dívidas",
       sub: devendo > 0 ? `${reais(devendo)} em aberto` : "nenhum empréstimo nem cheque especial" },
     { aba: "guardado", icone: <PiggyBank className="w-[18px] h-[18px]" style={{ color: OK }} />, titulo: "Guardado",
@@ -311,12 +321,9 @@ export function FinancasPainel({ userId }: { userId?: string }) {
   return (
     <>
       <PainelLista p={p} abrir={setAba} />
-      <Sheet open={aba !== null} onOpenChange={(o) => { if (!o) setAba(null); }}>
-        <SheetContent side="bottom" className="rounded-t-[24px] border-t p-0 max-h-[92vh] overflow-y-auto [&>button]:hidden"
-          style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
-          <SheetTitle className="sr-only">{aba ? TITULO[aba] : ""}</SheetTitle>
-          <div className="px-4 pt-2.5 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
-            <div className="w-10 h-1 rounded-full mx-auto" style={{ background: "rgba(255,255,255,.18)" }} />
+      <Gaveta open={aba !== null} onOpenChange={(o) => { if (!o) setAba(null); }} titulo={aba ? TITULO[aba] : ""}
+        style={{ background: "#0b0b0c", borderColor: "rgba(255,255,255,.08)" }}>
+          <div className="px-4 flex flex-col gap-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
             <p className="font-mono text-[10px] font-bold tracking-[.18em] text-center" style={{ color: MUTE }}>{aba ? TITULO[aba] : ""}</p>
             {aba === "cartao" && <TelaCartao p={p} />}
             {aba === "dividas" && <TelaDividas p={p} />}
@@ -327,8 +334,7 @@ export function FinancasPainel({ userId }: { userId?: string }) {
               </p>
             )}
           </div>
-        </SheetContent>
-      </Sheet>
+      </Gaveta>
     </>
   );
 }

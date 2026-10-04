@@ -6,7 +6,7 @@
    senão oferece os pontos onde a pessoa já vendeu.
    ============================================================ */
 import { useEffect, useMemo, useState } from "react";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Gaveta } from "@/shared/components/gaveta";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { toast } from "@/shared/hooks/use-toast";
@@ -121,11 +121,9 @@ export function DefconSinalSheet({ sessionId, userId, totalSold }: { sessionId: 
   if (carregando) return null;
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) fechar(); }}>
-      <SheetContent side="bottom" className="rounded-t-[24px] border-t p-0 max-h-[92vh] overflow-y-auto [&>button]:hidden" style={{ background: "#0e0e10", borderColor: "#2a2416" }}>
-        <SheetTitle className="sr-only">Seu ponto de hoje</SheetTitle>
-        <div className="px-[18px] pt-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 22px)" }}>
-          <div className="w-10 h-1 rounded-full mx-auto mb-3.5" style={{ background: "#2c2a24" }} />
+    <Gaveta open={open} onOpenChange={(o) => { if (!o) fechar(); }} titulo="Seu ponto de hoje"
+      style={{ background: "#0e0e10", borderColor: "#2a2416" }}>
+        <div className="px-[18px] pt-1" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 22px)" }}>
           <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>CAÇA-SINAL · SEU PONTO DE HOJE</p>
           <h3 className="text-[20px] font-black tracking-tight leading-tight mt-1.5 text-foreground">{titulo}</h3>
           <p className="text-xs mt-1.5" style={{ color: "#8a8378" }}>
@@ -214,7 +212,6 @@ export function DefconSinalSheet({ sessionId, userId, totalSold }: { sessionId: 
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+    </Gaveta>
   );
 }

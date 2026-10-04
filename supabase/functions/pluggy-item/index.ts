@@ -13,6 +13,7 @@
 //
 // Entrada: { item_id }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -168,6 +169,16 @@ Deno.serve(async (req) => {
         console.log(`pluggy-item: ${r.contas} contas, ${r.gravadas} entradas para ${uid}`);
       } catch (e) {
         console.error("pluggy-item: importar falhou", (e as Error)?.message);
+      }
+      // 04/10 (Mohamed): o saldo e os gastos também entram NA HORA (Piloto Automático).
+      // Antes só vinham na rodada do cron (8h → 0h02): banco ligado de madrugada ficava
+      // vazio nas Finanças e no Raio-X até de manhã.
+      try {
+        const p = await importarPiloto(admin, apiKey, itemId, uid, conId, banco ?? null);
+        console.log(`pluggy-item: piloto ${p.saldos} saldos, ${p.gravadas} lançamentos`);
+        if (p.gravadas > 0) await admin.rpc("extrato_analisar_padroes", { p_uid: uid });
+      } catch (e) {
+        console.error("pluggy-item: piloto falhou", (e as Error)?.message);
       }
     }
 

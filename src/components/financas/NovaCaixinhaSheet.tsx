@@ -8,7 +8,7 @@
    Mesmo INSERT em financial_goals do formulário antigo.
    ============================================================ */
 import { useMemo, useState } from "react";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Gaveta } from "@/shared/components/gaveta";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/shared/hooks/use-toast";
@@ -139,15 +139,9 @@ export function NovaCaixinhaSheet({ open, onOpenChange, userId, workingDays, sob
   const caixa = (extra?: React.CSSProperties): React.CSSProperties => ({ background: "#0a0a0d", border: "1px solid #2a2823", ...extra });
 
   return (
-    <Sheet open={open} onOpenChange={fechar}>
-      <SheetContent
-        side="bottom"
-        className="rounded-t-[24px] border-t p-0 max-h-[94vh] overflow-y-auto [&>button]:hidden"
-        style={{ background: "#0e0e10", borderColor: "#2a2416" }}
-      >
-        <SheetTitle className="sr-only">Nova caixinha</SheetTitle>
-        <div className="px-[18px] pt-3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
-          <div className="w-10 h-1 rounded-full mx-auto mb-3" style={{ background: "#2c2a24" }} />
+    <Gaveta open={open} onOpenChange={fechar} titulo="Nova caixinha" className="max-h-[94vh]"
+      style={{ background: "#0e0e10", borderColor: "#2a2416" }}>
+        <div className="px-[18px] pt-1" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
 
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => fechar(false)} aria-label="Fechar" className="w-10 h-10 rounded-[13px] flex items-center justify-center shrink-0" style={{ background: "#131211", border: "1px solid rgba(255,255,255,.1)" }}>
@@ -275,7 +269,6 @@ export function NovaCaixinhaSheet({ open, onOpenChange, userId, workingDays, sob
             CRIAR CAIXINHA
           </button>
         </div>
-      </SheetContent>
-    </Sheet>
+    </Gaveta>
   );
 }
