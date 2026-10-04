@@ -7,7 +7,7 @@
    a pessoa anexa depois, dentro da conta. Mesmo INSERT do formulário antigo.
    ============================================================ */
 import { useMemo, useState } from "react";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Gaveta } from "@/shared/components/gaveta";
 import { MoneyInput } from "@/shared/ui/money-input";
 import { Input } from "@/shared/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,15 +140,9 @@ export function NovaContaSheet({ open, onOpenChange, userId, workingDays, onCrea
   };
 
   return (
-    <Sheet open={open} onOpenChange={fechar}>
-      <SheetContent
-        side="bottom"
-        className="rounded-t-[24px] border-t p-0 max-h-[92vh] overflow-y-auto [&>button]:hidden"
-        style={{ background: "#0e0e10", borderColor: "#2a2416" }}
-      >
-        <SheetTitle className="sr-only">Nova conta a pagar</SheetTitle>
-        <div className="px-[18px] pt-3 pb-6" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
-          <div className="w-10 h-1 rounded-full mx-auto mb-3.5" style={{ background: "#2c2a24" }} />
+    <Gaveta open={open} onOpenChange={fechar} titulo="Nova conta a pagar"
+      style={{ background: "#0e0e10", borderColor: "#2a2416" }}>
+        <div className="px-[18px] pt-1 pb-6" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
           {/* passos */}
           <div className="flex gap-1.5 mb-3.5">
             {[1, 2, 3].map((n) => (
@@ -349,7 +343,6 @@ export function NovaContaSheet({ open, onOpenChange, userId, workingDays, onCrea
             </>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+    </Gaveta>
   );
 }

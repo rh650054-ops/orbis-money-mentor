@@ -139,6 +139,10 @@ export async function importarPiloto(
   const tipoConta = (c: { type?: string }) => String(c?.type ?? "").toUpperCase();
   const contas = todas.filter((c) => tipoConta(c) === "BANK" || tipoConta(c) === "CREDIT");
 
+  // primeira leitura deste banco? (04/10, Mohamed: "meus bancos pessoais ainda não chegaram")
+  const { count: jaLido } = await admin.from("bank_saldos")
+    .select("conta_id", { count: "exact", head: true }).eq("bank_connection_id", conexaoId);
+
   // 1) saldos (só conta corrente; o cartão mora em bank_cartoes, etapa 4)
   let saldos = 0;
   for (const c of contas.filter((x) => tipoConta(x) === "BANK")) {
@@ -151,9 +155,15 @@ export async function importarPiloto(
     if (error) console.error("piloto: saldo", error.message); else saldos++;
   }
 
-  // 2) janela: sempre o mês corrente inteiro. O id da Pluggy (pluggy_tx_id) garante
-  //    que nada entra duas vezes, e um banco ligado no meio do mês ganha o mês todo.
-  const dataDe = `${diaBRT(new Date()).slice(0, 7)}-01`;
+  // 2) janela. O id da Pluggy (pluggy_tx_id) garante que nada entra duas vezes.
+  //    • banco recém-ligado: os 2 meses anteriores + o atual, pro Raio-X já nascer com histórico;
+  //    • até o dia 7: o mês anterior também — o Open Finance entrega atrasado o que caiu
+  //      no fim do mês (04/10: Pix do dia 29-30/09 chegando no dia 2);
+  //    • depois: o mês corrente inteiro.
+  const hoje = diaBRT(new Date());
+  const voltar = !jaLido ? 2 : Number(hoje.slice(8, 10)) <= 7 ? 1 : 0;
+  const ini = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1 - voltar, 1));
+  const dataDe = ini.toISOString().slice(0, 10);
 
   // meses em que o vendedor já mandou PDF deste banco: o PDF manda, não duplica
   const bancoNorm = norm(banco ?? "").split(" ")[0] ?? "";

@@ -8,7 +8,7 @@
    Só apresentação — quem grava é a tela Finanças.
    ============================================================ */
 import { useRef } from "react";
-import { Sheet, SheetContent, SheetTitle } from "@/shared/ui/sheet";
+import { Gaveta } from "@/shared/components/gaveta";
 import { formatCurrency } from "@/shared/lib/utils";
 import {
   Check, Copy, Paperclip, FileText, Trash2, Pencil, Loader2, RotateCcw, ShieldCheck, AlertTriangle, CreditCard, Receipt, Plus,
@@ -58,15 +58,9 @@ export function ContaSheet({ open, onOpenChange, info, onPagar, onDesfazer, onCo
   const pct = info.valor > 0 ? Math.min(100, (info.guardado / info.valor) * 100) : 0;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className="rounded-t-[24px] border-t p-0 max-h-[92vh] overflow-y-auto [&>button]:hidden"
-        style={{ background: "#131211", borderColor: "rgba(255,255,255,.08)" }}
-      >
-        <SheetTitle className="sr-only">{info.nome}</SheetTitle>
-        <div className="px-5 pt-2.5 flex flex-col gap-4" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
-          <div className="w-10 h-1 rounded-full mx-auto" style={{ background: "rgba(255,255,255,.18)" }} />
+    <Gaveta open={open} onOpenChange={onOpenChange} titulo={info.nome}
+      style={{ background: "#131211", borderColor: "rgba(255,255,255,.08)" }}>
+        <div className="px-5 flex flex-col gap-4" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 24px)" }}>
 
           {/* cabeçalho */}
           <div className="flex items-center gap-3.5 pt-1">
@@ -177,7 +171,6 @@ export function ContaSheet({ open, onOpenChange, info, onPagar, onDesfazer, onCo
             <button type="button" onClick={onExcluir} className="h-11 inline-flex items-center gap-1.5" style={{ color: "#7e7869" }}><Trash2 className="w-3.5 h-3.5" /> excluir</button>
           </div>
         </div>
-      </SheetContent>
-    </Sheet>
+    </Gaveta>
   );
 }
