@@ -2,6 +2,12 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 04/10/2026 — Foco: vendido de verdade + quanto falta cair
+
+- A Foco mostrava como "Vendido hoje" só o que já tinha caído (dinheiro + cartão + Pix). Num dia de R$ 880 com R$ 84,50 ainda por cair, aparecia R$ 796. Agora o número grande é o **vendido de verdade (R$ 880)**, a % da meta usa ele, e embaixo aparece **"caiu R$ 796 · falta cair R$ 85"**. Quando não tem nada pendente, volta o "sobrou R$ X pra você".
+- "Semana" e "Ontem" também passam a contar o que ainda falta cair.
+- Pix tardio continua do mesmo jeito: quando cai, sai do "falta cair" e entra no "caiu"; o vendido não muda.
+
 ## 03/10/2026 — Finanças: caixinhas no alto, reserva em "Guardado" e lucro do mês explicado
 
 **O que mudou pro vendedor**

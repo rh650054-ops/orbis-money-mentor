@@ -724,7 +724,7 @@ export default function DefconHub() {
       sessaoHoje ? supabase.from("challenge_blocks").select("block_index, started_at, ended_at, status, approaches_count, sales_count, sold_amount").eq("session_id", sessaoHoje.id).order("block_index", { ascending: true }) : Promise.resolve({ data: [] as any[] }),
       // Vendas-linha da sessão: é daqui que sai o valor EXATO de cada hora (sold_amount do bloco não é confiável).
       sessaoHoje ? supabase.from("defcon_sales").select("block_index, amount, method").eq("session_id", sessaoHoje.id) : Promise.resolve({ data: [] as any[] }),
-      supabase.from("daily_sales").select("date, cash_sales, card_sales, pix_sales").eq("user_id", user.id).gte("date", weekStart).lte("date", today),
+      supabase.from("daily_sales").select("date, cash_sales, card_sales, pix_sales, total_debt").eq("user_id", user.id).gte("date", weekStart).lte("date", today),
       supabase.from("daily_goal_plans").select("daily_goal").eq("user_id", user.id).eq("date", ontemData).maybeSingle(),
       supabase.from("leaderboard_stats").select("posicao_faturamento, faturamento_total_mes, dias_trabalhados_mes").eq("user_id", user.id).eq("mes_referencia", mes).maybeSingle(),
       supabase.from("onboarding_planos").select("hora_inicio").eq("user_id", user.id).maybeSingle(),
@@ -772,7 +772,8 @@ export default function DefconHub() {
     {
       let sem = 0, ont = 0;
       for (const r of ((ds7.data as any[]) || [])) {
-        const v = (Number(r.cash_sales) || 0) + (Number(r.card_sales) || 0) + (Number(r.pix_sales) || 0);
+        // vendido = o que caiu (dinheiro + cartão + Pix) + o que ainda falta cair (total_debt)
+        const v = (Number(r.cash_sales) || 0) + (Number(r.card_sales) || 0) + (Number(r.pix_sales) || 0) + (Number(r.total_debt) || 0);
         sem += v;
         if (r.date === ontemData) ont += v;
       }
@@ -824,7 +825,13 @@ export default function DefconHub() {
     return () => { supabase.removeChannel(ch); };
   }, [user]);
 
-  const totalVendido = totals.cash + totals.card + totals.pix;
+  // VENDIDO (Rick, 04/10): é tudo que ele vendeu no DEFCON, inclusive o que
+  // ainda não caiu na conta. Antes a Foco mostrava só o que caiu (dinheiro +
+  // cartão + Pix) e o dia de R$ 880 aparecia como R$ 796. O que falta cair
+  // (total_debt) entra no vendido e aparece separado embaixo.
+  const totalCaiu = totals.cash + totals.card + totals.pix;
+  const faltaCair = Math.max(0, totals.debt);
+  const totalVendido = totalCaiu + faltaCair;
   const progresso = dailyGoal > 0 ? Math.min(100, (totalVendido / dailyGoal) * 100) : 0;
   const goalReached = totalVendido >= dailyGoal && dailyGoal > 0;
   const falta = Math.max(0, dailyGoal - totalVendido);
@@ -1057,7 +1064,9 @@ export default function DefconHub() {
         <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>
           {estado === "antes" && <><b className="text-foreground">{workHours} blocos</b> de 1h · ritmo de <b className="text-foreground">{brl0(dailyGoal / Math.max(1, workHours))}</b> por hora</>}
           {estado === "rodando" && <>Meta <b className="text-foreground">{brl0(dailyGoal)}</b>{projecao > 0 ? <> · nesse ritmo você fecha em <b className="text-foreground">{brl0(projecao)}</b></> : null}</>}
-          {estado === "encerrado" && <><b className="text-foreground">{dailyGoal > 0 ? Math.round((totalVendido / dailyGoal) * 100) : 0}%</b> da meta{totals.profit > 0 ? <> · sobrou <b style={{ color: "var(--orbis-ok)" }}>{brl0(totals.profit)}</b> pra você</> : null}</>}
+          {estado === "encerrado" && <><b className="text-foreground">{dailyGoal > 0 ? Math.round((totalVendido / dailyGoal) * 100) : 0}%</b> da meta{faltaCair > 0
+            ? <> · caiu <b style={{ color: "var(--orbis-ok)" }}>{brl0(totalCaiu)}</b> · falta cair <b style={{ color: "var(--orbis-gold)" }}>{brl0(faltaCair)}</b></>
+            : totals.profit > 0 ? <> · sobrou <b style={{ color: "var(--orbis-ok)" }}>{brl0(totals.profit)}</b> pra você</> : null}</>}
         </p>
         <div className="h-1.5 rounded-full mt-3.5 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
           <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${progresso}%`, background: goalReached || estado === "rodando" ? "linear-gradient(90deg,#3DD68C,#46E09A)" : "linear-gradient(90deg,#F5B800,#FFC63A)" }} />
