@@ -57,7 +57,7 @@ import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbi
 import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
 import { useFinancasHome } from "@/components/financas/FinancasHome";
 import { FinancasPainel } from "@/components/financas/FinancasPainel";
-import { PapelEscolha } from "@/components/conectar/PapelContas";
+import { ReservaCaixinha } from "@/components/financas/ReservaCaixinha";
 import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, PilotoLinha, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
 import { RastreadorGastos } from "@/components/financas/RastreadorGastos";
 import { MesBlindado, SeloConta } from "@/components/financas/MesBlindado";
@@ -153,7 +153,7 @@ export default function Finances() {
   // ABAS (04/10): Resumo · Bancos · Planejar · Análise. A aba vive na URL (?aba=)
   // pra "voltar" do Raio-X cair no lugar certo; abrir Finanças sempre começa no Resumo.
   const [abaParams, setAbaParams] = useSearchParams();
-  const { h: casa, recarregar: recarregarCasa } = useFinancasHome(user?.id);
+  const { h: casa } = useFinancasHome(user?.id);
   const comBanco = Boolean(casa?.tem_banco);
   const aba: AbaFinancas = abaValida(abaParams.get("aba"), comBanco);
   const irAba = (a: AbaFinancas) => {
@@ -2411,8 +2411,17 @@ export default function Finances() {
 
       <AbasNav aba={aba} onAba={irAba} comBanco={comBanco} />
 
-      {/* Primeira configuração dos bancos (trabalho × reserva): aparece uma vez, em qualquer aba. */}
-      {casa?.precisa_papel && casa.contas && <PapelEscolha contas={casa.contas} onPronto={recarregarCasa} />}
+      {/* 04/10: "pra que serve cada conta" mora no Vender. Aqui só o lembrete, se faltar. */}
+      {casa?.precisa_papel && (
+        <button type="button" onClick={() => navigate("/verificar")}
+          className="w-full rounded-[14px] px-3.5 py-2.5 flex items-center gap-2.5 text-left active:opacity-70"
+          style={{ background: "#1a1305", border: "1px solid rgba(245,184,0,.4)" }}>
+          <span className="flex-1 min-w-0 text-[12.5px] font-bold" style={{ color: "#e9e4d8" }}>
+            Falta dizer quais bancos são de <b style={{ color: "#F5B800" }}>trabalho</b>. Até lá, o Pix deles não conta como venda.
+          </span>
+          <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#F5B800" }} />
+        </button>
+      )}
 
       {aba === "resumo" && (
         <>
@@ -2479,6 +2488,8 @@ export default function Finances() {
           <BancosLista h={casa} onGerenciar={() => navigate("/verificar")} />
           {/* cartão, dívidas e guardado — lidos do banco toda madrugada */}
           <FinancasPainel userId={user?.id} />
+          {/* a reserva é uma caixinha que a pessoa escolhe (04/10) */}
+          <ReservaCaixinha userId={user?.id} />
         </>
       )}
 
