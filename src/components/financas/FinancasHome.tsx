@@ -188,8 +188,8 @@ export function FinancasHomeView({ h, onPiloto }: { h: HomeFinancas; onPiloto: (
   );
 }
 
-export function FinancasHome({ userId }: { userId?: string }) {
-  const navigate = useNavigate();
+/** Lê financas_home() uma vez; `recarregar` refaz (ex.: depois de escolher o papel das contas). */
+export function useFinancasHome(userId?: string) {
   const [h, setH] = useState<HomeFinancas | null>(null);
   const [versao, setVersao] = useState(0);
 
@@ -204,10 +204,17 @@ export function FinancasHome({ userId }: { userId?: string }) {
     return () => { vivo = false; };
   }, [userId, versao]);
 
+  return { h, recarregar: () => setVersao((v) => v + 1) };
+}
+
+export function FinancasHome({ userId }: { userId?: string }) {
+  const navigate = useNavigate();
+  const { h, recarregar } = useFinancasHome(userId);
+
   if (!h || !h.tem_banco) return null;
   return (
     <div className="space-y-2.5">
-      {h.precisa_papel && h.contas && <PapelEscolha contas={h.contas} onPronto={() => setVersao((v) => v + 1)} />}
+      {h.precisa_papel && h.contas && <PapelEscolha contas={h.contas} onPronto={recarregar} />}
       <FinancasHomeView h={h} onPiloto={() => navigate("/financas/extrato")} />
       {/* etapa 4: cartão, dívidas e guardado, lidos do banco toda madrugada */}
       <FinancasPainel userId={userId} />
