@@ -139,9 +139,11 @@ export async function importarPiloto(
   const tipoConta = (c: { type?: string }) => String(c?.type ?? "").toUpperCase();
   const contas = todas.filter((c) => tipoConta(c) === "BANK" || tipoConta(c) === "CREDIT");
 
-  // primeira leitura deste banco? (04/10, Mohamed: "meus bancos pessoais ainda não chegaram")
-  const { count: jaLido } = await admin.from("bank_saldos")
-    .select("conta_id", { count: "exact", head: true }).eq("bank_connection_id", conexaoId);
+  // já leu o histórico de 12 meses deste banco? (04/10, Mohamed: o Tributário precisa do
+  // ano inteiro; o Open Finance entrega até 12 meses, uma vez basta)
+  const { data: con } = await admin.from("bank_connections")
+    .select("historico_lido_em").eq("id", conexaoId).maybeSingle();
+  const lerHistorico = !con?.historico_lido_em;
 
   // 1) saldos (só conta corrente; o cartão mora em bank_cartoes, etapa 4)
   let saldos = 0;
@@ -156,12 +158,13 @@ export async function importarPiloto(
   }
 
   // 2) janela. O id da Pluggy (pluggy_tx_id) garante que nada entra duas vezes.
-  //    • banco recém-ligado: os 2 meses anteriores + o atual, pro Raio-X já nascer com histórico;
+  //    • primeira vez: 12 meses (o atual + 11 anteriores), pro Raio-X e o Tributário;
   //    • até o dia 7: o mês anterior também — o Open Finance entrega atrasado o que caiu
   //      no fim do mês (04/10: Pix do dia 29-30/09 chegando no dia 2);
   //    • depois: o mês corrente inteiro.
   const hoje = diaBRT(new Date());
-  const voltar = !jaLido ? 2 : Number(hoje.slice(8, 10)) <= 7 ? 1 : 0;
+  const voltar = lerHistorico ? 11 : Number(hoje.slice(8, 10)) <= 7 ? 1 : 0;
+  const maxPaginas = lerHistorico ? 30 : 8;   // 500 por página
   const ini = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1 - voltar, 1));
   const dataDe = ini.toISOString().slice(0, 10);
 
@@ -185,14 +188,15 @@ export async function importarPiloto(
 
   // deno-lint-ignore no-explicit-any
   const linhas: any[] = [];
+  let falhou = false;
   for (const conta of contas) {
     const cartao = tipoConta(conta) === "CREDIT";
     let cursor: string | null = null;
-    for (let pagina = 0; pagina < 8; pagina++) {
-      const u = `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(conta.id)}&dateFrom=${dataDe}` +
+    for (let pagina = 0; pagina < maxPaginas; pagina++) {
+      const u = `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(conta.id)}&dateFrom=${dataDe}&pageSize=500` +
         (cursor ? `&after=${encodeURIComponent(cursor)}` : "");
       const r = await fetch(u, { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000) });
-      if (!r.ok) { console.error("piloto: transactions", r.status); break; }
+      if (!r.ok) { console.error("piloto: transactions", r.status); falhou = true; break; }
       // deno-lint-ignore no-explicit-any
       const corpo: any = await r.json().catch(() => ({}));
       for (const t of (corpo?.results ?? [])) {
@@ -220,7 +224,13 @@ export async function importarPiloto(
       if (!cursor) break;
     }
   }
-  if (linhas.length === 0) return { saldos, gravadas: 0, corrigidas: 0 };
+  // histórico lido (mesmo vazio): não lê 12 meses de novo. Se a Pluggy falhou, tenta na próxima.
+  const marcarHistorico = async () => {
+    if (lerHistorico && !falhou) {
+      await admin.from("bank_connections").update({ historico_lido_em: new Date().toISOString() }).eq("id", conexaoId);
+    }
+  };
+  if (linhas.length === 0) { await marcarHistorico(); return { saldos, gravadas: 0, corrigidas: 0 }; }
 
   // o que já entrou (mesmo id da Pluggy) não entra de novo — nem se a descrição mudou
   const ids = linhas.map((l) => l.pluggy_tx_id);
@@ -258,5 +268,6 @@ export async function importarPiloto(
     if (error) { console.error("piloto: upsert", error.message); continue; }
     gravadas += (ins ?? []).length;
   }
+  await marcarHistorico();
   return { saldos, gravadas, corrigidas };
 }
