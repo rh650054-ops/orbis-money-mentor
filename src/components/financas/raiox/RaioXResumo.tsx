@@ -30,7 +30,7 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="text-[22px] font-black tracking-tight text-foreground">Raio-X do extrato</h1>
+      <h1 className="text-[22px] font-black tracking-tight text-foreground">Raio-X financeiro</h1>
 
       {mesesBarra.length > 1 && (
         <div className="flex gap-2 overflow-x-auto -mx-4 px-4" style={{ scrollbarWidth: "none" }}>
@@ -50,9 +50,9 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
       ) : vazio ? (
         <section className="rounded-2xl border p-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
           <p className="text-[14px] font-bold text-foreground">Nada lido em {mesNome(mes)} ainda.</p>
-          <p className="text-[12.5px] mt-1" style={{ color: "#a9a49c" }}>Manda o extrato dos bancos que você usa e a Vant mostra pra onde o dinheiro foi.</p>
+          <p className="text-[12.5px] mt-1" style={{ color: "#a9a49c" }}>O Raio-X lê os gastos direto dos seus bancos ligados. Liga um banco e os gastos aparecem aqui sozinhos, já separados.</p>
           <button type="button" onClick={onEnviar} className="mt-3 w-full h-11 rounded-xl text-[14px] font-extrabold" style={{ background: "linear-gradient(180deg,#FFF1B3 0%,#FFC800 55%,#D9A800 100%)", color: "#1A1200" }}>
-            Mandar extrato de {mesNome(mes)}
+            Ligar meu banco
           </button>
         </section>
       ) : resumo && (
@@ -133,14 +133,11 @@ export default function RaioXResumo({ mes, meses, resumo, loading, onMes, onCate
 
           <RaioXContas resumo={resumo} onEntreContas={onEntreContas} onContaUso={onContaUso} />
 
-          <div className="grid grid-cols-2 gap-2.5">
-            <button type="button" onClick={onManual} className="h-11 rounded-xl text-[13.5px] font-extrabold border" style={{ background: "#141413", color: "#F4F1EA", borderColor: "rgba(255,255,255,.08)" }}>
-              + lançar na mão
-            </button>
-            <button type="button" onClick={onEnviar} className="h-11 rounded-xl text-[13.5px] font-extrabold border" style={{ background: "#141413", color: "#F4F1EA", borderColor: "rgba(255,255,255,.08)" }}>
-              + mandar extrato
-            </button>
-          </div>
+          {/* 04/10: sem "mandar extrato" — o Raio-X lê os bancos ligados sozinho. Lançar na
+              mão continua pra gasto que não passa pelo banco (dinheiro vivo). */}
+          <button type="button" onClick={onManual} className="h-11 rounded-xl text-[13.5px] font-extrabold border" style={{ background: "#141413", color: "#F4F1EA", borderColor: "rgba(255,255,255,.08)" }}>
+            + lançar gasto em dinheiro
+          </button>
         </>
       )}
     </div>

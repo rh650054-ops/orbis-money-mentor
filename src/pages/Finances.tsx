@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useGuardarDia } from "@/hooks/useGuardarDia";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,7 +55,10 @@ import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
 import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
 import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
-import { FinancasHome } from "@/components/financas/FinancasHome";
+import { useFinancasHome } from "@/components/financas/FinancasHome";
+import { FinancasPainel } from "@/components/financas/FinancasPainel";
+import { PapelEscolha } from "@/components/conectar/PapelContas";
+import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, PilotoLinha, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
 import { RastreadorGastos } from "@/components/financas/RastreadorGastos";
 import { MesBlindado, SeloConta } from "@/components/financas/MesBlindado";
 import { diasUteisAteBlindar, guardadoMedioDia, recadoBlindado, seloConta } from "@/components/financas/blindagem";
@@ -147,6 +150,18 @@ interface FinancialSummary {
 export default function Finances() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  // ABAS (04/10): Resumo · Bancos · Planejar · Análise. A aba vive na URL (?aba=)
+  // pra "voltar" do Raio-X cair no lugar certo; abrir Finanças sempre começa no Resumo.
+  const [abaParams, setAbaParams] = useSearchParams();
+  const { h: casa, recarregar: recarregarCasa } = useFinancasHome(user?.id);
+  const comBanco = Boolean(casa?.tem_banco);
+  const aba: AbaFinancas = abaValida(abaParams.get("aba"), comBanco);
+  const irAba = (a: AbaFinancas) => {
+    const p = new URLSearchParams(abaParams);
+    if (a === "resumo") p.delete("aba"); else p.set("aba", a);
+    setAbaParams(p, { replace: true });
+    try { window.scrollTo({ top: 0 }); } catch { /* sem scroll */ }
+  };
   const { toast } = useToast();
   const [bills, setBills] = useState<PlannedBill[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -1985,80 +2000,9 @@ export default function Finances() {
     return null;
   }
 
-  return (
-    <div className="space-y-4 md:space-y-6 pb-4 md:pb-8">
-      <FirstTimeCard tela="financas" userId={user?.id} />
-
-      {/* Cabeçalho */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "#1a1305", border: "1px solid #3a2f0c" }}>
-            <Wallet className="w-5 h-5" style={{ color: "#F5B800" }} />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-black text-foreground tracking-tight leading-none">Finanças</h1>
-            <p className="text-xs text-muted-foreground mt-1 truncate">
-              {(() => { const d = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }); return d.charAt(0).toUpperCase() + d.slice(1); })()}
-            </p>
-          </div>
-        </div>
-        {!isLoadingData && trabalhouHoje && (
-          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap" style={{ border: "1px solid rgba(61,214,140,.3)", color: "#3DD68C", background: "#0e0e10" }}>
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3DD68C" }} />
-            vendeu hoje
-          </span>
-        )}
-      </div>
-
-      {/* 0. HOME COM O BANCO (etapa 3 do Open Finance): quanto tem agora, fôlego,
-             entrou/saiu/sobrou e o Piloto Automático. Some sozinho pra quem não tem banco. */}
-      <FinancasHome userId={user?.id} />
-
-      {/* 1. LUCRO LÍQUIDO DE HOJE */}
-      <Card className="rounded-[18px] border shadow-lg" style={{ background: "linear-gradient(170deg,#141006 0%,#0b0b0d 70%)", borderColor: "#3a2f0c", boxShadow: "0 0 30px rgba(245,184,0,.08)" }}>
-        <CardContent className="p-4">
-          {/* O MÊS é o número grande (Rick, 09/09). "Quanto sobrou pra mim" é a
-              pergunta que ele faz; o dia isolado não responde ela. Hoje continua
-              aqui, do lado, junto da média e do fiado. */}
-          {/* (Rick 03/10: "sobrou pra você" não ficou claro) nome direto + a conta na tela */}
-          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>SEU LUCRO NO MÊS</p>
-          {isLoadingData ? (
-            <Skeleton className="h-11 w-44 mt-2" />
-          ) : (
-            <p className="text-[42px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.monthlyNetProfit >= 0 ? "#3DD68C" : "#F2465A" }}>
-              {formatCurrency(summary.monthlyNetProfit)}
-            </p>
-          )}
-          {/* (Rick, 10/09) um herói só: quanto sobrou, de quanto vendeu, e o anel de
-              margem — de cada R$ 10 vendidos, quanto ficou. Hoje/média viram uma linha. */}
-          {!isLoadingData && (() => {
-            const vendido = Number(summary.totalProfit) || 0;
-            const margem = vendido > 0 ? Math.max(0, Math.min(100, (summary.monthlyNetProfit / vendido) * 100)) : 0;
-            return (
-              <div className="flex items-center justify-between gap-3 mt-3">
-                <div className="min-w-0">
-                  <p className="text-[13px]" style={{ color: "#a9a49c" }}>
-                    vendeu <b className="text-foreground tabular-nums">{formatCurrency(vendido)}</b> − custos <b className="tabular-nums" style={{ color: "#ff8a7a" }}>{formatCurrency(Math.max(0, vendido - summary.monthlyNetProfit))}</b>
-                  </p>
-                  <p className="text-[11.5px] mt-0.5" style={{ color: "#7b766e" }}>o que ficou pra você depois de mercadoria, transporte e comida</p>
-                  <p className="text-[12px] mt-1 tabular-nums" style={{ color: "#7b766e" }}>
-                    hoje <b className="text-foreground">{formatCurrency(summary.netToday)}</b> · média <b className="text-foreground">{formatCurrency(summary.mediaDiariaLiquida)}</b>/dia
-                    {summary.debtToday > 0 && <> · fiado <b style={{ color: "#F2B43A" }}>{formatCurrency(summary.debtToday)}</b></>}
-                  </p>
-                </div>
-                <div className="flex flex-col items-center shrink-0">
-                  <Anel pct={margem} size={60} stroke={7} cor={margem >= 50 ? "#3DD68C" : "#F5B800"}>
-                    <span className="text-[13px] font-black tabular-nums">{Math.round(margem)}%</span>
-                  </Anel>
-                  <span className="text-[9.5px] font-black tracking-[.1em] mt-1" style={{ color: "#7b766e" }}>DE LUCRO</span>
-                </div>
-              </div>
-            );
-          })()}
-        </CardContent>
-      </Card>
-
-      {/* 2. GUARDAR HOJE — um número, um botão */}
+  // Peças que aparecem em mais de uma aba (ou mudam de lugar) — 04/10.
+  const renderGuardarHoje = (compacto: boolean) => (
+    <>
       <Card className="rounded-[18px] border" style={{ background: "#0e0e10", borderColor: "#3a2f0c" }}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-2">
@@ -2110,7 +2054,7 @@ export default function Finances() {
                 <p className="text-xs text-muted-foreground mt-1.5">já guardou {formatCurrency(savedTodayAmount)} hoje</p>
               )}
               {/* (Rick, 10/09) de onde vem o número: uma linha por conta */}
-              {todayIsWorkDay && bills.length > 0 && (() => {
+              {!compacto && todayIsWorkDay && bills.length > 0 && (() => {
                 const cicloAtual = getBrazilDate().slice(0, 7);
                 const linhas = billsOrdenadas
                   .filter((b) => !b.paid && !(b.recurring && b.paid_cycle === cicloAtual))
@@ -2143,7 +2087,10 @@ export default function Finances() {
                   </div>
                 );
               })()}
-              {!todayIsWorkDay && (
+              {!todayIsWorkDay && compacto && (
+                <p className="text-xs text-muted-foreground mt-1.5">Hoje é seu descanso.</p>
+              )}
+              {!todayIsWorkDay && !compacto && (
                 <p className="text-xs text-muted-foreground mt-1.5">
                   Hoje é seu descanso.
                   {proximoDiaTrabalho && proximoDiaTrabalho.valor > 0 ? <> Próximo dia de trabalho ({proximoDiaTrabalho.label}): <b className="text-foreground">{formatCurrency(proximoDiaTrabalho.valor)}</b>.</> : null}
@@ -2162,6 +2109,11 @@ export default function Finances() {
               ) : todayIsWorkDay && bills.length === 0 && goals.length === 0 ? (
                 <p className="text-xs text-muted-foreground mt-2">Cadastre uma conta ou um objetivo e a Vant calcula quanto separar por dia.</p>
               ) : null}
+              {compacto ? (
+                <button type="button" onClick={() => irAba("planejar")} className="flex items-center gap-0.5 h-8 mt-2 text-[13px] font-extrabold" style={{ color: "#F5B800" }}>
+                  Ver planejamento <ChevronRight className="w-4 h-4" strokeWidth={2.6} />
+                </button>
+              ) : (
               <div className="flex items-center justify-center gap-1.5 mt-2.5 text-xs text-muted-foreground">
                 <button onClick={() => { setCustomSaveValue(""); setCustomSaveOpen(true); }} className="py-1 font-semibold text-foreground/70 active:text-foreground">guardei outro valor</button>
                 {bills.length > 0 && (
@@ -2171,6 +2123,7 @@ export default function Finances() {
                   </>
                 )}
               </div>
+              )}
             </>
           )}
 
@@ -2183,7 +2136,7 @@ export default function Finances() {
             </button>
           )}
 
-          {!isLoadingData && (bills.length > 0 || goals.length > 0) && (
+          {!compacto && !isLoadingData && (bills.length > 0 || goals.length > 0) && (
             <>
               <div className="flex items-end justify-between gap-3 mt-3 pt-3 border-t border-border/60">
                 <div>
@@ -2210,6 +2163,10 @@ export default function Finances() {
         </CardContent>
       </Card>
 
+    </>
+  );
+  const renderVencidas = () => (
+    <>
       {/* Vencidas — resumo expansível: detalhes e planejador só quando o usuário quiser */}
       {!isLoadingData && overdueBills.length > 0 && (
         <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
@@ -2304,6 +2261,10 @@ export default function Finances() {
         </Card>
       )}
 
+    </>
+  );
+  const renderProximos = () => (
+    <>
       {/* Próximos dias — projeção de quanto guardar (contas); abre pelo link do card "Guardar hoje" */}
       {!isLoadingData && bills.length > 0 && showProjecao && (
         <Card className="bg-card border border-border/60 rounded-2xl">
@@ -2395,6 +2356,130 @@ export default function Finances() {
             )}
           </CardContent>
         </Card>
+      )}
+
+    </>
+  );
+
+  // PARA RESOLVER (Resumo): vencidas primeiro; sem vencida, o que vence hoje.
+  const pendencia = (() => {
+    if (overdueBillsOrdenadas.length > 0) {
+      const b = overdueBillsOrdenadas[0]!;
+      const nd = nextDueDate(b);
+      const n = nd ? diasAte(toYMD(nd)) : null;
+      return {
+        vencidas: true, qtd: overdueBills.length, total: vencidasTotal, bill: b,
+        principal: { nome: b.name, valor: remaining(b), texto: n != null && n < 0 ? `venceu há ${-n} ${-n === 1 ? "dia" : "dias"}` : "vencida" },
+      };
+    }
+    const hoje = contasUrgentes.filter((x) => x.venceHoje);
+    if (hoje.length > 0) {
+      const x = hoje[0]!;
+      return {
+        vencidas: false, qtd: hoje.length, total: hoje.reduce((t, y) => t + y.falta, 0), bill: x.b,
+        principal: { nome: x.b.name, valor: x.falta, texto: "vence hoje" },
+      };
+    }
+    return null;
+  })();
+
+  return (
+    <div className="space-y-4 md:space-y-6 pb-4 md:pb-8">
+      <FirstTimeCard tela="financas" userId={user?.id} />
+
+      {/* Cabeçalho */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0" style={{ background: "#1a1305", border: "1px solid #3a2f0c" }}>
+            <Wallet className="w-5 h-5" style={{ color: "#F5B800" }} />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-black text-foreground tracking-tight leading-none">Finanças</h1>
+            <p className="text-xs text-muted-foreground mt-1 truncate">
+              {(() => { const d = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }); return d.charAt(0).toUpperCase() + d.slice(1); })()}
+            </p>
+          </div>
+        </div>
+        {!isLoadingData && trabalhouHoje && (
+          <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold whitespace-nowrap" style={{ border: "1px solid rgba(61,214,140,.3)", color: "#3DD68C", background: "#0e0e10" }}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3DD68C" }} />
+            vendeu hoje
+          </span>
+        )}
+      </div>
+
+
+      <AbasNav aba={aba} onAba={irAba} comBanco={comBanco} />
+
+      {/* Primeira configuração dos bancos (trabalho × reserva): aparece uma vez, em qualquer aba. */}
+      {casa?.precisa_papel && casa.contas && <PapelEscolha contas={casa.contas} onPronto={recarregarCasa} />}
+
+      {aba === "resumo" && (
+        <>
+          {comBanco && casa && <SeuDinheiro h={casa} onVerBancos={() => irAba("bancos")} />}
+      {/* SEU MÊS (04/10): lucro em verde e grande; faturamento e custos embaixo; margem no anel. */}
+      <Card className="rounded-[18px] border shadow-lg" style={{ background: "linear-gradient(170deg,#141006 0%,#0b0b0d 70%)", borderColor: "#3a2f0c", boxShadow: "0 0 30px rgba(245,184,0,.08)" }}>
+        <CardContent className="p-4">
+          <p className="text-[10px] font-black tracking-[.16em]" style={{ color: "#c9a227" }}>SEU MÊS</p>
+          {isLoadingData ? (
+            <Skeleton className="h-11 w-44 mt-2" />
+          ) : (() => {
+            const vendido = Number(summary.totalProfit) || 0;
+            const custos = Math.max(0, vendido - summary.monthlyNetProfit);
+            const margem = vendido > 0 ? Math.max(0, Math.min(100, (summary.monthlyNetProfit / vendido) * 100)) : 0;
+            return (
+              <>
+                <p className="text-[42px] leading-none font-black tracking-tight tabular-nums mt-2" style={{ color: summary.monthlyNetProfit >= 0 ? "#3DD68C" : "#F2465A" }}>
+                  {formatCurrency(summary.monthlyNetProfit)}
+                </p>
+                <p className="text-[13px] mt-2" style={{ color: "#a9a49c" }}><b className="text-foreground">{summary.monthlyNetProfit >= 0 ? "lucro" : "prejuízo"}</b> · depois dos custos</p>
+                <div className="flex items-center gap-3 mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,.06)" }}>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#7b766e" }}>FATURAMENTO</p>
+                    <p className="text-[18px] font-black tabular-nums mt-0.5 text-foreground truncate">{formatCurrency(vendido)}</p>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-black tracking-[.14em]" style={{ color: "#7b766e" }}>CUSTOS</p>
+                    <p className="text-[18px] font-black tabular-nums mt-0.5 truncate" style={{ color: "#ff8a7a" }}>{formatCurrency(custos)}</p>
+                  </div>
+                  <div className="flex flex-col items-center shrink-0">
+                    <Anel pct={margem} size={52} stroke={6} cor={margem >= 50 ? "#3DD68C" : "#F5B800"}>
+                      <span className="text-[12px] font-black tabular-nums">{Math.round(margem)}%</span>
+                    </Anel>
+                    <span className="text-[9px] font-black tracking-[.1em] mt-1" style={{ color: "#7b766e" }}>MARGEM</span>
+                  </div>
+                </div>
+                <p className="text-[12px] mt-2 tabular-nums" style={{ color: "#7b766e" }}>
+                  hoje <b className="text-foreground">{formatCurrency(summary.netToday)}</b> · média <b className="text-foreground">{formatCurrency(summary.mediaDiariaLiquida)}</b>/dia
+                  {summary.debtToday > 0 && <> · fiado <b style={{ color: "#F2B43A" }}>{formatCurrency(summary.debtToday)}</b></>}
+                </p>
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+          {!isLoadingData && pendencia && (
+            <ParaResolver
+              qtd={pendencia.qtd}
+              total={pendencia.total}
+              vencidas={pendencia.vencidas}
+              principal={pendencia.principal}
+              onResolver={() => (pendencia.vencidas ? openDeposit({ kind: "bill", bill: pendencia.bill }, remaining(pendencia.bill)) : setContaSheet(pendencia.bill.id))}
+              onVerContas={() => irAba("planejar")}
+            />
+          )}
+          {comBanco && casa && <Movimento h={casa} onVer={() => navigate("/financas/extrato")} />}
+          {renderGuardarHoje(true)}
+        </>
+      )}
+
+      {aba === "bancos" && casa && (
+        <>
+          <BancosLista h={casa} onGerenciar={() => navigate("/verificar")} />
+          {/* cartão, dívidas e guardado — lidos do banco toda madrugada */}
+          <FinancasPainel userId={user?.id} />
+        </>
       )}
 
       {/* Diálogo "Guardei em <dia>" — registra o valor guardado no dia selecionado */}
@@ -2510,7 +2595,7 @@ export default function Finances() {
         {/* CONTAS + CAIXINHAS (Rick, 10/09): tudo vive nestes dois cards. O "Paguei"
             mora em cada linha e abre a folha da conta; a seção duplicada de baixo
             (Mês blindado + acordeão) saiu. */}
-        {!isLoadingData && (() => {
+        {!isLoadingData && aba === "planejar" && (() => {
           const cicloAtual = getBrazilDate().slice(0, 7);
           const abertas = bills.filter((b) => !b.paid);
           const totalContas = abertas.reduce((t, b) => t + (Number(b.amount) || 0), 0);
@@ -2560,73 +2645,11 @@ export default function Finances() {
                 </section>
               )}
 
-              {/* ===== CAIXINHAS ===== */}
-              <div className="flex flex-col gap-2.5">
-                <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")} className="flex items-center justify-between gap-2 px-1 w-full text-left">
-                  <p className="orbis-section">Caixinhas{ativas.length > 0 ? ` · ${ativas.length} ${ativas.length === 1 ? "ativa" : "ativas"}` : ""}</p>
-                  <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap" style={{ color: "#7e7869" }}>
-                    {juntou > 0 && <>juntou <b className="text-foreground tabular-nums">{formatCurrency(juntou)}</b></>}
-                    <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
-                  </span>
-                </button>
-                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-                  {ativas.map((g) => {
-                    const alvo = Number(g.target_amount) || 0;
-                    const tem = Number(g.current_amount) || 0;
-                    const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
-                    const ritmo = metaRitmoDia(g);
-                    const falta = Math.max(0, alvo - tem);
-                    const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
-                    const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
-                    // projeção (Lote 3): até 2 meses mostra a data em que chega; depois, em meses
-                    const diasCx = ritmo > 0 && falta > 0 ? Math.ceil(falta / ritmo) : 0;
-                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null
-                      : meses <= 2 ? `chega ~${dataEmDiasUteis(diasCx).data}`
-                      : `~ ${Math.round(meses)} meses`;
-                    const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => { setPorta("objetivos"); setMetaAberta(g.id); }}
-                        className="w-full flex items-center gap-3.5 min-h-[72px] py-3 text-left"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                      >
-                        <Anel pct={pct} size={50} stroke={6} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}>
-                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-[30px] h-[30px] rounded-full object-cover" /> : <span className="text-[16px] leading-none">{g.icon && !/^https?:/.test(g.icon) ? g.icon : "🎯"}</span>}
-                        </Anel>
-                        <span className="flex-1 min-w-0 flex flex-col gap-1">
-                          <span className="text-[15px] font-bold truncate">{g.name}</span>
-                          <span className="orbis-num text-[12.5px]" style={{ color: "#7e7869" }}><b className="text-foreground">{formatCurrency(tem)}</b> de {formatCurrency(alvo)}</span>
-                        </span>
-                        <span className="flex flex-col items-end gap-[3px] shrink-0">
-                          <span className="orbis-num text-[21px] font-extrabold leading-none" style={{ color: pct >= 100 ? "#3DD68C" : "#F5B800" }}>{Math.round(pct)}%</span>
-                          <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: "#7e7869" }}>
-                            {pct >= 100 ? "conquistada" : ritmo > 0 ? `${formatCurrency(ritmo)}/dia${mesesLabel ? ` · ${mesesLabel}` : ""}` : `faltam ${formatCurrency(falta)}`}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
+              {/* Guardar hoje completo (de onde vem cada real) + próximos dias */}
+              {renderGuardarHoje(false)}
+              {renderProximos()}
 
-                  {/* CRIAR CAIXINHA — o convite, sempre visível */}
-                  <button
-                    type="button"
-                    onClick={() => setIsAddGoalOpen(true)}
-                    className="w-full flex items-center gap-3.5 min-h-[78px] px-3 py-3 my-3 rounded-[14px] text-left active:scale-[0.99] transition-transform"
-                    style={{ border: "1.5px dashed rgba(245,184,0,.45)", background: "rgba(245,184,0,.05)" }}
-                  >
-                    <span className="inline-flex items-center justify-center w-[50px] h-[50px] rounded-full shrink-0" style={{ background: "linear-gradient(180deg,#ffc63a,#F5B800)", boxShadow: "0 4px 0 #b88700" }}>
-                      <Plus className="w-6 h-6" style={{ color: "#1a1200" }} strokeWidth={3} />
-                    </span>
-                    <span className="flex-1 min-w-0 flex flex-col gap-1">
-                      <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
-                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e a Vant diz quanto por dia.</span>
-                    </span>
-                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
-                  </button>
-                </section>
-              </div>
+              {renderVencidas()}
 
               {/* ===== CONTAS A PAGAR ===== */}
               <div className="flex flex-col gap-2.5">
@@ -2726,8 +2749,7 @@ export default function Finances() {
                                   className="inline-flex flex-col items-center justify-center h-11 px-2.5 rounded-xl shrink-0 whitespace-nowrap active:scale-95 transition-transform leading-tight"
                                   style={{ background: "linear-gradient(180deg,#ff6b6b,#e04545)", color: "#1a0505", boxShadow: "0 3px 0 #9e2a2a" }}
                                 >
-                                  <span className="text-[12.5px] font-black">Resolver agora</span>
-                                  <span className="orbis-num text-[10px] font-extrabold opacity-80">guardar {formatCurrency(remaining(b))}</span>
+                                  <span className="text-[13px] font-black">Resolver</span>
                                 </button>
                               ) : (
                                 <button
@@ -2756,11 +2778,73 @@ export default function Finances() {
                 </section>
               </div>
 
-              {/* ===== RASTREADOR DE GASTOS (Rick 03/10): o mês contra o seu normal ===== */}
-              <RastreadorGastos userId={user?.id} />
+              {/* ===== CAIXINHAS ===== */}
+              <div className="flex flex-col gap-2.5">
+                <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")} className="flex items-center justify-between gap-2 px-1 w-full text-left">
+                  <p className="orbis-section">Caixinhas{ativas.length > 0 ? ` · ${ativas.length} ${ativas.length === 1 ? "ativa" : "ativas"}` : ""}</p>
+                  <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap" style={{ color: "#7e7869" }}>
+                    {juntou > 0 && <>juntou <b className="text-foreground tabular-nums">{formatCurrency(juntou)}</b></>}
+                    <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
+                  </span>
+                </button>
+                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
+                  {ativas.map((g) => {
+                    const alvo = Number(g.target_amount) || 0;
+                    const tem = Number(g.current_amount) || 0;
+                    const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
+                    const ritmo = metaRitmoDia(g);
+                    const falta = Math.max(0, alvo - tem);
+                    const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
+                    const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
+                    // projeção (Lote 3): até 2 meses mostra a data em que chega; depois, em meses
+                    const diasCx = ritmo > 0 && falta > 0 ? Math.ceil(falta / ritmo) : 0;
+                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null
+                      : meses <= 2 ? `chega ~${dataEmDiasUteis(diasCx).data}`
+                      : `~ ${Math.round(meses)} meses`;
+                    const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
+                    return (
+                      <button
+                        key={g.id}
+                        type="button"
+                        onClick={() => { setPorta("objetivos"); setMetaAberta(g.id); }}
+                        className="w-full flex items-center gap-3.5 min-h-[72px] py-3 text-left"
+                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
+                      >
+                        <Anel pct={pct} size={50} stroke={6} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}>
+                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-[30px] h-[30px] rounded-full object-cover" /> : <span className="text-[16px] leading-none">{g.icon && !/^https?:/.test(g.icon) ? g.icon : "🎯"}</span>}
+                        </Anel>
+                        <span className="flex-1 min-w-0 flex flex-col gap-1">
+                          <span className="text-[15px] font-bold truncate">{g.name}</span>
+                          <span className="orbis-num text-[12.5px]" style={{ color: "#7e7869" }}><b className="text-foreground">{formatCurrency(tem)}</b> de {formatCurrency(alvo)}</span>
+                        </span>
+                        <span className="flex flex-col items-end gap-[3px] shrink-0">
+                          <span className="orbis-num text-[21px] font-extrabold leading-none" style={{ color: pct >= 100 ? "#3DD68C" : "#F5B800" }}>{Math.round(pct)}%</span>
+                          <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: "#7e7869" }}>
+                            {pct >= 100 ? "conquistada" : ritmo > 0 ? `${formatCurrency(ritmo)}/dia${mesesLabel ? ` · ${mesesLabel}` : ""}` : `faltam ${formatCurrency(falta)}`}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
 
-              {/* ===== RAIO-X DO EXTRATO (Rick 29/09: logo abaixo de Contas a pagar) ===== */}
-              <RaioXEntrada userId={user?.id} />
+                  {/* CRIAR CAIXINHA — o convite, sempre visível */}
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGoalOpen(true)}
+                    className="w-full flex items-center gap-3.5 min-h-[78px] px-3 py-3 my-3 rounded-[14px] text-left active:scale-[0.99] transition-transform"
+                    style={{ border: "1.5px dashed rgba(245,184,0,.45)", background: "rgba(245,184,0,.05)" }}
+                  >
+                    <span className="inline-flex items-center justify-center w-[50px] h-[50px] rounded-full shrink-0" style={{ background: "linear-gradient(180deg,#ffc63a,#F5B800)", boxShadow: "0 4px 0 #b88700" }}>
+                      <Plus className="w-6 h-6" style={{ color: "#1a1200" }} strokeWidth={3} />
+                    </span>
+                    <span className="flex-1 min-w-0 flex flex-col gap-1">
+                      <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
+                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e a Vant diz quanto por dia.</span>
+                    </span>
+                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
+                  </button>
+                </section>
+              </div>
 
               <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
             </>
@@ -2768,7 +2852,7 @@ export default function Finances() {
         })()}
 
         {/* 3. CAIXINHAS */}
-        {porta === "objetivos" && (
+        {aba === "planejar" && porta === "objetivos" && (
         <section className="space-y-3">
             <div className="flex items-center justify-between px-0.5 pt-1">
               <h2 className="text-[15px] font-black text-foreground tracking-tight">Objetivos</h2>
@@ -3079,7 +3163,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
 
         {/* 5. DICA DA VANT — IA com os números da pessoa (Rick, 10/09). A dica local
             (sem IA) vira reserva: aparece enquanto a IA pensa e se ela falhar. */}
-        {!isLoadingData && (bills.length > 0 || goals.length > 0 || summary.grossToday > 0) && (() => {
+        {aba === "resumo" && !isLoadingData && (bills.length > 0 || goals.length > 0 || summary.grossToday > 0) && (() => {
           const media = summary.mediaDiariaLiquida;
           let fallback: { titulo: string; texto: string } | null = null;
           if (overdueBills.length > 0) {
@@ -3131,6 +3215,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
               fallback={fallback}
               pronto={bills.length > 0 || goals.length > 0}
               onConversar={() => navigate("/chat")}
+              compacto
             />
           );
         })()}
@@ -3140,14 +3225,26 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
             Finanças é sobre CONTROLAR DESPESA e BATER META — não sobre conferir
             o que caiu. */}
 
-        {/* Importar histórico de vendas por PDF (IA lê e você revisa) */}
-        <button
-          onClick={() => setImportOpen(true)}
-          className="w-full h-10 rounded-xl text-muted-foreground text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition"
-        >
-          <Upload className="w-3.5 h-3.5" />
-          Importar histórico de vendas (PDF)
-        </button>
+        {aba === "resumo" && casa && !comBanco && (
+          <ConviteBanco onLigar={() => navigate("/verificar")} texto="Saldo, fôlego e gastos aparecem aqui sozinhos, sem digitar nada." />
+        )}
+
+        {/* ANÁLISE (04/10): gastos do mês contra o seu normal, Raio-X (só pelo banco), piloto automático */}
+        {aba === "analise" && (
+          <>
+            <RastreadorGastos userId={user?.id} />
+            <RaioXEntrada userId={user?.id} temBanco={comBanco} />
+            {comBanco && casa && <PilotoLinha h={casa} onAbrir={() => navigate("/financas/extrato")} />}
+            {/* Importar histórico de VENDAS por PDF (IA lê e você revisa) — não é extrato de gastos */}
+            <button
+              onClick={() => setImportOpen(true)}
+              className="w-full h-10 rounded-xl text-muted-foreground text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Importar histórico de vendas (PDF)
+            </button>
+          </>
+        )}
         <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
 
       {/* Folha da conta (Paguei) + Nova caixinha — Rick, 10/09 */}

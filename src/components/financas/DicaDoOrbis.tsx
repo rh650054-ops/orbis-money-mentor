@@ -37,6 +37,8 @@ interface Props {
   /** Só gera quando a tela tem o que analisar (evita IA em conta vazia). */
   pronto: boolean;
   onConversar?: () => void;
+  /** Resumo das Finanças (04/10): só a conclusão em até 2 linhas; o resto abre em "Ver sugestão". */
+  compacto?: boolean;
 }
 
 const chave = (userId: string) => `orbis_dica_financas_${userId}`;
@@ -57,10 +59,10 @@ function pareceJson(v: string | undefined): boolean {
 function limpaDica(v: string): string {
   const t = (v ?? "").trim();
   if (!pareceJson(t)) return t;
-  return t.replace(/[{}\[\]]/g, " ").replace(/"(titulo|texto)"\s*:/gi, " ").replace(/"/g, "").replace(/\s+/g, " ").trim();
+  return t.replace(/[{}[\]]/g, " ").replace(/"(titulo|texto)"\s*:/gi, " ").replace(/"/g, "").replace(/\s+/g, " ").trim();
 }
 
-export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }: Props) {
+export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar, compacto = false }: Props) {
   const [dica, setDica] = useState<Dica | null>(() => {
     try {
       const raw = localStorage.getItem(chave(userId));
@@ -112,6 +114,7 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pronto]);
 
+  const [aberta, setAberta] = useState(false);
   const mostrando = dica ?? (fallback ? { titulo: fallback.titulo, texto: fallback.texto, fonte: "local" as const, quando: "" } : null);
   if (!mostrando && !carregando) return null;
 
@@ -132,7 +135,7 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
           <span className="inline-flex items-center justify-center w-[30px] h-[30px] rounded-[9px] shrink-0" style={{ background: "rgba(245,184,0,.14)" }}>
             <Sparkles className="w-4 h-4" style={{ color: "var(--orbis-gold,#F5B800)" }} strokeWidth={2.2} />
           </span>
-          <span className="orbis-label">Dica da Vant</span>
+          <span className="orbis-label">{compacto ? "Vant percebeu" : "Dica da Vant"}</span>
         </span>
         <span className="text-[11px] font-bold" style={{ color: "var(--orbis-fg-3,#7e7869)" }}>
           {carregando ? "pensando…" : mostrando?.fonte === "ia" && horaLabel ? `lida ${horaLabel}` : mostrando ? "sem IA por enquanto" : ""}
@@ -143,6 +146,8 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
         <p className="flex items-center gap-2 text-sm py-1" style={{ color: "var(--orbis-fg-2,#b9b3a6)" }}>
           <Loader2 className="w-4 h-4 animate-spin" /> Lendo suas contas e caixinhas…
         </p>
+      ) : mostrando && compacto && !aberta ? (
+        <p className="text-[15px] font-extrabold leading-[1.35] text-foreground line-clamp-2">{mostrando.titulo || mostrando.texto}</p>
       ) : mostrando ? (
         <>
           {mostrando.titulo && <p className="text-[15px] font-extrabold leading-[1.3] text-foreground">{mostrando.titulo}</p>}
@@ -152,6 +157,12 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
 
       {erro && <p className="text-[12px]" style={{ color: "var(--orbis-fg-3,#7e7869)" }}>{erro}</p>}
 
+      {compacto && !aberta && mostrando && (
+        <button type="button" onClick={() => setAberta(true)} className="self-start inline-flex items-center gap-0.5 h-8 text-[13px] font-extrabold" style={{ color: "var(--orbis-gold,#F5B800)" }}>
+          Ver sugestão <ChevronRight className="w-4 h-4" strokeWidth={2.6} />
+        </button>
+      )}
+      {(!compacto || aberta) && (
       <div className="flex items-center gap-3 pt-0.5 text-[12.5px] font-extrabold">
         <button
           type="button"
@@ -169,6 +180,7 @@ export function DicaDoOrbis({ userId, contexto, fallback, pronto, onConversar }:
           </button>
         )}
       </div>
+      )}
     </section>
   );
 }
