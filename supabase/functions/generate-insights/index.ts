@@ -104,19 +104,26 @@ async function callCerebras(systemPrompt: string, userPrompt: string): Promise<s
   return content;
 }
 
+let custoUser: string | null = null; // dono do relatório, pro medidor de gasto
+
 // ---- Claude (Anthropic, texto). Primeiro da fila; cai no Cerebras/Gemini se faltar chave/erro/credito. ----
 async function callClaude(systemPrompt: string, userPrompt: string): Promise<string> {
   const key = Deno.env.get("ANTHROPIC_API_KEY");
   if (!key) throw new Error("sem_anthropic_key");
-  const model = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
+  // Relatórios usam o Sonnet (o mesmo cérebro do chat). Antes era o Haiku — o modelo
+  // mais simples — e com só 4 ou 5 números no pedido: o texto saía igual pra todo mundo.
+  // Secret ANTHROPIC_MODEL_RELATORIO troca o modelo sem mexer no código.
+  const model = Deno.env.get("ANTHROPIC_MODEL_RELATORIO") ?? "claude-sonnet-5";
+  // Os modelos da linha 5 recusam "temperature" com 400 — só manda pros antigos.
+  const aceitaTemp = /haiku-4|sonnet-4|opus-4/.test(model);
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(40000),
     body: JSON.stringify({
       model,
-      max_tokens: 2000,
-      temperature: 0.7,
+      max_tokens: 1500,
+      ...(aceitaTemp ? { temperature: 0.7 } : {}),
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     }),
@@ -126,10 +133,91 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<str
     throw new Error(`claude_${res.status}: ${errBody.slice(0, 250)}`);
   }
   const j = await res.json();
+  registrarCusto(model, j?.usage);
   const content = ((j?.content ?? []).map((b: any) => b?.text || "").join("")).trim();
   if (!content) throw new Error("claude_vazio");
   return content;
 }
+
+// Medidor: mesmo painel de gasto do chat (ai_custos). Nunca atrapalha o relatório.
+function registrarCusto(model: string, u: any) {
+  try {
+    if (!u) return;
+    const pr = model.includes("opus") ? { e: 5, s: 25 } : model.includes("haiku") ? { e: 1, s: 5 } : { e: 2, s: 10 };
+    const ent = Number(u.input_tokens) || 0, sai = Number(u.output_tokens) || 0;
+    const a = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
+    const p = Promise.resolve(a.from("ai_custos").insert({
+      user_id: custoUser, servico: "claude_relatorio", modelo: model, qtd: ent + sai, unidade: "tokens",
+      custo_usd: Math.round((ent * pr.e / 1e6 + sai * pr.s / 1e6) * 1e6) / 1e6,
+    })).then(() => {}, () => {});
+    const er = (globalThis as any).EdgeRuntime;
+    if (er?.waitUntil) er.waitUntil(p);
+  } catch { /* noop */ }
+}
+
+// Histórico REAL do vendedor, buscado aqui no servidor (com o token dele, RLS):
+// últimos 30 dias de venda, melhores dias da semana e horários, o que ele vende,
+// onde, produtos que mais saem e o que a memória do mentor já sabe dele.
+// É isso que tira o relatório do genérico: a IA compara hoje com o normal DELE.
+async function historicoVendedor(sb: any, userId: string): Promise<string> {
+  try {
+    const hojeBR = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
+    const d = (n: number) => new Date(Date.parse(hojeBR + "T12:00:00Z") - n * 864e5).toISOString().slice(0, 10);
+    const [vR, hR, pR, prR, mR] = await Promise.all([
+      sb.from("daily_sales").select("date,total_profit,total_debt,cash_sales,card_sales,pix_sales")
+        .eq("user_id", userId).gte("date", d(29)).order("date", { ascending: true }),
+      sb.from("hourly_goal_blocks").select("hour_label,achieved_amount").eq("user_id", userId).gte("created_at", d(13) + "T00:00:00Z"),
+      sb.from("profiles").select("nickname,what_i_sell,where_i_sell,city,monthly_goal,streak_days").eq("user_id", userId).maybeSingle(),
+      sb.from("product_sales_log").select("product_id,quantity,total_amount").eq("user_id", userId).gte("created_at", d(29) + "T00:00:00Z"),
+      sb.from("ai_memoria").select("fato").eq("user_id", userId).eq("ativo", true).order("created_at", { ascending: false }).limit(8),
+    ]);
+    const L: string[] = [];
+    const p = pR?.data;
+    if (p) {
+      const quem = [p.nickname, p.what_i_sell && `vende ${p.what_i_sell}`, p.where_i_sell && `em ${p.where_i_sell}`, p.city].filter(Boolean).join(", ");
+      if (quem) L.push(`QUEM É: ${quem}.`);
+      if (Number(p.monthly_goal) > 0) L.push(`Meta do mês: R$ ${Number(p.monthly_goal).toFixed(0)}. Sequência: ${p.streak_days ?? 0} dias.`);
+    }
+    const todos = (vR?.data ?? []) as any[];
+    const vendas = todos.filter((x) => Number(x.total_profit) > 0);
+    if (vendas.length) {
+      const tot = vendas.reduce((s, x) => s + Number(x.total_profit || 0), 0);
+      const ult = vendas.slice(-10).map((x) => `${String(x.date).slice(8, 10)}/${String(x.date).slice(5, 7)} R$${Number(x.total_profit).toFixed(0)}`).join(", ");
+      L.push(`ÚLTIMOS 30 DIAS: ${vendas.length} dias de rua, R$ ${tot.toFixed(0)} no total, média R$ ${(tot / vendas.length).toFixed(0)}/dia, melhor dia R$ ${Math.max(...vendas.map((x) => Number(x.total_profit))).toFixed(0)}.`);
+      L.push(`Dias recentes: ${ult}.`);
+      const sem = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+      const porDia: Record<number, number[]> = {};
+      for (const x of vendas) { const w = new Date(String(x.date) + "T12:00:00Z").getUTCDay(); (porDia[w] ??= []).push(Number(x.total_profit)); }
+      const rank = Object.entries(porDia).map(([w, a]) => [sem[Number(w)], a.reduce((s, v) => s + v, 0) / a.length] as const).sort((a, b) => b[1] - a[1]);
+      if (rank.length >= 2) L.push(`Por dia da semana (média): ${rank.map(([n, v]) => `${n} R$${v.toFixed(0)}`).join(", ")}.`);
+      const pix = vendas.reduce((s, x) => s + Number(x.pix_sales || 0), 0);
+      const din = vendas.reduce((s, x) => s + Number(x.cash_sales || 0), 0);
+      const cal = todos.reduce((s, x) => s + Number(x.total_debt || 0), 0);
+      if (pix + din > 0) L.push(`Como recebe: Pix R$ ${pix.toFixed(0)}, dinheiro R$ ${din.toFixed(0)}${cal > 0 ? `, fiado ainda pra cair R$ ${cal.toFixed(0)}` : ""}.`);
+    }
+    const horas: Record<string, number[]> = {};
+    for (const h of (hR?.data ?? []) as any[]) if (h.hour_label) (horas[h.hour_label] ??= []).push(Number(h.achieved_amount || 0));
+    const hr = Object.entries(horas).map(([k, a]) => [k, a.reduce((s, v) => s + v, 0) / a.length] as const).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    if (hr.length) L.push(`Horários que mais rendem (14 dias): ${hr.map(([k, v]) => `${k} R$${v.toFixed(0)}`).join(", ")}.`);
+    const logs = (prR?.data ?? []) as any[];
+    if (logs.length) {
+      const ids = [...new Set(logs.map((x) => x.product_id).filter(Boolean))];
+      const { data: nomes } = ids.length ? await sb.from("products").select("id,name").in("id", ids) : { data: [] };
+      const nome = new Map(((nomes ?? []) as any[]).map((x) => [x.id, x.name]));
+      const prod: Record<string, { q: number; v: number }> = {};
+      for (const x of logs) { const n = nome.get(x.product_id) ?? "produto"; prod[n] ??= { q: 0, v: 0 }; prod[n].q += Number(x.quantity || 0); prod[n].v += Number(x.total_amount || 0); }
+      const top = Object.entries(prod).sort((a, b) => b[1].v - a[1].v).slice(0, 4);
+      if (top.length) L.push(`Produtos que mais saem (30 dias): ${top.map(([n, o]) => `${n} ${o.q}un R$${o.v.toFixed(0)}`).join(", ")}.`);
+    }
+    const mem = ((mR?.data ?? []) as any[]).map((x) => x.fato).filter(Boolean);
+    if (mem.length) L.push(`O QUE O MENTOR JÁ SABE DELE: ${mem.join(" | ")}.`);
+    return L.length ? `\n\nHISTÓRICO REAL DELE (compare e personalize — cite pelo menos um destes números):\n${L.join("\n")}` : "";
+  } catch (e) {
+    console.error("historicoVendedor falhou:", String(e).slice(0, 160));
+    return "";
+  }
+}
+
 
 // Texto: Claude primeiro; Cerebras de reserva; Gemini por último.
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
@@ -181,6 +269,8 @@ serve(async (req) => {
     if (userError || !user) throw new Error("Unauthorized");
 
     const body = await req.json();
+    custoUser = user.id;
+    const hist = await historicoVendedor(supabase, user.id);
 
     // Trava de uso: teto de gerações de IA por dia (protege o gasto). Falha FECHADO.
     {
@@ -215,7 +305,7 @@ serve(async (req) => {
 - Abordagens: ${body.approaches}
 - Vendas: ${body.sales}
 - Conversão: ${conv}%${goalLine}${ticketLine}
-Dê no máximo 2 dicas curtas e práticas, ANCORADAS no ticket real dele, pra ele vender mais AMANHÃ (caminho real: mais abordagens + combo realista, NUNCA ticket de fantasia). Máximo 3 linhas no total.`;
+Dê no máximo 2 dicas curtas e práticas, ANCORADAS no ticket real dele, pra ele vender mais AMANHÃ (caminho real: mais abordagens + combo realista, NUNCA ticket de fantasia). Máximo 3 linhas no total. Compare com a média dele e diga se hoje foi acima ou abaixo do normal.${hist}`;
       const tip = await callAI(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -229,7 +319,7 @@ Dê no máximo 2 dicas curtas e práticas, ANCORADAS no ticket real dele, pra el
 - Vendas nessa hora: ${body.sales}
 - Conversão: ${conv}%
 - Vendido na hora: R$ ${Number(body.soldAmount ?? 0).toFixed(0)}
-Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓXIMA hora. Máximo 2 linhas. Sem rodeio.`;
+Dê 1 dica curta e afiada, baseada NESSES números, pra ele melhorar JÁ na PRÓXIMA hora. Máximo 2 linhas. Sem rodeio.${hist}`;
       const tip = await callAI(ORBIS_COACH, prompt);
       return new Response(JSON.stringify({ tip }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -275,7 +365,7 @@ PONTOS DE FALHA: 1 a 3 pontos onde ele perde dinheiro, venda ou tempo, um por li
 
 FOCO AGORA: 1 frase direta.
 
-Não use asteriscos, markdown nem outros títulos além desses cinco.`;
+Não use asteriscos, markdown nem outros títulos além desses cinco.${hist}`;
 
       // Texto puro (mesmo método da dica do dia). Cerebras primeiro, Gemini de reserva.
       const analise = await callAI(
@@ -312,7 +402,7 @@ CAIXINHAS (objetivos):
 ${caixinhasLinhas}
 
 Escreva UMA dica pra ele, específica, citando os números acima. Prioridade: conta vencida > conta que vence nos próximos 5 dias e ainda falta dinheiro > contas maiores que o lucro > caixinha. Se está tudo em dia, elogia e aponta o próximo passo concreto.
-Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres", "texto": "2 ou 3 frases, até 320 caracteres, sem markdown"}.`;
+Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres", "texto": "2 ou 3 frases, até 320 caracteres, sem markdown"}.${hist}`;
       const raw = await callAI(
         ORBIS_COACH + "\nAgora você é o mentor FINANCEIRO dele: contas primeiro, caixinha depois. Nunca sugira crédito/empréstimo. Responda só o JSON pedido.",
         userPrompt,
@@ -356,7 +446,7 @@ Responda SOMENTE em JSON: {"titulo": "uma frase de impacto, até 80 caracteres",
 - Lucro líquido: R$ ${balance.toFixed(2)}
 - Média diária: R$ ${avgDailyProfit.toFixed(2)}
 - Hoje: R$ ${todayProfit.toFixed(2)}
-- Dias trabalhados: ${daysWithSales}
+- Dias trabalhados: ${daysWithSales}${hist}
 
 Retorne SOMENTE este JSON preenchido:
 {

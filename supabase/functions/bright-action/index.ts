@@ -317,13 +317,56 @@ async function edgeTTS(text: string, voice: string, pitch: string, rate: string,
   });
 }
 
+async function memoriaClaude(prompt: string, userId: string): Promise<string | null> {
+  const key = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!key) return null;
+  const model = Deno.env.get("ANTHROPIC_MODEL_MEMORIA") ?? "claude-haiku-4-5-20251001";
+  try {
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+      signal: AbortSignal.timeout(15000),
+      body: JSON.stringify({ model, max_tokens: 400, messages: [{ role: "user", content: prompt }] }),
+    });
+    if (!r.ok) { console.error("extractMemory claude http", r.status); return null; }
+    const j = await r.json();
+    const u = j?.usage;
+    if (u) registrarCusto({
+      user_id: userId, servico: "claude_memoria", modelo: model,
+      qtd: (Number(u.input_tokens) || 0) + (Number(u.output_tokens) || 0), unidade: "tokens",
+      custo_usd: (Number(u.input_tokens) || 0) * 1 / 1e6 + (Number(u.output_tokens) || 0) * 5 / 1e6,
+    });
+    const t = ((j?.content ?? []) as any[]).map((b) => b?.text || "").join("").trim();
+    return t || null;
+  } catch (e) {
+    console.error("extractMemory claude falhou:", String(e).slice(0, 160));
+    return null;
+  }
+}
+
+async function memoriaGemini(prompt: string): Promise<string | null> {
+  const key = Deno.env.get("GEMINI_API_KEY");
+  if (!key) return null;
+  const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(15000),
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: "application/json" },
+    }),
+  });
+  if (!r.ok) { console.error("extractMemory gemini http", r.status); return null; }
+  const j = await r.json();
+  return j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? null;
+}
+
 // ===== FASE 1 do Agente: extrai MEMÓRIA de longo prazo da conversa (roda DEPOIS da
 // resposta, sem atrasar o vendedor). Só grava o que o VENDEDOR afirmou. =====
 async function extractMemory(userId: string, userMsg: string, reply: string, existing: string[]) {
   try {
-    const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key || !userId || !userMsg || userMsg.length < 8) return;
-    const model = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+    if (!userId || !userMsg || userMsg.length < 8) return;
     const prompt = `Você extrai MEMÓRIA de longo prazo sobre um vendedor ambulante a partir de uma troca de chat com o mentor dele.
 
 FATOS JÁ CONHECIDOS (NÃO repita nem reescreva nenhum):
@@ -335,20 +378,13 @@ Mentor respondeu: ${reply}
 
 Liste APENAS fatos NOVOS e DURÁVEIS afirmados PELO PRÓPRIO VENDEDOR sobre ele ou o negócio dele: o que vende, onde vende, rotina, dificuldade recorrente, vitória com número, compromisso que ele assumiu, preferência. NADA passageiro (clima, humor do dia), NADA inventado, NADA que veio só do mentor. No máximo 3 fatos, cada um numa frase curta e objetiva em português. Se não houver fato novo durável, devolva a lista vazia.
 Responda SOMENTE com JSON neste formato: {"fatos":[{"tipo":"perfil|dificuldade|vitoria|combinado|preferencia|outro","fato":"..."}]}`;
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(15000),
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 400, responseMimeType: "application/json" },
-      }),
-    });
-    if (!r.ok) { console.error("extractMemory http", r.status); return; }
-    const j = await r.json();
-    const raw = j?.candidates?.[0]?.content?.parts?.[0]?.text?.toString() ?? "{}";
+    // Claude Haiku primeiro (rápido e barato, ~US$ 0,001 por troca). O Gemini grátis
+    // respondia 429 em quase toda mensagem (logs de 04/10) — o mentor não guardava
+    // nada do que o vendedor contava e as respostas ficavam genéricas.
+    const raw = await memoriaClaude(prompt, userId) ?? await memoriaGemini(prompt);
+    if (!raw) return;
     let fatos: { tipo?: string; fato?: string }[] = [];
-    try { fatos = (JSON.parse(raw)?.fatos ?? []) as typeof fatos; } catch { return; }
+    try { fatos = (JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? "{}")?.fatos ?? []) as typeof fatos; } catch { return; }
     const tiposOk = ["perfil", "dificuldade", "vitoria", "combinado", "preferencia", "outro"];
     const baixa = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
     const conhecidos = existing.map(baixa);
@@ -1121,7 +1157,10 @@ Deno.serve(async (req) => {
       if (akey) {
         // Conversa de MARCA/ADESIVO usa o Claude mais forte (Opus): criar nome e arte merece
         // o melhor modelo. O dia a dia do mentor segue no Sonnet (bem mais barato).
-        const conversaTxt = messages.slice(-6).map((m: any) => String(m?.content ?? "")).join(" ").toLowerCase();
+        // Só a mensagem ATUAL dele (+ a pergunta do mentor logo antes) decide o modelo.
+        // Antes olhava as últimas 6: depois de UM pedido de adesivo, toda a conversa
+        // seguinte ia pro Opus (o mais lento) — "quanto vendi hoje?" levava 20s+.
+        const conversaTxt = messages.slice(-2).map((m: any) => String(m?.content ?? "")).join(" ").toLowerCase();
         // Opus (2,5x mais caro) SÓ quando é de fato trabalho de criação visual/identidade.
         // Antes bastava a palavra "marca" — e ela aparece em "marcar a meta", "marca de
         // 100 reais", "que marca de copo". Cada falso positivo custava 2,5x à toa.
@@ -1198,6 +1237,10 @@ Deno.serve(async (req) => {
                     ...(modoVoz ? [{ type: "text", text: VOZ_EXTRA }] : []),
                   ],
                   tools: AGENT_TOOLS,
+                  // Última rodada do agente: proíbe ferramenta e obriga a responder em texto.
+                  // Sem isso, 4 pedidos de ferramenta seguidos terminavam sem resposta e o
+                  // vendedor via "meu cérebro tá fora do ar" (visto em 04/10 13:39).
+                  ...(rodada === 3 ? { tool_choice: { type: "none" } } : {}),
                   messages: aMessages,
                 }),
               });

@@ -2,6 +2,19 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 04/10/2026 — IA: relatórios com o histórico de verdade e chat mais rápido
+
+**O que mudou pro vendedor**
+- **Relatórios e dicas da IA** (dica do dia, dica da hora, análise do relatório, dica de Finanças, relatório semanal) agora usam o mesmo cérebro do chat (Claude Sonnet) e recebem o **histórico real** do vendedor: últimos 30 dias, média por dia, melhores dias da semana e horários, como recebe (Pix/dinheiro/fiado), produtos que mais saem e o que o mentor já sabe dele. A IA compara o dia com o normal DELE em vez de dar conselho de manual.
+- **Chat mais rápido**: depois de pedir um adesivo, a conversa toda ficava presa no Opus (o modelo mais lento, 20s+ por resposta). Agora só o pedido de criação vai pro Opus; o resto volta pro Sonnet (4–10s).
+- **Fim do "meu cérebro tá fora do ar"** quando o mentor consultava ferramentas 4 vezes seguidas: na última rodada ele é obrigado a responder.
+- **Memória do mentor voltou a gravar**: o que o vendedor conta (o que vende, onde, dificuldades) era extraído pelo Gemini grátis, que respondia 429 em quase toda mensagem. Agora é o Claude Haiku (≈ US$ 0,001 por troca), com o Gemini de reserva.
+- A arte do adesivo continua levando ~1–2 min: é o tempo da geração em alta qualidade (gpt-image), não falha.
+
+**Por dentro**
+- `bright-action`: modelo escolhido pelas 2 últimas mensagens (era 6); `tool_choice: none` na rodada 4; `extractMemory` → `memoriaClaude` (secret opcional `ANTHROPIC_MODEL_MEMORIA`) + `memoriaGemini`. O deploy também tira o nome antigo "ORBIS IA" que ainda estava no ar.
+- `generate-insights`: `historicoVendedor()` (RLS com o token do vendedor), modelo `ANTHROPIC_MODEL_RELATORIO` (padrão `claude-sonnet-5`, sem `temperature` na linha 5), gasto registrado em `ai_custos` como `claude_relatorio`.
+
 ## 03/10/2026 — Finanças: caixinhas no alto, reserva em "Guardado" e lucro do mês explicado
 
 **O que mudou pro vendedor**
