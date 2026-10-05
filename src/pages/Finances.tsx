@@ -60,8 +60,14 @@ import { FinancasPainel } from "@/components/financas/FinancasPainel";
 import { ReservaCaixinha } from "@/components/financas/ReservaCaixinha";
 import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, PilotoLinha, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
 import { RastreadorGastos } from "@/components/financas/RastreadorGastos";
-import { MesBlindado, SeloConta } from "@/components/financas/MesBlindado";
-import { diasUteisAteBlindar, guardadoMedioDia, recadoBlindado, seloConta } from "@/components/financas/blindagem";
+import { ToastAction } from "@/shared/ui/toast";
+import { MesBlindadoCard } from "@/components/financas/planejar/MesBlindadoCard";
+import { GuardarHojeCard } from "@/components/financas/planejar/GuardarHojeCard";
+import { VencidasCard } from "@/components/financas/planejar/VencidasCard";
+import { ContasDoMes } from "@/components/financas/planejar/ContasDoMes";
+import { ObjetivosLista } from "@/components/financas/planejar/ObjetivosLista";
+import type { DiaAlvo } from "@/components/financas/planejar/RegistrarValorFolha";
+import type { ContaVM, ObjetivoVM } from "@/components/financas/planejar/tipos";
 
 /* Anel de progresso (Opal): trilho cinza, arco colorido, número no centro. Fora do
    componente pra não remontar a cada tecla. */
@@ -116,6 +122,8 @@ interface PlannedBill {
   paid_cycle?: string | null; // 'YYYY-MM' do ciclo em que foi paga (recorrente reseta no próximo)
   duration_months?: number | null; // null = fixa (todo mês); N = dura N meses e acaba
   cycles_paid?: number; // quantos ciclos já foram pagos (pra saber quando a duração acaba)
+  plano_quitacao_dias?: number | null; // vencida com plano: quitar em N dias úteis (05/10)
+  plano_quitacao_ate?: string | null;  // ...até esta data (YYYY-MM-DD)
 }
 
 interface Goal {
@@ -269,11 +277,11 @@ export default function Finances() {
   // são ignorados. Sem isso, tocar 2x num botão lento gravava 2x no banco (guardar em
   // dobro, conta duplicada, pago/reaberto) — uma das principais fontes de valores errados.
   const actingRef = useRef(false);
-  const runOnce = async (fn: () => Promise<void>) => {
-    if (actingRef.current) return;
+  const runOnce = async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    if (actingRef.current) return undefined;
     actingRef.current = true;
     try {
-      await fn();
+      return await fn();
     } finally {
       actingRef.current = false;
     }
@@ -328,13 +336,19 @@ export default function Finances() {
 
     try {
       // Load planned bills (Contas a pagar): não pagas primeiro, depois por vencimento
-      const { data: billsData, error: billsError } = await supabase
+      const colunasConta = "id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco, paid_cycle, duration_months, cycles_paid";
+      const lerContas = (colunas: string) => supabase
         .from("planned_bills")
-        .select("id, name, amount, due_date, saved_amount, paid, recurring, payment_code, file_path, is_credit_card, installments, risco, paid_cycle, duration_months, cycles_paid")
+        .select(colunas)
         .eq("user_id", user.id)
         .order("paid", { ascending: true })
         .order("due_date", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true });
+      // plano de quitação (05/10): se a coluna ainda não existe no banco, lê sem ela
+      let { data: billsData, error: billsError } = await lerContas(`${colunasConta}, plano_quitacao_dias, plano_quitacao_ate`);
+      if (billsError && /plano_quitacao/.test(String(billsError.message))) {
+        ({ data: billsData, error: billsError } = await lerContas(colunasConta));
+      }
 
       if (billsError) throw billsError;
 
@@ -360,7 +374,7 @@ export default function Finances() {
       // não cobrar de novo). Aqui convertemos qualquer recorrente legada marcada como paga
       // pro novo modelo: tira o "paid", zera o guardado e registra o ciclo atual como pago.
       const cicloAtual = getBrazilDate().slice(0, 7); // YYYY-MM
-      const bruto = (billsData || []) as PlannedBill[];
+      const bruto = (billsData || []) as unknown as PlannedBill[];
       // Conta com DURAÇÃO já encerrada (pagou todas as parcelas) fica paga de vez — não reabre.
       const duracaoEncerrada = (b: PlannedBill) => b.duration_months != null && (b.cycles_paid || 0) >= b.duration_months;
       const legadas = bruto.filter((b) => b.recurring && b.paid && !duracaoEncerrada(b));
@@ -1266,7 +1280,10 @@ export default function Finances() {
 
   // Quanto guardar POR DIA DE TRABALHO. Vencida → 0 (já passou o prazo).
   // Senão divide o que falta pelos dias úteis até o próximo vencimento (recorrente rola).
+  // Vencida COM plano de quitação (05/10): entra no guardar de hoje dividida até a data do plano.
+  const temPlano = (bill: PlannedBill): boolean => Boolean(bill.plano_quitacao_ate) && isOverdue(bill);
   const perDay = (bill: PlannedBill): number => {
+    if (temPlano(bill)) return remaining(bill) / Math.max(1, workingDaysUntil(bill.plano_quitacao_ate ?? null));
     if (isOverdue(bill)) return 0;
     const nd = nextDueDate(bill);
     const wd = workingDaysUntil(nd ? toYMD(nd) : null);
@@ -1357,7 +1374,7 @@ export default function Finances() {
   const billsShareToday = todayIsWorkDay
     ? bills.reduce((sum, bill) => {
         const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-        if (quitada || isOverdue(bill)) return sum;
+        if (quitada || (isOverdue(bill) && !temPlano(bill))) return sum;
         return sum + perDay(bill);
       }, 0)
     : 0;
@@ -1482,7 +1499,9 @@ export default function Finances() {
       } else if (isWork) {
         for (const bill of bills) {
           const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-          if (quitada || isOverdue(bill)) continue;
+          if (quitada) continue;
+          if (temPlano(bill)) { if (toYMD(d) <= (bill.plano_quitacao_ate ?? "")) raw += perDay(bill); continue; }
+          if (isOverdue(bill)) continue;
           const nd = nextDueDate(bill);
           if (nd && d.getTime() <= nd.getTime()) {
             raw += perDay(bill); // ciclo atual: o que falta ÷ dias úteis até vencer
@@ -1518,8 +1537,9 @@ export default function Finances() {
   // Recorrente = valor cheio ÷ dias úteis do mês; pontual = o que falta ÷ dias até vencer.
   const diasUteisMes = Math.max(1, Math.round((workingDays && workingDays.length > 0 ? workingDays.length : 6) * 30 / 7));
   const ritmoSustentavel = bills
-    .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && !isOverdue(b))
+    .filter((b) => !(b.paid || Number(b.saved_amount) >= Number(b.amount)) && (!isOverdue(b) || temPlano(b)))
     .reduce((s, b) => {
+      if (temPlano(b)) return s + perDay(b);
       if (b.recurring) return s + (Number(b.amount) || 0) / diasUteisMes;
       const nd = nextDueDate(b);
       return s + (nd ? remaining(b) / Math.max(1, workingDaysUntil(toYMD(nd))) : 0);
@@ -1724,8 +1744,8 @@ export default function Finances() {
 
   // "Guardei tudo": guarda a parte de hoje de TODAS as contas e metas de uma vez,
   // e marca "já guardou hoje" (renova amanhã).
-  const handleGuardeiTudo = () => runOnce(async () => {
-    if (!user || totalGuardarHoje <= 0) return;
+  const handleGuardeiTudo = () => runOnce(async (): Promise<boolean> => {
+    if (!user || totalGuardarHoje <= 0) return false;
     try {
       const billDeltas: { id: string; delta: number }[] = [];
       const goalDeltas: { id: string; delta: number; prevStatus: string }[] = [];
@@ -1734,7 +1754,7 @@ export default function Finances() {
       const billWrites: PromiseLike<unknown>[] = [];
       for (const bill of bills) {
         const quitada = bill.paid || Number(bill.saved_amount) >= Number(bill.amount);
-        if (quitada || isOverdue(bill) || !todayIsWorkDay) continue;
+        if (quitada || (isOverdue(bill) && !temPlano(bill)) || !todayIsWorkDay) continue;
         const add = perDay(bill);
         if (add > 0) {
           billWrites.push(
@@ -1780,10 +1800,12 @@ export default function Finances() {
       // Marca "já guardou hoje" + persiste o "último guardei" no banco pra o botão de
       // desfazer sobreviver a fechar/abrir o app (e a trocar de aparelho).
       await guardar.marcarSalvo({ billDeltas, goalDeltas, savedHojeDelta });
-      toast({ title: "✓ Guardei tudo!", description: `${formatCurrency(savedHojeDelta)} guardado.` });
+      toastDesfazer("Valor registrado ✓", `${formatCurrency(savedHojeDelta)} guardado.`, async () => { await handleDesfazerGuardei(); });
       loadFinancialData();
+      return true;
     } catch {
       toast({ title: "Erro ao guardar", variant: "destructive" });
+      return false;
     }
   });
 
@@ -1882,7 +1904,8 @@ export default function Finances() {
   // CASCATA: guardar paga o VENCIMENTO MAIS PRÓXIMO primeiro (não divide igual entre
   // todas). Assim os dias mais perto caem mais quando você guarda, de forma consistente
   // (vem do estado real das contas) e financeiramente esperta (quita o que vence antes).
-  const distribuirGuardado = async (value: number) => {
+  const distribuirGuardado = async (value: number): Promise<string[]> => {
+    const tocadas: string[] = [];
     let restante = value;
     // Inclui VENCIDAS e paga elas primeiro: como a vencida tem vencimento no passado, ela
     // já entra no topo do sort por data (menor timestamp). Assim o dinheiro guardado quita
@@ -1899,9 +1922,11 @@ export default function Finances() {
           .from("planned_bills")
           .update({ saved_amount: Number(item.b.saved_amount) + add })
           .eq("id", item.b.id);
+        tocadas.push(item.b.id);
         restante -= add;
       }
     }
+    return tocadas;
   };
 
   // Distribui um valor SÓ nas contas vencidas (mais antiga primeiro), até acabar o valor.
@@ -1921,6 +1946,125 @@ export default function Finances() {
         restante -= add;
       }
     }
+  };
+
+  // ===== PLANEJAR (05/10): ações com "Desfazer" =====
+  // Foto do antes (contas, metas, guardado de hoje): desfazer = voltar exatamente a ela.
+  const fotoAntes = () => ({
+    contas: new Map(bills.map((b) => [b.id, { saved_amount: Number(b.saved_amount) || 0, paid: b.paid, paid_cycle: b.paid_cycle ?? null, cycles_paid: b.cycles_paid ?? 0 }])),
+    metas: new Map(goals.map((g) => [g.id, { current_amount: Number(g.current_amount) || 0, status: g.status }])),
+    guardadoHoje: savedTodayAmount,
+  });
+  const voltarFoto = async (foto: ReturnType<typeof fotoAntes>, contaIds: string[], metaIds: string[], hoje: boolean) => {
+    const writes: PromiseLike<unknown>[] = [];
+    for (const id of contaIds) {
+      const a = foto.contas.get(id);
+      if (a) writes.push(supabase.from("planned_bills").update(a as never).eq("id", id));
+    }
+    for (const id of metaIds) {
+      const a = foto.metas.get(id);
+      if (a) writes.push(supabase.from("financial_goals").update(a).eq("id", id));
+    }
+    await Promise.all(writes);
+    if (hoje) {
+      gravarDiaGuardado(getBrazilDate(), foto.guardadoHoje);
+      await guardar.setGuardado(foto.guardadoHoje);
+    }
+    toast({ title: "Desfeito" });
+    loadFinancialData();
+  };
+  const toastDesfazer = (titulo: string, descricao: string | undefined, desfazer: () => Promise<void>) => {
+    toast({ title: titulo, description: descricao, action: <ToastAction altText="Desfazer" onClick={() => void desfazer()}>Desfazer</ToastAction> });
+  };
+
+  // "Registrar outro valor" (hoje, um dia da lista ou um dia anterior).
+  const registrarValor = async (valor: number, dia: DiaAlvo): Promise<boolean> => {
+    if (!user || !(valor > 0)) return false;
+    const foto = fotoAntes();
+    const r = await runOnce(async () => {
+      const metasTocadas: string[] = [];
+      let paraContas = valor;
+      // hoje, com metas no modo "junto": mesma divisão do "Guardei" (contas × metas)
+      if (dia.isToday && totalGuardarHoje > 0 && metasModo === "junto") {
+        paraContas = valor * (billsShareToday / totalGuardarHoje);
+        const factor = valor / totalGuardarHoje;
+        for (const goal of metasAtivasFila) {
+          const share = Math.min(metaRitmoDia(goal) * factor, faltaMeta(goal));
+          if (share > 0.005) {
+            const novo = Number(goal.current_amount) + share;
+            await supabase.from("financial_goals")
+              .update({ current_amount: novo, status: novo >= Number(goal.target_amount) ? "completed" : "active" })
+              .eq("id", goal.id);
+            metasTocadas.push(goal.id);
+          }
+        }
+      }
+      const contasTocadas = await distribuirGuardado(paraContas);
+      if (dia.isToday) await registrarGuardadoHoje(valor);
+      else if (dia.data) gravarDiaGuardado(dia.data, (diasGuardados[dia.data] || 0) + valor);
+      return { contasTocadas, metasTocadas };
+    }).catch(() => null);
+    if (!r) { toast({ title: "Erro ao guardar", variant: "destructive" }); return false; }
+    const restanteAgora = Math.max(0, alvoHoje - (savedTodayAmount + valor));
+    toastDesfazer(
+      "Valor registrado ✓",
+      dia.isToday
+        ? (restanteAgora > 0.005 ? `${formatCurrency(valor)} guardado. Falta ${formatCurrency(restanteAgora)} pra hoje.` : `${formatCurrency(valor)} guardado. Dia fechado.`)
+        : `${formatCurrency(valor)} em ${dia.label}.`,
+      () => voltarFoto(foto, r.contasTocadas, r.metasTocadas, dia.isToday),
+    );
+    loadFinancialData();
+    return true;
+  };
+
+  // "Paguei" na linha da conta / "Marcar como paga" na vencida.
+  const marcarPaga = async (id: string): Promise<boolean> => {
+    const b = bills.find((x) => x.id === id);
+    if (!b) return false;
+    const foto = fotoAntes();
+    const ok = await runOnce(async () => {
+      const cicloAtual = getBrazilDate().slice(0, 7);
+      let update: Record<string, unknown>;
+      if (b.recurring) {
+        if (b.paid_cycle === cicloAtual) return true;
+        const novo = (b.cycles_paid || 0) + 1;
+        update = b.duration_months != null && novo >= b.duration_months
+          ? { paid_cycle: cicloAtual, cycles_paid: novo, paid: true }
+          : { paid_cycle: cicloAtual, saved_amount: 0, paid: false, cycles_paid: novo };
+      } else {
+        update = { paid: true };
+      }
+      const { error } = await supabase.from("planned_bills").update(update as never).eq("id", id);
+      return !error;
+    });
+    if (!ok) { toast({ title: "Não deu pra marcar como paga", description: "Tenta de novo.", variant: "destructive" }); return false; }
+    toastDesfazer("Conta marcada como paga", b.name, () => voltarFoto(foto, [id], [], false));
+    window.setTimeout(() => { void loadFinancialData(); }, 900);
+    return true;
+  };
+
+  // Plano de quitação das vencidas: N dias úteis contando hoje (se hoje é dia de trabalho).
+  const fimEmDiasUteis = (n: number): Date => {
+    const hoje = new Date();
+    hoje.setHours(12, 0, 0, 0);
+    if (todayIsWorkDay) return n <= 1 ? hoje : somarDiasUteis(hoje, n - 1);
+    return somarDiasUteis(hoje, n);
+  };
+  const simularPlano = (falta: number, dias: number) => ({
+    porDia: falta / Math.max(1, dias),
+    quita: fimEmDiasUteis(dias).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+  });
+  const usarPlano = async (ids: string[], dias: number): Promise<boolean> => {
+    const ate = toYMD(fimEmDiasUteis(dias));
+    const { error } = await supabase.from("planned_bills").update({ plano_quitacao_dias: dias, plano_quitacao_ate: ate } as never).in("id", ids);
+    if (error) {
+      avisar.silencioso("finanças: salvar plano de quitação", error);
+      toast({ title: "Não deu pra salvar o plano", description: "Tenta de novo.", variant: "destructive" });
+      return false;
+    }
+    toast({ title: "Plano ativo", description: `Entra no guardar de hoje até ${ate.slice(8, 10)}/${ate.slice(5, 7)}.` });
+    loadFinancialData();
+    return true;
   };
 
   // "Guardar pra quitar vencidas": o valor informado vai 100% pras atrasadas.
@@ -2165,202 +2309,6 @@ export default function Finances() {
 
     </>
   );
-  const renderVencidas = () => (
-    <>
-      {/* Vencidas — resumo expansível: detalhes e planejador só quando o usuário quiser */}
-      {!isLoadingData && overdueBills.length > 0 && (
-        <Card className="bg-destructive/5 border border-destructive/30 rounded-2xl">
-          <CardContent className="p-0">
-            <button
-              type="button"
-              onClick={() => setVencidasAberto((v) => !v)}
-              className="w-full flex items-center gap-2 p-4 text-left"
-            >
-              <AlertTriangle className="w-4 h-4 text-destructive shrink-0" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-destructive">Vencidas — quite o quanto antes</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
-                  {overdueBills.length} {overdueBills.length === 1 ? "conta" : "contas"} · faltam {formatCurrency(vencidasTotal)} · toque pra ver
-                </p>
-              </div>
-              <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${vencidasAberto ? "rotate-180" : ""}`} />
-            </button>
-            {vencidasAberto && (
-            <div className="px-4 pb-4 space-y-2">
-            {overdueBillsOrdenadas.map((bill) => {
-              const saved = Number(bill.saved_amount) || 0;
-              const amount = Number(bill.amount) || 0;
-              const falta = remaining(bill);
-              const venceu = bill.due_date
-                ? new Date(bill.due_date + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })
-                : "—";
-              const risco = riscoInfo(bill.risco);
-              const dias = Math.max(1, prazoVencida[bill.id] ?? 3);
-              const porDia = falta / dias;
-              const quita = dataEmDiasUteis(dias);
-              return (
-                <div key={bill.id} className="rounded-lg bg-background border border-destructive/20 px-3 py-2 space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-sm font-semibold truncate">{bill.name}</p>
-                        <span className={`inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${risco.cls}`}>
-                          {risco.label}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-destructive">
-                        venceu {venceu} · guardado {formatCurrency(saved)} de {formatCurrency(amount)}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-[10px] text-muted-foreground">faltam</p>
-                      <p className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(falta)}</p>
-                    </div>
-                  </div>
-                  {/* Planejador: em quantos dias úteis quer quitar essa vencida */}
-                  <div className="rounded-lg bg-muted/40 border border-border/50 px-2.5 py-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-muted-foreground">Pagar em</span>
-                      <div className="flex items-center gap-1">
-                        {[3, 5, 10, 15].map((n) => (
-                          <button
-                            key={n}
-                            type="button"
-                            onClick={() => setPrazoVencida((p) => ({ ...p, [bill.id]: n }))}
-                            className={`w-7 h-7 rounded-md text-xs font-bold transition-colors ${
-                              dias === n ? "bg-primary text-primary-foreground" : "bg-background border border-border text-muted-foreground"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                        <span className="text-[11px] text-muted-foreground ml-0.5">dias úteis</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-foreground mt-1.5">
-                      Guarde <span className="font-bold text-primary">{formatCurrency(porDia)}</span>/dia útil · quita ~{quita.data}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-            <p className="text-[11px] text-muted-foreground leading-relaxed">
-              O que guardar aqui vai 100% pra quitar (a mais antiga primeiro).
-            </p>
-            <Button
-              onClick={() => { setVencidasSaveValue(String(Math.round(vencidasTotal * 100) / 100)); setVencidasSaveOpen(true); }}
-              variant="destructive"
-              className="w-full"
-            >
-              <PiggyBank className="w-4 h-4 mr-2" />
-              Guardar pra quitar — {formatCurrency(vencidasTotal)}
-            </Button>
-            </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-    </>
-  );
-  const renderProximos = () => (
-    <>
-      {/* Próximos dias — projeção de quanto guardar (contas); abre pelo link do card "Guardar hoje" */}
-      {!isLoadingData && bills.length > 0 && showProjecao && (
-        <Card className="bg-card border border-border/60 rounded-2xl">
-          <CardContent className="p-4">
-            <button
-              onClick={() => setShowProjecao((v) => !v)}
-              className="w-full flex items-center gap-3 text-left"
-            >
-              <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
-                <Calendar className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Próximos dias</p>
-                <p className="text-xs text-muted-foreground truncate">
-                  {proximoDiaTrabalho
-                    ? <>Próximo dia útil: <span className="font-semibold text-primary">{proximoDiaTrabalho.label}</span> · {formatCurrency(proximoDiaTrabalho.valor)}</>
-                    : "Sem dia de trabalho nos próximos 7 dias"}
-                </p>
-              </div>
-              <ChevronDown className={`w-5 h-5 text-muted-foreground shrink-0 transition-transform ${showProjecao ? "rotate-180" : ""}`} />
-            </button>
-
-            {/* Ritmo sustentável — quanto guardar por dia útil pra manter as contas em dia */}
-            {ritmoSustentavel > 0 && (
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-xl bg-success/5 border border-success/20 px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-xs text-muted-foreground">Valor fixo por dia pra pagar as contas</p>
-                  <p className="text-[11px] text-muted-foreground">guardando isso todo dia de trabalho, as contas fecham mês a mês</p>
-                </div>
-                <p className="text-sm font-bold text-success text-right shrink-0">
-                  {formatCurrency(ritmoSustentavel)}<span className="text-muted-foreground font-normal text-xs">/dia</span>
-                </p>
-              </div>
-            )}
-
-            {showProjecao && (
-              <div className="mt-3 pt-3 border-t border-border/50">
-                {/* Rolável: arraste pra baixo pra ver mais dias (próximos 30 dias). */}
-                <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 overscroll-contain">
-                  {proximosDias.map((d) => (
-                    <button
-                      key={d.key}
-                      onClick={() => { setDiaSaveValue(""); setDiaSave({ label: d.label, isToday: d.isToday }); }}
-                      className="w-full flex items-center justify-between px-2 py-2 rounded-lg hover:bg-primary/5 active:scale-[0.99] transition-[colors,transform]"
-                    >
-                      <span className="text-sm capitalize text-foreground">{d.label}</span>
-                      <span className="flex items-center gap-2">
-                        {d.isWork ? (
-                          <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(d.valor)}</span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">descanso</span>
-                        )}
-                        <Plus className="w-3.5 h-3.5 text-muted-foreground" />
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[11px] text-muted-foreground pt-2 leading-relaxed">
-                  Toque num dia pra registrar quanto guardou.
-                </p>
-
-                {/* Rever/lançar num dia ANTERIOR — pra corrigir depois que virou o dia */}
-                <div className="mt-3 pt-3 border-t border-border/50 space-y-2">
-                  <p className="text-[11px] font-semibold text-muted-foreground">Guardei em outro dia (rever / corrigir)</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="date"
-                      value={outroDiaData}
-                      max={getBrazilDate()}
-                      onChange={(e) => setOutroDiaData(e.target.value)}
-                      className="h-10 flex-1 min-w-0 bg-background border border-border rounded-lg px-2 text-sm text-foreground"
-                    />
-                    <button
-                      onClick={() => {
-                        setDiaSaveValue("");
-                        const [, m, d] = outroDiaData.split("-");
-                        setDiaSave({ label: outroDiaData === getBrazilDate() ? "Hoje" : `${d}/${m}`, isToday: outroDiaData === getBrazilDate() });
-                      }}
-                      className="shrink-0 h-10 px-4 rounded-lg bg-primary text-primary-foreground font-bold text-sm flex items-center gap-1.5 active:scale-95"
-                    >
-                      <Plus className="w-4 h-4" /> Lançar
-                    </button>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">
-                    Vai pras suas contas do mesmo jeito.
-                  </p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-    </>
-  );
-
   // PARA RESOLVER (Resumo): vencidas primeiro; sem vencida, o que vence hoje.
   const pendencia = (() => {
     if (overdueBillsOrdenadas.length > 0) {
@@ -2603,264 +2551,126 @@ export default function Finances() {
         </DialogContent>
       </Dialog>
 
-        {/* CONTAS + CAIXINHAS (Rick, 10/09): tudo vive nestes dois cards. O "Paguei"
-            mora em cada linha e abre a folha da conta; a seção duplicada de baixo
-            (Mês blindado + acordeão) saiu. */}
-        {!isLoadingData && aba === "planejar" && (() => {
+        {/* PLANEJAR (05/10): proteção do mês → ação de hoje → urgências → contas → objetivos.
+            Resumo no card, detalhe numa folha, ação num botão. */}
+        {aba === "planejar" && (isLoadingData && bills.length === 0 && goals.length === 0 ? (
+          <div className="flex flex-col gap-4"><Skeleton className="h-56 w-full rounded-[20px]" /><Skeleton className="h-72 w-full rounded-[20px]" /></div>
+        ) : (() => {
           const cicloAtual = getBrazilDate().slice(0, 7);
           const abertas = bills.filter((b) => !b.paid);
           const totalContas = abertas.reduce((t, b) => t + (Number(b.amount) || 0), 0);
           const guardadoContas = abertas.reduce((t, b) => t + Math.min(Number(b.saved_amount) || 0, Number(b.amount) || 0), 0);
-          const pctContas = totalContas > 0 ? (guardadoContas / totalContas) * 100 : 0;
           const cobertas = abertas.filter((b) => (Number(b.amount) > 0 && Number(b.saved_amount) >= Number(b.amount)) || (b.recurring && b.paid_cycle === cicloAtual)).length;
-          const lista = billsOrdenadas.filter((b) => !b.paid);
-          const visiveis = contasTodas ? lista : lista.slice(0, 6);
-          const ativas = goalsOrdenadas.filter((g) => g.status !== "completed" && g.status !== "concluida");
-          const juntou = goals.reduce((t, g) => t + (Number(g.current_amount) || 0), 0);
-          // LOTE 3 (03/10): projeção "no ritmo de hoje, dia 19" usa o que ele GUARDA
-          // de fato (média dos dias de trabalho das últimas 2 semanas); o recado
-          // compara isso com o que as contas pedem.
-          const faltaContas = Math.max(0, totalContas - guardadoContas);
-          const guardaDia = guardadoMedioDia(diasGuardados, workingDays, new Date());
-          const diasBlind = diasUteisAteBlindar(faltaContas, guardaDia);
-          const rotuloDia = (n: number) => {
-            const q = dataEmDiasUteis(n);
-            const mesmoMes = q.data.slice(3, 5) === getBrazilDate().slice(5, 7);
-            return mesmoMes ? `dia ${q.data.slice(0, 2)}` : `dia ${q.data}`;
+          const paraVM = (b: PlannedBill): ContaVM => {
+            const amount = Number(b.amount) || 0;
+            const saved = Number(b.saved_amount) || 0;
+            const nd = nextDueDate(b);
+            const over = isOverdue(b);
+            const plano = temPlano(b) && b.plano_quitacao_ate
+              ? { dias: b.plano_quitacao_dias ?? 0, porDia: perDay(b), quita: `${b.plano_quitacao_ate.slice(8, 10)}/${b.plano_quitacao_ate.slice(5, 7)}` }
+              : null;
+            return {
+              id: b.id, nome: b.name, valor: amount, guardado: saved, falta: remaining(b),
+              venceEm: nd ? diasAte(toYMD(nd)) : null, vencida: over,
+              pagaCiclo: Boolean(b.recurring) && b.paid_cycle === cicloAtual,
+              coberta: amount > 0 && saved >= amount,
+              risco: (b.risco === "alto" || b.risco === "baixo" ? b.risco : "medio"),
+              cartao: Boolean(b.is_credit_card), faturaAberta: Boolean(b.is_credit_card) && amount <= 0,
+              porDia: perDay(b), diasUteis: workingDaysUntil(nd ? toYMD(nd) : null), plano,
+            };
           };
-          const diaBlindado = diasBlind != null && diasBlind > 0 ? rotuloDia(diasBlind) : null;
-          const proximaConta = lista.find((b) => !isOverdue(b) && remaining(b) > 0.005 && nextDueDate(b) && !(b.recurring && b.paid_cycle === cicloAtual));
-          const proximaNd = proximaConta ? nextDueDate(proximaConta) : null;
-          const recado = recadoBlindado({
-            falta: faltaContas,
-            ritmoContas: ritmoSustentavel,
-            guardaDia,
-            lucroDia: summary.mediaDiariaLiquida,
-            proxima: proximaConta && proximaNd ? { nome: proximaConta.name, dia: `dia ${toYMD(proximaNd).slice(8, 10)}` } : null,
-            diaBlindado,
-          });
+          const contasVM = billsOrdenadas.filter((b) => !b.paid).map(paraVM);
+          const vencidasVM = overdueBillsOrdenadas.map(paraVM);
+          const destinos = billsOrdenadas
+            .filter((b) => !b.paid && !(b.recurring && b.paid_cycle === cicloAtual))
+            .map((b) => {
+              const nd = nextDueDate(b);
+              const coberta = Number(b.saved_amount) >= Number(b.amount) && Number(b.amount) > 0;
+              const dias = temPlano(b) ? workingDaysUntil(b.plano_quitacao_ate ?? null) : workingDaysUntil(nd ? toYMD(nd) : null);
+              return { id: b.id, nome: b.name, falta: remaining(b), dias, porDia: perDay(b), coberta };
+            })
+            .filter((d) => d.porDia > 0 || d.coberta)
+            .sort((a, z) => z.porDia - a.porDia);
+          const diasVM = proximosDias.map((d) => ({ key: d.key, label: d.label, isToday: d.isToday, isWork: d.isWork, valor: d.valor, feito: d.isToday && diaGuardadoFechado }));
+          const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
+          // UMA meta por dia na aba toda (Mês blindado, cálculo e próximos dias): o que falta ÷ dias de trabalho até o fim do mês
+          const diasRestantes = proximosDias.filter((d) => d.isWork).length;
+          const metaDia = Math.max(0, totalContas - guardadoContas) / Math.max(1, diasRestantes);
+          const objetivosVM: ObjetivoVM[] = goalsOrdenadas
+            .filter((g) => g.status !== "concluida")
+            .map((g) => {
+              const alvo = Number(g.target_amount) || 0;
+              const tem = Number(g.current_amount) || 0;
+              const ritmo = metaRitmoDia(g);
+              const falta = Math.max(0, alvo - tem);
+              const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
+              const prazoTexto = ritmo <= 0 || falta <= 0 ? null
+                : meses <= 2 ? `chega ~${dataEmDiasUteis(Math.ceil(falta / ritmo)).data}`
+                : `cerca de ${Math.round(meses)} meses`;
+              return {
+                id: g.id, nome: g.name, foto: g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null,
+                tem, alvo, pct: alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0, porDia: ritmo, prazoTexto,
+                concluido: g.status === "completed" || (alvo > 0 && tem >= alvo),
+              };
+            });
           return (
-            <>
-              {/* ===== MÊS BLINDADO (Rick 03/10: sozinho no topo, com as caixinhas logo embaixo) ===== */}
+            <div key="planejar" className="flex flex-col gap-5" style={{ animation: "orbisFadeIn 220ms ease-out" }}>
               {abertas.length > 0 && (
-                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(61,214,140,.22)" }}>
-                  <MesBlindado
-                    guardado={guardadoContas}
-                    total={totalContas}
-                    cobertas={cobertas}
-                    contas={abertas.length}
-                    diaBlindado={diaBlindado}
-                    recado={recado}
-                    onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
-                  />
-                </section>
+                <MesBlindadoCard
+                  custo={totalContas}
+                  protegido={guardadoContas}
+                  cobertas={cobertas}
+                  contas={abertas.length}
+                  diasRestantes={diasRestantes}
+                  onVerContas={() => document.getElementById("planejar-contas")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
+                />
               )}
 
-              {/* Guardar hoje completo (de onde vem cada real) + próximos dias */}
-              {renderGuardarHoje(false)}
-              {renderProximos()}
+              <GuardarHojeCard
+                carregando={guardar.carregando || (isLoadingData && bills.length === 0)}
+                diaFechado={diaGuardadoFechado}
+                guardadoHoje={savedTodayAmount}
+                valor={restanteGuardarHoje}
+                contas={billsShareToday}
+                objetivos={goalShareToday}
+                diaDeTrabalho={todayIsWorkDay}
+                proximoDia={proximoDiaTrabalho ? { label: proximoDiaTrabalho.label, valor: proximoDiaTrabalho.valor } : null}
+                sequencia={sequencia.atual}
+                destinos={destinos}
+                dias={diasVM}
+                metaBase={metaDia}
+                vazio={bills.length === 0 && goals.length === 0}
+                onGuardei={async () => Boolean(await handleGuardeiTudo())}
+                onRegistrar={registrarValor}
+                onReabrirDia={() => { void handleDesfazerGuardei(); }}
+              />
 
-              {renderVencidas()}
+              <VencidasCard contas={vencidasVM} onPlano={usarPlano} onPaga={marcarPaga} simular={simularPlano} />
 
-              {/* ===== CONTAS A PAGAR ===== */}
-              <div className="flex flex-col gap-2.5">
-                <div className="flex items-center justify-between gap-2 px-1">
-                  <p className="orbis-section">Contas a pagar{abertas.length > 0 ? ` · ${abertas.length} no mês` : ""}</p>
-                  <button type="button" onClick={() => setIsAddBillOpen(true)} className="inline-flex items-center gap-1 h-8 text-[12px] font-extrabold" style={{ color: "#F5B800" }}>
-                    <Plus className="w-3.5 h-3.5" strokeWidth={3} /> nova conta
-                  </button>
-                </div>
-                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: overdueBills.length > 0 ? "rgba(255,92,92,.35)" : "rgba(255,255,255,.07)" }}>
-                  {abertas.length === 0 ? (
-                    <button type="button" onClick={() => setIsAddBillOpen(true)} className="w-full text-left py-4">
-                      <p className="text-[14px] font-bold text-foreground">Nenhuma conta ainda.</p>
-                      <p className="text-[12.5px] mt-1" style={{ color: "#a9a49c" }}>Aluguel, luz, cartão — cadastra e a Vant diz quanto guardar por dia.</p>
-                    </button>
-                  ) : (
-                    <>
-
-                      {/* uma linha por conta, com o Paguei */}
-                      <div className="flex flex-col py-1">
-                        {visiveis.map((b) => {
-                          const amount = Number(b.amount) || 0;
-                          const saved = Number(b.saved_amount) || 0;
-                          const pct = amount > 0 ? Math.min(100, (saved / amount) * 100) : 0;
-                          const quitada = amount > 0 && saved >= amount;
-                          const pagoCiclo = Boolean(b.recurring) && b.paid_cycle === cicloAtual;
-                          const over = isOverdue(b);
-                          const nd = nextDueDate(b);
-                          const n = nd ? diasAte(toYMD(nd)) : null;
-                          const faturaAberta = Boolean(b.is_credit_card) && amount <= 0;
-                          const urgente = n != null && n <= 3 && !pagoCiclo;
-                          const destaque = !pagoCiclo && !over && quitada && urgente;
-                          const selo = seloConta({ paga: pagoCiclo, vencida: over, coberta: quitada, diasAteVencer: n });
-                          const resolver = over && !quitada && !pagoCiclo;
-                          const cor = pagoCiclo ? "#3DD68C" : over ? "#FF5C5C" : urgente ? "#F5B800" : "#7e7869";
-                          const rotulo = pagoCiclo
-                            ? <>paga este mês · <span style={{ color: "#7e7869" }}>volta {nd ? nd.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : ""}</span></>
-                            : faturaAberta ? "fatura aberta · lance a compra"
-                            : over ? `venceu há ${Math.abs(n ?? 0)} ${Math.abs(n ?? 0) === 1 ? "dia" : "dias"}`
-                            : n == null ? "sem vencimento"
-                            : n === 0 ? "vence hoje"
-                            : n === 1 ? "vence amanhã"
-                            : n <= 7 ? `vence em ${n} dias`
-                            : `dia ${toYMD(nd!).slice(8, 10)}`;
-                          return (
-                            <div
-                              key={b.id}
-                              role="button"
-                              tabIndex={0}
-                              onClick={() => setContaSheet(b.id)}
-                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setContaSheet(b.id); } }}
-                              className="flex items-center gap-3 min-h-[66px] py-2.5 cursor-pointer"
-                              style={destaque
-                                ? { margin: "6px -4px 0", padding: "10px 12px", borderRadius: 13, border: "1px solid rgba(245,184,0,.34)", background: "linear-gradient(180deg,#171203,#131211)" }
-                                : { borderTop: "1px solid rgba(255,255,255,.06)", opacity: pagoCiclo ? 0.85 : 1 }}
-                            >
-                              <span className="inline-flex items-center justify-center w-9 h-9 rounded-[11px] shrink-0" style={{ background: pagoCiclo ? "rgba(61,214,140,.12)" : destaque ? "rgba(245,184,0,.12)" : "rgba(255,255,255,.06)" }}>
-                                {pagoCiclo ? <Check className="w-[18px] h-[18px]" style={{ color: "#3DD68C" }} strokeWidth={3} />
-                                  : b.is_credit_card ? <CreditCard className="w-[17px] h-[17px]" style={{ color: destaque ? "#F5B800" : "#b9b3a6" }} strokeWidth={2.1} />
-                                  : <Receipt className="w-[17px] h-[17px]" style={{ color: destaque ? "#F5B800" : "#b9b3a6" }} strokeWidth={2.1} />}
-                              </span>
-                              <span className="flex-1 min-w-0 flex flex-col gap-1">
-                                <span className="flex items-center gap-2 min-w-0">
-                                  <span className="text-[15px] font-bold truncate" style={{ color: pagoCiclo ? "#b9b3a6" : undefined }}>{b.name}</span>
-                                  <span className="orbis-num text-[13px] font-extrabold shrink-0" style={{ color: pagoCiclo ? "#7e7869" : undefined }}>{formatCurrency(amount)}</span>
-                                </span>
-                                {selo && !pagoCiclo && !faturaAberta ? (
-                                  <span className="flex items-center gap-1.5 min-w-0">
-                                    <SeloConta texto={selo.texto} cor={selo.cor} />
-                                    <span className="orbis-num text-[11px] whitespace-nowrap truncate" style={{ color: "#7e7869" }}>
-                                      {over ? `guardado ${formatCurrency(saved)}`
-                                        : quitada ? (n != null && n > 1 ? rotulo : `${formatCurrency(saved)} guardado`)
-                                        : `${formatCurrency(saved)} guardado`}
-                                    </span>
-                                  </span>
-                                ) : pagoCiclo || quitada || over || faturaAberta ? (
-                                  <span className="text-[12px] font-extrabold whitespace-nowrap truncate" style={{ color: cor }}>
-                                    {rotulo}{quitada && !pagoCiclo && !over ? <span style={{ color: "#3DD68C" }}> · coberta</span> : null}
-                                  </span>
-                                ) : (
-                                  <span className="flex items-center gap-2">
-                                    <span className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,.1)" }}>
-                                      <span className="block h-full rounded-full" style={{ width: `${pct}%`, background: "#3DD68C" }} />
-                                    </span>
-                                    <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: cor }}>{urgente ? rotulo : `${formatCurrency(saved)} guardado`}</span>
-                                  </span>
-                                )}
-                              </span>
-                              {pagoCiclo ? (
-                                <button type="button" onClick={(e) => { e.stopPropagation(); handleToggleBillPaid(b); }} className="inline-flex items-center gap-1 h-10 px-2.5 text-[12px] font-bold shrink-0" style={{ color: "#7e7869" }}>
-                                  <RotateCcw className="w-3.5 h-3.5" strokeWidth={2.4} /> desfazer
-                                </button>
-                              ) : resolver ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); openDeposit({ kind: "bill", bill: b }, remaining(b)); }}
-                                  className="inline-flex flex-col items-center justify-center h-11 px-2.5 rounded-xl shrink-0 whitespace-nowrap active:scale-95 transition-transform leading-tight"
-                                  style={{ background: "linear-gradient(180deg,#ff6b6b,#e04545)", color: "#1a0505", boxShadow: "0 3px 0 #9e2a2a" }}
-                                >
-                                  <span className="text-[13px] font-black">Resolver</span>
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); setContaSheet(b.id); }}
-                                  className="inline-flex items-center justify-center gap-1.5 h-10 px-3.5 rounded-xl text-[13px] font-black shrink-0 whitespace-nowrap active:scale-95 transition-transform"
-                                  style={destaque
-                                    ? { background: "linear-gradient(180deg,#ffc63a,#F5B800)", color: "#1a1200", boxShadow: "0 3px 0 #b88700" }
-                                    : quitada
-                                    ? { border: "1.5px solid rgba(245,184,0,.5)", color: "#F5B800" }
-                                    : { border: "1.5px solid rgba(255,255,255,.16)", color: "#b9b3a6" }}
-                                >
-                                  {destaque && <Check className="w-[15px] h-[15px]" strokeWidth={3} />}
-                                  Paguei
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {lista.length > visiveis.length && (
-                          <button type="button" onClick={() => setContasTodas(true)} className="h-10 text-left text-[12px] font-extrabold" style={{ color: "#F5B800" }}>ver todas as {lista.length} ›</button>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </section>
+              <div id="planejar-contas" className="mt-3 scroll-mt-4">
+                <ContasDoMes
+                  contas={contasVM}
+                  onAdicionar={() => setIsAddBillOpen(true)}
+                  onAbrir={(id) => setContaSheet(id)}
+                  onPaguei={marcarPaga}
+                  onResolver={(id) => { const b = bills.find((x) => x.id === id); if (b) openDeposit({ kind: "bill", bill: b }, remaining(b)); }}
+                  onReabrir={(id) => { const b = bills.find((x) => x.id === id); if (b) handleToggleBillPaid(b); }}
+                />
               </div>
 
-              {/* ===== CAIXINHAS ===== */}
-              <div className="flex flex-col gap-2.5">
-                <button type="button" onClick={() => setPorta(porta === "objetivos" ? null : "objetivos")} className="flex items-center justify-between gap-2 px-1 w-full text-left">
-                  <p className="orbis-section">Caixinhas{ativas.length > 0 ? ` · ${ativas.length} ${ativas.length === 1 ? "ativa" : "ativas"}` : ""}</p>
-                  <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap" style={{ color: "#7e7869" }}>
-                    {juntou > 0 && <>juntou <b className="text-foreground tabular-nums">{formatCurrency(juntou)}</b></>}
-                    <ChevronDown className="w-4 h-4 transition-transform" style={{ transform: porta === "objetivos" ? "rotate(180deg)" : undefined }} />
-                  </span>
-                </button>
-                <section className="orbis-card-in rounded-2xl border px-4" style={{ background: "#131211", borderColor: "rgba(255,255,255,.07)" }}>
-                  {ativas.map((g) => {
-                    const alvo = Number(g.target_amount) || 0;
-                    const tem = Number(g.current_amount) || 0;
-                    const pct = alvo > 0 ? Math.min(100, (tem / alvo) * 100) : 0;
-                    const ritmo = metaRitmoDia(g);
-                    const falta = Math.max(0, alvo - tem);
-                    const diasMes = weeklyWorkDays > 0 ? weeklyWorkDays * 4.3 : 22;
-                    const meses = ritmo > 0 ? falta / (ritmo * diasMes) : 0;
-                    // projeção (Lote 3): até 2 meses mostra a data em que chega; depois, em meses
-                    const diasCx = ritmo > 0 && falta > 0 ? Math.ceil(falta / ritmo) : 0;
-                    const mesesLabel = ritmo <= 0 || falta <= 0 ? null
-                      : meses <= 2 ? `chega ~${dataEmDiasUteis(diasCx).data}`
-                      : `~ ${Math.round(meses)} meses`;
-                    const fotoUrl = g.icon && /^https?:\/\//.test(g.icon) ? g.icon : null;
-                    return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => { setPorta("objetivos"); setMetaAberta(g.id); }}
-                        className="w-full flex items-center gap-3.5 min-h-[72px] py-3 text-left"
-                        style={{ borderBottom: "1px solid rgba(255,255,255,.07)" }}
-                      >
-                        <Anel pct={pct} size={50} stroke={6} cor={pct >= 100 ? "#3DD68C" : "#F5B800"}>
-                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-[30px] h-[30px] rounded-full object-cover" /> : <span className="text-[16px] leading-none">{g.icon && !/^https?:/.test(g.icon) ? g.icon : "🎯"}</span>}
-                        </Anel>
-                        <span className="flex-1 min-w-0 flex flex-col gap-1">
-                          <span className="text-[15px] font-bold truncate">{g.name}</span>
-                          <span className="orbis-num text-[12.5px]" style={{ color: "#7e7869" }}><b className="text-foreground">{formatCurrency(tem)}</b> de {formatCurrency(alvo)}</span>
-                        </span>
-                        <span className="flex flex-col items-end gap-[3px] shrink-0">
-                          <span className="orbis-num text-[21px] font-extrabold leading-none" style={{ color: pct >= 100 ? "#3DD68C" : "#F5B800" }}>{Math.round(pct)}%</span>
-                          <span className="orbis-num text-[11px] whitespace-nowrap" style={{ color: "#7e7869" }}>
-                            {pct >= 100 ? "conquistada" : ritmo > 0 ? `${formatCurrency(ritmo)}/dia${mesesLabel ? ` · ${mesesLabel}` : ""}` : `faltam ${formatCurrency(falta)}`}
-                          </span>
-                        </span>
-                      </button>
-                    );
-                  })}
-
-                  {/* CRIAR CAIXINHA — o convite, sempre visível */}
-                  <button
-                    type="button"
-                    onClick={() => setIsAddGoalOpen(true)}
-                    className="w-full flex items-center gap-3.5 min-h-[78px] px-3 py-3 my-3 rounded-[14px] text-left active:scale-[0.99] transition-transform"
-                    style={{ border: "1.5px dashed rgba(245,184,0,.45)", background: "rgba(245,184,0,.05)" }}
-                  >
-                    <span className="inline-flex items-center justify-center w-[50px] h-[50px] rounded-full shrink-0" style={{ background: "linear-gradient(180deg,#ffc63a,#F5B800)", boxShadow: "0 4px 0 #b88700" }}>
-                      <Plus className="w-6 h-6" style={{ color: "#1a1200" }} strokeWidth={3} />
-                    </span>
-                    <span className="flex-1 min-w-0 flex flex-col gap-1">
-                      <span className="text-[15px] font-extrabold" style={{ color: "#F5B800" }}>{ativas.length === 0 ? "Criar minha primeira caixinha" : "Criar caixinha"}</span>
-                      <span className="text-[12.5px] leading-[1.4]" style={{ color: "#b9b3a6" }}>Celular novo, viagem, estoque… dá um nome e a Vant diz quanto por dia.</span>
-                    </span>
-                    <ChevronRight className="w-5 h-5 shrink-0" style={{ color: "#F5B800" }} strokeWidth={2.5} />
-                  </button>
-                </section>
+              <div className="mt-3">
+                <ObjetivosLista
+                  objetivos={objetivosVM}
+                  onAbrir={(id) => { setPorta("objetivos"); setMetaAberta(id); window.setTimeout(() => document.getElementById(`meta-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}
+                  onCriar={() => setIsAddGoalOpen(true)}
+                />
               </div>
 
               <NovaContaSheet open={isAddBillOpen} onOpenChange={setIsAddBillOpen} userId={user.id} workingDays={workingDays} onCreated={loadFinancialData} />
-            </>
+            </div>
           );
-        })()}
+        })())}
 
         {/* 3. CAIXINHAS */}
         {aba === "planejar" && porta === "objetivos" && (
@@ -2889,7 +2699,7 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
                 const aberta = metaAberta === goal.id;
 
                 return (
-                  <Card key={goal.id} className="rounded-[18px] border" style={{ background: "#0e0e10", borderColor: goal.status === "completed" ? "rgba(61,214,140,.35)" : "#22201a" }}>
+                  <Card key={goal.id} id={`meta-${goal.id}`} className="rounded-[18px] border" style={{ background: "#0e0e10", borderColor: goal.status === "completed" ? "rgba(61,214,140,.35)" : "#22201a" }}>
                     <CardContent className="p-3.5">
                       {/* Bloco COMPACTO — toca pra abrir os detalhes */}
                       <button

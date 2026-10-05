@@ -8,7 +8,7 @@
    Aqui moram as peças novas; o que já existia (Guardar hoje, Mês blindado,
    contas a pagar, caixinhas…) continua em Finances.tsx, só trocou de aba.
    ============================================================ */
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ChevronRight, Landmark, AlertTriangle } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { Folego, type HomeFinancas } from "./FinancasHome";
@@ -37,19 +37,30 @@ export function abaValida(v: string | null, comBanco: boolean): AbaFinancas {
 /* ---------- navegação: texto, ouro no selecionado, sem botões grandes ---------- */
 export function AbasNav({ aba, onAba, comBanco }: { aba: AbaFinancas; onAba: (a: AbaFinancas) => void; comBanco: boolean }) {
   const lista: AbaFinancas[] = comBanco ? ["resumo", "bancos", "planejar", "analise"] : ["resumo", "planejar", "analise"];
+  // 05/10: o sublinhado ouro desliza até a aba escolhida (~200ms, ease-out) e
+  // acompanha a largura do texto.
+  const botoes = useRef<Partial<Record<AbaFinancas, HTMLButtonElement | null>>>({});
+  const [barra, setBarra] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = botoes.current[aba];
+    if (el) setBarra({ x: el.offsetLeft, w: el.offsetWidth });
+  }, [aba, comBanco]);
   return (
-    <div role="tablist" aria-label="Partes das finanças" className="flex gap-6 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
+    <div role="tablist" aria-label="Partes das finanças" className="relative flex gap-6 overflow-x-auto" style={{ borderBottom: `1px solid ${LINHA}` }}>
       {lista.map((a) => {
         const on = a === aba;
         return (
-          <button key={a} type="button" role="tab" aria-selected={on} onClick={() => onAba(a)}
-            className="relative shrink-0 pb-2.5 pt-1 text-[14px] font-extrabold transition-colors"
+          <button key={a} ref={(el) => { botoes.current[a] = el; }} type="button" role="tab" aria-selected={on} onClick={() => onAba(a)}
+            className={`relative shrink-0 min-h-11 pb-2.5 pt-1 text-[15px] transition-colors duration-200 ${on ? "font-bold" : "font-semibold"}`}
             style={{ color: on ? GOLD : MUTE }}>
             {ROTULO[a]}
-            {on && <span className="absolute left-0 right-0 -bottom-px h-[2px] rounded-full" style={{ background: GOLD }} />}
           </button>
         );
       })}
+      {barra && (
+        <span aria-hidden className="absolute -bottom-px left-0 h-[2px] rounded-full"
+          style={{ width: barra.w, transform: `translateX(${barra.x}px)`, background: GOLD, transition: "transform 200ms ease-out, width 200ms ease-out" }} />
+      )}
     </div>
   );
 }
