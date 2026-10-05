@@ -3244,6 +3244,17 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
         {aba === "analise" && (
           <>
             <RastreadorGastos userId={user?.id} />
+            {/* Custo do produto pelas notas fiscais (05/10): foto das notas → custo por unidade */}
+            <button type="button" onClick={() => navigate("/custo-produto")}
+              className="w-full rounded-2xl p-4 text-left flex items-center gap-3"
+              style={{ background: "#0f0f10", border: "1px solid #1f1e22" }}>
+              <span className="text-[24px]" aria-hidden>🧾</span>
+              <span className="flex-1 min-w-0">
+                <span className="block text-[13.5px] font-extrabold">Quanto custa cada produto seu?</span>
+                <span className="block text-[11.5px]" style={{ color: "#8a857c" }}>Tira foto das notas do Atacadão e de onde mais compra — a Vant calcula o custo da unidade.</span>
+              </span>
+              <span aria-hidden style={{ color: "#F5B800" }}>›</span>
+            </button>
             <RaioXEntrada userId={user?.id} temBanco={comBanco} />
             {comBanco && casa && <PilotoLinha h={casa} onAbrir={() => navigate("/financas/extrato")} />}
             {/* Importar histórico de VENDAS por PDF (IA lê e você revisa) — não é extrato de gastos */}

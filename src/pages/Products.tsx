@@ -552,6 +552,9 @@ export default function Products() {
           <Button data-tour="add-product" onClick={openCreate} className="w-full" size="lg">
             <Plus className="w-4 h-4 mr-2" /> Novo produto
           </Button>
+          <Button variant="outline" onClick={() => navigate("/custo-produto")} className="w-full" size="lg">
+            🧾 Calcular custo pelas notas fiscais
+          </Button>
 
           {loading ? (
             <p className="text-center text-sm text-muted-foreground py-8">Carregando...</p>
