@@ -38,7 +38,6 @@ import {
   Loader2,
   CreditCard,
   ChevronDown,
-  Upload,
   Lightbulb,
   TrendingUp,
   ChevronRight,
@@ -54,12 +53,11 @@ import { NovaContaSheet } from "@/components/financas/NovaContaSheet";
 import { NovaCaixinhaSheet } from "@/components/financas/NovaCaixinhaSheet";
 import { ContaSheet, type ContaInfo } from "@/components/financas/ContaSheet";
 import { DicaDoOrbis, type DicaContexto } from "@/components/financas/DicaDoOrbis";
-import RaioXEntrada from "@/components/financas/raiox/RaioXEntrada";
 import { useFinancasHome } from "@/components/financas/FinancasHome";
 import { FinancasPainel } from "@/components/financas/FinancasPainel";
 import { ReservaCaixinha } from "@/components/financas/ReservaCaixinha";
-import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, PilotoLinha, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
-import { RastreadorGastos } from "@/components/financas/RastreadorGastos";
+import { AbasNav, abaValida, SeuDinheiro, ParaResolver, Movimento, BancosLista, ConviteBanco, type AbaFinancas } from "@/components/financas/FinancasAbas";
+import { AnaliseAba } from "@/components/financas/analise/AnaliseAba";
 import { ToastAction } from "@/shared/ui/toast";
 import { MesBlindadoCard } from "@/components/financas/planejar/MesBlindadoCard";
 import { GuardarHojeCard } from "@/components/financas/planejar/GuardarHojeCard";
@@ -3056,32 +3054,9 @@ Nenhum objetivo ainda. Crie um (moto, reserva, viagem) e diga que % do lucro do 
           <ConviteBanco onLigar={() => navigate("/verificar")} texto="Saldo, fôlego e gastos aparecem aqui sozinhos, sem digitar nada." />
         )}
 
-        {/* ANÁLISE (04/10): gastos do mês contra o seu normal, Raio-X (só pelo banco), piloto automático */}
+        {/* ANÁLISE (05/10, redesenho): gastos do mês → Vant percebeu → categorias → revisar → Raio-X → ferramentas */}
         {aba === "analise" && (
-          <>
-            <RastreadorGastos userId={user?.id} />
-            {/* Custo do produto pelas notas fiscais (05/10): foto das notas → custo por unidade */}
-            <button type="button" onClick={() => navigate("/custo-produto")}
-              className="w-full rounded-2xl p-4 text-left flex items-center gap-3"
-              style={{ background: "#0f0f10", border: "1px solid #1f1e22" }}>
-              <span className="text-[24px]" aria-hidden>🧾</span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-[13.5px] font-extrabold">Quanto custa cada produto seu?</span>
-                <span className="block text-[11.5px]" style={{ color: "#8a857c" }}>Tira foto das notas do Atacadão e de onde mais compra — a Vant calcula o custo da unidade.</span>
-              </span>
-              <span aria-hidden style={{ color: "#F5B800" }}>›</span>
-            </button>
-            <RaioXEntrada userId={user?.id} temBanco={comBanco} />
-            {comBanco && casa && <PilotoLinha h={casa} onAbrir={() => navigate("/financas/extrato")} />}
-            {/* Importar histórico de VENDAS por PDF (IA lê e você revisa) — não é extrato de gastos */}
-            <button
-              onClick={() => setImportOpen(true)}
-              className="w-full h-10 rounded-xl text-muted-foreground text-xs font-semibold flex items-center justify-center gap-2 active:scale-[0.98] transition"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              Importar histórico de vendas (PDF)
-            </button>
-          </>
+          <AnaliseAba userId={user?.id} temBanco={comBanco} onImportar={() => setImportOpen(true)} />
         )}
         <ImportPdfDialog open={importOpen} onOpenChange={setImportOpen} userId={user.id} onImported={loadFinancialData} />
 
