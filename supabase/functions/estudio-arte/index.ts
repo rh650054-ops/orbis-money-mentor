@@ -105,6 +105,11 @@ Deno.serve(async (req) => {
     const produto = String(body?.produto ?? "").slice(0, 140).trim();
     const cores = String(body?.cores ?? "").slice(0, 80).trim();
     const extras = String(body?.extras ?? "").slice(0, 200).trim();
+    // Dados que o vendedor aprovou no papo do estúdio (04/10): frase, contato e os
+    // 3 valores de caixinha que ficam do lado do Pix.
+    const frase = String(body?.frase ?? "").slice(0, 80).trim();
+    const contato = String(body?.contato ?? "").slice(0, 80).trim();
+    const caixinha = String(body?.valores_caixinha ?? "").slice(0, 60).trim();
     const origem = String(body?.origem ?? "estudio") === "chat" ? "chat" : "estudio";
     // Briefing vindo do CHAT — estilo em texto e/ou referência ENVIADA pelo usuário.
     const estilo = String(body?.estilo ?? "").slice(0, 300).trim();
@@ -190,7 +195,7 @@ Deno.serve(async (req) => {
     // usar referência pra estilo, composição, paleta e até "ter um mascote" é
     // trabalho normal de design. O que não pode é sair com a identidade do OUTRO
     // (nome, telefone, Pix) ou com personagem licenciado/famoso.
-    const REGRAS_COMUNS = `- Todo texto em português do Brasil, com ortografia PERFEITA. Pouco texto: o nome da marca, no máximo um slogan curto, e o título "PAGUE COM PIX" ou "PAGUE COM CONFIANÇA".
+    const REGRAS_COMUNS = `- Todo texto em português do Brasil, com ortografia PERFEITA. Pouco texto: o nome da marca, no máximo um slogan curto, o título "PAGUE COM PIX" ou "PAGUE COM CONFIANÇA" e, só se vierem listados abaixo, o contato e os valores de caixinha. Nada além disso.
 - Deixe uma ÁREA QUADRADA TOTALMENTE BRANCA E VAZIA (sem nada dentro, sem moldura interna, sem QR desenhado) ocupando cerca de 25% da largura, na parte inferior direita — é onde o aplicativo encaixa o QR Pix verdadeiro depois.
 - NÃO desenhe QR code nem código de barras.
 - Direito autoral (regra estreita, só isto): não escreva o nome de marca, telefone, @ ou chave Pix de outra pessoa que apareça na referência, e não reproduza personagem famoso ou licenciado. Estilo, composição, paleta, clima e até "ter um mascote" são livres — o mascote só precisa ser um desenho NOVO, não a cópia do personagem de alguém.
@@ -219,6 +224,9 @@ Crie um adesivo NOVO nesse mesmo espírito, em orientação vertical (proporçã
 - Produto: ${produto}
 ${cores ? `- Cores da marca: ${cores}` : ""}
 ${extras ? `- Detalhes pedidos pelo vendedor: ${extras}` : ""}
+${frase ? `- Slogan (escreva EXATAMENTE assim): "${frase}"` : ""}
+${contato ? `- Contato, pequeno e bem legível (escreva EXATAMENTE assim): ${contato}` : ""}
+${caixinha ? `- Bem ao lado da área branca do Pix, uma faixa curta "CAIXINHA" com 3 selos arredondados de valor, escritos EXATAMENTE assim: ${caixinha}` : ""}
 
 REGRAS OBRIGATÓRIAS:
 ${REGRAS_COMUNS}`;
