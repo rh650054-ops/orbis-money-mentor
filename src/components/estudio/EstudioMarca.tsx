@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X, Sparkles, Download, Loader2, Lock, ArrowLeft, Move, Check, ImagePlus, Trash2, Crosshair, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { toPng } from "html-to-image";
+import { comporArte, entregarPng } from "./exportar-arte";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { useSubscription } from "@/hooks/useSubscription";
@@ -186,6 +186,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
   // De onde vem o QR: da chave Pix (gerado pela Vant) ou de uma imagem que ele subiu
   const [qrModo, setQrModo] = useState<"chave" | "imagem">("chave");
   const [qrImg, setQrImg] = useState<string | null>(null);
+  const qrBoxRef = useRef<HTMLDivElement>(null);
   const [encaixou, setEncaixou] = useState(false);
 
   // QR arrastável sobre a arte (posição em % pra sobreviver ao redimensionamento)
@@ -443,12 +444,18 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
     setExportando(true);
     try {
       await salvarPix();
-      let png = await toPng(artRef.current, { pixelRatio: 3, cacheBust: true });
+      // Desenha arte + QR no tamanho REAL da arte (não "fotografa" a tela) e entrega
+      // como arquivo: no celular abre a folha de compartilhar (Salvar imagem).
+      const fonte = qrBoxRef.current?.querySelector("svg, img") as SVGSVGElement | HTMLImageElement | null;
+      if (!fonte) throw new Error("qr_nao_encontrado");
+      let png = await comporArte(arteData ?? arte ?? "", {
+        x: qrPos.x, y: qrPos.y, tam: qrTam, fonte, padding: 3, raioTela: 10,
+        larguraTela: artRef.current.getBoundingClientRect().width,
+      });
       if (!pagante) png = await aplicarMarcaDagua(png);
-      const a = document.createElement("a");
-      a.href = png;
-      a.download = `${(marca || "adesivo").toLowerCase().replace(/\s+/g, "-")}-orbis.png`;
-      a.click();
+      const nome = `${(marca || "adesivo").toLowerCase().replace(/\s+/g, "-")}-vant.png`;
+      const como = await entregarPng(png, nome);
+      if (como === "cancelado") return;
       // Baixou = achou boa. É o sinal mais forte que o Estúdio produz — sem ele,
       // melhorar o prompt vira chute.
       try {
@@ -464,8 +471,9 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
           ? "PNG em alta resolução com seu QR Pix real, pronto pra gráfica."
           : "No teste grátis a arte sai marcada. Assinando, ela baixa limpa e pronta pra gráfica.",
       });
-    } catch {
-      toast({ title: "Não consegui exportar", description: "Tenta de novo.", variant: "destructive" });
+    } catch (e) {
+      avisar.erro("EstudioMarca: exportar arte", e);
+      toast({ title: "Não consegui gerar a imagem", description: "Tenta de novo. Se continuar, tira um print da tela e manda pro suporte.", variant: "destructive" });
     } finally {
       setExportando(false);
     }
@@ -535,6 +543,7 @@ export default function EstudioMarca({ userId, onClose, brief, arteInicial }: { 
             <img src={arteData ?? arte} alt="Adesivo gerado" className="w-full block" draggable={false} />
             {temQr && (
               <div
+                ref={qrBoxRef}
                 onPointerDown={iniciarDrag}
                 onPointerMove={moverDrag}
                 onPointerUp={soltarDrag}
