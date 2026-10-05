@@ -9,11 +9,18 @@ Registro do que mudou no app, em português, do mais novo pro mais antigo.
 - **Chat mais rápido**: depois de pedir um adesivo, a conversa toda ficava presa no Opus (o modelo mais lento, 20s+ por resposta). Agora só o pedido de criação vai pro Opus; o resto volta pro Sonnet (4–10s).
 - **Fim do "meu cérebro tá fora do ar"** quando o mentor consultava ferramentas 4 vezes seguidas: na última rodada ele é obrigado a responder.
 - **Memória do mentor voltou a gravar**: o que o vendedor conta (o que vende, onde, dificuldades) era extraído pelo Gemini grátis, que respondia 429 em quase toda mensagem. Agora é o Claude Haiku (≈ US$ 0,001 por troca), com o Gemini de reserva.
+- **Estúdio: conversa nova = marca nova.** Num chat novo, "quero criar o adesivo premium da minha marca" puxava da memória a NINO de agosto e já desenhava. Agora o mentor abre um briefing guiado (nome — ou 3 opções do zero —, o que vende, clima e pra quem) e só cita a marca antiga como opção. Trava no servidor: só desenha marca que apareceu nesta conversa, e "ajuste" só mexe em arte desta conversa.
+- **1º contato do estúdio rápido e completo**: o mentor responde em segundos (Sonnet, sem gerar nada) com o briefing em 6 itens — nome (ou 3 opções), o que vende, modelo (vertical/redondo/quadrado), clima, o que vai escrito (frase, @, WhatsApp, QR Pix) e cores — e aceita foto de referência. O Opus agora só entra pra criar NOME de marca. A tela não diz mais "desenhando, 2 minutos" no primeiro contato: mostra "Entendendo o que você quer...".
 - A arte do adesivo continua levando ~1–2 min: é o tempo da geração em alta qualidade (gpt-image), não falha.
 
 **Por dentro**
 - `bright-action`: modelo escolhido pelas 2 últimas mensagens (era 6); `tool_choice: none` na rodada 4; `extractMemory` → `memoriaClaude` (secret opcional `ANTHROPIC_MODEL_MEMORIA`) + `memoriaGemini`. O deploy também tira o nome antigo "ORBIS IA" que ainda estava no ar.
 - `generate-insights`: `historicoVendedor()` (RLS com o token do vendedor), modelo `ANTHROPIC_MODEL_RELATORIO` (padrão `claude-sonnet-5`, sem `temperature` na linha 5), gasto registrado em `ai_custos` como `claude_relatorio`.
+## 04/10/2026 — Foco: vendido de verdade + quanto falta cair
+
+- A Foco mostrava como "Vendido hoje" só o que já tinha caído (dinheiro + cartão + Pix). Num dia de R$ 880 com R$ 84,50 ainda por cair, aparecia R$ 796. Agora o número grande é o **vendido de verdade (R$ 880)**, a % da meta usa ele, e embaixo aparece **"caiu R$ 796 · falta cair R$ 85"**. Quando não tem nada pendente, volta o "sobrou R$ X pra você".
+- "Semana" e "Ontem" também passam a contar o que ainda falta cair.
+- Pix tardio continua do mesmo jeito: quando cai, sai do "falta cair" e entra no "caiu"; o vendido não muda.
 
 ## 03/10/2026 — Finanças: caixinhas no alto, reserva em "Guardado" e lucro do mês explicado
 
