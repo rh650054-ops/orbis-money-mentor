@@ -28,12 +28,12 @@ export function haptic(tipo: "toque" | "sucesso" = "toque") {
 }
 
 export function Rotulo({ children, cor = COR.sub, className }: { children: React.ReactNode; cor?: string; className?: string }) {
-  return <p className={cn("text-[12px] font-bold uppercase tracking-[.12em]", className)} style={{ color: cor }}>{children}</p>;
+  return <p className={cn("text-[12px] font-black uppercase tracking-[.14em]", className)} style={{ color: cor }}>{children}</p>;
 }
 
 export function Cartao({ children, className, style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <section className={cn("orbis-card-in rounded-[20px] border p-5", className)} style={{ background: COR.surface, borderColor: "rgba(255,255,255,.07)", ...style }}>
+    <section className={cn("orbis-card-in rounded-[18px] border p-4", className)} style={{ background: "#0e0e10", borderColor: "rgba(255,255,255,.07)", ...style }}>
       {children}
     </section>
   );
@@ -69,10 +69,10 @@ export function BotaoPrimario({ children, onClick, disabled, estado = "normal", 
 }) {
   return (
     <button type="button" onClick={() => { haptic(); onClick(); }} disabled={disabled || estado !== "normal"}
-      className={cn("w-full h-14 rounded-[16px] flex items-center justify-center gap-2 text-[16px] font-bold transition-transform duration-100 ease-out active:scale-[0.97] disabled:active:scale-100", className)}
+      className={cn("w-full h-[52px] rounded-[14px] flex items-center justify-center gap-2 text-[15px] font-black tracking-wide transition-transform duration-100 ease-out active:scale-[0.97] disabled:active:scale-100", className)}
       style={estado === "sucesso"
         ? { background: COR.verde, color: "#08140d" }
-        : { background: COR.ouro, color: "#141005", opacity: disabled ? 0.45 : 1 }}>
+        : { background: COR.ouro, color: "#141005", opacity: disabled ? 0.45 : 1, boxShadow: disabled ? undefined : "0 8px 26px rgba(245,184,0,.18)" }}>
       {estado === "carregando" ? <Loader2 className="w-5 h-5 animate-spin" />
         : estado === "sucesso" ? <><CheckAnimado tamanho={22} />{sucessoTexto ?? "Valor registrado"}</>
         : children}
@@ -87,7 +87,7 @@ export function BotaoSecundario({ children, onClick, className, tom, disabled }:
   const cor = tom === "coral" ? COR.coral : tom === "ouro" ? COR.ouro : COR.texto;
   return (
     <button type="button" onClick={() => { haptic(); onClick(); }} disabled={disabled}
-      className={cn("min-h-11 px-3.5 rounded-[14px] border flex items-center justify-center gap-2 text-[14px] font-semibold transition-[transform,background-color] duration-100 active:scale-[0.98] active:bg-[#242424] disabled:opacity-45", className)}
+      className={cn("min-h-11 px-3 rounded-[12px] border flex items-center justify-center gap-1.5 text-[13px] font-bold leading-tight transition-[transform,background-color] duration-100 active:scale-[0.98] active:bg-[#242424] disabled:opacity-45", className)}
       style={{ background: COR.surface2, borderColor: tom === "coral" ? "rgba(255,107,94,.35)" : COR.borda, color: cor }}>
       {children}
     </button>

@@ -2614,19 +2614,7 @@ export default function Finances() {
               };
             });
           return (
-            <div key="planejar" className="flex flex-col gap-5" style={{ animation: "orbisFadeIn 220ms ease-out" }}>
-              {abertas.length > 0 && (
-                <MesBlindadoCard
-                  custo={totalContas}
-                  protegido={guardadoContas}
-                  cobertas={cobertas}
-                  contas={abertas.length}
-                  diasRestantes={diasRestantes}
-                  onVerContas={() => document.getElementById("planejar-contas")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                  onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
-                />
-              )}
-
+            <div key="planejar" className="flex flex-col gap-3" style={{ animation: "orbisFadeIn 220ms ease-out" }}>
               <GuardarHojeCard
                 carregando={guardar.carregando || (isLoadingData && bills.length === 0)}
                 diaFechado={diaGuardadoFechado}
@@ -2648,7 +2636,7 @@ export default function Finances() {
 
               <VencidasCard contas={vencidasVM} onPlano={usarPlano} onPaga={marcarPaga} simular={simularPlano} />
 
-              <div id="planejar-contas" className="mt-3 scroll-mt-4">
+              <div id="planejar-contas" className="mt-2 scroll-mt-4">
                 <ContasDoMes
                   contas={contasVM}
                   onAdicionar={() => setIsAddBillOpen(true)}
@@ -2659,7 +2647,19 @@ export default function Finances() {
                 />
               </div>
 
-              <div className="mt-3">
+              {abertas.length > 0 && (
+                <MesBlindadoCard
+                  custo={totalContas}
+                  protegido={guardadoContas}
+                  cobertas={cobertas}
+                  contas={abertas.length}
+                  diasRestantes={diasRestantes}
+                  onVerContas={() => document.getElementById("planejar-contas")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  onAjustar={() => { setAjusteGuardadoValor(Math.round(contasGuardado * 100) / 100); setAjusteGuardadoOpen(true); }}
+                />
+              )}
+
+              <div className="mt-2">
                 <ObjetivosLista
                   objetivos={objetivosVM}
                   onAbrir={(id) => { setPorta("objetivos"); setMetaAberta(id); window.setTimeout(() => document.getElementById(`meta-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }}
