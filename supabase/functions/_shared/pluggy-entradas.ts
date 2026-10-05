@@ -30,6 +30,19 @@ export async function pluggyKey(): Promise<string | null> {
   return apiKey as string;
 }
 
+/** URL de uma página do GET /v2/transactions. A Pluggy devolve em `next` o pedaço que vai
+ *  colado no fim do endpoint (ex.: "?after=...&accountId=..."), não só o cursor: mandar
+ *  `after=<next>` voltava 400 "Invalid cursor" e a 2ª página nunca vinha (05/10). */
+export function urlTransacoes(accountId: string, dataDe: string, next: string | null): string {
+  const base = "https://api.pluggy.ai/v2/transactions";
+  if (next) {
+    if (/^https?:\/\//.test(next)) return next;
+    if (next.startsWith("?") || next.startsWith("/")) return base + next;
+    return `${base}?accountId=${encodeURIComponent(accountId)}&dateFrom=${dataDe}&after=${encodeURIComponent(next)}`;
+  }
+  return `${base}?accountId=${encodeURIComponent(accountId)}&dateFrom=${dataDe}`;
+}
+
 /** Dia em Brasília (YYYY-MM-DD) de um instante. */
 export function diaBRT(d: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: BRT, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
@@ -86,8 +99,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
   for (const conta of contas) {
     let cursor: string | null = null;
     for (let pagina = 0; pagina < 5; pagina++) {
-      const u = `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(conta.id)}&dateFrom=${dataDe}` +
-        (cursor ? `&after=${encodeURIComponent(cursor)}` : "");
+      const u = urlTransacoes(String(conta.id), dataDe, cursor);
       const txRes = await fetch(u, { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000) });
       if (!txRes.ok) { console.error("pluggy transactions", txRes.status, conta.id); break; }
       // deno-lint-ignore no-explicit-any

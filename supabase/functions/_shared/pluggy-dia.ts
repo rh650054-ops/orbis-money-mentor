@@ -7,6 +7,8 @@
 // vazios ou 403 — tudo segue funcionando, a tela mostra "liga pra ver aqui".
 // Nunca grava número de contrato, de conta ou de cartão.
 
+import { urlTransacoes } from "./pluggy-entradas.ts";
+
 const limpa = (s: unknown) =>
   String(s ?? "").replace(/\d[\d.\-\/]{3,}\d/g, "").replace(/\d{5,}/g, "").replace(/\s+/g, " ").trim().slice(0, 50);
 /** "Mary Kay do Brasil 2/3" → "Mary Kay do Brasil" */
@@ -91,8 +93,7 @@ export async function importarDia(
     const vistas = new Map<string, any>();   // uma linha por compra: a parcela mais recente
     let cursor: string | null = null;
     for (let pag = 0; pag < 10; pag++) {
-      const tx = await get(apiKey, `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(c.id)}&dateFrom=${de}` +
-        (cursor ? `&after=${encodeURIComponent(cursor)}` : ""));
+      const tx = await get(apiKey, urlTransacoes(String(c.id), de, cursor));
       if (!tx.ok) break;
       for (const t of (tx.j?.results ?? [])) {
         const m = t?.creditCardMetadata;
