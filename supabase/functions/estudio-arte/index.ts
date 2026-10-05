@@ -1,5 +1,5 @@
-// Vant — estudio-arte v9: gera o ADESIVO do vendedor com IA. O briefing vem da
-// GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Vant IA (estilo em
+// Vant — estudio-arte v24 (caixinha/frase/contato do papo do estúdio; v23: (ordem dos provedores pelo banco: OpenAI primeiro, Gemini de rede): gera o ADESIVO do vendedor com IA. O briefing vem da
+// GALERIA (modelo_id da biblioteca estudio_modelos) OU do CHAT da Orbis IA (estilo em
 // texto + referência opcional enviada pelo PRÓPRIO usuário). Deixa ÁREA BRANCA pro app
 // colocar o QR Pix REAL.
 // PROVEDORES (em ordem): 1) Gemini (GEMINI_IMAGE_MODEL, padrao gemini-3.1-flash-image;
@@ -65,39 +65,68 @@ Deno.serve(async (req) => {
     // pagando). Enquanto MODO_TESTE_LIBERADO=1, qualquer logado cria arte; a marca
     // d'água continua valendo pra quem não paga, então a monetização segue de pé.
     // Pra voltar ao normal: secret MODO_TESTE_LIBERADO = "0".
-    const liberadoTeste = (Deno.env.get("MODO_TESTE_LIBERADO") ?? "1") === "1";
+    // v18: MODO_TESTE_LIBERADO desligado por padrão — teste vencido só gera
+    // assinando (o funil do vídeo depende disso). Reabrir: secret = "1".
+    // Limites vindos da tabela ai_limites (uma ida ao banco traz todos).
+    let lim: Record<string, number> = {};
+    try {
+      const { data: L } = await admin.rpc("orbis_limites");
+      lim = (L ?? {}) as Record<string, number>;
+    } catch { /* banco fora: valem os padroes abaixo */ }
+    const limNum = (chave: string, padrao: number) => {
+      const v = Number(lim?.[chave]);
+      return Number.isFinite(v) ? v : padrao;
+    };
+    const liberadoTeste = limNum("modo_teste_liberado", 0) === 1;
+    // Qualidade da arte pelo banco: 1=low (US$0,005) 2=medium (US$0,041) 3=high (US$0,165).
+    // Assim da' pra baixar de high pra medium no meio de um pico viral, num UPDATE,
+    // sem publicar nada — 4x mais barato por arte se a conta apertar.
+    const qualidadeImagem = ({ 1: "low", 2: "medium", 3: "high" } as Record<number, string>)[limNum("imagem_qualidade", 3)] ?? "high";
+    // Modelo da arte, tambem pelo banco (25/08/2026). O "mini" custa ~4,6x menos
+    // NA MESMA faixa de qualidade alta: US$ 0,054 contra US$ 0,20 por arte retrato.
+    // 1 = gpt-image-1-mini (barato)  2 = gpt-image-1.5  3 = gpt-image-2 (caro)
+    const modeloImagem = ({ 1: "gpt-image-1-mini", 2: "gpt-image-1.5", 3: "gpt-image-2" } as Record<number, string>)[limNum("imagem_modelo", 1)] ?? "gpt-image-1-mini";
     if (!pagante && !trial && !liberadoTeste) return json({ error: "assinatura_necessaria" }, 403);
 
     // Tetos abertos na fase de teste. Não é "sem limite": é alto demais pra alguém
     // encostar de propósito, e serve de freio se algo entrar em loop.
+    // v18 (25/08/2026, véspera do vídeo): fim da fase aberta. Assinante faz 4
+    // artes/dia sem marca d'água; teste grátis faz 2/dia com marca d'água.
     const limite = pagante
-      ? Number(Deno.env.get("ESTUDIO_LIMITE_PAGANTE") ?? "30")
-      : Number(Deno.env.get("ESTUDIO_LIMITE_TRIAL") ?? "30");
+      ? limNum("estudio_limite_pagante", 4)
+      : limNum("estudio_limite_trial", 2);
     // ===== TRAVAS DE GASTO (17/08/2026) — protegem o crédito das APIs =====
     // 1) Por CONTA, em dólar/dia: mal-intencionado ou bug em loop para aqui.
     // 2) GLOBAL, em dólar/dia: disjuntor — se o app inteiro estourar, imagem pausa.
     // 3) Por CONTA, no MÊS: o teto diário sozinho não segura quem volta todo dia.
     // Ajustes por secret: AI_TRAVA_USER_DIA_USD / AI_TRAVA_GLOBAL_DIA_USD / ESTUDIO_LIMITE_MES.
     try {
-      const travaUser = Number(Deno.env.get("AI_TRAVA_USER_DIA_USD") ?? "1.5");
+      const travaUser = limNum("trava_user_dia_usd", 0.40);
       const { data: gastoU } = await admin.rpc("orbis_gasto_usuario_hoje", { p_user: userId });
       if (Number(gastoU) >= travaUser) {
         console.error("trava de gasto POR CONTA acionada", userId, gastoU);
         return json({ error: "trava_gasto_conta" });
       }
-      const travaGlobal = Number(Deno.env.get("AI_TRAVA_GLOBAL_DIA_USD") ?? "25");
+      const travaGlobal = limNum("trava_global_dia_usd", 12);
       const { data: gastoG } = await admin.rpc("orbis_gasto_global_hoje");
       if (Number(gastoG) >= travaGlobal) {
         console.error("DISJUNTOR GLOBAL de gasto acionado", gastoG);
         return json({ error: "trava_gasto_global" });
       }
-      const limiteMes = Number(Deno.env.get("ESTUDIO_LIMITE_MES") ?? "120");
+      const limiteMes = limNum("estudio_limite_mes", 60);
       const { data: usoMes } = await admin.rpc("orbis_uso_mes", { p_user: userId, p_feature: "estudio" });
       if (Number(usoMes) >= limiteMes) return json({ error: "limite_mensal", limite: limiteMes });
     } catch (e) { console.error("checagem de trava falhou (seguindo):", String(e).slice(0, 150)); }
 
     const { data: usage } = await supa.rpc("bump_ai_usage", { p_feature: "estudio", p_limit: limite });
-    if ((usage as any)?.over) return json({ error: "limite_diario", limite, plano: pagante ? "pagante" : "trial" });
+    if ((usage as any)?.over) {
+      return json({
+        error: "limite_diario", limite, plano: pagante ? "pagante" : "trial",
+        mensagem: pagante
+          ? `Você já fez suas ${limite} artes de hoje — amanhã libera de novo.`
+          : `No teste grátis são ${limite} artes por dia. Assinando o Orbis, sobe pra 4 por dia e a arte baixa limpa, sem marca d'água.`,
+      });
+    }
 
     const body = await req.json().catch(() => ({}));
     const modeloId = String(body?.modelo_id ?? "").trim();
@@ -173,19 +202,47 @@ Deno.serve(async (req) => {
     } catch { /* registro nunca pode derrubar a geração */ }
 
     const marcaDagua = !pagante;
-    const okResp = (imagem: string, mime: string, provedor: string) => {
-      if (geracaoId) admin.from("estudio_geracoes").update({ provedor }).eq("id", geracaoId).then(() => {}, () => {});
+    // ===== BURACO FECHADO (25/08/2026) =====
+    // Estas duas escritas eram "dispara e esquece" (.then sem await). A funcao
+    // devolvia a imagem e MORRIA antes do banco responder — entao o provedor ficava
+    // null e, pior, o CUSTO DA ARTE NUNCA ERA REGISTRADO em ai_custos.
+    // Como o disjuntor global soma ai_custos, ele estava cego justamente pro item
+    // mais caro do app: uma arte custa US$ 0,165 (qualidade high) contra US$ 0,013
+    // de uma mensagem de chat — 12x mais. Num video, o teto seria furado sem que
+    // ninguem visse. Agora as duas escritas sao aguardadas antes de responder.
+    const okResp = async (imagem: string, mime: string, provedor: string) => {
+      if (geracaoId) {
+        try { await admin.from("estudio_geracoes").update({ provedor }).eq("id", geracaoId); }
+        catch { /* auditoria nunca derruba a entrega da arte */ }
+      }
       // MEDIDOR DE GASTO: preço por imagem 1024x1536 no gpt-image (ago/2026):
       // low US$0,005 | medium US$0,041 | high US$0,165. Gemini/fallbacks: 0.
       try {
-        const q = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "high";
-        const tabela: Record<string, number> = { low: 0.005, medium: 0.041, high: 0.165 };
-        const usd = provedor.startsWith("openai") ? (tabela[q] ?? 0.165) : 0;
-        admin.from("ai_custos").insert({
-          user_id: userId, servico: "imagem", modelo: `${provedor}:${q}`,
+        // Precos conferidos em 25/08/2026, ja' ajustados pro retrato 1024x1536 (~1,5x
+        // o preco do quadrado). Sem isto o medidor mentia: cobrava preco de modelo
+        // caro mesmo rodando o mini, e o disjuntor cortava antes da hora.
+        const tabelaPorModelo: Record<string, Record<string, number>> = {
+          "gpt-image-1-mini": { low: 0.008, medium: 0.017, high: 0.054 },
+          "gpt-image-1.5":    { low: 0.014, medium: 0.051, high: 0.200 },
+          "gpt-image-2":      { low: 0.017, medium: 0.063, high: 0.250 },
+        };
+        const usadoAgora = provedor.replace("openai:", "");
+        const tab = tabelaPorModelo[usadoAgora] ?? tabelaPorModelo["gpt-image-1.5"]!;
+        // ATENCAO: aqui morava o mesmo buraco que fechamos hoje de manha, so' que
+        // pro Gemini. A conta gemini custava ZERO no medidor — e no dia em que o
+        // Gemini virasse o motor principal (faturamento ativado), o disjuntor
+        // global ficaria cego de novo, exatamente como estava pras imagens.
+        // Preco do Gemini: US$60 por milhao de tokens de imagem; uma arte retrato
+        // gasta ~1.900 tokens => ~US$0,11. E' ESTIMATIVA: da' pra calibrar no banco
+        // (chave imagem_preco_gemini_usd) depois de ver a fatura real do Google.
+        const usd = provedor.startsWith("openai")
+          ? (tab[qualidadeImagem] ?? 0.20)
+          : limNum("imagem_preco_gemini_usd", 0.11);
+        await admin.from("ai_custos").insert({
+          user_id: userId, servico: "imagem", modelo: `${provedor}:${qualidadeImagem}`,
           qtd: 1, unidade: "imagem", custo_usd: usd,
-        }).then(() => {}, () => {});
-      } catch { /* medidor nunca atrapalha a geração */ }
+        });
+      } catch { /* medidor nunca atrapalha a entrega da arte */ }
       return json({ imagem, mime, provedor, geracao_id: geracaoId, marca_dagua: marcaDagua, plano: pagante ? "pagante" : "trial" });
     };
 
@@ -231,9 +288,17 @@ ${caixinha ? `- Bem ao lado da área branca do Pix, uma faixa curta "CAIXINHA" c
 REGRAS OBRIGATÓRIAS:
 ${REGRAS_COMUNS}`;
 
-    // ===== 1) GEMINI (precisa de billing ativado na conta Google) =====
+    // ===== ORDEM DOS PROVEDORES, ESCOLHIDA NO BANCO (25/08/2026) =====
+    // Antes o Gemini vinha SEMPRE primeiro e a OpenAI era so' reserva. Isso brigava
+    // com a estrategia: o Rick quer a qualidade do gpt-image enquanto houver credito,
+    // e o Gemini como rede pra arte NUNCA parar quando a OpenAI secar.
+    // Chave imagem_provedor: 1 = OpenAI primeiro (padrao)  2 = Gemini primeiro
+    //                        3 = so' OpenAI               4 = so' Gemini
+    const ordemProvedor = limNum("imagem_provedor", 1);
+
+    const tentarGemini = async (): Promise<Response | null> => {
     const gkey = Deno.env.get("GEMINI_API_KEY");
-    if (gkey && (Deno.env.get("IMAGEM_TENTAR_GEMINI") ?? "1") !== "0") {
+    if (gkey) {
       try {
         const model = Deno.env.get("GEMINI_IMAGE_MODEL") ?? "gemini-3.1-flash-image";
         const parts: unknown[] = [{ text: prompt }];
@@ -247,7 +312,7 @@ ${REGRAS_COMUNS}`;
         if (r.ok) {
           const j = await r.json();
           const part = j?.candidates?.[0]?.content?.parts?.find((p: any) => p?.inlineData?.data);
-          if (part?.inlineData?.data) return okResp(part.inlineData.data, part.inlineData.mimeType || "image/png", "gemini");
+          if (part?.inlineData?.data) return await okResp(part.inlineData.data, part.inlineData.mimeType || "image/png", "gemini");
           console.error("gemini sem imagem", JSON.stringify(j?.candidates?.[0]?.finishReason ?? "").slice(0, 120));
         } else {
           console.error("gemini imagem erro", r.status, (await r.text().catch(() => "")).slice(0, 200));
@@ -255,16 +320,19 @@ ${REGRAS_COMUNS}`;
       } catch (e) { console.error("gemini imagem excecao", String(e).slice(0, 150)); }
     }
 
-    // ===== 2) OPENAI GPT Image (o gerador do ChatGPT) — se OPENAI_API_KEY existir =====
+      return null;
+    };
+
+    const tentarOpenAI = async (): Promise<Response | null> => {
     const okey = Deno.env.get("OPENAI_API_KEY");
     if (okey) {
       // "high" desde 15/08/2026: o Rick achou as artes em medium "meio ruins" — e
       // a arte é O produto do Estúdio, não vale economizar nela. Custo por arte
       // 1024x1536: medium ~US$0,04 | high ~US$0,17 (~R$0,90). Pra voltar ao
       // barato, é só criar o secret OPENAI_IMAGE_QUALITY = "medium".
-      const oQuality = Deno.env.get("OPENAI_IMAGE_QUALITY") ?? "high";
+      const oQuality = qualidadeImagem;
       // Tenta o modelo atual primeiro; se a conta/endpoint não aceitar, cai pro legado.
-      const oModels = [...new Set([Deno.env.get("OPENAI_IMAGE_MODEL") ?? "gpt-image-2", "gpt-image-1.5", "gpt-image-1"])];
+      const oModels = [...new Set([modeloImagem, "gpt-image-1.5", "gpt-image-1"])];
       for (const om of oModels) {
         try {
           // Com referência: images/edits (multipart). Sem: images/generations.
@@ -293,7 +361,7 @@ ${REGRAS_COMUNS}`;
           if (r.ok) {
             const j = await r.json();
             const b64 = j?.data?.[0]?.b64_json;
-            if (b64) return okResp(b64, "image/png", `openai:${om}`);
+            if (b64) return await okResp(b64, "image/png", `openai:${om}`);
             console.error("openai sem imagem", om);
             break;
           } else {
@@ -305,9 +373,25 @@ ${REGRAS_COMUNS}`;
       }
     }
 
+      return null;
+    };
+
+    // Roda na ordem escolhida. Se o primeiro nao entregar, o segundo cobre sozinho —
+    // e' isso que faz a arte continuar saindo no minuto em que um saldo acabar.
+    const fila: Array<() => Promise<Response | null>> =
+      ordemProvedor === 4 ? [tentarGemini]
+      : ordemProvedor === 3 ? [tentarOpenAI]
+      : ordemProvedor === 2 ? [tentarGemini, tentarOpenAI]
+      : [tentarOpenAI, tentarGemini];
+    for (const tentar of fila) {
+      const resp = await tentar();
+      if (resp) return resp;
+    }
+
     // Nenhum provedor disponível/funcionando
     if (geracaoId) { try { await admin.from("estudio_geracoes").update({ provedor: "falhou" }).eq("id", geracaoId); } catch { /* noop */ } }
-    return json({ error: gkey || okey ? "geracao_falhou" : "sem_chave", detalhe: "provedor_de_imagem_indisponivel" });
+    const temChave = !!(Deno.env.get("GEMINI_API_KEY") || Deno.env.get("OPENAI_API_KEY"));
+    return json({ error: temChave ? "geracao_falhou" : "sem_chave", detalhe: "provedor_de_imagem_indisponivel" });
   } catch (e) {
     console.error("estudio-arte erro", e);
     return json({ error: "erro_interno" }, 500);

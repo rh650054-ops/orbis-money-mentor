@@ -2,6 +2,11 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 04/10/2026 — estudio-arte: repo alinhado com o que estava no ar + caixinha na arte
+
+- O `estudio-arte` publicado (v23: ordem dos provedores pelo banco, limites em `ai_limites`) era bem mais novo que o arquivo do repositório (v9). O repo agora tem a versão do ar, e por cima dela os campos `frase`, `contato` e `valores_caixinha` (selos "CAIXINHA" ao lado do Pix).
+- Corrigido: quando nenhum provedor de imagem respondia, a função quebrava com erro 500 (variáveis fora de escopo) em vez de dizer "geração falhou".
+
 ## 04/10/2026 — Estúdio vira conversa (e adesivo ganha valores de caixinha)
 
 - O mentor não manda mais a lista de 6 perguntas: conversa como designer amigo, UMA pergunta por mensagem, 1 a 3 frases, reagindo ao que o vendedor disse. Caminho: o que vende → nome (ajuda a criar 3 opções se não tiver) → onde vai o adesivo → clima e cores → frase, @/WhatsApp e valores de caixinha → resumo e "posso desenhar?". Só desenha depois do sim (ou se ele pedir pra gerar já).
