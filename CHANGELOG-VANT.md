@@ -2,6 +2,12 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 04/10/2026 — Estúdio vira conversa (e adesivo ganha valores de caixinha)
+
+- O mentor não manda mais a lista de 6 perguntas: conversa como designer amigo, UMA pergunta por mensagem, 1 a 3 frases, reagindo ao que o vendedor disse. Caminho: o que vende → nome (ajuda a criar 3 opções se não tiver) → onde vai o adesivo → clima e cores → frase, @/WhatsApp e valores de caixinha → resumo e "posso desenhar?". Só desenha depois do sim (ou se ele pedir pra gerar já).
+- **Valores de caixinha**: o mentor explica o truque e sugere 3 valores a partir do preço dele (ou usa os que ele disser, ex.: R$ 25 · R$ 50 · R$ 100). Na arte, viram 3 selos com a faixa "CAIXINHA" do lado do Pix.
+- `criar_adesivo` ganhou os campos `frase`, `contato` e `valores_caixinha`; `estudio-arte` escreve esses textos exatamente como aprovados.
+
 ## 04/10/2026 — Chat novo começa do zero (sem memória de conversas antigas)
 
 - A pedido do Rick, o mentor não usa mais nada das conversas antigas: cada chat novo começa limpo. Ele desenhava a marca NINO (de agosto) num pedido "do zero" porque a memória antiga entrava em toda conversa.
