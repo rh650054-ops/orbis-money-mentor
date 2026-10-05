@@ -15,7 +15,7 @@
 //   • compras do CARTÃO DE CRÉDITO entram também (do_cartao = true);
 //   • o que entrou com a categoria errada pelo bug é corrigido na leitura seguinte.
 
-import { quandoFoi, mesmoDono, diaBRT } from "./pluggy-entradas.ts";
+import { quandoFoi, mesmoDono, diaBRT, urlTransacoes } from "./pluggy-entradas.ts";
 
 const limpaNumeros = (s: string) =>
   s.replace(/\d[\d.\-\/]{3,}\d/g, "").replace(/\d{5,}/g, "").replace(/\s+/g, " ").trim();
@@ -164,7 +164,7 @@ export async function importarPiloto(
   //    • depois: o mês corrente inteiro.
   const hoje = diaBRT(new Date());
   const voltar = lerHistorico ? 11 : Number(hoje.slice(8, 10)) <= 7 ? 1 : 0;
-  const maxPaginas = lerHistorico ? 30 : 8;   // 500 por página
+  const maxPaginas = lerHistorico ? 40 : 8;   // a Pluggy devolve até 500 por página
   const ini = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1 - voltar, 1));
   const dataDe = ini.toISOString().slice(0, 10);
 
@@ -193,10 +193,9 @@ export async function importarPiloto(
     const cartao = tipoConta(conta) === "CREDIT";
     let cursor: string | null = null;
     for (let pagina = 0; pagina < maxPaginas; pagina++) {
-      const u = `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(conta.id)}&dateFrom=${dataDe}&pageSize=500` +
-        (cursor ? `&after=${encodeURIComponent(cursor)}` : "");
+      const u = urlTransacoes(String(conta.id), dataDe, cursor);
       const r = await fetch(u, { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000) });
-      if (!r.ok) { console.error("piloto: transactions", r.status); falhou = true; break; }
+      if (!r.ok) { console.error("piloto: transactions", r.status, (await r.text().catch(() => "")).slice(0, 200)); falhou = true; break; }
       // deno-lint-ignore no-explicit-any
       const corpo: any = await r.json().catch(() => ({}));
       for (const t of (corpo?.results ?? [])) {

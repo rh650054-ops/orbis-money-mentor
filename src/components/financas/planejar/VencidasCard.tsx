@@ -23,32 +23,32 @@ export function VencidasCard({ contas, onPlano, onPaga, simular }: {
   const comPlano = contas.filter((c) => c.plano).length;
 
   return (
-    <Cartao style={{ borderColor: "rgba(255,107,94,.28)" }}>
+    <Cartao style={{ background: "linear-gradient(170deg,#1c0a08,#0e0e10 70%)", borderColor: "rgba(255,90,69,.42)" }}>
       <div className="flex items-center gap-2">
-        <AlertTriangle className="w-5 h-5" style={{ color: COR.coral }} strokeWidth={2} />
-        <Rotulo cor={COR.texto}>Contas vencidas</Rotulo>
-        <span className="ml-auto min-w-6 h-6 px-2 rounded-full inline-flex items-center justify-center text-[13px] font-bold" style={{ background: "rgba(255,107,94,.16)", color: COR.coral }}>{contas.length}</span>
+        <AlertTriangle className="w-4 h-4" style={{ color: COR.coral }} strokeWidth={2.4} />
+        <Rotulo cor={COR.coral}>Contas vencidas</Rotulo>
+        <span className="min-w-5 h-5 px-1.5 rounded-full inline-flex items-center justify-center text-[12px] font-black" style={{ background: "rgba(255,107,94,.18)", color: COR.coral }}>{contas.length}</span>
       </div>
-      <p className="text-[30px] font-bold tabular-nums mt-3 leading-none" style={{ color: COR.coral }}>{formatCurrency(total)}</p>
-      <p className="text-[16px] font-medium mt-2" style={{ color: COR.texto }}>
+      <p className="text-[32px] font-black tabular-nums leading-none mt-2" style={{ color: COR.coral }}>{formatCurrency(total)}</p>
+      <p className="text-[14px] font-bold mt-1.5" style={{ color: COR.texto }}>
         {contas.length === 1 ? "1 conta precisa de atenção" : `${contas.length} contas precisam de atenção`}
       </p>
-      <p className="text-[14px]" style={{ color: COR.sub }}>
+      <p className="text-[13px]" style={{ color: COR.mute }}>
         {comPlano > 0 ? `${comPlano} com plano ativo · entra no guardar de hoje` : "priorize essas contas para evitar mais juros"}
       </p>
 
-      <div className="mt-3">
+      <div className="mt-2">
         {contas.slice(0, 2).map((c) => (
-          <div key={c.id} className="flex items-center justify-between gap-3 min-h-11 border-t" style={{ borderColor: "rgba(255,255,255,.06)" }}>
-            <span className="text-[15px] font-semibold truncate" style={{ color: COR.texto }}>{c.nome}</span>
-            <span className="text-[15px] font-bold tabular-nums" style={{ color: COR.texto }}>{formatCurrency(c.falta)}</span>
+          <div key={c.id} className="flex items-center justify-between gap-3 h-9 border-t text-[14px]" style={{ borderColor: "rgba(255,255,255,.06)" }}>
+            <span className="font-semibold truncate" style={{ color: "#c9c3b8" }}>{c.nome}</span>
+            <span className="font-extrabold tabular-nums" style={{ color: COR.texto }}>{formatCurrency(c.falta)}</span>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mt-3">
-        <BotaoPrimario className="h-12 text-[15px]" onClick={() => setPlano(contas.map((c) => c.id))}>Montar plano</BotaoPrimario>
-        <BotaoSecundario className="h-12" onClick={() => setLista(true)}>Ver contas</BotaoSecundario>
+      <div className="grid grid-cols-2 gap-2 mt-2.5">
+        <BotaoPrimario className="h-11 text-[14px]" onClick={() => setPlano(contas.map((c) => c.id))}>Montar plano</BotaoPrimario>
+        <BotaoSecundario className="h-11" onClick={() => setLista(true)}>Ver contas</BotaoSecundario>
       </div>
 
       <Folha open={lista} onOpenChange={setLista} titulo="Contas vencidas" subtitulo={`${formatCurrency(total)} em aberto`} alta>
