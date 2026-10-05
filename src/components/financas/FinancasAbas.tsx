@@ -269,27 +269,6 @@ export function BancosLista({ h, onGerenciar }: { h: HomeFinancas; onGerenciar: 
   );
 }
 
-/* ---------- ANÁLISE · Piloto automático (o banco alimentando o Raio-X) ---------- */
-export function PilotoLinha({ h, onAbrir }: { h: HomeFinancas; onAbrir: () => void }) {
-  const mes = nomeMes();
-  return (
-    <button type="button" onClick={onAbrir}
-      className="w-full rounded-[18px] px-4 py-3 flex items-center gap-3 text-left active:opacity-70"
-      style={{ background: "#0e0e10", border: `1px solid ${LINHA}` }}>
-      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: OK, boxShadow: "0 0 0 4px rgba(61,214,140,.18)" }} />
-      <span className="flex-1 min-w-0">
-        <span className="block text-[10px] font-black tracking-[.15em]" style={{ color: OK }}>PILOTO AUTOMÁTICO LIGADO</span>
-        <span className="block text-[12.5px] font-bold mt-0.5" style={{ color: SUB }}>
-          {h.piloto.lancamentos > 0
-            ? `${h.piloto.lancamentos} ${h.piloto.lancamentos === 1 ? "gasto entrou" : "gastos entraram"} sozinho${h.piloto.lancamentos === 1 ? "" : "s"} em ${mes}${h.piloto.conferir > 0 ? ` · ${h.piloto.conferir} pra conferir` : ""}`
-            : "Cada gasto do banco entra sozinho no Raio-X, já organizado."}
-        </span>
-      </span>
-      <ChevronRight className="w-4 h-4 shrink-0" style={{ color: MUTE }} />
-    </button>
-  );
-}
-
 /* ---------- convite pra ligar o banco (quem ainda não tem) ---------- */
 export function ConviteBanco({ onLigar, texto }: { onLigar: () => void; texto: string }) {
   return (
