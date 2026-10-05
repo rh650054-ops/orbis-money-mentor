@@ -2,6 +2,13 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 04/10/2026 — Chat novo começa do zero (sem memória de conversas antigas)
+
+- A pedido do Rick, o mentor não usa mais nada das conversas antigas: cada chat novo começa limpo. Ele desenhava a marca NINO (de agosto) num pedido "do zero" porque a memória antiga entrava em toda conversa.
+- Desligado no chat (`bright-action`: não carrega nem grava `ai_memoria`) e nos relatórios (`generate-insights` sem a linha de memória). Os fatos antigos continuam no banco, só não são usados — dá pra religar se um dia quiser.
+- Os números reais do vendedor (vendas, horários, produtos) continuam indo pra IA: são dados do app, não conversa.
+- Deploy: `bright-action` agora carrega o código direto do commit aprovado no GitHub (arquivo de 4 linhas com o hash), em vez de colar 93 mil caracteres à mão.
+
 ## 04/10/2026 — IA: relatórios com o histórico de verdade e chat mais rápido
 
 **O que mudou pro vendedor**

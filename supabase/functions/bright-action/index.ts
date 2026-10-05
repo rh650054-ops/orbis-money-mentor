@@ -145,11 +145,10 @@ Você também é o designer-consultor da Vant: cria JUNTO com o vendedor o adesi
   5. O que vai escrito: frase, @ do Insta, WhatsApp, espaço pro QR do Pix.
   6. Cores — ou deixa comigo.
   Se tiver uma foto de adesivo que você curte, manda que eu uso de referência."
-  Se a memória tiver uma marca antiga, acrescente uma linha: "Ou quer seguir com a NINO de antes?" — nunca use sozinho.
   Na mensagem SEGUINTE: se ele deu o nome, GERE com o que veio (o que faltar você decide e avisa em meia frase). Se ele pediu opções de nome, mande as 3 opções (regras de nome abaixo) e gere assim que ele escolher. Telefone, @ e frase que ele passar vão no campo extras do criar_adesivo, exatamente como ele escreveu.
 - Fora esse pontapé, no máximo UMA mensagem com pergunta por assunto — a partir daí você GERA com o que tem.
 - GATILHO DE GERAÇÃO IMEDIATA: se ele mandar uma referência (foto), ou disser "gera", "pode gerar", "cria", "só muda X", "sem mais perguntas" — chame criar_adesivo NESSA resposta, sem UMA pergunta sequer. Pedido explícito encerra o briefing na hora; faltou algo, você assume e diz o que assumiu.
-- MEMÓRIA de conversas antigas (marca, produto, arte) é só sugestão: ofereça como opção e use SÓ depois que ele confirmar NESTA conversa. Desenhar a marca antiga sem ele pedir é o erro mais grave do estúdio — ele abriu conversa nova pra criar algo novo. E NUNCA reapresente um nome antigo como se fosse ideia nova.
+- CADA CONVERSA COMEÇA DO ZERO: você não sabe nada de conversas antigas — nem marca, nem produto, nem arte. Tudo vem do que ele disser AQUI.
 ### CRIAR NOME DE MARCA — leia isto inteiro antes de sugerir qualquer nome
 Você é um diretor de criação de naming, não um gerador de rótulo de cardápio. A régua é: o nome tem que caber numa lata bonita de prateleira, não numa placa de feira.
 
@@ -1050,21 +1049,12 @@ Deno.serve(async (req) => {
       }
     }
 
-    // ===== MEMÓRIA (Fase 1 do Agente): tudo que o mentor já aprendeu sobre ESTE vendedor =====
-    let memFacts: { tipo: string; fato: string }[] = [];
-    let memBlock = "";
-    try {
-      const admin = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "");
-      const { data: mem } = await admin
-        .from("ai_memoria").select("tipo, fato")
-        .eq("user_id", chatUserId).eq("ativo", true)
-        .order("created_at", { ascending: false }).limit(40);
-      memFacts = ((mem as any[]) || []).map((m) => ({ tipo: String(m.tipo), fato: String(m.fato) }));
-      if (memFacts.length) {
-        memBlock = "\n\nMEMÓRIA DESTE VENDEDOR (fatos que ELE te contou em conversas anteriores — use com naturalidade, personalize, e COBRE os combinados quando fizer sentido):\n" +
-          memFacts.map((f) => `- [${f.tipo}] ${f.fato}`).join("\n");
-      }
-    } catch (e) { console.error("memoria load falhou", String(e).slice(0, 120)); }
+    // ===== SEM MEMÓRIA ENTRE CONVERSAS (Rick, 04/10) =====
+    // Cada chat novo começa do zero: nada do que foi falado em conversas antigas entra
+    // aqui. A memória antiga (ai_memoria) fazia o mentor desenhar a marca de agosto num
+    // pedido "do zero". Os fatos continuam guardados no banco, só não são mais usados.
+    const memFacts: { tipo: string; fato: string }[] = [];
+    const memBlock = "";
 
     // ===== COFRE DE CONHECIMENTO (27/08/2026) =====
     // O "Obsidian da Vant": notas curadas pelo time na tabela ai_conhecimento.
@@ -1172,12 +1162,7 @@ Deno.serve(async (req) => {
       if (acaoUrl?.tipo === "adesivo_no_chat" && acaoUrl.url) {
         reply = `${reply}\n\n[[adesivo:${acaoUrl.url}]]`;
       }
-      try {
-        const lastUser = String(messages[messages.length - 1]?.content ?? "").slice(0, 1200);
-        const p = extractMemory(chatUserId, lastUser, reply.slice(0, 1200), memFacts.map((f) => f.fato));
-        const er = (globalThis as any).EdgeRuntime;
-        if (er?.waitUntil) er.waitUntil(p); else p.catch(() => {});
-      } catch { /* noop */ }
+      // Memória entre conversas desligada (Rick, 04/10): não grava fato novo.
       return json({ success: true, message: reply, ...(acaoChat ? { acao: acaoChat } : {}), ...(refUrlChat ? { ref_url: refUrlChat } : {}) });
     };
 
