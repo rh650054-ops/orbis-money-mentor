@@ -41,8 +41,8 @@ export default function RaioXExtrato() {
     await Promise.all([reload(), recarregarMeses()]);
     return n;
   };
-  const moverEAtualizar = async (id: string, categoria: string) => {
-    const n = await mover(id, categoria);
+  const moverEAtualizar = async (id: string, categoria: string, soEste?: boolean) => {
+    const n = await mover(id, categoria, soEste);
     await recarregarPerguntas();
     return n;
   };

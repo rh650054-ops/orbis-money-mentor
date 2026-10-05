@@ -16,7 +16,7 @@ interface Props {
   info: RaioXCategoria | null;
   categorias: RaioXCategoriaDef[];
   lista: (categoria: string | null, tipo?: "saida" | "entrada") => Promise<RaioXLancamento[]>;
-  mover: (id: string, categoria: string) => Promise<number>;
+  mover: (id: string, categoria: string, soEste?: boolean) => Promise<number>;
 }
 
 // Sugestões que aparecem primeiro no "mover" (as mais comuns pra vendedor de rua).
@@ -30,6 +30,10 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
   const [todas, setTodas] = useState(false);
   const [filtro, setFiltro] = useState<string | null>(null);
   const [movendo, setMovendo] = useState<string | null>(null);
+  // Pix pra pessoa: o mesmo amigo recebe por motivos diferentes → padrão é mover SÓ ESTE.
+  // Comércio (Atacadão, Uber…): padrão é mover todos do mesmo nome e a Vant aprender.
+  const [todosDoNome, setTodosDoNome] = useState(slug !== "pix_pessoas");
+  useEffect(() => { setTodosDoNome(slug !== "pix_pessoas"); }, [slug]);
 
   useEffect(() => {
     let vivo = true;
@@ -60,12 +64,13 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
 
   const handleMover = async (l: RaioXLancamento, destino: RaioXCategoriaDef) => {
     setMovendo(l.id);
-    const n = await mover(l.id, destino.slug);
+    const soEste = !todosDoNome || !l.comerciante;
+    const n = await mover(l.id, destino.slug, soEste && !!l.comerciante);
     setMovendo(null);
     setAberto(null);
     if (n > 0) {
       setItens((prev) => (prev ?? []).filter((x) => x.id !== l.id && !(n > 1 && x.comerciante && x.comerciante === l.comerciante)));
-      toast({ title: `Movido pra ${destino.rotulo}`, description: n > 1 ? `${n} lançamentos de ${bonito(l.comerciante ?? "")} foram juntos. Da próxima vez já vai direto.` : "Da próxima vez esse nome já vai direto pra lá." });
+      toast({ title: `Movido pra ${destino.rotulo}`, description: soEste && l.comerciante ? "Só esse lançamento mudou — os outros desse nome ficam onde estão." : n > 1 ? `${n} lançamentos de ${bonito(l.comerciante ?? "")} foram juntos. Da próxima vez já vai direto.` : "Da próxima vez esse nome já vai direto pra lá." });
     } else {
       toast({ title: "Não consegui mover", description: "Tenta de novo em instantes." });
     }
@@ -144,6 +149,12 @@ export default function RaioXLancamentos({ mes, categoria, info, categorias, lis
                   {nid ? "é o quê?" : "mover"}
                 </button>
               </div>
+              {abertoAqui && l.comerciante && (
+                <label className="flex items-center gap-2 pb-2 text-[11.5px] font-bold" style={{ color: "#b9b3a6" }}>
+                  <input type="checkbox" checked={todosDoNome} onChange={(e) => setTodosDoNome(e.target.checked)} className="w-4 h-4 accent-[#FFC800]" />
+                  Mover também os outros de {bonito(l.comerciante)} (e os próximos)
+                </label>
+              )}
               {abertoAqui && (
                 <div className="flex gap-1.5 flex-wrap pb-3">
                   {chips.map((c) => (
