@@ -129,9 +129,12 @@ export function useRaioXExtrato(userId: string | undefined, mes: string | null) 
   }, [mes]);
 
   // "Mover": corrige a categoria, ensina a regra e reaplica no mesmo comerciante.
-  const mover = useCallback(async (id: string, categoria: string): Promise<number> => {
+  // soEste: move SÓ esse lançamento e trava ele (Pix pra pessoa varia de motivo).
+  const mover = useCallback(async (id: string, categoria: string, soEste = false): Promise<number> => {
     try {
-      const { data, error } = await (supabase as any).rpc("extrato_mover", { p_id: id, p_categoria: categoria });
+      const { data, error } = soEste
+        ? await (supabase as any).rpc("extrato_mover_um", { p_id: id, p_categoria: categoria })
+        : await (supabase as any).rpc("extrato_mover", { p_id: id, p_categoria: categoria });
       if (error) throw error;
       await reload();
       return n(data);

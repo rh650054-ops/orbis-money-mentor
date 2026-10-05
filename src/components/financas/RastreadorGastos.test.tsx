@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("react-router-dom", () => ({ useNavigate: () => () => {} }));
@@ -29,5 +29,22 @@ describe("RastreadorView", () => {
   it("sem dados, convida a lançar ou ligar o banco", () => {
     render(<RastreadorView r={{ tem_dados: false, mes: "2026-10-01", dia: 3, dias_mes: 31 }} onVerTudo={() => {}} />);
     expect(screen.getByText(/Ainda não tem gasto pra rastrear/)).toBeTruthy();
+  });
+
+  it("com teto definido, compara com o teto e abre a categoria ao tocar", () => {
+    const onCategoria = vi.fn();
+    const onTetos = vi.fn();
+    const r: Rastreador = {
+      ...base, tem_tetos: true,
+      categorias: [{ categoria: "restaurante", rotulo: "Bares e lanches", icone: "🍟", total: 175, qtd: 6, normal: 150, esperado: 24, tem_teto: true, historico: 92 }],
+      alerta: { rotulo: "Bares e lanches", icone: "🍟", total: 175, esperado: 24, acima: 151, tem_teto: true },
+    };
+    render(<RastreadorView r={r} onVerTudo={() => {}} onCategoria={onCategoria} onTetos={onTetos} />);
+    expect(screen.getByText(/de R\$ 150 teto/)).toBeTruthy();
+    expect(screen.getByText(/Bares e lanches passou do teto/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Bares e lanches: ver e mover/ }));
+    expect(onCategoria).toHaveBeenCalledWith("restaurante");
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar tetos" }));
+    expect(onTetos).toHaveBeenCalled();
   });
 });

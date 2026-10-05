@@ -8,23 +8,25 @@
    Fonte: o que saiu do banco (Open Finance/PDF) + o que ele lançou nos custos
    do dia e não aparece no banco. Tudo de financas_rastreador().
    ============================================================ */
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { formatCurrency } from "@/shared/lib/utils";
+import { TetosGastos } from "./TetosGastos";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
 const RED = "#ff7a6b";
 const MUTE = "#8a857c";
 
-interface Cat { categoria: string; rotulo: string; icone: string; total: number; qtd: number; normal: number; esperado: number }
+// normal = o TETO que ele definiu (tem_teto) ou a média dos 3 meses; historico = sempre a média
+interface Cat { categoria: string; rotulo: string; icone: string; total: number; qtd: number; normal: number; esperado: number; tem_teto?: boolean; historico?: number }
 export interface Rastreador {
   tem_dados: boolean; fonte?: "banco" | "lancado" | "misto"; mes: string; dia: number; dias_mes: number;
   gasto?: number; mes_passado_mesmo_dia?: number; normal_mes?: number; normal_ate_hoje?: number; projecao?: number | null;
-  semana?: { atual: number; anterior: number }; categorias?: Cat[];
-  alerta?: { rotulo: string; icone: string; total: number; esperado: number; acima: number; fixa?: boolean } | null;
+  semana?: { atual: number; anterior: number }; categorias?: Cat[]; tem_tetos?: boolean;
+  alerta?: { rotulo: string; icone: string; total: number; esperado: number; acima: number; fixa?: boolean; tem_teto?: boolean } | null;
   ultimos?: { data: string; valor: number; descricao: string; icone: string }[];
 }
 
@@ -45,8 +47,14 @@ function Barra({ v, max, marca, cor }: { v: number; max: number; marca?: number;
   );
 }
 
-export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () => void }) {
+export function RastreadorView({ r, onVerTudo, onCategoria, onTetos }: {
+  r: Rastreador; onVerTudo: () => void;
+  /** toca na categoria → abre os gastos dela no Raio-X (lá dá pra mover cada Pix) */
+  onCategoria?: (slug: string) => void;
+  onTetos?: () => void;
+}) {
   const mes = nomeMes(r.mes);
+  const [todas, setTodas] = useState(false);
   if (!r.tem_dados) {
     return (
       <section className="rounded-2xl p-4" style={{ background: "#0f0f10", border: "1px solid #1f1e22" }}>
@@ -59,7 +67,9 @@ export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () 
   const gasto = r.gasto ?? 0;
   const normalHoje = r.normal_ate_hoje ?? 0;
   const dif = gasto - normalHoje;
-  const cats = (r.categorias ?? []).slice(0, 5);
+  const todasCats = r.categorias ?? [];
+  const cats = todas ? todasCats : todasCats.slice(0, 5);
+  const ref = r.tem_tetos ? "teto" : "normal";
   // categoria sem histórico ainda: a barra é relativa ao maior gasto do mês
   const maiorTotal = Math.max(1, ...cats.map((c) => c.total));
   const passado = r.mes_passado_mesmo_dia ?? 0;
@@ -77,7 +87,7 @@ export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () 
         {normalHoje > 0 && (
           <div className="text-right">
             <p className="text-[15px] font-black tabular-nums" style={{ color: dif > 0 ? RED : OK }}>{dif > 0 ? "+" : "−"} {reais(Math.abs(dif))}</p>
-            <p className="text-[10.5px]" style={{ color: MUTE }}>{dif > 0 ? "acima" : "abaixo"} do seu normal</p>
+            <p className="text-[10.5px]" style={{ color: MUTE }}>{dif > 0 ? "acima" : "abaixo"} do seu {ref}</p>
           </div>
         )}
       </div>
@@ -85,7 +95,7 @@ export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () 
         <div className="mt-3">
           <Barra v={gasto} max={r.normal_mes ?? 0} marca={normalHoje} cor={dif > 0 ? `linear-gradient(90deg,#c9463a,${RED})` : `linear-gradient(90deg,#1fa868,${OK})`} />
           <p className="text-[10.5px] mt-1.5" style={{ color: MUTE }}>
-            Seu normal no mês: {reais(r.normal_mes ?? 0)} · o traço é onde você deveria estar hoje
+            {r.tem_tetos ? "Seu teto no mês" : "Seu normal no mês"}: {reais(r.normal_mes ?? 0)} · o traço é onde você deveria estar hoje
             {r.projecao ? ` · nesse ritmo fecha em ${reais(r.projecao)}` : ""}
           </p>
         </div>
@@ -94,9 +104,9 @@ export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () 
         <div className="mt-3 rounded-xl px-3 py-2.5 flex gap-2.5 items-start" style={{ background: "rgba(255,90,69,.08)", border: "1px solid rgba(255,90,69,.35)" }}>
           <span className="text-[18px] leading-none" aria-hidden>{r.alerta.icone}</span>
           <p className="text-[12px] leading-snug">
-            <b style={{ color: RED }}>{r.alerta.rotulo} passou do seu normal.</b>{" "}
+            <b style={{ color: RED }}>{r.alerta.rotulo} passou do {r.alerta.tem_teto ? "teto" : "seu normal"}.</b>{" "}
             <span style={{ color: "#b9b3a6" }}>
-              {reais(r.alerta.total)} até hoje; {r.alerta.fixa ? `o normal no mês todo é ${reais(r.alerta.esperado)}` : `o normal pra essa altura é ${reais(r.alerta.esperado)}`}.
+              {reais(r.alerta.total)} até hoje; {r.alerta.fixa ? `o ${r.alerta.tem_teto ? "teto" : "normal"} no mês todo é ${reais(r.alerta.esperado)}` : `${r.alerta.tem_teto ? "pelo teto, o ritmo" : "o normal"} pra essa altura é ${reais(r.alerta.esperado)}`}.
             </span>
           </p>
         </div>
@@ -110,19 +120,38 @@ export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () 
             const acelerado = !fixa && !passou && c.esperado > 0 && c.total - c.esperado >= 30 && c.total >= c.esperado * 1.3;
             const cor = passou ? RED : acelerado ? "#ff9f43" : GOLD;
             return (
-              <div key={c.categoria}>
+              <button key={c.categoria} type="button" onClick={() => onCategoria?.(c.categoria)} className="block w-full text-left active:opacity-70"
+                aria-label={`${c.rotulo}: ver e mover os gastos`}>
                 <div className="flex items-center gap-2 text-[12.5px]">
                   <span aria-hidden>{c.icone}</span>
                   <span className="flex-1 min-w-0 truncate font-extrabold">{c.rotulo}</span>
                   <span className="tabular-nums font-black" style={{ color: passou || acelerado ? cor : "#F4F1EA" }}>{reais(c.total)}</span>
-                  <span className="text-[10.5px] tabular-nums w-[78px] text-right" style={{ color: MUTE }}>{c.normal > 0 ? `de ${reais(c.normal)}` : "novo no mês"}</span>
+                  <span className="text-[10.5px] tabular-nums w-[92px] text-right" style={{ color: c.tem_teto ? GOLD : MUTE }}>
+                    {c.normal > 0 ? `de ${reais(c.normal)}${c.tem_teto ? " teto" : ""}` : "novo no mês"}
+                  </span>
+                  <span aria-hidden className="text-[12px]" style={{ color: "#4a4741" }}>›</span>
                 </div>
                 <div className="mt-1"><Barra v={c.total} max={c.normal || maiorTotal} marca={c.normal > 0 && !fixa ? c.esperado : undefined} cor={cor} /></div>
-              </div>
+              </button>
             );
           })}
         </div>
       )}
+      {(todasCats.length > 5 || onTetos) && (
+        <div className="mt-3 flex gap-2">
+          {todasCats.length > 5 && (
+            <button type="button" onClick={() => setTodas((t) => !t)} className="flex-1 h-9 rounded-xl text-[12px] font-extrabold" style={{ background: "#18181b", border: "1px solid #26262a", color: "#b9b3a6" }}>
+              {todas ? "ver menos" : `ver todas (${todasCats.length})`}
+            </button>
+          )}
+          {onTetos && (
+            <button type="button" onClick={onTetos} className="flex-1 h-9 rounded-xl text-[12px] font-extrabold" style={{ border: "1px solid rgba(245,184,0,.5)", color: GOLD, background: "rgba(245,184,0,.06)" }}>
+              {r.tem_tetos ? "Ajustar tetos" : "Definir tetos"}
+            </button>
+          )}
+        </div>
+      )}
+      {cats.length > 0 && <p className="text-[10.5px] mt-2" style={{ color: MUTE }}>Toca numa categoria pra ver cada gasto e mover o que caiu no lugar errado (tipo um Pix que foi mercado).</p>}
       {gasto === 0 && (
         <p className="text-[12px] mt-3" style={{ color: MUTE }}>
           Nada saiu em {mes} ainda{r.semana && r.semana.atual > 0 ? ` · últimos 7 dias: ${reais(r.semana.atual)}` : ""}.
@@ -145,16 +174,25 @@ export function RastreadorView({ r, onVerTudo }: { r: Rastreador; onVerTudo: () 
 export function RastreadorGastos({ userId }: { userId?: string }) {
   const navigate = useNavigate();
   const [r, setR] = useState<Rastreador | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    let vivo = true;
-    (async () => {
-      const { data, error } = await (supabase as unknown as { rpc: (f: string) => Promise<{ data: unknown; error: unknown }> }).rpc("financas_rastreador");
-      if (error) { avisar.silencioso("financas_rastreador", error); return; }
-      if (vivo) setR(data as Rastreador);
-    })();
-    return () => { vivo = false; };
-  }, [userId]);
+  const [tetos, setTetos] = useState(false);
+  const carregar = useCallback(async () => {
+    const { data, error } = await (supabase as unknown as { rpc: (f: string) => Promise<{ data: unknown; error: unknown }> }).rpc("financas_rastreador");
+    if (error) { avisar.silencioso("financas_rastreador", error); return; }
+    setR(data as Rastreador);
+  }, []);
+  useEffect(() => { if (userId) void carregar(); }, [userId, carregar]);
+  // quanto ele costuma gastar em cada categoria (sugestão do teto)
+  const historico = useMemo(
+    () => Object.fromEntries((r?.categorias ?? []).map((c) => [c.categoria, c.historico ?? (c.tem_teto ? 0 : c.normal)])),
+    [r],
+  );
   if (!r) return null;
-  return <RastreadorView r={r} onVerTudo={() => navigate(`/financas/extrato?mes=${r.mes}`)} />;
+  return (
+    <>
+      <RastreadorView r={r} onVerTudo={() => navigate(`/financas/extrato?mes=${r.mes}`)}
+        onCategoria={r.fonte !== "lancado" ? (slug) => navigate(`/financas/extrato?mes=${r.mes}&v=cat:${slug}`) : undefined}
+        onTetos={() => setTetos(true)} />
+      {tetos && <TetosGastos historico={historico} onFechar={() => setTetos(false)} onSalvo={() => void carregar()} />}
+    </>
+  );
 }
