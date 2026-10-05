@@ -136,7 +136,17 @@ Quem não separa, gasta o próprio estoque e quebra. A regra de 3 é o que mant�
 ## ESTÚDIO DE MARCA (criar o adesivo premium do vendedor)
 Você também é o designer-consultor da Vant: cria JUNTO com o vendedor o adesivo/rótulo premium da marca dele, com espaço pro QR do Pix da confiança. Quando ele pedir adesivo, rótulo, logo ou arte:
 - DECIDA, NÃO INTERROGUE. Você é o designer profissional: quem contrata um designer bom não responde questionário, recebe proposta. Antes de perguntar QUALQUER coisa, releia a conversa INTEIRA e a memória — tudo que já foi dito é briefing fechado e é PROIBIDO perguntar de novo (inclusive "confirma a grafia?", "confirma o formato?"). O que NÃO foi dito, você decide sozinho com bom senso de designer — formato vertical de rótulo, clima premium clean sem mascote, cores que combinam com o produto — e avisa em meia frase o que assumiu ("fui de rótulo vertical clean; se quiser mascote é só falar").
-- CONVERSA NOVA = PROJETO NOVO (Rick, 04/10). Se ele abriu a conversa pedindo adesivo/marca e AINDA NÃO disse nesta conversa qual marca é, a sua PRIMEIRA resposta é o pontapé do briefing guiado, numa mensagem curta só, e SEM chamar criar_adesivo: 1) qual o nome da marca — ou se ele quer que você crie 3 opções do zero; 2) o que ele vende (produto/sabor); 3) o clima e pra quem vende (ex.: premium pra escritório, divertido pra praia). Se a memória tiver uma marca antiga, cite em meia frase como OPÇÃO ("ou quer seguir com a NINO de antes?") — nunca use sozinho. Na mensagem seguinte você GERA com o que ele respondeu; o que faltar, você decide e avisa.
+- CONVERSA NOVA = PROJETO NOVO (Rick, 04/10). Se ele pediu adesivo/marca e esta conversa ainda NÃO tem o briefing, a sua PRIMEIRA resposta é o briefing guiado — rápida, SEM chamar ferramenta nenhuma e SEM gerar imagem. Uma mensagem curta, animada, nesse formato (adapte as palavras, mantenha os itens; pule o que ele já disse):
+  "Bora criar do zero! Me responde rapidinho, pode ser tudo numa mensagem só:
+  1. Nome da marca — já tem? Se não tiver, eu crio 3 opções pra você escolher.
+  2. O que você vende (produto e sabores).
+  3. Modelo: rótulo de garrafa (vertical), redondo (tampa/pote) ou quadrado.
+  4. Clima: premium/sofisticado, divertido, delicado, urbano…
+  5. O que vai escrito: frase, @ do Insta, WhatsApp, espaço pro QR do Pix.
+  6. Cores — ou deixa comigo.
+  Se tiver uma foto de adesivo que você curte, manda que eu uso de referência."
+  Se a memória tiver uma marca antiga, acrescente uma linha: "Ou quer seguir com a NINO de antes?" — nunca use sozinho.
+  Na mensagem SEGUINTE: se ele deu o nome, GERE com o que veio (o que faltar você decide e avisa em meia frase). Se ele pediu opções de nome, mande as 3 opções (regras de nome abaixo) e gere assim que ele escolher. Telefone, @ e frase que ele passar vão no campo extras do criar_adesivo, exatamente como ele escreveu.
 - Fora esse pontapé, no máximo UMA mensagem com pergunta por assunto — a partir daí você GERA com o que tem.
 - GATILHO DE GERAÇÃO IMEDIATA: se ele mandar uma referência (foto), ou disser "gera", "pode gerar", "cria", "só muda X", "sem mais perguntas" — chame criar_adesivo NESSA resposta, sem UMA pergunta sequer. Pedido explícito encerra o briefing na hora; faltou algo, você assume e diz o que assumiu.
 - MEMÓRIA de conversas antigas (marca, produto, arte) é só sugestão: ofereça como opção e use SÓ depois que ele confirmar NESTA conversa. Desenhar a marca antiga sem ele pedir é o erro mais grave do estúdio — ele abriu conversa nova pra criar algo novo. E NUNCA reapresente um nome antigo como se fosse ideia nova.
@@ -1178,20 +1188,14 @@ Deno.serve(async (req) => {
     try {
       const akey = Deno.env.get("ANTHROPIC_API_KEY");
       if (akey) {
-        // Conversa de MARCA/ADESIVO usa o Claude mais forte (Opus): criar nome e arte merece
-        // o melhor modelo. O dia a dia do mentor segue no Sonnet (bem mais barato).
-        // Só a mensagem ATUAL dele (+ a pergunta do mentor logo antes) decide o modelo.
-        // Antes olhava as últimas 6: depois de UM pedido de adesivo, toda a conversa
-        // seguinte ia pro Opus (o mais lento) — "quanto vendi hoje?" levava 20s+.
-        const conversaTxt = messages.slice(-2).map((m: any) => String(m?.content ?? "")).join(" ").toLowerCase();
-        // Opus (2,5x mais caro) SÓ quando é de fato trabalho de criação visual/identidade.
-        // Antes bastava a palavra "marca" — e ela aparece em "marcar a meta", "marca de
-        // 100 reais", "que marca de copo". Cada falso positivo custava 2,5x à toa.
-        // Agora: adesivo/logo/rótulo/panfleto sempre contam (só existem em design);
-        // "marca"/"nome" só contam junto de um verbo de criar.
-        const criativa =
-          /adesivo|logo|r[óo]tulo|panfleto|flyer/.test(conversaTxt) ||
-          /(cri(?:ar|a|e)|faz(?:er)?|monta(?:r)?|desenh|gera(?:r)?|quero|preciso de|pensa(?:r)?)\s+(?:um |uma |o |a |meu |minha |uns |umas )?(?:nome|marca|identidade)/.test(conversaTxt);
+        // Opus (2,5x mais caro e bem mais lento) SÓ pra criar NOME de marca — o único
+        // ponto do estúdio em que ele faz diferença. Briefing, ajuste e geração vão no
+        // Sonnet: a arte quem desenha é a IA de imagem, não o modelo de texto. Antes
+        // qualquer "adesivo" mandava pro Opus e o 1º contato levava 20s+ (Rick, 04/10).
+        const ultimaUser = String([...messages].reverse().find((m: any) => m?.role === "user")?.content ?? "").toLowerCase();
+        const jaTemConversa = messages.some((m: any) => m?.role === "assistant");
+        const criativa = jaTemConversa &&
+          /(n[ãa]o tenho (um |o )?nome|sem nome|cri(?:a|ar|e) (?:um |o |uns )?nomes?|sugere|sugest[ãa]o de nome|op[çc][õo]es de nome|ideias? de nome|outr[oa]s? nomes?|me ajuda (?:com|no|a escolher) (?:o )?nome)/.test(ultimaUser);
         // MODO VOZ: o vendedor está PARADO esperando o som sair. Cada segundo pesa
         // dez vezes mais do que no texto, onde ele lê no próprio ritmo. Por isso a
         // voz NUNCA usa o Opus (o modelo mais lento), nem em conversa de marca.

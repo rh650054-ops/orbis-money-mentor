@@ -10,6 +10,7 @@ Registro do que mudou no app, em português, do mais novo pro mais antigo.
 - **Fim do "meu cérebro tá fora do ar"** quando o mentor consultava ferramentas 4 vezes seguidas: na última rodada ele é obrigado a responder.
 - **Memória do mentor voltou a gravar**: o que o vendedor conta (o que vende, onde, dificuldades) era extraído pelo Gemini grátis, que respondia 429 em quase toda mensagem. Agora é o Claude Haiku (≈ US$ 0,001 por troca), com o Gemini de reserva.
 - **Estúdio: conversa nova = marca nova.** Num chat novo, "quero criar o adesivo premium da minha marca" puxava da memória a NINO de agosto e já desenhava. Agora o mentor abre um briefing guiado (nome — ou 3 opções do zero —, o que vende, clima e pra quem) e só cita a marca antiga como opção. Trava no servidor: só desenha marca que apareceu nesta conversa, e "ajuste" só mexe em arte desta conversa.
+- **1º contato do estúdio rápido e completo**: o mentor responde em segundos (Sonnet, sem gerar nada) com o briefing em 6 itens — nome (ou 3 opções), o que vende, modelo (vertical/redondo/quadrado), clima, o que vai escrito (frase, @, WhatsApp, QR Pix) e cores — e aceita foto de referência. O Opus agora só entra pra criar NOME de marca. A tela não diz mais "desenhando, 2 minutos" no primeiro contato: mostra "Entendendo o que você quer...".
 - A arte do adesivo continua levando ~1–2 min: é o tempo da geração em alta qualidade (gpt-image), não falha.
 
 **Por dentro**

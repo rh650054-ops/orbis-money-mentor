@@ -257,9 +257,13 @@ export default function FloatingChatButton() {
     return () => clearTimeout(t);
   }, [isSending]);
   const ultimaMinha = [...messages].reverse().find((m) => m.role === "user")?.content ?? "";
-  const avisoEspera = /adesivo|arte|logo|r[óo]tulo|marca|gera/i.test(ultimaMinha)
+  // "Desenhando" só quando a arte pode estar saindo de verdade: já houve briefing nesta
+  // conversa (o mentor já respondeu antes). No 1º contato o mentor só pergunta o que
+  // ele quer — dizer "desenhando, 2 minutos" ali assustava e parecia lento (Rick, 04/10).
+  const jaTeveBriefing = messages.some((m) => m.role === "assistant");
+  const avisoEspera = jaTeveBriefing && /adesivo|arte|logo|r[óo]tulo|marca|gera|nome|pode|fechou|bora|isso/i.test(ultimaMinha)
     ? "Desenhando tua arte em alta qualidade... leva uns 2 minutos. Não fecha essa tela."
-    : "Pensando com calma aqui...";
+    : "Entendendo o que você quer...";
 
   // Fecha o chat com o botão/gesto de voltar do celular (sem reabrir)
   useEffect(() => {
