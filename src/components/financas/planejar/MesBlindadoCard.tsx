@@ -36,8 +36,10 @@ export function MesBlindadoCard({ custo, protegido, cobertas, contas, diasRestan
       <p className="text-[13px] mt-0.5" style={{ color: COR.mute }}>Quanto do seu mês já está garantido</p>
 
       <div className="flex items-end justify-between gap-3 mt-2.5">
-        <p className="text-[36px] leading-none font-black tracking-tight tabular-nums" style={{ color: COR.verde }}>{Math.round(pct)}%</p>
-        <p className="text-[14px] tabular-nums pb-0.5">
+        {protegido > 0.005
+          ? <p className="text-[36px] leading-none font-black tracking-tight tabular-nums" style={{ color: COR.verde }}>{Math.round(pct)}%</p>
+          : <p className="text-[16px] font-bold leading-snug" style={{ color: COR.texto }}>Nenhuma conta coberta ainda</p>}
+        <p className="text-[14px] tabular-nums pb-0.5 text-right shrink-0">
           <b style={{ color: COR.texto }}>{formatCurrency(protegido)}</b>
           <span style={{ color: COR.mute }}> de {formatCurrency(custo)}</span>
         </p>

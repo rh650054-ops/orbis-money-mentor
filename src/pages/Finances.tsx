@@ -248,6 +248,8 @@ export default function Finances() {
   /** Folha da conta (Paguei / código / boleto / editar) — id da conta aberta. Rick, 10/09. */
   const [contaSheet, setContaSheet] = useState<string | null>(null);
   const [contasTodas, setContasTodas] = useState(false);
+  /** Planejar: vencida aberta direto pelo "Resolver" da lista de contas (05/10). */
+  const [focoVencida, setFocoVencida] = useState<string | null>(null);
   // Editar meta (sem apagar/recriar).
   const [editGoal, setEditGoal] = useState<Goal | null>(null);
   const [editGoalForm, setEditGoalForm] = useState({ name: "", target_amount: "", prazo: "medio" as "curto" | "medio" | "longo", deadline: "", percentual: "" });
@@ -2634,7 +2636,10 @@ export default function Finances() {
                 onReabrirDia={() => { void handleDesfazerGuardei(); }}
               />
 
-              <VencidasCard contas={vencidasVM} onPlano={usarPlano} onPaga={marcarPaga} simular={simularPlano} />
+              <div id="planejar-vencidas" className="scroll-mt-4">
+                <VencidasCard contas={vencidasVM} onPlano={usarPlano} onPaga={marcarPaga} simular={simularPlano}
+                  foco={focoVencida} onSemFoco={() => setFocoVencida(null)} />
+              </div>
 
               <div id="planejar-contas" className="mt-2 scroll-mt-4">
                 <ContasDoMes
@@ -2642,7 +2647,8 @@ export default function Finances() {
                   onAdicionar={() => setIsAddBillOpen(true)}
                   onAbrir={(id) => setContaSheet(id)}
                   onPaguei={marcarPaga}
-                  onResolver={(id) => { const b = bills.find((x) => x.id === id); if (b) openDeposit({ kind: "bill", bill: b }, remaining(b)); }}
+                  onResolver={(id) => setFocoVencida(id)}
+                  onVerVencidas={() => document.getElementById("planejar-vencidas")?.scrollIntoView({ behavior: "smooth", block: "start" })}
                   onReabrir={(id) => { const b = bills.find((x) => x.id === id); if (b) handleToggleBillPaid(b); }}
                 />
               </div>
