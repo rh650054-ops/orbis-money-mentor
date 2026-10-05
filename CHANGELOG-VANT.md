@@ -15,6 +15,11 @@ Registro do que mudou no app, em português, do mais novo pro mais antigo.
 **Por dentro**
 - `bright-action`: modelo escolhido pelas 2 últimas mensagens (era 6); `tool_choice: none` na rodada 4; `extractMemory` → `memoriaClaude` (secret opcional `ANTHROPIC_MODEL_MEMORIA`) + `memoriaGemini`. O deploy também tira o nome antigo "ORBIS IA" que ainda estava no ar.
 - `generate-insights`: `historicoVendedor()` (RLS com o token do vendedor), modelo `ANTHROPIC_MODEL_RELATORIO` (padrão `claude-sonnet-5`, sem `temperature` na linha 5), gasto registrado em `ai_custos` como `claude_relatorio`.
+## 04/10/2026 — Foco: vendido de verdade + quanto falta cair
+
+- A Foco mostrava como "Vendido hoje" só o que já tinha caído (dinheiro + cartão + Pix). Num dia de R$ 880 com R$ 84,50 ainda por cair, aparecia R$ 796. Agora o número grande é o **vendido de verdade (R$ 880)**, a % da meta usa ele, e embaixo aparece **"caiu R$ 796 · falta cair R$ 85"**. Quando não tem nada pendente, volta o "sobrou R$ X pra você".
+- "Semana" e "Ontem" também passam a contar o que ainda falta cair.
+- Pix tardio continua do mesmo jeito: quando cai, sai do "falta cair" e entra no "caiu"; o vendido não muda.
 
 ## 03/10/2026 — Finanças: caixinhas no alto, reserva em "Guardado" e lucro do mês explicado
 
