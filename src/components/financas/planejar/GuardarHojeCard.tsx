@@ -86,7 +86,7 @@ export function GuardarHojeCard(p: Props) {
           {!p.vazio && (
             <p className="flex gap-4 text-[13px] mt-1 tabular-nums" style={{ color: COR.mute }}>
               <span>Contas <b style={{ color: COR.texto }}>{formatCurrency(p.contas)}</b></span>
-              <span>Objetivos <b style={{ color: COR.texto }}>{formatCurrency(p.objetivos)}</b></span>
+              {p.objetivos > 0.005 && <span>Objetivos <b style={{ color: COR.texto }}>{formatCurrency(p.objetivos)}</b></span>}
             </p>
           )}
 
@@ -118,8 +118,8 @@ export function GuardarHojeCard(p: Props) {
 
           {!p.vazio && (
             <div className="grid grid-cols-2 gap-2 mt-2">
-              <BotaoSecundario onClick={() => setRegistrar({ label: "hoje", isToday: true })}><PencilLine className="w-4 h-4 shrink-0" />Registrar outro valor</BotaoSecundario>
-              <BotaoSecundario onClick={() => setFolha("proximos")}><CalendarDays className="w-4 h-4 shrink-0" />Planejar próximos dias</BotaoSecundario>
+              <BotaoSecundario onClick={() => setRegistrar({ label: "hoje", isToday: true })}><PencilLine className="w-4 h-4 shrink-0" />Outro valor</BotaoSecundario>
+              <BotaoSecundario onClick={() => setFolha("proximos")}><CalendarDays className="w-4 h-4 shrink-0" />Próximos dias</BotaoSecundario>
             </div>
           )}
         </>

@@ -13,8 +13,10 @@ const venceuHa = (c: ContaVM) => {
 };
 const RISCO = { alto: "Risco alto", medio: "Risco médio", baixo: "Risco baixo" } as const;
 
-export function VencidasCard({ contas, onPlano, onPaga, simular }: {
+/** foco: id de UMA vencida pra abrir direto (o "Resolver" da lista de contas). */
+export function VencidasCard({ contas, onPlano, onPaga, simular, foco, onSemFoco }: {
   contas: ContaVM[]; onPlano: (ids: string[], dias: number) => Promise<boolean>; onPaga: (id: string) => Promise<boolean>; simular: Simular;
+  foco?: string | null; onSemFoco?: () => void;
 }) {
   const [lista, setLista] = useState(false);
   const [plano, setPlano] = useState<string[] | null>(null);
@@ -23,7 +25,7 @@ export function VencidasCard({ contas, onPlano, onPaga, simular }: {
   const comPlano = contas.filter((c) => c.plano).length;
 
   return (
-    <Cartao style={{ background: "linear-gradient(170deg,#1c0a08,#0e0e10 70%)", borderColor: "rgba(255,90,69,.42)" }}>
+    <Cartao className="scroll-mt-4" style={{ background: "linear-gradient(170deg,#1c0a08,#0e0e10 70%)", borderColor: "rgba(255,90,69,.42)" }}>
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-4 h-4" style={{ color: COR.coral }} strokeWidth={2.4} />
         <Rotulo cor={COR.coral}>Contas vencidas</Rotulo>
@@ -51,8 +53,9 @@ export function VencidasCard({ contas, onPlano, onPaga, simular }: {
         <BotaoSecundario className="h-11" onClick={() => setLista(true)}>Ver contas</BotaoSecundario>
       </div>
 
-      <Folha open={lista} onOpenChange={setLista} titulo="Contas vencidas" subtitulo={`${formatCurrency(total)} em aberto`} alta>
-        {contas.map((c) => (
+      <Folha open={lista || Boolean(foco)} onOpenChange={(o) => { if (!o) { setLista(false); onSemFoco?.(); } }}
+        titulo={foco ? "Resolver conta vencida" : "Contas vencidas"} subtitulo={foco ? undefined : `${formatCurrency(total)} em aberto`} alta={!foco}>
+        {contas.filter((c) => !foco || c.id === foco).map((c) => (
           <div key={c.id} className="rounded-[16px] p-4 border" style={{ background: COR.surface, borderColor: "rgba(255,107,94,.22)" }}>
             <div className="flex items-start justify-between gap-2">
               <p className="text-[17px] font-bold" style={{ color: COR.texto }}>{c.nome}</p>
@@ -69,8 +72,8 @@ export function VencidasCard({ contas, onPlano, onPaga, simular }: {
               </p>
             )}
             <div className="grid gap-2 mt-3">
-              <BotaoSecundario onClick={() => void onPaga(c.id)}><Check className="w-4 h-4" />Marcar como paga</BotaoSecundario>
-              <BotaoSecundario tom="ouro" onClick={() => { setLista(false); setPlano([c.id]); }}>{c.plano ? "Mudar plano" : "Montar plano"}</BotaoSecundario>
+              <BotaoSecundario onClick={() => { void onPaga(c.id).then((ok) => { if (ok && foco) onSemFoco?.(); }); }}><Check className="w-4 h-4" />Marcar como paga</BotaoSecundario>
+              <BotaoSecundario tom="ouro" onClick={() => { setLista(false); onSemFoco?.(); setPlano([c.id]); }}>{c.plano ? "Mudar plano" : "Montar plano"}</BotaoSecundario>
             </div>
           </div>
         ))}

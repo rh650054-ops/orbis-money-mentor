@@ -9,18 +9,19 @@ const conta = (o: Partial<ContaVM>): ContaVM => ({
   coberta: false, risco: "medio", cartao: false, faturaAberta: false, porDia: 20, diasUteis: 5, plano: null, ...o,
 });
 
-const acoes = { onAbrir: () => {}, onResolver: () => {}, onReabrir: () => {}, onAdicionar: () => {} };
+const acoes = { onAbrir: () => {}, onResolver: () => {}, onReabrir: () => {}, onAdicionar: () => {}, onVerVencidas: () => {} };
 
 describe("Planejar", () => {
-  it("contas do mês: vencidas + 4 próximas, o resto atrás de 'Ver todas'", () => {
+  it("contas do mês: prévia só com 3 próximas, vencidas apontam pro card, resto em 'Ver todas'", () => {
     const contas = [
       conta({ id: "v", nome: "Nubank Crédito", vencida: true, venceEm: -21 }),
       ...Array.from({ length: 6 }, (_, i) => conta({ id: `p${i}`, nome: `Conta ${i}`, venceEm: i + 1 })),
     ];
     render(<ContasDoMes contas={contas} onPaguei={async () => true} {...acoes} />);
-    expect(screen.getByText("Venceu há 21 dias")).toBeTruthy();
-    expect(screen.getByText("Conta 3")).toBeTruthy();
-    expect(screen.queryByText("Conta 4")).toBeNull();
+    expect(screen.getByText("1 vencida no card acima")).toBeTruthy();
+    expect(screen.queryByText("Nubank Crédito")).toBeNull();
+    expect(screen.getByText("Conta 2")).toBeTruthy();
+    expect(screen.queryByText("Conta 3")).toBeNull();
     expect(screen.getByText(/Ver todas as 7 contas/)).toBeTruthy();
   });
 
