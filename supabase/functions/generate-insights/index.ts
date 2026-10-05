@@ -157,19 +157,18 @@ function registrarCusto(model: string, u: any) {
 
 // Histórico REAL do vendedor, buscado aqui no servidor (com o token dele, RLS):
 // últimos 30 dias de venda, melhores dias da semana e horários, o que ele vende,
-// onde, produtos que mais saem e o que a memória do mentor já sabe dele.
+// onde e produtos que mais saem (sem memória de conversas antigas — Rick, 04/10).
 // É isso que tira o relatório do genérico: a IA compara hoje com o normal DELE.
 async function historicoVendedor(sb: any, userId: string): Promise<string> {
   try {
     const hojeBR = new Date(Date.now() - 3 * 3600e3).toISOString().slice(0, 10);
     const d = (n: number) => new Date(Date.parse(hojeBR + "T12:00:00Z") - n * 864e5).toISOString().slice(0, 10);
-    const [vR, hR, pR, prR, mR] = await Promise.all([
+    const [vR, hR, pR, prR] = await Promise.all([
       sb.from("daily_sales").select("date,total_profit,total_debt,cash_sales,card_sales,pix_sales")
         .eq("user_id", userId).gte("date", d(29)).order("date", { ascending: true }),
       sb.from("hourly_goal_blocks").select("hour_label,achieved_amount").eq("user_id", userId).gte("created_at", d(13) + "T00:00:00Z"),
       sb.from("profiles").select("nickname,what_i_sell,where_i_sell,city,monthly_goal,streak_days").eq("user_id", userId).maybeSingle(),
       sb.from("product_sales_log").select("product_id,quantity,total_amount").eq("user_id", userId).gte("created_at", d(29) + "T00:00:00Z"),
-      sb.from("ai_memoria").select("fato").eq("user_id", userId).eq("ativo", true).order("created_at", { ascending: false }).limit(8),
     ]);
     const L: string[] = [];
     const p = pR?.data;
@@ -209,8 +208,6 @@ async function historicoVendedor(sb: any, userId: string): Promise<string> {
       const top = Object.entries(prod).sort((a, b) => b[1].v - a[1].v).slice(0, 4);
       if (top.length) L.push(`Produtos que mais saem (30 dias): ${top.map(([n, o]) => `${n} ${o.q}un R$${o.v.toFixed(0)}`).join(", ")}.`);
     }
-    const mem = ((mR?.data ?? []) as any[]).map((x) => x.fato).filter(Boolean);
-    if (mem.length) L.push(`O QUE O MENTOR JÁ SABE DELE: ${mem.join(" | ")}.`);
     return L.length ? `\n\nHISTÓRICO REAL DELE (compare e personalize — cite pelo menos um destes números):\n${L.join("\n")}` : "";
   } catch (e) {
     console.error("historicoVendedor falhou:", String(e).slice(0, 160));
