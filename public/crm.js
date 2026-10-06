@@ -41,7 +41,7 @@ let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
 let QTD={}, F=[], FICHAS=[], PARCEIROS=[], HOT=[], CONV={}, REL=[], AFIL=[], VENDAS=null;
 const mesAtual=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
-let MES_AFIL=mesAtual(), AFIL_CFG={pct_primeira:15,pct_recorrente:10};
+let MES_AFIL=mesAtual(), AFIL_CFG={pct_primeira:15,pct_recorrente:10}, PKIT=[];
 let PAPEL="comercial";   // "admin" = dono; "comercial" = opera o CRM
 const ehDono=()=>PAPEL==="admin";
 /* FUNIL HISTORICO — medido no banco em 22/09/2026 (contas, aberturas, vendas registradas).
@@ -174,7 +174,7 @@ async function carregarTudo(){
   PROBLEMAS.length=0;
   /* Tudo de uma vez: antes eram 12 chamadas em fila (uma esperava a outra). */
   const dono=ehDono();
-  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc] = await Promise.all([
+  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit] = await Promise.all([
     dono ? chamar("crm_faturamento") : Promise.resolve(null),
     chamar("crm_numeros"),
     chamar("crm_relatorio_mensal"),
@@ -188,6 +188,7 @@ async function carregarTudo(){
     chamar("crm_funil",{p_pipeline:"relacionamento"}),
     chamar("crm_funil",{p_pipeline:"inadimplente"}),
     chamar("crm_funil",{p_pipeline:"parceiro"}),
+    chamar("crm_parceiros_kit"),
   ]);
   const g = g0 || {};
   GRANA={total:+g.total||0,pagamentos:+g.pagamentos||0,ticket:+g.ticket||0,desde:g.desde||"—",
@@ -206,6 +207,7 @@ async function carregarTudo(){
     (CONV[m.cartao]=CONV[m.cartao]||[]).push({de:m.de,t:m.texto,q:quando(m.criado_em),ts:m.criado_em,origem:m.origem});
   }
   AFIL = afil || [];
+  PKIT = pkit || [];
   if(cfg) AFIL_CFG=Object.assign(AFIL_CFG,cfg);
   VENDAS = vendas || null;
   HOJE=hojeZero();
@@ -1188,18 +1190,6 @@ function afiliadosHTML(){
    </div>
   </div>`;};
  return `
- <h2 class="sec">Novo afiliado</h2>
- <div class="box pad">
-  <div style="display:grid;gap:8px;grid-template-columns:1fr 1fr 1fr">
-   <input id="pCode" class="txtarea" style="min-height:0" placeholder="CÓDIGO (ex: JOAO5)" maxlength="20">
-   <input id="pNome" class="txtarea" style="min-height:0" placeholder="Nome do afiliado">
-   <input id="pPix" class="txtarea" style="min-height:0" placeholder="Chave Pix (opcional)">
-  </div>
-  <button class="btn go block" id="pSalvar" style="margin-top:10px">Criar afiliado e gerar links</button>
-  <div id="pResult" class="janela free" hidden style="margin-top:10px"></div>
-  <p class="nota">Modelo Vant Parceiros: <b>${AFIL_CFG.pct_primeira}% na 1ª cobrança</b> e <b>${AFIL_CFG.pct_recorrente}% recorrente</b>, sobre o líquido que a Hotmart repassa.
-  O link de indicação leva pro app com o cupom; o link do painel é privado — mande só pro afiliado. Pro desconto aparecer no checkout, o cupom com o mesmo código precisa existir na Hotmart.</p>
- </div>
  <h2 class="sec">Afiliados · o que aconteceu em ${mes}</h2>
  <div class="box pad">
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -1237,35 +1227,167 @@ function ligarAfiliados(el){
   toast(para==="bloqueado"?"Afiliado bloqueado":"Afiliado liberado"); await recarregarAfiliados();
  });
 }
+/* ===== KIT DO PARCEIRO (06/10/2026) — o Yan gera os links em 1 minuto =====
+   1) cria o cupom na Hotmart; 2) digita o MESMO nome aqui + nome/@/WhatsApp →
+   saem os 3 links de divulgação (app, página, checkout) + o painel privado, e a
+   mensagem pronta pro WhatsApp do parceiro. Regra padrão: 50% na 1ª e 7% recorrente. */
+const semAcento=t=>String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"");
+const sugerirCodigo=nome=>{const w=semAcento(nome).toUpperCase().replace(/[^A-Z0-9 ]/g,"").trim().split(/\s+/)[0]||"";return w?(w.slice(0,12)+"5"):"";};
+const zapFmt=z=>{const d=String(z||"").replace(/\D/g,"").replace(/^55/,"");return d.length>=10?`(${d.slice(0,2)}) ${d.slice(2,-4)}-${d.slice(-4)}`:d;};
+const linksDe=p=>[
+ {k:"app", t:"Link do app", d:"teste grátis direto no app", u:p.link_app||p.link},
+ {k:"lp", t:"Link da página", d:"landing page com o cadastro", u:p.link_lp},
+ {k:"ck", t:"Link de assinatura", d:"checkout Hotmart com o cupom", u:p.link_checkout},
+ {k:"painel", t:"Painel do parceiro", d:"privado — só pra ele", u:p.painel, priv:true}].filter(l=>l.u);
+function kitMsg(p){
+ const nome=(p.nome||"").trim().split(/\s+/)[0]||"";
+ const L=Object.fromEntries(linksDe(p).map(l=>[l.k,l.u]));
+ return `Fala ${nome}! Bem-vindo(a) ao Vant Parceiros 🚀
+
+Seus links (quem entrar e assinar por qualquer um deles vira comissão pra você):
+
+📲 App — teste grátis:
+${L.app||""}
+${L.lp?`
+🌐 Página da Vant:
+${L.lp}
+`:""}${L.ck?`
+💳 Assinar direto (já com seu cupom):
+${L.ck}
+`:""}
+Cupom: ${p.code}
+
+📊 Seu painel (é só seu, não compartilha): quem entrou pelo seu link, quem está em teste, quanto vai receber e quando o Pix cai.
+${L.painel||""}
+
+Como funciona: ${p.pct_primeira}% na primeira mensalidade e ${p.pct_recorrente}% em todas as renovações enquanto o cliente continuar. O Pix cai todo dia ${p.dia_pagamento}.
+
+Qualquer dúvida, me chama aqui.`;}
+const zapLink=p=>"https://wa.me/"+(p.whatsapp||"")+"?text="+encodeURIComponent(kitMsg(p));
+let KIT_NOVO=null, KIT_BUSCA="", KIT_ABERTO="";
+function linksHTML(p){
+ return `<div class="kit-links">${linksDe(p).map(l=>`<div class="kit-link${l.priv?" priv":""}">
+   <div class="kl-t"><b>${esc(l.t)}</b><span>${esc(l.d)}</span><code>${esc(l.u)}</code></div>
+   <button class="btn ghost" data-copiar-link="${esc(l.u)}">Copiar</button></div>`).join("")}</div>`;
+}
+function kitCardHTML(p, destaque){
+ const aberto=destaque||KIT_ABERTO===p.code;
+ return `<div class="kit${destaque?" novo":""}" data-kit="${esc(p.code)}">
+  <div class="kit-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>${p.status==="bloqueado"?'<span class="pill bad">bloqueado</span>':""}
+   <span class="pill">${esc(p.pct_primeira)}% + ${esc(p.pct_recorrente)}%</span>
+   <span class="kit-c">${p.instagram?"@"+esc(p.instagram):""}${p.instagram&&p.whatsapp?" · ":""}${p.whatsapp?esc(zapFmt(p.whatsapp)):""}${!p.instagram&&!p.whatsapp?"sem contato":""}</span></div>
+  ${aberto?linksHTML(p):""}
+  <div class="kit-b">
+   ${p.whatsapp?`<a class="btn go" href="${esc(zapLink(p))}" target="_blank" rel="noopener" style="text-decoration:none">Mandar kit no WhatsApp</a>`:`<button class="btn ghost" data-kit-zap="${esc(p.code)}">Pôr WhatsApp</button>`}
+   <button class="btn ghost" data-kit-msg="${esc(p.code)}">Copiar mensagem</button>
+   ${destaque?"":`<button class="btn ghost" data-kit-abrir="${esc(p.code)}">${aberto?"Esconder links":"Ver os links"}</button>`}
+   <label class="kit-ok" title="O cupom com esse código já existe na Hotmart?"><input type="checkbox" data-cupom="${esc(p.code)}" ${p.cupom_hotmart_ok?"checked":""}> cupom na Hotmart</label>
+  </div>
+ </div>`;
+}
+function kitHTML(){
+ const lista=PKIT.filter(p=>!KIT_BUSCA||semAcento((p.nome+" "+p.code+" "+(p.instagram||""))).toLowerCase().includes(semAcento(KIT_BUSCA).toLowerCase()));
+ const semCupom=PKIT.filter(p=>!p.cupom_hotmart_ok&&p.status!=="bloqueado").length;
+ return `
+ <h2 class="sec">Gerar links de um parceiro</h2>
+ <div class="box pad">
+  <ol class="kit-passos" style="margin:0 0 12px">
+   <li><b>Na Hotmart:</b> crie o cupom de desconto do parceiro (ex.: <code>ANA5</code>).</li>
+   <li><b>Aqui:</b> digite o <b>mesmo nome do cupom</b> e os dados dele. Os links saem na hora.</li>
+  </ol>
+  <div class="kit-form">
+   <div class="kit-cod"><input id="kCod" class="txtarea" placeholder="CUPOM (igual Hotmart)" maxlength="20" autocomplete="off"><span id="kCodSt"></span></div>
+   <input id="kNome" class="txtarea" placeholder="Nome do parceiro" maxlength="60" autocomplete="off">
+   <input id="kIg" class="txtarea" placeholder="@ do Instagram" maxlength="40" autocomplete="off">
+   <input id="kZap" class="txtarea" placeholder="WhatsApp com DDD" inputmode="tel" maxlength="20" autocomplete="off">
+  </div>
+  <div class="kit-regra">
+   <label>Tipo<select id="kTipo" class="txtarea"><option value="influenciador">Influenciador</option><option value="afiliado">Afiliado</option></select></label>
+   <label>1ª mensalidade<span class="kit-pct"><input id="kPri" class="txtarea" type="number" min="0" max="100" step="0.5" value="50">%</span></label>
+   <label>Renovações<span class="kit-pct"><input id="kRec" class="txtarea" type="number" min="0" max="100" step="0.5" value="7">%</span></label>
+  </div>
+  <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px;color:var(--dim)">Chave Pix (opcional — dá pra pôr depois)</summary>
+   <input id="kPix" class="txtarea" style="margin-top:8px" placeholder="Chave Pix do parceiro" maxlength="80"></details>
+  <label class="kit-ok" style="margin-top:10px;display:flex"><input type="checkbox" id="kCupomOk"> Já criei esse cupom na Hotmart</label>
+  <button class="btn go block" id="kCriar" style="margin-top:10px">Gerar os links</button>
+  <p class="nota">Regra padrão de todo parceiro novo: 50% na 1ª mensalidade e 7% nas renovações. Dá pra ajustar aqui antes de gerar; depois, só o Rick muda. Quem entra pelo link fica com o parceiro na conta, mesmo se assinar em outro celular ou no computador.</p>
+ </div>
+ ${KIT_NOVO?`<h2 class="sec">Links prontos · ${esc(KIT_NOVO.nome)}</h2>${kitCardHTML(KIT_NOVO,true)}`:""}
+ <h2 class="sec">Parceiros (${PKIT.length})${semCupom?` <span class="pill warn" style="margin-left:6px">${semCupom} sem cupom na Hotmart</span>`:""}</h2>
+ <div class="box pad">
+  <input id="kBusca" class="txtarea" placeholder="Buscar por nome, código ou @" value="${esc(KIT_BUSCA)}">
+  <div id="kLista">${lista.length?lista.map(p=>kitCardHTML(p,false)).join(""):'<div class="vazio">Nenhum parceiro'+(KIT_BUSCA?" com essa busca":" ainda")+'.</div>'}</div>
+ </div>`;
+}
+let kitTimer=null;
+function ligarKit(el){
+ const nome=el.querySelector("#kNome"), cod=el.querySelector("#kCod"), st=el.querySelector("#kCodSt");
+ let codTocado=false;
+ const checar=()=>{clearTimeout(kitTimer); const c=cod.value.toUpperCase().replace(/[^A-Z0-9]/g,""); cod.value=c;
+  if(c.length<3){st.textContent="";st.className="";return;}
+  st.textContent="checando…"; st.className="";
+  kitTimer=setTimeout(async()=>{const {data,error}=await sb.rpc("crm_parceiro_codigo_livre",{p_code:c});
+   if(cod.value!==c) return;
+   if(error){st.textContent="";return;}
+   st.textContent=data?"livre ✓":"já existe"; st.className=data?"ok":"bad";},350);};
+ if(nome) nome.oninput=()=>{ if(!codTocado){ cod.value=sugerirCodigo(nome.value); checar(); } };
+ if(cod) cod.oninput=()=>{codTocado=true; checar();};
+ const bt=el.querySelector("#kCriar");
+ if(bt) bt.onclick=async()=>{
+  const n=nome.value.trim(), c=cod.value.trim();
+  if(c.length<3){ toast("Digite o nome do cupom (3 letras ou mais)"); cod.focus(); return; }
+  if(!n){ toast("Põe o nome do parceiro"); nome.focus(); return; }
+  const pri=Number(el.querySelector("#kPri").value), rec=Number(el.querySelector("#kRec").value);
+  if(!(pri>=0&&pri<=100&&rec>=0&&rec<=100)){ toast("Percentual entre 0 e 100"); return; }
+  if(pri<rec){ toast("A 1ª mensalidade não pode pagar menos que a renovação"); return; }
+  const cupomOk=el.querySelector("#kCupomOk").checked;
+  if(!cupomOk && !confirm("O cupom "+c+" ainda não foi criado na Hotmart? Os links funcionam e a comissão conta, mas o desconto só aparece no checkout depois que o cupom existir. Gerar mesmo assim?")) return;
+  bt.disabled=true; bt.textContent="Gerando…";
+  const {data,error}=await sb.rpc("crm_parceiro_criar",{p_nome:n,p_code:c,p_whatsapp:el.querySelector("#kZap").value||null,p_instagram:el.querySelector("#kIg").value||null,p_pix:(el.querySelector("#kPix")||{}).value||null,p_tipo:el.querySelector("#kTipo").value,p_pct_primeira:pri,p_pct_recorrente:rec});
+  bt.disabled=false; bt.textContent="Gerar os links";
+  if(error){ toast(error.message); return; }
+  if(cupomOk){ const r2=await sb.rpc("crm_parceiro_cupom_ok",{p_code:data.code,p_ok:true}); if(!r2.error) data.cupom_hotmart_ok=true; }
+  KIT_NOVO=data; PKIT=[data].concat(PKIT.filter(p=>p.code!==data.code));
+  toast("Links gerados"); renderParceiros();
+  if(ehDono()) recarregarAfiliados();
+  const nv=document.querySelector(".kit.novo"); if(nv) nv.scrollIntoView({behavior:"smooth",block:"center"});
+ };
+ el.querySelectorAll("[data-kit-abrir]").forEach(b=>b.onclick=()=>{KIT_ABERTO=KIT_ABERTO===b.dataset.kitAbrir?"":b.dataset.kitAbrir; renderParceiros();});
+ const busca=el.querySelector("#kBusca");
+ if(busca) busca.oninput=()=>{KIT_BUSCA=busca.value; const pos=busca.selectionStart; renderParceiros(); const b2=document.getElementById("kBusca"); if(b2){b2.focus(); b2.setSelectionRange(pos,pos);}};
+ const achar=c=>PKIT.find(p=>p.code===c)||(KIT_NOVO&&KIT_NOVO.code===c?KIT_NOVO:null);
+ el.querySelectorAll("[data-kit-msg]").forEach(b=>b.onclick=async()=>{const p=achar(b.dataset.kitMsg); if(!p)return;
+  try{await navigator.clipboard.writeText(kitMsg(p)); toast("Mensagem copiada");}catch(e){toast("Não deu pra copiar");}});
+ el.querySelectorAll("[data-cupom]").forEach(cb=>cb.onchange=async()=>{
+  const {error}=await sb.rpc("crm_parceiro_cupom_ok",{p_code:cb.dataset.cupom,p_ok:cb.checked});
+  if(error){ toast(error.message); cb.checked=!cb.checked; return; }
+  PKIT.forEach(p=>{if(p.code===cb.dataset.cupom)p.cupom_hotmart_ok=cb.checked;}); if(KIT_NOVO&&KIT_NOVO.code===cb.dataset.cupom) KIT_NOVO.cupom_hotmart_ok=cb.checked;
+  toast(cb.checked?"Cupom marcado como criado":"Cupom desmarcado"); renderParceiros();
+ });
+ el.querySelectorAll("[data-kit-zap]").forEach(b=>b.onclick=async()=>{
+  const z=prompt("WhatsApp do parceiro (com DDD):"); if(!z) return;
+  const {error}=await sb.rpc("crm_parceiro_contato",{p_code:b.dataset.kitZap,p_whatsapp:z,p_instagram:null});
+  if(error){ toast(error.message); return; }
+  PKIT=(await chamar("crm_parceiros_kit"))||PKIT; toast("WhatsApp salvo"); renderParceiros();
+ });
+}
 function renderParceiros(){
  const el=document.getElementById("p-parceiros"); if(!el)return;
- el.innerHTML=afiliadosHTML();
- ligarAfiliados(el);
+ el.innerHTML=kitHTML()+(ehDono()?afiliadosHTML():"");
+ ligarKit(el);
+ if(ehDono()) ligarAfiliados(el);
  el.querySelectorAll("[data-copiar-link]").forEach(b=>b.onclick=async()=>{
-   try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Link copiado");}catch(e){toast("Copie da tela");}});
- const sv=document.getElementById("pSalvar");
- if(sv) sv.onclick=async()=>{
-   const code=document.getElementById("pCode").value, nome=document.getElementById("pNome").value, pix=document.getElementById("pPix").value;
-   if(!code||!nome){ toast("Código e nome são obrigatórios"); return; }
-   sv.disabled=true;
-   const {data,error}=await sb.rpc("crm_afiliado_salvar",{p_code:code,p_nome:nome,p_pix:pix||null});
-   sv.disabled=false;
-   if(error){ toast(error.message); return; }
-   const r=document.getElementById("pResult");
-   r.hidden=false; r.innerHTML=`✓ <b>${esc(data.nome)}</b> criado.<br>Link de indicação: <b>${esc(data.link)}</b><br>Link do painel (privado): <b>${esc(data.painel)}</b>`;
-   toast("Afiliado criado"); await recarregarAfiliados();
-   const r2=document.getElementById("pResult"); if(r2){ r2.hidden=false; r2.innerHTML=r.innerHTML; }
- };
+   try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Copiado");}catch(e){toast("Copie da tela");}});
 }
+
 
 /* ===== abas ===== */
 function aplicarPapel(){
- document.querySelectorAll('[data-tab="parceiros"]').forEach(b=>b.hidden=!ehDono());
+ document.querySelectorAll('[data-tab="parceiros"]').forEach(b=>b.hidden=false);
  const av=document.getElementById("quemSou");
- if(av) av.title = ehDono()? "Dono — vê tudo" : "Comercial — sem faturamento e sem links";
+ if(av) av.title = ehDono()? "Dono — vê tudo" : "Comercial — sem faturamento; gera os links e manda o kit dos parceiros";
 }
 function aba(t){
- if(t==="parceiros"&&!ehDono()) t="hoje";
  document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
  ["hoje","alertas","esteiras","metricas","parceiros"].forEach(k=>document.getElementById("p-"+k).hidden=k!==t);
 }
@@ -1287,7 +1409,7 @@ async function depoisDoLogin(){
   document.getElementById("carregando").hidden=false;
   try{ await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
-  try{ aplicarPapel(); render(); if(ehDono()) renderParceiros(); }
+  try{ aplicarPapel(); render(); renderParceiros(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
   document.getElementById("carregando").hidden=true;
 }
@@ -1332,7 +1454,7 @@ async function atualizar(silencioso){
     await carregarTudo();
     // mantém a pessoa que estava na tela, mesmo que a ordem tenha mudado
     if(cartaoAtual){ const i=fila().findIndex(x=>x.cartaoId===cartaoAtual); if(i>=0){S.pos=i;salvar();} }
-    render(); if(ehDono()) renderParceiros();
+    render(); renderParceiros();
     if(cartaoAberto){ const f=FICHAS.find(x=>x.cartaoId===cartaoAberto); if(f) abrir(f.id); }
     ULTIMA_CARGA=Date.now(); if(!silencioso) toast("Atualizado");
   }catch(e){ PROBLEMAS.push("atualizar: "+(e.message||e)); mostrarProblemas(); }

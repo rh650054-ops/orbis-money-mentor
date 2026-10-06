@@ -2,6 +2,11 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 06/10/2026 — Links do parceiro no CRM (3 links + painel) e origem gravada na conta
+- **CRM › Parceiros (Yan e Rick):** fluxo novo "Gerar links de um parceiro": cria o cupom na Hotmart → digita o mesmo nome no CRM + nome/@/WhatsApp → saem o link do app (teste grátis), o link da página (landing), o link de assinatura (checkout Hotmart com sck + cupom) e o painel privado, cada um com botão Copiar, mais a mensagem pronta pro WhatsApp. Lista de parceiros com "Ver os links" e todos os tipos (influenciador e afiliado).
+- **Regra padrão:** 50% na 1ª mensalidade e 7% nas renovações (config `pct_recorrente_padrao`=7, `pct_bonus_primeira`=43). Vem preenchida e pode ser ajustada na criação; parceiros antigos mantêm a regra deles. Endereços da landing e do checkout ficam em `parc_config` (`lp_url`, `checkout_url`).
+- **Origem na conta:** logo depois do login o app chama `parc_fixar_minha_origem` — grava o parceiro na conta (só se estiver vazia, parceiro ativo, conta com até 7 dias) e devolve o dono da conta pro checkout. Quem clicou no Instagram e assina pelo PC continua levando o sck do influenciador. A trava `protect_profile_billing_columns` só abre para essa função.
+
 ## 04/10/2026 — estudio-arte: repo alinhado com o que estava no ar + caixinha na arte
 
 - O `estudio-arte` publicado (v23: ordem dos provedores pelo banco, limites em `ai_limites`) era bem mais novo que o arquivo do repositório (v9). O repo agora tem a versão do ar, e por cima dela os campos `frase`, `contato` e `valores_caixinha` (selos "CAIXINHA" ao lado do Pix).

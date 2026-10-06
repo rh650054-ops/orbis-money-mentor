@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
+import { syncReferralWithAccount } from "@/shared/lib/checkout";
 
 // ESTADO DE AUTH COMPARTILHADO (singleton de módulo).
 // Antes, cada chamada de useAuth() criava seu PRÓPRIO useState + getSession() +
@@ -16,8 +17,16 @@ type AuthState = { user: User | null; session: Session | null; loading: boolean 
 let state: AuthState = { user: null, session: null, loading: true };
 const listeners = new Set<() => void>();
 
+// origem do parceiro: sincroniza 1x por usuário logado nesta aba (ver checkout.ts)
+let origemSincronizada: string | null = null;
+
 function setState(next: AuthState) {
   state = next;
+  const uid = next.user?.id ?? null;
+  if (uid && origemSincronizada !== uid) {
+    origemSincronizada = uid;
+    void syncReferralWithAccount();
+  }
   listeners.forEach((l) => l());
 }
 

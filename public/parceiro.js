@@ -1,15 +1,31 @@
-/* VANT PARCEIROS — painel do afiliado.
+/* VANT PARCEIROS v3 (06/10/2026) — painel do influenciador.
    Lê tudo de UMA RPC (parc_painel) usando só o token do link. O banco decide o que
-   devolver; a página não conhece id de afiliado nenhum. Sem login, sem dados sensíveis. */
+   devolver; a página não conhece id de afiliado nenhum. Sem login, sem dados sensíveis.
+   v3: comprovante do próximo Pix no topo, botão de mandar no WhatsApp, mensagens
+   prontas, gráfico de ganhos por mês, carteira por status, lista de clientes com
+   filtro e "ver mais", comissões agrupadas por mês. */
 (function () {
   var SB = "https://qbcsjsdwjjpybvzbxszi.supabase.co";
   var KEY = "sb_publishable_QHFeQuWwHWFOl_0dIbiB4A_6QQCmPyy";
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
   var brl = function (n) { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(n) || 0); };
-  var pct = function (a, b) { return b > 0 ? Math.round(a / b * 100) + "%" : "—"; };
+  var num = function (n) { return new Intl.NumberFormat("pt-BR").format(Number(n) || 0); };
   var toast = function (t) { var e = $("toast"); e.textContent = t; e.dataset.on = "1"; clearTimeout(e._t); e._t = setTimeout(function () { e.dataset.on = "0"; }, 2000); };
-  var D = null, FILTRO = "todas";
+  // "dd/mm/aaaa" → Date ao meio-dia (sem pulo de fuso)
+  var dt = function (s) { var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(s || "")); return m ? new Date(+m[3], +m[2] - 1, +m[1], 12) : null; };
+  var mesNome = function (d, longo) { return d.toLocaleDateString("pt-BR", { month: longo ? "long" : "short" }).replace(".", ""); };
+  var D = null, FILTRO = "ativo", LIMITE = 20;
+
+  var STATUS = {
+    ativo: { nome: "Ativo", cor: "var(--ok)" },
+    teste: { nome: "Em teste", cor: "var(--teste)" },
+    inadimplente: { nome: "Atrasado", cor: "var(--warn)" },
+    cancelado: { nome: "Cancelou", cor: "var(--bad)" },
+    expirado: { nome: "Expirou", cor: "var(--bad)" },
+    conta: { nome: "Criou conta", cor: "var(--ink4)" },
+    lead: { nome: "Só cadastro", cor: "var(--ink4)" }
+  };
 
   var token = new URLSearchParams(location.search).get("t") || "";
   if (!token || token.length < 20) { erro("Este link não é válido."); return; }
@@ -23,150 +39,206 @@
     if (!j || j.code || j.message) { erro("Não consegui abrir o painel agora. Tente de novo em instantes."); return; }
     if (j.bloqueado) { erro("Este painel está bloqueado. Fale com o time da Vant."); return; }
     D = j; render();
-  }).catch(function () { erro("Sem conexão. Verifique a internet e tente de novo."); });
+  }).catch(function () { erro("Sem conexão. Confira a internet e tente de novo."); });
+
+  /* ================= dados derivados ================= */
+  function hoje() { var g = new Date(D.gerado_em || Date.now()); return new Date(g.getFullYear(), g.getMonth(), g.getDate(), 12); }
+  function cobrancasValidas() { return (D.cobrancas || []).filter(function (c) { return c.status !== "cancelada"; }); }
+  function doMes(ano, mes) { return cobrancasValidas().filter(function (c) { var d = dt(c.data); return d && d.getFullYear() === ano && d.getMonth() === mes; }); }
+  function soma(l) { return l.reduce(function (s, c) { return s + (Number(c.comissao) || 0); }, 0); }
 
   /* ================= render ================= */
   function render() {
-    var a = D.afiliado, f = D.financeiro, c = D.carteira, n = D.nivel;
+    var a = D.afiliado;
     $("carregando").hidden = true; $("app").hidden = false;
     $("nome").textContent = a.nome;
     $("av").innerHTML = a.avatar ? '<img src="' + esc(a.avatar) + '" alt="">' : esc((a.nome || "V").trim().split(/\s+/).map(function (w) { return w[0]; }).slice(0, 2).join("").toUpperCase());
-    $("nivelPill").textContent = "Vant " + a.nivel_nome;
-    $("codigo").textContent = "código " + a.code;
-    $("desde").textContent = a.entrou_em ? "· no programa desde " + a.entrou_em : "";
+    $("nivelTxt").textContent = "Vant " + a.nivel_nome;
+    $("desde").textContent = a.entrou_em ? "desde " + a.entrou_em : "";
     $("link").textContent = a.link.replace(/^https?:\/\//, "");
     $("quando").textContent = new Date(D.gerado_em).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-    $("btCopiar").onclick = function () { copiar(a.link); };
-    $("btCompartilhar").onclick = function () {
-      var txt = "Tô usando a Vant pra organizar o meu corre. Testa 3 dias grátis pelo meu link: " + a.link;
-      if (navigator.share) { navigator.share({ title: "Vant", text: txt, url: a.link }).catch(function () {}); }
-      else { copiar(txt); }
+    renderRecibo(); renderLink(); renderInicio(); renderClientes(); renderGanhos(); renderRegras();
+  }
+
+  function renderRecibo() {
+    var p = D.pagamentos, f = D.financeiro, h = hoje();
+    var dPix = dt(p.proxima_data), dias = dPix ? Math.round((dPix - h) / 864e5) : null;
+    $("quandoPix").textContent = dPix ? (dias <= 0 ? "cai hoje" : dias === 1 ? "cai amanhã" : "cai dia " + p.proxima_data.slice(0, 5) + " (em " + dias + " dias)") : "—";
+    var v = Number(p.valor_previsto) || 0, partes = brl(v).replace(/^R\$\s?/, "");
+    $("valorPix").innerHTML = '<small>R$</small>' + esc(partes);
+    $("subPix").textContent = p.abaixo_do_minimo && v > 0
+      ? "Abaixo de " + brl(p.saldo_minimo) + " o valor junta com o próximo mês."
+      : v > 0 ? "Comissão confirmada das assinaturas que vieram pelo seu link." : "Quando alguém assinar pelo seu link, a comissão aparece aqui.";
+    var m = doMes(h.getFullYear(), h.getMonth());
+    var novas = m.filter(function (c) { return c.tipo === "nova"; }).length, renov = m.filter(function (c) { return c.tipo === "renovacao"; }).length;
+    $("mes").innerHTML =
+      '<div><b>' + brl(soma(m)) + '</b><span>em ' + esc(mesNome(h, true)) + '</span></div>' +
+      '<div><b>' + novas + '</b><span>' + (novas === 1 ? "assinatura nova" : "assinaturas novas") + '</span></div>' +
+      '<div><b>' + renov + '</b><span>' + (renov === 1 ? "renovação" : "renovações") + '</span></div>';
+  }
+
+  function textos() {
+    var l = D.afiliado.link;
+    return [
+      "Tô usando a Vant pra organizar meu corre: meta do dia, quanto vendi, quanto sobrou. Testa 3 dias grátis pelo meu link 👇\n" + l,
+      "Vendedor de rua: a Vant mostra quanto você lucra de verdade e te ajuda a bater meta todo dia. Usa meu link e testa grátis:\n" + l,
+      "Parei de anotar venda em caderno. Agora é tudo na Vant e eu sei quanto sobra no fim do mês. Link pra testar: " + l
+    ];
+  }
+  function renderLink() {
+    var l = D.afiliado.link, t = textos();
+    $("btCopiar").onclick = function () { copiar(l, "Link copiado"); };
+    $("btZap").onclick = function () { window.open("https://wa.me/?text=" + encodeURIComponent(t[0]), "_blank", "noopener"); };
+    $("btMais").onclick = function () {
+      if (navigator.share) navigator.share({ title: "Vant", text: t[0], url: l }).catch(function () {});
+      else copiar(t[0], "Mensagem copiada");
     };
-    renderGeral(); renderCarteira(); renderComissoes(); renderConquistas();
+    $("prontas").innerHTML = t.map(function (x, i) { return '<div class="msg">' + esc(x) + '<button type="button" data-msg="' + i + '">Copiar essa mensagem</button></div>'; }).join("");
+    $("prontas").querySelectorAll("[data-msg]").forEach(function (b) { b.onclick = function () { copiar(t[+b.dataset.msg], "Mensagem copiada"); }; });
   }
-  function copiar(t) { try { navigator.clipboard.writeText(t).then(function () { toast("Link copiado"); }, function () { toast("Copie da tela"); }); } catch (e) { toast("Copie da tela"); } }
+  function copiar(t, ok) { try { navigator.clipboard.writeText(t).then(function () { toast(ok); }, function () { toast("Segura o texto pra copiar"); }); } catch (e) { toast("Segura o texto pra copiar"); } }
 
+  /* ---------- início ---------- */
+  function contagem() {
+    var c = { ativo: 0, teste: 0, inadimplente: 0, cancelado: 0, expirado: 0, conta: 0, lead: 0 };
+    (D.indicados || []).forEach(function (i) { if (c[i.status] != null) c[i.status]++; });
+    return c;
+  }
+  function grafico() {
+    var h = hoje(), cols = [], max = 0;
+    for (var k = 5; k >= 0; k--) {
+      var d = new Date(h.getFullYear(), h.getMonth() - k, 1, 12), v = soma(doMes(d.getFullYear(), d.getMonth()));
+      max = Math.max(max, v); cols.push({ d: d, v: v, atual: k === 0 });
+    }
+    if (max <= 0) return '<div class="vazio">Seus ganhos de cada mês aparecem aqui assim que entrar a primeira comissão.</div>';
+    // rótulo em reais inteiros (R$ 20,81 → 21): cabe em cima da barra até no celular pequeno
+    return '<div class="graf">' + cols.map(function (c) {
+      return '<div class="c' + (c.atual ? " atual" : "") + '"><em>' + (c.v > 0 ? Math.round(c.v) : "") + '</em><i style="height:' + Math.max(2, Math.round(c.v / max * 100)) + '%"></i><span>' + esc(mesNome(c.d)) + '</span></div>';
+    }).join("") + '</div>';
+  }
   function nivelHTML() {
-    var n = D.nivel, prog = n.proximo_vp ? Math.min(100, Math.round(n.vp / n.proximo_vp * 100)) : 100;
-    return '<div class="nivel">' +
-      '<div class="row"><div class="n">Vant ' + esc(n.atual_nome) + '<small>nível atual</small></div><div class="num" style="font-weight:800;color:var(--gold)">' + n.vp + ' VP</div></div>' +
-      '<div class="bar"><i style="width:' + prog + '%"></i></div>' +
-      (n.proximo ? '<div class="f num">' + n.vp + ' / ' + n.proximo_vp + ' VP · faltam <b>' + n.faltam + ' VP ativos</b> para atingir ' + esc(n.proximo_nome) + '.</div>'
-                 : '<div class="f">Você está no nível mais alto. Mantenha a carteira ativa.</div>') +
-      '<div class="niveis">' + (n.niveis || []).map(function (x) {
-        return '<span class="' + (x.slug === n.atual ? "on" : (x.vp_min <= n.vp ? "ok" : "")) + '">' + esc(x.nome) + '<br><small class="num">' + x.vp_min + ' VP</small></span>';
-      }).join("") + '</div>' +
-      '<p class="nota">1 cliente ativo no plano Mensal = 1 VP (Ponto Vant). Cliente que cancela ou deixa de pagar deixa de contar.</p></div>';
+    var n = D.nivel, nv = n.niveis || [], idx = Math.max(0, nv.findIndex(function (x) { return x.slug === n.atual; }));
+    var trilha = nv.map(function (x, i) {
+      var prox = nv[i + 1], pct = i < idx ? 100 : i > idx ? 0 : (prox ? Math.min(100, Math.round((n.vp - x.vp_min) / Math.max(1, prox.vp_min - x.vp_min) * 100)) : 100);
+      return '<div><i style="width:' + pct + '%"></i></div>';
+    }).join("");
+    return '<div class="bloco niv">' +
+      '<div class="top"><b>Vant ' + esc(n.atual_nome) + '</b><span>' + n.vp + ' ' + (n.vp === 1 ? "cliente ativo" : "clientes ativos") + '</span></div>' +
+      '<div class="trilha">' + trilha + '</div>' +
+      '<div class="trilha-nomes">' + nv.map(function (x) { return '<span class="' + (x.slug === n.atual ? "on" : "") + '">' + esc(x.nome) + '</span>'; }).join("") + '</div>' +
+      '<p>' + (n.proximo ? "Faltam <b>" + n.faltam + "</b> " + (n.faltam === 1 ? "cliente ativo" : "clientes ativos") + " pra virar " + esc(n.proximo_nome) + "." : "Você está no nível mais alto. Mantenha a carteira ativa.") + '</p></div>';
+  }
+  function renderInicio() {
+    var c = contagem(), f = D.financeiro, total = 0, segs = ["ativo", "teste", "inadimplente", "cancelado"];
+    var saiu = c.cancelado + c.expirado;
+    var partes = [["ativo", c.ativo], ["teste", c.teste], ["inadimplente", c.inadimplente], ["cancelado", saiu]];
+    partes.forEach(function (p) { total += p[1]; });
+    $("p-inicio").innerHTML =
+      '<h3>Ganhos por mês <small>em reais</small></h3><div class="bloco">' + grafico() + '</div>' +
+      '<h3>Sua carteira <small>' + num(D.carteira.indicados) + ' pessoas pelo seu link</small></h3>' +
+      '<div class="bloco">' +
+      (total ? '<div class="seg">' + partes.filter(function (p) { return p[1] > 0; }).map(function (p) { return '<i style="flex:' + p[1] + ';background:' + STATUS[p[0]].cor + '"></i>'; }).join("") + '</div>' : '') +
+      '<div class="leg">' + partes.map(function (p) { return '<div><span class="pt" style="background:' + STATUS[p[0]].cor + '"></span>' + (p[0] === "cancelado" ? "Saíram" : STATUS[p[0]].nome) + '<b>' + p[1] + '</b></div>'; }).join("") + '</div>' +
+      '<div class="renda"><b class="n">' + brl(f.renda_recorrente) + '</b><span>por mês só com quem já é cliente hoje. Cada cliente ativo a mais soma na sua renda todo mês.</span></div>' +
+      '</div>' +
+      '<h3>Seu nível</h3>' + nivelHTML() +
+      (segs && c.teste > 0 ? '<p class="nota">' + c.teste + (c.teste === 1 ? " pessoa está" : " pessoas estão") + ' testando a Vant agora. Uma mensagem sua lembrando de assinar costuma virar comissão.</p>' : '');
   }
 
-  function renderGeral() {
-    var f = D.financeiro, c = D.carteira, p = D.pagamentos;
-    $("p-geral").innerHTML =
-      '<div class="big g"><div class="k">Saldo disponível</div><div class="v num">' + brl(f.disponivel) + '</div>' +
-      '<div class="s">' + (p.abaixo_do_minimo && f.disponivel > 0 ? 'Abaixo de ' + brl(p.saldo_minimo) + ' acumula pro próximo ciclo · ' : '') + 'próximo pagamento ' + esc(p.proxima_data) + '</div></div>' +
-      '<div class="g2">' +
-      '<div class="st g"><div class="k">Renda recorrente estimada</div><div class="v num">' + brl(f.renda_recorrente) + '</div><div class="s">por ciclo, com a carteira de hoje</div></div>' +
-      '<div class="st ok"><div class="k">Clientes ativos</div><div class="v num">' + c.ativos + '</div><div class="s">' + c.assinaturas + ' assinaturas conquistadas</div></div>' +
+  /* ---------- clientes ---------- */
+  function renderClientes() {
+    var c = contagem(), fu = D.funil;
+    var filtros = [["ativo", "Ativos", c.ativo], ["teste", "Em teste", c.teste], ["inadimplente", "Atrasados", c.inadimplente], ["saiu", "Saíram", c.cancelado + c.expirado], ["cadastro", "Só cadastro", c.conta + c.lead], ["todos", "Todos", (D.indicados || []).length]];
+    var lista = (D.indicados || []).filter(function (i) {
+      return FILTRO === "todos" || i.status === FILTRO || (FILTRO === "saiu" && (i.status === "cancelado" || i.status === "expirado")) || (FILTRO === "cadastro" && (i.status === "conta" || i.status === "lead"));
+    });
+    var vis = lista.slice(0, LIMITE);
+    var maxF = Math.max(1, fu.cadastros || 0, fu.cliques || 0);
+    var linhaF = function (k, v) { return '<div class="f"><span>' + k + '</span><div><i style="width:' + Math.round((v || 0) / maxF * 100) + '%"></i></div><b>' + num(v) + '</b></div>'; };
+    $("p-clientes").innerHTML =
+      '<h3>Quem entrou pelo seu link</h3>' +
+      '<div class="filtros">' + filtros.map(function (f) { return '<button type="button" class="chip" data-f="' + f[0] + '" aria-pressed="' + (FILTRO === f[0]) + '">' + f[1] + '<b>' + f[2] + '</b></button>'; }).join("") + '</div>' +
+      '<div class="lista">' + (vis.length ? vis.map(function (i) {
+        var s = STATUS[i.status] || { nome: i.status }, ini = esc((i.nome || "?").trim().charAt(0).toUpperCase());
+        var det = [i.entrada ? "entrou " + i.entrada : "", i.plano || "", i.renovacoes ? i.renovacoes + (i.renovacoes === 1 ? " renovação" : " renovações") : ""].filter(Boolean).join(", ");
+        return '<div class="li"><span class="ini">' + ini + '</span><div class="nm"><b>' + esc(i.nome) + '</b><span>' + esc(det) + '</span></div><span class="st ' + esc(i.status) + '">' + esc(s.nome) + '</span></div>';
+      }).join("") + (lista.length > LIMITE ? '<button type="button" class="mais" id="btMaisLista">Ver mais ' + Math.min(20, lista.length - LIMITE) + ' de ' + (lista.length - LIMITE) + '</button>' : '')
+        : '<div class="vazio">' + (FILTRO === "ativo" ? "Ninguém ativo ainda. Manda seu link pra quem vende na rua!" : "Ninguém aqui.") + '</div>') + '</div>' +
+      '<h3>Do clique à assinatura</h3>' +
+      '<div class="bloco funil">' +
+      (fu.cliques ? linhaF("Clicaram no link", fu.cliques) : "") +
+      linhaF("Se cadastraram", fu.cadastros) + linhaF("Criaram conta", fu.contas) + linhaF("Testaram o app", fu.testes) +
+      linhaF("Assinaram", fu.assinaram) + linhaF("Continuam ativos", fu.ativos) +
       '</div>' +
-      nivelHTML() +
-      '<div class="g3">' +
-      '<div class="st"><div class="k">Pendente</div><div class="v num">' + brl(f.pendente) + '</div></div>' +
-      '<div class="st"><div class="k">Recebido no mês</div><div class="v num">' + brl(f.recebido_mes) + '</div></div>' +
-      '<div class="st"><div class="k">Total recebido</div><div class="v num">' + brl(f.total_recebido) + '</div></div>' +
-      '</div>' +
-      '<p class="nota">Estimativa baseada nos clientes atualmente ativos. O valor pode variar por cancelamentos, inadimplência, alteração de plano ou falha na renovação.</p>';
+      (fu.cliques ? '' : '<p class="nota">Os cliques no link começaram a ser contados há pouco. Cadastros anteriores continuam valendo.</p>');
+    $("p-clientes").querySelectorAll("[data-f]").forEach(function (b) { b.onclick = function () { FILTRO = b.dataset.f; LIMITE = 20; renderClientes(); }; });
+    var bm = $("btMaisLista"); if (bm) bm.onclick = function () { LIMITE += 20; renderClientes(); };
   }
 
-  function renderCarteira() {
-    var c = D.carteira, fu = D.funil;
-    var lin = function (k, v, cls) { return '<div class="st ' + (cls || "") + '"><div class="k">' + k + '</div><div class="v num">' + v + '</div></div>'; };
-    var fl = function (k, v, prev, rot) { return '<div class="fl"><span>' + k + '</span><b class="num">' + v + '</b><i>' + (prev == null ? "" : rot + " " + pct(v, prev)) + '</i></div>'; };
-    $("p-carteira").innerHTML =
-      '<div class="sec">Sua carteira</div>' +
-      '<div class="g2">' +
-      '<div class="st hero"><div class="k">Clientes ativos</div><div class="v num">' + c.ativos + '</div><div class="s">é isso que constrói sua renda recorrente</div></div>' +
-      lin("Pessoas indicadas", c.indicados) + lin("Criaram conta", c.contas) +
-      lin("Assinaturas conquistadas", c.assinaturas) + lin("Renovações no mês", c.renov_mes) +
-      lin("Cancelados", c.cancelados, c.cancelados ? "bad" : "") + lin("Inadimplentes", c.inadimplentes, c.inadimplentes ? "warn" : "") +
-      lin("Receita líquida gerada", brl(c.receita_total)) + lin("Receita recorrente da carteira", brl(c.receita_recorrente)) +
+  /* ---------- ganhos ---------- */
+  function renderGanhos() {
+    var p = D.pagamentos, f = D.financeiro, lista = D.cobrancas || [];
+    var tipoNome = { nova: "nova", renovacao: "renovação", upgrade: "upgrade", downgrade: "downgrade", reembolso: "reembolso", estorno: "estorno" };
+    var stNome = { pendente: "pendente", confirmada: "confirmada", paga: "paga", cancelada: "cancelada" };
+    var grupos = {}, ordem = [];
+    lista.forEach(function (c) {
+      var d = dt(c.data), k = d ? d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") : "sem";
+      if (!grupos[k]) { grupos[k] = { d: d, itens: [] }; ordem.push(k); }
+      grupos[k].itens.push(c);
+    });
+    $("p-ganhos").innerHTML =
+      '<h3>Pagamentos</h3>' +
+      '<div class="cards2">' +
+      '<div class="k2"><span>Próximo pagamento</span><b>' + esc(p.proxima_data) + '</b><em>' + brl(p.valor_previsto) + ' por ' + esc(p.forma) + '</em></div>' +
+      '<div class="k2"><span>Já recebido</span><b>' + brl(f.total_recebido) + '</b><em>' + (p.ultimo ? "último em " + esc(p.ultimo.data) : "nenhum pagamento ainda") + '</em></div>' +
       '</div>' +
-      '<div class="sec">Seu funil</div>' +
-      '<div class="funil">' +
-      fl("Cliques no link", fu.cliques) +
-      fl("Cadastros", fu.cadastros, fu.cliques, "clique→cad.") +
-      fl("Criaram conta", fu.contas, fu.cadastros, "cad.→conta") +
-      fl("Usaram o app (teste)", fu.testes, fu.contas, "conta→teste") +
-      fl("Assinaram", fu.assinaram, fu.testes, "teste→assin.") +
-      fl("Continuam ativos", fu.ativos, fu.assinaram, "assin.→ativo") +
-      '</div>' +
-      '<p class="nota">Cliques passaram a ser contados a partir de hoje, pelo link novo. Cadastros anteriores continuam valendo.</p>' +
-      '<div class="sec">Quem entrou pelo seu link</div>' +
-      '<div class="lista">' + ((D.indicados || []).length ? D.indicados.map(function (i) {
-        var st = { ativo: "Ativo", teste: "Em teste", conta: "Criou conta", lead: "Cadastro", inadimplente: "Inadimplente", cancelado: "Cancelado", expirado: "Expirado" }[i.status] || i.status;
-        return '<div class="li"><span class="dot ' + esc(i.status) + '"></span><div class="nm"><b>' + esc(i.nome) + '</b><span>' + (i.entrada ? "entrou " + esc(i.entrada) : "") + (i.plano ? " · " + esc(i.plano) : "") + '</span></div>' +
-          '<div class="r"><b style="font-size:13px">' + st + '</b><span>' + (i.gerou_comissao ? (i.renovacoes ? i.renovacoes + " renov." : "gerou comissão") : "sem comissão") + '</span></div></div>';
-      }).join("") : '<div class="vazio">Ninguém entrou pelo seu link ainda. Compartilha!</div>') + '</div>';
-  }
-
-  function renderComissoes() {
-    var p = D.pagamentos, lista = D.cobrancas || [];
-    var filtros = [["todas", "Todas"], ["nova", "Novas assinaturas"], ["renovacao", "Renovações"], ["pendente", "Pendentes"], ["confirmada", "Confirmadas"], ["paga", "Pagas"], ["cancelada", "Canceladas"]];
-    var vis = lista.filter(function (x) { return FILTRO === "todas" || x.tipo === FILTRO || x.status === FILTRO; });
-    var tipoNome = { nova: "Nova assinatura", renovacao: "Renovação", upgrade: "Upgrade", downgrade: "Downgrade", reembolso: "Reembolso", estorno: "Estorno" };
-    var stNome = { pendente: "Pendente", confirmada: "Confirmada", paga: "Paga", cancelada: "Cancelada" };
-    $("p-comissoes").innerHTML =
-      '<div class="sec">Pagamentos</div>' +
-      '<div class="g2">' +
-      '<div class="st g"><div class="k">Próximo pagamento</div><div class="v num" style="font-size:18px">' + esc(p.proxima_data) + '</div><div class="s">previsto ' + brl(p.valor_previsto) + (p.abaixo_do_minimo ? " · mínimo " + brl(p.saldo_minimo) : "") + '</div></div>' +
-      '<div class="st"><div class="k">Forma</div><div class="v" style="font-size:18px">' + esc(p.forma) + '</div><div class="s">' + (p.pix ? "chave " + esc(p.pix) : "cadastre sua chave Pix com o time da Vant") + '</div></div>' +
-      '</div>' +
-      (p.ultimo ? '<p class="nota">Último pagamento: ' + esc(p.ultimo.data) + ' · ' + brl(p.ultimo.valor) + '</p>' : '') +
-      ((p.historico || []).length ? '<div class="lista">' + p.historico.map(function (h) {
-        return '<div class="li"><div class="nm"><b>' + esc(h.data) + '</b><span>' + (h.referencia ? "ref. " + esc(h.referencia) : "") + (h.transacao ? " · " + esc(h.transacao) : "") + '</span></div><div class="r"><b class="num">' + brl(h.valor) + '</b><span>' + esc(h.status) + '</span></div></div>';
+      '<p class="nota">' + (p.pix ? "Pix cadastrado: " + esc(p.pix) + "." : "Você ainda não cadastrou sua chave Pix. Manda ela pro time da Vant pra receber no dia " + esc(D.regras.dia_pagamento) + ".") + '</p>' +
+      ((p.historico || []).length ? '<div class="lista" style="margin-top:10px">' + p.historico.map(function (h) {
+        return '<div class="li"><div class="nm"><b>' + esc(h.data) + '</b><span>' + esc([h.referencia ? "ref. " + h.referencia : "", h.transacao || ""].filter(Boolean).join(", ")) + '</span></div><div class="cv"><b>' + brl(h.valor) + '</b><span>' + esc(h.status) + '</span></div></div>';
       }).join("") + '</div>' : '') +
-      '<div class="sec">Histórico de comissões</div>' +
-      '<div class="chips">' + filtros.map(function (f) { return '<button class="chip" data-filtro="' + f[0] + '" aria-pressed="' + (FILTRO === f[0]) + '">' + f[1] + '</button>'; }).join("") + '</div>' +
-      '<div class="lista">' + (vis.length ? vis.map(function (x) {
-        return '<div class="li"><div class="nm"><b>' + esc(x.cliente) + ' <span style="font-weight:500;color:var(--ink3)">· ' + esc(tipoNome[x.tipo] || x.tipo) + '</span></b>' +
-          '<span class="num">' + esc(x.data) + ' · ' + esc(x.plano || "") + ' · líquido ' + brl(x.liquido) + ' · ' + x.pct + '%</span></div>' +
-          '<div class="r"><b class="num" style="' + (x.comissao < 0 ? "color:var(--bad)" : "") + '">' + brl(x.comissao) + '</b><span class="tag ' + esc(x.status) + '">' + (stNome[x.status] || x.status) + '</span></div></div>';
-      }).join("") : '<div class="vazio">Nenhuma comissão ' + (FILTRO === "todas" ? "ainda" : "nesse filtro") + '.</div>') + '</div>' +
-      '<p class="nota">Comissão calculada sobre o valor líquido que a Vant recebe (já sem a taxa da Hotmart). Só existe quando a cobrança é aprovada; reembolso, chargeback ou cancelamento cancelam a comissão daquela cobrança.</p>';
-    $("p-comissoes").querySelectorAll("[data-filtro]").forEach(function (b) { b.onclick = function () { FILTRO = b.dataset.filtro; renderComissoes(); }; });
+      '<h3>Comissões</h3>' +
+      (ordem.length ? ordem.map(function (k) {
+        var g = grupos[k], tot = soma(g.itens.filter(function (c) { return c.status !== "cancelada"; }));
+        return '<div class="mesg"><div class="cab"><b>' + (g.d ? esc(mesNome(g.d, true) + " " + g.d.getFullYear()) : "Sem data") + '</b><span>' + brl(tot) + '</span></div><div class="lista">' + g.itens.map(function (c) {
+          return '<div class="li"><div class="nm"><b>' + esc(c.cliente) + '<span class="tipo ' + esc(c.tipo) + '">' + esc(tipoNome[c.tipo] || c.tipo) + '</span></b><span>' + esc(c.data.slice(0, 5)) + ', ' + c.pct + '% de ' + brl(c.liquido) + '</span></div>' +
+            '<div class="cv"><b style="' + (c.comissao < 0 || c.status === "cancelada" ? "color:var(--bad)" : "") + '">' + brl(c.comissao) + '</b><span>' + esc(stNome[c.status] || c.status) + '</span></div></div>';
+        }).join("") + '</div></div>';
+      }).join("") : '<div class="bloco vazio">Nenhuma comissão ainda. Ela aparece aqui quando alguém assinar pelo seu link.</div>') +
+      '<p class="nota">A comissão é calculada sobre o valor que a Vant recebe depois da taxa da Hotmart. Reembolso, contestação ou cancelamento cancelam a comissão daquela cobrança.</p>';
   }
 
-  function renderConquistas() {
-    var r = D.regras, ic = { primeira_assinatura: "🥇", ativos_5: "🏅", ativos_10: "🏆", ativos_25: "🏆", ativos_50: "👑", ativos_100: "💎", nivel_embaixador: "⭐", nivel_pro: "🌟", nivel_elite: "✨" };
-    $("p-conquistas").innerHTML =
-      '<div class="sec">Suas conquistas</div>' +
-      '<div class="badges">' + (D.conquistas || []).map(function (c) {
-        return '<div class="bd ' + (c.ok ? "ok" : "lock") + '"><div class="ic">' + (c.ok ? (ic[c.tipo] || "🏆") : "🔒") + '</div><div class="t">' + esc(c.nome) + '</div><div class="s">' + (c.ok ? "desbloqueado" + (c.em ? " " + esc(c.em) : "") : (c.faltam != null ? "faltam " + c.faltam : "bloqueado")) + '</div></div>';
+  /* ---------- regras ---------- */
+  function renderRegras() {
+    var r = D.regras, n = D.nivel, ic = { primeira_assinatura: "🥇", ativos_5: "🏅", ativos_10: "🏆", ativos_25: "🏆", ativos_50: "👑", ativos_100: "💎", nivel_embaixador: "⭐", nivel_pro: "🌟", nivel_elite: "✨" };
+    $("p-regras").innerHTML =
+      '<h3>Conquistas</h3>' +
+      '<div class="medalhas">' + (D.conquistas || []).map(function (c) {
+        return '<div class="md ' + (c.ok ? "ok" : "lock") + '"><div class="ic">' + (c.ok ? (ic[c.tipo] || "🏆") : "🔒") + '</div><b>' + esc(c.nome) + '</b><span>' + (c.ok ? "conquistada" + (c.em ? " em " + esc(c.em.slice(0, 5)) : "") : (c.faltam ? "faltam " + c.faltam : "bloqueada")) + '</span></div>';
       }).join("") + '</div>' +
-      '<div class="sec">Campanhas Vant</div>' +
-      ((D.campanhas || []).length ? D.campanhas.map(function (c) {
-        var prog = Math.min(100, Math.round((c.progresso / c.meta) * 100));
-        return '<div class="camp"><b>' + esc(c.nome) + '</b><p>' + esc(c.descricao || "") + '</p><p>Até ' + esc(c.fim) + ' · prêmio: <b style="color:var(--gold)">' + esc(c.premio || "—") + '</b></p>' +
-          '<div class="bar"><i style="width:' + prog + '%"></i></div><p class="num">' + c.progresso + ' / ' + c.meta + (c.criterio === "vp_ativos" ? " VP" : "") + '</p></div>';
-      }).join("") : '<div class="lista"><div class="vazio">Nenhuma campanha ativa agora. Quando a Vant lançar uma, ela aparece aqui.</div></div>') +
-      '<div class="sec">Regras do programa</div><div class="termos">' +
-      det("Como a comissão é calculada", "Sempre sobre o valor líquido que a Vant recebe da Hotmart (hoje cerca de " + brl(r.liquido_ref) + " de um plano de R$ 29,90), nunca sobre o valor bruto. Primeira cobrança do cliente indicado: " + r.pct_primeira + "%. Renovações: " + r.pct_recorrente + "% recorrente.") +
-      det("Quando a comissão existe e quando é confirmada", "Ela nasce quando a Hotmart aprova a cobrança. " + (r.dias_confirmacao > 0 ? "Fica pendente por " + r.dias_confirmacao + " dias e depois é confirmada." : "É confirmada na hora.") + " Cobrança recusada, boleto não pago ou inadimplência não geram comissão.") +
-      det("Reembolso, chargeback e cancelamento", "Se a cobrança for reembolsada, contestada (chargeback) ou cancelada, a comissão daquela cobrança é cancelada. Se já tiver sido paga, o valor é descontado do próximo pagamento.") +
-      det("Pagamento", "Uma vez por mês, no dia " + r.dia_pagamento + ", por Pix, quando o saldo confirmado for de pelo menos " + brl(r.saldo_minimo) + ". Abaixo disso, acumula pro ciclo seguinte.") +
-      det("Níveis e VP (Pontos Vant)", "VP contam só assinaturas ativas: " + (r.vp_planos || []).map(function (p) { return p.nome + " (" + brl(p.preco) + ") = " + p.vp + " VP"; }).join(" · ") + ". Cliente que cancela ou deixa de pagar deixa de contar. Níveis: " + (D.nivel.niveis || []).map(function (n) { return n.nome + " a partir de " + n.vp_min + " OP"; }).join(", ") + ". " + (D.nivel.progressao_ativa ? "O nível altera o percentual recorrente." : "Por enquanto os níveis são reconhecimento e não alteram a comissão.")) +
-      det("Campanhas e premiações", "Prêmios extras são campanhas temporárias criadas pela Vant, com período, regra e meta próprios. Não fazem parte da remuneração permanente.") +
-      det("Fraude", "Auto-indicação, cadastros falsos, uso de cartões de terceiros ou qualquer manipulação cancelam as comissões envolvidas e podem bloquear o afiliado.") +
-      det("Mudanças no programa", "A Vant pode alterar percentuais, níveis e regras para novos participantes e novas campanhas. Comissões já confirmadas não mudam — cada cobrança guarda a regra que valia no dia.") +
-      '</div>';
+      ((D.campanhas || []).length ? '<h3>Campanhas</h3>' + D.campanhas.map(function (c) {
+        var prog = Math.min(100, Math.round((c.progresso / Math.max(1, c.meta)) * 100));
+        return '<div class="bloco camp" style="margin-top:8px"><b>' + esc(c.nome) + '</b><p>' + esc(c.descricao || "") + '</p><p>Até ' + esc(c.fim) + '. Prêmio: <b style="color:var(--gold)">' + esc(c.premio || "—") + '</b></p>' +
+          '<div class="trilha" style="grid-template-columns:1fr"><div><i style="width:' + prog + '%"></i></div></div><p class="n">' + c.progresso + ' de ' + c.meta + '</p></div>';
+      }).join("") : '') +
+      '<h3>Como funciona</h3>' +
+      det("Quanto eu ganho", "Na primeira mensalidade de cada cliente que vem pelo seu link você ganha " + r.pct_primeira + "%. Em todas as renovações seguintes, " + r.pct_recorrente + "% enquanto ele continuar pagando. Hoje cada mensalidade rende pra Vant cerca de " + brl(r.liquido_ref) + " depois da taxa da Hotmart, e a comissão é sobre esse valor.") +
+      det("Quando a comissão conta", "Ela nasce quando a Hotmart aprova a cobrança" + (r.dias_confirmacao > 0 ? " e é confirmada " + r.dias_confirmacao + " dias depois." : ", já confirmada.") + " Cobrança recusada ou cliente atrasado não geram comissão.") +
+      det("Quando eu recebo", "Todo dia " + r.dia_pagamento + ", por Pix, se o saldo confirmado passar de " + brl(r.saldo_minimo) + ". Abaixo disso, o valor junta com o mês seguinte.") +
+      det("Reembolso e cancelamento", "Se a cobrança for reembolsada, contestada ou cancelada, a comissão dela é cancelada. Se já tiver sido paga, o valor sai do próximo pagamento.") +
+      det("Níveis", "O nível conta só clientes ativos: " + (n.niveis || []).map(function (x) { return x.nome + " a partir de " + x.vp_min; }).join(", ") + ". Quem cancela ou atrasa deixa de contar. " + (n.progressao_ativa ? "Subir de nível aumenta seu percentual nas renovações." : "Por enquanto o nível é reconhecimento e não muda a comissão.")) +
+      det("Campanhas", "Prêmios extras são campanhas com prazo, regra e meta próprios. Não fazem parte da comissão de sempre.") +
+      det("O que cancela tudo", "Indicar a si mesmo, cadastro falso, cartão de outra pessoa ou qualquer tentativa de enganar o sistema cancela as comissões envolvidas e pode bloquear o seu painel.") +
+      det("Mudanças no programa", "A Vant pode mudar percentuais e regras para novos parceiros e novas campanhas. Comissão já confirmada não muda: cada cobrança guarda a regra do dia em que entrou.");
   }
-  function det(t, b) { return '<details><summary>' + esc(t) + '</summary><p>' + esc(b) + '</p></details>'; }
+  function det(t, b) { return '<details class="r"><summary>' + esc(t) + '</summary><p>' + esc(b) + '</p></details>'; }
 
   /* ================= abas ================= */
-  document.querySelectorAll(".tab").forEach(function (b) {
+  document.querySelectorAll(".aba").forEach(function (b) {
     b.onclick = function () {
-      document.querySelectorAll(".tab").forEach(function (x) { x.setAttribute("aria-selected", x === b); });
-      ["geral", "carteira", "comissoes", "conquistas"].forEach(function (k) { $("p-" + k).hidden = k !== b.dataset.tab; });
-      window.scrollTo({ top: 0 });
+      document.querySelectorAll(".aba").forEach(function (x) { x.setAttribute("aria-selected", x === b); });
+      ["inicio", "clientes", "ganhos", "regras"].forEach(function (k) { $("p-" + k).hidden = k !== b.dataset.tab; });
+      var top = document.querySelector(".abas").offsetTop;
+      if (window.scrollY > top) window.scrollTo({ top: top });
     };
   });
 })();
