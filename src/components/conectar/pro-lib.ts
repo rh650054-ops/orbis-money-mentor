@@ -1,8 +1,13 @@
-/* Preços e benefícios do Vant Pro — fonte única pra paywall, testes e textos. */
-export const PRECO_ANUAL = 359.9;
+/* Preços e benefícios da VANT — fonte única pra paywall, testes e textos (planos de 06/10/2026). */
+export const PRECO_ESSENCIAL = 29.9;
+export const PRECO_BANCO = 12.9;
 export const PRECO_MENSAL = 49.9;
-/** R$ 359,90 ÷ 12 = R$ 29,99/mês. 12 × 49,90 = R$ 598,80 → economiza R$ 238,90. */
-export const ECONOMIA_ANUAL = Math.floor(PRECO_MENSAL * 12 - PRECO_ANUAL);
+export const PRECO_ANUAL = 418.8;
+/** R$ 418,80 ÷ 12 = R$ 34,90/mês. 12 × 49,90 = R$ 598,80 → economiza R$ 180. */
+export const ECONOMIA_ANUAL = Math.round(PRECO_MENSAL * 12 - PRECO_ANUAL);
+/** Essencial + 1 banco = R$ 42,80 — R$ 7,10 abaixo do Pro, que já vem com o banco. */
+export const ESSENCIAL_COM_BANCO = Math.round((PRECO_ESSENCIAL + PRECO_BANCO) * 100) / 100;
+export const brl = (v: number) => "R$ " + v.toFixed(2).replace(".", ",");
 
 export const SO_PRO: { nome: string; linha: string }[] = [
   { nome: "Selo Verificado", linha: "seu número com prova do banco, no ranking, no X1 e no perfil" },

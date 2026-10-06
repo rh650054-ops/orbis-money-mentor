@@ -1,6 +1,5 @@
 import { HOTMART_CHECKOUT_URL } from "./constants";
 import { avisar } from "@/shared/lib/avisar";
-import { supabase } from "@/integrations/supabase/client";
 
 // Atribuição de influenciador por cupom, mesmo com o teste grátis no app.
 // Quando a pessoa entra pelo link do influenciador (ex: ".../?cupom=ZECK15"),
@@ -41,30 +40,19 @@ function storedCoupon(): string | null {
   return null;
 }
 
+/** Guarda o código do parceiro no aparelho (usado quando a conta devolve o dono). */
+export function setReferralCode(code: string): void {
+  try {
+    localStorage.setItem(COUPON_KEY, code);
+    localStorage.setItem(COUPON_TS_KEY, String(Date.now()));
+  } catch (e) {
+    avisar.silencioso("checkout: guardar cupom da conta", e);
+  }
+}
+
 /** Código do influenciador guardado no aparelho (ou null). Usado também no cadastro. */
 export function getReferralCode(): string | null {
   return storedCoupon();
-}
-
-type RpcOrigem = (fn: "parc_fixar_minha_origem", args: { p_code: string | null }) => Promise<{ data: unknown; error: unknown }>;
-
-/** Origem na CONTA, não só no aparelho (06/10/2026). Depois do login: manda o código
- *  guardado; o servidor grava na conta se ela ainda não tem dono (conta nova, parceiro
- *  ativo) e devolve o dono da conta. Esse código passa a ser o do checkout — então a
- *  pessoa que clicou no Instagram e assina pelo PC ainda leva o sck do influenciador. */
-export async function syncReferralWithAccount(): Promise<void> {
-  try {
-    const rpc = (supabase as unknown as { rpc: RpcOrigem }).rpc;
-    const { data, error } = await rpc.call(supabase, "parc_fixar_minha_origem", { p_code: storedCoupon() });
-    if (error) return;
-    const code = typeof data === "string" ? data.trim().toUpperCase() : "";
-    if (code) {
-      localStorage.setItem(COUPON_KEY, code);
-      localStorage.setItem(COUPON_TS_KEY, String(Date.now()));
-    }
-  } catch (e) {
-    avisar.silencioso("checkout: origem da conta", e);
-  }
 }
 
 /** Link do checkout Hotmart já com o cupom do influenciador (se houver). */
@@ -81,7 +69,7 @@ export function getCheckoutUrl(): string {
 /* VANT PRO (02/10/2026): two offers of the same Hotmart product. hotmart-webhook
    tells them apart by offer.code and turns the Pro on (monthly 30d, annual 365d). */
 export const PRO_CHECKOUT = {
-  anual: "https://pay.hotmart.com/N104683123F?off=6vkxbh8c&checkoutMode=6",
+  anual: "https://pay.hotmart.com/N104683123F?off=ew11enu0&checkoutMode=6",
   mensal: "https://pay.hotmart.com/N104683123F?off=5y86n311&checkoutMode=6",
 } as const;
 export type PlanoPro = keyof typeof PRO_CHECKOUT;
@@ -93,7 +81,8 @@ export function getProCheckoutUrl(plano: PlanoPro): string {
   return `${PRO_CHECKOUT[plano]}&sck=${encodeURIComponent(code ?? "vant_pro")}`;
 }
 
-/** Banco a mais no Open Finance: +R$ 10/mês (Rick, 03/10/2026). O Pro inclui 1 banco.
+/** Banco Open Finance: +R$ 12,90/mês cada (planos de 06/10/2026). Essencial + banco = R$ 42,80;
+ *  o Pro mensal inclui 1 banco e o Pro anual 2 — o avulso soma em cima.
  *  Oferta otgozkn9 do produto Vant: o hotmart-webhook reconhece a oferta e libera
  *  1 vaga por assinatura ativa (banco_extra_registrar → open_finance_limite). */
 export const BANCO_EXTRA_CHECKOUT: string | null = "https://pay.hotmart.com/N104683123F?off=otgozkn9&checkoutMode=6";

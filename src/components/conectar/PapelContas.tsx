@@ -8,7 +8,7 @@
    • Trava: depois da 1ª escolha, 1 troca a cada 7 dias; virar trabalho depois
      não puxa Pix antigo pro ranking. (A regra mora no banco de dados.)
    • A reserva deixou de ser uma conta: é uma caixinha (ver ReservaCaixinha).
-   • BancoExtra: o Pro inclui 1 banco; cada um a mais é +R$ 10/mês.
+   • BancoExtra: Pro mensal inclui 1 banco, Pro anual 2, Essencial 0; cada banco a mais é +R$ 12,90/mês.
    ============================================================ */
 import { useState } from "react";
 import { Briefcase, Home, Loader2, Sparkles, Lock } from "lucide-react";
@@ -135,9 +135,9 @@ export function BancoExtra({ usados, onFechar, email }: { usados: number; onFech
   return (
     <div className="rounded-[20px] p-4 text-center" style={{ background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", border: "1px solid rgba(245,184,0,.42)" }}>
       <p className="text-[10px] font-black tracking-[.16em]" style={{ color: GOLD }}>MAIS UM BANCO</p>
-      <p className="text-[19px] font-black mt-1">+R$ 10 por mês</p>
+      <p className="text-[19px] font-black mt-1">+R$ 12,90 por mês</p>
       <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "#b9b3a6" }}>
-        Seu Vant Pro inclui 1 banco e você já tem {usados} ligado{usados === 1 ? "" : "s"}. Cada banco a mais custa R$ 10 por mês, porque cada leitura do banco tem custo pra Vant.
+        Você já usou os bancos do seu plano ({usados} ligado{usados === 1 ? "" : "s"}). Cada banco a mais custa R$ 12,90 por mês, porque cada leitura do banco tem custo pra Vant. No Pro Anual já vêm 2 bancos.
       </p>
       {link ? (
         <>

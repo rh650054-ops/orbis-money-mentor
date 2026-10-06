@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // BANCO EXTRA (03/10/2026): +R$ 10/mês, oferta otgozkn9 do mesmo produto.
+    // BANCO EXTRA (03/10/2026; R$ 12,90 desde 06/10): oferta otgozkn9 do mesmo produto.
     // Trilho próprio e SAI ANTES de tudo: não pode renovar nem cancelar a
     // assinatura principal (uma compra de R$ 10 não estende o plano cheio, e
     // cancelar o banco extra não derruba o app). Cada assinatura ativa = 1 vaga.
@@ -230,7 +230,8 @@ Deno.serve(async (req) => {
     // VANT PRO (02/10/2026): the Pro plans are OFFERS of this same product, so they
     // land here, not in hotmart-pro. offer.code tells them apart. Annual pays once a
     // year: its period must be 365 days, or the buyer is locked out after a month.
-    const PRO_OFFERS: Record<string, number> = { "5y86n311": 30, "6vkxbh8c": 365 };
+    // Planos 06/10/2026: anual novo ew11enu0 (R$ 418,80, 2 bancos); o 6vkxbh8c segue valendo pra quem já assinou.
+    const PRO_OFFERS: Record<string, number> = { "5y86n311": 30, "6vkxbh8c": 365, "ew11enu0": 365 };
     const offerCode = String(compra?.offer?.code ?? "").trim();
     const proDays = PRO_OFFERS[offerCode] ?? null;
 

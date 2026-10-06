@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
-import { syncReferralWithAccount } from "@/shared/lib/checkout";
+import { syncReferralWithAccount } from "@/shared/lib/origem-conta";
 
 // ESTADO DE AUTH COMPARTILHADO (singleton de módulo).
 // Antes, cada chamada de useAuth() criava seu PRÓPRIO useState + getSession() +

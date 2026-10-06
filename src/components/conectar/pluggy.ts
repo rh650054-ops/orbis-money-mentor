@@ -139,7 +139,8 @@ export async function desligarBanco(conexaoId: string): Promise<{ ok: true; banc
   }
 }
 
-export interface StatusPro { pro: boolean; origem: string | null; ate: string | null; bancos: number; verificado: boolean }
+/** pro = Vant Pro de verdade (selo); liberado = pode usar Open Finance (Pro OU Essencial + banco avulso). */
+export interface StatusPro { pro: boolean; origem: string | null; ate: string | null; bancos: number; verificado: boolean; liberado?: boolean }
 
 export async function carregarPro(): Promise<StatusPro> {
   // nunca lança: sem resposta = "não é Pro" e a tela mostra a oferta, em vez de
@@ -151,6 +152,8 @@ export async function carregarPro(): Promise<StatusPro> {
   } catch (e) { avisar.erro("pluggy: status Pro (segue como não-Pro)", e); }
   return {
     pro: !!r?.pro,
+    // banco avulso (Essencial + banco, planos de 06/10/2026): liga o banco sem ser Pro
+    liberado: !!r?.pro || r?.origem === "banco_avulso",
     origem: (r?.origem as string) ?? null,
     ate: (r?.ate as string) ?? null,
     bancos: Number(r?.bancos) || 0,

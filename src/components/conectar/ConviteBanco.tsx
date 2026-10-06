@@ -18,7 +18,7 @@ const GANHOS: { icone: string; titulo: string; texto: string }[] = [
   { icone: "📄", titulo: "Comprovante de renda Vant", texto: "pra alugar casa e pedir crédito" },
 ];
 
-export function ConviteBanco({ onConectar, rodape = "Incluso no Vant Pro · a partir de R$ 29,99/mês" }: { onConectar: () => void; rodape?: string }) {
+export function ConviteBanco({ onConectar, rodape = "No Vant Pro a partir de R$ 34,90/mês · ou R$ 12,90 no Essencial" }: { onConectar: () => void; rodape?: string }) {
   return (
     <div className="space-y-3">
       <div className="rounded-[20px] border text-center" style={{ padding: "18px 12px", background: "linear-gradient(170deg,#1a1305,#0e0e10 70%)", borderColor: "rgba(245,184,0,.42)" }}>

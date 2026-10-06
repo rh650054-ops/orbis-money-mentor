@@ -2,6 +2,14 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 06/10/2026 — Planos novos da VANT (Essencial, banco avulso, Pro, Pro Anual)
+- **Planos:** Essencial R$ 29,90 (`8qbxvm9p`) · banco Open Finance +R$ 12,90 cada (`otgozkn9`) · Pro R$ 49,90 com 1 banco (`5y86n311`) · Pro Anual R$ 418,80 = R$ 34,90/mês com 2 bancos (`ew11enu0`; o anual antigo `6vkxbh8c` continua valendo pra quem já assinou).
+- **Paywall /pro:** anual R$ 34,90/mês com 2 bancos e economia de R$ 180, mensal com 1 banco, e o bloco "Só quer ligar o banco?" (Essencial + banco R$ 42,80 × Pro R$ 49,90).
+- **Banco avulso sem Pro:** quem assina o Essencial e compra o banco liga o banco e tem o Pix lido. Selo e ranking conferido continuam só do Pro (`vant_pro_pleno`). `orbis_pro_ativo` passa a significar "pode usar Open Finance".
+- **Bancos por plano** (`open_finance_limite`): Pro Anual 2, Pro mensal 1, Essencial 0, +1 por banco avulso; devolve `plano` e `liberado`.
+- **Textos:** R$ 29,99 corrigido pra R$ 29,90 em todas as telas; banco a mais R$ 12,90; X1 "a partir de R$ 12,90 no Essencial".
+- Interno: a sincronização da origem do parceiro saiu de `checkout.ts` pra `origem-conta.ts` (os testes que importam o checkout não puxam mais o cliente do Supabase).
+
 ## 06/10/2026 — Links do parceiro no CRM (3 links + painel) e origem gravada na conta
 - **CRM › Parceiros (Yan e Rick):** fluxo novo "Gerar links de um parceiro": cria o cupom na Hotmart → digita o mesmo nome no CRM + nome/@/WhatsApp → saem o link do app (teste grátis), o link da página (landing), o link de assinatura (checkout Hotmart com sck + cupom) e o painel privado, cada um com botão Copiar, mais a mensagem pronta pro WhatsApp. Lista de parceiros com "Ver os links" e todos os tipos (influenciador e afiliado).
 - **Regra padrão:** 50% na 1ª mensalidade e 7% nas renovações (config `pct_recorrente_padrao`=7, `pct_bonus_primeira`=43). Vem preenchida e pode ser ajustada na criação; parceiros antigos mantêm a regra deles. Endereços da landing e do checkout ficam em `parc_config` (`lp_url`, `checkout_url`).

@@ -29,9 +29,9 @@ describe("conta de trabalho × pessoal", () => {
     fireEvent.click(screen.getByText("Pessoal"));
     expect(fn).toHaveBeenCalledWith("pessoal");
   });
-  it("banco a mais custa R$ 10", () => {
+  it("banco a mais custa R$ 12,90", () => {
     render(<BancoExtra usados={1} onFechar={() => {}} />);
-    expect(screen.getByText("+R$ 10 por mês")).toBeTruthy();
+    expect(screen.getByText("+R$ 12,90 por mês")).toBeTruthy();
   });
   it("banco a mais abre o checkout com o e-mail da conta", () => {
     render(<BancoExtra usados={1} email="rick@vant.com" onFechar={() => {}} />);

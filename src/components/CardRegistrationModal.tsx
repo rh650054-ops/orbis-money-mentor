@@ -62,7 +62,7 @@ export default function CardRegistrationModal({ isOpen, onClose }: CardRegistrat
           <div className="rounded-2xl border border-border bg-muted/30 px-4 py-3 flex items-baseline justify-center gap-1.5">
             <span className="text-3xl font-black text-foreground">R$0,99</span>
             <span className="text-sm text-muted-foreground">/ dia</span>
-            <span className="text-xs text-muted-foreground ml-1">(R$29,99/mês)</span>
+            <span className="text-xs text-muted-foreground ml-1">(R$ 29,90/mês)</span>
           </div>
         </div>
 

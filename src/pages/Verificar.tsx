@@ -4,7 +4,7 @@
    A regra do selo mudou e esta tela é onde ela vive:
      • carteira (Mercado Pago / PagBank) = GRÁTIS. Serve pra conciliar e cobrar.
        NÃO dá selo.
-     • banco pelo Open Finance = dá o VERIFICADO. E exige a Vant Pro (+R$ 10).
+     • banco pelo Open Finance = dá o VERIFICADO. Vem no Vant Pro (1 banco; 2 no anual) ou como banco avulso de R$ 12,90 no Essencial.
    Ou seja: ninguém compra o selo. Compra o acesso ao Open Finance; o selo vem
    de ter uma conta bancária conferida de verdade.
 
@@ -258,8 +258,9 @@ export default function Verificar() {
     </div>
   );
 
-  /* ================= A) NÃO É PRO — o convite pra conectar (1A), depois a paywall em /pro ================= */
-  if (!pro.pro) {
+  /* ================= A) SEM OPEN FINANCE — o convite pra conectar (1A), depois a paywall em /pro =================
+     Quem tem banco avulso (Essencial + banco, 06/10/2026) passa direto: liga o banco sem ser Pro. */
+  if (!pro.pro && !pro.liberado) {
     return (
       <div className="px-4 pt-4 pb-28" style={{ background: "radial-gradient(100% 420px at 50% 0%,#1a1305,transparent 70%)" }}>
         {topo}
@@ -278,9 +279,9 @@ export default function Verificar() {
           <span className="w-16 h-16 rounded-full mx-auto flex items-center justify-center" style={{ background: "rgba(245,184,0,.1)", border: "2px dashed rgba(245,184,0,.5)" }}>
             <Landmark className="w-7 h-7" style={{ color: GOLD }} strokeWidth={2} />
           </span>
-          <p className="text-[19px] font-black mt-3 text-balance">Falta um passo pro selo</p>
+          <p className="text-[19px] font-black mt-3 text-balance">{pro.pro ? "Falta um passo pro selo" : "Agora é ligar o banco"}</p>
           <p className="text-[12px] mt-1.5 leading-relaxed" style={{ color: "#b9b3a6" }}>
-            Liga seu banco. Leva menos de 1 minuto e o selo sai na hora.
+            {pro.pro ? "Liga seu banco. Leva menos de 1 minuto e o selo sai na hora." : "Leva menos de 1 minuto. O Pix que cair no banco passa a ser contado sozinho."}
           </p>
           <div className="mt-3.5" data-tour="conectar-banco">
             <BotaoOuro onClick={abrirBanco} disabled={ligando}>
