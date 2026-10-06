@@ -56,8 +56,8 @@ function Plano({ ativo, onClick, titulo, preco, sub, risca, economia, selo }: {
         </span>
       </span>
       <span className="flex items-center justify-between gap-2 text-[10.5px] font-bold" style={{ color: MUTE }}>
-        <span>{sub}{risca && <> · <s>{risca}</s></>}</span>
-        {economia && <span className="rounded-full px-2 py-[3px] text-[10px] font-black tracking-[.06em]" style={{ background: OK, color: "#0b1d14" }}>{economia}</span>}
+        <span className="min-w-0">{sub}{risca && <> · <s className="whitespace-nowrap">{risca}</s></>}</span>
+        {economia && <span className="rounded-full px-2 py-[3px] text-[10px] font-black tracking-[.06em] whitespace-nowrap shrink-0" style={{ background: OK, color: "#0b1d14" }}>{economia}</span>}
       </span>
     </button>
   );
@@ -89,7 +89,7 @@ export function PaywallPro() {
 
         <div className="space-y-3 pt-2">
           <Plano ativo={plano === "anual"} onClick={() => setPlano("anual")} selo="MAIS ESCOLHIDO · 2 BANCOS INCLUÍDOS"
-            titulo="Anual" preco="R$ 34,90" sub="R$ 418,80 por ano · 2 bancos" risca="R$ 598,80" economia={`ECONOMIZA R$ ${ECONOMIA_ANUAL}`} />
+            titulo="Anual" preco="R$ 34,90" sub="R$ 418,80/ano · 2 bancos" risca="R$ 598,80" economia={`ECONOMIZA R$ ${ECONOMIA_ANUAL}`} />
           <Plano ativo={plano === "mensal"} onClick={() => setPlano("mensal")}
             titulo="Mensal" preco="R$ 49,90" sub="1 banco · cancela quando quiser" />
         </div>
