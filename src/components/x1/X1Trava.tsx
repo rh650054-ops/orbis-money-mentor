@@ -28,7 +28,7 @@ export function TravaX1({ className = "" }: { className?: string }) {
       <button type="button" onClick={() => navigate("/verificar")} className="x1-btn ouro mt-1" style={{ height: 50, fontSize: 13.5 }}>
         <Landmark className="w-4 h-4" strokeWidth={2.6} /> LIGAR MEU BANCO
       </button>
-      <span className="text-[10.5px] font-bold" style={{ color: "#7b766e" }}>Vant Pro · a partir de R$ 29,99/mês</span>
+      <span className="text-[10.5px] font-bold" style={{ color: "#7b766e" }}>Banco ligado · a partir de R$ 12,90/mês no Essencial</span>
     </div>
   );
 }
