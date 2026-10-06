@@ -1227,44 +1227,61 @@ function ligarAfiliados(el){
   toast(para==="bloqueado"?"Afiliado bloqueado":"Afiliado liberado"); await recarregarAfiliados();
  });
 }
-/* ===== KIT DO PARCEIRO (06/10/2026) — o Yan cria e manda tudo em 1 minuto =====
-   Nome + @ + WhatsApp → código sugerido (checado na hora) → parceiro criado →
-   passo 1: criar o cupom com o mesmo código na Hotmart; passo 2: mandar o kit
-   (mensagem pronta com link de divulgação + painel privado) no WhatsApp dele. */
+/* ===== KIT DO PARCEIRO (06/10/2026) — o Yan gera os links em 1 minuto =====
+   1) cria o cupom na Hotmart; 2) digita o MESMO nome aqui + nome/@/WhatsApp →
+   saem os 3 links de divulgação (app, página, checkout) + o painel privado, e a
+   mensagem pronta pro WhatsApp do parceiro. Regra padrão: 50% na 1ª e 7% recorrente. */
 const semAcento=t=>String(t||"").normalize("NFD").replace(/[̀-ͯ]/g,"");
 const sugerirCodigo=nome=>{const w=semAcento(nome).toUpperCase().replace(/[^A-Z0-9 ]/g,"").trim().split(/\s+/)[0]||"";return w?(w.slice(0,12)+"5"):"";};
 const zapFmt=z=>{const d=String(z||"").replace(/\D/g,"").replace(/^55/,"");return d.length>=10?`(${d.slice(0,2)}) ${d.slice(2,-4)}-${d.slice(-4)}`:d;};
+const linksDe=p=>[
+ {k:"app", t:"Link do app", d:"teste grátis direto no app", u:p.link_app||p.link},
+ {k:"lp", t:"Link da página", d:"landing page com o cadastro", u:p.link_lp},
+ {k:"ck", t:"Link de assinatura", d:"checkout Hotmart com o cupom", u:p.link_checkout},
+ {k:"painel", t:"Painel do parceiro", d:"privado — só pra ele", u:p.painel, priv:true}].filter(l=>l.u);
 function kitMsg(p){
  const nome=(p.nome||"").trim().split(/\s+/)[0]||"";
+ const L=Object.fromEntries(linksDe(p).map(l=>[l.k,l.u]));
  return `Fala ${nome}! Bem-vindo(a) ao Vant Parceiros 🚀
 
-Seu link pra divulgar (quem assinar por ele vira comissão pra você):
-${p.link}
+Seus links (quem entrar e assinar por qualquer um deles vira comissão pra você):
+
+📲 App — teste grátis:
+${L.app||""}
+${L.lp?`
+🌐 Página da Vant:
+${L.lp}
+`:""}${L.ck?`
+💳 Assinar direto (já com seu cupom):
+${L.ck}
+`:""}
 Cupom: ${p.code}
 
-Seu painel (é só seu, não compartilha): lá você vê quem entrou pelo seu link, quanto vai receber e quando o Pix cai.
-${p.painel}
+📊 Seu painel (é só seu, não compartilha): quem entrou pelo seu link, quem está em teste, quanto vai receber e quando o Pix cai.
+${L.painel||""}
 
 Como funciona: ${p.pct_primeira}% na primeira mensalidade e ${p.pct_recorrente}% em todas as renovações enquanto o cliente continuar. O Pix cai todo dia ${p.dia_pagamento}.
 
 Qualquer dúvida, me chama aqui.`;}
 const zapLink=p=>"https://wa.me/"+(p.whatsapp||"")+"?text="+encodeURIComponent(kitMsg(p));
-let KIT_NOVO=null, KIT_BUSCA="";
+let KIT_NOVO=null, KIT_BUSCA="", KIT_ABERTO="";
+function linksHTML(p){
+ return `<div class="kit-links">${linksDe(p).map(l=>`<div class="kit-link${l.priv?" priv":""}">
+   <div class="kl-t"><b>${esc(l.t)}</b><span>${esc(l.d)}</span><code>${esc(l.u)}</code></div>
+   <button class="btn ghost" data-copiar-link="${esc(l.u)}">Copiar</button></div>`).join("")}</div>`;
+}
 function kitCardHTML(p, destaque){
+ const aberto=destaque||KIT_ABERTO===p.code;
  return `<div class="kit${destaque?" novo":""}" data-kit="${esc(p.code)}">
   <div class="kit-h"><b>${esc(p.nome)}</b><span class="pill">${esc(p.code)}</span>${p.status==="bloqueado"?'<span class="pill bad">bloqueado</span>':""}
+   <span class="pill">${esc(p.pct_primeira)}% + ${esc(p.pct_recorrente)}%</span>
    <span class="kit-c">${p.instagram?"@"+esc(p.instagram):""}${p.instagram&&p.whatsapp?" · ":""}${p.whatsapp?esc(zapFmt(p.whatsapp)):""}${!p.instagram&&!p.whatsapp?"sem contato":""}</span></div>
-  ${destaque?`<ol class="kit-passos">
-   <li${p.cupom_hotmart_ok?' class="ok"':""}><b>Criar o cupom <code>${esc(p.code)}</code> na Hotmart</b> — o desconto só aparece no checkout se o cupom existir com esse mesmo código.
-    <span class="kit-b"><button class="btn ghost" data-copiar-link="${esc(p.code)}">Copiar código</button>
-    <label class="kit-ok"><input type="checkbox" data-cupom="${esc(p.code)}" ${p.cupom_hotmart_ok?"checked":""}> Cupom criado</label></span></li>
-   <li><b>Mandar o kit pro parceiro</b> — vai a mensagem pronta com o link de divulgação, o cupom e o painel dele.</li>
-  </ol>`:""}
+  ${aberto?linksHTML(p):""}
   <div class="kit-b">
    ${p.whatsapp?`<a class="btn go" href="${esc(zapLink(p))}" target="_blank" rel="noopener" style="text-decoration:none">Mandar kit no WhatsApp</a>`:`<button class="btn ghost" data-kit-zap="${esc(p.code)}">Pôr WhatsApp</button>`}
    <button class="btn ghost" data-kit-msg="${esc(p.code)}">Copiar mensagem</button>
-   <button class="btn ghost" data-copiar-link="${esc(p.link)}">Copiar link</button>
-   ${!destaque?`<label class="kit-ok" title="O cupom com esse código já existe na Hotmart?"><input type="checkbox" data-cupom="${esc(p.code)}" ${p.cupom_hotmart_ok?"checked":""}> cupom na Hotmart</label>`:""}
+   ${destaque?"":`<button class="btn ghost" data-kit-abrir="${esc(p.code)}">${aberto?"Esconder links":"Ver os links"}</button>`}
+   <label class="kit-ok" title="O cupom com esse código já existe na Hotmart?"><input type="checkbox" data-cupom="${esc(p.code)}" ${p.cupom_hotmart_ok?"checked":""}> cupom na Hotmart</label>
   </div>
  </div>`;
 }
@@ -1272,20 +1289,30 @@ function kitHTML(){
  const lista=PKIT.filter(p=>!KIT_BUSCA||semAcento((p.nome+" "+p.code+" "+(p.instagram||""))).toLowerCase().includes(semAcento(KIT_BUSCA).toLowerCase()));
  const semCupom=PKIT.filter(p=>!p.cupom_hotmart_ok&&p.status!=="bloqueado").length;
  return `
- <h2 class="sec">Novo parceiro</h2>
+ <h2 class="sec">Gerar links de um parceiro</h2>
  <div class="box pad">
+  <ol class="kit-passos" style="margin:0 0 12px">
+   <li><b>Na Hotmart:</b> crie o cupom de desconto do parceiro (ex.: <code>ANA5</code>).</li>
+   <li><b>Aqui:</b> digite o <b>mesmo nome do cupom</b> e os dados dele. Os links saem na hora.</li>
+  </ol>
   <div class="kit-form">
+   <div class="kit-cod"><input id="kCod" class="txtarea" placeholder="CUPOM (igual Hotmart)" maxlength="20" autocomplete="off"><span id="kCodSt"></span></div>
    <input id="kNome" class="txtarea" placeholder="Nome do parceiro" maxlength="60" autocomplete="off">
    <input id="kIg" class="txtarea" placeholder="@ do Instagram" maxlength="40" autocomplete="off">
    <input id="kZap" class="txtarea" placeholder="WhatsApp com DDD" inputmode="tel" maxlength="20" autocomplete="off">
-   <div class="kit-cod"><input id="kCod" class="txtarea" placeholder="CÓDIGO" maxlength="20" autocomplete="off"><span id="kCodSt"></span></div>
+  </div>
+  <div class="kit-regra">
+   <label>Tipo<select id="kTipo" class="txtarea"><option value="influenciador">Influenciador</option><option value="afiliado">Afiliado</option></select></label>
+   <label>1ª mensalidade<span class="kit-pct"><input id="kPri" class="txtarea" type="number" min="0" max="100" step="0.5" value="50">%</span></label>
+   <label>Renovações<span class="kit-pct"><input id="kRec" class="txtarea" type="number" min="0" max="100" step="0.5" value="7">%</span></label>
   </div>
   <details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px;color:var(--dim)">Chave Pix (opcional — dá pra pôr depois)</summary>
    <input id="kPix" class="txtarea" style="margin-top:8px" placeholder="Chave Pix do parceiro" maxlength="80"></details>
-  <button class="btn go block" id="kCriar" style="margin-top:10px">Criar parceiro e montar o kit</button>
-  <p class="nota">O código vira o cupom e o fim do link (app.orbis.inf.br/r/<b>código</b>). Ele é sugerido pelo nome com o 5 no fim, igual aos que já existem; pode trocar.</p>
+  <label class="kit-ok" style="margin-top:10px;display:flex"><input type="checkbox" id="kCupomOk"> Já criei esse cupom na Hotmart</label>
+  <button class="btn go block" id="kCriar" style="margin-top:10px">Gerar os links</button>
+  <p class="nota">Regra padrão de todo parceiro novo: 50% na 1ª mensalidade e 7% nas renovações. Dá pra ajustar aqui antes de gerar; depois, só o Rick muda. Quem entra pelo link fica com o parceiro na conta, mesmo se assinar em outro celular ou no computador.</p>
  </div>
- ${KIT_NOVO?`<h2 class="sec">Pronto — falta 2 passos</h2>${kitCardHTML(KIT_NOVO,true)}`:""}
+ ${KIT_NOVO?`<h2 class="sec">Links prontos · ${esc(KIT_NOVO.nome)}</h2>${kitCardHTML(KIT_NOVO,true)}`:""}
  <h2 class="sec">Parceiros (${PKIT.length})${semCupom?` <span class="pill warn" style="margin-left:6px">${semCupom} sem cupom na Hotmart</span>`:""}</h2>
  <div class="box pad">
   <input id="kBusca" class="txtarea" placeholder="Buscar por nome, código ou @" value="${esc(KIT_BUSCA)}">
@@ -1308,16 +1335,24 @@ function ligarKit(el){
  const bt=el.querySelector("#kCriar");
  if(bt) bt.onclick=async()=>{
   const n=nome.value.trim(), c=cod.value.trim();
-  if(!n||c.length<3){ toast("Põe o nome e um código de 3 letras ou mais"); return; }
-  bt.disabled=true; bt.textContent="Criando…";
-  const {data,error}=await sb.rpc("crm_parceiro_criar",{p_nome:n,p_code:c,p_whatsapp:el.querySelector("#kZap").value||null,p_instagram:el.querySelector("#kIg").value||null,p_pix:(el.querySelector("#kPix")||{}).value||null});
-  bt.disabled=false; bt.textContent="Criar parceiro e montar o kit";
+  if(c.length<3){ toast("Digite o nome do cupom (3 letras ou mais)"); cod.focus(); return; }
+  if(!n){ toast("Põe o nome do parceiro"); nome.focus(); return; }
+  const pri=Number(el.querySelector("#kPri").value), rec=Number(el.querySelector("#kRec").value);
+  if(!(pri>=0&&pri<=100&&rec>=0&&rec<=100)){ toast("Percentual entre 0 e 100"); return; }
+  if(pri<rec){ toast("A 1ª mensalidade não pode pagar menos que a renovação"); return; }
+  const cupomOk=el.querySelector("#kCupomOk").checked;
+  if(!cupomOk && !confirm("O cupom "+c+" ainda não foi criado na Hotmart? Os links funcionam e a comissão conta, mas o desconto só aparece no checkout depois que o cupom existir. Gerar mesmo assim?")) return;
+  bt.disabled=true; bt.textContent="Gerando…";
+  const {data,error}=await sb.rpc("crm_parceiro_criar",{p_nome:n,p_code:c,p_whatsapp:el.querySelector("#kZap").value||null,p_instagram:el.querySelector("#kIg").value||null,p_pix:(el.querySelector("#kPix")||{}).value||null,p_tipo:el.querySelector("#kTipo").value,p_pct_primeira:pri,p_pct_recorrente:rec});
+  bt.disabled=false; bt.textContent="Gerar os links";
   if(error){ toast(error.message); return; }
+  if(cupomOk){ const r2=await sb.rpc("crm_parceiro_cupom_ok",{p_code:data.code,p_ok:true}); if(!r2.error) data.cupom_hotmart_ok=true; }
   KIT_NOVO=data; PKIT=[data].concat(PKIT.filter(p=>p.code!==data.code));
-  toast("Parceiro criado"); renderParceiros();
+  toast("Links gerados"); renderParceiros();
   if(ehDono()) recarregarAfiliados();
   const nv=document.querySelector(".kit.novo"); if(nv) nv.scrollIntoView({behavior:"smooth",block:"center"});
  };
+ el.querySelectorAll("[data-kit-abrir]").forEach(b=>b.onclick=()=>{KIT_ABERTO=KIT_ABERTO===b.dataset.kitAbrir?"":b.dataset.kitAbrir; renderParceiros();});
  const busca=el.querySelector("#kBusca");
  if(busca) busca.oninput=()=>{KIT_BUSCA=busca.value; const pos=busca.selectionStart; renderParceiros(); const b2=document.getElementById("kBusca"); if(b2){b2.focus(); b2.setSelectionRange(pos,pos);}};
  const achar=c=>PKIT.find(p=>p.code===c)||(KIT_NOVO&&KIT_NOVO.code===c?KIT_NOVO:null);
@@ -1350,7 +1385,7 @@ function renderParceiros(){
 function aplicarPapel(){
  document.querySelectorAll('[data-tab="parceiros"]').forEach(b=>b.hidden=false);
  const av=document.getElementById("quemSou");
- if(av) av.title = ehDono()? "Dono — vê tudo" : "Comercial — sem faturamento; cria e manda o kit dos parceiros";
+ if(av) av.title = ehDono()? "Dono — vê tudo" : "Comercial — sem faturamento; gera os links e manda o kit dos parceiros";
 }
 function aba(t){
  document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));

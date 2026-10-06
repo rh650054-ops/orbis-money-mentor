@@ -335,6 +335,16 @@ h2.sec:first-child{margin-top:0}
 .kit-c{margin-left:auto;font-size:12px;color:var(--dim)}
 .kit-b{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:9px}
 .kit-b .btn{padding:7px 11px}
+.kit-regra{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.kit-regra label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--dim);font-weight:600}
+.kit-pct{display:flex;align-items:center;gap:6px;color:var(--dim)} .kit-pct input{width:100%}
+.kit-regra select,.kit-regra input{padding-left:10px;padding-right:8px}
+.kit-links{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin:10px 0 2px}
+.kit-link{min-width:0;display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;padding:9px 10px}
+.kit-link.priv{border-style:dashed}
+.kl-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.kl-t b{font-size:13px} .kl-t span{font-size:11.5px;color:var(--dim)}
+.kl-t code{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kit-ok{display:inline-flex;gap:6px;align-items:center;font-size:12px;color:var(--dim);cursor:pointer;margin-left:4px}
 .kit-passos{margin:10px 0 0;padding-left:20px;font-size:13px;line-height:1.5}
 .kit-passos li{margin-bottom:8px}
@@ -429,6 +439,6 @@ h2.sec:first-child{margin-top:0}
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Painel"></aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="/crm.js?v=12" defer></script>
+<script src="/crm.js?v=13" defer></script>
 </body>
 </html>
