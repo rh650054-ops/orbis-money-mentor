@@ -2,6 +2,9 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 06/10/2026 — Arte "Sobrou pra mim" removida
+- A arte de story "Sobrou pra mim" saiu do compartilhamento do fim do DEFCON, a pedido do Rick. Voltam só as artes de antes: a com fundo (feed/WhatsApp) e as transparentes pro story.
+
 ## 06/10/2026 — Planos novos da VANT (Essencial, banco avulso, Pro, Pro Anual)
 - **Planos:** Essencial R$ 29,90 (`8qbxvm9p`) · banco Open Finance +R$ 12,90 cada (`otgozkn9`) · Pro R$ 49,90 com 1 banco (`5y86n311`) · Pro Anual R$ 418,80 = R$ 34,90/mês com 2 bancos (`ew11enu0`; o anual antigo `6vkxbh8c` continua valendo pra quem já assinou).
 - **Paywall /pro:** anual R$ 34,90/mês com 2 bancos e economia de R$ 180, mensal com 1 banco, e o bloco "Só quer ligar o banco?" (Essencial + banco R$ 42,80 × Pro R$ 49,90).

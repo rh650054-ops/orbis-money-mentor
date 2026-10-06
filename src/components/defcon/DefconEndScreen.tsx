@@ -59,14 +59,6 @@ export function DefconEndScreen({
   onRestart,
 }: DefconEndScreenProps) {
   const [pix, setPix] = useState("");
-  // STORY "SOBROU PRA MIM" (Lote 6): lucro do dia e posição no ranking do mês
-  const [lucroDia, setLucroDia] = useState<number | null>(null);
-  const [posRank, setPosRank] = useState<number | null>(null);
-  useEffect(() => {
-    if (!userId) return;
-    supabase.from("leaderboard_stats").select("posicao_faturamento").eq("user_id", userId).eq("mes_referencia", getBrazilDate().slice(0, 7)).maybeSingle()
-      .then(({ data }) => setPosRank(Number((data as any)?.posicao_faturamento) || null));
-  }, [userId]);
   // PIX TRAVADO (Open Finance; religado 03/10 a pedido do Rick): com banco
   // ligado, o Pix do dia é o que o banco diz — cadeado, sem digitar.
   // Ao finalizar: pede uma leitura NA HORA (pluggy-sync importa o que já está
@@ -204,13 +196,12 @@ export function DefconEndScreen({
       .then(({ count }) => setClientsCount(count ?? 0));
     supabase
       .from("daily_sales")
-      .select("tip_sales, cash_sales, card_sales, pix_sales, total_profit")
+      .select("tip_sales, cash_sales, card_sales, pix_sales")
       .eq("user_id", userId)
       .eq("date", today)
       .maybeSingle()
       .then(({ data }) => {
         setTotalTips(Number((data as any)?.tip_sales || 0));
-        setLucroDia((data as any)?.total_profit != null ? Number((data as any).total_profit) : null);
         // Pré-preenche com o que JÁ foi registrado por forma de pagamento durante as vendas.
         // Assim o usuário só confirma (ou ajusta um Pix que caiu depois) em vez de digitar
         // do zero — o que antes sobrescrevia o split real com valores errados.
@@ -1026,11 +1017,6 @@ export function DefconEndScreen({
               vendas: totalSalesCount,
               conversao: conversionRate,
               horas: horasLabel,
-              sobrou: lucroDia != null && lucroDia > 0 ? lucroDia : undefined,
-              abordagens: totalApproaches,
-              pixBanco: travado,
-              data: new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" }).replace(".", "").replace(",", "").toUpperCase(),
-              posicao: posRank ? `#${posRank} NO RANKING` : undefined,
             }}
           />
         )}
