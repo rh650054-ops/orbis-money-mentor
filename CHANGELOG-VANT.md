@@ -3,7 +3,7 @@
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
 ## 06/10/2026 — Pix do banco conta na janela do DEFCON
-- O Pix do Open Finance passa a contar a partir do **INICIAR** do DEFCON. O que caiu antes não entra no Foco do dia (antes um Pix das 7h40 já aparecia como R$ 20 logo depois de iniciar às 9h27).
+- O Pix do Open Finance passa a contar a partir do **INICIAR** do DEFCON. O que caiu antes não entra no Foco do dia (antes o Pix da manhã, antes de iniciar, já aparecia no Foco).
 - Depois de finalizar, todo Pix que cair **até o próximo DEFCON começar** conta pro dia anterior, sozinho, sem anotar. Se ele não fizer DEFCON no dia seguinte, a janela fecha às 23:59 desse dia seguinte.
 - Dia sem DEFCON continua contando pelo dia do calendário.
 
