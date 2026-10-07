@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getBrazilDate } from "@/shared/lib/date-utils";
 import { Link, useNavigate } from "react-router-dom";
 import { Card, CardContent } from "@/shared/ui/card";
 import { Button } from "@/shared/ui/button";
@@ -136,8 +137,9 @@ export default function Auth() {
         }
 
         const internalEmail = cpfToInternalEmail(cleanedCpf);
-        const trialStart = new Date().toISOString().split('T')[0]!;
-        const trialEnd = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]!;
+        // Brasília date, not UTC (a signup after 21:00 was getting tomorrow as day 0)
+        const trialStart = getBrazilDate();
+        const trialEnd = new Date(Date.parse(trialStart + "T12:00:00-03:00") + 3 * 86_400_000).toISOString().split('T')[0]!;
 
         sessionStorage.setItem("orbis_signup_novo", "1"); // → Onboarding 2.0 após criar
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({

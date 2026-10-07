@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diaDoTeste, diasEntre, jornadaDoDia, seloTeste, JORNADA } from "./jornada-lib";
+import { diaDoTeste, diasEntre, jornadaDoDia, seloTeste, passoLiberado, JORNADA } from "./jornada-lib";
 
 describe("jornada do teste", () => {
   it("counts calendar days without timezone drift", () => {
@@ -16,10 +16,20 @@ describe("jornada do teste", () => {
   it("has one mission per day with Essencial on day 1, Pro on day 2 and plans on day 3", () => {
     expect(JORNADA.map((j) => j.oferta)).toEqual(["nenhuma", "essencial", "pro", "planos"]);
     expect(jornadaDoDia(2)?.passos.map((p) => p.id)).toEqual(["foco", "custo"]);
+    // dia 0: o onboarding já fez treino do DEFCON e ranking; não repete
+    expect(jornadaDoDia(0)?.passos.map((p) => p.id)).toEqual(["produto", "foco"]);
   });
   it("writes the trial badge in plain Portuguese", () => {
     expect(seloTeste(0)).toBe("Teste grátis · faltam 3 dias");
     expect(seloTeste(2)).toBe("Teste grátis · falta 1 dia");
     expect(seloTeste(3)).toBe("Último dia do teste");
+  });
+  it("only counts a step on its own day or later", () => {
+    expect(passoLiberado("relatorio", 0)).toBe(false);
+    expect(passoLiberado("relatorio", 1)).toBe(true);
+    expect(passoLiberado("foco", 0)).toBe(true);
+    expect(passoLiberado("produto", 0)).toBe(true);
+    expect(passoLiberado("sinal", 2)).toBe(false);
+    expect(passoLiberado("sinal", null)).toBe(true);
   });
 });

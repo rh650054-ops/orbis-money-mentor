@@ -5,7 +5,7 @@
    Funções puras: testáveis e sem Supabase.
    ============================================================ */
 
-export type Passo = "foco" | "ranking" | "relatorio" | "custo" | "sinal" | "marca";
+export type Passo = "foco" | "ranking" | "relatorio" | "custo" | "sinal" | "marca" | "produto";
 export type Oferta = "nenhuma" | "essencial" | "pro" | "planos";
 
 export interface PassoJornada {
@@ -23,6 +23,8 @@ export interface DiaJornada {
   passos: PassoJornada[];
   /** o que aparece no fim do Foco desse dia (uma vez por dia) */
   oferta: Oferta;
+  /** passos que o onboarding já cumpriu: aparecem marcados, só pra mostrar progresso */
+  jaFeitos?: string[];
 }
 
 export const ABRIR_CHAT_MARCA = "chat_marca";
@@ -32,10 +34,17 @@ const FOCO: PassoJornada = { id: "foco", nome: "Fazer o Foco de hoje", destino: 
 
 export const JORNADA: DiaJornada[] = [
   {
+    // Dia 0 (Rick, 06/10): o onboarding já mostrou o DEFCON de treino e o ranking.
+    // Aqui é pra valer: cadastrar o que ele vende (aparece na "mercadoria de hoje"
+    // do Foco) e começar o primeiro dia de trabalho de verdade.
     dia: 0,
-    titulo: "Seu primeiro dia de foco",
-    texto: "Faça seu primeiro DEFCON e veja onde você entra no ranking.",
-    passos: [FOCO, { id: "ranking", nome: "Ver sua posição no ranking", destino: "/ranking", botao: "Ver o ranking" }],
+    titulo: "Seu primeiro dia de trabalho",
+    texto: "Você já viu como o Foco e o ranking funcionam. Agora é pra valer: cadastre o que você vende e comece seu dia.",
+    jaFeitos: ["Criar sua conta", "Definir sua meta mensal e diária"],
+    passos: [
+      { id: "produto", nome: "Cadastrar seu produto no estoque", destino: "/products", botao: "Cadastrar meu produto" },
+      { ...FOCO, nome: "Começar seu primeiro dia de trabalho", botao: "Começar meu dia" },
+    ],
     oferta: "nenhuma",
   },
   {
@@ -64,6 +73,19 @@ export const JORNADA: DiaJornada[] = [
     oferta: "planos",
   },
 ];
+
+/** Primeiro dia da jornada em que o passo aparece (foco vale todo dia). */
+export function diaDoPasso(passo: Passo): number | null {
+  const d = JORNADA.find((j) => j.passos.some((p) => p.id === passo));
+  return d ? d.dia : null;
+}
+
+/** O passo pode ser marcado hoje? Fora do teste (dia null) sempre; no teste, só no dia dele ou depois. */
+export function passoLiberado(passo: Passo, diaAtual: number | null): boolean {
+  if (diaAtual == null) return true;
+  const d = diaDoPasso(passo);
+  return d == null || d <= diaAtual;
+}
 
 /** Dias entre duas datas "AAAA-MM-DD" (b - a), sem fuso no meio. */
 export function diasEntre(a: string, b: string): number {

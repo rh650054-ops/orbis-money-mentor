@@ -105,10 +105,12 @@ Deno.serve(async (req) => {
     }
 
     // Create user with email already confirmed (bypasses email confirmation requirement)
-    const trialStart = new Date().toISOString().split("T")[0];
-    const trialEndDate = new Date();
-    trialEndDate.setDate(trialEndDate.getDate() + 3);
-    const trialEnd = trialEndDate.toISOString().split("T")[0];
+    // Trial dates in Brasília time (07/10/2026): toISOString() is UTC, so a signup after
+    // 21:00 got tomorrow as day 0 and the trial journey showed nothing that night.
+    const diaBR = (offsetDias: number) =>
+      new Date(Date.now() - 3 * 3600_000 + offsetDias * 86_400_000).toISOString().split("T")[0];
+    const trialStart = diaBR(0);
+    const trialEnd = diaBR(3);
 
     const { data: authData, error: createError } = await supabase.auth.admin.createUser({
       email: internalEmail,

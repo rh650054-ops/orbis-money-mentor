@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { avisar } from "@/shared/lib/avisar";
-import { diaDoTeste, type Passo } from "./jornada-lib";
+import { diaDoTeste, diaDoPasso, diasEntre, passoLiberado, type Passo } from "./jornada-lib";
 import { lerSimulacao, passosSimulados, gravarPassoSimulado, EVENTO_SIMULACAO } from "./simulador";
 
 type Linha = Record<string, unknown>;
@@ -14,6 +14,7 @@ interface Consulta<T> extends PromiseLike<Resp<T>> {
   select: (c: string) => Consulta<T>;
   eq: (c: string, v: unknown) => Consulta<T>;
   gte: (c: string, v: unknown) => Consulta<T>;
+  limit: (n: number) => Consulta<T>;
   maybeSingle: () => PromiseLike<Resp<Linha>>;
   insert: (v: Linha) => PromiseLike<{ error: { code?: string } | null }>;
 }
@@ -28,6 +29,20 @@ function gravarLocal(uid: string, passos: Passo[]) {
 }
 
 const OUVINTES = new Set<() => void>();
+/** Dia do teste da conta logada (null = fora do teste ou ainda não carregou). */
+let DIA_ATUAL: number | null | undefined = undefined;
+
+/** Dia do teste direto do perfil (quando a tela abriu antes do Início carregar a jornada). */
+async function diaDaConta(uid: string): Promise<number | null> {
+  try {
+    const { data: p } = await tabela("profiles").select("trial_start, trial_end, plan_status, is_demo, billing_exempt").eq("user_id", uid).maybeSingle();
+    if (!p || p.plan_status === "active" || p.billing_exempt || p.is_demo) return null;
+    const hoje = getBrazilDate();
+    const fim = (p.trial_end as string | null) ?? null;
+    if (fim && hoje > fim) return null;
+    return diaDoTeste((p.trial_start as string | null) ?? null, hoje);
+  } catch { return null; }
+}
 
 /** Marca um passo da jornada como feito (uma vez por conta; silencioso se falhar). */
 export async function marcarPasso(passo: Passo): Promise<void> {
@@ -36,7 +51,12 @@ export async function marcarPasso(passo: Passo): Promise<void> {
     const uid = session?.user?.id;
     if (!uid) return;
     // simulador do admin: marca só na chave local da simulação, nunca no banco
-    if (lerSimulacao(uid) != null) { gravarPassoSimulado(uid, passo); OUVINTES.forEach((f) => f()); return; }
+    const sim = lerSimulacao(uid);
+    // Um passo só vale no dia dele ou depois: abrir o relatório no dia 0 (passeando pelo app)
+    // não pode deixar a missão do dia 1 pronta antes de ela aparecer (Rick, 07/10).
+    if (sim == null && DIA_ATUAL === undefined) DIA_ATUAL = await diaDaConta(uid);
+    if (!passoLiberado(passo, sim != null ? (sim <= 3 ? sim : null) : (DIA_ATUAL ?? null))) return;
+    if (sim != null) { gravarPassoSimulado(uid, passo); OUVINTES.forEach((f) => f()); return; }
     const locais = lerLocal(uid);
     if (locais.includes(passo)) return;
     gravarLocal(uid, [...locais, passo]);
@@ -84,16 +104,26 @@ export function useJornada(): EstadoJornada {
         setEstado({ carregando: false, emTeste, dia: emTeste ? sim : null, feitos: new Set(passosSimulados(uid)), vendidoNoTeste });
         return;
       }
-      const [{ data: p }, { data: linhas }] = await Promise.all([
+      const [{ data: p }, { data: linhas }, { data: prods }] = await Promise.all([
         tabela("profiles").select("trial_start, trial_end, plan_status, is_demo, billing_exempt, created_at").eq("user_id", uid).maybeSingle(),
-        tabela("jornada_teste").select("passo").eq("user_id", uid),
+        tabela("jornada_teste").select("passo, feito_em").eq("user_id", uid),
+        // já tem produto cadastrado (antes da jornada existir, ou por outro caminho) = passo cumprido
+        tabela("products").select("id").eq("user_id", uid).eq("is_active", true).limit(1),
       ]);
       const inicio = (p?.trial_start as string | null) ?? ((p?.created_at as string | null)?.slice(0, 10) ?? null);
       const fim = (p?.trial_end as string | null) ?? null;
       const pagante = p?.plan_status === "active" || !!p?.billing_exempt || !!p?.is_demo;
       const dia = diaDoTeste(inicio, hoje);
       const emTeste = !pagante && dia != null && (!fim || hoje <= fim);
-      const feitos = new Set<Passo>([...lerLocal(uid), ...((linhas ?? []).map((l) => l.passo as Passo))]);
+      // Só vale o passo feito no dia dele ou depois (o banco guarda quando foi feito).
+      const valeu = (l: Linha) => {
+        const d = diaDoPasso(l.passo as Passo);
+        if (d == null || !inicio) return true;
+        const quando = new Date(String(l.feito_em)).toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+        return diasEntre(inicio.slice(0, 10), quando) >= d;
+      };
+      const feitos = new Set<Passo>((linhas ?? []).filter(valeu).map((l) => l.passo as Passo));
+      if ((prods ?? []).length > 0) feitos.add("produto");
       gravarLocal(uid, Array.from(feitos));
 
       // quanto vendeu nos dias de teste: o argumento do último dia e da tela de bloqueio
@@ -105,6 +135,7 @@ export function useJornada(): EstadoJornada {
           .filter((v) => !fim || String(v.date) <= fim)
           .reduce((s, v) => s + (Number(v.total_profit) || 0), 0);
       }
+      DIA_ATUAL = emTeste ? dia : null;
       setEstado({ carregando: false, emTeste, dia: emTeste ? dia : null, feitos, vendidoNoTeste });
     } catch (e) {
       avisar.silencioso("jornada: carregar", e);
@@ -113,6 +144,20 @@ export function useJornada(): EstadoJornada {
   }, [uid]);
 
   useEffect(() => { void carregar(); }, [carregar]);
+  // App aberto de um dia pro outro (PWA fica na memória): ao voltar pro app ou virar o dia,
+  // recarrega — senão a missão do dia novo não aparece até fechar e abrir de novo.
+  useEffect(() => {
+    let dia = getBrazilDate();
+    const conferir = () => {
+      if (document.visibilityState !== "visible") return;
+      const agora = getBrazilDate();
+      if (agora !== dia) { dia = agora; void carregar(); }
+    };
+    const voltou = () => { if (document.visibilityState === "visible") void carregar(); };
+    document.addEventListener("visibilitychange", voltou);
+    const t = setInterval(conferir, 60_000);
+    return () => { document.removeEventListener("visibilitychange", voltou); clearInterval(t); };
+  }, [carregar]);
   useEffect(() => {
     const f = () => {
       if (!uid) return;
