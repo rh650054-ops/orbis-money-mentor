@@ -28,8 +28,9 @@ dist-ssr
 .env.local
 .env.production
 
-# Capacitor Android project (generated, not needed in repo)
-android/
+# Capacitor native projects (android/, ios/) ARE versioned since 07/10/2026:
+# permissions, icons, version codes and signing config live there. Their own
+# .gitignore files keep build output and copied web assets out.
 .claude/
 skills-lock.json
 
