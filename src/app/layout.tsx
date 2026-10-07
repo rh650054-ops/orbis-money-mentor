@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { SeloTeste } from "@/components/jornada/SeloTeste";
+import { FaixaSimulacao } from "@/components/jornada/FaixaSimulacao";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Zap, DollarSign, BarChart3, MessageCircle, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText, Building2, UserCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
@@ -237,6 +238,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         )}
         {/* Teste: só um selo pequeno (jornada do teste, 06/10). A oferta vem uma vez por dia, no fim do Foco. */}
+        <FaixaSimulacao />
         <SeloTeste />
         {/* Lembrete de extrato removido (Rick, 09/09): a competição não usa mais extrato. */}
         {user && <WeeklyChallengeTicket />}

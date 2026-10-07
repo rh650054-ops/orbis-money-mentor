@@ -8,6 +8,8 @@ import { useState } from "react";
 
 import { EscolhaPlano } from "@/components/jornada/EscolhaPlano";
 import { useJornada } from "@/components/jornada/useJornada";
+import { useAuth } from "@/hooks/useAuth";
+import { simular, useSimulacao } from "@/components/jornada/simulador";
 
 interface TrialExpiredModalProps {
   isOpen: boolean;
@@ -19,6 +21,8 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
   const { toast } = useToast();
   const [isChecking, setIsChecking] = useState(false);
   const { vendidoNoTeste: vendido } = useJornada();
+  const { user: eu } = useAuth();
+  const sim = useSimulacao(eu?.id);
 
 
   const handleCheckAccess = async () => {
@@ -93,6 +97,12 @@ export default function TrialExpiredModal({ isOpen }: TrialExpiredModalProps) {
 
           {/* Já pagou / sair */}
           <div className="space-y-2 mt-4">
+            {sim != null && eu && (
+              <Button onClick={() => { simular(eu.id, null); navigate("/simular-teste"); }}
+                className="w-full h-10 text-xs font-black" style={{ background: "#7c3aed", color: "#fff" }}>
+                Sair da simulação
+              </Button>
+            )}
             <Button
               onClick={handleCheckAccess}
               variant="outline"

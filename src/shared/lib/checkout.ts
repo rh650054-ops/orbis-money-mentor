@@ -83,6 +83,7 @@ export function getProCheckoutUrl(plano: PlanoPro): string {
 
 /** Banco Open Finance: +R$ 12,90/mês cada (planos de 06/10/2026). Essencial + banco = R$ 42,80;
  *  o Pro mensal inclui 1 banco e o Pro anual 2 — o avulso soma em cima.
- *  Oferta otgozkn9 do produto Vant: o hotmart-webhook reconhece a oferta e libera
+ *  Oferta 3nnrr1xn (R$ 12,90, desde 06/10; a otgozkn9 de R$ 10 fica só pras cortesias).
+ *  O hotmart-webhook reconhece as duas e libera
  *  1 vaga por assinatura ativa (banco_extra_registrar → open_finance_limite). */
-export const BANCO_EXTRA_CHECKOUT: string | null = "https://pay.hotmart.com/N104683123F?off=otgozkn9&checkoutMode=6";
+export const BANCO_EXTRA_CHECKOUT: string | null = "https://pay.hotmart.com/N104683123F?off=3nnrr1xn&checkoutMode=6";

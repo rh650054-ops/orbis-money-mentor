@@ -162,18 +162,19 @@ Deno.serve(async (req) => {
       }
     }
 
-    // BANCO EXTRA (03/10/2026; R$ 12,90 desde 06/10): oferta otgozkn9 do mesmo produto.
+    // BANCO EXTRA (03/10/2026): oferta 3nnrr1xn (R$ 12,90, desde 06/10) e a antiga otgozkn9
+    // (R$ 10, mantida pras contas de cortesia), do mesmo produto.
     // Trilho próprio e SAI ANTES de tudo: não pode renovar nem cancelar a
     // assinatura principal (uma compra de R$ 10 não estende o plano cheio, e
     // cancelar o banco extra não derruba o app). Cada assinatura ativa = 1 vaga.
     // O cancelamento de assinatura chega SEM a oferta (só o código do assinante,
     // em data.subscriber.code): se esse código é de um banco extra — e não da
     // assinatura principal — também cai aqui.
-    const BANCO_EXTRA_OFFER = "otgozkn9";
+    const BANCO_EXTRA_OFFERS = new Set(["3nnrr1xn", "otgozkn9"]);
     const assinanteCod = String(payload.data?.subscription?.subscriber?.code || payload.data?.subscriber?.code || "");
     const evBx = String(event || "").toUpperCase();
     let bxDono: string | null = null;
-    let ehBancoExtra = String(compra?.offer?.code ?? "").trim() === BANCO_EXTRA_OFFER;
+    let ehBancoExtra = BANCO_EXTRA_OFFERS.has(String(compra?.offer?.code ?? "").trim());
     if (!ehBancoExtra && assinanteCod && evBx.includes("CANCELLATION")) {
       const [{ data: bx }, { data: principal }] = await Promise.all([
         supabase.from("bancos_extra_compras").select("user_id").eq("chave", assinanteCod).maybeSingle(),

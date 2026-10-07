@@ -36,7 +36,7 @@ describe("conta de trabalho × pessoal", () => {
   it("banco a mais abre o checkout com o e-mail da conta", () => {
     render(<BancoExtra usados={1} email="rick@vant.com" onFechar={() => {}} />);
     const a = screen.getByText("QUERO LIGAR MAIS UM BANCO").closest("a");
-    expect(a?.getAttribute("href")).toContain("off=otgozkn9");
+    expect(a?.getAttribute("href")).toContain("off=3nnrr1xn");
     expect(a?.getAttribute("href")).toContain("email=rick%40vant.com");
   });
 });

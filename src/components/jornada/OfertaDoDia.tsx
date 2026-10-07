@@ -24,16 +24,17 @@ function Item({ texto, sub }: { texto: string; sub: string }) {
   );
 }
 
-export function OfertaDoDia() {
+/** `agora`: abre na hora, mesmo se já foi vista hoje (usado pelo simulador). */
+export function OfertaDoDia({ agora = false }: { agora?: boolean } = {}) {
   const { user } = useAuth();
   const { emTeste, dia, vendidoNoTeste } = useJornada();
   const navigate = useNavigate();
-  const [aberta, setAberta] = useState(false);
+  const [aberta, setAberta] = useState(agora);
   const j = jornadaDoDia(dia);
   const chave = user?.id && j ? `vant_oferta_${user.id}_${j.dia}` : null;
 
   useEffect(() => {
-    if (!emTeste || !j || j.oferta === "nenhuma" || !chave) return;
+    if (agora || !emTeste || !j || j.oferta === "nenhuma" || !chave) return;
     let jaViu = false;
     try { jaViu = localStorage.getItem(chave) === "1"; } catch { /* sem storage: mostra */ }
     if (jaViu) return;
@@ -42,9 +43,9 @@ export function OfertaDoDia() {
       try { localStorage.setItem(chave, "1"); } catch { /* ok */ }
     }, 1200);
     return () => clearTimeout(t);
-  }, [emTeste, j, chave]);
+  }, [agora, emTeste, j, chave]);
 
-  if (!aberta || !j) return null;
+  if (!aberta || !j || j.oferta === "nenhuma") return null;
   const fechar = () => setAberta(false);
 
   return (
