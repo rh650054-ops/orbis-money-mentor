@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { RecomecarTeste } from "@/components/jornada/RecomecarTeste";
 import { useNavigate } from "react-router-dom";
 import { User, Wallet, Package, Settings as SettingsIcon, MessageCircle, ChevronRight, LogOut, Target, Radar, Sun, Moon, ShieldCheck, Landmark } from "lucide-react";
 import { useTheme } from "next-themes";
@@ -144,6 +145,8 @@ export default function Profile() {
           </CardContent>
         </Card>
       )}
+
+      {user && <RecomecarTeste userId={user.id} />}
 
       <div className="space-y-3">
         {menuItems.map((item) => {
