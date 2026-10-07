@@ -24,6 +24,55 @@ const CTA: Record<Escolha, string> = {
   essencial: "ASSINAR O ESSENCIAL · R$ 29,90",
 };
 
+/* O que cada plano inclui. Abre embaixo do plano escolhido (um aberto por vez),
+   pra tela continuar curta. "Tudo do ..." evita repetir a lista inteira. */
+const BENEFICIOS: Record<Escolha, { base?: string; itens: [string, string][]; fora?: string }> = {
+  anual: {
+    base: "Tudo do Pro Mensal (Pix pelo banco, selo azul, financeiro, IA e Caça-Sinal), e ainda:",
+    itens: [
+      ["2 bancos ligados", "duas contas contando o Pix ao mesmo tempo"],
+      ["Paga uma vez por ano", "R$ 418,80, sai R$ 34,90 por mês"],
+      ["Economiza R$ 180", "comparado a 12 meses do Pro Mensal"],
+    ],
+  },
+  mensal: {
+    base: "Tudo do VANT Essencial, e ainda:",
+    itens: [
+      ["Pix contado pelo banco", "1 banco: caiu na conta, entra no Foco sozinho"],
+      ["Selo azul no ranking", "seu número conferido pelo banco"],
+      ["Financeiro completo", "lucro, contas e caixinhas"],
+      ["VANT IA", "artes da sua marca e dicas pra vender mais"],
+      ["Caça-Sinal", "os melhores pontos perto de você"],
+    ],
+  },
+  essencial: {
+    itens: [
+      ["Modo Foco (DEFCON)", "meta, cronômetro e conversão todo dia"],
+      ["Ranking e ligas", "sua posição entre os vendedores"],
+      ["Relatório", "vendeu, gastou e quanto sobrou"],
+      ["Ofensiva e artes pra postar", "seus dias seguidos e o card do dia"],
+      ["Comunidade", "vendedores do Brasil todo"],
+    ],
+    fora: "Ligar o banco: no Pro, ou + R$ 12,90/mês no Essencial",
+  },
+};
+
+function Beneficios({ id }: { id: Escolha }) {
+  const b = BENEFICIOS[id];
+  return (
+    <span className="block pt-2 mt-1 space-y-1.5" style={{ borderTop: "1px solid #24211a" }}>
+      {b.base && <span className="block text-[11px] font-black tracking-[.04em]" style={{ color: GOLD }}>{b.base}</span>}
+      {b.itens.map(([t, sub]) => (
+        <span key={t} className="flex items-start gap-2 text-[12.5px] leading-snug">
+          <b className="shrink-0" style={{ color: OK }}>✓</b>
+          <span><b className="font-extrabold">{t}</b> <span style={{ color: MUTE }}>· {sub}</span></span>
+        </span>
+      ))}
+      {b.fora && <span className="block text-[11px] font-bold pt-0.5" style={{ color: MUTE }}>{b.fora}</span>}
+    </span>
+  );
+}
+
 const linkDe = (e: Escolha) => (e === "essencial" ? getCheckoutUrl() : getProCheckoutUrl(e));
 
 export function EscolhaPlano({ vendido, titulo }: { vendido?: number | null; titulo?: string }) {
@@ -65,8 +114,11 @@ export function EscolhaPlano({ vendido, titulo }: { vendido?: number | null; tit
                 </span>
               </span>
               <span className="flex items-center justify-between gap-2 text-[10.5px] font-bold" style={{ color: MUTE }}>
-                <span className="min-w-0">{p.linha}</span>
+                <span className="min-w-0">{ativo ? (p.id === "anual" ? "R$ 418,80/ano" : "por mês, cancela quando quiser") : <>{p.linha} <span style={{ color: "#b9b3a6" }}>· ver tudo</span></>}</span>
                 {p.economia && <span className="rounded-full px-2 py-[3px] text-[10px] font-black tracking-[.06em] whitespace-nowrap shrink-0" style={{ background: OK, color: "#0b1d14" }}>{p.economia}</span>}
+              </span>
+              <span className="grid transition-[grid-template-rows] duration-300 ease-out" style={{ gridTemplateRows: ativo ? "1fr" : "0fr" }}>
+                <span className="overflow-hidden">{ativo && <Beneficios id={p.id} />}</span>
               </span>
             </button>
           );
