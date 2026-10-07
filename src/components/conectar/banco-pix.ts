@@ -5,6 +5,9 @@
    resultado (banco_pix_do_dia). "Puxar agora" pede uma leitura na hora
    (pluggy-sync), com freio de 10 min por conexão lá no servidor.
    Sem banco ligado → temBanco=false e as telas simplesmente não mostram nada.
+   Janela do DEFCON (06/10): o Pix conta a partir do INICIAR e segue contando
+   pro mesmo dia até o próximo DEFCON começar (Pix atrasado entra sozinho).
+   Pix que cai antes do INICIAR não entra. Regra no servidor: banco_pix_por_dia.
    ============================================================ */
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";

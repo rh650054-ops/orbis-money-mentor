@@ -2,6 +2,11 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 06/10/2026 — Pix do banco conta na janela do DEFCON
+- O Pix do Open Finance passa a contar a partir do **INICIAR** do DEFCON. O que caiu antes não entra no Foco do dia (antes um Pix das 7h40 já aparecia como R$ 20 logo depois de iniciar às 9h27).
+- Depois de finalizar, todo Pix que cair **até o próximo DEFCON começar** conta pro dia anterior, sozinho, sem anotar. Se ele não fizer DEFCON no dia seguinte, a janela fecha às 23:59 desse dia seguinte.
+- Dia sem DEFCON continua contando pelo dia do calendário.
+
 ## 06/10/2026 — Jornada do teste (dia 0 + 3 dias)
 - **Missão do dia** no Início e no Foco: dia 0 primeiro Foco + ranking · dia 1 relatório · dia 2 custo do produto pela nota · dia 3 Caça-Sinal + arte da marca (abre a VANT IA já pedindo). Marca o que foi feito e mostra os 4 dias; some fora do teste. No dia 3 mostra quanto ele vendeu no teste.
 - **Oferta do dia** no fim do Foco, uma vez por dia: dia 1 VANT Essencial (botão principal é continuar testando), dia 2 prévia do VANT Pro com o banco trancado, dia 3 "último dia" → planos. Dia 0 sem preço.
