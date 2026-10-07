@@ -1,0 +1,89 @@
+# Builds the VANT Android App Bundle (.aab) for the Play Console.
+#
+# Run it from GitHub: Actions > "Android build" > Run workflow.
+# The signed .aab shows up as a downloadable artifact at the end of the run;
+# upload it to Play Console > Testing > Closed testing.
+#
+# One-time setup in GitHub > Settings > Secrets and variables > Actions
+# (never paste these values in a chat):
+#   Variables: VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY (public values, same as Vercel)
+#   Secrets:   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+#              ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+# Without the keystore secrets the run still builds, but the .aab is unsigned
+# (useful to check the build; Play only accepts signed bundles).
+name: Android build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version shown in the store (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "Missing repo variable VITE_SUPABASE_URL"; exit 1; }
+          npm run build
+
+      - name: Copy web bundle into the Android project
+        run: npx cap sync android
+
+      - name: Decode upload keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "VANT_KEYSTORE_PATH=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No keystore secret: building an UNSIGNED bundle."
+          fi
+
+      - name: Build release bundle
+        working-directory: android
+        env:
+          VANT_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          VANT_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          VANT_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          [[ "$VERSION_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "version_name must look like 1.0.0"; exit 1; }
+          chmod +x gradlew
+          ./gradlew bundleRelease \
+            -PversionCode="$VERSION_CODE" \
+            -PversionName="$VERSION_NAME"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vant-${{ inputs.version_name }}-${{ github.run_number }}
+          path: android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
