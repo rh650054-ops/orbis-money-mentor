@@ -21,6 +21,7 @@ import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 import { ClimaChip } from "@/components/clima/ClimaChip";
 import { RetomarLugar, SinalDeHoje } from "@/components/defcon/FocoExtras";
+import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 
 // "Pix que caiu depois" — pagamento que entrou tarde, lançado num dia anterior
@@ -1162,6 +1163,9 @@ export default function DefconHub() {
           </div>
         );
       })()}
+
+      {/* ===== JORNADA DO TESTE: a missão do dia (some fora do teste e durante o Foco) ===== */}
+      {estado !== "rodando" && <MissaoDoDia />}
 
       {/* ===== RETOMAR MEU LUGAR: alguém passou ele depois que fechou o dia ===== */}
       {estado === "encerrado" && rank.pos && caiuDe != null && (

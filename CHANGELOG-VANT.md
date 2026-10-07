@@ -2,6 +2,14 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 06/10/2026 — Jornada do teste (dia 0 + 3 dias)
+- **Missão do dia** no Início e no Foco: dia 0 primeiro Foco + ranking · dia 1 relatório · dia 2 custo do produto pela nota · dia 3 Caça-Sinal + arte da marca (abre a VANT IA já pedindo). Marca o que foi feito e mostra os 4 dias; some fora do teste. No dia 3 mostra quanto ele vendeu no teste.
+- **Oferta do dia** no fim do Foco, uma vez por dia: dia 1 VANT Essencial (botão principal é continuar testando), dia 2 prévia do VANT Pro com o banco trancado, dia 3 "último dia" → planos. Dia 0 sem preço.
+- **Tela /planos** e **bloqueio do fim do teste** com os 3 planos: VANT Pro Anual (selecionado), VANT Pro Mensal e VANT Essencial, mais "falar com o Yan".
+- **Menos barulho:** saíram a faixa fixa em todas as telas, o aviso diário, os avisos repetidos de "falta 1 dia" (que diziam "amanhã" no último dia), a janela de oferta na primeira visita ao Início e os empurrões de meta batida e de subir de patente. No lugar, um selo pequeno "Teste grátis · faltam N dias".
+- Nomes: "Visionário" e "BLACK" viraram VANT Essencial; "Assinar" em Minha Conta abre os 3 planos.
+- Banco: tabela `jornada_teste` (passos cumpridos por usuário, só o dono lê e grava) pra medir quais missões levam à assinatura.
+
 ## 06/10/2026 — Arte "Sobrou pra mim" removida
 - A arte de story "Sobrou pra mim" saiu do compartilhamento do fim do DEFCON, a pedido do Rick. Voltam só as artes de antes: a com fundo (feed/WhatsApp) e as transparentes pro story.
 

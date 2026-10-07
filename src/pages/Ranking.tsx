@@ -16,7 +16,7 @@ import { RankingChase } from "@/components/ranking/RankingChase";
 import { RankingPodium } from "@/components/ranking/RankingPodium";
 import { leagueRank } from "@/components/ranking/tier";
 import { LeagueTransition } from "@/components/ranking/LeagueTransition";
-import { TrialNudge } from "@/components/TrialNudge";
+import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { RankingList } from "@/components/ranking/RankingList";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -102,7 +102,8 @@ export default function Ranking() {
   const quickPhotoRef = useRef<HTMLInputElement>(null);
   const [quickUploading, setQuickUploading] = useState(false);
   const [leagueTransition, setLeagueTransition] = useState<{ type: "up" | "down"; position: number } | null>(null);
-  const [showRankNudge, setShowRankNudge] = useState(false);
+  // jornada do teste (dia 0): ver a posição no ranking cumpre o passo
+  useMarcarPasso("ranking");
   const currentMonth = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 
   const prevFaturamentoPosition = useRef<number | null>(null);
@@ -325,15 +326,6 @@ export default function Ranking() {
         <p className="text-muted-foreground capitalize text-sm">{currentMonth}</p>
       </div>
 
-      {showRankNudge && user && (
-        <TrialNudge
-          userId={user.id}
-          momentKey="ranking_promo"
-          title="Você subiu de patente! 🏆"
-          benefit="Cada venda te faz subir no ranking. Quando o teste acabar, você sai da disputa e perde seu lugar."
-        />
-      )}
-
       <p className="text-center text-xs text-muted-foreground">
         Maiores vendedores do mês · ofensiva 🔥 incluída
       </p>
@@ -463,7 +455,7 @@ export default function Ranking() {
         <LeagueTransition
           type={leagueTransition.type}
           position={leagueTransition.position}
-          onClose={() => { const up = leagueTransition?.type === "up"; setLeagueTransition(null); if (up) setShowRankNudge(true); }}
+          onClose={() => setLeagueTransition(null)}
         />
       )}
 

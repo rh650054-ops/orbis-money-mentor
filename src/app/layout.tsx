@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
+import { SeloTeste } from "@/components/jornada/SeloTeste";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Zap, DollarSign, BarChart3, MessageCircle, Trophy, Clock, CheckSquare, Wallet, User, LogOut, ChevronDown, FileText, Building2, UserCircle } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
@@ -107,34 +108,7 @@ export default function Layout({ children }: LayoutProps) {
     setTrialModalDismissed(true);
   };
 
-  // Show trial reminder during trial period
-  useEffect(() => {
-    if (!user || trialLoading || subscriptionLoading) return;
-    if (!onboardingCompleto) return;
-    // Pula só pra quem REALMENTE paga (ou demo). No teste, subscribed=true mas
-    // status="trial" — então checamos o status, não só o subscribed.
-    if (subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") return;
-    
-    const daysRemaining = trialStatus.daysRemaining ?? 0;
-    const shownDays = Math.min(daysRemaining, 3); // teste é de 3 dias (no 1o dia da pra 4)
-
-    // Mostra o lembrete durante todo o teste (não assinante e não expirado).
-    // SEM teto de "<= 3 dias" — conta nova calcula 4 dias e o banner sumia no 1o dia.
-    if (trialStatus.planStatus !== 'active' && !trialStatus.isExpired && daysRemaining > 0) {
-      const lastReminderDate = localStorage.getItem('lastTrialReminder');
-      const today = new Date().toISOString().split('T')[0]!;
-      
-      // Show once per day
-      if (lastReminderDate !== today) {
-        toast({
-          title: `🔥 Faltam ${shownDays} ${shownDays === 1 ? 'dia' : 'dias'} do seu acesso grátis`,
-          description: "Você já começou a dominar seus números. Mantém a Vant por R$0,99 por dia (R$ 29,90/mês) e não perde o ritmo.",
-          duration: 8000,
-        });
-        localStorage.setItem('lastTrialReminder', today);
-      }
-    }
-  }, [user, trialStatus.planStatus, trialStatus.isExpired, trialStatus.daysRemaining, subscriptionStatus.subscribed, subscriptionStatus.status, trialLoading, subscriptionLoading, toast]);
+  // Lembrete diário do teste removido (jornada do teste, 06/10): uma oferta por dia, no fim do Foco.
 
   // Redireciona para troca de senha se o admin gerou uma senha temporária
   useEffect(() => {
@@ -262,29 +236,8 @@ export default function Layout({ children }: LayoutProps) {
             <BackButton to={location.pathname === "/profile" ? "/" : undefined} />
           </div>
         )}
-        {/* Trial Warning Banner */}
-        {!subscriptionLoading && !(subscriptionStatus.subscribed && subscriptionStatus.status !== "trial") && !trialStatus.isExpired && trialStatus.daysRemaining >= 1 && (
-          <div className="mb-6 p-4 rounded-lg bg-warning/10 border-2 border-warning/30 animate-fade-in">
-            <div className="flex items-start gap-3">
-              <div className="text-2xl">🔥</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-warning mb-1">
-                  {`Faltam ${Math.min(trialStatus.daysRemaining, 3)} ${Math.min(trialStatus.daysRemaining, 3) === 1 ? 'dia' : 'dias'} do seu acesso grátis`}
-                </h3>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Seu histórico, sua constância e seu lugar no ranking estão sendo construídos. Quando o teste acabar, isso trava. Mantenha tudo por menos de R$1 por dia.
-                </p>
-                <Button 
-                  size="sm" 
-                  onClick={() => navigate('/payment')}
-                  className="bg-warning hover:bg-warning/90 text-warning-foreground"
-                >
-                  Quero continuar — R$ 29,90/mês
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Teste: só um selo pequeno (jornada do teste, 06/10). A oferta vem uma vez por dia, no fim do Foco. */}
+        <SeloTeste />
         {/* Lembrete de extrato removido (Rick, 09/09): a competição não usa mais extrato. */}
         {user && <WeeklyChallengeTicket />}
         {user && <DesafioFluxoBar />}

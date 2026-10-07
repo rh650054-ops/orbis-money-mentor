@@ -10,6 +10,7 @@
    3) custo por unidade = soma ÷ rendimento → salvar (custo_notas_salvar): custo no
       produto, estoque, custo do dia e a saída do banco marcada como Mercadoria.
    ============================================================ */
+import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Camera, Check, Loader2, Plus, Trash2 } from "lucide-react";
@@ -42,6 +43,8 @@ function Fala({ children }: { children: React.ReactNode }) {
 }
 
 export default function CustoProduto() {
+  // jornada do teste: abrir esta tela cumpre o passo "custo" do dia
+  useMarcarPasso("custo");
   const { user } = useAuth();
   const navigate = useNavigate();
   const [etapa, setEtapa] = useState<Etapa>("produto");

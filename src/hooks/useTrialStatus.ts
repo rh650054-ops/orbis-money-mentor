@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
-import { useToast } from "@/shared/ui/use-toast";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
 interface TrialStatus {
@@ -33,7 +32,6 @@ export function useTrialStatus(userId: string | undefined) {
     isExpired: false,
   });
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     if (!userId) {
@@ -108,20 +106,8 @@ export function useTrialStatus(userId: string | undefined) {
         isExpired,
       });
 
-      // Show notification if trial is ending soon
-      if (daysRemaining === 1 && profile.is_trial_active) {
-        toast({
-          title: "🔥 Falta 1 dia!",
-          description: "Seu teste gratuito termina amanhã. Ative o plano Visionário para continuar!",
-          duration: 8000,
-        });
-      } else if (daysRemaining === 0 && profile.is_trial_active) {
-        toast({
-          title: "🚀 Último dia!",
-          description: "Seu teste gratuito termina hoje! Continue evoluindo com a Vant.",
-          duration: 8000,
-        });
-      }
+      // Avisos de "falta 1 dia" removidos (06/10): repetiam a cada tela e diziam "amanhã"
+      // no último dia. A jornada do teste mostra o dia certo no selo e na missão.
     } catch (error) {
       console.error('Error checking trial status:', error);
     } finally {

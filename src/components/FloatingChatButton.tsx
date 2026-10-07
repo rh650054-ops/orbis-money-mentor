@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { marcarPasso } from "@/components/jornada/useJornada";
 import { MessageSquare, Send, Loader2, X, Plus, Menu, Trash2, Sparkles, Pencil, Mic, MicOff, Square, Download, ImagePlus, Volume2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
@@ -273,6 +274,22 @@ export default function FloatingChatButton() {
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [isOpen]);
+
+  // Jornada do teste (06/10): a missão do dia 3 abre o chat já pedindo a arte da marca
+  useEffect(() => {
+    const abrir = (e: Event) => {
+      const texto = (e as CustomEvent<{ texto?: string }>).detail?.texto;
+      setIsOpen(true);
+      if (texto) setTimeout(() => { if (!isSending) sendMessage(texto); }, 350);
+    };
+    window.addEventListener("vant:abrir-chat", abrir);
+    return () => window.removeEventListener("vant:abrir-chat", abrir);
+  });
+
+  // A arte da marca saiu no chat: cumpre o passo "marca" da jornada
+  useEffect(() => {
+    if (messages.some((m) => m.role === "assistant" && String(m.content ?? "").includes("[[adesivo:"))) void marcarPasso("marca");
+  }, [messages]);
 
   // Para a gravação de voz ao fechar o chat
   useEffect(() => {

@@ -8,6 +8,7 @@
      Tempo do sinal sempre visível; sem relato, os 3 botões ficam ali mesmo.
    - Inteligência: "agora" e "seu melhor ponto" (histórico próprio).
    ============================================================ */
+import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { useEffect, useMemo, useState } from "react";
 import { Navigation, LocateFixed, Flame, Loader2, MapPin, Search, Check, Download, ChevronDown, Trophy, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -211,6 +212,8 @@ function SeletorCidade({ cidades, atual, onEscolher, onFechar }: { cidades: Cida
 }
 
 export default function SpotFinder() {
+  // jornada do teste: abrir esta tela cumpre o passo "sinal" do dia
+  useMarcarPasso("sinal");
   const { user } = useAuth();
   const { whitelisted, role } = useAdminAccess(user?.id);
   const isAdmin = whitelisted && role === "admin";
