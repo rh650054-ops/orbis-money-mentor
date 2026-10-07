@@ -16,6 +16,8 @@ describe("jornada do teste", () => {
   it("has one mission per day with Essencial on day 1, Pro on day 2 and plans on day 3", () => {
     expect(JORNADA.map((j) => j.oferta)).toEqual(["nenhuma", "essencial", "pro", "planos"]);
     expect(jornadaDoDia(2)?.passos.map((p) => p.id)).toEqual(["foco", "custo"]);
+    // dia 0: o onboarding já fez treino do DEFCON e ranking; não repete
+    expect(jornadaDoDia(0)?.passos.map((p) => p.id)).toEqual(["produto", "foco"]);
   });
   it("writes the trial badge in plain Portuguese", () => {
     expect(seloTeste(0)).toBe("Teste grátis · faltam 3 dias");

@@ -39,6 +39,14 @@ export function MissaoDoDia() {
       </div>
 
       <ul className="space-y-1.5">
+        {(j.jaFeitos ?? []).map((t) => (
+          <li key={t} className="flex items-center gap-2.5 text-[13px] font-bold">
+            <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ background: OK, color: "#0b1d14" }}>
+              <Check className="w-3 h-3" strokeWidth={3.5} />
+            </span>
+            <span style={{ color: MUTE, textDecoration: "line-through" }}>{t}</span>
+          </li>
+        ))}
         {j.passos.map((p) => {
           const feito = feitos.has(p.id);
           return (
