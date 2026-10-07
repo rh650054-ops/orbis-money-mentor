@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { avisar } from "@/shared/lib/avisar";
 import { diaDoTeste, type Passo } from "./jornada-lib";
+import { lerSimulacao, passosSimulados, gravarPassoSimulado, EVENTO_SIMULACAO } from "./simulador";
 
 type Linha = Record<string, unknown>;
 type Resp<T> = { data: T | null; error: unknown };
@@ -34,6 +35,8 @@ export async function marcarPasso(passo: Passo): Promise<void> {
     const { data: { session } } = await supabase.auth.getSession();
     const uid = session?.user?.id;
     if (!uid) return;
+    // simulador do admin: marca só na chave local da simulação, nunca no banco
+    if (lerSimulacao(uid) != null) { gravarPassoSimulado(uid, passo); OUVINTES.forEach((f) => f()); return; }
     const locais = lerLocal(uid);
     if (locais.includes(passo)) return;
     gravarLocal(uid, [...locais, passo]);
@@ -67,6 +70,20 @@ export function useJornada(): EstadoJornada {
     if (!uid) { setEstado((e) => ({ ...e, carregando: false, emTeste: false })); return; }
     try {
       const hoje = getBrazilDate();
+      const sim = lerSimulacao(uid);
+      if (sim != null) {
+        // Simulação: finge um teste que começou há `sim` dias. O "vendido no teste"
+        // usa as vendas reais da conta nesses dias, pra tela mostrar número de verdade.
+        let vendidoNoTeste: number | null = null;
+        if (sim >= 3) {
+          const ini = new Date(Date.parse(hoje + "T12:00:00-03:00") - Math.min(sim, 3) * 86_400_000).toISOString().slice(0, 10);
+          const { data: vendas } = await tabela("daily_sales").select("total_profit, date").eq("user_id", uid).gte("date", ini);
+          vendidoNoTeste = (vendas ?? []).reduce((s, v) => s + (Number(v.total_profit) || 0), 0);
+        }
+        const emTeste = sim <= 3;
+        setEstado({ carregando: false, emTeste, dia: emTeste ? sim : null, feitos: new Set(passosSimulados(uid)), vendidoNoTeste });
+        return;
+      }
       const [{ data: p }, { data: linhas }] = await Promise.all([
         tabela("profiles").select("trial_start, trial_end, plan_status, is_demo, billing_exempt, created_at").eq("user_id", uid).maybeSingle(),
         tabela("jornada_teste").select("passo").eq("user_id", uid),
@@ -97,10 +114,20 @@ export function useJornada(): EstadoJornada {
 
   useEffect(() => { void carregar(); }, [carregar]);
   useEffect(() => {
-    const f = () => { if (uid) setEstado((s) => ({ ...s, feitos: new Set([...s.feitos, ...lerLocal(uid)]) })); };
+    const f = () => {
+      if (!uid) return;
+      const extra = lerSimulacao(uid) != null ? passosSimulados(uid) : lerLocal(uid);
+      setEstado((s) => ({ ...s, feitos: new Set([...s.feitos, ...extra]) }));
+    };
     OUVINTES.add(f);
     return () => { OUVINTES.delete(f); };
   }, [uid]);
+  // trocar o dia no simulador (ou zerar) recarrega tudo na hora
+  useEffect(() => {
+    const f = () => { void carregar(); };
+    window.addEventListener(EVENTO_SIMULACAO, f);
+    return () => window.removeEventListener(EVENTO_SIMULACAO, f);
+  }, [carregar]);
 
   return estado;
 }
