@@ -7,7 +7,8 @@ import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, getBrazilDateLabel, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
-import { TrialNudge } from "@/components/TrialNudge";
+import { OfertaDoDia } from "@/components/jornada/OfertaDoDia";
+import { useMarcarPasso } from "@/components/jornada/useJornada";
 import jsPDF from "jspdf";
 import orbisLogo from "@/assets/vant-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
@@ -59,6 +60,8 @@ export function DefconEndScreen({
   onRestart,
 }: DefconEndScreenProps) {
   const [pix, setPix] = useState("");
+  // Jornada do teste: terminar um Foco de verdade (fora do treino) cumpre o passo "foco"
+  useMarcarPasso("foco", !!userId && !/[?&]treino=1/.test(typeof window !== "undefined" ? window.location.search : ""));
   // PIX TRAVADO (Open Finance; religado 03/10 a pedido do Rick): com banco
   // ligado, o Pix do dia é o que o banco diz — cadeado, sem digitar.
   // Ao finalizar: pede uma leitura NA HORA (pluggy-sync importa o que já está
@@ -1021,16 +1024,8 @@ export function DefconEndScreen({
           />
         )}
 
-        {/* Empurrão de teste — aparece SEMPRE que finaliza o DEFCON (durante o trial) */}
-        {userId && (
-          <TrialNudge
-            userId={userId}
-            momentKey="defcon_end"
-            oncePerDay={false}
-            title="Tá curtindo o foco do DEFCON 4?"
-            benefit="É aqui que você vende com meta, cronômetro e conversão ao vivo — quem usa todo dia rende mais. Quando o teste acabar, isso trava."
-          />
-        )}
+        {/* Jornada do teste (06/10): a oferta do dia, uma vez por dia, depois da conquista */}
+        {userId && <OfertaDoDia />}
 
         {/* 3. RECEBIMENTOS */}
         {totalSold > 0 && (

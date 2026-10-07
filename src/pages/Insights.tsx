@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMarcarPasso } from "@/components/jornada/useJornada";
 import { buscarTudo } from "@/shared/lib/paginar";
 import { useNavigate } from "react-router-dom";
 import {
@@ -105,6 +106,8 @@ function fmtBR(d: Date): string {
 }
 
 export default function Insights() {
+  // jornada do teste: abrir esta tela cumpre o passo "relatorio" do dia
+  useMarcarPasso("relatorio");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();

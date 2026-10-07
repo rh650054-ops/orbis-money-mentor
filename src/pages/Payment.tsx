@@ -135,7 +135,7 @@ export default function Payment() {
               </div>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground leading-tight">
-              Ative o Plano Visionário
+              Ative o VANT Essencial
             </h1>
             <p className="text-sm text-muted-foreground mt-1.5">
               Continue dominando seus números com a Vant

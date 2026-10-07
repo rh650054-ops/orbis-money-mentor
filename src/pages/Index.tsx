@@ -10,8 +10,7 @@ import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
-import CardRegistrationModal from "@/components/CardRegistrationModal";
-import { TrialNudge } from "@/components/TrialNudge";
+import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { emitMissionEvent } from "@/shared/lib/missionEvents";
 import { DayStartPopup } from "@/components/DayStartPopup";
@@ -78,7 +77,6 @@ export default function Index() {
   });
   const [dailyAverage, setDailyAverage] = useState(0);
   const [activeDaysCount, setActiveDaysCount] = useState(0);
-  const [showCardModal, setShowCardModal] = useState(false);
   // Gerenciador de custos aberto pelo card "Custos". Sem ele, um custo lançado
   // (ex.: CMV vindo do DEFCON) ficava INAPAGÁVEL fora do DEFCON: o vendedor
   // apagava as vendas, o custo sobrava na linha do dia e o lucro ficava errado
@@ -182,30 +180,6 @@ export default function Index() {
     if (user) loadDashboardData();
   });
 
-  // Mostra a escolha (assinar agora / testar 3 dias) logo no 1º acesso, por usuário.
-  useEffect(() => {
-    if (!user) return;
-
-    const checkCardModal = async () => {
-      const seenKey = `orbis_card_modal_seen_${user.id}`;
-      if (localStorage.getItem(seenKey)) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("plan_status, is_demo, billing_exempt")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      // Só mostra se ainda não é assinante
-      const isSubscribed = (profile?.is_demo && profile?.billing_exempt) || profile?.plan_status === "active";
-      if (!isSubscribed) {
-        setShowCardModal(true);
-        localStorage.setItem(seenKey, 'true');
-      }
-    };
-
-    checkCardModal();
-  }, [user]);
   const loadDashboardData = async (customStartDate?: string, customEndDate?: string) => {
     if (!user) return;
 
@@ -469,7 +443,6 @@ export default function Index() {
   // Meta do dia = a MESMA que o usuário define no DEFCON (daily_goal_plans). Só
   // cai pra meta mensal ÷ 26 quando ainda não há meta do dia definida.
   const dailyGoal = dailyGoalPlan > 0 ? dailyGoalPlan : (monthlyGoal > 0 ? Math.round(monthlyGoal / 26) : 200);
-  const faltaDia = Math.max(dailyGoal - dailyProfit, 0);
   const totalSalesToday = salesCountToday;
   const custosTotal = monthlyStats.totalCost + monthlyStats.totalTransport + monthlyStats.totalFood + monthExpensesTotal;
   // O que aparece ao lado da meta do mês é a DIÁRIA DO PLANO dele (a mesma do
@@ -522,6 +495,8 @@ export default function Index() {
           Fila por prioridade; cada aviso continua decidindo sozinho se aparece,
           e o CSS (.orbis-um-aviso) mostra só o primeiro que tiver conteúdo. */}
       <div className="orbis-um-aviso">
+        {/* Teste (dia 0 + 3 dias): a missão do dia vem antes de tudo e some fora do teste */}
+        <div><MissaoDoDia /></div>
         <div>
           {/* Conta nova: trilha dos primeiros passos (some quando completa) */}
           {contaNova && (
@@ -601,20 +576,8 @@ export default function Index() {
       <CompeticaoRow onClick={() => navigate('/competitions')} />
 
 
-      {/* "Meta do dia batida" (teste) fica FORA da fila de avisos: ele se marca como
-          visto ao montar, então escondido pelo CSS ele gastaria a vez do dia sem aparecer. */}
-      {user && faltaDia <= 0 && dailyProfit > 0 && (
-        <TrialNudge
-          userId={user.id}
-          momentKey="meta_dia"
-          title="Meta do dia batida!"
-          benefit="Quem usa a Vant todo dia bate meta com ritmo. Não perca essa régua quando o teste acabar."
-        />
-      )}
-
       <AntiProcrastination visible={!isRestDay && !hasPlanToday} />
 
-      <CardRegistrationModal isOpen={showCardModal} onClose={() => setShowCardModal(false)} />
 
       {user && (() => {
         // O modal abre SEMPRE que o usuário pede (showEditPlanning) — inclusive no

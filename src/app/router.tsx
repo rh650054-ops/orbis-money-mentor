@@ -79,6 +79,7 @@ const X1Carteira = lazyWithReload(() => import("@/pages/X1Carteira"));
 const MpRetorno = lazyWithReload(() => import("@/pages/MpRetorno"));
 const Verificar = lazyWithReload(() => import("@/pages/Verificar"));
 const Pro = lazyWithReload(() => import("@/pages/Pro"));
+const Planos = lazyWithReload(() => import("@/pages/Planos"));
 const Cobrar = lazyWithReload(() => import("@/pages/Cobrar"));
 const Clima = lazyWithReload(() => import("@/pages/Clima"));
 const X1Escolher = lazyWithReload(() => import("@/pages/X1Escolher"));
@@ -155,6 +156,7 @@ export function AppRouter() {
                     <Route path="/x1/carteira" element={<X1Carteira />} />
                     <Route path="/verificar" element={<Verificar />} />
                     <Route path="/pro" element={<Pro />} />
+                    <Route path="/planos" element={<Planos />} />
                     <Route path="/cobrar" element={<Cobrar />} />
                     <Route path="/mp/retorno" element={<MpRetorno />} />
                     <Route path="/pb/retorno" element={<MpRetorno />} />

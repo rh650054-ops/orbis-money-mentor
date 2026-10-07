@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { getCheckoutUrl } from "@/shared/lib/checkout";
 import { useNavigate, Link } from "react-router-dom";
 import { Crown, Mail, Calendar, TrendingUp, CheckCircle2, Edit2, Save, X, Camera, ArrowLeft, ShieldCheck, Trash2 } from "lucide-react";
 import { Button } from "@/shared/ui/button";
@@ -402,9 +401,8 @@ export default function Profile() {
     });
   };
 
-  const handleUpgrade = () => {
-    window.open(getCheckoutUrl(), "_blank");
-  };
+  // os 3 planos numa tela (Pro Anual, Pro Mensal, Essencial)
+  const handleUpgrade = () => navigate("/planos");
 
   if (loading || !user) {
     return null;
@@ -774,8 +772,8 @@ export default function Profile() {
                   <Crown className="w-5 h-5 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-base font-semibold leading-tight">Vant BLACK</p>
-                  <p className="text-xs text-muted-foreground">Plano Mensal Premium</p>
+                  <p className="text-base font-semibold leading-tight">VANT Essencial</p>
+                  <p className="text-xs text-muted-foreground">ou VANT Pro, com banco e IA</p>
                 </div>
               </div>
               <Badge className="bg-success/15 text-success border border-success/30 text-xs px-1.5 py-0 h-5 font-semibold shrink-0">
