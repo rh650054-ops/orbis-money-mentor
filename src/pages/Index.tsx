@@ -21,6 +21,7 @@ import { useMonthlyGoalRequired } from "@/hooks/useMonthlyGoalRequired";
 import RankingCard from "@/components/RankingCard";
 import { HeaderV9, SemanaRow, HeroCard, Bloco, FinanceiroFlat, PatenteLinha, CompeticaoRow } from "@/components/dashboard/Dashboard";
 import PrimeirosPassos from "@/components/onboarding/PrimeirosPassos";
+import { useJornada } from "@/components/jornada/useJornada";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import ConfirmarEmailNudge from "@/components/ConfirmarEmailNudge";
@@ -39,6 +40,7 @@ export default function Index() {
   const navigate = useNavigate();
   const { user, loading } = useAuth();
   const { hasPlanToday, loading: planLoading } = useDailyGoalPlan(user?.id);
+  const jornada = useJornada();
   const { toast } = useToast();
 
   // Avisa o splash de abertura que a tela inicial já montou, pra ele sair só
@@ -89,8 +91,6 @@ export default function Index() {
   // Conta NOVA (passou pelo onboarding 2.0 → tem linha em onboarding_planos):
   // vê o checklist "Seus primeiros passos". Contas antigas nunca veem.
   const [contaNova, setContaNova] = useState(false);
-  const [temDefcon, setTemDefcon] = useState(false);
-  const [visitouRanking, setVisitouRanking] = useState(false);
   // v9: faixa da semana (constância) — dias que ele trabalha + dias com venda
   const [workingDays, setWorkingDays] = useState<string[] | null>(null);
   // Dias TRABALHADOS = teve venda no DEFCON (não vale lançamento manual nem Pix
@@ -103,12 +103,6 @@ export default function Index() {
       const { data: plano } = await supabase.from("onboarding_planos").select("user_id").eq("user_id", user.id).maybeSingle();
       if (cancel) return;
       setContaNova(Boolean(plano));
-      // Passo 3 = fez o TREINO GUIADO do DEFCON (/defcon?treino=1), não "tem algum plano
-      // no banco" — era isso que marcava o passo sozinho sem o usuário nunca ter entrado.
-      try {
-        setTemDefcon(localStorage.getItem(`orbis_defcon_tour_ok_${user.id}`) === "1");
-        setVisitouRanking(localStorage.getItem(`orbis_visitou_ranking_${user.id}`) === "1");
-      } catch (e) { avisar.silencioso("início: ler passos do tour", e); }
     })();
     return () => { cancel = true; };
   }, [user]);
@@ -507,12 +501,14 @@ export default function Index() {
                 { id: "metas", titulo: "Definir sua meta mensal e diária",
                   dica: "Confere os valores do seu planejamento",
                   feito: monthlyGoal > 0 && dailyGoal > 0, onIr: () => setShowEditPlanning(true) },
-                { id: "defcon", titulo: "Iniciar um DEFCON 4 de teste",
-                  dica: "Treino guiado — nada conta no ranking",
-                  feito: temDefcon, onIr: () => navigate("/defcon?treino=1") },
-                { id: "ranking", titulo: "Conhecer o ranking",
-                  dica: "Vê as patentes e onde você entra",
-                  feito: visitouRanking, onIr: () => navigate("/ranking") },
+                // 06/10: o onboarding já faz o treino do DEFCON e mostra o ranking;
+                // aqui entram os passos de verdade do primeiro dia.
+                { id: "produto", titulo: "Cadastrar seu produto no estoque",
+                  dica: "Ele aparece na mercadoria de hoje do Foco",
+                  feito: jornada.feitos.has("produto"), onIr: () => navigate("/products") },
+                { id: "dia", titulo: "Começar seu primeiro dia de trabalho",
+                  dica: "Inicie o Foco na hora de vender — esse conta no ranking",
+                  feito: jornada.feitos.has("foco"), onIr: () => navigate("/daily-goals") },
               ]}
               onDispensar={() => setContaNova(false)}
             />

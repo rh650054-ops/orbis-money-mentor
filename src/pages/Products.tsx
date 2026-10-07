@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { marcarPasso } from "@/components/jornada/useJornada";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
@@ -290,6 +291,7 @@ export default function Products() {
       ? await supabase.from("products").update(payload).eq("id", editing.id).select().single()
       : await supabase.from("products").insert(payload).select().single();
     if (saved && !editing) {
+      void marcarPasso("produto"); // jornada do teste: dia 0 "cadastrar seu produto"
       // mantém o produto recém-criado em "editing" pra permitir adicionar receita logo em seguida
       setEditing(saved as Product);
     }

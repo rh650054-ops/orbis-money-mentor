@@ -14,6 +14,7 @@ interface Consulta<T> extends PromiseLike<Resp<T>> {
   select: (c: string) => Consulta<T>;
   eq: (c: string, v: unknown) => Consulta<T>;
   gte: (c: string, v: unknown) => Consulta<T>;
+  limit: (n: number) => Consulta<T>;
   maybeSingle: () => PromiseLike<Resp<Linha>>;
   insert: (v: Linha) => PromiseLike<{ error: { code?: string } | null }>;
 }
@@ -84,9 +85,11 @@ export function useJornada(): EstadoJornada {
         setEstado({ carregando: false, emTeste, dia: emTeste ? sim : null, feitos: new Set(passosSimulados(uid)), vendidoNoTeste });
         return;
       }
-      const [{ data: p }, { data: linhas }] = await Promise.all([
+      const [{ data: p }, { data: linhas }, { data: prods }] = await Promise.all([
         tabela("profiles").select("trial_start, trial_end, plan_status, is_demo, billing_exempt, created_at").eq("user_id", uid).maybeSingle(),
         tabela("jornada_teste").select("passo").eq("user_id", uid),
+        // já tem produto cadastrado (antes da jornada existir, ou por outro caminho) = passo cumprido
+        tabela("products").select("id").eq("user_id", uid).eq("is_active", true).limit(1),
       ]);
       const inicio = (p?.trial_start as string | null) ?? ((p?.created_at as string | null)?.slice(0, 10) ?? null);
       const fim = (p?.trial_end as string | null) ?? null;
@@ -94,6 +97,7 @@ export function useJornada(): EstadoJornada {
       const dia = diaDoTeste(inicio, hoje);
       const emTeste = !pagante && dia != null && (!fim || hoje <= fim);
       const feitos = new Set<Passo>([...lerLocal(uid), ...((linhas ?? []).map((l) => l.passo as Passo))]);
+      if ((prods ?? []).length > 0) feitos.add("produto");
       gravarLocal(uid, Array.from(feitos));
 
       // quanto vendeu nos dias de teste: o argumento do último dia e da tela de bloqueio
