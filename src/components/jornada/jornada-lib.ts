@@ -74,6 +74,19 @@ export const JORNADA: DiaJornada[] = [
   },
 ];
 
+/** Primeiro dia da jornada em que o passo aparece (foco vale todo dia). */
+export function diaDoPasso(passo: Passo): number | null {
+  const d = JORNADA.find((j) => j.passos.some((p) => p.id === passo));
+  return d ? d.dia : null;
+}
+
+/** O passo pode ser marcado hoje? Fora do teste (dia null) sempre; no teste, só no dia dele ou depois. */
+export function passoLiberado(passo: Passo, diaAtual: number | null): boolean {
+  if (diaAtual == null) return true;
+  const d = diaDoPasso(passo);
+  return d == null || d <= diaAtual;
+}
+
 /** Dias entre duas datas "AAAA-MM-DD" (b - a), sem fuso no meio. */
 export function diasEntre(a: string, b: string): number {
   const ms = Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10));
