@@ -1,5 +1,8 @@
 /* ============================================================
-   CAMPO "QUE HORAS VOCÊ COMEÇA A VENDER AMANHÃ?" — drop-in.
+   CAMPO "QUE HORAS VOCÊ COSTUMA COMEÇAR A VENDER?" — drop-in.
+   07/10/2026 (Rick): antes só tinha 7h, 8h, 9h e 10h; tem vendedor que começa
+   à 1 da tarde, às 3. Agora os atalhos da manhã ficam e "outro horário" abre
+   todas as horas de 5h às 22h.
    O modal Editar Planejamento FICA COMO ERA (decisão do Rick);
    este campo entra no FINAL dele, antes dos botões Cancelar/Salvar,
    com a cara do mock aprovado (bloco tracejado dourado + selo NOVO).
@@ -15,8 +18,24 @@ import { carregarPlano, salvarHoraInicio } from "@/shared/onboarding/plano";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 
+const ATALHOS = [7, 8, 9, 10];
+const TODAS = Array.from({ length: 18 }, (_, i) => i + 5); // 5h … 22h
+
+function Chip({ h, ativo, pequeno, onClick }: { h: number; ativo: boolean; pequeno?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={`orbis-press orbis-num ${pequeno ? "h-9 text-[13px]" : "h-11 text-[15px]"} rounded-[12px] flex items-center justify-center font-extrabold`}
+      style={ativo
+        ? { background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1A1200", boxShadow: "0 4px 0 #B88700" }
+        : { background: "#1E1E1E", border: "1px solid rgba(255,255,255,.10)", color: "#B9B3A6" }}>
+      {h}h
+    </button>
+  );
+}
+
 export default function CampoHoraVenda({ userId }: { userId?: string }) {
   const [hora, setHora] = useState<number | null>(null);
+  const [abrirTodas, setAbrirTodas] = useState(false);
 
   useEffect(() => {
     if (!userId) return;
@@ -26,6 +45,7 @@ export default function CampoHoraVenda({ userId }: { userId?: string }) {
   const escolher = (h: number) => {
     const nova = hora === h ? null : h; // tocar de novo desmarca
     setHora(nova);
+    setAbrirTodas(false);
     if (!userId) return;
     if (nova != null) {
       void salvarHoraInicio(userId, nova);
@@ -51,23 +71,31 @@ export default function CampoHoraVenda({ userId }: { userId?: string }) {
         NOVO
       </span>
       <p className="flex items-center gap-1.5 text-sm font-bold leading-snug">
-        <span aria-hidden>⏰</span> Que horas você começa a vender amanhã?
+        <span aria-hidden>⏰</span> Que horas você costuma começar a vender?
       </p>
-      <div className="mt-2 flex gap-1.5">
+      <div className="mt-2 grid grid-cols-5 gap-1.5">
         {[7, 8, 9, 10].map((h) => (
-          <button
-            key={h}
-            type="button"
-            onClick={() => escolher(h)}
-            className="orbis-press orbis-num flex-1 h-11 rounded-[14px] flex items-center justify-center text-[15px] font-extrabold"
-            style={hora === h
-              ? { background: "linear-gradient(180deg,#FFC63A,#F5B800)", color: "#1A1200", boxShadow: "0 4px 0 #B88700" }
-              : { background: "#1E1E1E", border: "1px solid rgba(255,255,255,.10)", color: "#B9B3A6" }}
-          >
-            {h}h
-          </button>
+          <Chip key={h} h={h} ativo={hora === h} onClick={() => escolher(h)} />
         ))}
+        {hora != null && !ATALHOS.includes(hora) ? (
+          <Chip h={hora} ativo onClick={() => setAbrirTodas((v) => !v)} />
+        ) : (
+          <button type="button" onClick={() => setAbrirTodas((v) => !v)}
+            className="orbis-press h-11 rounded-[14px] text-[11.5px] font-extrabold leading-tight"
+            style={abrirTodas
+              ? { background: "#2a2418", border: "1px solid rgba(245,184,0,.5)", color: "#F5B800" }
+              : { background: "#1E1E1E", border: "1px solid rgba(255,255,255,.10)", color: "#B9B3A6" }}>
+            outro<br />horário
+          </button>
+        )}
       </div>
+      {abrirTodas && (
+        <div className="mt-2 grid grid-cols-6 gap-1.5">
+          {TODAS.map((h) => (
+            <Chip key={h} h={h} ativo={hora === h} pequeno onClick={() => escolher(h)} />
+          ))}
+        </div>
+      )}
       <p className="text-[11px] mt-1.5" style={{ color: "#7E7869" }}>
         {hora != null
           ? `Combinado: às ${hora}h a gente te espera. (tocar de novo desmarca — sem hora, sem cobrança)`
