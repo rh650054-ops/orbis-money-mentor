@@ -1,13 +1,14 @@
 // Vant — pluggy-hora: the robot that reads vendors' banks (Pluggy / Open Finance).
 // Runs every 5 min from pg_cron, but since 08/10/2026 it only READS a bank when
-// the agenda says so (_shared/pluggy-agenda.ts): morning, every hour of Modo
-// Foco, right after the Foco, and once after midnight. A vendor who is not
-// selling costs nothing. Before, every run read every bank (~96k reads/day at
-// 500 vendors).
+// the agenda says so (_shared/pluggy-agenda.ts): during Modo Foco (spread by the
+// bank's monthly budget), right after the Foco, once after midnight, and in the
+// morning only when the month has budget to spare. A vendor who is not selling
+// costs nothing.
 //
-// Each read: imports what Pluggy already has (entries of today, +yesterday at
-// the closing read) and asks Pluggy for a fresh pull from the bank (PATCH, at
-// most 1 per hour — Pluggy's limit). The fresh data arrives via pluggy-webhook.
+// Each read: imports what Pluggy already has (since the day before the last
+// read, so a gap never loses entries) and, when the bank's MONTHLY BUDGET allows
+// (Open Finance caps 240 fresh pulls/month per CPF + bank), asks Pluggy for a
+// fresh pull from the bank (PATCH). The fresh data arrives via pluggy-webhook.
 // The Raio-X (Piloto Automático) is refreshed only on morning, after-Foco and
 // closing reads — not every Foco hour.
 //
@@ -17,9 +18,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import {
-  motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT,
-  MAX_POR_RODADA, PEDIDO_MIN_MS, PRIORIDADE, type Motivo,
+  motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
+  podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo,
 } from "../_shared/pluggy-agenda.ts";
+
+/** Minutes between two fresh pulls of one bank. Pluggy's API cap is 1/h on new
+ *  accounts; when their support lifts it, set PLUGGY_PEDIDO_MIN_MIN (e.g. 15). */
+const PEDIDO_MIN_MIN = Number(Deno.env.get("PLUGGY_PEDIDO_MIN_MIN") ?? PEDIDO_MIN_PADRAO_MIN) || PEDIDO_MIN_PADRAO_MIN;
 
 /** A Foco session counts as "on" only while the app keeps touching it. */
 const FOCO_VIVO_MS = 30 * 60_000;
@@ -39,7 +44,7 @@ Deno.serve(async (req) => {
     const { dia: hoje } = relogioBRT(agora);
 
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd")
+      .select("id, item_id, user_id, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
       .neq("status", "deleted");
     // deno-lint-ignore no-explicit-any
     const conexoes: any[] = cons ?? [];
@@ -65,18 +70,23 @@ Deno.serve(async (req) => {
     }
 
     // who is due now, most urgent first, capped per run (spreads the peaks)
-    const devidas: { c: (typeof conexoes)[number]; motivo: Motivo }[] = [];
+    type Orc = ReturnType<typeof orcamentoDaConexao>;
+    const devidas: { c: (typeof conexoes)[number]; motivo: Motivo; orc: Orc }[] = [];
     for (const c of conexoes) {
+      const orc = orcamentoDaConexao(c, agora);
       const motivo = motivoDeLeitura({
         agora,
         userId: c.user_id,
         ultimaLeitura: c.last_synced_at ? new Date(c.last_synced_at) : null,
+        ultimoPedido: c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null,
+        disponivelHoje: orc.disponivelHoje,
+        pedidoMinMin: PEDIDO_MIN_MIN,
         focoAtivo: focoAtivo.has(c.user_id),
         focoFimEm: focoFim.get(c.user_id) ?? null,
         leiturasHoje: leiturasDeHoje(c.leituras_dia, c.leituras_qtd, hoje),
         leiturasGlobaisHoje: globais,
       });
-      if (motivo) devidas.push({ c, motivo });
+      if (motivo) devidas.push({ c, motivo, orc });
     }
     devidas.sort((a, b) =>
       PRIORIDADE[a.motivo] - PRIORIDADE[b.motivo] ||
@@ -90,10 +100,12 @@ Deno.serve(async (req) => {
     let lidas = 0, pix = 0, pedidos = 0, falhas = 0, piloto = 0;
     const porMotivo: Record<string, number> = {};
     const comNovidade = new Set<string>();
-    for (const { c, motivo } of rodada) {
+    for (const { c, motivo, orc } of rodada) {
       porMotivo[motivo] = (porMotivo[motivo] ?? 0) + 1;
+      const ultimaLeitura = c.last_synced_at ? new Date(c.last_synced_at) : null;
       try {
-        const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, motivo === "fechamento" ? 2 : 1);
+        const dias = diasParaImportar(ultimaLeitura, new Date(), motivo === "fechamento" ? 2 : 1);
+        const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, dias);
         lidas += r.gravadas;
         pix += r.pix;
       } catch (e) {
@@ -117,10 +129,11 @@ Deno.serve(async (req) => {
         leituras_dia: hoje,
         leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
       };
-      const ultimoPedido = c.pluggy_pedido_em ? Date.parse(c.pluggy_pedido_em) : 0;
-      if (Date.now() - ultimoPedido >= PEDIDO_MIN_MS && await pedirAtualizacao(apiKey, c.item_id)) {
+      const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
+      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN) && await pedirAtualizacao(apiKey, c.item_id)) {
         pedidos++;
         mudar.pluggy_pedido_em = agoraIso;
+        Object.assign(mudar, contarPedido(orc));
       }
       await admin.from("bank_connections").update(mudar).eq("id", c.id);
     }
