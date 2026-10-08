@@ -7,9 +7,9 @@
    Sai uma nota por hora e as janelas boas emendadas viram "picos".
    Função pura de propósito: dá pra testar sem abrir o app.
    ============================================================ */
-export interface HoraTempo { hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null }
+export interface HoraTempo { hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo?: number | null; chance?: number }
 export interface PerfilHora { hora: number; vendas: number; blocos: number }
-export interface Pico { de: number; ate: number; nota: number; etiquetas: string[]; seuPico: boolean }
+export interface Pico { de: number; ate: number; nota: number; etiquetas: string[]; seuPico: boolean; iso: string; isos: string[] }
 
 /** Movimento típico de rua no Brasil: almoço e saída do trabalho são os cheios. */
 function movimentoRua(h: number): number {
@@ -21,19 +21,29 @@ function movimentoRua(h: number): number {
   return 0;
 }
 
+/* 08/10: os MOTIVOS têm que bater com o dado. Antes "sol bom" aparecia só pela
+   temperatura, mesmo com o céu fechado o dia todo. Agora:
+   • "sem chuva"            → chance < 20%;
+   • "céu aberto"           → código do tempo de céu limpo/poucas nuvens, de dia;
+   • "temperatura agradável"→ 18° a 28°;
+   • "movimento bom"        → almoço ou saída do trabalho;
+   • "seu horário forte"    → uma das 3 horas em que ELE mais vende. */
+export const MOTIVOS = ["seu horário forte", "sem chuva", "movimento bom", "céu aberto", "temperatura agradável"] as const;
+
 export function notaDaHora(h: HoraTempo, topo: number[], medio: number[]): { nota: number; etiquetas: string[] } {
   const etiquetas: string[] = [];
   let nota = 50;
 
-  // 1) chuva: quanto mais modelos concordam, mais pesa
-  const chuva = h.total > 0 ? h.fontes / h.total : (h.prob ?? 0) / 100;
+  // 1) chuva: chance ponderada pelos modelos (ou a fração de modelos, no cache antigo)
+  const chuva = (h.chance ?? (h.total > 0 ? (h.fontes / h.total) * 100 : h.prob ?? 0)) / 100;
   nota -= chuva * 60;
-  if (chuva <= 0.17) etiquetas.push("sem chuva");
+  if (chuva < 0.2) etiquetas.push("sem chuva");
+  if (h.codigo != null && h.codigo <= 1 && h.hora >= 7 && h.hora <= 17 && chuva < 0.3) etiquetas.push("céu aberto");
 
   // 2) temperatura: tem faixa boa, e o calor extremo esvazia a rua igual chuva
   const t = h.temp;
   if (t != null) {
-    if (t >= 18 && t <= 30) { nota += 10; if (t >= 22 && chuva <= 0.34) etiquetas.push("sol bom"); }
+    if (t >= 18 && t <= 30) { nota += 10; if (t <= 28) etiquetas.push("temperatura agradável"); }
     else if (t > 34) { nota -= 14; }
     else if (t > 30) { nota -= 4; }
     else if (t < 12) { nota -= 10; }
@@ -42,10 +52,10 @@ export function notaDaHora(h: HoraTempo, topo: number[], medio: number[]): { not
   // 3) movimento da rua
   const mov = movimentoRua(h.hora);
   nota += mov;
-  if (mov >= 12) etiquetas.push("rua cheia");
+  if (mov >= 12) etiquetas.push("movimento bom");
 
   // 4) o histórico dele manda mais que qualquer palpite nosso
-  if (topo.includes(h.hora)) { nota += 22; etiquetas.push("seu pico"); }
+  if (topo.includes(h.hora)) { nota += 22; etiquetas.push("seu horário forte"); }
   else if (medio.includes(h.hora)) nota += 10;
 
   return { nota: Math.max(0, Math.min(100, Math.round(nota))), etiquetas };
@@ -68,17 +78,22 @@ export function calcularPicos(horas: HoraTempo[], perfil: PerfilHora[], corte = 
   let atual: typeof notas = [];
   const fecha = () => {
     if (atual.length === 0) return;
-    const etiquetas = [...new Set(atual.flatMap((x) => x.etiquetas))];
+    // um motivo só vale pra janela se vale pra MAIORIA das horas dela
+    const conta = (e: string) => atual.filter((x) => x.etiquetas.includes(e)).length;
     picos.push({
       de: atual[0]!.h.hora,
       ate: atual[atual.length - 1]!.h.hora,
       nota: Math.round(atual.reduce((s, x) => s + x.nota, 0) / atual.length),
-      etiquetas: ["seu pico", "rua cheia", "sem chuva", "sol bom"].filter((e) => etiquetas.includes(e)),
-      seuPico: atual.some((x) => x.etiquetas.includes("seu pico")),
+      etiquetas: MOTIVOS.filter((e) => (e === "seu horário forte" ? conta(e) > 0 : conta(e) * 2 > atual.length)),
+      seuPico: atual.some((x) => x.etiquetas.includes("seu horário forte")),
+      iso: atual[0]!.h.iso,
+      isos: atual.map((x) => x.h.iso),
     });
     atual = [];
   };
   for (const n of notas) {
+    const virouDia = atual.length > 0 && atual[atual.length - 1]!.h.iso.slice(0, 10) !== n.h.iso.slice(0, 10);
+    if (virouDia) fecha();
     if (n.nota >= corte) atual.push(n);
     else fecha();
   }
@@ -104,7 +119,7 @@ export function melhoresPicos(horas: HoraTempo[], perfil: PerfilHora[]): Pico[] 
 function encurta(p: Pico): Pico {
   const dur = p.ate - p.de;
   if (dur <= 2) return p;
-  return { ...p, ate: p.de + 2 };
+  return { ...p, ate: p.de + 2, isos: p.isos.slice(0, 3) };
 }
 
 export const rotuloPico = (p: Pico) => (p.de === p.ate ? `${p.de}h` : `${p.de}h–${p.ate + 1}h`);

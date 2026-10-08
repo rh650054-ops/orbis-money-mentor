@@ -6,9 +6,12 @@
 // de ~5 km durante 30 min — cem vendedores da mesma cidade custam UMA consulta.
 //
 // Chamada (POST, com JWT do usuário):
-//   { lat, lon, contexto?: { meta, vendidoHoje, melhorHora, melhoresHoras, contas: [{nome, dias, valor}], quedaChuvaPct }, semIA?: boolean }
+//   { lat, lon, contexto?: { meta, vendidoHoje, melhorHora, melhoresHoras, contas: [{nome, dias, valor}], quedaChuvaPct }, semIA?: boolean,
+//     forcar?: boolean, feedback?: { chovendo: boolean } }
+// v2 (08/10): chance ponderada pelo acerto dos modelos na região, 7 dias, alerta oficial do INMET,
+// padrão de 14 dias da região, Rede VANT ("tá chovendo aí?") e confiança em português.
 // Efeito colateral: grava o tempo do dia do vendedor em clima_dia (o cérebro aprende).
-// Resposta: { tempo: {...}, opiniao: {...} | null, atualizadoEm }
+// Resposta: { tempo, opiniao, fonteOpiniao, atualizadoEm, cell, rede, feedbackOk, modelos }
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.76.0";
 
@@ -83,7 +86,19 @@ const NOMES: Record<string, string> = { ecmwf_ifs025: "ECMWF · Europa", gfs_sea
 
 export type Estado = "sol" | "calor" | "nublado" | "chuva" | "tempestade" | "frio" | "noite";
 
-interface Hora { hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo: number | null }
+interface Hora {
+  hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo: number | null;
+  // v2 (08/10): chance ponderada pelo acerto de cada modelo NA REGIÃO, confiança em português e detalhe da hora
+  chance?: number; conf?: Confianca; umid?: number | null; vento?: number | null; rajada?: number | null; sens?: number | null;
+  modelos?: Record<string, number>;     // mm previsto por modelo (pra dar nota quando o vendedor responde)
+}
+type Confianca = "alta" | "media" | "baixa";
+interface Dia {
+  data: string; codigo: number | null; max: number | null; min: number | null; prob: number | null; mm: number | null; conf: Confianca;
+  horas: { hora: number; codigo: number | null; temp: number | null; chance: number | null; mm: number }[];
+}
+interface AlertaOficial { tipo: string; severidade: string; nivel: "amarelo" | "laranja" | "vermelho"; inicio: string; fim: string; riscos: string; instrucoes: string[] }
+interface Padrao { dias: number; diasChuva: number; abreFimTarde: number; horaTipica: number | null }
 interface Tempo {
   estado: Estado;
   temp: number; sensacao: number; max: number | null; min: number | null; vento: number; rajada: number | null;
@@ -93,6 +108,7 @@ interface Tempo {
   chuva: { proxima: number | null; ate: number | null; fontes: number } | null;
   cidade: string; uf: string;
   fonteAgora?: "observado" | "modelo";
+  dias?: Dia[]; oficiais?: AlertaOficial[]; padrao?: Padrao | null; modelosIds?: string[];
 }
 
 const celula = (lat: number, lon: number) => `${(Math.round(lat / 0.05) * 0.05).toFixed(2)},${(Math.round(lon / 0.05) * 0.05).toFixed(2)}`;
@@ -149,22 +165,107 @@ async function observadoAgora(lat: number, lon: number): Promise<{ temp: number;
   } catch (e) { console.error("WEATHERAPI_FALHOU:", String(e)); return null; }
 }
 
-async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
+/* ---------------------------------------------------------------- pesos dos modelos (08/10)
+   Cada "tá chovendo aí?" dá nota pros modelos naquele quadrado de ~50 km.
+   Peso = acerto suavizado (começa em 50% e só se mexe com resposta de verdade). */
+export type Pesos = Record<string, { acertos: number; total: number }>;
+const regiaoDe = (lat: number, lon: number) => `${(Math.round(lat * 2) / 2).toFixed(1)},${(Math.round(lon * 2) / 2).toFixed(1)}`;
+const pesoDe = (p?: { acertos: number; total: number }) => (p ? (p.acertos + 2) / (p.total + 4) : 0.5);
+const confDe = (chance: number): Confianca => { const a = Math.max(chance, 100 - chance) / 100; return a >= 0.8 ? "alta" : a >= 0.62 ? "media" : "baixa"; };
+
+/* ---------------------------------------------------------------- alerta OFICIAL (INMET)
+   O mesmo aviso que a Defesa Civil usa. Vem com o polígono da área: a gente
+   testa se o vendedor está dentro. Falhou? Segue só com o alerta dos modelos. */
+type Anel = [number, number][];
+function dentro(lon: number, lat: number, anel: Anel): boolean {
+  let d = false;
+  for (let i = 0, j = anel.length - 1; i < anel.length; j = i++) {
+    const [xi, yi] = anel[i]!, [xj, yj] = anel[j]!;
+    if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) d = !d;
+  }
+  return d;
+}
+function noPoligono(lon: number, lat: number, geo: { type: string; coordinates: unknown }): boolean {
+  const polys = geo.type === "MultiPolygon" ? (geo.coordinates as Anel[][]) : geo.type === "Polygon" ? [geo.coordinates as Anel[]] : [];
+  return polys.some((p) => p[0] != null && dentro(lon, lat, p[0]) && !p.slice(1).some((buraco) => dentro(lon, lat, buraco)));
+}
+async function alertasOficiais(lat: number, lon: number): Promise<AlertaOficial[]> {
+  try {
+    const r = await fetch("https://apiprevmet3.inmet.gov.br/avisos/ativos", { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return [];
+    const j = await r.json();
+    const todos = [...((j?.hoje ?? []) as Record<string, unknown>[]), ...((j?.futuro ?? j?.amanha ?? []) as Record<string, unknown>[])];
+    const out: AlertaOficial[] = [];
+    for (const a of todos) {
+      if (a.encerrado) continue;
+      let geo: { type: string; coordinates: unknown } | null = null;
+      try { geo = JSON.parse(String(a.poligono ?? "")); } catch { geo = null; }
+      if (!geo || !noPoligono(lon, lat, geo)) continue;
+      const sev = String(a.severidade ?? "");
+      out.push({
+        tipo: String(a.descricao ?? "Alerta"), severidade: sev,
+        nivel: /grande/i.test(sev) ? "vermelho" : /^perigo$/i.test(sev.trim()) ? "laranja" : "amarelo",
+        inicio: String(a.inicio ?? ""), fim: String(a.fim ?? ""),
+        riscos: String(((a.riscos as string[] | undefined) ?? [])[0] ?? "").slice(0, 280),
+        instrucoes: ((a.instrucoes as string[] | undefined) ?? []).slice(0, 4).map((t) => String(t).trim().slice(0, 200)),
+      });
+    }
+    const ordem = { vermelho: 0, laranja: 1, amarelo: 2 } as const;
+    return out.sort((x, y) => ordem[x.nivel] - ordem[y.nivel]).slice(0, 3);
+  } catch (e) { console.error("INMET_FALHOU:", String(e)); return []; }
+}
+
+/* ---------------------------------------------------------------- padrão da região
+   Últimos 14 dias da própria região: em quantos dias choveu e em quantos a
+   chuva da manhã/começo da tarde abriu no fim da tarde (16h–19h seco). */
+function padraoRegiao(times: string[], mm: (number | null)[], hoje: string): Padrao | null {
+  const porDia = new Map<string, number[]>();
+  times.forEach((t, i) => {
+    const d = t.slice(0, 10);
+    if (d >= hoje) return;
+    const arr = porDia.get(d) ?? Array(24).fill(0);
+    arr[Number(t.slice(11, 13))] = Number(mm[i] ?? 0);
+    porDia.set(d, arr);
+  });
+  if (porDia.size < 5) return null;
+  let diasChuva = 0, abre = 0; const inicios: number[] = [];
+  for (const h of porDia.values()) {
+    const chuvaDia = h.slice(6, 22).reduce((a, b) => a + b, 0);
+    if (chuvaDia < 1) continue;
+    diasChuva++;
+    const primeira = h.findIndex((v, i) => i >= 6 && v >= 0.2);
+    if (primeira >= 0) inicios.push(primeira);
+    const choveuAntes = h.slice(6, 16).some((v) => v >= 0.2);
+    const secoFimTarde = h.slice(16, 20).every((v) => v < 0.2);
+    if (choveuAntes && secoFimTarde) abre++;
+  }
+  const moda = inicios.length ? [...inicios.reduce((m, v) => m.set(v, (m.get(v) ?? 0) + 1), new Map<number, number>())].sort((a, b) => b[1] - a[1])[0]![0] : null;
+  return { dias: porDia.size, diasChuva, abreFimTarde: abre, horaTipica: moda };
+}
+
+async function buscarTempo(lat: number, lon: number, pesos: Pesos = {}): Promise<Tempo> {
   const base = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&timezone=America%2FSao_Paulo`;
   // 1) consenso: 6 modelos, chuva e temperatura por hora
   const uCons = `${base}&hourly=precipitation,temperature_2m&models=${MODELOS.join(",")}&forecast_days=2`;
-  // 2) referência: melhor modelo local pra "agora", código do tempo, vento, probabilidade
-  const uRef = `${base}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,is_day,precipitation&hourly=weather_code,precipitation_probability,wind_gusts_10m&daily=temperature_2m_max,temperature_2m_min,apparent_temperature_max&forecast_days=2`;
-  const [rc, rr] = await Promise.all([
+  // 2) referência: "agora", código do tempo, detalhe da hora, 7 dias pra frente e 14 pra trás (padrão da região)
+  const uRef = `${base}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,is_day,precipitation`
+    + `&hourly=weather_code,precipitation_probability,precipitation,temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m`
+    + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&forecast_days=7&past_days=14`;
+  const [rc, rr, oficiais] = await Promise.all([
     fetch(uCons, { signal: AbortSignal.timeout(15000) }),
     fetch(uRef, { signal: AbortSignal.timeout(15000) }),
+    alertasOficiais(lat, lon),
   ]);
   if (!rr.ok) throw new Error(`open_meteo_ref_${rr.status}`);
   const ref = await rr.json();
   const cons = rc.ok ? await rc.json() : null;
+  const rh = ref.hourly ?? {};
+  const rTimes: string[] = rh.time ?? [];
+  const rIdx = new Map(rTimes.map((t, i) => [t, i]));
+  const rv = (k: string, iso: string): number | null => { const i = rIdx.get(iso); const v = i == null ? null : (rh[k] as (number | null)[] | undefined)?.[i]; return v == null ? null : Number(v); };
 
   const hh = cons?.hourly ?? {};
-  const times: string[] = (hh.time as string[] | undefined) ?? (ref.hourly?.time as string[]) ?? [];
+  const times: string[] = (hh.time as string[] | undefined) ?? rTimes;
   // quais modelos responderam de verdade (alguns não cobrem toda região)
   const fontesOk = MODELOS.filter((m) => Array.isArray(hh[`precipitation_${m}`]) && (hh[`precipitation_${m}`] as (number | null)[]).some((v) => v != null));
   const total = fontesOk.length;
@@ -174,27 +275,53 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
   const horas: Hora[] = [];
   let acordo = 0, nAcordo = 0;
   for (let i = idxAgora; i < Math.min(times.length, idxAgora + 24); i++) {
-    let chove = 0, mmSoma = 0, tSoma = 0, tN = 0;
+    const iso = times[i]!;
+    let chove = 0, mmSoma = 0, tSoma = 0, tN = 0, wChuva = 0, wTot = 0;
+    const modelos: Record<string, number> = {};
     for (const m of fontesOk) {
       const mm = Number((hh[`precipitation_${m}`] as (number | null)[])[i] ?? 0);
-      if (mm >= 0.2) chove++;
+      const w = pesoDe(pesos[m]);
+      modelos[m] = Math.round(mm * 10) / 10;
+      if (mm >= 0.2) { chove++; wChuva += w; }
+      wTot += w;
       mmSoma += mm;
       const t = (hh[`temperature_2m_${m}`] as (number | null)[] | undefined)?.[i];
       if (t != null) { tSoma += Number(t); tN++; }
     }
     if (total > 0) { acordo += Math.max(chove, total - chove) / total; nAcordo++; }
+    const prob = rv("precipitation_probability", iso);
+    // chance = votos dos modelos (pesados pelo acerto na região) + 30% da probabilidade do modelo local
+    const votos = wTot > 0 ? (wChuva / wTot) * 100 : null;
+    const chance = Math.round(votos != null && prob != null ? votos * 0.7 + prob * 0.3 : votos ?? prob ?? 0);
     horas.push({
-      hora: Number(times[i]!.slice(11, 13)),
-      iso: times[i]!,
-      fontes: chove,
-      total,
-      mm: total > 0 ? mmSoma / total : Number(ref.hourly?.precipitation?.[i] ?? 0),
-      temp: tN > 0 ? tSoma / tN : (ref.hourly?.temperature_2m?.[i] ?? null),
-      prob: ref.hourly?.precipitation_probability?.[i] ?? null,
-      codigo: ref.hourly?.weather_code?.[i] ?? null,
+      hora: Number(iso.slice(11, 13)), iso, fontes: chove, total,
+      mm: total > 0 ? mmSoma / total : Number(rv("precipitation", iso) ?? 0),
+      temp: tN > 0 ? tSoma / tN : rv("temperature_2m", iso),
+      prob, codigo: rv("weather_code", iso),
+      chance, conf: confDe(chance),
+      umid: rv("relative_humidity_2m", iso), vento: rv("wind_speed_10m", iso), rajada: rv("wind_gusts_10m", iso), sens: rv("apparent_temperature", iso),
+      modelos,
     });
   }
   const concordancia = nAcordo > 0 ? Math.round((acordo / nAcordo) * 100) : 0;
+
+  // próximos 7 dias: hoje/amanhã usam a chance dos 6 modelos; daí pra frente, o modelo local (confiança cai)
+  const chancePorIso = new Map(horas.map((h) => [h.iso, h.chance ?? null]));
+  const hojeData = agoraIso.slice(0, 10);
+  const rd = ref.daily ?? {};
+  const dias: Dia[] = ((rd.time ?? []) as string[]).map((data, i) => ({ data, i })).filter((d) => d.data >= hojeData).slice(0, 7).map(({ data, i }, n) => {
+    const hs = rTimes.filter((t) => t.slice(0, 10) === data && Number(t.slice(11, 13)) >= 6).map((iso) => ({
+      hora: Number(iso.slice(11, 13)), codigo: rv("weather_code", iso), temp: rv("temperature_2m", iso),
+      chance: chancePorIso.get(iso) ?? rv("precipitation_probability", iso), mm: Number(rv("precipitation", iso) ?? 0),
+    }));
+    return {
+      data, codigo: rd.weather_code?.[i] ?? null, max: rd.temperature_2m_max?.[i] ?? null, min: rd.temperature_2m_min?.[i] ?? null,
+      prob: rd.precipitation_probability_max?.[i] ?? null, mm: rd.precipitation_sum?.[i] ?? null,
+      conf: n <= 1 ? (concordancia >= 80 ? "alta" : "media") : n <= 3 ? "media" : "baixa",
+      horas: hs,
+    };
+  });
+  const padrao = padraoRegiao(rTimes, (rh.precipitation ?? []) as (number | null)[], hojeData);
 
   const cur = ref.current ?? {};
   const obs = await observadoAgora(lat, lon); // estação/radar, se a chave existir
@@ -206,12 +333,12 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
   const rajada = obs ? obs.rajada : (cur.wind_gusts_10m != null ? Number(cur.wind_gusts_10m) : null);
   const precipAgora = obs ? obs.precip : Number(cur.precipitation ?? 0);
   const fonteAgora: "observado" | "modelo" = obs ? "observado" : "modelo";
-  const rajadaMax = Math.max(rajada ?? 0, ...((ref.hourly?.wind_gusts_10m as (number | null)[] | undefined) ?? []).slice(idxAgora, idxAgora + 12).map((v) => Number(v ?? 0)));
+  const rajadaMax = Math.max(rajada ?? 0, ...horas.slice(0, 12).map((h) => Number(h.rajada ?? 0)));
 
   // próxima chuva (maioria dos modelos) nas próximas 12 h
   let proxima: number | null = null, ate: number | null = null, fontesChuva = 0;
   for (const h of horas.slice(0, 12)) {
-    const maioria = h.total > 0 ? h.fontes / h.total >= 0.5 : (h.prob ?? 0) >= 50;
+    const maioria = (h.chance ?? (h.total > 0 ? (h.fontes / h.total) * 100 : h.prob ?? 0)) >= 50;
     if (maioria && proxima == null) { proxima = h.hora; fontesChuva = h.fontes; }
     if (proxima != null && maioria) ate = h.hora;
     if (proxima != null && !maioria && ate != null) break;
@@ -268,6 +395,7 @@ async function buscarTempo(lat: number, lon: number): Promise<Tempo> {
     vento, rajada, condicao: descreveCodigo(codigo, ehDia), codigo, ehDia,
     horas, fontesTotal: total, fontesOk: fontesOk.map((m) => NOMES[m] ?? m), concordancia,
     alerta, chuva, cidade, uf, fonteAgora,
+    dias, oficiais, padrao, modelosIds: [...fontesOk],
   };
 }
 
@@ -302,9 +430,12 @@ REGRAS:
 - MADRUGADA (23h às 5h): a resposta padrão é DESCANSAR e preparar o dia seguinte — rua vazia, risco alto e ninguém comprando. Só mande sair nessa faixa se a MELHOR HORA dele for de madrugada (aí ele é vendedor noturno e a regra é o contrário: aproveitar a noite e dormir de dia).
 - Sempre específico: cite horas e números que te passarem. Nunca invente chuva que os modelos não apontam.
 - Contas vencendo e meta do dia pesam: dia ruim de clima + conta vencendo = "sai cedo e fecha antes"; tempestade = segurança primeiro, meta se recupera amanhã. Mas conta vencendo NUNCA é motivo pra mandar alguém pra rua de madrugada.
+- Se a confiança das horas for baixa, não afirme com certeza: diga que está instável.
+- Alerta oficial ou tempestade: a primeira frase é de segurança (procura abrigo, pausa a venda, evita deslocamento).
 - Humildade: o clima pode mudar — mas a fala principal NÃO precisa repetir "não sou Deus", isso já aparece fixo na tela.
 - Português do Brasil. Frases curtas. Sem emoji.`;
 
+interface Rede { sim: number; nao: number; minutos: number | null }
 interface Contexto { meta?: number; vendidoHoje?: number; melhorHora?: number | null; melhoresHoras?: number[]; contas?: { nome: string; dias: number; valor: number }[]; quedaChuvaPct?: number | null }
 interface Opiniao { falas: string[]; veredito: { titulo: string; sub: string; nota: number }; sair: { hora: string; txt: string }; pausa: { hora: string; txt: string }; volta: { hora: string; txt: string } }
 
@@ -333,20 +464,21 @@ function opiniaoLocal(t: Tempo, c: Contexto = {}): Opiniao {
   return { falas: ["Dia limpo. Sai cedo que o povo já tá na rua.", "Sua melhor hora tá protegida hoje — não perde ela pra almoçar.", "Dia pra bater a meta e adiantar conta."], veredito: { titulo: "Dia de RALAR o dia todo", sub: "Céu limpo e movimento cheio.", nota: 10 }, sair: { hora: "9h–12h", txt: "Fluxo alto e sol ainda leve." }, pausa: { hora: "13h–14h", txt: "1h de sombra e água." }, volta: { hora: "18h", txt: "Seco até de noite." } };
 }
 
-async function opiniaoIA(t: Tempo, c: Contexto): Promise<Opiniao> {
+async function opiniaoIA(t: Tempo, c: Contexto, rede: Rede | null = null): Promise<Opiniao> {
   const ag = agoraSP();
   const noturno = ehNoturno(c.melhorHora);
   // cada hora sai marcada com hoje/amanhã pra IA não mandar ele sair num horário que já passou
   const horasTxt = t.horas.slice(0, 16).map((h) => {
     const amanha = h.iso.slice(0, 10) !== ag.data;
-    return `${h.hora}h${amanha ? " (amanhã)" : ""}: chuva ${h.fontes}/${h.total} modelos${h.mm >= 0.2 ? ` (${h.mm.toFixed(1)}mm)` : ""}${h.temp != null ? ` · ${Math.round(h.temp)}°` : ""}`;
+    const chance = h.chance ?? (h.total > 0 ? Math.round((h.fontes / h.total) * 100) : h.prob ?? 0);
+    return `${h.hora}h${amanha ? " (amanhã)" : ""}: chance de chuva ${chance}% (confiança ${h.conf ?? "media"})${h.mm >= 0.2 ? ` (${h.mm.toFixed(1)}mm)` : ""}${h.temp != null ? ` · ${Math.round(h.temp)}°` : ""}`;
   }).join("\n");
   const contas = (c.contas ?? []).slice(0, 4).map((x) => `${x.nome} R$ ${Math.round(x.valor)} (${x.dias <= 0 ? "vence hoje" : `vence em ${x.dias} dias`})`).join("; ") || "nenhuma vencendo";
   const user = `AGORA SÃO ${String(ag.hora).padStart(2, "0")}h${ag.minuto} de ${ag.diaSemana} (horário de Brasília). É ${ag.periodo}.
 ${ag.hora >= 23 || ag.hora < 5 ? (noturno ? "ATENÇÃO: é madrugada, MAS a melhor hora dele é nessa faixa — ele é vendedor noturno. Fale do corre desta noite." : "ATENÇÃO: é MADRUGADA e ele não é vendedor noturno. A resposta é descansar agora e sair mais tarde, no horário bom de HOJE. Não mande ele pra rua agora.") : ""}
 CLIMA AGORA em ${t.cidade || "sua região"}: ${t.condicao}, ${Math.round(t.temp)}° (sensação ${Math.round(t.sensacao)}°), vento ${Math.round(t.vento)} km/h${t.rajada ? `, rajadas ${Math.round(t.rajada)} km/h` : ""}. Máx ${t.max ?? "?"}° · mín ${t.min ?? "?"}°. ${t.ehDia ? "É dia." : "É noite."}
 ESTADO DA CENA: ${t.estado}. Concordância entre modelos: ${t.concordancia}%.
-${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}PRÓXIMAS HORAS (quantos dos ${t.fontesTotal} modelos apostam em chuva):
+${t.alerta ? `ALERTA: ${t.alerta.titulo} — ${t.alerta.texto}\n` : ""}${(t.oficiais ?? []).length ? `ALERTA OFICIAL (INMET/Defesa Civil): ${(t.oficiais ?? []).map((a) => `${a.tipo} (${a.severidade}) ${a.inicio} até ${a.fim}`).join("; ")}. Segurança vem antes da venda.\n` : ""}${rede ? `REDE VANT: nos últimos 45 min, ${rede.sim} vendedores perto disseram que está chovendo e ${rede.nao} que não.\n` : ""}${t.padrao && t.padrao.diasChuva >= 3 ? `PADRÃO DA REGIÃO (14 dias): choveu em ${t.padrao.diasChuva} dias; em ${t.padrao.abreFimTarde} deles a chuva abriu no fim da tarde.\n` : ""}PRÓXIMAS HORAS (chance de chuva pelos ${t.fontesTotal} modelos, pesados pelo acerto aqui; confiança baixa = fale com cautela):
 ${horasTxt}
 
 VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.round(c.vendidoHoje ?? 0)} · melhor hora dele: ${c.melhorHora != null ? `${c.melhorHora}h` : "desconhecida"}${(c.melhoresHoras ?? []).length ? ` · as horas em que ele MAIS VENDE, pelo histórico dele: ${(c.melhoresHoras ?? []).map((h) => `${h}h`).join(", ")} (proteja essas horas: se o clima deixar, ele não pode perdê-las)` : ""} · contas: ${contas}${c.quedaChuvaPct != null ? ` · ele vende ${Math.round(c.quedaChuvaPct)}% menos com chuva (medido nos dias dele)` : ""}.
@@ -354,7 +486,7 @@ VENDEDOR: meta de hoje R$ ${Math.round(c.meta ?? 0)} · já vendeu R$ ${Math.rou
 CONFIRA ANTES DE RESPONDER: toda hora que você escrever é depois das ${String(ag.hora).padStart(2, "0")}h${ag.minuto}? Se for do dia seguinte, está escrito "amanhã"? Se é madrugada${noturno ? "" : " e ele não é vendedor noturno"}, você mandou ele descansar?
 
 Responda SOMENTE este JSON:
-{"falas":["frase 1 (até 140 caracteres, a principal)","frase 2 (até 120)","frase 3 (até 120)"],
+{"falas":["leitura principal: 2 ou 3 frases CURTAS separadas por ponto, até 150 caracteres no total. Ex: Parceiro, a chuva aperta até 14h. A melhor janela abre entre 16h e 19h. Segura agora e entra depois.","outra leitura (até 120)","outra leitura (até 120)"],
  "veredito":{"titulo":"até 34 caracteres, ex: Dia de RALAR de manhã","sub":"1 frase até 110 caracteres","nota":0 a 10},
  "sair":{"hora":"ex: 9h–12h (ou 'amanhã 9h')","txt":"até 70 caracteres"},
  "pausa":{"hora":"ex: 13h–14h","txt":"até 70 caracteres"},
@@ -391,16 +523,55 @@ serve(async (req) => {
     const cell = celula(lat, lon);
     const [cLat, cLon] = cell.split(",").map(Number) as [number, number];
 
-    // cache do tempo por célula: 30 min (era 3 h — o "agora" muda mais rápido que isso)
+    // pesos dos modelos nesta região (quem mais acertou aqui pesa mais)
+    const regiao = regiaoDe(cLat, cLon);
+    const { data: notas } = await admin.from("clima_modelo_acerto").select("modelo, acertos, total").eq("regiao", regiao);
+    const pesos: Pesos = Object.fromEntries((notas ?? []).map((n: { modelo: string; acertos: number; total: number }) => [n.modelo, { acertos: n.acertos, total: n.total }]));
+
+    // cache do tempo por célula: 30 min (era 3 h — o "agora" muda mais rápido que isso).
+    // Payload sem "dias" é da versão antiga: busca de novo.
     let tempo: Tempo | null = null;
     let atualizadoEm = new Date().toISOString();
     const { data: cached } = await admin.from("clima_celula").select("payload, atualizado_em").eq("cell", cell).maybeSingle();
-    if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 30 * 60 * 1000 && !body?.forcar) {
+    if (cached && Date.now() - new Date(cached.atualizado_em).getTime() < 30 * 60 * 1000 && !body?.forcar && (cached.payload as Tempo)?.dias) {
       tempo = cached.payload as Tempo; atualizadoEm = cached.atualizado_em;
     } else {
-      tempo = await buscarTempo(cLat, cLon);
+      tempo = await buscarTempo(cLat, cLon, pesos);
       const { error: eCache } = await admin.from("clima_celula").upsert({ cell, payload: tempo, atualizado_em: atualizadoEm });
       if (eCache) console.error("CACHE_CLIMA_FALHOU:", eCache.message);
+    }
+
+    /* "TÁ CHOVENDO AÍ?" (08/10): a resposta vale pra Rede VANT (célula de ~5 km)
+       e dá nota pros modelos da região. Uma resposta por vendedor a cada 30 min. */
+    let feedbackOk: boolean | null = null;
+    if (user && typeof body?.feedback?.chovendo === "boolean") {
+      const chovendo = Boolean(body.feedback.chovendo);
+      const { data: ultimo } = await admin.from("clima_feedback").select("criado_em").eq("user_id", user.id).order("criado_em", { ascending: false }).limit(1).maybeSingle();
+      if (ultimo && Date.now() - new Date(ultimo.criado_em).getTime() < 30 * 60 * 1000) feedbackOk = false;
+      else {
+        const h0 = tempo.horas[0];
+        const { error: eF } = await admin.from("clima_feedback").insert({ user_id: user.id, cell, hora_iso: h0?.iso ?? "", chovendo, modelos: h0?.modelos ?? {} });
+        if (eF) console.error("FEEDBACK_FALHOU:", eF.message);
+        for (const [m, mm] of Object.entries(h0?.modelos ?? {})) {
+          await admin.rpc("clima_modelo_registrar", { p_regiao: regiao, p_modelo: m, p_acerto: (Number(mm) >= 0.2) === chovendo });
+        }
+        feedbackOk = !eF;
+      }
+    }
+
+    // REDE VANT: o que os vendedores desta célula disseram nos últimos 45 min (só contagem)
+    let rede: Rede | null = null;
+    {
+      const desde = new Date(Date.now() - 45 * 60 * 1000).toISOString();
+      const { data: resp } = await admin.from("clima_feedback").select("chovendo, criado_em").eq("cell", cell).gte("criado_em", desde).order("criado_em", { ascending: false }).limit(50);
+      if (resp && resp.length > 0) {
+        const sim = resp.filter((r: { chovendo: boolean }) => r.chovendo).length;
+        rede = { sim, nao: resp.length - sim, minutos: Math.max(0, Math.round((Date.now() - new Date(resp[0].criado_em).getTime()) / 60000)) };
+      }
+    }
+    // 2+ vendedores dizendo que chove (e maioria) vale mais que o modelo pro "agora"
+    if (rede && rede.sim >= 2 && rede.sim > rede.nao && tempo.estado !== "chuva" && tempo.estado !== "tempestade") {
+      tempo = { ...tempo, estado: "chuva", condicao: "Chuva (vendedores confirmaram)" };
     }
 
     /* O CÉREBRO APRENDE (Rick, 11/09): 1 linha por vendedor por dia com o tempo
@@ -429,12 +600,13 @@ serve(async (req) => {
       const { data: usage, error: usageErr } = await supabase.rpc("bump_ai_usage", { p_feature: "clima", p_limit: 6 });
       const over = usageErr || (usage as { over?: boolean } | null)?.over;
       if (!over) {
-        try { opiniao = await opiniaoIA(tempo, (body?.contexto ?? {}) as Contexto); fonteOpiniao = "ia"; }
+        try { opiniao = await opiniaoIA(tempo, (body?.contexto ?? {}) as Contexto, rede); fonteOpiniao = "ia"; }
         catch (e) { console.error("OPINIAO_IA_FALHOU:", String(e)); }
       }
       if (!opiniao) { opiniao = opiniaoLocal(tempo, (body?.contexto ?? {}) as Contexto); fonteOpiniao = "local"; }
     }
-    return json({ tempo, opiniao, fonteOpiniao, atualizadoEm, cell });
+    const modelos = (tempo.modelosIds ?? []).map((m) => ({ nome: NOMES[m] ?? m, acertos: pesos[m]?.acertos ?? 0, total: pesos[m]?.total ?? 0 }));
+    return json({ tempo, opiniao, fonteOpiniao, atualizadoEm, cell, rede, feedbackOk, modelos });
   } catch (error) {
     console.error("clima-vendedor:", error);
     return json({ error: error instanceof Error ? error.message : "erro" }, 500);
