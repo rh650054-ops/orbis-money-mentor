@@ -13,6 +13,8 @@
 // Upsert por transaction_id SEM mexer em `status`: se o vendedor marcou um
 // crédito como "ignorado", a próxima leitura não desfaz a escolha dele.
 
+import { linhasMudadas } from "./pluggy-linhas.ts";
+
 const BRT = "America/Sao_Paulo";
 
 export async function pluggyKey(): Promise<string | null> {
@@ -124,9 +126,20 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
         };
       }).filter((l) => l.transaction_date >= dataDe);
       if (linhas.length > 0) {
-        const { error } = await admin.from("auto_detected_sales").upsert(linhas, { onConflict: "transaction_id" });
-        if (error) console.error("pluggy importar: upsert", error.message);
-        else gravadas += linhas.length;
+        // 08/10/2026: write only what is NEW or CHANGED. Re-saving identical rows on every
+        // read was ~50 rewrites per new entry, and each rewrite also fired a realtime event
+        // to every open app — the biggest load on the database.
+        const ids = linhas.map((l) => l.transaction_id);
+        const { data: existentes, error: eLer } = await admin.from("auto_detected_sales")
+          .select("transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer")
+          .in("transaction_id", ids);
+        // reading failed → fall back to the old full upsert (never lose an entry)
+        const aGravar = eLer ? linhas : linhasMudadas(linhas, existentes ?? []);
+        if (aGravar.length > 0) {
+          const { error } = await admin.from("auto_detected_sales").upsert(aGravar, { onConflict: "transaction_id" });
+          if (error) console.error("pluggy importar: upsert", error.message);
+          else gravadas += aGravar.length;
+        }
       }
       cursor = corpo?.next ? String(corpo.next) : null;
       if (!cursor) break;
