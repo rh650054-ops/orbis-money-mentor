@@ -1,4 +1,4 @@
-/* 8 · O QUE A VANT APRENDEU SOBRE VOCÊ — cruza 4 coisas, nunca uma média solta:
+/* 8 · A VANT APRENDEU (editorial, v2)  — cruza 4 coisas, nunca uma média solta:
    1) as vendas dele por tipo de tempo (clima_meu_aprendizado);
    2) o padrão real da região nos últimos 14 dias;
    3) quanto a chuva custa pra ele;
@@ -6,7 +6,8 @@
    + o "Tá chovendo aí agora?" que alimenta tudo isso. */
 import { useEffect, useState } from "react";
 import type { Insight } from "./insights";
-import { COR, Cartao, CheckAnimado, Titulo, haptic } from "./comum";
+import { Check } from "lucide-react";
+import { COR, CheckAnimado, haptic } from "./comum";
 
 const K = "vant_clima_feedback_ts";
 function respondeuHaPouco() { try { return Date.now() - Number(localStorage.getItem(K) ?? 0) < 60 * 60 * 1000; } catch { return false; } }
@@ -35,7 +36,7 @@ function FeedbackChuva({ onResponder }: { onResponder: (chovendo: boolean) => Pr
             <button key={String(v)} type="button" disabled={estado === "enviando"} onClick={() => void enviar(v)}
               className="h-10 min-w-[64px] px-3 rounded-[12px] border text-[14px] font-bold transition-[transform,background-color] duration-100 active:scale-[0.97]"
               style={escolha === v ? { background: COR.ouro, borderColor: COR.ouro, color: "#141005" } : { background: COR.surface2, borderColor: COR.borda, color: COR.texto }}>
-              {v ? "Sim" : "Não"}
+              {escolha === v && <Check className="w-4 h-4 inline -mt-0.5 mr-1" strokeWidth={3} />}{v ? "Sim" : "Não"}
             </button>
           ))}
         </div>
@@ -44,30 +45,31 @@ function FeedbackChuva({ onResponder }: { onResponder: (chovendo: boolean) => Pr
   );
 }
 
-export function Aprendizado({ insights, onResponder }: { insights: Insight[]; onResponder: (chovendo: boolean) => Promise<boolean> }) {
+export function Aprendizado({ insights, dias, onResponder }: { insights: Insight[]; dias: number; onResponder: (chovendo: boolean) => Promise<boolean> }) {
   return (
     <section aria-label="O que a VANT aprendeu sobre você">
-      <Titulo>O que a VANT aprendeu</Titulo>
-      <Cartao>
+      <div className="relative overflow-hidden rounded-[20px] border p-[18px]" style={{ borderColor: "rgba(245,184,0,.18)", background: "radial-gradient(120% 90% at 100% 0%, rgba(155,123,255,.10), transparent 50%), #0e0e10" }}>
+        <p className="text-[12px] font-black uppercase tracking-[.16em]" style={{ color: COR.ouro }}>A VANT aprendeu</p>
         {insights.length === 0 ? (
-          <p className="text-[14px] leading-snug" style={{ color: COR.sub }}>
-            Tô anotando o tempo de cada dia junto com o que você vende. Em poucos dias eu te digo em que tempo você rende mais.
+          <p className="text-[15px] font-semibold leading-snug mt-2" style={{ color: COR.texto }}>
+            Tô cruzando o tempo de cada dia com o que você vende. Em poucos dias eu te digo em que tempo você rende mais.
           </p>
         ) : (
-          <ul className="flex flex-col gap-3">
-            {insights.map(({ icone: Icone, titulo, apoio }) => (
+          <ul className="mt-3 flex flex-col gap-3.5">
+            {insights.map(({ icone: Icone, cor, titulo, apoio }) => (
               <li key={titulo} className="flex gap-3">
-                <span className="w-8 h-8 rounded-[10px] shrink-0 flex items-center justify-center" style={{ background: "#1A1A1A" }}><Icone className="w-[18px] h-[18px]" strokeWidth={2} style={{ color: COR.ouro }} /></span>
+                <Icone className="w-[22px] h-[22px] shrink-0 mt-px" strokeWidth={2.1} style={{ color: cor }} aria-hidden />
                 <span className="min-w-0">
-                  <span className="block text-[15px] font-bold leading-snug" style={{ color: COR.texto }}>{titulo}</span>
-                  <span className="block text-[13px] mt-0.5" style={{ color: COR.sub }}>{apoio}</span>
+                  <span className="block text-[16px] font-extrabold leading-snug" style={{ color: COR.texto }}>{titulo}</span>
+                  <span className="block text-[13px] mt-0.5" style={{ color: COR.mute }}>{apoio}</span>
                 </span>
               </li>
             ))}
           </ul>
         )}
+        {dias > 0 && <p className="text-[12px] mt-3.5" style={{ color: COR.mute }}>Baseado em {dias} {dias === 1 ? "dia analisado" : "dias analisados"}</p>}
         <FeedbackChuva onResponder={onResponder} />
-      </Cartao>
+      </div>
     </section>
   );
 }

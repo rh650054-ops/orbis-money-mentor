@@ -1,11 +1,10 @@
 /* ============================================================
    CLIMA DO VENDEDOR — centro de decisão (redesenho 08/10/2026).
-   situação atual → decisão → janelas → hora a hora → próximos dias →
-   alertas → plano do dia → aprendizado → radar/detalhes.
+   v2 (revisão visual, 08/10): agora+decisão → próximas horas → melhor janela →
+   opinião → plano → próximos dias → alertas → aprendizado → radar.
    Toda recomendação sai de decisao.ts (um lugar só, sem contradição);
    a IA fica com a "Opinião da Vant". Clima vem sozinho do GPS.
-   Alerta grave (oficial laranja/vermelho ou tempestade) sobe pra logo
-   depois do clima agora: segurança antes da venda.
+   Com alerta (oficial ou dos modelos), o card sobe pra logo depois do hero.
    ============================================================ */
 import { useMemo } from "react";
 import { Loader2, MapPin } from "lucide-react";
@@ -77,20 +76,22 @@ export default function Clima() {
 
   const cidade = tempo.cidade ? cidadeCurta(tempo.cidade, tempo.uf) : "";
   const sev = riscoSevero(tempo);
-  const grave = !!sev;
+  // qualquer alerta (oficial ou dos modelos) sobe pra perto do topo; sem alerta, vira uma linha lá embaixo
+  const temAlerta = !!tempo.alerta || (tempo.oficiais ?? []).length > 0;
   const alertas = <AlertasSeguranca t={tempo} cidade={cidade} />;
 
   return (
-    <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <HeroClima t={tempo} cidade={cidade} decisao={decisao!} rede={extras.rede} atualizadoEm={extras.atualizadoEm} carregando={carregando} onAtualizar={() => void recarregar()} />
-      {grave && alertas}
-      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} />
-      <JanelasVenda janelas={janelas} aprendendo={perfilHoras.length === 0} pausadoPor={sev?.titulo ?? null} />
+    <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-7">
+      <HeroClima t={tempo} cidade={cidade} decisao={decisao!} janela={sev ? null : janelas.find((j) => j.boa) ?? janelas[0] ?? null}
+        rede={extras.rede} atualizadoEm={extras.atualizadoEm} carregando={carregando} onAtualizar={() => void recarregar()} />
+      {temAlerta && alertas}
       <HoraAHora horas={tempo.horas} />
-      <ProximosDias dias={tempo.dias ?? []} />
-      {!grave && alertas}
+      <JanelasVenda janelas={janelas} aprendendo={perfilHoras.length === 0} pausadoPor={sev?.titulo ?? null} />
+      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} />
       <PlanoAcao passos={plano} />
-      <Aprendizado insights={insights} onResponder={responder} />
+      <ProximosDias dias={tempo.dias ?? []} />
+      {!temAlerta && alertas}
+      <Aprendizado insights={insights} dias={aprendizado?.dias ?? 0} onResponder={responder} />
       <RadarCard horas={tempo.horas} cell={extras.cell} modelos={extras.modelos} />
     </div>
   );

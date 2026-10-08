@@ -71,7 +71,7 @@ export function riscoSevero(t: Tempo, agora = new Date()): { titulo: string; ofi
 }
 
 /* ---------------------------------------------------------------- janelas de venda */
-export interface Janela extends Pico { rotulo: string; amanha: boolean; conf: Confianca; boa: boolean }
+export interface Janela extends Pico { rotulo: string; amanha: boolean; conf: Confianca; boa: boolean; confPct: number; temp: number | null }
 
 const rotuloJanela = (p: Pico) => (p.de === p.ate ? `${p.de}h–${p.de + 1}h` : `${p.de}h–${p.ate + 1}h`);
 
@@ -83,7 +83,11 @@ export function janelasDeVenda(t: Tempo, perfil: PerfilHora[]): Janela[] {
   return picos.map((p) => {
     const hs = horas.filter((h) => p.isos.includes(h.iso));
     const conf = hs.reduce<Confianca>((pior, h) => (ordemConf.indexOf(confDe(h)) < ordemConf.indexOf(pior) ? confDe(h) : pior), "alta");
-    return { ...p, rotulo: rotuloJanela(p), amanha: p.iso.slice(0, 10) !== hoje, conf, boa: p.nota >= 66 };
+    // confiança em % = o quanto as horas da janela estão longe do "cara ou coroa" (50%)
+    const confPct = hs.length ? Math.round(hs.reduce((s, h) => s + Math.max(chanceDe(h), 100 - chanceDe(h)), 0) / hs.length) : 50;
+    const temps = hs.map((h) => h.temp).filter((v): v is number => v != null);
+    const temp = temps.length ? Math.round(temps.reduce((a, b) => a + b, 0) / temps.length) : null;
+    return { ...p, rotulo: rotuloJanela(p), amanha: p.iso.slice(0, 10) !== hoje, conf, boa: p.nota >= 66, confPct, temp };
   });
 }
 
@@ -120,7 +124,7 @@ export function decisaoAgora(t: Tempo, opts: { noturno?: boolean; agora?: Date }
     return { titulo: "Dá pra vender agora", sub: r > 0 ? `Seco até umas ${h[r]!.hora}h.` : "Seco pelas próximas horas.", nivel: "bom" };
   }
   const b = proximaBoa(h, 1);
-  if (b > 0) return { titulo: `Espera até ${h[b]!.hora}h`, sub: `${chovendo ? "Chovendo agora" : `Agora: ${s0.intensidade}`}. Abre por volta das ${h[b]!.hora}h.`, nivel: "atencao" };
+  if (b > 0) return { titulo: `Espera até ${h[b]!.hora}h`, sub: chovendo || s0.nivel === "risco" ? "A chuva perde força depois." : "O tempo firma depois.", nivel: "atencao" };
   return { titulo: "Hoje o clima aperta", sub: "Sem janela seca nas próximas 12 horas.", nivel: "risco" };
 }
 
@@ -202,6 +206,16 @@ export function janelaDoDia(d: DiaClima): string | null {
   const m = melhor as { de: number; ate: number };
   const ate = Math.min(m.ate + 1, m.de + 4); // janela, não expediente
   return `${m.de}h–${ate}h`;
+}
+
+/** Resumo de VENDA em 2 palavras pro card do dia ("boa manhã", "dia de chuva"). */
+export function resumoVenda(d: DiaClima): string {
+  const j = janelaDoDia(d);
+  if (!j) return (d.prob ?? 0) >= 55 ? "dia de chuva" : "dia fraco";
+  const de = Number(j.split("h")[0]);
+  const seco = resumoDia(d) === "seco o dia todo";
+  if (seco) return "dia todo bom";
+  return de < 12 ? "boa manhã" : de < 17 ? "boa tarde" : "boa noite";
 }
 
 export const nomeDia = (iso: string, i: number) =>

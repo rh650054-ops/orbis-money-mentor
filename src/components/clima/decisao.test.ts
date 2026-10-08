@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DiaClima, HoraClima, Tempo } from "@/hooks/useClima";
-import { decisaoAgora, janelaDoDia, janelasDeVenda, planoDoDia, resumoDia, statusHora } from "./decisao";
+import { decisaoAgora, janelaDoDia, janelasDeVenda, planoDoDia, resumoDia, resumoVenda, statusHora } from "./decisao";
+import { lerMovimento } from "./tela/visual";
 import { notaDaHora } from "./picos";
 
 const hora = (h: number, chance: number, o: Partial<HoraClima> = {}): HoraClima => ({
@@ -61,5 +62,20 @@ describe("Clima · decisão", () => {
       horas: Array.from({ length: 17 }, (_, i) => ({ hora: i + 6, codigo: 3, temp: 22, chance: i + 6 < 15 ? 80 : 10, mm: i + 6 < 15 ? 2 : 0 })) };
     expect(resumoDia(d)).toBe("ruim cedo, melhora no fim da tarde");
     expect(janelaDoDia(d)).toBe("15h–19h");
+  });
+
+  it("radar: chuva forte agora e caindo, vento de oeste → se afastando para leste", () => {
+    const h = [hora(14, 95, { dir: 270 }), hora(15, 60), hora(16, 30), hora(17, 10)];
+    expect(lerMovimento(h).frase).toBe("A chuva está se afastando para leste");
+    expect(lerMovimento([hora(9, 5), hora(10, 5)]).tipo).toBe("longe");
+    expect(lerMovimento([hora(9, 10, { dir: 180 }), hora(10, 40), hora(11, 70), hora(12, 80)]).frase).toBe("Chuva se aproximando, vindo do sul");
+  });
+
+  it("próximos dias: resumo de venda curto", () => {
+    const d = (f: (h: number) => number): DiaClima => ({ data: "2026-10-09", codigo: 3, max: 26, min: 18, prob: 50, mm: 1, conf: "media",
+      horas: Array.from({ length: 17 }, (_, i) => ({ hora: i + 6, codigo: 3, temp: 22, chance: f(i + 6), mm: f(i + 6) >= 30 ? 1 : 0 })) });
+    expect(resumoVenda(d((h) => (h < 12 ? 5 : 80)))).toBe("boa manhã");
+    expect(resumoVenda(d(() => 5))).toBe("dia todo bom");
+    expect(resumoVenda({ ...d(() => 90), prob: 90 })).toBe("dia de chuva");
   });
 });

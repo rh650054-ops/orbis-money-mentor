@@ -1,12 +1,13 @@
-/* 5 · PRÓXIMOS DIAS — 7 dias: ícone, máx/mín, chance, resumo curto e a janela
-   provável de venda. Tocar abre o dia por hora com recomendação e confiança.
-   A confiança cai com a distância (dia 4+ é "baixa"): a tela não finge certeza. */
+/* 6 · PRÓXIMOS DIAS — carrossel com snap (v2, 08/10): dia, ícone, máx/mín,
+   chance e um resumo de VENDA ("boa manhã"). Tocar abre o dia por hora com a
+   recomendação e a confiança (cai com a distância: a tela não finge certeza). */
 import { useState } from "react";
-import { ChevronRight } from "lucide-react";
 import type { DiaClima } from "@/hooks/useClima";
-import { COR_NIVEL, janelaDoDia, nomeDia, resumoDia } from "../decisao";
-import { COR, Cartao, ChipConf, Folha, Titulo, haptic } from "./comum";
-import { IconeTempo, ehDiaHora } from "./IconeTempo";
+import { COR_NIVEL, janelaDoDia, nomeDia, resumoDia, resumoVenda } from "../decisao";
+import { CLIMA } from "./paleta";
+import { COR, ChipConf, Folha, Titulo, haptic } from "./comum";
+import { IconeTempo } from "./IconeTempo";
+import { ehDiaHora } from "./icone-tempo";
 
 const r = (v: number | null) => (v == null ? "–" : `${Math.round(v)}°`);
 
@@ -17,29 +18,26 @@ export function ProximosDias({ dias }: { dias: DiaClima[] }) {
   return (
     <section aria-label="Próximos dias">
       <Titulo>Próximos dias</Titulo>
-      <Cartao className="py-1">
-        {dias.map((x, i) => {
-          const j = janelaDoDia(x);
-          return (
-            <button key={x.data} type="button" onClick={() => { haptic(); setAberto(i); }}
-              className="group w-full text-left flex items-center gap-3 py-3 border-t first:border-t-0 -mx-2 px-2 rounded-[12px] transition-[transform,background-color] duration-[120ms] active:scale-[0.99] active:bg-white/[.05]"
-              style={{ borderColor: "rgba(255,255,255,.06)" }}>
-              <span className="w-[62px] shrink-0 text-[15px] font-bold" style={{ color: COR.texto }}>{nomeDia(x.data, i)}</span>
-              <IconeTempo codigo={x.codigo} tamanho={24} />
-              <span className="flex-1 min-w-0">
-                <span className="flex items-baseline justify-between gap-2">
-                  <span className="text-[14px] font-bold tabular-nums" style={{ color: (x.prob ?? 0) >= 30 ? "#6FA8FF" : COR.mute }}>{x.prob ?? 0}% chuva</span>
-                  <span className="text-[15px] font-bold tabular-nums shrink-0" style={{ color: COR.texto }}>{r(x.max)} <span style={{ color: COR.mute }}>/ {r(x.min)}</span></span>
-                </span>
-                <span className="block text-[13px] mt-0.5 leading-snug" style={{ color: COR.sub }}>
-                  {resumoDia(x)}{j ? <> · <b style={{ color: COR_NIVEL.bom }}>{j}</b></> : ""}
-                </span>
-              </span>
-              <ChevronRight className="w-4 h-4 shrink-0 transition-transform duration-[120ms] group-active:translate-x-0.5" style={{ color: "#5c5850" }} />
-            </button>
-          );
-        })}
-      </Cartao>
+      <div className="-mx-4 px-4 overflow-x-auto no-scrollbar" style={{ scrollSnapType: "x mandatory", scrollPaddingLeft: 16 }}>
+        <div className="flex gap-2 w-max pb-1">
+          {dias.map((x, i) => {
+            const venda = resumoVenda(x);
+            const bom = venda.startsWith("boa") || venda === "dia todo bom";
+            const corV = bom ? CLIMA.bom : venda === "dia de chuva" ? CLIMA.chuvaLeve : COR.mute;
+            return (
+              <button key={x.data} type="button" onClick={() => { haptic(); setAberto(i); }}
+                className="w-[96px] shrink-0 rounded-[18px] border px-2.5 pt-3 pb-3 flex flex-col items-center gap-1.5 transition-[transform,background-color] duration-150 active:scale-[0.98] hover:bg-white/[.03]"
+                style={{ scrollSnapAlign: "start", background: i === 0 ? "#151517" : "#0e0e10", borderColor: i === 0 ? "rgba(245,184,0,.3)" : "rgba(255,255,255,.07)" }}>
+                <span className="text-[12px] font-black uppercase tracking-[.1em]" style={{ color: i === 0 ? COR.ouro : "#c9c3b8" }}>{nomeDia(x.data, i)}</span>
+                <IconeTempo codigo={x.codigo} tamanho={28} />
+                <span className="text-[15px] font-extrabold tabular-nums" style={{ color: COR.texto }}>{r(x.max)}<span style={{ color: COR.mute }}> / {r(x.min)}</span></span>
+                <span className="text-[14px] font-bold tabular-nums" style={{ color: (x.prob ?? 0) >= 30 ? CLIMA.chuvaLeve : COR.mute }}>{x.prob ?? 0}%</span>
+                <span className="text-[12px] font-bold text-center leading-tight" style={{ color: corV }}>{venda}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       <Folha open={!!d} onOpenChange={(o) => { if (!o) setAberto(null); }} titulo={d ? nomeDia(d.data, aberto ?? 0) : ""}
         subtitulo={d ? `${r(d.max)} / ${r(d.min)} · ${d.prob ?? 0}% chuva · ${resumoDia(d)}` : undefined} alta>

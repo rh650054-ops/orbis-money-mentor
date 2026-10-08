@@ -1,7 +1,7 @@
-/* 6 · ALERTAS E SEGURANÇA — alerta OFICIAL do INMET (o mesmo que a Defesa Civil
-   usa) primeiro; depois o que os modelos apontam. A vida vem antes da venda:
-   a linguagem manda parar, procurar abrigo e evitar deslocamento.
-   Sem alerta, vira uma linha só (sem caixa chamativa competindo). */
+/* 7 · ALERTAS E SEGURANÇA — alerta OFICIAL do INMET (o mesmo que a Defesa Civil
+   usa) primeiro; depois o que os modelos apontam. Com alerta, o card sobe pra
+   logo depois do hero (a página cuida disso); coral só com risco real e o pulso
+   sutil só quando é grave. Sem alerta: uma linha "✓ Nenhum alerta ativo". */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, Share2, ShieldAlert, Siren } from "lucide-react";
@@ -19,17 +19,12 @@ export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
   const modelo = t.alerta;
 
   if (!oficial && !modelo) {
+    // sem alerta: uma linha só, sem card grande
     return (
-      <section aria-label="Alertas e segurança">
-        <Titulo>Alertas e segurança</Titulo>
-        <Cartao className="flex items-center gap-3">
-          <CheckCircle2 className="w-6 h-6 shrink-0" strokeWidth={2} style={{ color: "#3DD68C" }} />
-          <span>
-            <span className="block text-[15px] font-bold" style={{ color: COR.texto }}>Nenhum alerta para sua região</span>
-            <span className="block text-[12.5px] mt-0.5" style={{ color: COR.mute }}>Conferido no INMET e nos 6 modelos.</span>
-          </span>
-        </Cartao>
-      </section>
+      <p className="flex items-center gap-2 px-1 text-[14px] font-semibold" style={{ color: COR.sub }} aria-label="Alertas e segurança">
+        <CheckCircle2 className="w-[18px] h-[18px] shrink-0" strokeWidth={2.2} style={{ color: "#3DD68C" }} />
+        Nenhum alerta ativo <span className="font-normal" style={{ color: COR.mute }}>· INMET e 6 modelos</span>
+      </p>
     );
   }
 
@@ -48,7 +43,8 @@ export function AlertasSeguranca({ t, cidade }: { t: Tempo; cidade: string }) {
   return (
     <section aria-label="Alertas e segurança">
       <Titulo>Alertas e segurança</Titulo>
-      <Cartao style={{ borderColor: `${cor}88`, background: `linear-gradient(160deg, ${cor}1f, #0e0e10 65%)` }}>
+      <Cartao className={grave ? "alerta-pulso" : undefined} style={{ borderColor: `${cor}88`, background: `linear-gradient(160deg, ${cor}26, #0e0e10 65%)` }}>
+        {grave && <style>{"@keyframes alerta-pulso { 0%,100% { box-shadow: 0 0 0 0 rgba(255,107,94,0) } 50% { box-shadow: 0 0 0 5px rgba(255,107,94,.14) } } .alerta-pulso { animation: alerta-pulso 2.4s ease-in-out infinite } @media (prefers-reduced-motion: reduce) { .alerta-pulso { animation: none } }"}</style>}
         <div className="flex gap-3">
           <span className="w-10 h-10 rounded-[12px] shrink-0 flex items-center justify-center" style={{ background: `${cor}26` }}>
             {grave ? <ShieldAlert className="w-6 h-6" style={{ color: cor }} strokeWidth={2.2} /> : <AlertTriangle className="w-6 h-6" style={{ color: cor }} strokeWidth={2.2} />}

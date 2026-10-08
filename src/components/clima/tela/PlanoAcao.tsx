@@ -1,30 +1,43 @@
-/* 7 · PLANO DE AÇÃO DE HOJE — agenda curta, uma ação por linha. Sai das mesmas
-   janelas e do mesmo hora a hora (decisao.ts), cruzando meta e contas. */
+/* 5 · PLANO DE AÇÃO DO DIA — timeline vertical (v2, 08/10). Amarelo = esperar,
+   verde = vender, cinza (vazado) = reavaliar, vermelho = parar/abrigo.
+   Entra em cascata (~250ms por passo). Sai das mesmas janelas do hora a hora. */
 import type { Passo } from "../decisao";
-import { COR_NIVEL } from "../decisao";
-import { COR, Cartao, Titulo } from "./comum";
+import { COR, Titulo } from "./comum";
+import { CLIMA } from "./paleta";
+
+function corDoPasso(p: Passo): { cor: string; vazado: boolean } {
+  if (p.acao === "procura abrigo") return { cor: CLIMA.risco, vazado: false };
+  if (p.acao === "sair pra vender") return { cor: CLIMA.bom, vazado: false };
+  if (p.acao === "espera") return { cor: CLIMA.instavel, vazado: false };
+  return { cor: "#9a948a", vazado: true };
+}
 
 export function PlanoAcao({ passos }: { passos: Passo[] }) {
   if (passos.length === 0) return null;
   return (
-    <section aria-label="Plano de ação de hoje">
-      <Titulo>Plano de ação de hoje</Titulo>
-      <Cartao>
-        <ol className="flex flex-col">
-          {passos.map((p, i) => (
-            <li key={`${p.quando}-${i}`} className="relative flex gap-3 pb-4 last:pb-0">
-              {i < passos.length - 1 && <span className="absolute left-[5px] top-4 bottom-0 w-px" style={{ background: "rgba(255,255,255,.1)" }} aria-hidden />}
-              <i className="relative mt-1.5 w-[11px] h-[11px] rounded-full shrink-0" style={{ background: COR_NIVEL[p.nivel], boxShadow: `0 0 0 4px ${COR_NIVEL[p.nivel]}22` }} aria-hidden />
+    <section aria-label="Plano de ação do dia">
+      <Titulo>Plano de ação do dia</Titulo>
+      <ol className="relative pl-1">
+        {passos.map((p, i) => {
+          const { cor, vazado } = corDoPasso(p);
+          return (
+            <li key={`${p.quando}-${i}`} className="relative flex gap-3.5 pb-5 last:pb-0 animate-in fade-in slide-in-from-left-2 fill-mode-both duration-300"
+              style={{ animationDelay: `${i * 90}ms` }}>
+              {i < passos.length - 1 && <span className="absolute left-[7px] top-[18px] bottom-0 w-[2px] rounded-full" style={{ background: `linear-gradient(${cor}88, rgba(255,255,255,.08))` }} aria-hidden />}
+              <i className="relative mt-[3px] w-4 h-4 rounded-full shrink-0" aria-hidden
+                style={vazado ? { border: `2px solid ${cor}`, background: "#0b0b0d" } : { background: cor, boxShadow: `0 0 0 5px ${cor}22, 0 0 16px ${cor}55` }} />
               <div className="min-w-0">
-                <p className="text-[15px] font-bold leading-snug" style={{ color: COR.texto }}>
-                  <span className="tabular-nums">{p.quando}</span> <span style={{ color: COR.mute }}>—</span> <span style={{ color: COR_NIVEL[p.nivel] }}>{p.acao}</span>
+                <p className="text-[14px] font-black uppercase tracking-[.04em] leading-snug">
+                  <span className="tabular-nums" style={{ color: COR.texto }}>{p.quando}</span>
+                  <span style={{ color: COR.mute }}> — </span>
+                  <span style={{ color: vazado ? "#c9c3b8" : cor }}>{p.acao}</span>
                 </p>
-                <p className="text-[13.5px] leading-snug mt-0.5" style={{ color: COR.sub }}>{p.texto}</p>
+                <p className="text-[14px] leading-snug mt-1" style={{ color: COR.sub }}>{p.texto}</p>
               </div>
             </li>
-          ))}
-        </ol>
-      </Cartao>
+          );
+        })}
+      </ol>
     </section>
   );
 }
