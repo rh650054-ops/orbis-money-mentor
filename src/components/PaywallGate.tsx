@@ -10,6 +10,8 @@ import { useSimulacao } from "@/components/jornada/simulador";
 // Em qualquer OUTRA tela, o aviso de bloqueio aparece pra quem expirou e nao assinou.
 const FREE_PATHS = [
   "/auth",
+  // chega do endereço antigo com o passe: ainda não está logado nesta origem
+  "/entrar",
   // os 3 planos: quem expirou precisa conseguir escolher e pagar
   "/planos",
   // Ler os Termos e a Política de Privacidade NUNCA pode ser bloqueado: é direito

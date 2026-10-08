@@ -2,8 +2,8 @@
    Only people still opening the app on the OLD address, and only after Rick turns
    it on (app_settings.aviso_novo_dominio = 'on'). "Depois" hides it for a day. */
 
-export const DOMINIO_NOVO = "vantapp.com.br";
-export const DOMINIOS_ANTIGOS = ["app.orbis.inf.br", "orbis-money-mentor-two.vercel.app"];
+export const DOMINIO_NOVO = "app.vantapp.com.br";
+export const DOMINIOS_ANTIGOS = ["app.orbis.inf.br", "vantapp.com.br", "orbis-money-mentor-two.vercel.app"];
 export const ADIAR_MS = 24 * 60 * 60 * 1000;
 export const CHAVE_ADIADO = "vant_aviso_dominio_adiado_em";
 
@@ -14,9 +14,17 @@ export function deveMostrarAviso(o: { host: string; ligado: boolean; adiadoEm: n
   return true;
 }
 
-/** Same page on the new address; /install shows how to put the app on the home screen. */
-export function linkNovoDominio(): string {
-  return `https://${DOMINIO_NOVO}/install?de=orbis`;
+/** New address. With a passe the user arrives logged in (/entrar); without, at /install. */
+export function linkNovoDominio(passe?: string | null): string {
+  return passe
+    ? `https://${DOMINIO_NOVO}/entrar#passe=${encodeURIComponent(passe)}`
+    : `https://${DOMINIO_NOVO}/install?de=orbis`;
+}
+
+/** Reads the passe from the URL fragment (never sent to any server). */
+export function passeDoHash(hash: string): string | null {
+  const m = /(?:^#|&)passe=([A-Za-z0-9_-]{30,64})(?:&|$)/.exec(hash);
+  return m ? m[1] ?? null : null;
 }
 
 export type Aparelho = "ios" | "android" | "outro";
