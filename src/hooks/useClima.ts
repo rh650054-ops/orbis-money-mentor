@@ -9,20 +9,36 @@ import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { getUltimaPosicao, setUltimaPosicao } from "@/shared/lib/gps-last";
-import type { Estado } from "@/components/clima/ClimaCena";
+import type { Estado } from "@/components/clima/ClimaTipos";
 
-export interface HoraClima { hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo: number | null }
+export type Confianca = "alta" | "media" | "baixa";
+export interface HoraClima {
+  hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo: number | null;
+  /* v2 (08/10) — opcionais porque o cache antigo (até 30 min) ainda pode chegar sem eles */
+  chance?: number; conf?: Confianca; umid?: number | null; vento?: number | null; rajada?: number | null; sens?: number | null;
+}
+export interface DiaClima {
+  data: string; codigo: number | null; max: number | null; min: number | null; prob: number | null; mm: number | null; conf: Confianca;
+  horas: { hora: number; codigo: number | null; temp: number | null; chance: number | null; mm: number }[];
+}
+export interface AlertaOficial { tipo: string; severidade: string; nivel: "amarelo" | "laranja" | "vermelho"; inicio: string; fim: string; riscos: string; instrucoes: string[] }
+export interface PadraoRegiao { dias: number; diasChuva: number; abreFimTarde: number; horaTipica: number | null }
+export interface Rede { sim: number; nao: number; minutos: number | null }
+export interface ModeloNota { nome: string; acertos: number; total: number }
 export interface Tempo {
   estado: Estado; temp: number; sensacao: number; max: number | null; min: number | null; vento: number; rajada: number | null;
   condicao: string; codigo: number; ehDia: boolean; horas: HoraClima[]; fontesTotal: number; fontesOk: string[]; concordancia: number;
   alerta: { titulo: string; texto: string } | null; chuva: { proxima: number | null; ate: number | null; fontes: number } | null;
   cidade: string; uf: string;
+  dias?: DiaClima[]; oficiais?: AlertaOficial[]; padrao?: PadraoRegiao | null;
 }
 export interface Opiniao { falas: string[]; veredito: { titulo: string; sub: string; nota: number }; sair: { hora: string; txt: string }; pausa: { hora: string; txt: string }; volta: { hora: string; txt: string } }
 export interface ContextoClima { meta?: number; vendidoHoje?: number; melhorHora?: number | null; melhoresHoras?: number[]; contas?: { nome: string; dias: number; valor: number }[]; quedaChuvaPct?: number | null }
-interface Resposta { tempo: Tempo; opiniao: Opiniao | null; fonteOpiniao: "ia" | "local" | "nenhuma"; atualizadoEm: string; cell: string }
+interface Resposta { tempo: Tempo; opiniao: Opiniao | null; fonteOpiniao: "ia" | "local" | "nenhuma"; atualizadoEm: string; cell: string; rede?: Rede | null; feedbackOk?: boolean | null; modelos?: ModeloNota[] }
+/** O que vem junto com o tempo e não mora no cache do tempo. */
+export interface Extras { atualizadoEm: string | null; cell: string | null; rede: Rede | null; modelos: ModeloNota[] }
 
-const K_TEMPO = "orbis_clima_tempo_v1";
+const K_TEMPO = "orbis_clima_tempo_v2"; // v2: dias, alertas oficiais, chance ponderada
 const K_OPINIAO = "orbis_clima_opiniao_v2";
 const TTL_TEMPO = 30 * 60 * 1000;
 
@@ -94,6 +110,10 @@ async function pegarPosicao(): Promise<{ lat: number; lon: number } | null> {
 export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean; auto?: boolean } = {}) {
   const { contexto, comOpiniao = true, auto = true } = opts;
   const [tempo, setTempo] = useState<Tempo | null>(() => { const c = lerCache<{ tempo: Tempo }>(K_TEMPO); return c ? c.tempo : null; });
+  const [extras, setExtras] = useState<Extras>(() => {
+    const c = lerCache<{ extras?: Extras }>(K_TEMPO);
+    return c?.extras ?? { atualizadoEm: null, cell: null, rede: null, modelos: [] };
+  });
   const [opiniao, setOpiniao] = useState<Opiniao | null>(() => {
     const c = lerCache<{ opiniao: Opiniao; dia: string; periodo: string; estado: string }>(K_OPINIAO);
     return c && c.dia === getBrazilDate() && c.periodo === periodoBR() ? c.opiniao : null;
@@ -121,13 +141,13 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
     try {
       const pos = await pegarPosicao();
       if (!pos) { setErro("sem_posicao"); setPermissao(await estadoPermissao()); return; }
-      const cTempo = lerCache<{ tempo: Tempo }>(K_TEMPO);
+      const cTempo = lerCache<{ tempo: Tempo; extras?: Extras }>(K_TEMPO);
       const cOp = lerCache<{ opiniao: Opiniao; dia: string; periodo: string; estado: string }>(K_OPINIAO);
       const tempoFresco = cTempo && Date.now() - cTempo.ts < TTL_TEMPO ? cTempo.tempo : null;
       const opiniaoDoDia = cOp && cOp.dia === getBrazilDate() && cOp.periodo === periodoBR() && (!tempoFresco || cOp.estado === tempoFresco.estado) ? cOp.opiniao : null;
       // tudo em cache e ninguém forçou? não gasta nada.
       if (tempoFresco && (!comOpiniao || opiniaoDoDia) && !forcarOpiniao) {
-        setTempo(tempoFresco); if (opiniaoDoDia) { setOpiniao(opiniaoDoDia); setFonteOpiniao("cache"); }
+        setTempo(tempoFresco); if (cTempo?.extras) setExtras(cTempo.extras); if (opiniaoDoDia) { setOpiniao(opiniaoDoDia); setFonteOpiniao("cache"); }
         return;
       }
       const precisaOpiniao = comOpiniao && (forcarOpiniao || !opiniaoDoDia);
@@ -136,7 +156,8 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
       });
       if (error || !data || (data as { error?: string }).error) throw new Error((data as { error?: string })?.error || String(error));
       const r = data as Resposta;
-      setTempo(r.tempo); gravarCache(K_TEMPO, { tempo: r.tempo, ts: Date.now() });
+      const ex: Extras = { atualizadoEm: r.atualizadoEm ?? null, cell: r.cell ?? null, rede: r.rede ?? null, modelos: r.modelos ?? [] };
+      setTempo(r.tempo); setExtras(ex); gravarCache(K_TEMPO, { tempo: r.tempo, extras: ex, ts: Date.now() });
       if (r.opiniao) {
         setOpiniao(r.opiniao); setFonteOpiniao(r.fonteOpiniao);
         gravarCache(K_OPINIAO, { opiniao: r.opiniao, dia: getBrazilDate(), periodo: periodoBR(), estado: r.tempo.estado, ts: Date.now() });
@@ -152,8 +173,22 @@ export function useClima(opts: { contexto?: ContextoClima; comOpiniao?: boolean;
 
   useEffect(() => { if (auto) void carregar(false); }, [auto, carregar]);
 
+  /** "Tá chovendo aí agora?" — grava na Rede VANT e devolve o retrato atualizado da célula. */
+  const responder = useCallback(async (chovendo: boolean): Promise<boolean> => {
+    const pos = await pegarPosicao();
+    if (!pos) return false;
+    try {
+      const { data, error } = await supabase.functions.invoke("clima-vendedor", { body: { lat: pos.lat, lon: pos.lon, semIA: true, feedback: { chovendo } } });
+      if (error || !data) throw new Error(String(error));
+      const r = data as Resposta;
+      const ex: Extras = { atualizadoEm: r.atualizadoEm ?? null, cell: r.cell ?? null, rede: r.rede ?? null, modelos: r.modelos ?? [] };
+      setTempo(r.tempo); setExtras(ex); gravarCache(K_TEMPO, { tempo: r.tempo, extras: ex, ts: Date.now() });
+      return r.feedbackOk !== false;
+    } catch (e) { avisar.erro("clima: feedback", e); return false; }
+  }, []);
+
   return {
-    tempo, opiniao, fonteOpiniao, carregando, erro, permissao,
+    tempo, extras, responder, opiniao, fonteOpiniao, carregando, erro, permissao,
     recarregar: () => carregar(true),
     pedirPermissao: async () => { const ok = await pedirPermissao(); if (ok) await carregar(true); return ok; },
   };

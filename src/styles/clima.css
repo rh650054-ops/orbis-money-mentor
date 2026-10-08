@@ -120,3 +120,7 @@
   .cl-gota, .cl-rajada, .cl-halito, .cl-raio, .cl-clarao, .cl-mormaco, .cl-nuvem { display: none !important; }
   .cl-mundo, .cl-halito, .cl-sol-disco, .cl-sol-halo, .cl-sol-raios, .cl-quente, .cl-mormaco, .cl-nuvem, .cl-rajada, .cl-gota, .cl-chuva, .cl-raio, .cl-clarao, .cl-estrelas, .cl-rosto-tremor, .cl-rosto-suor, .cl-nov-card, .cl-nov-boneco { animation: none !important; }
 }
+
+/* 08/10: linha do hora a hora desliza sem barra de rolagem */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

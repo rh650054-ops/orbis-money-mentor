@@ -1,74 +1,62 @@
 /* ============================================================
-   CLIMA CHIP — a entrada do clima no topo do Dashboard (Rick, 11/09).
-   Cabeça da Vant + temperatura + o aviso que importa. Toque abre /clima.
-   Usa só o tempo (sem IA) — barato, cache de 30 min no aparelho.
+   CLIMA CHIP — a entrada do clima no Dashboard (redesenho 08/10/2026).
+   Antes: a cabeça do boneco ocupava espaço demais. Agora: ícone de 20px
+   (nuvem/sol/chuva/raio, com bolinha de alerta) + temperatura + a decisão
+   em 1–2 palavras. Usa só o tempo (sem IA) — barato, cache de 30 min.
    ============================================================ */
 import { useNavigate } from "react-router-dom";
+import { CloudOff } from "lucide-react";
 import { useClima } from "@/hooks/useClima";
-import { RostoClima, type Foto } from "./RostoClima";
+import { decisaoAgora, riscoSevero } from "./decisao";
+import { iconeDo } from "./tela/icone-tempo";
 
-const BASE = "/orbis/clima";
+const COR = { bom: "#3DD68C", atencao: "#F5B800", risco: "#FF6B5E", neutro: "#b3ada3" } as const;
+
+/** A decisão em 1–2 palavras, pra caber ao lado da saudação. */
+function curta(titulo: string): string {
+  if (titulo.startsWith("Pausa")) return "pausa a venda";
+  if (titulo.startsWith("Espera até")) return titulo.replace("Espera até ", "abre ");
+  if (titulo.startsWith("Janela curta até")) return titulo.replace("Janela curta até ", "seco até ");
+  if (titulo.startsWith("Dá pra vender")) return "dá pra vender";
+  if (titulo.startsWith("Hora de descansar")) return "descansa";
+  if (titulo.startsWith("Hoje o clima aperta")) return "dia difícil";
+  return "ver clima";
+}
 
 export function ClimaChip() {
   const navigate = useNavigate();
   const { tempo, erro } = useClima({ comOpiniao: false });
+  const base = "orbis-press inline-flex items-center gap-2 h-[38px] px-3 rounded-full shrink-0 whitespace-nowrap transition-transform duration-100 active:scale-[0.97]";
+
   if (!tempo) {
-    /* BUG-003 (29/09): antes, sem posição (GPS negado/perguntar) ou com falha, o
-       chip SUMIA — e a Home ficava sem NENHUM caminho pro /clima ("o clima
-       desapareceu"). Agora vira um chip neutro que leva pra tela do clima, onde
-       existe o botão de liberar a localização. */
+    // BUG-003 (29/09): sem posição ou com falha, o chip continua levando pra /clima
     if (erro) {
       const sem = erro === "sem_posicao";
       return (
-        <button
-          type="button"
-          onClick={() => navigate("/clima")}
-          aria-label={sem ? "Clima: ative a localização" : "Clima indisponível, toque para tentar de novo"}
-          className="orbis-press inline-flex items-center gap-[7px] h-[38px] px-[11px] rounded-full shrink-0 whitespace-nowrap"
-          style={{ border: "1px solid rgba(255,255,255,.14)", background: "#131211" }}
-        >
-          <span className="flex flex-col gap-[2px] leading-none text-left">
-            <span className="text-[12.5px] font-extrabold">Clima</span>
-            <span className="text-[10px] font-extrabold tracking-[.02em]" style={{ color: "var(--orbis-gold)" }}>{sem ? "ativar" : "tentar de novo"}</span>
-          </span>
+        <button type="button" onClick={() => navigate("/clima")} aria-label={sem ? "Clima: ative a localização" : "Clima indisponível, toque para tentar de novo"}
+          className={base} style={{ border: "1px solid rgba(255,255,255,.14)", background: "#131211" }}>
+          <CloudOff className="w-5 h-5" strokeWidth={2} style={{ color: "#b3ada3" }} />
+          <span className="text-[12px] font-extrabold" style={{ color: "#F5B800" }}>{sem ? "ativar" : "tentar"}</span>
         </button>
       );
     }
-    return <span className="w-[112px] h-10 rounded-full animate-pulse shrink-0" style={{ background: "#131211", border: "1px solid rgba(255,255,255,.08)" }} aria-hidden />;
+    return <span className="w-[104px] h-[38px] rounded-full animate-pulse shrink-0" style={{ background: "#131211", border: "1px solid rgba(255,255,255,.08)" }} aria-hidden />;
   }
-  const e = tempo.estado;
-  const boneco: Foto = e === "frio" ? "frio" : e === "chuva" || e === "tempestade" ? "chuva" : e === "noite" ? "noite" : "calor";
-  const cor = e === "tempestade" ? "#FF5C5C" : e === "chuva" ? "#5b8def" : e === "frio" ? "#4FD8F5" : e === "calor" ? "#ff9d4d" : e === "noite" ? "#a78bfa" : "#3DD68C";
-  const rotulo = e === "sol" ? "sol" : e === "calor" ? "calor" : e === "nublado" ? "nublado" : e === "chuva" ? "chuva" : e === "tempestade" ? "raios" /* "tempestade" não cabe ao lado da saudação */ : e === "frio" ? "frio" : "noite";
-  // curto de propósito: o chip divide a linha com a saudação, a chama e o avatar
-  const aviso = tempo.alerta
-    ? (e === "tempestade" ? "fica em casa" : "alerta")
-    : tempo.chuva && tempo.chuva.proxima != null && e !== "chuva" && e !== "tempestade"
-    ? `chuva ${tempo.chuva.proxima}h`
-    : e === "chuva" ? "chovendo"
-    : e === "calor" ? "gelada vende"
-    : e === "frio" ? "café vende"
-    : e === "noite" ? "noite boa"
-    : "dia de ralar";
+
+  const { Icone, cor: corIcone } = iconeDo(tempo.codigo, tempo.ehDia);
+  const d = decisaoAgora(tempo);
+  const alerta = !!riscoSevero(tempo) || (tempo.oficiais ?? []).length > 0;
+  const cor = COR[d.nivel];
+  const aviso = curta(d.titulo);
   return (
-    <button
-      type="button"
-      onClick={() => navigate("/clima")}
-      aria-label={`Clima: ${Math.round(tempo.temp)} graus, ${rotulo}. ${aviso}`}
-      className="orbis-press inline-flex items-center gap-[7px] h-[38px] pl-[3px] pr-[11px] rounded-full shrink-0 whitespace-nowrap"
-      style={{ border: `1px solid ${cor}66`, background: `linear-gradient(90deg, ${cor}1f, #131211)` }}
-    >
-      <span className="relative w-8 h-8 rounded-full overflow-hidden shrink-0" style={{ background: "#0d0c0b" }}>
-        {/* maxWidth: none — o reset do Tailwind põe max-width:100% em <img> e encolheria a cabeça pra 32px */}
-        {/* "-p" = versão pequena (200 px): o chip tem 32 px, não faz sentido baixar a foto grande da tela do clima */}
-        <img src={`${BASE}/${boneco}-boneco-p.webp`} alt="" className="absolute" style={{ left: -24, top: -7, width: 64, maxWidth: "none", height: "auto" }} draggable={false} />
-        {/* a cara é desenhada por cima da foto pra ter expressão do tempo */}
-        <RostoClima estado={e} foto={boneco} />
+    <button type="button" onClick={() => navigate("/clima")} aria-label={`Clima: ${Math.round(tempo.temp)} graus, ${tempo.condicao}. ${aviso}`}
+      className={base} style={{ border: `1px solid ${cor}55`, background: "#131211" }}>
+      <span className="relative">
+        <Icone className="w-5 h-5" strokeWidth={2} style={{ color: corIcone }} />
+        {alerta && <i className="absolute -top-0.5 -right-1 w-2.5 h-2.5 rounded-full border-2" style={{ background: "#FF6B5E", borderColor: "#131211" }} />}
       </span>
-      <span className="flex flex-col gap-[2px] leading-none text-left">
-        <span className="orbis-num text-[12.5px] font-extrabold">{Math.round(tempo.temp)}° <span className="font-semibold" style={{ color: "#b9b3a6" }}>{rotulo}</span></span>
-        <span className="text-[10px] font-extrabold tracking-[.02em]" style={{ color: cor }}>{aviso}</span>
-      </span>
+      <span className="text-[13px] font-extrabold tabular-nums">{Math.round(tempo.temp)}°</span>
+      <span className="text-[12px] font-bold" style={{ color: cor }}>{aviso}</span>
     </button>
   );
 }
