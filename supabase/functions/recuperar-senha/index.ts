@@ -3,7 +3,9 @@
 // se tem e-mail, nem se o e-mail esta confirmado — quem tem, recebe o link).
 //
 // Seguranca:
-//  - so manda para e-mail CONFIRMADO (profiles.email_verificado_em NOT NULL);
+//  - manda para o e-mail do perfil. Pedir o link com o CPF + abrir na caixa cadastrada
+//    e a prova de posse (decisao Rick 2026-10-08, BUG-004): ao concluir o reset o
+//    ResetPassword carimba profiles.email_verificado_em via email_confirmar_por_recuperacao();
 //  - o link de recovery e gerado pelo servidor (auth.admin.generateLink) para o
 //    e-mail INTERNO da conta e enviado ao e-mail pessoal; expira conforme o Auth (1h);
 //  - freio: 5 pedidos por CPF/h e 10 por IP/h (3 era apertado: quem nao ve o e-mail e insiste caia no bloqueio) (cadastro_pode_tentar, service_role only);
@@ -54,7 +56,6 @@ Deno.serve(async (req) => {
       .from("profiles")
       .select("email, email_verificado_em, nickname")
       .eq("cpf", cpf)
-      .not("email_verificado_em", "is", null)
       .maybeSingle();
     if (!perfil?.email) return ok();
 

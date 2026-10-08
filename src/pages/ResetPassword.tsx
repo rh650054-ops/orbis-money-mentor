@@ -6,6 +6,7 @@ import { Label } from "@/shared/ui/label";
 import { Card, CardContent } from "@/shared/ui/card";
 import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { avisar } from "@/shared/lib/avisar";
 import { traduzirErroAuth } from "@/shared/lib/erro-auth";
 import { KeyRound, CheckCircle2 } from "lucide-react";
 
@@ -61,6 +62,14 @@ export default function ResetPassword() {
         variant: "destructive",
       });
       return;
+    }
+
+    // Chegou aqui = abriu o link que foi pro e-mail cadastrado → o e-mail é da pessoa.
+    // Marca como confirmado (decisão do Rick, 08/10). Falha aqui não atrapalha o reset.
+    try {
+      await (supabase as unknown as { rpc: (fn: string) => Promise<unknown> }).rpc("email_confirmar_por_recuperacao");
+    } catch (e) {
+      avisar.silencioso("ResetPassword: confirmar e-mail por recuperação", e);
     }
 
     setDone(true);
