@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 
-// Vigia o X1 do dia ENQUANTO a pessoa está no DEFCON. A cada 15s puxa o placar
+// Vigia o X1 do dia ENQUANTO a pessoa está no DEFCON. A cada 60s puxa o placar
 // (x1_placar) e:
 //  1) NOTIFICAÇÃO (fora do app) quando a liderança VIRA:
 //     - oponente passou  -> "⚔️ X1 — seu oponente passou!"
@@ -164,7 +164,9 @@ export function useX1DefconAlert(userId: string | undefined, active: boolean): X
     };
 
     poll();
-    const t = setInterval(poll, 15_000);
+    // 60s (era 15s até 08/10/2026: ~10 mil consultas/dia só disso). O placar
+    // vem das vendas lançadas no DEFCON; o banco só entra no fechamento.
+    const t = setInterval(poll, 60_000);
     return () => {
       alive = false;
       clearInterval(t);

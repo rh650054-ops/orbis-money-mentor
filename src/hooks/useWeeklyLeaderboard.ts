@@ -111,7 +111,8 @@ export function useWeeklyLeaderboard(userId: string | undefined, enabled: boolea
   useEffect(() => {
     if (!enabled) return;
     load();
-    const id = setInterval(() => load(true), 30000);
+    // 2 min (era 30 s até 08/10/2026 — ranking é das vendas do DEFCON, não precisa de segundo a segundo)
+    const id = setInterval(() => load(true), 120_000);
     const onFocus = () => load(true);
     window.addEventListener("focus", onFocus);
     return () => {

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/shared/ui/use-toast";
 import type { FeedChannel } from "@/hooks/useCommunityFeed";
+import { reduzirImagem } from "@/shared/lib/imagem";
 
 interface Props {
   channel: FeedChannel;
@@ -43,9 +44,10 @@ export function PostComposer({ channel, profile, onPosted }: Props) {
     try {
       let image_url: string | null = null;
       if (file) {
-        const ext = file.name.split(".").pop() || "jpg";
+        const foto = await reduzirImagem(file);
+        const ext = foto.name.split(".").pop() || "jpg";
         const path = `${user.id}/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("community-media").upload(path, file, { upsert: false });
+        const { error: upErr } = await supabase.storage.from("community-media").upload(path, foto, { upsert: false });
         if (upErr) throw upErr;
         image_url = supabase.storage.from("community-media").getPublicUrl(path).data.publicUrl;
       }
