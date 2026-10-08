@@ -2,6 +2,9 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 07/10/2026 — Hora de começar a vender: qualquer horário
+- No Editar Planejamento, a hora de começar tinha só 7h, 8h, 9h e 10h. Agora os 4 atalhos da manhã continuam e "outro horário" abre de 5h às 22h, pra quem começa à 1 ou às 3 da tarde. A pergunta virou "Que horas você costuma começar a vender?".
+
 ## 06/10/2026 — Jornada do teste (dia 0 + 3 dias)
 - **Missão do dia** no Início e no Foco: dia 0 primeiro Foco + ranking · dia 1 relatório · dia 2 custo do produto pela nota · dia 3 Caça-Sinal + arte da marca (abre a VANT IA já pedindo). Marca o que foi feito e mostra os 4 dias; some fora do teste. No dia 3 mostra quanto ele vendeu no teste.
 - **Oferta do dia** no fim do Foco, uma vez por dia: dia 1 VANT Essencial (botão principal é continuar testando), dia 2 prévia do VANT Pro com o banco trancado, dia 3 "último dia" → planos. Dia 0 sem preço.
