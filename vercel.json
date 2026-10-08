@@ -17,14 +17,6 @@
       "destination": "/excluir-conta.html"
     },
     {
-      "source": "/conheca",
-      "destination": "/conheca.html"
-    },
-    {
-      "source": "/conheca/:code",
-      "destination": "/conheca.html"
-    },
-    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

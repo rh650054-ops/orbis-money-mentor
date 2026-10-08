@@ -5,6 +5,7 @@ import Layout from "@/app/layout";
 import RankingAlertas from "@/components/ranking/RankingAlertas";
 import PulsoOrbis from "@/components/PulsoOrbis";
 import PaywallGate from "@/components/PaywallGate";
+import FeatureErrorBoundary from "@/shared/components/feature-error-boundary";
 import { AvisoNovoDominio } from "@/features/novo-dominio";
 import OfflineGate from "@/components/OfflineGate";
 
@@ -40,6 +41,7 @@ function lazyWithReload<T extends ComponentType<any>>(
 }
 
 const Index = lazyWithReload(() => import("@/pages/Index"));
+const EntrarNovoDominio = lazyWithReload(() => import("@/features/novo-dominio/routes/entrar-page"));
 const Transactions = lazyWithReload(() => import("@/pages/Transactions"));
 const History = lazyWithReload(() => import("@/pages/History"));
 const Insights = lazyWithReload(() => import("@/pages/Insights"));
@@ -123,6 +125,8 @@ export function AppRouter() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          {/* Chega do endereço antigo já logado (passe de uso único) */}
+          <Route path="/entrar" element={<FeatureErrorBoundary title="Entrar"><EntrarNovoDominio /></FeatureErrorBoundary>} />
           <Route path="/privacidade" element={<Privacidade />} />
           <Route path="/termos" element={<Termos />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />

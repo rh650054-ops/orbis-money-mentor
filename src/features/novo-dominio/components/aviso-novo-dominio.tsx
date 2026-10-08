@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/shared/ui/dialog";
 import { useAvisoDominioLigadoQuery } from "../api/use-aviso-dominio-query";
+import { useCriarPasseMutation } from "../api/use-passe-mutations";
 import {
   deveMostrarAviso, linkNovoDominio, aparelhoDe, DOMINIO_NOVO, DOMINIOS_ANTIGOS, CHAVE_ADIADO,
 } from "../hooks/regra-aviso";
@@ -23,6 +24,7 @@ export function AvisoNovoDominio() {
   const noAntigo = DOMINIOS_ANTIGOS.includes(host.toLowerCase());
   const { data: ligado = false } = useAvisoDominioLigadoQuery(noAntigo);
   const [adiadoEm, setAdiadoEm] = useState<number | null>(lerAdiado);
+  const criarPasse = useCriarPasseMutation();
 
   if (!deveMostrarAviso({ host, ligado, adiadoEm, agora: Date.now() })) return null;
 
@@ -31,6 +33,13 @@ export function AvisoNovoDominio() {
     const agora = Date.now();
     try { localStorage.setItem(CHAVE_ADIADO, String(agora)); } catch { /* modo privado: some só nesta visita */ }
     setAdiadoEm(agora);
+  };
+  // goes to the new address already logged in (one-time passe); if that fails, plain link
+  const irParaNovo = () => {
+    criarPasse.mutate(undefined, {
+      onSuccess: (passe) => { window.location.href = linkNovoDominio(passe); },
+      onError: () => { window.location.href = linkNovoDominio(); },
+    });
   };
 
   return (
@@ -42,7 +51,7 @@ export function AvisoNovoDominio() {
             A Vant agora mora em <span style={{ color: GOLD }}>{DOMINIO_NOVO}</span>
           </DialogTitle>
           <DialogDescription className="text-[14px]" style={{ color: "#BDB7AA" }}>
-            A partir de agora, use sempre o endereço novo. Seus dados, seu ranking e sua assinatura continuam iguais: é só entrar pelo endereço novo com o mesmo e-mail e senha.
+            A partir de agora, use sempre o endereço novo. Seus dados, seu ranking e sua assinatura continuam iguais. Toque no botão abaixo e você já entra logado.
           </DialogDescription>
 
           <div className="rounded-2xl p-4 space-y-2" style={{ background: "#141413", border: "1px solid rgba(255,255,255,.08)" }}>
@@ -55,11 +64,12 @@ export function AvisoNovoDominio() {
             <p className="text-[12px]" style={{ color: "#827C6E" }}>Se você já tinha o ícone antigo, pode apagar ele depois.</p>
           </div>
 
-          <a href={linkNovoDominio()}
-            className="w-full h-[54px] rounded-[16px] inline-flex items-center justify-center text-[15px] font-black active:translate-y-[1px]"
+          <button type="button" onClick={irParaNovo} disabled={criarPasse.isPending}
+            className="w-full h-[54px] rounded-[16px] inline-flex items-center justify-center text-[15px] font-black active:translate-y-[1px] disabled:opacity-70"
             style={{ background: GOLD, color: "#000" }}>
-            Abrir a Vant no endereço novo
-          </a>
+            {criarPasse.isPending ? "Abrindo…" : "Abrir a Vant no endereço novo"}
+          </button>
+          <p className="text-[12px] text-center" style={{ color: "#827C6E" }}>Você entra já logado, sem digitar senha.</p>
           <button type="button" onClick={adiar} className="w-full h-10 text-[13px]" style={{ color: "#827C6E" }}>
             Lembrar amanhã
           </button>
