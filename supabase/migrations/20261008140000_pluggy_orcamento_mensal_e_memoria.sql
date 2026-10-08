@@ -20,8 +20,10 @@ comment on column public.bank_connections.pedidos_dia is 'Brasília day of pedid
 comment on column public.bank_connections.pedidos_dia_qtd is 'Fresh pulls from the bank made on pedidos_dia.';
 
 -- What October already spent is not stored anywhere, so start from a CONSERVATIVE
--- estimate: until 08/10 01:00 the old robot asked a pull every hour 08h–24h
--- (16/day per bank); since the travas, at most one pull per read.
+-- estimate. The hourly pull started on 03/10 (commit "bank Pix refresh every ~hour")
+-- and ran until 08/10 01:00, 08h–24h: the function logs show 1 pull per bank per
+-- ~65 min → 16/day per bank, counted for the whole of 03/10. Since the travas, at
+-- most one pull per read.
 do $$
 declare
   v_hoje date := (now() at time zone 'America/Sao_Paulo')::date;
@@ -30,7 +32,7 @@ begin
     update public.bank_connections c set
       pedidos_mes = '2026-10',
       pedidos_mes_qtd =
-        16 * greatest(0, date '2026-10-08' - greatest(date '2026-10-01', (c.created_at at time zone 'America/Sao_Paulo')::date))
+        16 * greatest(0, date '2026-10-08' - greatest(date '2026-10-03', (c.created_at at time zone 'America/Sao_Paulo')::date))
         + 3 * greatest(0, v_hoje - greatest(date '2026-10-08', (c.created_at at time zone 'America/Sao_Paulo')::date))
         + case when c.leituras_dia = v_hoje then c.leituras_qtd else 0 end,
       pedidos_dia = case when c.leituras_dia = v_hoje then v_hoje end,

@@ -9,19 +9,22 @@
 // ranking AND the Raio-X freeze. So every pedido comes out of a monthly budget.
 //
 // MONTHLY BUDGET (ORCAMENTO_MES per bank, 30 left for Pluggy's own auto-sync):
-//   today's allowance = what is left this month ÷ days left (today included).
-//   A day without Foco leaves budget behind, so the next Foco days get more.
+//   • a RESERVE of RESERVA_DIA pulls is kept for every day left in the month, so the
+//     closing read and the after-Foco reads never run dry;
+//   • what is above the reserve is "free" and is spread over the days left — a Foco
+//     day may take 1.5× its share (not every day has a Foco), capped at TETO_DIA.
+//   When the month gets tight the Foco interval stretches by itself; it never freezes.
 //
-// The agenda, in Brasília time:
+// The agenda, in Brasília time (Rick, 08/10/2026):
 //   • fechamento — 1 read after midnight to close the day (00:05 + offset up to 3h)
-//   • foco       — while Modo Foco (DEFCON) is on: today's allowance, minus the
-//                  2 after-Foco reads, spread over a typical Foco (4h). Never
-//                  closer than PEDIDO_MIN (Pluggy's API cap, 1/h until support
-//                  lifts it) nor FOCO_MIN_INTERVALO_MIN.
+//   • foco       — while Modo Foco (DEFCON) is on: one pull every FOCO_ALVO_MIN (40 min).
+//                  Never closer than PEDIDO_MIN (Pluggy's API cap, 1/h until their
+//                  support lifts it); stretches only if the month's budget is short.
 //   • pós-foco   — when the Foco ends: the app reads right away (pluggy-sync);
 //                  the server makes sure of it and reads once more ~1h later
-//   • manhã      — 1 read in the morning, ONLY if the month has budget to spare
-//   • nothing else: a vendor who is not selling costs zero pedidos.
+//   • calma      — outside the Foco, 08h–20h: one read every CALMA_INTERVALO_MIN so the
+//                  daily goal moves, only while the day keeps a full Foco's worth aside
+//   • nothing else: a vendor who is not selling costs almost nothing.
 //
 // TRAVAS (hard limits, never crossed):
 //   • ORCAMENTO_MES pedidos per bank per month (counters on bank_connections)
@@ -33,7 +36,7 @@
 //
 // Pure functions only (no Deno APIs): the same file is unit-tested by vitest.
 
-export type Motivo = "fechamento" | "foco" | "pos_foco" | "manha";
+export type Motivo = "fechamento" | "foco" | "pos_foco" | "calma";
 
 export const LIMITE_DIA = 18;
 export const LIMITE_GLOBAL_DIA = 6000;
@@ -45,19 +48,29 @@ export const LIMITE_OPEN_FINANCE_MES = 240;
 export const ORCAMENTO_MES = 210;
 /** Reads kept aside for the end of every Foco (right after + ~1h later). */
 export const RESERVA_POS_FOCO = 2;
-/** A typical Foco, used to spread today's allowance over it. */
+/** Pulls kept for every day left in the month (closing read + one more). */
+export const RESERVA_DIA = 2;
+/** A Foco day may take this many times its even share of the free budget (not every day has a Foco). */
+export const FATOR_DIA_DE_FOCO = 1.5;
+/** Most pulls one bank may make in a single day. */
+export const TETO_DIA = 14;
+/** Rick's target: one fresh pull every 40 min while the vendor is in Modo Foco. */
+export const FOCO_ALVO_MIN = 40;
+/** A typical Foco, used to see whether today's allowance covers the 40-min rhythm. */
 export const FOCO_TIPICO_MIN = 240;
-/** Even with plenty of budget, Foco pedidos are never closer than this. */
-export const FOCO_MIN_INTERVALO_MIN = 15;
-/** Morning read only when the day still has at least this many pedidos to spare. */
-export const MANHA_SE_SOBRAR = 6;
+/** Outside the Foco (08h–20h): one calm read every 4h so the daily goal moves. */
+export const CALMA_INTERVALO_MIN = 240;
+export const CALMA_ABRE_MIN = 8 * 60;
+export const CALMA_FECHA_MIN = 20 * 60;
+/** A calm read only happens while the day still keeps a full Foco (6 × 40 min) + the 2 after it. */
+export const CALMA_SE_SOBRAR = Math.ceil(FOCO_TIPICO_MIN / FOCO_ALVO_MIN) + RESERVA_POS_FOCO + 1;
 /** Pluggy accepts 1 refresh (PATCH) per hour per item on new accounts (docs: updating-an-item). */
 export const PEDIDO_MIN_PADRAO_MIN = 61;
 
 const BRT_OFFSET_MIN = -3 * 60; // Brasília has no DST since 2019
 
 /** Priority when the run has more due banks than MAX_POR_RODADA. */
-export const PRIORIDADE: Record<Motivo, number> = { fechamento: 0, foco: 1, pos_foco: 2, manha: 3 };
+export const PRIORIDADE: Record<Motivo, number> = { fechamento: 0, foco: 1, pos_foco: 2, calma: 3 };
 
 export interface Contexto {
   agora: Date;
@@ -76,6 +89,8 @@ export interface Contexto {
   leiturasGlobaisHoje: number;
   /** fresh pulls this bank may still make today (cotaDeHoje); undefined = no budget info */
   disponivelHoje?: number;
+  /** today's whole allowance (disponivelHoje + pulls already made today): keeps the Foco rhythm even */
+  cotaDoDia?: number;
   /** minimum minutes between two pulls (Pluggy's cap) */
   pedidoMinMin?: number;
 }
@@ -107,27 +122,39 @@ export function diasRestantesNoMes(agora: Date): number {
   return ultimo - d + 1;
 }
 
+/** Pulls left this month for this bank (the reserve included). */
+export function restanteNoMes(pedidosMes: number, orcamento = ORCAMENTO_MES): number {
+  return Math.max(0, orcamento - pedidosMes);
+}
+
 /**
- * Fresh pulls this bank may still make today.
- * allowance(today) = (ORCAMENTO_MES − pulls before today) ÷ days left, minus pulls already made today.
+ * Pulls this bank may still make today for Foco and calm reads.
+ * today = RESERVA_DIA + 1.5 × (free budget ÷ days left), capped at TETO_DIA,
+ * where free = what is left this month minus the reserve for the days after today.
  */
 export function cotaDeHoje(pedidosMes: number, pedidosHoje: number, agora: Date, orcamento = ORCAMENTO_MES): number {
-  const antesDeHoje = Math.max(0, pedidosMes - pedidosHoje);
-  const restante = Math.max(0, orcamento - antesDeHoje);
-  const doDia = Math.floor(restante / diasRestantesNoMes(agora));
+  const dias = diasRestantesNoMes(agora);
+  const restanteAntesDeHoje = Math.max(0, orcamento - Math.max(0, pedidosMes - pedidosHoje));
+  const livre = Math.max(0, restanteAntesDeHoje - RESERVA_DIA * dias);
+  const doDia = Math.min(TETO_DIA, RESERVA_DIA + Math.floor((FATOR_DIA_DE_FOCO * livre) / dias), restanteAntesDeHoje);
   return Math.max(0, doDia - pedidosHoje);
 }
 
-/** Minutes between two Foco pulls, given what is left for today. Infinity = no Foco pulls left. */
+/** Minutes between two Foco pulls. 40 when the day can afford it; longer when the month is short; Infinity = none left. */
 export function intervaloFocoMin(disponivelHoje: number, pedidoMinMin = PEDIDO_MIN_PADRAO_MIN): number {
   const paraFoco = disponivelHoje - RESERVA_POS_FOCO;
   if (paraFoco <= 0) return Infinity;
-  return Math.max(pedidoMinMin, FOCO_MIN_INTERVALO_MIN, Math.ceil(FOCO_TIPICO_MIN / paraFoco));
+  return Math.max(pedidoMinMin, FOCO_ALVO_MIN, Math.ceil(FOCO_TIPICO_MIN / paraFoco));
 }
 
-/** May this read also ask the bank for fresh data? */
-export function podePedir(ultimoPedido: Date | null, disponivelHoje: number, agora: Date, pedidoMinMin = PEDIDO_MIN_PADRAO_MIN): boolean {
-  if (disponivelHoje <= 0) return false;
+/** May this read also ask the bank for fresh data? (closing and after-Foco reads spend the reserve) */
+export function podePedir(
+  ultimoPedido: Date | null, disponivelHoje: number, agora: Date, pedidoMinMin = PEDIDO_MIN_PADRAO_MIN,
+  opc: { motivo?: Motivo | null; restanteMes?: number } = {},
+): boolean {
+  const daReserva = opc.motivo === "fechamento" || opc.motivo === "pos_foco";
+  const temSaldo = daReserva ? (opc.restanteMes ?? disponivelHoje) > 0 : disponivelHoje > 0;
+  if (!temSaldo) return false;
   if (!ultimoPedido) return true;
   return minutosEntre(agora, ultimoPedido) >= pedidoMinMin;
 }
@@ -154,10 +181,13 @@ export function motivoDeLeitura(c: Contexto): Motivo | null {
   // past the global budget only the closing read runs
   if (c.leiturasGlobaisHoje >= LIMITE_GLOBAL_DIA) return null;
 
-  // foco: today's allowance spread over the Foco (a read here only makes sense with a fresh pull)
+  // foco: every 40 min, or today's allowance spread over a 4h Foco when the month is short
   if (c.focoAtivo) {
-    const intervalo = intervaloFocoMin(disponivel, pedidoMin);
-    if (!Number.isFinite(intervalo)) return null;
+    if (disponivel - RESERVA_POS_FOCO <= 0) return null;
+    // the rhythm comes from the WHOLE day's allowance (minus the closing pull), so it stays
+    // even through the Foco instead of stretching after every pull
+    const baseDoDia = c.cotaDoDia !== undefined ? c.cotaDoDia - 1 : disponivel;
+    const intervalo = intervaloFocoMin(Math.max(baseDoDia, RESERVA_POS_FOCO + 1), pedidoMin);
     const desdePedido = c.ultimoPedido ? minutosEntre(c.agora, c.ultimoPedido) : Infinity;
     return desdePedido >= intervalo && desdeUltima >= intervalo ? "foco" : null;
   }
@@ -171,13 +201,12 @@ export function motivoDeLeitura(c: Contexto): Motivo | null {
     if (desdeFim >= 60 && desdeFim < 180 && !leuNaSegunda) return "pos_foco";
   }
 
-  // manhã: once between 08:00 + offset and 12:00, if nothing was read since 06:00 — and only
-  // when the month has budget to spare (a Foco day needs it more)
-  if (disponivel < MANHA_SE_SOBRAR) return null;
-  const abreManha = 8 * 60 + deslocamento(c.userId, 120);
-  const seisDaManha = new Date(inicioDoDia.getTime() + 6 * 60 * 60_000);
-  const leuDesdeSeis = !!ultima && ultima.getTime() >= seisDaManha.getTime();
-  if (minutoDoDia >= abreManha && minutoDoDia < 12 * 60 && !leuDesdeSeis) return "manha";
+  // calma: outside the Foco, 08h–20h, one read every 4h so the daily goal moves — only
+  // while the day keeps a full Foco's worth aside, and only if Pluggy can be asked again
+  if (disponivel < CALMA_SE_SOBRAR) return null;
+  if (minutoDoDia < CALMA_ABRE_MIN + deslocamento(c.userId, 60) || minutoDoDia >= CALMA_FECHA_MIN) return null;
+  const desdePedidoCalma = c.ultimoPedido ? minutosEntre(c.agora, c.ultimoPedido) : Infinity;
+  if (desdeUltima >= CALMA_INTERVALO_MIN && desdePedidoCalma >= pedidoMin) return "calma";
 
   return null;
 }
@@ -201,11 +230,12 @@ export function pedidosDoPeriodo(guardado: string | null, qtd: number | null, at
 export function orcamentoDaConexao(
   c: { pedidos_mes?: string | null; pedidos_mes_qtd?: number | null; pedidos_dia?: string | null; pedidos_dia_qtd?: number | null },
   agora: Date,
-): { mes: string; dia: string; pedidosMes: number; pedidosHoje: number; disponivelHoje: number } {
+): { mes: string; dia: string; pedidosMes: number; pedidosHoje: number; disponivelHoje: number; cotaDoDia: number; restanteMes: number } {
   const { mes, dia } = relogioBRT(agora);
   const pedidosMes = pedidosDoPeriodo(c.pedidos_mes ?? null, c.pedidos_mes_qtd ?? null, mes);
   const pedidosHoje = pedidosDoPeriodo(c.pedidos_dia ?? null, c.pedidos_dia_qtd ?? null, dia);
-  return { mes, dia, pedidosMes, pedidosHoje, disponivelHoje: cotaDeHoje(pedidosMes, pedidosHoje, agora) };
+  const disponivelHoje = cotaDeHoje(pedidosMes, pedidosHoje, agora);
+  return { mes, dia, pedidosMes, pedidosHoje, disponivelHoje, cotaDoDia: disponivelHoje + pedidosHoje, restanteMes: restanteNoMes(pedidosMes) };
 }
 
 /** Columns to store after one more fresh pull. */
