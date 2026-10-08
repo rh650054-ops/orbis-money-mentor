@@ -103,6 +103,7 @@ function rotuloVencimento(iso: string | null): string {
 }
 import { ObjetivoConquistado } from "@/components/financas/ObjetivoConquistado";
 import { avisar } from "@/shared/lib/avisar";
+import { reduzirImagem } from "@/shared/lib/imagem";
 
 interface PlannedBill {
   id: string;
@@ -1022,11 +1023,12 @@ export default function Finances() {
     try {
       let iconValue = newGoal.icon;
       if (goalImage) {
-        const ext = goalImage.name.split(".").pop() || "jpg";
+        const pequena = await reduzirImagem(goalImage, 800);
+        const ext = pequena.name.split(".").pop() || "jpg";
         const path = `${user.id}/goals/${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("community-media")
-          .upload(path, goalImage, { upsert: false });
+          .upload(path, pequena, { upsert: false });
         if (!upErr) {
           iconValue = supabase.storage.from("community-media").getPublicUrl(path).data.publicUrl;
         }

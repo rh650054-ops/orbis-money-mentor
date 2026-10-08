@@ -49,6 +49,7 @@ import { generatePixPayload } from "@/shared/lib/pix-code";
 import { BRAZILIAN_BANKS, getBankById } from "@/shared/lib/brazilian-banks";
 import CalculadoraPreco from "@/components/estudio/CalculadoraPreco";
 import FirstTimeCard from "@/components/FirstTimeCard";
+import { reduzirImagem } from "@/shared/lib/imagem";
 
 interface Product {
   id: string;
@@ -245,11 +246,14 @@ export default function Products() {
 
   const handlePhoto = async (file: File) => {
     if (!user) return;
+    setUploading(true);
+    // 08/10/2026: reduz no celular antes de subir (fotos de 4 MB viravam 4 MB no app de todo mundo)
+    file = await reduzirImagem(file, 1200);
     if (file.size > 5 * 1024 * 1024) {
+      setUploading(false);
       toast({ title: "Foto muito grande", description: "Máximo 5MB.", variant: "destructive" });
       return;
     }
-    setUploading(true);
     const ext = file.name.split(".").pop();
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
     const { error } = await supabase.storage.from("product-photos").upload(path, file, {

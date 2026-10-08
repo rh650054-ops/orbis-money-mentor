@@ -17,6 +17,7 @@ import { getBrazilDate } from "@/shared/lib/date-utils";
 import {
   Bike, Smartphone, Home, Plane, Package, Shield, GraduationCap, Target, Calendar, ChevronLeft, Loader2, Plus, ImagePlus, type LucideIcon,
 } from "lucide-react";
+import { reduzirImagem } from "@/shared/lib/imagem";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -108,9 +109,10 @@ export function NovaCaixinhaSheet({ open, onOpenChange, userId, workingDays, sob
     try {
       let icone: string = TIPOS.find((t) => t.key === tipo)?.emoji ?? "🎯";
       if (foto) {
-        const ext = foto.name.split(".").pop() || "jpg";
+        const pequena = await reduzirImagem(foto, 800);
+        const ext = pequena.name.split(".").pop() || "jpg";
         const path = `${userId}/goals/${Date.now()}.${ext}`;
-        const { error: upErr } = await supabase.storage.from("community-media").upload(path, foto, { upsert: false });
+        const { error: upErr } = await supabase.storage.from("community-media").upload(path, pequena, { upsert: false });
         if (!upErr) icone = supabase.storage.from("community-media").getPublicUrl(path).data.publicUrl;
       }
       const prazoTag = dias <= 90 ? "curto" : dias <= 200 ? "medio" : "longo";

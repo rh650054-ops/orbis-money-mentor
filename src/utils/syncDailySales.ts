@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
+import { recalcularRanking } from "@/shared/lib/ranking-recalc";
 
 /**
  * Syncs aggregated hourly block data to the daily_sales table.
@@ -162,7 +163,7 @@ export async function syncLeaderboardRevenue(userId: string) {
 
   // Recalculate positions
   if (totalFaturamento > 0) {
-    const { error } = await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
+    const { error } = await recalcularRanking(currentMonth);
     if (error) avisar.erro("syncDailySales: recalcular posições do ranking", error);
   }
 }

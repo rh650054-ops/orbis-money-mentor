@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { recalcularRanking } from "@/shared/lib/ranking-recalc";
 import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate, formatBrazilDate } from "@/shared/lib/date-utils";
 import { extratoValendo } from "@/shared/lib/ranking-config";
@@ -272,7 +273,7 @@ export function useLeaderboard(userId: string | undefined) {
       }
 
       // Recalculate positions for all users
-      const { error: recalcErr } = await supabase.rpc('recalculate_ranking_positions', { target_month: currentMonth });
+      const { error: recalcErr } = await recalcularRanking(currentMonth);
       if (recalcErr) throw recalcErr;
 
       // Reload leaderboard

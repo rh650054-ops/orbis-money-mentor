@@ -15,6 +15,7 @@
 // connect_token) e de um vendedor Pro, o webhook cria a conexao sozinho.
 // O item e conferido NA PLUGGY antes: o clientUserId tem que bater.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { importarEntradas } from "../_shared/pluggy-entradas.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -42,58 +43,10 @@ async function pluggyKey() {
   return apiKey as string;
 }
 
-/** Puxa so as ENTRADAS (CREDIT) dos ultimos `dias` dias e guarda como venda a conferir.
- *  Pluggy (10/09/2026): o GET /transactions antigo responde 410 Gone. O vivo e o
- *  /v2/transactions, paginado por cursor (`next`). Contas de CARTAO ficam de fora:
- *  "CREDIT" la e pagamento de fatura, nao venda. Venda de rua cai na conta corrente. */
-// deno-lint-ignore no-explicit-any
-async function importarEntradas(admin: any, apiKey: string, itemId: string, userId: string, conexaoId: string, dias = 7) {
-  const contasRes = await fetch(`https://api.pluggy.ai/accounts?itemId=${encodeURIComponent(itemId)}`, {
-    headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000),
-  });
-  // deno-lint-ignore no-explicit-any
-  const contas: any[] = ((await contasRes.json().catch(() => ({})))?.results ?? [])
-    .filter((c: { type?: string }) => String(c?.type ?? "").toUpperCase() === "BANK");
-
-  const desde = new Date();
-  desde.setDate(desde.getDate() - dias);
-  const dataDe = desde.toISOString().split("T")[0];
-
-  let gravadas = 0;
-  for (const conta of contas) {
-    let cursor: string | null = null;
-    for (let pagina = 0; pagina < 5; pagina++) {
-      const u = `https://api.pluggy.ai/v2/transactions?accountId=${encodeURIComponent(conta.id)}&dateFrom=${dataDe}` +
-        (cursor ? `&after=${encodeURIComponent(cursor)}` : "");
-      const txRes = await fetch(u, { headers: { "X-API-KEY": apiKey }, signal: AbortSignal.timeout(25000) });
-      if (!txRes.ok) { console.error("pluggy transactions", txRes.status, conta.id); break; }
-      // deno-lint-ignore no-explicit-any
-      const corpo: any = await txRes.json().catch(() => ({}));
-      // deno-lint-ignore no-explicit-any
-      const txs: any[] = corpo?.results ?? [];
-      // so ENTRADA de dinheiro (venda / Pix recebido). Saida nao interessa aqui.
-      // filtro de data tambem aqui: se a Pluggy ignorar o dateFrom, nao importamos meses de historico
-      const entradas = txs.filter((t) => t?.type === "CREDIT" && Number(t?.amount) > 0 &&
-        String(t?.date ?? "").slice(0, 10) >= dataDe);
-      for (const t of entradas) {
-        const dia = t?.date ? String(t.date).split("T")[0] : dataDe;
-        const { error } = await admin.from("auto_detected_sales").upsert({
-          user_id: userId,
-          bank_connection_id: conexaoId,
-          transaction_id: String(t.id),
-          amount: Number(t.amount),
-          description: t?.description ?? null,
-          transaction_date: dia,
-          status: "pending",
-        }, { onConflict: "transaction_id", ignoreDuplicates: true });
-        if (!error) gravadas++;
-      }
-      cursor = corpo?.next ? String(corpo.next) : null;
-      if (!cursor) break;
-    }
-  }
-  return { contas: contas.length, gravadas };
-}
+// 08/10/2026: entries are imported by the SHARED importer (_shared/pluggy-entradas.ts):
+// one batched upsert per page instead of one request per transaction (was
+// ~17k writes/day), plus is_pix / real time / own-transfer like the robot.
+// A brand-new bank pulls 7 days; a refresh pulls 2 (yesterday + today).
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -199,7 +152,7 @@ Deno.serve(async (req) => {
     const { error: eSelo } = await admin.rpc("banco_conceder_selo", { p_user: con.user_id });
     if (eSelo) console.error("pluggy-webhook: selo", eSelo.message);
 
-    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, 7);
+    const r = await importarEntradas(admin, apiKey, itemId, con.user_id, con.id, evento === "item/created" ? 7 : 2);
 
     await admin.from("bank_connections").update({
       last_synced_at: new Date().toISOString(),

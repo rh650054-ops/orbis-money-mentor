@@ -64,11 +64,12 @@ export function DefconEndScreen({
   useMarcarPasso("foco", !!userId && !/[?&]treino=1/.test(typeof window !== "undefined" ? window.location.search : ""));
   // PIX TRAVADO (Open Finance; religado 03/10 a pedido do Rick): com banco
   // ligado, o Pix do dia é o que o banco diz — cadeado, sem digitar.
-  // Ao finalizar: pede uma leitura NA HORA (pluggy-sync importa o que já está
+  // Ao finalizar: pede UMA leitura na hora (pluggy-sync importa o que já está
   // na Pluggy e, se passou 1 h, pede atualização ao banco) e relê assim que
-  // ela volta. Depois fica vivo: relê a cada 30 s e pede leitura nova a cada
-  // 5 min enquanto a tela estiver aberta — o valor sobe sozinho conforme cai.
-  const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 30_000);
+  // ela volta. Depois só relê o que o servidor já tem (1x por minuto, sem
+  // chamar o banco). TRAVAS 08/10: a leitura de ~1 h depois do Foco é do robot
+  // (pluggy-hora) — antes esta tela pedia leitura nova a cada 5 min.
+  const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
   const [lendoBanco, setLendoBanco] = useState(false);
   useEffect(() => {
     if (!userId) return;
@@ -83,8 +84,7 @@ export function DefconEndScreen({
     void puxar();
     const t1 = setTimeout(() => { if (vivo) void relerBanco(); }, 20_000);
     const t2 = setTimeout(() => { if (vivo) void relerBanco(); }, 50_000);
-    const ciclo = setInterval(() => { void puxar(); }, 5 * 60_000);
-    return () => { vivo = false; clearTimeout(t1); clearTimeout(t2); clearInterval(ciclo); };
+    return () => { vivo = false; clearTimeout(t1); clearTimeout(t2); };
   }, [userId, relerBanco]);
   const [cartao, setCartao] = useState("");
   const [dinheiro, setDinheiro] = useState("");

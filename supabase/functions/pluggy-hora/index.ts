@@ -1,24 +1,28 @@
-// Vant — pluggy-hora: leitura do Pix de quem tem banco ligado.
-// Roda pelo cron a cada 5 min (8h → 23h55 em Brasília), + 0h02 pra fechar o dia.
-// O PEDIDO de atualização à Pluggy é no máximo 1 por hora por banco (limite
-// da Pluggy: o cron das :07 batia em 59min59s e metade voltava 409). A leitura
-// do que a Pluggy já tem roda em todas as rodadas.
-// O vendedor pode fechar o app às 19h: o Pix das 21h ainda entra no ranking,
-// porque quem lê o banco é o servidor, não o celular dele.
+// Vant — pluggy-hora: the robot that reads vendors' banks (Pluggy / Open Finance).
+// Runs every 5 min from pg_cron, but since 08/10/2026 it only READS a bank when
+// the agenda says so (_shared/pluggy-agenda.ts): morning, every hour of Modo
+// Foco, right after the Foco, and once after midnight. A vendor who is not
+// selling costs nothing. Before, every run read every bank (~96k reads/day at
+// 500 vendors).
 //
-// Pra cada conexão: importa o que a Pluggy já tem (hoje e ontem, com is_pix,
-// hora real e transferência entre contas próprias) e pede uma atualização nova
-// (PATCH no item). A resposta da atualização chega pelo pluggy-webhook; o que
-// ela trouxer é enriquecido na leitura da hora seguinte.
+// Each read: imports what Pluggy already has (entries of today, +yesterday at
+// the closing read) and asks Pluggy for a fresh pull from the bank (PATCH, at
+// most 1 per hour — Pluggy's limit). The fresh data arrives via pluggy-webhook.
+// The Raio-X (Piloto Automático) is refreshed only on morning, after-Foco and
+// closing reads — not every Foco hour.
 //
-// SEGURANÇA: só roda com o cabeçalho x-orbis-cron, cujo valor mora em
-// painel_tokens (nome='cron'), o mesmo do mp-sync. Sem ele: 401.
+// SECURITY: only runs with the x-orbis-cron header, whose value lives in
+// painel_tokens (nome='cron'), same as mp-sync. Without it: 401.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
+import {
+  motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT,
+  MAX_POR_RODADA, PEDIDO_MIN_MS, PRIORIDADE, type Motivo,
+} from "../_shared/pluggy-agenda.ts";
 
-const MAX_POR_RODADA = 40;
-const PEDIDO_MIN = 61 * 60_000; // 1 pedido por hora (limite da Pluggy, contado do lado dela com alguns segundos a mais)
+/** A Foco session counts as "on" only while the app keeps touching it. */
+const FOCO_VIVO_MS = 30 * 60_000;
 
 Deno.serve(async (req) => {
   const json = (o: unknown, s = 200) =>
@@ -31,55 +35,105 @@ Deno.serve(async (req) => {
     const esperado = String(tk?.token ?? "");
     if (!esperado || enviado !== esperado) return json({ error: "nao_autorizado" }, 401);
 
+    const agora = new Date();
+    const { dia: hoje } = relogioBRT(agora);
+
+    const { data: cons } = await admin.from("bank_connections")
+      .select("id, item_id, user_id, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd")
+      .neq("status", "deleted");
+    // deno-lint-ignore no-explicit-any
+    const conexoes: any[] = cons ?? [];
+    if (conexoes.length === 0) return json({ ok: true, conexoes: 0, lidas: 0 });
+
+    const globais = conexoes.reduce((s, c) => s + leiturasDeHoje(c.leituras_dia, c.leituras_qtd, hoje), 0);
+
+    // today's Foco sessions of these vendors (Brasília date)
+    const donos = [...new Set(conexoes.map((c) => c.user_id))];
+    const { data: sess } = await admin.from("challenge_sessions")
+      .select("user_id, status, updated_at, ended_at")
+      .eq("date", hoje).in("user_id", donos);
+    const focoAtivo = new Set<string>();
+    const focoFim = new Map<string, Date>();
+    for (const s of sess ?? []) {
+      const vivo = s.status === "active" && s.updated_at && agora.getTime() - Date.parse(s.updated_at) < FOCO_VIVO_MS;
+      if (vivo) focoAtivo.add(s.user_id);
+      if (s.ended_at) {
+        const fim = new Date(s.ended_at);
+        const antes = focoFim.get(s.user_id);
+        if (!antes || fim > antes) focoFim.set(s.user_id, fim);
+      }
+    }
+
+    // who is due now, most urgent first, capped per run (spreads the peaks)
+    const devidas: { c: (typeof conexoes)[number]; motivo: Motivo }[] = [];
+    for (const c of conexoes) {
+      const motivo = motivoDeLeitura({
+        agora,
+        userId: c.user_id,
+        ultimaLeitura: c.last_synced_at ? new Date(c.last_synced_at) : null,
+        focoAtivo: focoAtivo.has(c.user_id),
+        focoFimEm: focoFim.get(c.user_id) ?? null,
+        leiturasHoje: leiturasDeHoje(c.leituras_dia, c.leituras_qtd, hoje),
+        leiturasGlobaisHoje: globais,
+      });
+      if (motivo) devidas.push({ c, motivo });
+    }
+    devidas.sort((a, b) =>
+      PRIORIDADE[a.motivo] - PRIORIDADE[b.motivo] ||
+      Date.parse(a.c.last_synced_at ?? "1970-01-01") - Date.parse(b.c.last_synced_at ?? "1970-01-01"));
+    const rodada = devidas.slice(0, MAX_POR_RODADA);
+    if (rodada.length === 0) return json({ ok: true, conexoes: conexoes.length, devidas: 0, globais });
+
     const apiKey = await pluggyKey();
     if (!apiKey) return json({ error: "pluggy_nao_configurado" });
 
-    // quem está há mais tempo sem leitura vai primeiro
-    const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, status, last_synced_at, institution_name, pluggy_pedido_em")
-      .neq("status", "deleted")
-      .order("last_synced_at", { ascending: true, nullsFirst: true })
-      .limit(MAX_POR_RODADA);
-    // deno-lint-ignore no-explicit-any
-    const lista: any[] = cons ?? [];
-
-    let lidas = 0, pix = 0, pedidos = 0, falhas = 0, saldos = 0, piloto = 0;
+    let lidas = 0, pix = 0, pedidos = 0, falhas = 0, piloto = 0;
+    const porMotivo: Record<string, number> = {};
     const comNovidade = new Set<string>();
-    for (const c of lista) {
+    for (const { c, motivo } of rodada) {
+      porMotivo[motivo] = (porMotivo[motivo] ?? 0) + 1;
       try {
-        const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, 1);
+        const r = await importarEntradas(admin, apiKey, c.item_id, c.user_id, c.id, motivo === "fechamento" ? 2 : 1);
         lidas += r.gravadas;
         pix += r.pix;
       } catch (e) {
         falhas++;
         console.error("pluggy-hora: importar", c.id, (e as Error)?.message);
       }
-      // Piloto Automático (etapa 3): saldo + cada movimentação no Raio-X, já categorizada
-      try {
-        const p = await importarPiloto(admin, apiKey, c.item_id, c.user_id, c.id, c.institution_name ?? null);
-        saldos += p.saldos;
-        piloto += p.gravadas;
-        if (p.gravadas > 0 || ((p as { corrigidas?: number }).corrigidas ?? 0) > 0) comNovidade.add(c.user_id);
-      } catch (e) {
-        console.error("pluggy-hora: piloto", c.id, (e as Error)?.message);
+      if (motivo !== "foco") {
+        try {
+          const p = await importarPiloto(admin, apiKey, c.item_id, c.user_id, c.id, c.institution_name ?? null);
+          piloto += p.gravadas;
+          if (p.gravadas > 0 || ((p as { corrigidas?: number }).corrigidas ?? 0) > 0) comNovidade.add(c.user_id);
+        } catch (e) {
+          console.error("pluggy-hora: piloto", c.id, (e as Error)?.message);
+        }
       }
-      const agora = new Date().toISOString();
+      const agoraIso = new Date().toISOString();
       // deno-lint-ignore no-explicit-any
-      const mudar: Record<string, any> = { last_synced_at: agora, updated_at: agora };
-      const ultimo = c.pluggy_pedido_em ? Date.parse(c.pluggy_pedido_em) : 0;
-      if (Date.now() - ultimo >= PEDIDO_MIN && await pedirAtualizacao(apiKey, c.item_id)) {
+      const mudar: Record<string, any> = {
+        last_synced_at: agoraIso,
+        updated_at: agoraIso,
+        leituras_dia: hoje,
+        leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
+      };
+      const ultimoPedido = c.pluggy_pedido_em ? Date.parse(c.pluggy_pedido_em) : 0;
+      if (Date.now() - ultimoPedido >= PEDIDO_MIN_MS && await pedirAtualizacao(apiKey, c.item_id)) {
         pedidos++;
-        mudar.pluggy_pedido_em = agora;
+        mudar.pluggy_pedido_em = agoraIso;
       }
       await admin.from("bank_connections").update(mudar).eq("id", c.id);
     }
-    // a inteligência do Raio-X (entre contas, regras do vendedor, recorrência, perguntas)
     for (const uid of comNovidade) {
       const { error } = await admin.rpc("extrato_analisar_padroes", { p_uid: uid });
       if (error) console.error("pluggy-hora: analisar_padroes", error.message);
     }
-    console.log("pluggy-hora", { conexoes: lista.length, lidas, pix, pedidos, falhas, saldos, piloto });
-    return json({ ok: true, conexoes: lista.length, lidas, pix, pedidos, falhas, saldos, piloto });
+    const resumo = {
+      conexoes: conexoes.length, devidas: devidas.length, lidas_agora: rodada.length,
+      porMotivo, entradas: lidas, pix, pedidos, falhas, piloto, globais: globais + rodada.length,
+    };
+    console.log("pluggy-hora", resumo);
+    return json({ ok: true, ...resumo });
   } catch (e) {
     console.error("pluggy-hora", e);
     return json({ error: "erro_interno" }, 500);
