@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
       const orc = orcamentoDaConexao(c, new Date());
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
       let pediuEste = false;
-      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
+      // called at the end of the Foco / day closing → spends the reserve, like the after-Foco read
+      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
       try {
         const dias = diasParaImportar(c.last_synced_at ? new Date(c.last_synced_at) : null, new Date(), 2);
         const r = await importarEntradas(admin, apiKey, c.item_id, uid, c.id, dias);

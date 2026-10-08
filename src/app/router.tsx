@@ -5,6 +5,7 @@ import Layout from "@/app/layout";
 import RankingAlertas from "@/components/ranking/RankingAlertas";
 import PulsoOrbis from "@/components/PulsoOrbis";
 import PaywallGate from "@/components/PaywallGate";
+import { AvisoNovoDominio } from "@/features/novo-dominio";
 import OfflineGate from "@/components/OfflineGate";
 
 // Recarrega a página UMA vez se um chunk antigo sumiu após um deploy novo.
@@ -108,6 +109,9 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <PaywallGate />
+      {/* "A Vant mudou de endereço": só em app.orbis.inf.br e só depois que o Rick liga
+          (app_settings.aviso_novo_dominio = 'on') */}
+      <AvisoNovoDominio />
       {/* Sem internet → painel com "Ativar modo offline" (cobre todas as telas) */}
       <OfflineGate />
       {/* Ranking: "fulano te ultrapassou" / "você passou fulano" — em qualquer tela, inclusive no DEFCON */}

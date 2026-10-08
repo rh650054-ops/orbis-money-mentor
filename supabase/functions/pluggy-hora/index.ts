@@ -1,9 +1,8 @@
 // Vant — pluggy-hora: the robot that reads vendors' banks (Pluggy / Open Finance).
 // Runs every 5 min from pg_cron, but since 08/10/2026 it only READS a bank when
-// the agenda says so (_shared/pluggy-agenda.ts): during Modo Foco (spread by the
-// bank's monthly budget), right after the Foco, once after midnight, and in the
-// morning only when the month has budget to spare. A vendor who is not selling
-// costs nothing.
+// the agenda says so (_shared/pluggy-agenda.ts): every 40 min during Modo Foco,
+// right after the Foco, once after midnight, and a calm read every ~4h during the
+// day only while the bank's monthly budget has room to spare.
 //
 // Each read: imports what Pluggy already has (since the day before the last
 // read, so a gap never loses entries) and, when the bank's MONTHLY BUDGET allows
@@ -80,6 +79,7 @@ Deno.serve(async (req) => {
         ultimaLeitura: c.last_synced_at ? new Date(c.last_synced_at) : null,
         ultimoPedido: c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null,
         disponivelHoje: orc.disponivelHoje,
+        cotaDoDia: orc.cotaDoDia,
         pedidoMinMin: PEDIDO_MIN_MIN,
         focoAtivo: focoAtivo.has(c.user_id),
         focoFimEm: focoFim.get(c.user_id) ?? null,
@@ -130,7 +130,7 @@ Deno.serve(async (req) => {
         leituras_qtd: contarLeitura(c.leituras_dia, c.leituras_qtd, hoje),
       };
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
-      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN) && await pedirAtualizacao(apiKey, c.item_id)) {
+      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo, restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) {
         pedidos++;
         mudar.pluggy_pedido_em = agoraIso;
         Object.assign(mudar, contarPedido(orc));
