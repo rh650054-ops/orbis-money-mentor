@@ -205,6 +205,31 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: "banco_extra_falhou" }), { status: 500, headers: corsHeaders });
         }
         console.log(`Banco extra ${liga ? "liberado" : "retirado"} para ${dono}`);
+
+        // BUG-005 (08/10/2026): a compra caiu numa conta que NÃO consegue usar o banco
+        // (teste expirado, sem cortesia, sem Pro) — típico de cadastro duplicado: a
+        // Hotmart casou pelo CPF com a conta velha, e a pessoa usa outra. Antes isso
+        // passava em silêncio como "banco_extra_ok". Agora grava em unlinked_purchases
+        // (a lista de pendências do admin) e grita no log, sem desfazer a liberação.
+        if (liga) {
+          try {
+            const { data: podeUsar } = await supabase.rpc("orbis_pro_ativo", { p_user: dono });
+            const { data: perfil } = await supabase.from("profiles")
+              .select("plan_status, billing_exempt").eq("user_id", dono).maybeSingle();
+            const contaMorta = perfil && perfil.plan_status === "expired" && !perfil.billing_exempt && podeUsar !== true;
+            if (contaMorta) {
+              console.error(`BANCO_EXTRA_EM_CONTA_EXPIRADA user=${dono} cpf=${buyerCpf ?? "?"} email=${buyerEmail ?? "?"} — provável cadastro duplicado; conferir no admin`);
+              await supabase.from("unlinked_purchases").insert({
+                buyer_email: buyerEmail || null, buyer_cpf: buyerCpf || null,
+                hotmart_purchase_id: purchaseId, hotmart_subscription_id: subscriptionId,
+                event_type: `${event}:BANCO_EXTRA_CONTA_EXPIRADA`, payload,
+                linked_at: new Date().toISOString(), linked_to_user_id: dono,
+              });
+            }
+          } catch (e) {
+            console.error("checagem conta expirada falhou (seguindo)", String(e).slice(0, 200));
+          }
+        }
       }
       return new Response(JSON.stringify({ status: "banco_extra_ok" }), { headers: corsHeaders });
     }

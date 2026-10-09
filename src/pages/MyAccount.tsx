@@ -340,9 +340,16 @@ export default function Profile() {
       setIsSaving(false);
     } catch (error) {
       avisar.erro("MyAccount: salvar perfil", error);
+      // BUG-005 (08/10): e-mail/telefone/CPF são únicos — se já estão em OUTRA conta
+      // da própria pessoa (cadastro duplicado), ela precisa saber, não ver "Erro".
+      const msg = String((error as { message?: string } | null)?.message ?? "");
+      const unico = /profiles_(email|phone|cpf)_unique/.exec(msg)?.[1];
+      const campo = unico === "email" ? "Esse e-mail" : unico === "phone" ? "Esse WhatsApp" : unico === "cpf" ? "Esse CPF" : null;
       toast({
-        title: "Erro",
-        description: "Não foi possível atualizar o perfil.",
+        title: campo ? `${campo} já está em outra conta` : "Erro",
+        description: campo
+          ? "Você pode ter um cadastro antigo com esse dado. Fale com o suporte no WhatsApp que a gente junta as duas contas."
+          : "Não foi possível atualizar o perfil.",
         variant: "destructive"
       });
       setIsSaving(false);
