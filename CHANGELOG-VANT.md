@@ -2,6 +2,14 @@
 
 Registro do que mudou no app, em português, do mais novo pro mais antigo.
 
+## 09/10/2026 — CRM (app.orbis.inf.br/crm.html): datas, meta, mensagens editáveis, afiliados, contato errado
+- **Métricas › Números do período:** filtro de datas (Hoje · 7 dias · 30 dias · Este mês · Mês passado · Escolher) com contatos feitos, meta de contatos, vendas Hotmart, leads, contas da safra, conversão da safra e taxa de resposta, mais o gráfico de pessoas contatadas por dia. RPC nova `crm_numeros_periodo(de, até)`.
+- **Meta de hoje corrigida:** antes só contava quem recebia um "desfecho" (Resolvido/Respondeu/…), e o Yan nunca clica nisso — mandava 30 mensagens e a meta ficava em 0. Agora contato = pessoa que recebeu mensagem pelo CRM no dia **ou** teve desfecho marcado. A meta (contatos e vendas por dia) virou editável pelo dono em Métricas e fica no banco (`crm_ajustes.metas`), valendo pros dois.
+- **Mensagens automáticas editáveis:** cada atividade ganhou "✏️ Editar texto" (título + mensagem, com {p} e {renova}), vale pra todas as fichas daquela etapa e pros dois papéis; "Voltar ao padrão" apaga a edição. Guardado em `crm_ajustes.mensagens` (`crm_mensagem_salvar` / `crm_mensagem_padrao`); o texto padrão continua no arquivo.
+- **Aba Afiliados:** saiu do fim da aba Parceiros e virou aba própria. O comercial também vê (cadastros, assinaturas, ativos, cobranças, link de indicação); receita, comissão, painel privado, pagamento e bloqueio seguem só pro dono — a RPC `crm_afiliados` devolve esses campos nulos pra quem não é admin.
+- **Contato errado:** desfecho "📵 Número errado" (na fila e no painel) tira a ficha da fila e dos alertas e a guarda em **Esteiras › Contato errado**; "Corrigir número" (lista ou painel) grava o WhatsApp certo na conta ou no lead (`crm_cartao_whatsapp`), registra a troca na conversa e devolve a ficha pra etapa onde estava.
+- Segurança: tabela `crm_ajustes` com RLS e sem policy (só via RPC); todas as RPCs novas checam `is_orbis_crm()` (metas só `is_orbis_admin()`), sem `EXECUTE` pro anon; o número novo passa pela mesma validação de telefone do app.
+
 ## 07/10/2026 — Hora de começar a vender: qualquer horário
 - No Editar Planejamento, a hora de começar tinha só 7h, 8h, 9h e 10h. Agora os 4 atalhos da manhã continuam e "outro horário" abre de 5h às 22h, pra quem começa à 1 ou às 3 da tarde. A pergunta virou "Que horas você costuma começar a vender?".
 
