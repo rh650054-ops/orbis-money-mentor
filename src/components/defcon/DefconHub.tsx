@@ -15,7 +15,7 @@ import { Check, X, Calendar, MapPin } from "lucide-react";
 import { DefconLoadoutManager } from "@/components/defcon/DefconLoadoutManager";
 import { DefconCompraMercadoria } from "@/components/defcon/DefconCompraMercadoria";
 import { DefconAjustarDiaModal } from "@/components/defcon/DefconAjustarDiaModal";
-import { CompetitionStatementUpload } from "@/components/defcon/CompetitionStatementUpload";
+import { carregarBancos } from "@/components/conectar/pluggy";
 import { WeeklyChallengeIcon } from "@/components/competitions/WeeklyChallenge";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
 import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
@@ -530,18 +530,20 @@ function Trio({ itens }: { itens: [string, ReactNode][] }) {
     </div>
   );
 }
-function Linha({ k, icone, titulo, sub, aberto, onToggle, onClick, children, destaque, alerta }: {
+function Linha({ k, icone, titulo, sub, aberto, onToggle, onClick, children, destaque, alerta, sempreAberta }: {
   k: string; icone: ReactNode; titulo: string; sub?: string; aberto: string | null; onToggle: (k: string) => void; onClick?: () => void; children?: ReactNode;
+  /** conteúdo sempre à mostra, sem toque pra abrir (Mohamed, 09/10: não esconder o que se usa todo dia) */
+  sempreAberta?: boolean;
   /** dourado: a linha vira ação principal em vez de item de lista (Rick, 09/09) */
   destaque?: boolean;
   /** laranja: tem algo pedindo atenção agora (ex: produto acabou) */
   alerta?: boolean;
 }) {
-  const expandido = aberto === k;
+  const expandido = sempreAberta || aberto === k;
   const cor = alerta ? "#ff7a1a" : destaque ? "var(--orbis-gold)" : undefined;
   return (
     <div className="border-t first:border-t-0" style={{ borderColor: "var(--orbis-line)" }}>
-      <button type="button" onClick={onClick ?? (() => onToggle(k))} className="w-full flex items-center gap-3 text-left"
+      <button type="button" disabled={sempreAberta} onClick={onClick ?? (() => onToggle(k))} className="w-full flex items-center gap-3 text-left disabled:cursor-default"
         style={destaque || alerta ? { height: 66, marginLeft: -16, marginRight: -16, paddingLeft: 16, paddingRight: 16, background: alerta ? "rgba(255,122,26,.07)" : "rgba(245,184,0,.05)" } : { height: 56 }}>
         <span className="rounded-[10px] flex items-center justify-center shrink-0"
           style={destaque || alerta
@@ -551,7 +553,7 @@ function Linha({ k, icone, titulo, sub, aberto, onToggle, onClick, children, des
           <span className="block truncate" style={destaque || alerta ? { fontSize: 15, fontWeight: 800, letterSpacing: "-.01em" } : { fontSize: 14, fontWeight: 600 }}>{titulo}</span>
           {sub && <span className="block text-[11.5px] font-semibold truncate" style={{ color: cor ?? "var(--orbis-fg-3)" }}>{sub}</span>}
         </span>
-        {children ? <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: expandido ? "rotate(180deg)" : undefined }} /> : <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#5f5a50" }} />}
+        {sempreAberta ? null : children ? <ChevronDown className="w-4 h-4 shrink-0 transition-transform" style={{ color: "#5f5a50", transform: expandido ? "rotate(180deg)" : undefined }} /> : <ChevronRight className="w-4 h-4 shrink-0" style={{ color: "#5f5a50" }} />}
       </button>
       {children && expandido && <div className="pb-4">{children}</div>}
     </div>
@@ -604,6 +606,14 @@ export default function DefconHub() {
   const [nome, setNome] = useState("");
   const [carga, setCarga] = useState<{ nome: string; levou: number; vendeu: number; preco: number; custo: number }[]>([]);
   const [aberto, setAberto] = useState<string | null>(null); // linha do "Mais" expandida
+  // banco de TRABALHO ligado (Open Finance): o Pix que cai depois entra sozinho
+  const [temBancoTrabalho, setTemBancoTrabalho] = useState(false);
+  useEffect(() => {
+    if (!user?.id) return;
+    let vivo = true;
+    void carregarBancos().then((b) => { if (vivo) setTemBancoTrabalho(b.some((x) => x.papel === "trabalho")); });
+    return () => { vivo = false; };
+  }, [user?.id]);
   const [, setTick] = useState(0);
   useEffect(() => { const id = setInterval(() => setTick((t) => t + 1), 30000); return () => clearInterval(id); }, []);
 
@@ -1231,7 +1241,7 @@ export default function DefconHub() {
       {/* ===== MAIS — o que antes era uma pilha de cards ===== */}
       <p className="orbis-mini mt-7 px-1">Mais</p>
       <div className="rounded-[20px] border mt-3 px-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
-        <Linha aberto={aberto} onToggle={toggle} k="custo" icone={<Plus className="w-4 h-4" strokeWidth={2.4} />} titulo="Custo rápido" sub={estado === "encerrado" ? "esqueceu algum custo de hoje?" : "mercadoria, transporte, almoço"}>
+        <Linha sempreAberta aberto={aberto} onToggle={toggle} k="custo" icone={<Plus className="w-4 h-4" strokeWidth={2.4} />} titulo="Custo rápido" sub={estado === "encerrado" ? "esqueceu algum custo de hoje?" : "mercadoria, transporte, almoço"}>
           <div className="grid grid-cols-3 gap-2">
             {([["mercadoria", "Mercadoria", <Package key="m" className="w-4 h-4" />], ["transporte", "Transporte", <Bus key="t" className="w-4 h-4" />], ["alimentacao", "Almoço", <Utensils key="a" className="w-4 h-4" />]] as const).map(([id, label, ico]) => {
               const active = quickCostCat === id;
@@ -1252,7 +1262,7 @@ export default function DefconHub() {
         </Linha>
 
         {totalVendido > 0 && (
-          <Linha aberto={aberto} onToggle={toggle} k="recebeu" icone={<Banknote className="w-4 h-4" strokeWidth={2.2} />} titulo="Como você recebeu" sub={`${brl0(totals.cash)} dinheiro · ${brl0(totals.card)} cartão · ${brl0(totals.pix)} pix`}>
+          <Linha sempreAberta aberto={aberto} onToggle={toggle} k="recebeu" icone={<Banknote className="w-4 h-4" strokeWidth={2.2} />} titulo="Como você recebeu" sub={`${brl0(totals.cash)} dinheiro · ${brl0(totals.card)} cartão · ${brl0(totals.pix)} pix`}>
             {editingPay ? (
               <div className="rounded-xl border p-3 space-y-2.5" style={{ borderColor: "rgba(245,184,0,.3)" }}>
                 <p className="text-xs" style={{ color: "var(--orbis-fg-3)" }}>Ajuste o que entrou em cada forma. O que faltar pro total vira <span style={{ color: "var(--orbis-custo)" }}>não recebido</span>.</p>
@@ -1295,16 +1305,19 @@ export default function DefconHub() {
         {/* Compra de mercadoria em destaque (Rick, 09/09): é ação que o vendedor
             PRECISA usar. Quando algum produto acabou, ela fica laranja e diz isso —
             aí ele tem motivo pra tocar, não só um item a mais na lista. */}
-        <Linha aberto={aberto} onToggle={toggle} k="compra" destaque alerta={acabou.length > 0}
+        <Linha sempreAberta aberto={aberto} onToggle={toggle} k="compra" destaque alerta={acabou.length > 0}
           icone={<ShoppingCart className="w-[18px] h-[18px]" strokeWidth={2.3} />}
           titulo={acabou.length > 0 ? `${acabou.map((c) => c.nome).join(", ")} acabou` : "Comprou hoje? Lança aqui"}
           sub={acabou.length > 0 ? "repõe pra não perder venda amanhã" : "entra no estoque e no custo do dia"}>
           <DefconCompraMercadoria userId={user.id} onChanged={loadAll} />
         </Linha>
 
-        <Linha aberto={aberto} onToggle={toggle} k="pixdepois" icone={<Clock className="w-4 h-4" strokeWidth={2.2} />} titulo="Pix que caiu depois" sub="lançar num dia anterior">
-          <LatePixSection />
-        </Linha>
+        {/* com banco de trabalho ligado o Pix atrasado entra sozinho (Mohamed, 09/10) */}
+        {!temBancoTrabalho && (
+          <Linha aberto={aberto} onToggle={toggle} k="pixdepois" icone={<Clock className="w-4 h-4" strokeWidth={2.2} />} titulo="Pix que caiu depois" sub="lançar num dia anterior">
+            <LatePixSection />
+          </Linha>
+        )}
 
         <Linha aberto={aberto} onToggle={toggle} k="ajustar" icone={<Calendar className="w-4 h-4" strokeWidth={2.2} />} titulo="Ajustar dia anterior" sub="fechou depois da meia-noite?" onClick={() => setAjustarDiaOpen(true)} />
 
@@ -1318,10 +1331,6 @@ export default function DefconHub() {
             <p className="text-[11px] text-center mt-2" style={{ color: "var(--orbis-fg-3)" }}>Total geral: <b className="text-foreground">{gps.kmTotal.toFixed(1)} km</b>{gps.diasSemana > 0 && <> · {gps.diasSemana} {gps.diasSemana === 1 ? "dia" : "dias"} com GPS na semana</>}</p>
           </Linha>
         )}
-
-        <Linha aberto={aberto} onToggle={toggle} k="extrato" icone={<FileText className="w-4 h-4" strokeWidth={2.2} />} titulo="Extrato da competição" sub="pra quem está em X1 ou competição">
-          <CompetitionStatementUpload userId={user.id} />
-        </Linha>
 
         <Linha aberto={aberto} onToggle={toggle} k="pdf" icone={<FileDown className="w-4 h-4" strokeWidth={2.2} />} titulo="Baixar relatório em PDF" sub="de hoje ou de qualquer dia">
           <div className="flex gap-2">

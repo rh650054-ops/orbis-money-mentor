@@ -175,11 +175,8 @@ export function FinancasHomeView({ h, onPiloto }: { h: HomeFinancas; onPiloto: (
         style={{ background: "#0f0f10", border: "1px solid rgba(255,255,255,.07)" }}>
         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: OK, boxShadow: "0 0 0 4px rgba(61,214,140,.18)" }} />
         <span className="flex-1 min-w-0">
-          <span className="block text-[10px] font-black tracking-[.15em]" style={{ color: OK }}>PILOTO AUTOMÁTICO LIGADO</span>
-          <span className="block text-[11.5px] font-bold mt-0.5" style={{ color: "#b9b3a6" }}>
-            {h.piloto.lancamentos > 0
-              ? `${h.piloto.lancamentos} ${h.piloto.lancamentos === 1 ? "gasto entrou" : "gastos entraram"} sozinho${h.piloto.lancamentos === 1 ? "" : "s"} em ${mes}${h.piloto.conferir > 0 ? ` · ${h.piloto.conferir} pra conferir` : ", já organizados"}`
-              : "Cada gasto do banco entra sozinho no Raio-X, já organizado."}
+          <span className="block text-[12px] font-bold" style={{ color: "#b9b3a6" }}>
+            {h.piloto.lancamentos} {h.piloto.lancamentos === 1 ? "gasto" : "gastos"} do banco em {mes}{h.piloto.conferir > 0 ? ` · ${h.piloto.conferir} pra conferir` : ""}
           </span>
         </span>
         <ChevronRight className="w-4 h-4 shrink-0" style={{ color: MUTE }} />
