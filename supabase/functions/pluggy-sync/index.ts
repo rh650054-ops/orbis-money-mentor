@@ -90,6 +90,8 @@ Deno.serve(async (req) => {
         .update(pediuEste ? { ...leitura, pluggy_pedido_em: agora, ...contarPedido(orc) } : leitura)
         .eq("id", c.id);
     }
+    { const { error } = await admin.rpc("banco_reconciliar", { p_user: uid });
+      if (error) console.error("pluggy-sync: reconciliar", error.message); }
     if (piloto > 0) {
       const { error } = await admin.rpc("extrato_analisar_padroes", { p_uid: uid });
       if (error) console.error("pluggy-sync: analisar_padroes", error.message);

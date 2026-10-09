@@ -68,23 +68,3 @@ export function Grao() {
     }} />
   );
 }
-
-/** logo quadrada da carteira */
-export function LogoCarteira({ sigla, fundo, cor, size = 44 }: { sigla: string; fundo: string; cor: string; size?: number }) {
-  return (
-    <span className="inline-flex items-center justify-center shrink-0 font-black"
-      style={{ width: size, height: size, borderRadius: Math.round(size * 0.31), background: fundo, color: cor, fontSize: Math.max(9, Math.round(size * 0.28)), letterSpacing: "-.03em", boxShadow: "inset 0 1px 0 rgba(255,255,255,.28), 0 6px 16px rgba(0,0,0,.5)" }}>
-      {sigla}
-    </span>
-  );
-}
-
-/** as carteiras que existem e as que estão na fila */
-export interface Carteira { id: string; nome: string; sigla: string; fundo: string; cor: string; linha: string; fn?: string }
-export const CARTEIRAS: Carteira[] = [
-  { id: "mercadopago", nome: "Mercado Pago", sigla: "MP", fundo: "linear-gradient(180deg,#33C6F2,#00A5DB)", cor: "#012", linha: "Pix, QR e maquininha Point", fn: "mp-connect" },
-  { id: "pagbank", nome: "PagBank", sigla: "PB", fundo: "linear-gradient(180deg,#5FE3A8,#2FC57E)", cor: "#032", linha: "Pix e maquininha", fn: "pb-connect" },
-  { id: "infinitepay", nome: "InfinitePay", sigla: "IP", fundo: "#131316", cor: "#7b766e", linha: "em breve" },
-  { id: "sumup", nome: "SumUp", sigla: "SU", fundo: "#131316", cor: "#7b766e", linha: "em breve" },
-  { id: "picpay", nome: "PicPay", sigla: "PP", fundo: "#131316", cor: "#7b766e", linha: "em breve" },
-];

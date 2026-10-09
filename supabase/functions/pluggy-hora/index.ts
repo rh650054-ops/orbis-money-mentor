@@ -138,6 +138,11 @@ Deno.serve(async (req) => {
       }
       await admin.from("bank_connections").update(mudar).eq("id", c.id);
     }
+    // Banco leu de novo: refaz os dias já fechados (Pix/cartão que caíram, calote que sobra).
+    for (const uid of new Set(rodada.map((x) => x.c.user_id as string))) {
+      const { error } = await admin.rpc("banco_reconciliar", { p_user: uid });
+      if (error) console.error("pluggy-hora: reconciliar", error.message);
+    }
     for (const uid of comNovidade) {
       const { error } = await admin.rpc("extrato_analisar_padroes", { p_uid: uid });
       if (error) console.error("pluggy-hora: analisar_padroes", error.message);
