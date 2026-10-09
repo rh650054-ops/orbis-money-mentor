@@ -22,7 +22,6 @@ import { avisar } from "@/shared/lib/avisar";
 import { createPortal } from "react-dom";
 import { Home, Zap, Trophy, Wallet, BarChart3, Package } from "lucide-react";
 import { useReducedMotion } from "@/shared/motion";
-import { novidadesPendentes } from "@/components/NovidadesOrbis2";
 
 export type TelaIntro = "dashboard" | "foco" | "defcon" | "ranking" | "financas" | "relatorio" | "catalogo";
 
@@ -128,7 +127,6 @@ export default function FirstTimeCard({ tela, userId }: { tela: TelaIntro; userI
       if (document.body.style.pointerEvents === "none") return false;  // Radix ainda segurando o body
       try {
         if (localStorage.getItem(`orbis_abrir_planejamento_${userId}`) === "1") return false; // planejamento vai abrir
-        if (novidadesPendentes(userId)) return false;                   // novidades ainda vão aparecer
       } catch (e) { avisar.silencioso("FirstTimeCard: checar pendências", e); }
       return true;
     };

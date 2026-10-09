@@ -20,7 +20,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft, Loader2, Landmark, Banknote, ReceiptText,
+  Loader2, Landmark, Banknote, ReceiptText,
   Check, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -248,9 +248,8 @@ export default function Verificar() {
 
   const topo = (
     <div className="flex items-center justify-between">
-      <button type="button" onClick={() => navigate(-1)} aria-label="Voltar" className="w-9 h-9 rounded-full flex items-center justify-center" style={{ color: "#b9b3a6" }}>
-        <ArrowLeft className="w-5 h-5" />
-      </button>
+      {/* aba do menu de baixo: sem botão de voltar (no celular apareciam dois — Mohamed, 09/10) */}
+      <span className="w-12" />
       <p className="font-mono text-[10px] font-bold tracking-[.18em]" style={{ color: MUTE }}>VANT PRO</p>
       {pro.pro
         ? <span className="w-12 inline-flex justify-end"><span className="rounded-full px-2 py-[3px] text-[9.5px] font-black tracking-[.06em]" style={{ background: "rgba(245,184,0,.12)", border: "1px solid rgba(245,184,0,.4)", color: GOLD }}>ATIVO</span></span>

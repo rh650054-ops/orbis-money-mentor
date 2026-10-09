@@ -22,7 +22,6 @@ import MorningCommitModal from "@/components/MorningCommitModal";
 import AceiteTermosModal from "@/components/AceiteTermosModal";
 import BackButton from "@/shared/components/back-button";
 import { PageTransition } from "@/shared/motion";
-import NovidadesOrbis2 from "@/components/NovidadesOrbis2";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -231,8 +230,8 @@ export default function Layout({ children }: LayoutProps) {
         className="container mx-auto px-4 pt-2 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pt-8 md:pb-8"
         style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}
       >
-        {/* Back button - hidden on Dashboard and pages that already have their own back button */}
-        {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits", "/competitions", "/x1", "/tributario", "/meu-extrato"].includes(location.pathname) && (
+        {/* Back button - hidden on the bottom-nav tabs (a tab has nowhere to go back to) and on pages that already have their own */}
+        {!["/", "/my-account", "/settings", "/products", "/rewards", "/benefits", "/competitions", "/x1", "/tributario", "/meu-extrato", "/verificar", "/daily-goals", "/insights"].includes(location.pathname) && (
           <div className="mb-2 md:hidden">
             <BackButton to={location.pathname === "/profile" ? "/" : undefined} />
           </div>
@@ -335,8 +334,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* LGPD: aceite único dos Termos/Política no primeiro login após a publicação */}
       {user && <AceiteTermosModal userId={user.id} />}
 
-      {/* Lançamento 2.0 (01/09): o que mudou + o que vem — uma vez por usuário */}
-      {user && onboardingCompleto && <NovidadesOrbis2 userId={user.id} />}
+      {/* 09/10 (Mohamed): sem popup de lançamento. Função nova aparece no lugar dela, sem textão. */}
 
       {/* OBS: o popup de teste expirado agora é renderizado pelo PaywallGate (router.tsx),
           pra aparecer igual em TODAS as telas, inclusive o DEFCON. */}

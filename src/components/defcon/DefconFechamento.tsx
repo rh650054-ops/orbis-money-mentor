@@ -41,7 +41,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { DefconShareCarousel } from "./DefconShareCarousel";
-import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { VizinhosCard } from "@/components/x1/VizinhosCard";
 import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
 import { CobradorCard } from "@/components/cobranca/CobradorCard";
@@ -772,7 +771,6 @@ export function DefconFechamento({
           </>
         )}
 
-        {userId && <div className="mt-4"><CompetitionStatementUpload userId={userId} /></div>}
 
         {/* ===== fim: fechar / +1h / reiniciar ===== */}
         <button onClick={() => void fecharDia()} disabled={salvandoRec} className="orbis-cta w-full mt-6">

@@ -25,7 +25,6 @@ import { avisar } from "@/shared/lib/avisar";
 import { useCountUp, useReducedMotion } from "@/shared/motion";
 import { calcularPlano, salvarPlano, marcarPlanoRevelado, type PlanoDoCorre } from "@/shared/onboarding/plano";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
-import { marcarNovidadesVistas } from "@/components/NovidadesOrbis2";
 
 type Etapa = "ato1" | "ato2" | "ato3" | "fixar" | "meta";
 
@@ -153,7 +152,6 @@ export default function OnboardingNovo() {
 
   const concluir = async () => {
     if (user?.id) {
-      marcarNovidadesVistas(user.id); // conta nova não vê "o que mudou no 2.0"
       try {
         const { error } = await supabase.from("profiles")
           .update({ onboarding_completed: true, onboarding_step: 6 })
