@@ -12,6 +12,7 @@
 --      combo "3 por R$ 10" grava R$ 10, não 3 × preço unitário) e o custo da
 --      mercadoria do dia (daily_sales.cost).
 --    Apagar a venda desfaz tudo isso (bug: apagar não devolvia o produto).
+--    Se um desses passos falhar, a venda NÃO cai: o passo vira aviso no log.
 --    O dia é o da sessão do Foco (virada de meia-noite cai no dia certo).
 --    Antes o app fazia isso no celular, em vários passos, e perdia baixas
 --    quando duas vendas saíam juntas.
@@ -60,39 +61,45 @@ begin
       (select cs.date from public.challenge_sessions cs where cs.id = new.session_id),
       (new.created_at at time zone 'America/Sao_Paulo')::date);
 
-    if p.controla then
-      update public.products
-         set stock_quantity = greatest(coalesce(stock_quantity, 0) - new.qty, 0)::int,
-             updated_at = now()
-       where id = new.product_id;
-    end if;
+    -- Nada aqui pode derrubar a venda: se um passo falhar, a venda fica e o
+    -- passo vira aviso no log (mesmo padrão de aplicar_compra_mercadoria).
+    begin
+      if p.controla then
+        update public.products
+           set stock_quantity = greatest(coalesce(stock_quantity, 0) - new.qty, 0)::int,
+               updated_at = now()
+         where id = new.product_id;
+      end if;
 
-    update public.defcon_daily_loadout
-       set qty_sold = coalesce(qty_sold, 0) + new.qty, updated_at = now()
-     where user_id = new.user_id and product_id = new.product_id and date = v_dia;
-    if not found then
-      insert into public.defcon_daily_loadout (user_id, date, product_id, product_name, qty_initial, qty_sold)
-      values (new.user_id, v_dia, p.id, p.name, 0, new.qty)
-      on conflict (user_id, date, product_id) do update
-        set qty_sold = coalesce(defcon_daily_loadout.qty_sold, 0) + excluded.qty_sold;
-    end if;
+      update public.defcon_daily_loadout
+         set qty_sold = coalesce(qty_sold, 0) + new.qty, updated_at = now()
+       where user_id = new.user_id and product_id = new.product_id and date = v_dia;
+      if not found then
+        insert into public.defcon_daily_loadout (user_id, date, product_id, product_name, qty_initial, qty_sold)
+        values (new.user_id, v_dia, p.id, p.name, 0, new.qty)
+        on conflict (user_id, date, product_id) do update
+          set qty_sold = coalesce(defcon_daily_loadout.qty_sold, 0) + excluded.qty_sold;
+      end if;
 
-    if p.recipe_mode = 'per_unit' then
-      update public.ingredients i
-         set stock_quantity = greatest(coalesce(i.stock_quantity, 0) - r.quantity * new.qty, 0)
-        from public.product_recipes r
-       where r.product_id = new.product_id and i.id = r.ingredient_id and i.user_id = new.user_id;
-    end if;
+      if p.recipe_mode = 'per_unit' then
+        update public.ingredients i
+           set stock_quantity = greatest(coalesce(i.stock_quantity, 0) - r.quantity * new.qty, 0)
+          from public.product_recipes r
+         where r.product_id = new.product_id and i.id = r.ingredient_id and i.user_id = new.user_id;
+      end if;
 
-    insert into public.product_sales_log (user_id, product_id, quantity, total_amount, defcon_sale_id, unit_cost)
-    values (new.user_id, new.product_id, new.qty, coalesce(new.amount, 0), new.id, p.cost);
+      insert into public.product_sales_log (user_id, product_id, quantity, total_amount, defcon_sale_id, unit_cost)
+      values (new.user_id, new.product_id, new.qty, coalesce(new.amount, 0), new.id, p.cost);
 
-    if p.cost > 0 then
-      insert into public.daily_sales (user_id, date, cost)
-      values (new.user_id, v_dia, round(p.cost * new.qty, 2))
-      on conflict (user_id, date) do update
-        set cost = round(coalesce(daily_sales.cost, 0) + excluded.cost, 2);
-    end if;
+      if p.cost > 0 then
+        insert into public.daily_sales (user_id, date, cost)
+        values (new.user_id, v_dia, round(p.cost * new.qty, 2))
+        on conflict (user_id, date) do update
+          set cost = round(coalesce(daily_sales.cost, 0) + excluded.cost, 2);
+      end if;
+    exception when others then
+      raise warning 'defcon_venda_baixa_estoque (venda %): %', new.id, sqlerrm;
+    end;
     return new;
 
   elsif tg_op = 'DELETE' then
@@ -107,34 +114,38 @@ begin
       (select cs.date from public.challenge_sessions cs where cs.id = old.session_id),
       (old.created_at at time zone 'America/Sao_Paulo')::date);
 
-    if coalesce(v_controla, false) then
-      update public.products
-         set stock_quantity = (coalesce(stock_quantity, 0) + old.qty)::int, updated_at = now()
-       where id = old.product_id;
-    end if;
-
-    update public.defcon_daily_loadout
-       set qty_sold = greatest(coalesce(qty_sold, 0) - old.qty, 0), updated_at = now()
-     where user_id = old.user_id and product_id = old.product_id and date = v_dia;
-
-    if v_modo = 'per_unit' then
-      update public.ingredients i
-         set stock_quantity = coalesce(i.stock_quantity, 0) + r.quantity * old.qty
-        from public.product_recipes r
-       where r.product_id = old.product_id and i.id = r.ingredient_id and i.user_id = old.user_id;
-    end if;
-
-    select l.id, coalesce(l.unit_cost, 0) as unit_cost into v_log
-      from public.product_sales_log l where l.defcon_sale_id = old.id limit 1;
-    if v_log.id is not null then
-      delete from public.product_sales_log where id = v_log.id;
-      v_custo := round(v_log.unit_cost * old.qty, 2);
-      if v_custo > 0 then
-        update public.daily_sales
-           set cost = greatest(round(coalesce(cost, 0) - v_custo, 2), 0)
-         where user_id = old.user_id and date = v_dia;
+    begin
+      if coalesce(v_controla, false) then
+        update public.products
+           set stock_quantity = (coalesce(stock_quantity, 0) + old.qty)::int, updated_at = now()
+         where id = old.product_id;
       end if;
-    end if;
+
+      update public.defcon_daily_loadout
+         set qty_sold = greatest(coalesce(qty_sold, 0) - old.qty, 0), updated_at = now()
+       where user_id = old.user_id and product_id = old.product_id and date = v_dia;
+
+      if v_modo = 'per_unit' then
+        update public.ingredients i
+           set stock_quantity = coalesce(i.stock_quantity, 0) + r.quantity * old.qty
+          from public.product_recipes r
+         where r.product_id = old.product_id and i.id = r.ingredient_id and i.user_id = old.user_id;
+      end if;
+
+      select l.id, coalesce(l.unit_cost, 0) as unit_cost into v_log
+        from public.product_sales_log l where l.defcon_sale_id = old.id limit 1;
+      if found then
+        delete from public.product_sales_log where id = v_log.id;
+        v_custo := round(v_log.unit_cost * old.qty, 2);
+        if v_custo > 0 then
+          update public.daily_sales
+             set cost = greatest(round(coalesce(cost, 0) - v_custo, 2), 0)
+           where user_id = old.user_id and date = v_dia;
+        end if;
+      end if;
+    exception when others then
+      raise warning 'defcon_venda_baixa_estoque (apagar %): %', old.id, sqlerrm;
+    end;
     return old;
   end if;
   return null;

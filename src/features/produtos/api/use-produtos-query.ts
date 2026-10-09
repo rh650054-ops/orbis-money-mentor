@@ -8,10 +8,12 @@ const CAMPOS =
   "id, name, photo_url, cost, sale_price, stock_quantity, stock_min, open_price, recipe_mode, batch_yield, origem, emoji, controla_estoque";
 
 /** Produtos ativos do vendedor, com os combos ("2 por R$ 5"). */
-export function useProdutosQuery(userId: string | undefined) {
+export function useProdutosQuery(userId: string | undefined, opts?: { sempreFresco?: boolean }) {
   return useQuery({
     queryKey: produtosKeys.byUser(userId ?? ""),
     enabled: !!userId,
+    // edição: busca de novo ao abrir (o Foco e as compras mudam estoque e custo)
+    ...(opts?.sempreFresco ? { refetchOnMount: "always" as const } : {}),
     queryFn: async (): Promise<ProdutoComFaixas[]> => {
       const [prods, faixas] = await Promise.all([
         supabase.from("products").select(CAMPOS).eq("user_id", userId!).eq("is_active", true).order("name"),

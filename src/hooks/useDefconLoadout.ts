@@ -109,7 +109,8 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
     };
     const item = loadout.find((l) => l.id === id);
     const product = item ? products.find((p) => p.id === item.product_id) : undefined;
-    if (qty > 0 && product && !cabeNoEstoque(product, qty, salvar)) return;
+    // só pergunta quando AUMENTA a carga (baixar nunca abre o aviso)
+    if (item && qty > Number(item.qty_initial) && product && !cabeNoEstoque(product, qty, salvar)) return;
     await salvar(qty);
   };
 

@@ -1,6 +1,6 @@
 /* /products/novo e /products/:id — cadastro do produto em perguntas (quiz). */
 import { useMemo } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
 import { mapSupabaseError } from "@/shared/api";
@@ -21,16 +21,18 @@ import { CarregandoProdutos } from "../components/carregando-produtos";
 export default function QuizProdutoPage() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
-  const lista = useProdutosQuery(user?.id);
+  const lista = useProdutosQuery(user?.id, { sempreFresco: !!id });
   const existente = useMemo(() => (id ? lista.data?.find((p) => p.id === id) : undefined), [id, lista.data]);
-  if (id && lista.isLoading) return <CarregandoProdutos />;
+  // edição: espera a lista fresca (estoque e custo mudam com o Foco e as compras)
+  if (id && !lista.isFetchedAfterMount && !lista.isError) return <CarregandoProdutos />;
+  if (id && !existente) return <Navigate to="/products" replace />;
   return <Quiz key={existente?.id ?? "novo"} inicial={existente ? rascunhoDe(existente) : undefined} userId={user?.id} />;
 }
 
 function Quiz({ inicial, userId }: { inicial?: RascunhoProduto; userId?: string }) {
   const navigate = useNavigate();
   const q = useQuizProduto(inicial);
-  const salvar = useSalvarProdutoMutation(userId);
+  const salvar = useSalvarProdutoMutation(userId, inicial);
   const foto = useSubirFotoMutation(userId);
   const sair = () => navigate("/products");
   const voltar = () => { if (!q.voltar()) sair(); };

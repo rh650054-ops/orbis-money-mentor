@@ -20,7 +20,7 @@ export function ChegouMercadoria({ aberto, produtos, inicial, userId, onFechar }
 
   const lancar = () => {
     if (!prod) return;
-    chegou.mutate({ productId: prod.id, unidades, totalPago: pago, estoqueAtual: prod.stock_quantity }, {
+    chegou.mutate({ productId: prod.id, unidades, totalPago: pago }, {
       onSuccess: () => { toast({ title: `+${unidades} ${prod.name} no estoque` }); setUnidades(0); setPago(0); onFechar(); },
       onError: () => toast({ title: "Não consegui lançar a mercadoria", description: "Tenta de novo.", variant: "destructive" }),
     });
