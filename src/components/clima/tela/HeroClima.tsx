@@ -1,8 +1,8 @@
 /* 1 · CLIMA AGORA + DECISÃO — hero atmosférico (v2, 08/10).
    O fundo reage ao céu (azul petróleo na chuva, roxo no temporal, dourado sutil
    no sol, azul-marinho à noite), com gotas discretas quando chove. O personagem
-   ocupa ~26% da largura e nunca cobre texto. A decisão é uma faixa discreta
-   (barra de cor + frase), não um aviso gritando (Rick, 08/10). */
+   ocupa ~26% da largura e nunca cobre texto. A decisão é minimalista: um ponto
+   de cor + a frase (Rick, 08/10). */
 import { Loader2, MapPin, RefreshCw, Users } from "lucide-react";
 import type { Rede, Tempo } from "@/hooks/useClima";
 import { chanceDe, COR_NIVEL, type Decisao, type Janela } from "../decisao";
@@ -68,20 +68,16 @@ export function HeroClima({ t, cidade, decisao, janela, rede, atualizadoEm, carr
           <VantPersonagem estado={t.estado} pose={poseDe(t.estado, decisao.nivel === "bom")} altura={150} className="absolute -right-2 -bottom-3 pointer-events-none" />
         </div>
 
-        {/* decisão: uma faixa discreta (barra de cor + frase), não um aviso gritando */}
-        <div className="mt-4 flex gap-3">
-          <span className="w-1 rounded-full shrink-0" style={{ background: cor }} aria-hidden />
-          <div className="min-w-0 py-0.5">
-            <p className="text-[11px] font-black uppercase tracking-[.16em]" style={{ color: "#9a948a" }}>O que fazer agora</p>
-            <p className="text-[22px] leading-tight font-extrabold mt-0.5" style={{ color: cor }}>{decisao.titulo}</p>
-            {decisao.sub && <p className="text-[13.5px] mt-0.5 leading-snug" style={{ color: "#c9c3b8" }}>{decisao.sub}</p>}
-          </div>
-        </div>
-        {proxima && (
-          <p className="mt-3 inline-flex items-center gap-2 h-8 px-3 rounded-full text-[13px] font-semibold" style={{ background: "rgba(61,214,140,.10)", color: "#c9c3b8" }}>
-            Próxima janela <b className="tabular-nums font-extrabold" style={{ color: CLIMA.bom }}>{proxima}</b>
+        {/* decisão minimalista (Rick, 08/10): um ponto de cor + a frase. Sem caixa, sem rótulo. */}
+        <div className="mt-4 pt-3.5 border-t" style={{ borderColor: "rgba(255,255,255,.08)" }}>
+          <p className="flex items-center gap-2 text-[17px] font-bold leading-tight" style={{ color: COR.texto }}>
+            <i className="w-2 h-2 rounded-full shrink-0" style={{ background: cor }} aria-hidden />
+            {decisao.titulo}
           </p>
-        )}
+          <p className="text-[13px] mt-1 pl-4 leading-snug" style={{ color: "#a9a398" }}>
+            {decisao.sub}{proxima && <> · próxima janela <b className="font-semibold tabular-nums" style={{ color: "#d8d3c9" }}>{proxima}</b></>}
+          </p>
+        </div>
 
         {rede && rede.sim + rede.nao > 0 && (
           <p className="flex items-center gap-1.5 mt-3 text-[12.5px] font-semibold" style={{ color: "#c9c3b8" }}>
