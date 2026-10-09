@@ -42,6 +42,7 @@ import {
 } from "@/utils/reportExport";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
 import { ContaDoPeriodo } from "@/components/relatorio/ContaDoPeriodo";
+import { minutosOciososDoPeriodo, type PausaOcio } from "@/components/relatorio/tempo-ocioso";
 import { HoraAHora, montarHoraAHora } from "@/components/relatorio/HoraAHora";
 import { OrbisViu, type FichaResumo } from "@/components/relatorio/OrbisViu";
 import { AnimatedCurrency, AnimatedNumber, FillBar } from "@/shared/motion";
@@ -62,7 +63,7 @@ import {
 } from "recharts";
 
 // "day" = escolher UM dia específico no calendário (ex.: "como foi o dia 30?")
-type Period = "today" | "day" | "7d" | "30d" | "custom";
+type Period = "today" | "yesterday" | "day" | "7d" | "30d" | "custom";
 
 interface DailySale {
   date: string;
@@ -85,6 +86,7 @@ interface HourBlock {
 
 const PERIOD_LABELS: Record<Period, string> = {
   today: "Hoje",
+  yesterday: "Ontem",
   day: "Dia",
   "7d": "7 dias",
   "30d": "30 dias",
@@ -141,7 +143,8 @@ export default function Insights() {
   const [defconSales, setDefconSales] = useState<{ created_at: string; amount?: number }[]>([]);
   // 2a fonte de hora real: quem vende pelo catálogo de produtos não passa pelo DEFCON.
   const [prodSales, setProdSales] = useState<{ created_at: string; total_amount: number | null }[]>([]);
-  const [sessions, setSessions] = useState<{ started_at: string | null; ended_at: string | null; worked_minutes?: number | null; current_block_index?: number | null; distance_meters?: number | null; paused_seconds?: number | null }[]>([]);
+  const [pausas, setPausas] = useState<PausaOcio[]>([]);
+  const [sessions, setSessions] = useState<{ id: string; started_at: string | null; ended_at: string | null; worked_minutes?: number | null; current_block_index?: number | null; distance_meters?: number | null; paused_seconds?: number | null }[]>([]);
 
   // Análise da IA (Gemini) — gerada sob demanda no botão
   const [aiReport, setAiReport] = useState<{ analise?: string } | null>(null);
@@ -154,6 +157,11 @@ export default function Insights() {
   const range = useMemo(() => {
     const today = startOfDay(new Date());
     if (period === "today") return { start: today, end: today };
+    if (period === "yesterday") {
+      const y = new Date(today);
+      y.setDate(y.getDate() - 1);
+      return { start: y, end: y };
+    }
     if (period === "day") {
       const d = dayDate ? startOfDay(dayDate) : today;
       return { start: d, end: d };
@@ -270,7 +278,7 @@ export default function Insights() {
         ).then((data) => ({ data })),
         supabase
           .from("challenge_sessions")
-          .select("started_at,ended_at,worked_minutes,current_block_index,distance_meters,paused_seconds")
+          .select("id,started_at,ended_at,worked_minutes,current_block_index,distance_meters,paused_seconds")
           .eq("user_id", user.id)
           .gte("date", startISO)
           .lte("date", endISO),
@@ -294,7 +302,16 @@ export default function Insights() {
       setLatePix((lateRes.data as any) || []);
       setDefconSales((defconRes.data as any) || []);
       setProdSales((prodRes.data as any) || []);
-      setSessions((sessionsRes.data as any) || []);
+      const sess = ((sessionsRes.data as any) || []) as typeof sessions;
+      setSessions(sess);
+      // pausas registradas das sessões: o tempo ocioso sai delas (ver tempo-ocioso.ts)
+      const ids = sess.map((x) => x.id).filter(Boolean);
+      if (ids.length > 0) {
+        const { data: pz, error: pzErr } = await (supabase.from("defcon_pausas") as any)
+          .select("session_id,inicio,fim,segundos").in("session_id", ids);
+        if (pzErr) avisar.silencioso("Insights: ler pausas", pzErr);
+        setPausas((pz as PausaOcio[]) || []);
+      } else setPausas([]);
     } finally {
       setLoading(false);
     }
@@ -406,7 +423,7 @@ export default function Insights() {
 
     // Km andado (GPS) e tempo OCIOSO (pausado) somados no período.
     const distanciaKm = sessions.reduce((s, x) => s + (Number(x.distance_meters) || 0), 0) / 1000;
-    const tempoOciosoMin = Math.round(sessions.reduce((s, x) => s + (Number(x.paused_seconds) || 0), 0) / 60);
+    const tempoOciosoMin = minutosOciososDoPeriodo(sessions, pausas);
 
     return {
       horasTrabalhadasMin,
@@ -446,7 +463,7 @@ export default function Insights() {
       unidLevadas,
       unidSobrou,
     };
-  }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales, sessions]);
+  }, [sales, blocks, expenses, challengeBlocks, rangeDays, latePix, defconSales, sessions, pausas]);
 
   // ESPERADO x RECEBIDO: "esperado" é o faturamento de TODA a mercadoria vendida
   // (o que era pra cair). "Recebido" é o que efetivamente entrou (dinheiro+pix+cartão).
@@ -568,13 +585,14 @@ export default function Insights() {
   // Junta as vendas com carimbo de hora real (DEFCON + catálogo de produtos) e
   const periodoLabel =
     period === "today" ? "dia de hoje"
+    : period === "yesterday" ? "dia de ontem"
     : period === "day" ? `dia ${fmtBR(range.start)}`
     : period === "7d" ? "semana (últimos 7 dias)"
     : period === "30d" ? "mês (últimos 30 dias)"
     : "período selecionado";
 
   // Rótulo curto que vai impresso na arte diária (mesma arte do fim do DEFCON)
-  const shareLabel = period === "today" ? `HOJE · ${fmtBR(range.start)}` : `DIA ${fmtBR(range.start)}`;
+  const shareLabel = period === "today" ? `HOJE · ${fmtBR(range.start)}` : period === "yesterday" ? `ONTEM · ${fmtBR(range.start)}` : `DIA ${fmtBR(range.start)}`;
 
   // Dados da arte RECAP (semana / mês / intervalo) — barras dia a dia + grade de números
   const recapStats: RecapStats = useMemo(() => {
@@ -729,7 +747,7 @@ export default function Insights() {
       {/* Filtro de período — pílulas, dourado no ativo */}
       <div className="space-y-3">
         <div className="flex flex-nowrap gap-2 overflow-x-auto -mx-1 px-1 pb-0.5 [scrollbar-width:none]">
-          {(["today", "7d", "30d", "custom"] as Period[]).map((p) => (
+          {(["today", "yesterday", "7d", "30d", "custom"] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
@@ -965,11 +983,11 @@ export default function Insights() {
             )}
           </div>
 
-          {/* DETALHES — o resto mora recolhido (Miller: 5 blocos na tela) */}
+          {/* DETALHES — abertos (Mohamed, 09/10: nada de esconder informação atrás de toque) */}
           <div className="space-y-2.5">
-            <Collapse
+            <Secao
               icon={<TrendingUp className="w-[18px] h-[18px]" style={{ color: "var(--orbis-gold,#F5B800)" }} />}
-              title="Ver a conta completa"
+              title="A conta completa"
               sub="dinheiro · pix · cartão · unidades · gorjetas"
             >
               <div className="divide-y divide-border/60">
@@ -1012,9 +1030,9 @@ export default function Insights() {
                   })}
                 </div>
               )}
-            </Collapse>
+            </Secao>
 
-            <Collapse
+            <Secao
               icon={<AlertTriangle className="w-[18px] h-[18px]" style={{ color: "var(--orbis-calote,#FF5C5C)" }} />}
               title="Calote e recuperação"
               sub={summary.calotes > 0 ? `${formatCurrency(summary.calotes)} · ${summary.caloteUnidades} un` : "sem calote 🎉"}
@@ -1050,11 +1068,11 @@ export default function Insights() {
                   Leve <b className="text-primary">+{summary.sugestaoUnid} {summary.sugestaoUnid === 1 ? "unidade" : "unidades"} por dia</b> pra cobrir seu calote médio.
                 </div>
               )}
-            </Collapse>
+            </Secao>
 
             {/* num dia único o Hora a hora já mostra tudo isso, aberto */}
             {!isSingleDay && (
-            <Collapse
+            <Secao
               icon={<Clock className="w-[18px] h-[18px] text-muted-foreground" />}
               title="Melhores horários"
               sub={bestHours.length > 0 ? bestHours.slice(0, 3).map((h) => h.label).join(" · ") : "sem dados"}
@@ -1082,7 +1100,7 @@ export default function Insights() {
                   <FinanceRow label="Km andado" value={kmLabel} tone="muted" />
                 )}
               </div>
-            </Collapse>
+            </Secao>
             )}
 
           </div>
@@ -1209,33 +1227,22 @@ function BarsDiaADia({ data }: { data: { label: string; valor: number; iso: stri
   );
 }
 
-/** Seção recolhível — o "ver detalhes" do Relatório v2. */
-function Collapse({ icon, title, sub, children, onOpen }: {
+/** Seção do relatório — sempre aberta (Mohamed, 09/10: recolher escondia informação). */
+function Secao({ icon, title, sub, children }: {
   icon: React.ReactNode;
   title: string;
   sub?: string;
   children: React.ReactNode;
-  onOpen?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   return (
-    <div className="rounded-2xl border border-border/60 bg-card overflow-hidden">
-      <button
-        type="button"
-        className="orbis-press w-full flex items-center gap-3 px-4 py-3.5 text-left"
-        onClick={() => {
-          const v = !open;
-          setOpen(v);
-          if (v) onOpen?.();
-        }}
-      >
+    <section className="rounded-2xl border border-border/60 bg-card overflow-hidden">
+      <div className="w-full flex items-center gap-3 px-4 pt-3.5 pb-2.5">
         <span className="shrink-0">{icon}</span>
-        <span className="flex-1 min-w-0 text-sm font-bold whitespace-nowrap overflow-hidden text-ellipsis">{title}</span>
-        {sub && !open && <span className="text-xs text-muted-foreground whitespace-nowrap">{sub}</span>}
-        <ChevronRight className={`w-4 h-4 shrink-0 text-muted-foreground transition-transform duration-200 ${open ? "rotate-90" : ""}`} />
-      </button>
-      {open && <div className="orbis-card-in">{children}</div>}
-    </div>
+        <span className="flex-1 min-w-0 text-sm font-bold truncate">{title}</span>
+        {sub && <span className="text-xs text-muted-foreground truncate max-w-[50%]">{sub}</span>}
+      </div>
+      <div className="border-t border-border/60">{children}</div>
+    </section>
   );
 }
 

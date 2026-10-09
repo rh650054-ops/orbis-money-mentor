@@ -25,7 +25,6 @@ import { useJornada } from "@/components/jornada/useJornada";
 import CobrancaDoCorre from "@/components/CobrancaDoCorre";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import ConfirmarEmailNudge from "@/components/ConfirmarEmailNudge";
-import { NovidadeClima } from "@/components/clima/NovidadeClima";
 import { lembrarMetaDia } from "@/shared/lib/offline-day";
 import { avisar } from "@/shared/lib/avisar";
 
@@ -481,9 +480,6 @@ export default function Index() {
         diasTrabalhados={diasNoMes}
         userId={user.id}
       />
-
-      {/* Lançamento do Clima do vendedor (Rick, 11/09): 1x por pessoa */}
-      <NovidadeClima userId={user.id} />
 
       {/* DASHBOARD ENXUTO (Lote 7, 03/10): UM aviso por vez acima da meta.
           Fila por prioridade; cada aviso continua decidindo sozinho se aparece,

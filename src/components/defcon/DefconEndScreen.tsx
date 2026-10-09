@@ -14,7 +14,6 @@ import orbisLogo from "@/assets/vant-logo-share.png";
 import pixLogo from "@/assets/pix-logo.png";
 import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
-import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
 import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, proximaLeitura } from "@/components/conectar/banco-pix";
@@ -1108,15 +1107,14 @@ export function DefconEndScreen({
                   <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
                     No banco: <b className="text-success tabular-nums">{formatCurrency(pixBanco.total)}</b>
                     {pixBanco.maquininha > 0 && <> ({formatCurrency(pixBanco.pix)} Pix + {formatCurrency(pixBanco.maquininha)} maquininha)</>}
-                    {pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}. Vale o que você lançou.
+                    {pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}
                   </p>
                 )}
               </>
             )}
             {travado && pixDoBancoNoDia.aMais > 0 && (
               <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
-                Caiu <b className="text-foreground">{formatCurrency(pixDoBancoNoDia.aMais)}</b> de Pix além do que você lançou de venda.
-                Conta no ranking (é Pix na conta), mas não vira venda no seu dia.
+                Caiu <b className="text-foreground">{formatCurrency(pixDoBancoNoDia.aMais)}</b> de Pix a mais do que você lançou.
               </p>
             )}
             <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
@@ -1135,7 +1133,7 @@ export function DefconEndScreen({
             {aindaNaoCaiu > 0 && (
               <div className="rounded-xl bg-warning/10 border border-warning/30 px-3.5 py-2.5 text-xs leading-relaxed">
                 <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} ainda não caíram</span>
-                <span className="text-muted-foreground"> na conta. A Vant continua olhando o banco: o que cair até 23:59 entra sozinho no seu dia e no ranking.</span>
+                <span className="text-muted-foreground"> na conta</span>
               </div>
             )}
 
@@ -1205,7 +1203,7 @@ export function DefconEndScreen({
         {/* VAI PRO RANKING — Pix travado. Só aparece com banco ligado. O servidor
             continua lendo o banco até 23:59, então o número ainda pode subir. */}
         {travado && (
-          <div className="rounded-2xl border border-success/40 bg-gradient-to-br from-success/15 via-success/5 to-transparent px-3.5 py-3 space-y-1.5">
+          <div className="rounded-2xl border border-success/40 bg-gradient-to-br from-success/15 via-success/5 to-transparent px-3.5 py-3 ">
             <div className="flex items-center gap-3">
               <Trophy className="w-5 h-5 text-success shrink-0" />
               <div className="flex-1 min-w-0">
@@ -1214,10 +1212,6 @@ export function DefconEndScreen({
               </div>
               <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">{pixBanco.maquininha > 0 ? "Pix + maquininha" : "só Pix conferido"}</span>
             </div>
-            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-              Pix e maquininha que caírem na conta entram sozinhos, mesmo com o app fechado. Dinheiro não conta no ranking, mas conta no seu dia.
-            </p>
           </div>
         )}
 
@@ -1483,7 +1477,6 @@ export function DefconEndScreen({
         )}
 
         {/* 6.6 Extrato do dia (competições) — só pra participantes de competição ativa */}
-        {userId && <CompetitionStatementUpload userId={userId} />}
 
         {/* 7. CTA FINAL */}
         <button

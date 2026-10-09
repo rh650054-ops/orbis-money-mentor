@@ -9,7 +9,7 @@
    último DEFCON, hoje ou ontem).
    ============================================================ */
 import { useEffect, useState } from "react";
-import { ShieldCheck, Loader2, Plus, Landmark, AlertTriangle } from "lucide-react";
+import { Loader2, Plus, Landmark, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { formatCurrency } from "@/shared/lib/utils";
@@ -17,7 +17,6 @@ import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { LogoCarteira, type Carteira } from "@/components/conectar/Selo";
 import { saudeDoBanco, horaBR, type BancoLigado } from "@/components/conectar/pluggy";
 
-const AZUL = "#2F8CFF";
 const OK = "#3DD68C";
 const RED = "#ff6b7a";
 const GOLD = "#F5B800";
@@ -42,25 +41,17 @@ export async function carregarProHoje(): Promise<ProHoje | null> {
 
 const caixa = { background: "linear-gradient(180deg,#111114,#0b0b0d)", border: `1px solid ${LINHA}` };
 
-/* ---------- 1 · herói ---------- */
+/* ---------- 1 · selo (discreto, 09/10) ----------
+   Era um herói enorme ("Você é um vendedor VERIFICADO" com escudo de 84px).
+   Mohamed (09/10): "deixa algo sutil, o verificadinho do lado". Virou uma linha. */
 export function HeroVerificado({ nome, verificado, desde }: { nome: string; verificado: boolean; desde: string | null }) {
   return (
-    <div className="rounded-[22px] px-4 pt-6 pb-5 text-center"
-      style={{ background: "radial-gradient(120% 90% at 50% 0%,#0d2a52 0%,#0b1220 45%,#0b0b0d 100%)", border: "1px solid rgba(47,140,255,.35)" }}>
-      <span className="mx-auto w-[84px] h-[84px] rounded-full flex items-center justify-center"
-        style={{ background: "radial-gradient(circle at 35% 30%,#4aa3ff,#1560e8 70%)", boxShadow: "0 0 0 10px rgba(47,140,255,.12), 0 14px 40px -8px rgba(47,140,255,.7)" }}>
-        <ShieldCheck className="w-10 h-10 text-white" strokeWidth={2.2} />
+    <div className="flex items-center gap-2 px-1 min-w-0">
+      <span className="text-[15px] font-extrabold truncate">{nome}</span>
+      {verificado && <SeloVerificado size={15} />}
+      <span className="text-[11.5px] font-semibold shrink-0" style={{ color: verificado ? "#8cc2ff" : MUTE }}>
+        {verificado ? "verificado" : "banco ligado"}{desde ? ` · desde ${desde}` : ""}
       </span>
-      <p className="text-[23px] font-black leading-[1.1] mt-4 text-balance">
-        {verificado ? <>Você é um vendedor <span style={{ color: AZUL }}>VERIFICADO</span></> : <>Seu banco está <span style={{ color: AZUL }}>LIGADO</span></>}
-      </p>
-      <p className="text-[12px] font-bold mt-1.5 inline-flex items-center gap-1" style={{ color: "#b9c3d6" }}>
-        {nome}{verificado && <SeloVerificado size={14} />}{desde ? ` · desde ${desde}` : ""}
-      </p>
-      <div className="flex justify-center gap-2 mt-3">
-        <span className="rounded-full px-3 py-[5px] text-[11px] font-black" style={{ background: "rgba(47,140,255,.12)", border: "1px solid rgba(47,140,255,.45)", color: "#8cc2ff" }}>selo no ranking</span>
-        <span className="rounded-full px-3 py-[5px] text-[11px] font-black" style={{ background: "rgba(245,184,0,.1)", border: "1px solid rgba(245,184,0,.45)", color: GOLD }}>X1 valendo liberado</span>
-      </div>
     </div>
   );
 }
@@ -76,7 +67,6 @@ export function ComprovadoHoje({ h }: { h: ProHoje | null }) {
     <div className="rounded-[22px] px-4 py-4" style={caixa}>
       <div className="flex items-center justify-between">
         <p className="text-[10.5px] font-black tracking-[.16em]" style={{ color: OK }}>{titulo}</p>
-        <span className="rounded-full px-2.5 py-[4px] text-[10.5px] font-black" style={{ background: "#18181b", border: "1px solid #2a2a2e", color: "#e9e6df" }}>atualiza sozinho</span>
       </div>
       <div className="flex items-end justify-between mt-2.5 gap-3">
         <div className="min-w-0">
