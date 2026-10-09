@@ -64,7 +64,7 @@ export function HeroClima({ t, cidade, decisao, janela, rede, atualizadoEm, carr
             style={{ color: chovendo || agora >= 50 ? CLIMA.chuvaLeve : "#d8d3c9", background: chovendo || agora >= 50 ? "rgba(91,155,255,.16)" : "rgba(255,255,255,.06)" }}>
             {chovendo ? "chovendo agora" : `chuva agora ${agora}%`}
           </p>
-          <VantPersonagem estado={t.estado} altura={172} className="absolute right-0 -bottom-4 pointer-events-none" />
+          <VantPersonagem altura={172} className="absolute right-0 -bottom-4 pointer-events-none" />
         </div>
 
         {/* decisão minimalista (Rick, 08/10): um ponto de cor + a frase. Sem caixa, sem rótulo. */}

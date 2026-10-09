@@ -48,7 +48,7 @@ export default function Clima() {
       <div className="px-4 pt-2 pb-10 max-w-2xl mx-auto">
         {semPosicao ? (
           <section className="relative overflow-hidden rounded-[22px] border p-5 flex flex-col gap-2.5" style={{ borderColor: "rgba(245,184,0,.4)", background: "#0e0e10" }}>
-            <VantPersonagem estado="sol" altura={150} className="absolute right-2 bottom-20 pointer-events-none" />
+            <VantPersonagem altura={150} className="absolute right-2 bottom-20 pointer-events-none" />
             <span className="inline-flex items-center gap-1.5 text-[12px] font-black tracking-[.14em] uppercase" style={{ color: "#F5B800" }}><MapPin className="w-4 h-4" strokeWidth={2.4} /> Onde você vende</span>
             <p className="text-[20px] font-extrabold leading-tight pr-[96px]">Me diz onde você tá que eu leio o céu por você.</p>
             <p className="text-[14px] leading-snug pr-[96px]" style={{ color: "#b3ada3" }}>
