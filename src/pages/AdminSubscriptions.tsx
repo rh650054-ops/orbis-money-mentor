@@ -442,6 +442,14 @@ export default function AdminSubscriptions() {
   // Marca/atualiza o selo de acesso (cortesia / influenciador / equipe / desconto)
   const applyComp = async (label: string | null, exempt: boolean) => {
     if (!editUser) return;
+    // BUG-005 (08/10): cortesia em perfil SEM CPF nunca casa com a compra do banco na
+    // Hotmart (ela vincula por CPF) — a pessoa paga e nada libera. Avisa antes.
+    if (exempt && !String(editUser.cpf ?? "").replace(/\D/g, "")) {
+      const segue = window.confirm(
+        "Este perfil está SEM CPF. Se a pessoa pagar o banco na Hotmart, a compra não vai cair nesta conta.\n\nPeça pra ela preencher o CPF em Minha Conta antes (ou procure outra conta dela com CPF). Aplicar a cortesia mesmo assim?",
+      );
+      if (!segue) return;
+    }
     setSavingComp(true);
     try {
       const updates: any = { billing_exempt: exempt, comp_label: label };
