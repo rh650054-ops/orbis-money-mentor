@@ -151,7 +151,7 @@ export const linkZap = (telefone: string | null | undefined, texto: string) => {
 
 export function erroCobranca(codigo: string | null | undefined) {
   switch (codigo) {
-    case "sem_conexao": return "Ligue sua carteira primeiro pra poder cobrar.";
+    case "sem_conexao": return "A cobrança com Pix automático não está disponível na sua conta.";
     case "carteira_recusou": return "A carteira não aceitou essa cobrança. Confere o valor e tenta de novo.";
     case "valor_invalido": return "Digite um valor maior que zero.";
     case "valor_alto": return "Valor alto demais pra uma cobrança avulsa.";

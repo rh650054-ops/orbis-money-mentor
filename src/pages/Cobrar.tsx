@@ -4,15 +4,18 @@
      • form  → quem, quanto, do quê  → GERAR PIX E MANDAR NO ZAP
      • viva  → QR + copia e cola + botão do WhatsApp + o que acontece sozinho
      • paga  → o calote já foi abatido
-   O Pix é criado NA CARTEIRA DO VENDEDOR pela edge function cobranca-criar.
+   O Pix é criado NA CONTA DO VENDEDOR pela edge function cobranca-criar.
    O dinheiro nunca passa pela Vant. A mensagem sai do WhatsApp dele.
+   09/10: a Vant não oferece mais ligar carteira (Mercado Pago / PagBank).
+   Quem já tem a conexão antiga continua cobrando; quem não tem vê só um aviso,
+   sem botão pra ligar carteira.
    Todo hook acima do primeiro return. Campos definidos FORA do componente.
    ============================================================ */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft, Loader2, Check, Copy, MessageCircle, ShieldCheck,
-  ChevronRight, AlertTriangle, HandCoins,
+  AlertTriangle, HandCoins,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
@@ -83,7 +86,6 @@ export default function Cobrar() {
 
   const [carregando, setCarregando] = useState(true);
   const [conectado, setConectado] = useState(false);
-  const [carteira, setCarteira] = useState<string>("Mercado Pago");
   const [meuNome, setMeuNome] = useState<string | null>(null);
   const [clientes, setClientes] = useState<ClienteDoDia[]>([]);
 
@@ -113,10 +115,7 @@ export default function Cobrar() {
         carregarPainel().catch(() => PAINEL_VAZIO),
       ]);
       if (!vivo) return;
-      const s = ((st?.data as any[]) || [])[0];
-      setConectado(!!s?.conectado);
-      const provs = (s?.provedores as string[] | null) ?? [];
-      setCarteira(provs.includes("pagbank") && !provs.includes("mercadopago") ? "PagBank" : "Mercado Pago");
+      setConectado(!!((st?.data as any[]) || [])[0]?.conectado);
       setMeuNome(((perfil.data as any)?.nickname as string) ?? null);
       setClientes(cs);
       setPainel(pn);
@@ -257,7 +256,7 @@ export default function Cobrar() {
     return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-7 h-7 animate-spin" style={{ color: GOLD }} /></div>;
   }
 
-  /* ================= SEM CARTEIRA LIGADA ================= */
+  /* ================= SEM PIX AUTOMÁTICO (sem conexão antiga) ================= */
   if (!conectado && !cob) {
     return (
       <div className="px-4 pt-4 pb-24">
@@ -269,12 +268,12 @@ export default function Cobrar() {
           <span className="w-14 h-14 rounded-full inline-flex items-center justify-center" style={{ background: "rgba(63,169,255,.12)", border: "1px solid rgba(63,169,255,.45)" }}>
             <ShieldCheck className="w-7 h-7" style={{ color: "#7FD3FF" }} strokeWidth={2.2} />
           </span>
-          <p className="text-[20px] font-black mt-4 leading-tight">Ligue onde você recebe<br />pra poder cobrar</p>
+          <p className="text-[20px] font-black mt-4 leading-tight">Cobrança com Pix automático<br />indisponível</p>
           <p className="text-[12.5px] mt-2.5 leading-relaxed" style={{ color: "var(--orbis-fg-2)" }}>
-            O Pix da cobrança é criado na sua conta e o dinheiro cai direto pra você. Sem carteira ligada, a Vant não tem onde criar.
+            Sua conta não tem onde criar o Pix da cobrança. Na hora da venda, no DEFCON, a mensagem pro cliente já vai com a sua chave Pix.
           </p>
-          <button type="button" onClick={() => navigate("/verificar")} className="orbis-cta w-full mt-4">
-            LIGAR MINHA CARTEIRA <ChevronRight className="w-4 h-4" strokeWidth={3} />
+          <button type="button" onClick={() => navigate(-1)} className="orbis-cta w-full mt-4">
+            VOLTAR
           </button>
         </div>
       </div>
@@ -367,9 +366,9 @@ export default function Cobrar() {
         <div className="rounded-[20px] border mt-3 p-4" style={{ borderColor: "var(--orbis-line)", background: "var(--orbis-surf)" }}>
           <p className="text-[9.5px] font-black tracking-[.18em]" style={{ color: "var(--orbis-fg-3)" }}>O QUE ACONTECE SOZINHO</p>
           <div className="mt-2">
-            <Passo n={1} feito titulo={`Pix criado na sua conta do ${carteira}`} texto="O dinheiro cai direto pra você. A Vant não toca nele." />
+            <Passo n={1} feito titulo="Pix criado na sua conta" texto="O dinheiro cai direto pra você. A Vant não toca nele." />
             <Passo n={2} feito={!!cob.enviada_em} titulo="Mensagem no WhatsApp dela" texto={cob.enviada_em ? `Enviado ${horaBR(cob.enviada_em)}.` : "Sai do seu número, com a sua cara."} />
-            <Passo n={3} feito={false} titulo="Ela paga" texto={`O ${carteira} avisa a Vant em segundos.`} />
+            <Passo n={3} feito={false} titulo="Ela paga" texto="A Vant fica sabendo em segundos." />
             <Passo n={4} feito={false} titulo="Seu calote cai sozinho" texto="Sem você lançar nada, sem conferir extrato." />
           </div>
         </div>
@@ -465,7 +464,7 @@ export default function Cobrar() {
         {gerando ? "CRIANDO O PIX…" : "GERAR PIX E MANDAR NO ZAP"}
       </button>
       <p className="text-[11.5px] mt-2.5 text-center" style={{ color: "var(--orbis-fg-3)" }}>
-        O Pix é criado na sua conta do {carteira}. O dinheiro cai direto pra você.
+        O Pix é criado na sua conta. O dinheiro cai direto pra você.
       </p>
     </div>
   );

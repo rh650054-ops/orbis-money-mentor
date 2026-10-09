@@ -3,7 +3,7 @@
    Segue o mockup "3 · Depois de conectar (a recompensa)" (Claude outputs/mock-conectar.png):
      1) Você é um vendedor VERIFICADO (escudo azul + selos)
      2) COMPROVADO HOJE: o que caiu na conta × o que você lançou
-     3) Onde você recebe: bancos (ATIVO) e carteiras, numa lista só
+     3) Onde você recebe: os bancos ligados pelo Open Finance (ATIVO)
      4) Gerenciar conexões: desconectar banco
    Os números vêm de vant_pro_hoje() (mesma regra do relatório: o dia é o do
    último DEFCON, hoje ou ontem).
@@ -14,7 +14,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { formatCurrency } from "@/shared/lib/utils";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
-import { LogoCarteira, type Carteira } from "@/components/conectar/Selo";
 import { saudeDoBanco, horaBR, type BancoLigado } from "@/components/conectar/pluggy";
 
 const OK = "#3DD68C";
@@ -107,9 +106,9 @@ function Logo({ b }: { b: BancoLigado }) {
 const pilula = (cor: string, borda: string) =>
   ({ color: cor, border: `1.5px solid ${borda}`, background: "transparent" }) as React.CSSProperties;
 
-export function OndeRecebe({ bancos, ligadas, disponiveis, ocupado, ligando, onLigarBanco, onLigarCarteira, onAutorizar }: {
-  bancos: BancoLigado[]; ligadas: Carteira[]; disponiveis: Carteira[]; ocupado: string | null; ligando: boolean;
-  onLigarBanco: () => void; onLigarCarteira: (c: Carteira) => void;
+export function OndeRecebe({ bancos, ligando, onLigarBanco, onAutorizar }: {
+  bancos: BancoLigado[]; ligando: boolean;
+  onLigarBanco: () => void;
   /** banco esperando o vendedor aprovar no app do banco → abre a Pluggy no mesmo item */
   onAutorizar?: (b: BancoLigado) => void;
 }) {
@@ -136,29 +135,6 @@ export function OndeRecebe({ bancos, ligadas, disponiveis, ocupado, ligando, onL
           </div>
         );
       })}
-      {ligadas.map((c) => (
-        <div key={c.id} className="flex items-center gap-3 py-3.5" style={{ borderTop: `1px solid ${LINHA}` }}>
-          <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={46} />
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-black truncate">{c.nome}</p>
-            <p className="text-[11.5px] truncate" style={{ color: MUTE }}>carteira · concilia e cobra</p>
-          </div>
-          <span className="shrink-0 rounded-full px-3 py-[5px] text-[11px] font-black" style={pilula(OK, "rgba(61,214,140,.55)")}>ATIVO</span>
-        </div>
-      ))}
-      {disponiveis.map((c) => (
-        <button key={c.id} type="button" onClick={() => onLigarCarteira(c)} disabled={!!ocupado}
-          className="w-full flex items-center gap-3 py-3.5 text-left" style={{ borderTop: `1px solid ${LINHA}` }}>
-          <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={46} />
-          <span className="flex-1 min-w-0">
-            <span className="block text-[15px] font-black">{c.nome}</span>
-            <span className="block text-[11.5px]" style={{ color: MUTE }}>recebe também aqui? liga em 30s</span>
-          </span>
-          <span className="shrink-0 h-9 px-4 rounded-[12px] inline-flex items-center text-[12px] font-black" style={{ background: GOLD, color: "#1A1200" }}>
-            {ocupado === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : "LIGAR"}
-          </span>
-        </button>
-      ))}
       <button type="button" onClick={onLigarBanco} disabled={ligando}
         className="w-full flex items-center gap-3 py-3.5 text-left" style={{ borderTop: `1px solid ${LINHA}` }}>
         <span className="w-[46px] h-[46px] rounded-[14px] shrink-0 flex items-center justify-center" style={{ border: "1.5px dashed #3a3832" }}>

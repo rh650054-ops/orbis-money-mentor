@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Share2, AlertTriangle, Sparkles, FileDown, Coins, RotateCcw, ArrowLeft, Instagram, Check, Loader2, Pencil, X, ChevronDown, Lock, Trophy, RefreshCw } from "lucide-react";
 import { formatCurrency } from "@/shared/lib/utils";
 import { CobradorCard } from "@/components/cobranca/CobradorCard";
-import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
 import { toast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
@@ -17,6 +16,7 @@ import { DefconShareCarousel } from "./DefconShareCarousel";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
 import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
+import { usePixDestravado, BotaoDestravar, marcarDiaManual } from "./destravar-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -70,6 +70,7 @@ export function DefconEndScreen({
   // (pluggy-hora) — antes esta tela pedia leitura nova a cada 5 min.
   const { pix: pixBanco, recarregar: relerBanco } = usePixDoBanco(!!userId, 60_000);
   const [lendoBanco, setLendoBanco] = useState(false);
+  const { podeDestravar, destravado, destravar } = usePixDestravado(!!userId && pixBanco.temBanco);
   useEffect(() => {
     if (!userId) return;
     let vivo = true;
@@ -543,16 +544,19 @@ export function DefconEndScreen({
     }
   };
 
-  const cartaoNum = parseFloat(cartao) || 0;
   const dinheiroNum = parseFloat(dinheiro) || 0;
   // Pix travado: entra o que o banco leu, até o limite do que foi vendido. O que
   // caiu a mais (Pix sem venda lançada) aparece à parte e não vira venda.
   // 03/10 13:34 (Rick): volta a travar. Quem tem banco (Pro/teste do Open
   // Finance) vê só o que CAIU; o que ele lançou e ainda não caiu aparece como
   // "ainda não caiu", não como calote. Sem banco, segue digitando como sempre.
-  // 09/10: Rick e Mohamed veem o banco mas contam o lançado (trava=false).
-  const travado = pixBanco.temBanco && pixBanco.trava;
-  // a maquininha que caiu é venda no cartão: o Pix travado só usa o Pix
+  // 09/10 18:46 (Rick): Pix E maquininha travados pra todo Pro com banco, sem
+  // exceção. Só os sócios destravam, respondendo a pergunta (destravar-pix.tsx).
+  const travado = pixBanco.temBanco && !destravado;
+  // maquininha que caiu = cartão (travado), até o que falta depois do dinheiro
+  const cartaoNum = travado
+    ? Math.min(pixBanco.maquininha, Math.max(0, Math.round((totalSold - dinheiroNum) * 100) / 100))
+    : (parseFloat(cartao) || 0);
   const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.pix, totalSold, dinheiroNum, cartaoNum);
   const pixNum = travado ? pixDoBancoNoDia.entra : (parseFloat(pix) || 0);
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
@@ -962,6 +966,8 @@ export function DefconEndScreen({
       // como se tivesse sido recebido, e a dívida sumia sem ninguém ver.
       if (totalRecebido > 0 || mexeu) {
         await onSaveBreakdown(dinheiroNum, cartaoNum, pixNum);
+        // sócio: o dia destravado não é mais refeito pelo banco; travado volta a ser
+        if (podeDestravar) await marcarDiaManual(getBrazilDate(), destravado);
       }
       onExit();
     } finally {
@@ -995,10 +1001,6 @@ export function DefconEndScreen({
           </div>
         </div>
 
-        {/* COBRADOR DE CALOTE + CONCILIAÇÃO — portados do fechamento novo quando
-            o Rick pediu o relatório antigo de volta (09/09). Os dois somem sozinhos
-            quando não há nada a cobrar nem carteira ligada. */}
-        <ConciliacaoDia userId={userId} />
 
         {/* Celebração — bateu/ultrapassou a meta */}
         {goalReached && (
@@ -1089,7 +1091,7 @@ export function DefconEndScreen({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">Pix</p>
                   <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
-                    <Lock className="w-3 h-3 shrink-0" /> pelo banco{pixBanco.maquininha > 0 ? ` · + ${formatCurrency(pixBanco.maquininha)} na maquininha` : ""}
+                    <Lock className="w-3 h-3 shrink-0" /> pelo banco · {pixBanco.qtd} {pixBanco.qtd === 1 ? "entrada" : "entradas"}
                   </p>
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
                     {lendoBanco
@@ -1117,7 +1119,21 @@ export function DefconEndScreen({
                 Caiu <b className="text-foreground">{formatCurrency(pixDoBancoNoDia.aMais)}</b> de Pix a mais do que você lançou.
               </p>
             )}
-            <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
+            {travado ? (
+              <div className="rounded-xl bg-success/10 border border-success/35 px-3.5 py-3 flex items-center gap-3">
+                <span className="w-9 h-9 rounded-lg bg-success/15 flex items-center justify-center text-lg shrink-0">💳</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">Cartão</p>
+                  <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
+                    <Lock className="w-3 h-3 shrink-0" /> maquininha que caiu no banco
+                  </p>
+                </div>
+                <span className="text-base font-black text-success tabular-nums">{formatCurrency(cartaoNum)}</span>
+              </div>
+            ) : (
+              <PaymentInput emoji="💳" label="Cartão" value={cartao} onChange={(v) => { setMexeu(true); setCartao(v); }} accent="text-muted-foreground" />
+            )}
+            {travado && podeDestravar && <BotaoDestravar onDestravar={() => { destravar(); setMexeu(true); }} />}
             <PaymentInput emoji="💵" label="Dinheiro" value={dinheiro} onChange={(v) => { setMexeu(true); setDinheiro(v); }} accent="text-muted-foreground" />
 
             {/* Resumo total recebido vs vendido */}
@@ -1132,8 +1148,8 @@ export function DefconEndScreen({
 
             {aindaNaoCaiu > 0 && (
               <div className="rounded-xl bg-warning/10 border border-warning/30 px-3.5 py-2.5 text-xs leading-relaxed">
-                <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} ainda não caíram</span>
-                <span className="text-muted-foreground"> na conta</span>
+                <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} não caíram na conta</span>
+                <span className="text-muted-foreground"> · conta como calote até cair. A Vant segue lendo o banco e tira do calote o que cair.</span>
               </div>
             )}
 
@@ -1208,9 +1224,9 @@ export function DefconEndScreen({
               <Trophy className="w-5 h-5 text-success shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-success">Vai pro ranking</p>
-                <p className="text-lg font-black text-success tabular-nums leading-tight">{formatCurrency(pixBanco.total)}</p>
+                <p className="text-lg font-black text-success tabular-nums leading-tight">{formatCurrency(totalRecebido)}</p>
               </div>
-              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">{pixBanco.maquininha > 0 ? "Pix + maquininha" : "só Pix conferido"}</span>
+              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">calote fora</span>
             </div>
           </div>
         )}
@@ -1259,7 +1275,7 @@ export function DefconEndScreen({
                 <Metrica rotulo="Ticket" valor={totalSalesCount > 0 ? formatCurrency(totalSold / totalSalesCount) : "—"} sub="por venda" />
                 <Metrica rotulo="Na rua" valor={horasLabel} sub={blocks.length > 0 ? `${blocks.length} ${blocks.length === 1 ? "bloco" : "blocos"}` : "trabalhadas"} />
                 <Metrica rotulo="Por hora" valor={workedMinutes && workedMinutes > 0 ? formatCurrency(totalSold / (workedMinutes / 60)) : "—"} sub="vendido" />
-                <Metrica rotulo="Calote" valor={formatCurrency(hasCalote ? calote : 0)} sub="fiado em aberto" alerta={hasCalote} />
+                <Metrica rotulo="Calote" valor={formatCurrency(hasCalote || aindaNaoCaiu > 0 ? calote : 0)} sub={aindaNaoCaiu > 0 ? "não caiu no banco" : "fiado em aberto"} alerta={hasCalote || aindaNaoCaiu > 0} />
               </div>
             )}
             {reportView === 0 && (

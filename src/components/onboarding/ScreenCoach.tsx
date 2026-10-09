@@ -99,7 +99,7 @@ const SCREENS: Record<string, ScreenDef> = {
       {
         selector: '[data-tour="conectar-banco"]',
         title: "Vire vendedor verificado",
-        text: "Ligue onde você recebe (Mercado Pago, PagBank) e a Vant passa a ver suas vendas sozinha. Você ganha o selo azul e entra nas competições valendo dinheiro.",
+        text: "Ligue o banco onde você recebe pelo Open Finance e a Vant passa a ver suas vendas sozinha. Você ganha o selo azul e entra nas competições valendo dinheiro.",
       },
     ],
   },

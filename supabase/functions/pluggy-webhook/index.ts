@@ -159,6 +159,12 @@ Deno.serve(async (req) => {
       updated_at: new Date().toISOString(),
     }).eq("id", con.id);
 
+    // Pix novo pode ter caído num dia já fechado: refaz Pix/cartão/calote desses dias.
+    if (r.gravadas > 0) {
+      const { error: eRec } = await admin.rpc("banco_reconciliar", { p_user: con.user_id });
+      if (eRec) console.error("pluggy-webhook: reconciliar", eRec.message);
+    }
+
     console.log(`pluggy-webhook: ${r.gravadas} entradas para ${con.user_id}`);
     return respond({ gravadas: r.gravadas });
   } catch (e) {

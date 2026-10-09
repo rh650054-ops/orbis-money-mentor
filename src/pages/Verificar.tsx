@@ -2,8 +2,6 @@
    VERIFICAR (/verificar) — a tela do VANT PRO (Rick, 09/09/2026).
 
    A regra do selo mudou e esta tela é onde ela vive:
-     • carteira (Mercado Pago / PagBank) = GRÁTIS. Serve pra conciliar e cobrar.
-       NÃO dá selo.
      • banco pelo Open Finance = dá o VERIFICADO. Vem no Vant Pro (1 banco; 2 no anual) ou como banco avulso de R$ 12,90 no Essencial.
    Ou seja: ninguém compra o selo. Compra o acesso ao Open Finance; o selo vem
    de ter uma conta bancária conferida de verdade.
@@ -21,13 +19,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2, Landmark, Banknote, ReceiptText,
-  Check, ChevronRight,
+  ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ConciliacaoMes } from "@/components/financas/MercadoPagoConciliacao";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "@/shared/hooks/use-toast";
-import { LogoCarteira, CARTEIRAS, type Carteira } from "@/components/conectar/Selo";
 import { ConviteBanco } from "@/components/conectar/ConviteBanco";
 import { SeloVerificado } from "@/components/ranking/AvatarRanking";
 import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHoje } from "@/components/conectar/ProConectado";
@@ -43,7 +39,6 @@ const GOLD = "#F5B800";
 const OK = "#3DD68C";
 const MUTE = "#7b766e";
 
-interface StatusCarteira { conectado: boolean; provedores: string[]; recebido_hoje: number }
 interface Perfil { nome: string; avatar: string | null }
 
 const iniciais = (nome: string) =>
@@ -89,10 +84,11 @@ export default function Verificar() {
   const navigate = useNavigate();
   const [pro, setPro] = useState<StatusPro | null>(null);
   const [bancos, setBancos] = useState<BancoLigado[]>([]);
-  const [cart, setCart] = useState<StatusCarteira | null>(null);
+  // 09/10: carteiras (Mercado Pago / PagBank) saíram da tela. Só sobra saber se a
+  // conta ainda tem a conexão antiga, porque é ela que cria o Pix do /cobrar.
+  const [cobraPix, setCobraPix] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [ligando, setLigando] = useState(false);
-  const [ocupado, setOcupado] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
   const [proHoje, setProHoje] = useState<ProHoje | null>(null);
   const [gerenciar, setGerenciar] = useState(false);
@@ -116,12 +112,7 @@ export default function Verificar() {
       const linha = (pf as { data: { nickname?: string | null; avatar_url?: string | null } | null }).data;
       setPerfil({ nome: (linha?.nickname ?? "").trim(), avatar: linha?.avatar_url ?? null });
       setProHoje(px);
-      const r = ((s?.data as any[]) || [])[0];
-      setCart({
-        conectado: !!r?.conectado,
-        provedores: (r?.provedores as string[] | null) ?? [],
-        recebido_hoje: Number(r?.recebido_hoje) || 0,
-      });
+      setCobraPix(!!((s?.data as any[]) || [])[0]?.conectado);
     } catch {
       // sem resposta nenhuma: mostra a oferta em vez de girar pra sempre
       setPro((atual) => atual ?? { pro: false, origem: null, ate: null, bancos: 0, verificado: false });
@@ -196,62 +187,9 @@ export default function Verificar() {
     void recarregar();
   }, [recarregar]);
 
-  const ligarCarteira = useCallback(async (c: Carteira) => {
-    if (!c.fn) return;
-    setOcupado(c.id);
-    const { data, error } = await (supabase as any).functions.invoke(c.fn);
-    setOcupado(null);
-    if (error || data?.error || !data?.url) {
-      toast({ title: "Não rolou", description: "Tenta de novo em instantes.", variant: "destructive" });
-      return;
-    }
-    window.location.href = String(data.url);
-  }, []);
-
   if (!user?.id || carregando || !pro) {
     return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 className="w-7 h-7 animate-spin" style={{ color: GOLD }} /></div>;
   }
-
-  const ligadas = CARTEIRAS.filter((c) => cart?.provedores.includes(c.id));
-  const disponiveis = CARTEIRAS.filter((c) => c.fn && !cart?.provedores.includes(c.id));
-
-  /* ---------- bloco das carteiras: grátis, aparece nos três estados ---------- */
-  const blocoCarteiras = (
-    <>
-      <div className="flex items-center justify-between px-0.5 mt-5">
-        <p className="text-[10px] font-black tracking-[.15em]" style={{ color: MUTE }}>MAQUININHAS E CARTEIRAS · GRÁTIS</p>
-        <p className="text-[10.5px] font-bold" style={{ color: MUTE }}>não dão selo</p>
-      </div>
-      <Cartao className="mt-2" style={{ padding: "4px 15px" }}>
-        {ligadas.map((c, i) => (
-          <div key={c.id} className="flex items-center gap-3 py-3" style={{ borderTop: i === 0 ? "none" : "1px solid #1e1d21" }}>
-            <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={34} />
-            <span className="flex-1 min-w-0">
-              <span className="block text-[13.5px] font-extrabold">{c.nome}</span>
-              <span className="block text-[11px]" style={{ color: MUTE }}>pra conciliar e cobrar</span>
-            </span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-black" style={{ color: OK }}>
-              <Check className="w-3.5 h-3.5" strokeWidth={3} /> LIGADA
-            </span>
-          </div>
-        ))}
-        {disponiveis.map((c, i) => (
-          <button key={c.id} type="button" onClick={() => ligarCarteira(c)} disabled={!!ocupado}
-            className="w-full flex items-center gap-3 py-3 text-left active:opacity-70"
-            style={{ borderTop: i === 0 && ligadas.length === 0 ? "none" : "1px solid #1e1d21" }}>
-            <LogoCarteira sigla={c.sigla} fundo={c.fundo} cor={c.cor} size={34} />
-            <span className="flex-1 min-w-0">
-              <span className="block text-[13.5px] font-extrabold">{c.nome}</span>
-              <span className="block text-[11px]" style={{ color: MUTE }}>{c.linha}</span>
-            </span>
-            {ocupado === c.id
-              ? <Loader2 className="w-4 h-4 animate-spin shrink-0" style={{ color: GOLD }} />
-              : <span className="shrink-0 h-7 px-2.5 rounded-full inline-flex items-center text-[10px] font-black tracking-[.06em]" style={{ background: "#1b1a17", border: "1px solid #26241f", color: MUTE }}>LIGAR</span>}
-          </button>
-        ))}
-      </Cartao>
-    </>
-  );
 
   const conferirDeNovo = (texto: string) => (
     <button type="button" onClick={() => void recarregar()}
@@ -278,7 +216,6 @@ export default function Verificar() {
       <div className="px-4 pt-4 pb-28" style={{ background: "radial-gradient(100% 420px at 50% 0%,#1a1305,transparent 70%)" }}>
         {topo}
         <div className="mt-2" data-tour="conectar-banco"><ConviteBanco onConectar={() => navigate("/pro")} /></div>
-        {blocoCarteiras}
       </div>
     );
   }
@@ -311,7 +248,6 @@ export default function Verificar() {
           <LinhaVantagem icone={<ReceiptText className="w-[18px] h-[18px]" style={{ color: GOLD }} />} titulo="Gastos organizados" texto="sem digitar nada" />
         </Cartao>
 
-        {blocoCarteiras}
         {conferirDeNovo("já liguei um banco e não apareceu? conferir de novo")}
       </div>
     );
@@ -329,14 +265,14 @@ export default function Verificar() {
       <div className="flex items-center justify-between px-0.5 pt-1">
         <p className="text-[15px] font-black">Onde você recebe</p>
         <span className="rounded-full px-2.5 py-[4px] text-[11px] font-black" style={{ color: OK, border: "1px solid rgba(61,214,140,.45)" }}>
-          {bancos.length + ligadas.length} {bancos.length + ligadas.length === 1 ? "conectada" : "conectadas"}
+          {bancos.length} {bancos.length === 1 ? "conectada" : "conectadas"}
         </span>
       </div>
       {bancoExtra && <BancoExtra usados={bancos.length} email={user?.email} onFechar={() => setBancoExtra(false)} />}
       {/* 04/10: com 2+ bancos, pergunta logo aqui pra que serve cada conta (trabalho × pessoal) */}
       {contasVenda.length >= 2 && contasVenda.some((c) => !c.papel) && <ContasDeVenda contas={contasVenda} onMudou={() => void recarregar()} />}
-      <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
-        onLigarBanco={() => void abrirBanco()} onLigarCarteira={ligarCarteira} onAutorizar={(b) => void abrirBanco(b.item_id)} />
+      <OndeRecebe bancos={bancos} ligando={ligando}
+        onLigarBanco={() => void abrirBanco()} onAutorizar={(b) => void abrirBanco(b.item_id)} />
       {contasVenda.length >= 2 && contasVenda.every((c) => c.papel) && <ContasDeVenda contas={contasVenda} onMudou={() => void recarregar()} />}
       <button type="button" onClick={() => setGerenciar(true)}
         className="w-full h-[52px] rounded-[16px] text-[14px] font-black active:opacity-70"
@@ -349,19 +285,19 @@ export default function Verificar() {
       </p>
       {conferirDeNovo("conferir de novo")}
 
-      {/* Conciliação do mês: veio da tela de Finanças (Rick, 09/09). O lugar dela
-          é aqui, junto das conexões que produzem esse número. */}
-      <div className="mt-4"><ConciliacaoMes userId={user.id} /></div>
-
-      <button type="button" onClick={() => navigate("/cobrar")}
-        className="w-full flex items-center gap-3 mt-3 rounded-[20px] border p-[15px] text-left active:opacity-70"
-        style={{ borderColor: "#1e1d21", background: "linear-gradient(180deg,#101013,#0b0b0d)" }}>
-        <span className="flex-1 min-w-0">
-          <span className="block text-[14px] font-extrabold">Cobrar quem ficou devendo</span>
-          <span className="block text-[11.5px] mt-0.5" style={{ color: MUTE }}>A Vant gera o Pix e abre seu WhatsApp.</span>
-        </span>
-        <ChevronRight className="w-5 h-5 shrink-0" style={{ color: MUTE }} strokeWidth={2.6} />
-      </button>
+      {/* Cobrar: o Pix da cobrança ainda nasce na conexão antiga de carteira.
+          Sem ela o /cobrar não tem onde criar o Pix, então o atalho só aparece pra quem tem. */}
+      {cobraPix && (
+        <button type="button" onClick={() => navigate("/cobrar")}
+          className="w-full flex items-center gap-3 mt-3 rounded-[20px] border p-[15px] text-left active:opacity-70"
+          style={{ borderColor: "#1e1d21", background: "linear-gradient(180deg,#101013,#0b0b0d)" }}>
+          <span className="flex-1 min-w-0">
+            <span className="block text-[14px] font-extrabold">Cobrar quem ficou devendo</span>
+            <span className="block text-[11.5px] mt-0.5" style={{ color: MUTE }}>A Vant gera o Pix e abre seu WhatsApp.</span>
+          </span>
+          <ChevronRight className="w-5 h-5 shrink-0" style={{ color: MUTE }} strokeWidth={2.6} />
+        </button>
+      )}
     </div>
   );
 }
