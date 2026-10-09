@@ -1,7 +1,8 @@
 /* 1 · CLIMA AGORA + DECISÃO — hero atmosférico (v2, 08/10).
    O fundo reage ao céu (azul petróleo na chuva, roxo no temporal, dourado sutil
    no sol, azul-marinho à noite), com gotas discretas quando chove. O personagem
-   ocupa ~26% da largura e nunca cobre texto. A decisão vem em caixa alta. */
+   ocupa ~26% da largura e nunca cobre texto. A decisão é uma faixa discreta
+   (barra de cor + frase), não um aviso gritando (Rick, 08/10). */
 import { Loader2, MapPin, RefreshCw, Users } from "lucide-react";
 import type { Rede, Tempo } from "@/hooks/useClima";
 import { chanceDe, COR_NIVEL, type Decisao, type Janela } from "../decisao";
@@ -67,16 +68,20 @@ export function HeroClima({ t, cidade, decisao, janela, rede, atualizadoEm, carr
           <VantPersonagem estado={t.estado} pose={poseDe(t.estado, decisao.nivel === "bom")} altura={150} className="absolute -right-2 -bottom-3 pointer-events-none" />
         </div>
 
-        <div className="mt-4 rounded-[18px] px-4 py-3.5 backdrop-blur-sm" style={{ background: "rgba(10,10,12,.55)", border: `1px solid ${cor}55`, boxShadow: `0 0 30px -12px ${cor}88` }}>
-          <p className="text-[27px] leading-[1.05] font-black uppercase tracking-tight" style={{ color: cor }}>{decisao.titulo}</p>
-          {decisao.sub && <p className="text-[14px] mt-1.5 leading-snug" style={{ color: "#d8d3c9" }}>{decisao.sub}</p>}
-          {proxima && (
-            <p className="mt-2.5 pt-2.5 border-t flex items-baseline justify-between gap-2" style={{ borderColor: "rgba(255,255,255,.08)" }}>
-              <span className="text-[13px] font-semibold" style={{ color: "#b3ada3" }}>Próxima janela</span>
-              <span className="text-[18px] font-extrabold tabular-nums" style={{ color: CLIMA.bom }}>{proxima}</span>
-            </p>
-          )}
+        {/* decisão: uma faixa discreta (barra de cor + frase), não um aviso gritando */}
+        <div className="mt-4 flex gap-3">
+          <span className="w-1 rounded-full shrink-0" style={{ background: cor }} aria-hidden />
+          <div className="min-w-0 py-0.5">
+            <p className="text-[11px] font-black uppercase tracking-[.16em]" style={{ color: "#9a948a" }}>O que fazer agora</p>
+            <p className="text-[22px] leading-tight font-extrabold mt-0.5" style={{ color: cor }}>{decisao.titulo}</p>
+            {decisao.sub && <p className="text-[13.5px] mt-0.5 leading-snug" style={{ color: "#c9c3b8" }}>{decisao.sub}</p>}
+          </div>
         </div>
+        {proxima && (
+          <p className="mt-3 inline-flex items-center gap-2 h-8 px-3 rounded-full text-[13px] font-semibold" style={{ background: "rgba(61,214,140,.10)", color: "#c9c3b8" }}>
+            Próxima janela <b className="tabular-nums font-extrabold" style={{ color: CLIMA.bom }}>{proxima}</b>
+          </p>
+        )}
 
         {rede && rede.sim + rede.nao > 0 && (
           <p className="flex items-center gap-1.5 mt-3 text-[12.5px] font-semibold" style={{ color: "#c9c3b8" }}>
