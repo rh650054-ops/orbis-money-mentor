@@ -487,44 +487,16 @@ export default function Products() {
       <FirstTimeCard tela="catalogo" userId={user?.id} />
       <div className="flex items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-3 min-w-0">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/profile")}>
+          <Button variant="ghost" size="icon" onClick={() => navigate("/products")}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0">
-            <h1 className="text-xl font-bold text-foreground tracking-tight truncate">Produtos & Estoque</h1>
-            <p className="text-xs text-muted-foreground">
-              {pixAccounts.length} conta{pixAccounts.length !== 1 ? "s" : ""} Pix • QR por produto
-            </p>
+            <h1 className="text-xl font-bold text-foreground tracking-tight truncate">Ficha técnica e ingredientes</h1>
+            <p className="text-xs text-muted-foreground">Receita de cada produto e estoque de ingredientes</p>
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button size="icon" variant="outline" onClick={() => setCalcOpen(true)} title="Calculadora de preço">
-            <Calculator className="w-4 h-4" />
-          </Button>
-          <Button size="icon" variant="outline" onClick={openPixManager} title="Contas Pix">
-            <Landmark className="w-4 h-4" />
-          </Button>
         </div>
       </div>
 
-      <CalculadoraPreco open={calcOpen} onOpenChange={setCalcOpen} />
-
-      {hasNoPix && (
-        <Card className="border-warning/40 bg-warning/5">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
-            <div className="flex-1 text-sm">
-              <p className="font-semibold">Cadastre uma conta Pix</p>
-              <p className="text-muted-foreground text-xs mt-0.5">
-                Adicione seus bancos (Nubank, Itaú, Bradesco…) para gerar QR Code em cada produto.
-              </p>
-              <Button size="sm" variant="outline" className="mt-2 h-8" onClick={openPixManager}>
-                <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar conta Pix
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {lowStockIngredients.length > 0 && (
         <Card className="border-warning/40 bg-warning/5">
@@ -617,30 +589,11 @@ export default function Products() {
                               {p.stock_quantity}
                             </span>
                           </p>
-                          {acc && (
-                            <span className="text-xs text-muted-foreground">
-                              • {acc.bank_name}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2 mt-3">
-                      <Button
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => setActionsProduct(p)}
-                      >
-                        <ShoppingCart className="w-3.5 h-3.5 mr-1.5" /> Vender
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openQr(p)}
-                        disabled={hasNoPix}
-                      >
-                        <QrCode className="w-3.5 h-3.5" />
-                      </Button>
+                      <span className="flex-1" />
                       <Button size="icon" variant="ghost" onClick={() => openEdit(p)}>
                         <Pencil className="w-4 h-4" />
                       </Button>
@@ -900,64 +853,6 @@ export default function Products() {
               />
             </div>
 
-            {/* Conta Pix */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Landmark className="w-4 h-4 text-primary" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Receber Pix em</span>
-                </div>
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                  onClick={openPixManager}
-                >
-                  + Nova conta
-                </button>
-              </div>
-              {pixAccounts.length === 0 ? (
-                <button
-                  type="button"
-                  onClick={openPixManager}
-                  className="w-full text-left text-xs text-muted-foreground bg-muted/40 hover:bg-muted/60 rounded-lg p-3 transition"
-                >
-                  Toque para escolher seu banco e gerar QR Code →
-                </button>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {pixAccounts.map((a) => {
-                    const bank = BRAZILIAN_BANKS.find((b) => b.name === a.bank_name) || getBankById("outro");
-                    const selected = form.pix_account_id === a.id;
-                    return (
-                      <button
-                        key={a.id}
-                        type="button"
-                        onClick={() => setForm({ ...form, pix_account_id: a.id })}
-                        className={`flex items-center gap-2 p-2.5 rounded-xl border transition active:scale-95 ${
-                          selected
-                            ? "border-primary bg-primary/10"
-                            : "border-border/60 bg-muted/30 hover:bg-muted/60"
-                        }`}
-                      >
-                        <div
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-                          style={{ backgroundColor: `${bank.color}30` }}
-                        >
-                          {bank.emoji}
-                        </div>
-                        <div className="flex-1 min-w-0 text-left">
-                          <p className="text-xs font-medium truncate">{a.bank_name}</p>
-                          {a.is_default && (
-                            <p className="text-xs text-primary">★ Padrão</p>
-                          )}
-                        </div>
-                        {selected && <Check className="w-4 h-4 text-primary shrink-0" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setFormOpen(false)}>

@@ -19,6 +19,7 @@ import { avisar } from "@/shared/lib/avisar";
 import { useDefconLoadout, type ProductOption } from "@/hooks/useDefconLoadout";
 import { getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { AvisoEstoqueCarga } from "./aviso-estoque-carga";
 
 const brl0 = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(Math.round(n));
 const brl2 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -114,7 +115,7 @@ function LinhaEscolher({ p, onLevar }: { p: ProductOption; onLevar: (q: number) 
 }
 
 export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }: { userId: string; dailyGoal?: number; onComecar: () => void; starting?: boolean }) {
-  const { loadout, products, loading, addProduct, updateQty } = useDefconLoadout(userId);
+  const { loadout, products, loading, addProduct, updateQty, aviso, confirmarAviso, levarSoOQueTem, fecharAviso } = useDefconLoadout(userId);
   const [tiers, setTiers] = useState<Record<string, Tier[]>>({});
   const [precoLocal, setPrecoLocal] = useState<Record<string, number>>({});
   const [ontem, setOntem] = useState<Record<string, Ontem>>({});
@@ -351,6 +352,7 @@ export function DefconCargaDoDia({ userId, dailyGoal = 0, onComecar, starting }:
           </div>
         </DialogContent>
       </Dialog>
+      <AvisoEstoqueCarga aviso={aviso} onTenhoMais={() => { void confirmarAviso(); }} onSoOQueTem={() => { void levarSoOQueTem(); }} onFechar={fecharAviso} />
     </div>
   );
 }

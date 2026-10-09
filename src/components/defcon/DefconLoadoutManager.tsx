@@ -3,6 +3,7 @@ import { Plus, X, Package } from "lucide-react";
 import { useDefconLoadout, ProductOption } from "@/hooks/useDefconLoadout";
 import { Link } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog";
+import { AvisoEstoqueCarga } from "./aviso-estoque-carga";
 
 interface Props {
   userId: string;
@@ -44,7 +45,7 @@ function QtyField({ value, onCommit }: { value: number; onCommit: (q: number) =>
 }
 
 export function DefconLoadoutManager({ userId }: Props) {
-  const { loadout, products, loading, addProduct, updateQty } = useDefconLoadout(userId);
+  const { loadout, products, loading, addProduct, updateQty, aviso, confirmarAviso, levarSoOQueTem, fecharAviso } = useDefconLoadout(userId);
   const [showPicker, setShowPicker] = useState(false);
 
   const availableProducts = products.filter(
@@ -133,6 +134,7 @@ export function DefconLoadoutManager({ userId }: Props) {
           </div>
         </DialogContent>
       </Dialog>
+      <AvisoEstoqueCarga aviso={aviso} onTenhoMais={() => { void confirmarAviso(); }} onSoOQueTem={() => { void levarSoOQueTem(); }} onFechar={fecharAviso} />
     </div>
   );
 }
