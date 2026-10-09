@@ -31,10 +31,19 @@ Deno.serve(async (req) => {
     const { data: ehPro } = await supa.rpc("orbis_pro_ativo", { p_user: uid });
     if (ehPro !== true) return json({ error: "precisa_pro" });
 
+    // ---- autorizar de novo um banco que já é dele (09/10): o consentimento expirou
+    // (WAITING_USER_INPUT / LOGIN_ERROR). Abre o widget no MESMO item, sem gastar vaga.
+    let itemId: string | null = null;
+    try { const b = await req.clone().json(); itemId = typeof b?.itemId === "string" ? b.itemId : null; } catch { /* sem corpo */ }
+    if (itemId) {
+      const { data: meu } = await supa.from("bank_connections").select("id").eq("item_id", itemId).eq("user_id", uid).maybeSingle();
+      if (!meu) itemId = null;
+    }
+
     // ---- trava de quantos bancos (Rick, 03/10): o Pro liga 1 banco; cada um a mais
     // é +R$ 10/mês (bancos_extra). Rick e Mohamed são isentos. Sem vaga, nem abre o banco.
     const { data: lim } = await supa.rpc("open_finance_limite", {});
-    if (lim && lim.pode_conectar === false) {
+    if (!itemId && lim && lim.pode_conectar === false) {
       return json({ error: "precisa_banco_extra", usados: lim.usados, limite: lim.limite });
     }
 
@@ -59,7 +68,7 @@ Deno.serve(async (req) => {
     const ctRes = await fetch("https://api.pluggy.ai/connect_token", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-API-KEY": apiKey },
-      body: JSON.stringify({ options: { clientUserId: uid } }),
+      body: JSON.stringify(itemId ? { itemId, options: { clientUserId: uid } } : { options: { clientUserId: uid } }),
       signal: AbortSignal.timeout(20000),
     });
     if (!ctRes.ok) {

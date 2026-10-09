@@ -17,7 +17,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import {
-  motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
+  precisaDoVendedor, motivoDeLeitura, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido,
   podePedir, diasParaImportar, MAX_POR_RODADA, PEDIDO_MIN_PADRAO_MIN, PRIORIDADE, type Motivo,
 } from "../_shared/pluggy-agenda.ts";
 
@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
     const { dia: hoje } = relogioBRT(agora);
 
     const { data: cons } = await admin.from("bank_connections")
-      .select("id, item_id, user_id, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
+      .select("id, item_id, user_id, status, last_synced_at, institution_name, pluggy_pedido_em, leituras_dia, leituras_qtd, pedidos_mes, pedidos_mes_qtd, pedidos_dia, pedidos_dia_qtd")
       .neq("status", "deleted");
     // deno-lint-ignore no-explicit-any
     const conexoes: any[] = cons ?? [];
@@ -72,6 +72,7 @@ Deno.serve(async (req) => {
     type Orc = ReturnType<typeof orcamentoDaConexao>;
     const devidas: { c: (typeof conexoes)[number]; motivo: Motivo; orc: Orc }[] = [];
     for (const c of conexoes) {
+      if (precisaDoVendedor(c.status)) continue; // espera o vendedor autorizar de novo
       const orc = orcamentoDaConexao(c, agora);
       const motivo = motivoDeLeitura({
         agora,

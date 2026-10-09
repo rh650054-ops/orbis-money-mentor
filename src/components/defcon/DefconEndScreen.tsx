@@ -16,7 +16,7 @@ import { readThemeColor, BRAND_COLORS } from "@/shared/lib/theme-colors";
 import { DefconShareCarousel } from "./DefconShareCarousel";
 import { faltou, sobra } from "@/shared/lib/dinheiro";
 import { CaixinhaMeta } from "@/components/defcon/CaixinhaMeta";
-import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura, proximaLeitura } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, puxarBancoAgora, pixQueEntraNoDia, horaDaLeitura } from "@/components/conectar/banco-pix";
 
 // Revisitar cada HORA (bloco) do dia: helpers de horário/duração do bloco.
 function fmtHora(s: string): string {
@@ -1094,7 +1094,7 @@ export function DefconEndScreen({
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
                     {lendoBanco
                       ? <><RefreshCw className="w-3 h-3 shrink-0 animate-spin" /> conferindo o banco agora…</>
-                      : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)} · próx. ${proximaLeitura(pixBanco.ultimaSync)}` : ""}</>}
+                      : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}</>}
                   </p>
                 </div>
                 <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixDoBancoNoDia.entra)}</span>

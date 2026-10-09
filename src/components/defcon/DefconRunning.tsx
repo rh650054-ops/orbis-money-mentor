@@ -14,7 +14,7 @@ import type { X1LiveState } from "@/hooks/useX1DefconAlert";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
-import { usePixDoBanco, horaDaLeitura, proximaLeitura } from "@/components/conectar/banco-pix";
+import { usePixDoBanco, horaDaLeitura } from "@/components/conectar/banco-pix";
 import { useDefconLoadout } from "@/hooks/useDefconLoadout";
 import { getBrazilDate } from "@/shared/lib/date-utils";
 import { BRAND_COLORS } from "@/shared/lib/theme-colors";
@@ -749,7 +749,7 @@ export function DefconRunning({
                   quando vem a próxima: o banco só libera 1 leitura por hora (03/10) */}
               {pixBanco.ultimaSync && (
                 <span className="tracking-[0.1em] text-muted-foreground/50">
-                  · banco {horaDaLeitura(pixBanco.ultimaSync)} · próx. {proximaLeitura(pixBanco.ultimaSync)}
+                  · banco lido {horaDaLeitura(pixBanco.ultimaSync)}
                 </span>
               )}
             </span>
