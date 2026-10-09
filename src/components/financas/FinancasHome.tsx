@@ -8,7 +8,7 @@
    Saldo negativo troca o card inteiro (1B): número vermelho + o que levou lá.
    Tudo vem de uma RPC só: financas_home().
    ============================================================ */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ import { formatCurrency } from "@/shared/lib/utils";
 import { avisar } from "@/shared/lib/avisar";
 import { FinancasPainel } from "./FinancasPainel";
 import { type ContaPapel } from "@/components/conectar/PapelContas";
+import { puxarBancoAoAbrir } from "@/components/conectar/banco-pix";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -200,6 +201,21 @@ export function useFinancasHome(userId?: string) {
     })();
     return () => { vivo = false; };
   }, [userId, versao]);
+
+  // 09/10 (Rick: "o saldo tem que atualizar quase automático"): abriu Finanças e o
+  // banco foi lido há mais de 1 h → pede uma leitura agora e relê o saldo quando
+  // a Pluggy responder (~20–60 s). O servidor respeita o limite do Open Finance.
+  const pediuRef = useRef(false);
+  useEffect(() => {
+    if (!h?.tem_banco || pediuRef.current) return;
+    const lido = h.atualizado ? Date.parse(h.atualizado) : 0;
+    if (Date.now() - lido < 60 * 60_000) return;
+    pediuRef.current = true;
+    void puxarBancoAoAbrir();
+    const t1 = setTimeout(() => setVersao((v) => v + 1), 25_000);
+    const t2 = setTimeout(() => setVersao((v) => v + 1), 60_000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [h]);
 
   return { h, recarregar: () => setVersao((v) => v + 1) };
 }

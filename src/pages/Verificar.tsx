@@ -17,7 +17,7 @@
    Vant. O app não vê, não recebe e não guarda senha de banco.
    Todo hook acima do primeiro return.
    ============================================================ */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2, Landmark, Banknote, ReceiptText,
@@ -37,6 +37,7 @@ import { ComprovanteRenda } from "@/components/conectar/ComprovanteRenda";
 import {
   ligarBanco, salvarBanco, carregarBancos, carregarPro,
   type BancoLigado, type StatusPro, carregarContasVenda, type ContaVenda } from "@/components/conectar/pluggy";
+import { puxarBancoAoAbrir } from "@/components/conectar/banco-pix";
 
 const GOLD = "#F5B800";
 const OK = "#3DD68C";
@@ -140,12 +141,25 @@ export default function Verificar() {
     return () => document.removeEventListener("visibilitychange", aoVoltar);
   }, [recarregar]);
 
-  const abrirBanco = useCallback(async () => {
+  // 09/10 (Rick): abriu o Vender com o banco lido há mais de 1 h → lê agora e confere de novo
+  const puxouRef = useRef(false);
+  useEffect(() => {
+    if (puxouRef.current || bancos.length === 0) return;
+    const ultima = Math.max(...bancos.map((b) => (b.last_synced_at ? Date.parse(b.last_synced_at) : 0)));
+    if (Date.now() - ultima < 60 * 60_000) return;
+    puxouRef.current = true;
+    void puxarBancoAoAbrir();
+    const t1 = setTimeout(() => void recarregar(), 25_000);
+    const t2 = setTimeout(() => void recarregar(), 60_000);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, [bancos, recarregar]);
+
+  const abrirBanco = useCallback(async (reautorizar?: string) => {
     setLigando(true);
     let r: Awaited<ReturnType<typeof ligarBanco>>;
     try {
       // quando a tela da Pluggy aparece, o botão da Vant volta ao normal
-      r = await ligarBanco(() => setLigando(false));
+      r = await ligarBanco(() => setLigando(false), reautorizar);
     } catch {
       r = { erro: "erro" };
     } finally {
@@ -283,7 +297,7 @@ export default function Verificar() {
             {pro.pro ? "Liga seu banco. Leva menos de 1 minuto e o selo sai na hora." : "Leva menos de 1 minuto. O Pix que cair no banco passa a ser contado sozinho."}
           </p>
           <div className="mt-3.5" data-tour="conectar-banco">
-            <BotaoOuro onClick={abrirBanco} disabled={ligando}>
+            <BotaoOuro onClick={() => void abrirBanco()} disabled={ligando}>
               {ligando ? <Loader2 className="w-[18px] h-[18px] animate-spin" /> : <Landmark className="w-[18px] h-[18px]" strokeWidth={2.4} />}
               {ligando ? "ABRINDO…" : "LIGAR MEU BANCO"}
             </BotaoOuro>
@@ -322,7 +336,7 @@ export default function Verificar() {
       {/* 04/10: com 2+ bancos, pergunta logo aqui pra que serve cada conta (trabalho × pessoal) */}
       {contasVenda.length >= 2 && contasVenda.some((c) => !c.papel) && <ContasDeVenda contas={contasVenda} onMudou={() => void recarregar()} />}
       <OndeRecebe bancos={bancos} ligadas={ligadas} disponiveis={disponiveis} ocupado={ocupado} ligando={ligando}
-        onLigarBanco={abrirBanco} onLigarCarteira={ligarCarteira} />
+        onLigarBanco={() => void abrirBanco()} onLigarCarteira={ligarCarteira} onAutorizar={(b) => void abrirBanco(b.item_id)} />
       {contasVenda.length >= 2 && contasVenda.every((c) => c.papel) && <ContasDeVenda contas={contasVenda} onMudou={() => void recarregar()} />}
       <button type="button" onClick={() => setGerenciar(true)}
         className="w-full h-[52px] rounded-[16px] text-[14px] font-black active:opacity-70"

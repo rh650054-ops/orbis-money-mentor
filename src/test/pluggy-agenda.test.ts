@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   motivoDeLeitura, deslocamento, relogioBRT, contarLeitura, podePuxarAgora,
   cotaDeHoje, diasRestantesNoMes, intervaloFocoMin, podePedir, orcamentoDaConexao, contarPedido, diasParaImportar,
-  LIMITE_DIA, LIMITE_GLOBAL_DIA, ORCAMENTO_MES, LIMITE_OPEN_FINANCE_MES, FOCO_ALVO_MIN, TETO_DIA, CALMA_SE_SOBRAR,
+  LIMITE_DIA, LIMITE_GLOBAL_DIA, ORCAMENTO_MES, LIMITE_OPEN_FINANCE_MES, FOCO_ALVO_MIN, TETO_DIA, CALMA_SE_SOBRAR, CALMA_MANHA_SE_SOBRAR,
   type Contexto,
 } from "../../supabase/functions/_shared/pluggy-agenda";
 import { linhasMudadas } from "../../supabase/functions/_shared/pluggy-linhas";
@@ -156,15 +156,41 @@ describe("pluggy budget — Open Finance allows 240 fresh pulls per month per ba
     expect(cotaDeHoje(0, 0, brt("2026-11-01 10:00"))).toBeLessThanOrEqual(TETO_DIA);
   });
 
-  it("Foco interval: 40 min when affordable, never under Pluggy's cap, longer when short; 2 kept for after", () => {
-    expect(intervaloFocoMin(2)).toBe(Infinity);
+  it("Foco interval: 40 min when affordable, never under Pluggy's cap, longer when short; 1 kept for after", () => {
+    expect(intervaloFocoMin(1)).toBe(Infinity);
     expect(intervaloFocoMin(10, 61)).toBe(61);
     expect(intervaloFocoMin(10, 15)).toBe(40);
-    expect(intervaloFocoMin(4, 15)).toBe(120);
+    expect(intervaloFocoMin(4, 15)).toBe(80);
+  });
+
+  it("tight month (Mohamed 08/10: 80 pulls used by day 8, 7 for the day): the Foco still gets ~hourly reads", () => {
+    const agora = brt("2026-10-08 16:00");
+    // closing pull already made today: 6 left out of a 7-pull day
+    const disp = cotaDeHoje(81, 1, agora);
+    expect(disp + 1).toBe(7);
+    expect(intervaloFocoMin(disp - 0, 61)).toBe(61);
+    let leituras = 0, feitas = 1, ultimo: Date | null = null;
+    for (let t = 15 * 60 + 48; t < 21 * 60; t += 5) {
+      const ag = new Date(brt("2026-10-08 00:00").getTime() + t * 60_000);
+      const d = cotaDeHoje(80 + feitas, feitas, ag);
+      if (motivoDeLeitura(base({ agora: ag, focoAtivo: true, ultimaLeitura: ultimo, ultimoPedido: ultimo, disponivelHoje: d, cotaDoDia: d + feitas, pedidoMinMin: 61 })) === "foco") { leituras++; feitas++; ultimo = ag; }
+    }
+    expect(leituras).toBeGreaterThanOrEqual(5);
+  });
+
+  it("tight month without Foco (Rick 09/10: saldo 'lido 01:55' at 9h24): still one morning read", () => {
+    const fechou = brt("2026-10-09 01:55");
+    const agora = brt("2026-10-09 10:30");
+    const disp = cotaDeHoje(83, 1, agora);
+    expect(disp).toBeLessThan(8);
+    expect(motivoDeLeitura(base({ agora, ultimaLeitura: fechou, ultimoPedido: fechou, disponivelHoje: disp, pedidoMinMin: 61 }))).toBe("calma");
+    // the afternoon calm read still needs the full Foco budget aside
+    const manha = brt("2026-10-09 10:30");
+    expect(motivoDeLeitura(base({ agora: brt("2026-10-09 15:00"), ultimaLeitura: manha, ultimoPedido: manha, disponivelHoje: disp - 1, pedidoMinMin: 61 }))).toBeNull();
   });
 
   it("Foco with no budget left: no Foco pulls, the closing read still runs", () => {
-    expect(motivoDeLeitura(base({ focoAtivo: true, disponivelHoje: 2 }))).toBeNull();
+    expect(motivoDeLeitura(base({ focoAtivo: true, disponivelHoje: 1 }))).toBeNull();
     const abre = 5 + deslocamento(UID, 175);
     const instante = new Date(brt("2026-10-09 00:00").getTime() + abre * 60_000);
     expect(motivoDeLeitura(base({ agora: instante, ultimaLeitura: brt("2026-10-08 15:05"), disponivelHoje: 0 }))).toBe("fechamento");
@@ -184,8 +210,13 @@ describe("pluggy budget — Open Finance allows 240 fresh pulls per month per ba
     const abre = 8 * 60 + deslocamento(UID, 60);
     const naHora = new Date(brt("2026-10-08 00:00").getTime() + (abre + 5) * 60_000);
     const ctx = { agora: naHora, ultimaLeitura: brt("2026-10-08 01:00") };
-    expect(motivoDeLeitura(base({ ...ctx, disponivelHoje: CALMA_SE_SOBRAR }))).toBe("calma");
-    expect(motivoDeLeitura(base({ ...ctx, disponivelHoje: CALMA_SE_SOBRAR - 1 }))).toBeNull();
+    // the first read after the night closing only needs CALMA_MANHA_SE_SOBRAR (09/10)
+    expect(motivoDeLeitura(base({ ...ctx, disponivelHoje: CALMA_MANHA_SE_SOBRAR }))).toBe("calma");
+    expect(motivoDeLeitura(base({ ...ctx, disponivelHoje: CALMA_MANHA_SE_SOBRAR - 1 }))).toBeNull();
+    // later calm reads (a pull already made this morning) still keep a full Foco aside
+    const depois = { agora: new Date(naHora.getTime() + 5 * 3600_000), ultimaLeitura: naHora, ultimoPedido: naHora };
+    expect(motivoDeLeitura(base({ ...depois, disponivelHoje: CALMA_SE_SOBRAR }))).toBe("calma");
+    expect(motivoDeLeitura(base({ ...depois, disponivelHoje: CALMA_SE_SOBRAR - 1 }))).toBeNull();
   });
 
   it("a pull needs budget and Pluggy's interval", () => {

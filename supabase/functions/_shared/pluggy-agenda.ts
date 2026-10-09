@@ -47,11 +47,13 @@ export const MIN_ENTRE_LEITURAS_MIN = 10;
 export const LIMITE_OPEN_FINANCE_MES = 240;
 export const ORCAMENTO_MES = 210;
 /** Reads kept aside for the end of every Foco (right after + ~1h later). */
-export const RESERVA_POS_FOCO = 2;
+export const RESERVA_POS_FOCO = 1;
 /** Pulls kept for every day left in the month (closing read + one more). */
 export const RESERVA_DIA = 2;
 /** A Foco day may take this many times its even share of the free budget (not every day has a Foco). */
 export const FATOR_DIA_DE_FOCO = 1.5;
+/** The morning read only needs this much of today's allowance left (the rest goes to the Foco). */
+export const CALMA_MANHA_SE_SOBRAR = 4;
 /** Most pulls one bank may make in a single day. */
 export const TETO_DIA = 14;
 /** Rick's target: one fresh pull every 40 min while the vendor is in Modo Foco. */
@@ -161,6 +163,15 @@ export function podePedir(
 
 const minutosEntre = (a: Date, b: Date) => (a.getTime() - b.getTime()) / 60_000;
 
+/** The bank is waiting for the VENDOR (consent not finished / password changed).
+ *  Asking Pluggy to refresh it only re-opens the consent and expires again
+ *  (André 09/10: 4 USER_INPUT_TIMEOUT overnight, 0 transactions). Don't read it
+ *  until the vendor authorizes again in the app. */
+export function precisaDoVendedor(status: string | null | undefined): boolean {
+  const s = String(status ?? "").toUpperCase();
+  return s === "WAITING_USER_INPUT" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT";
+}
+
 /** Why this bank should be read now — or null (most of the time). */
 export function motivoDeLeitura(c: Contexto): Motivo | null {
   if (c.leiturasHoje >= LIMITE_DIA) return null;
@@ -203,7 +214,11 @@ export function motivoDeLeitura(c: Contexto): Motivo | null {
 
   // calma: outside the Foco, 08h–20h, one read every 4h so the daily goal moves — only
   // while the day keeps a full Foco's worth aside, and only if Pluggy can be asked again
-  if (disponivel < CALMA_SE_SOBRAR) return null;
+  // 1ª leitura do dia depois do fechamento (a da manhã): basta sobrar uma folga pro
+  // Foco. Antes exigia uma cota de 8+ e, em mês apertado, o saldo ficava o da
+  // madrugada o dia inteiro (Rick 09/10: "lido 01:55" às 9h24).
+  const soFechamentoHoje = !c.ultimoPedido || c.ultimoPedido.getTime() < inicioDoDia.getTime() + 6 * 60 * 60_000;
+  if (disponivel < (soFechamentoHoje ? CALMA_MANHA_SE_SOBRAR : CALMA_SE_SOBRAR)) return null;
   if (minutoDoDia < CALMA_ABRE_MIN + deslocamento(c.userId, 60) || minutoDoDia >= CALMA_FECHA_MIN) return null;
   const desdePedidoCalma = c.ultimoPedido ? minutosEntre(c.agora, c.ultimoPedido) : Infinity;
   if (desdeUltima >= CALMA_INTERVALO_MIN && desdePedidoCalma >= pedidoMin) return "calma";

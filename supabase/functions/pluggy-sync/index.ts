@@ -18,7 +18,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { pluggyKey, importarEntradas, pedirAtualizacao } from "../_shared/pluggy-entradas.ts";
 import { importarPiloto } from "../_shared/pluggy-piloto.ts";
 import {
-  podePuxarAgora, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido, podePedir,
+  precisaDoVendedor, podePuxarAgora, contarLeitura, leiturasDeHoje, relogioBRT, orcamentoDaConexao, contarPedido, podePedir,
   diasParaImportar, PEDIDO_MIN_PADRAO_MIN,
 } from "../_shared/pluggy-agenda.ts";
 
@@ -41,6 +41,10 @@ Deno.serve(async (req) => {
     const supa = createClient(URL_SUPA, Deno.env.get("SUPABASE_ANON_KEY") ?? "", {
       global: { headers: { Authorization: auth } },
     });
+    // motivo "abrir" (09/10): o vendedor abriu Finanças/Vender/Foco com o banco lido
+    // há mais de 1 h → gasta da cota normal do dia. Sem motivo = fim do Foco (reserva).
+    let abrir = false;
+    try { const b = await req.clone().json(); abrir = b?.motivo === "abrir"; } catch { /* sem corpo */ }
     const { data: u } = await supa.auth.getUser();
     const uid = u?.user?.id;
     if (!uid) return json({ error: "sem_login" }, 401);
@@ -63,12 +67,13 @@ Deno.serve(async (req) => {
     let pediu = 0;
     let piloto = 0;
     for (const c of lista) {
+      if (precisaDoVendedor(c.status)) continue; // espera o vendedor autorizar de novo
       // fresh pull only within Pluggy's hourly cap AND the bank's monthly Open Finance budget
       const orc = orcamentoDaConexao(c, new Date());
       const ultimoPedido = c.pluggy_pedido_em ? new Date(c.pluggy_pedido_em) : null;
       let pediuEste = false;
       // called at the end of the Foco / day closing → spends the reserve, like the after-Foco read
-      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
+      if (podePedir(ultimoPedido, orc.disponivelHoje, new Date(), PEDIDO_MIN_MIN, { motivo: abrir ? "calma" : "pos_foco", restanteMes: orc.restanteMes }) && await pedirAtualizacao(apiKey, c.item_id)) { pediu++; pediuEste = true; }
       try {
         const dias = diasParaImportar(c.last_synced_at ? new Date(c.last_synced_at) : null, new Date(), 2);
         const r = await importarEntradas(admin, apiKey, c.item_id, uid, c.id, dias);

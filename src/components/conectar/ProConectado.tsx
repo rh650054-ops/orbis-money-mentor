@@ -107,9 +107,11 @@ function Logo({ b }: { b: BancoLigado }) {
 const pilula = (cor: string, borda: string) =>
   ({ color: cor, border: `1.5px solid ${borda}`, background: "transparent" }) as React.CSSProperties;
 
-export function OndeRecebe({ bancos, ligadas, disponiveis, ocupado, ligando, onLigarBanco, onLigarCarteira }: {
+export function OndeRecebe({ bancos, ligadas, disponiveis, ocupado, ligando, onLigarBanco, onLigarCarteira, onAutorizar }: {
   bancos: BancoLigado[]; ligadas: Carteira[]; disponiveis: Carteira[]; ocupado: string | null; ligando: boolean;
   onLigarBanco: () => void; onLigarCarteira: (c: Carteira) => void;
+  /** banco esperando o vendedor aprovar no app do banco → abre a Pluggy no mesmo item */
+  onAutorizar?: (b: BancoLigado) => void;
 }) {
   return (
     <div className="rounded-[22px] px-4 py-1" style={caixa}>
@@ -124,7 +126,11 @@ export function OndeRecebe({ bancos, ligadas, disponiveis, ocupado, ligando, onL
                 {s.alerta ? s.texto : `${b.papel === "pessoal" ? "pessoal" : b.papel === "trabalho" ? "trabalho · vira venda" : "banco"} · conferido ${horaBR(b.last_synced_at)}`}
               </p>
             </div>
-            {s.alerta
+            {"autorizar" in s && s.autorizar && onAutorizar
+              ? <button type="button" onClick={() => onAutorizar(b)} disabled={ligando}
+                  className="shrink-0 rounded-full px-3 py-[6px] text-[11px] font-black active:opacity-70 disabled:opacity-50"
+                  style={{ background: GOLD, color: "#141005" }}>AUTORIZAR</button>
+              : s.alerta
               ? <AlertTriangle className="w-5 h-5 shrink-0" style={{ color: s.cor }} />
               : <span className="shrink-0 rounded-full px-3 py-[5px] text-[11px] font-black" style={pilula(OK, "rgba(61,214,140,.55)")}>ATIVO</span>}
           </div>

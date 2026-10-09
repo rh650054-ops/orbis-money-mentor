@@ -18,6 +18,8 @@ interface PluggyConnectCtor {
   new (opts: {
     connectToken: string;
     includeSandbox?: boolean;
+    /** item que já existe: abre o widget pra autorizar de novo (Pluggy "update mode") */
+    updateItem?: string;
     onSuccess?: (data: { item?: { id?: string } }) => void;
     onError?: (e: unknown) => void;
     onClose?: () => void;
@@ -54,8 +56,8 @@ export type ErroPluggy = "precisa_pro" | "precisa_banco_extra" | "pluggy_nao_con
  *  Vant pode voltar ao normal: quem manda é o widget. (10/09/2026: o botão
  *  ficava preso em "ABRINDO…" pra sempre quando o widget não respondia — OAuth
  *  em outra aba no celular, init que falha, onClose que nunca dispara.) */
-export async function ligarBanco(aoAbrir?: () => void): Promise<{ itemId: string } | { erro: ErroPluggy }> {
-  const { data, error } = await (supabase as any).functions.invoke("pluggy-connect-token");
+export async function ligarBanco(aoAbrir?: () => void, reautorizarItem?: string): Promise<{ itemId: string } | { erro: ErroPluggy }> {
+  const { data, error } = await (supabase as any).functions.invoke("pluggy-connect-token", reautorizarItem ? { body: { itemId: reautorizarItem } } : undefined);
   if (error || data?.error) {
     const e = String(data?.error ?? "erro");
     return { erro: (e === "precisa_pro" || e === "precisa_banco_extra" || e === "pluggy_nao_configurado" ? e : "erro") as ErroPluggy };
@@ -78,6 +80,7 @@ export async function ligarBanco(aoAbrir?: () => void): Promise<{ itemId: string
       const widget = new Ctor({
         connectToken: token,
         includeSandbox: false,
+        ...(reautorizarItem ? { updateItem: reautorizarItem } : {}),
         onSuccess: (d) => {
           const id = String(d?.item?.id ?? "");
           responder(id ? { itemId: id } : { erro: "erro" });
@@ -165,10 +168,12 @@ export async function carregarPro(): Promise<StatusPro> {
 export function saudeDoBanco(status: string | null, ultimaSync: string | null) {
   const s = String(status ?? "").toUpperCase();
   if (s === "UPDATED") return { texto: "em dia", cor: "#3DD68C", alerta: false };
-  if (s === "UPDATING" || s === "WAITING_USER_INPUT" || s === "LOGIN_IN_PROGRESS")
+  // 09/10: WAITING_USER_INPUT aparecia como "atualizando…" pra sempre. É o banco
+  // esperando o VENDEDOR aprovar no app do banco (André: nunca aprovou, 0 entradas).
+  if (s === "WAITING_USER_INPUT" || s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS" || s === "USER_INPUT_TIMEOUT")
+    return { texto: "falta autorizar no app do banco", cor: "#F2465A", alerta: true, autorizar: true };
+  if (s === "UPDATING" || s === "LOGIN_IN_PROGRESS")
     return { texto: "atualizando…", cor: "#F5B800", alerta: false };
-  if (s === "LOGIN_ERROR" || s === "INVALID_CREDENTIALS")
-    return { texto: "precisa entrar de novo", cor: "#F2465A", alerta: true };
   if (s === "OUTDATED" || s === "ERROR")
     return { texto: "o banco está fora — não é você", cor: "#ff7a1a", alerta: true };
   if (!ultimaSync) return { texto: "aguardando o banco", cor: "#7b766e", alerta: false };
