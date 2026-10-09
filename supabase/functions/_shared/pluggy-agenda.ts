@@ -47,7 +47,7 @@ export const MIN_ENTRE_LEITURAS_MIN = 10;
 export const LIMITE_OPEN_FINANCE_MES = 240;
 export const ORCAMENTO_MES = 210;
 /** Reads kept aside for the end of every Foco (right after + ~1h later). */
-export const RESERVA_POS_FOCO = 2;
+export const RESERVA_POS_FOCO = 1;
 /** Pulls kept for every day left in the month (closing read + one more). */
 export const RESERVA_DIA = 2;
 /** A Foco day may take this many times its even share of the free budget (not every day has a Foco). */

@@ -42,6 +42,7 @@ import {
 } from "@/utils/reportExport";
 import { FechamentoDoDia } from "@/components/relatorio/FechamentoDoDia";
 import { ContaDoPeriodo } from "@/components/relatorio/ContaDoPeriodo";
+import { ConferenciaBanco } from "@/components/relatorio/ConferenciaBanco";
 import { minutosOciososDoPeriodo, type PausaOcio } from "@/components/relatorio/tempo-ocioso";
 import { HoraAHora, montarHoraAHora } from "@/components/relatorio/HoraAHora";
 import { OrbisViu, type FichaResumo } from "@/components/relatorio/OrbisViu";
@@ -867,6 +868,9 @@ export default function Insights() {
               </span>
             </div>
           </section>
+
+          {/* CONFERIDO PELO BANCO — Pro com banco: lançou × caiu × faltou (09/10) */}
+          <ConferenciaBanco de={isoDate(range.start)} ate={isoDate(range.end)} />
 
           {/* FECHAMENTO DO DIA — só com um dia filtrado */}
           {isSingleDay && (
