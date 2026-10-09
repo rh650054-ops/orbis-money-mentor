@@ -2,7 +2,6 @@
 import type { HoraClima } from "@/hooks/useClima";
 import { chanceDe, type Intensidade } from "../decisao";
 import { CLIMA, rumo } from "./paleta";
-import type { Estado } from "../ClimaTipos";
 
 /** Cor do estado da hora (linguagem climática, não a do vender/não vender). */
 export function corDaHora(i: Intensidade, hora: number): string {
@@ -28,14 +27,3 @@ export function lerMovimento(horas: HoraClima[]): Movimento {
   if (agora >= 50) return { frase: "Chuva em cima da sua região", tipo: "sobre", de, para, forca };
   return { frase: "Chuva espalhada, sem direção firme", tipo: "espalhada", de, para, forca };
 }
-
-
-/* Pose do personagem: abrigado no temporal, andando quando a janela é boa. */
-export type Pose = "parado" | "andando" | "abrigo";
-
-export function poseDe(estado: Estado, boaJanela: boolean): Pose {
-  if (estado === "tempestade") return "abrigo";
-  if (boaJanela && estado !== "chuva" && estado !== "noite") return "andando";
-  return "parado";
-}
-

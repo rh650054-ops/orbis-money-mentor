@@ -1,7 +1,7 @@
 /* 1 · CLIMA AGORA + DECISÃO — hero atmosférico (v2, 08/10).
    O fundo reage ao céu (azul petróleo na chuva, roxo no temporal, dourado sutil
-   no sol, azul-marinho à noite), com gotas discretas quando chove. O personagem
-   ocupa ~26% da largura e nunca cobre texto. A decisão é minimalista: um ponto
+   no sol, azul-marinho à noite), com gotas discretas quando chove. O mascote 3D
+   da VANT fica à direita (~22% da largura) e nunca cobre texto. A decisão é minimalista: um ponto
    de cor + a frase (Rick, 08/10). */
 import { Loader2, MapPin, RefreshCw, Users } from "lucide-react";
 import type { Rede, Tempo } from "@/hooks/useClima";
@@ -9,7 +9,6 @@ import { chanceDe, COR_NIVEL, type Decisao, type Janela } from "../decisao";
 import { COR } from "./comum";
 import { ATMOSFERA, CLIMA } from "./paleta";
 import { VantPersonagem } from "./VantPersonagem";
-import { poseDe } from "./visual";
 
 function haQuanto(iso: string | null): string {
   if (!iso) return "agora há pouco";
@@ -65,7 +64,7 @@ export function HeroClima({ t, cidade, decisao, janela, rede, atualizadoEm, carr
             style={{ color: chovendo || agora >= 50 ? CLIMA.chuvaLeve : "#d8d3c9", background: chovendo || agora >= 50 ? "rgba(91,155,255,.16)" : "rgba(255,255,255,.06)" }}>
             {chovendo ? "chovendo agora" : `chuva agora ${agora}%`}
           </p>
-          <VantPersonagem estado={t.estado} pose={poseDe(t.estado, decisao.nivel === "bom")} altura={150} className="absolute -right-2 -bottom-3 pointer-events-none" />
+          <VantPersonagem estado={t.estado} altura={172} className="absolute right-0 -bottom-4 pointer-events-none" />
         </div>
 
         {/* decisão minimalista (Rick, 08/10): um ponto de cor + a frase. Sem caixa, sem rótulo. */}
