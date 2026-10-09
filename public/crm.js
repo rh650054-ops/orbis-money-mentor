@@ -35,7 +35,9 @@ const sb = createClient("https://qbcsjsdwjjpybvzbxszi.supabase.co",
    Nada aqui e fixo: tudo chega de crm_faturamento, crm_funil,
    crm_hotmart_lista e crm_parceiros. Exige login de admin.
    ========================================================= */
-const META={contatos:10, vendas:1};
+/* metas do dia: o padrão é 10 contatos e 1 venda; o dono muda em Métricas (fica no banco, crm_ajustes) */
+let META={contatos:10, vendas:1};
+let AJUSTES={}, PERIODO=null, PER_DE=null, PER_ATE=null, PER_PRESET="30";
 let GRANA={total:0,pagamentos:0,ticket:0,desde:"—",d7:0,d7Pag:0,mes:0,
   naoPagas:0,naoPagasQtd:0,atraso:0,atrasoQtd:0,encerradas:0,encerradasQtd:0,
   recorrente:0,recorrenteQtd:0,renovMes:0,renovMesValor:0,novasMes:0,dias:[]};
@@ -143,6 +145,19 @@ const E={
    virou:[{t:"Passar para a esteira de Trial",nota:"Ao marcar, a ficha sai daqui e entra no Dia 1 do Trial."}]}}
 };
 
+/* texto original de cada atividade, pra "voltar ao padrão" */
+const E_PADRAO=JSON.parse(JSON.stringify(E));
+const chaveAtiv=(f,i)=>`${f.e}/${etapaDe(f)}/${i}`;
+/* mensagens editadas no CRM (crm_ajustes.mensagens) por cima do texto padrão do arquivo */
+function aplicarAjustes(){
+ const M=(AJUSTES&&AJUSTES.mensagens)||{};
+ for(const e of Object.keys(E)) for(const c of Object.keys(E[e].ativ)) E[e].ativ[c].forEach((a,i)=>{
+  const p=E_PADRAO[e].ativ[c][i], o=M[`${e}/${c}/${i}`];
+  a.t=o?o.t:p.t; if(p.m!==undefined) a.m=o?o.m:p.m; a.editada=!!o;
+ });
+ const mt=(AJUSTES&&AJUSTES.metas)||{};
+ META={contatos:Math.max(1,+mt.contatos||10), vendas:Math.max(0,+(mt.vendas??1))};
+}
 
 /* ===== CARREGADOR ===== */
 function hotDe(c){
@@ -174,13 +189,13 @@ async function carregarTudo(){
   PROBLEMAS.length=0;
   /* Tudo de uma vez: antes eram 12 chamadas em fila (uma esperava a outra). */
   const dono=ehDono();
-  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit] = await Promise.all([
+  const [g0, n, rel, hot, conv, afil, cfg, est, vendas, fTrial, fRel, fInad, fParc, pkit, ajustes] = await Promise.all([
     dono ? chamar("crm_faturamento") : Promise.resolve(null),
     chamar("crm_numeros"),
     chamar("crm_relatorio_mensal"),
     chamar("crm_hotmart_lista"),
     chamar("crm_conversas_lista"),
-    dono ? chamar("crm_afiliados",{p_mes:MES_AFIL}) : Promise.resolve([]),
+    chamar("crm_afiliados",{p_mes:MES_AFIL}),           // comercial recebe sem os campos de dinheiro
     dono ? chamar("crm_afiliados_config") : Promise.resolve(null),
     chamar("crm_estado_lista"),
     chamar("crm_vendas_hoje"),
@@ -189,7 +204,9 @@ async function carregarTudo(){
     chamar("crm_funil",{p_pipeline:"inadimplente"}),
     chamar("crm_funil",{p_pipeline:"parceiro"}),
     chamar("crm_parceiros_kit"),
+    chamar("crm_ajustes_ler"),
   ]);
+  AJUSTES = ajustes || {}; aplicarAjustes();
   const g = g0 || {};
   GRANA={total:+g.total||0,pagamentos:+g.pagamentos||0,ticket:+g.ticket||0,desde:g.desde||"—",
     d7:+g.d7||0,d7Pag:+g.d7_qtd||0,mes:+g.mes||0,
@@ -383,15 +400,25 @@ const maoVale=f=>{const e=EST[f.cartaoId]; return !!(e&&e.etapa_base===f.c);};
 const etapaDe=f=>{const e=EST[f.cartaoId]; return (e&&e.etapa&&maoVale(f))?e.etapa:f.c;};
 const MS_DIA=864e5;
 /* "Resolvido"/"Perdido" somem da fila; "Respondeu" volta amanhã; "Falei, sem resposta" volta em 2 dias */
+const contatoErrado=f=>{const e=EST[f.cartaoId]; return !!(e&&e.fechado==="contato_errado");};
 function escondida(f){
- const e=EST[f.cartaoId]; if(!e||!e.fechado||!maoVale(f)) return false;
+ const e=EST[f.cartaoId]; if(!e||!e.fechado) return false;
+ if(e.fechado==="contato_errado") return true;          // sai da fila até corrigir o número (não depende da etapa)
+ if(!maoVale(f)) return false;
  if(e.fechado==="ganhou"||e.fechado==="perdido") return true;
  const t=e.fechado_em?new Date(e.fechado_em).getTime():0;
  return (Date.now()-t) < (e.fechado==="aguarda"?2*MS_DIA:MS_DIA);
 }
 const fechados=()=>Object.values(EST).filter(e=>e.fechado);
 const mesmoDia=ts=>{if(!ts)return false;const d=new Date(ts);return d.getFullYear()===HOJE.getFullYear()&&d.getMonth()===HOJE.getMonth()&&d.getDate()===HOJE.getDate();};
-const contatosHoje=()=>fechados().filter(e=>mesmoDia(e.fechado_em)).length;
+/* "contato" = pessoa que recebeu mensagem pelo CRM hoje OU teve desfecho marcado hoje.
+   Antes só o desfecho contava — o Yan mandava 30 mensagens e a meta ficava em 0. */
+function contatosHoje(){
+ const ids=new Set();
+ FICHAS.forEach(f=>{ if(convDe(f).some(m=>m.de==="eu"&&m.origem!=="sistema"&&m.ts&&mesmoDia(m.ts))) ids.add(f.cartaoId); });
+ Object.entries(EST).forEach(([id,e])=>{ if(e.fechado&&e.fechado!=="contato_errado"&&mesmoDia(e.fechado_em)) ids.add(+id); });
+ return ids.size;
+}
 const notaDe=(f,i)=>String((estDe(f).notas||{})[String(i)]||"");
 /* "travado" só existe onde há atividade que destrava: Trial (dias 1–3) e Pagantes. Lead da LP e Base só "estão" ali. */
 const travaDe=f=>{const c=etapaDe(f); return ((f.e==="trial"&&c!=="lp"&&c!=="acabou")||f.e==="pagante")?f.trava:0;};
@@ -433,7 +460,7 @@ function janela(f){
 function temposDeConversa(){
  const esperas=[], horas=Array(24).fill(0); let respostasDele=0;
  FICHAS.forEach(f=>{
-  const c=convDe(f).filter(m=>m.ts).sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const c=convDe(f).filter(m=>m.ts&&m.origem!=="sistema").sort((a,b)=>new Date(a.ts)-new Date(b.ts));
   for(let i=0;i<c.length;i++){
    if(c[i].de!=="ele") continue;
    respostasDele++; horas[new Date(c[i].ts).getHours()]++;
@@ -448,7 +475,7 @@ function temposDeConversa(){
 function mensagensDoDia(){
  let enviadas=0,respostas=0,pessoas=new Set();
  FICHAS.forEach(f=>convDe(f).forEach(m=>{
-  if(!m.ts||dias(m.ts)!==0) return;
+  if(!m.ts||dias(m.ts)!==0||m.origem==="sistema") return;
   if(m.de==="eu"){enviadas++;pessoas.add(f.id);} else respostas++;
  }));
  return {enviadas,respostas,pessoas:pessoas.size};
@@ -586,8 +613,9 @@ function renderHoje(){
     <button class="btn win" data-fim="ganhou">Resolvido</button>
     <button class="btn" data-fim="respondeu">Respondeu</button>
     <button class="btn" data-fim="aguarda">Falei, sem resposta</button>
-    <button class="btn lose" data-fim="perdido">Perdido</button></div>
-   <p class="nota">O desfecho alimenta sua <b>taxa de resposta</b> nas Métricas.</p></div></div>
+    <button class="btn lose" data-fim="perdido">Perdido</button>
+    <button class="btn wide" data-fim="contato_errado" style="color:var(--warn);border-color:var(--warn)">📵 Número errado · WhatsApp não existe ou é de outra pessoa</button></div>
+   <p class="nota">O desfecho alimenta sua <b>taxa de resposta</b> nas Métricas. "Número errado" tira a ficha da fila e a guarda em <b>Esteiras › Contato errado</b> até alguém corrigir o número.</p></div></div>
   <div class="lado">
    <div class="box pad"><h4 class="mini-h">Depois desse</h4>
     ${q.slice(S.pos+1,S.pos+7).map((x,i)=>`<button class="prox" data-painel="${x.id}">
@@ -679,7 +707,7 @@ function ativHTML(f,a,i,on){
  return `<div class="ativ${on?" on":""}" data-ativ="${i}" data-open="0">
   <button class="ativ-h" data-toggle="${i}">
     <span class="cbox"><svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2.5 6.4l2.4 2.4 4.6-5" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
-    <span class="tt">${esc(a.t)}</span>
+    <span class="tt">${esc(a.t)}${a.editada?' <span class="pill" style="font-size:9px;padding:1px 6px;margin-left:4px">editada</span>':''}</span>
     <span class="cv"><svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
   </button>
   <div class="ativ-b" hidden>
@@ -687,8 +715,17 @@ function ativHTML(f,a,i,on){
        <div class="acoes">
          <button class="btn go" data-enviar="${i}"${f.tel?"":" disabled"}>Abrir no WhatsApp com a mensagem</button>
          <button class="btn ghost" data-copiar="${i}">Só copiar</button>
+         <button class="btn ghost" data-editar="${i}" title="Muda o texto padrão desta atividade para todo mundo">✏️ Editar texto</button>
        </div>
-       <p class="nota">${f.tel?"Abre o seu WhatsApp já com o texto. A atividade é marcada e a mensagem fica gravada aqui.":"Sem WhatsApp no cadastro — copie e mande por onde conseguir."}</p>`
+       <p class="nota">${f.tel?"Abre o seu WhatsApp já com o texto. A atividade é marcada e a mensagem fica gravada aqui.":"Sem WhatsApp no cadastro — copie e mande por onde conseguir."}</p>
+       <div class="msg-ed" data-editor="${i}" hidden>
+         <input class="txtarea" style="min-height:0" data-ed-t="${i}" maxlength="120" value="${esc(a.t)}" placeholder="Título da atividade">
+         <textarea class="txtarea" data-ed-m="${i}" rows="6" maxlength="2000" placeholder="Texto da mensagem">${esc(a.m)}</textarea>
+         <p class="nota" style="margin:0">Use <b>{p}</b> pro primeiro nome e <b>{renova}</b> pra data da renovação. Vale pra <b>todas as fichas</b> nesta etapa, pro Yan e pro Rick.</p>
+         <div class="acoes"><button class="btn go" data-ed-ok="${i}">Salvar texto</button>
+           ${a.editada?`<button class="btn ghost" data-ed-padrao="${i}">Voltar ao padrão</button>`:""}
+           <button class="btn ghost" data-ed-nao="${i}">Cancelar</button></div>
+       </div>`
       :`<div class="msg nota">${esc(a.nota||"Anote o resultado desta atividade.")}</div>
         <textarea class="txtarea" style="margin-top:9px" data-nota="${i}" placeholder="Escreva aqui...">${esc(notaDe(f,i))}</textarea>
         <div class="acoes"><button class="btn go" data-salvar="${i}">Salvar e marcar feita</button></div>`}
@@ -708,6 +745,25 @@ function ligarAtividades(root,f){
      toast("WhatsApp aberto · atividade marcada"); render();
      if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);
    } else { try{await navigator.clipboard.writeText(m);}catch(e){} toast("Mensagem copiada"); }};});
+ root.querySelectorAll("[data-editar]").forEach(b=>{
+  b.onclick=()=>{const ed=root.querySelector(`[data-editor="${b.dataset.editar}"]`); ed.hidden=!ed.hidden; if(!ed.hidden) ed.querySelector("textarea").focus();};});
+ root.querySelectorAll("[data-ed-nao]").forEach(b=>{b.onclick=()=>{root.querySelector(`[data-editor="${b.dataset.edNao}"]`).hidden=true;};});
+ root.querySelectorAll("[data-ed-ok]").forEach(b=>{
+  b.onclick=async()=>{
+   const i=+b.dataset.edOk, t=root.querySelector(`[data-ed-t="${i}"]`).value.trim(), m=root.querySelector(`[data-ed-m="${i}"]`).value;
+   if(!t){toast("Põe um título");return;} if(!m.trim()){toast("O texto não pode ficar vazio");return;}
+   b.disabled=true;
+   const {data,error}=await sb.rpc("crm_mensagem_salvar",{p_chave:chaveAtiv(f,i),p_titulo:t,p_texto:m});
+   b.disabled=false; if(error){toast(error.message);return;}
+   AJUSTES.mensagens=data||{}; aplicarAjustes(); toast("Texto salvo pra todo mundo"); render();
+   if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);};});
+ root.querySelectorAll("[data-ed-padrao]").forEach(b=>{
+  b.onclick=async()=>{
+   if(!confirm("Voltar esta atividade pro texto padrão?")) return;
+   const {data,error}=await sb.rpc("crm_mensagem_padrao",{p_chave:chaveAtiv(f,+b.dataset.edPadrao)});
+   if(error){toast(error.message);return;}
+   AJUSTES.mensagens=data||{}; aplicarAjustes(); toast("Texto padrão de volta"); render();
+   if(document.getElementById("drawer").dataset.on==="1")abrir(f.id);};});
  root.querySelectorAll("[data-salvar]").forEach(b=>{
   b.onclick=()=>{const i=+b.dataset.salvar,ta=root.querySelector(`[data-nota="${i}"]`);
    void gravarEstado(f,{notas:{[String(i)]:ta?ta.value:""},feitas:feitasCom(f,i,true)});
@@ -728,7 +784,7 @@ function ligarHoje(f){
  document.querySelectorAll("[data-fim]").forEach(b=>b.onclick=()=>{
   void gravarEstado(f,{fechado:b.dataset.fim,etapa_base:f.c});
   if(S.pos>=fila().length)S.pos=Math.max(0,fila().length-1);
-  salvar();toast({ganhou:"Boa. Próximo.",respondeu:"Resposta registrada",aguarda:"Volta em 2 dias",perdido:"Marcado como perdido"}[b.dataset.fim]);
+  salvar();toast({ganhou:"Boa. Próximo.",respondeu:"Resposta registrada",aguarda:"Volta em 2 dias",perdido:"Marcado como perdido",contato_errado:"Guardado em Contato errado"}[b.dataset.fim]);
   render();});
 }
 
@@ -736,7 +792,7 @@ function ligarHoje(f){
    O CRM cutuca o Yan quando entra: quem vaza se ninguem falar hoje. */
 function alertas(){
  const A=[];
- fila().forEach(f=>{
+ fila().filter(f=>!contatoErrado(f)).forEach(f=>{
   const et=etapaDe(f), c=convDe(f);
   const esperando=c.length&&c[c.length-1].de!=="eu";
   const T=temperatura(f);
@@ -836,13 +892,40 @@ function renderEsteiras(){
       ${qtd>am.length?`<button class="mais num" data-coluna="${k}/${c}" style="color:var(--c1);font-weight:700">+ ${qtd-am.length} não mostradas · ver todas ↗</button>`:""}
       ${qtd===0?`<div class="mais">vazia</div>`:""}</div>`;}).join("")}
    </div></div>`;}
+ const errados=FICHAS.filter(contatoErrado);
+ h+=`<div class="box" style="margin-bottom:14px;border-color:var(--warn)">
+   <div class="est-head"><span class="dot" style="background:var(--warn);width:9px;height:9px"></span>
+    <h3>Contato errado</h3><span class="c num">${errados.length} ficha${errados.length===1?"":"s"}</span>
+    <p style="width:100%;margin:2px 0 0;font-size:11.5px;color:var(--dim)">WhatsApp que não existe ou é de outra pessoa. Ficam fora da fila e dos alertas. Corrigir o número devolve a ficha pra esteira de origem, na mesma etapa.</p></div>
+   <div class="col" style="padding:10px 12px">${errados.length?errados.map(x=>`<div class="chip" style="border-left-color:var(--warn);display:flex;gap:8px;align-items:center;cursor:default">
+      <div style="flex:1;min-width:0"><div class="nm">${esc(x.n)}</div><div class="sb">${esc(E[x.e].nome)} · zap ${esc(x.zap)} · ${esc(x.ref||"—")}</div></div>
+      <button class="btn go" data-zap-fix="${x.id}" style="padding:6px 10px;font-size:11.5px">Corrigir número</button>
+      <button class="btn ghost" data-painel="${x.id}" style="padding:6px 10px;font-size:11.5px">Painel</button></div>`).join("")
+    :`<div class="mais">nenhuma — bom sinal</div>`}</div></div>`;
  document.getElementById("p-esteiras").innerHTML=h;
+ document.querySelectorAll("#p-esteiras [data-zap-fix]").forEach(b=>b.onclick=()=>corrigirZap(byId(+b.dataset.zapFix)));
  document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
  document.querySelectorAll("#p-esteiras [data-coluna]").forEach(b=>b.onclick=()=>{
    const [k,c]=b.dataset.coluna.split("/"); const titulo=(E[k].cols.find(x=>x[0]===c)||[c,c])[1];
    const lista=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x));
    abrirLista(titulo, `${lista.length} pessoas nesta coluna · por prioridade`, lista, lista.length);
  });
+}
+
+/* ===== CONTATO ERRADO: corrigir o WhatsApp (conta ou lead) ===== */
+async function corrigirZap(f){
+ const atual=f.tel?f.tel.replace(/^55/,""):"";
+ const z=prompt("WhatsApp certo de "+f.n+" (DDD + número):", atual); if(z===null) return false;
+ const {data,error}=await sb.rpc("crm_cartao_whatsapp",{p_cartao:f.cartaoId,p_whatsapp:z});
+ if(error){toast(error.message);return false;}
+ toast("Número corrigido: "+zapFmt(data.whatsapp));
+ await atualizar(true);          // recarrega as esteiras com o telefone novo e tira de "contato errado"
+ return true;
+}
+async function marcarErrado(f){
+ if(!confirm("Marcar o WhatsApp de "+f.n+" como errado? A ficha sai da fila e fica em Esteiras › Contato errado até alguém corrigir.")) return;
+ await gravarEstado(f,{fechado:"contato_errado",etapa_base:f.c});
+ toast("Guardado em Contato errado"); fechar(); render();
 }
 
 /* ===== PAINEL DA PESSOA ===== */
@@ -864,8 +947,12 @@ function abrir(id,foco){
   </div>
   <div class="dr-body">
    ${foco==="conversa"?`<div class="dr-sec" style="border-color:var(--c2)"><h4 style="color:var(--c2)">Conversa no WhatsApp</h4>${chatHTML(f)}</div>`:""}
+   ${contatoErrado(f)?`<div class="dr-sec" style="background:var(--warn-s);border-color:var(--warn)"><h4 style="color:var(--warn)">📵 Número errado</h4>
+     <p style="margin:0 0 8px;font-size:12.5px;line-height:1.5">Essa ficha está fora da fila porque o WhatsApp não bate. Corrija o número pra ela voltar.</p>
+     <button class="btn go" id="dr-zap-fix">Corrigir WhatsApp</button></div>`:""}
    <div class="dr-sec"><h4>Dados</h4>
-    <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}</span></div>
+    <div class="kv"><span class="k">WhatsApp</span><span class="v">${f.tel?`<a href="${linkZap(f)}" target="_blank" rel="noopener" style="color:var(--c2);font-weight:700">+${f.tel.slice(0,2)} ${f.tel.slice(2,4)} ${f.tel.slice(4)} ↗</a>`:esc(f.zap)}
+      <button class="btn ghost" id="dr-zap-edit" style="padding:3px 8px;font-size:11px;margin-left:6px">corrigir</button>${contatoErrado(f)?"":`<button class="btn ghost" id="dr-zap-errado" style="padding:3px 8px;font-size:11px;margin-left:4px;color:var(--warn)">nº errado</button>`}</span></div>
     <div class="kv"><span class="k">Origem</span><span class="v">${esc(f.ref||"—")}</span></div>
     ${f.email?`<div class="kv"><span class="k">E-mail</span><span class="v">${esc(f.email)}</span></div>`:""}
     ${f.cidade?`<div class="kv"><span class="k">Cidade</span><span class="v">${esc(f.cidade)}</span></div>`:""}
@@ -913,6 +1000,8 @@ function abrir(id,foco){
  document.getElementById("dr-x").onclick=fechar;
  veu.onclick=fechar;
  ligarAtividades(dr,f); ligarChat(dr,f);
+ ["dr-zap-fix","dr-zap-edit"].forEach(id=>{const b=document.getElementById(id); if(b) b.onclick=()=>corrigirZap(f);});
+ {const b=document.getElementById("dr-zap-errado"); if(b) b.onclick=()=>marcarErrado(f);}
  dr.querySelectorAll("[data-mover]").forEach(b=>{if(!b.disabled)b.onclick=()=>mover(f,b.dataset.mover);});
  const av=document.getElementById("dr-avancar");if(av&&!av.disabled)av.onclick=()=>avancar(f);
  document.getElementById("dr-fila").onclick=()=>{
@@ -997,10 +1086,74 @@ function relatorioHTML(){
  </div>`;
 }
 
+/* ===== FILTRO DE DATAS DAS MÉTRICAS (crm_numeros_periodo) ===== */
+const iso=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+function periodoDe(preset){
+ const h=hojeZero(), d=new Date(h);
+ if(preset==="hoje") return [iso(h),iso(h)];
+ if(preset==="7"){d.setDate(d.getDate()-6);return [iso(d),iso(h)];}
+ if(preset==="30"){d.setDate(d.getDate()-29);return [iso(d),iso(h)];}
+ if(preset==="mes") return [iso(new Date(h.getFullYear(),h.getMonth(),1)),iso(h)];
+ if(preset==="mesant"){const a=new Date(h.getFullYear(),h.getMonth()-1,1), b=new Date(h.getFullYear(),h.getMonth(),0);return [iso(a),iso(b)];}
+ return [PER_DE||iso(h),PER_ATE||iso(h)];
+}
+async function carregarPeriodo(){
+ const [de,ate]=periodoDe(PER_PRESET); PER_DE=de; PER_ATE=ate;
+ PERIODO=await chamar("crm_numeros_periodo",{p_de:de,p_ate:ate});
+ mostrarProblemas(); renderMetricas();
+}
+function periodoHTML(){
+ const P=PERIODO, pres=[["hoje","Hoje"],["7","7 dias"],["30","30 dias"],["mes","Este mês"],["mesant","Mês passado"],["custom","Escolher"]];
+ const pc=(a,b)=>b?Math.round(a/b*100)+"%":"—";
+ const dias=P?Math.round((new Date(P.ate+"T12:00:00")-new Date(P.de+"T12:00:00"))/86400000)+1:0;
+ const maxC=P?Math.max(1,...P.por_dia.map(x=>+x.contatos)):1;
+ return `
+ <h2 class="sec">Números do período</h2>
+ <div class="box pad">
+  <div class="periodo">
+   ${pres.map(([k,t])=>`<button class="pre" data-pre="${k}" aria-pressed="${PER_PRESET===k}">${t}</button>`).join("")}
+   <span style="display:${PER_PRESET==="custom"?"inline-flex":"none"};gap:6px;align-items:center;font-size:12px;color:var(--dim)">
+    de <input type="date" id="perDe" value="${PER_DE||""}"> até <input type="date" id="perAte" value="${PER_ATE||""}"> <button class="btn ghost" id="perOk" style="padding:5px 10px;font-size:12px">Aplicar</button></span>
+   ${P?`<span style="margin-left:auto;font-size:11.5px;color:var(--dim)">${dbr(P.de)} → ${dbr(P.ate)} · ${dias} dia${dias===1?"":"s"}</span>`:""}
+  </div>
+  ${!P?`<p class="nota" style="margin:0">Carregando o período…</p>`:`
+  <div class="taxas" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+   <div class="taxa" style="cursor:default"><div class="k">Contatos feitos</div><div class="v num" style="color:var(--c2)">${P.contatos}</div><div class="s">${P.msgs_enviadas} mensagens enviadas · ${P.msgs_respostas} respostas registradas</div><div class="bar"><i style="width:${Math.min(100,P.contatos/Math.max(1,META.contatos*dias)*100)}%;background:var(--c2)"></i></div></div>
+   <div class="taxa" style="cursor:default"><div class="k">Meta de contatos</div><div class="v num" style="color:var(--${P.contatos>=META.contatos*dias?"c2":"warn"})">${pc(P.contatos,META.contatos*dias)}</div><div class="s">${P.contatos} de ${META.contatos*dias} (${META.contatos}/dia × ${dias})</div><div class="bar"><i style="width:${Math.min(100,P.contatos/Math.max(1,META.contatos*dias)*100)}%;background:var(--${P.contatos>=META.contatos*dias?"c2":"warn"})"></i></div></div>
+   <div class="taxa" style="cursor:default"><div class="k">Vendas Hotmart</div><div class="v num" style="color:var(--c2)">${P.vendas_novas}<span style="font-size:14px;color:var(--dim)"> + ${P.vendas_renov} renov.</span></div><div class="s">meta ${META.vendas}/dia = ${META.vendas*dias} no período${P.receita!=null?" · "+brl(P.receita)+" aprovados":""}</div><div class="bar"><i style="width:${Math.min(100,P.vendas_novas/Math.max(1,META.vendas*dias)*100)}%;background:var(--c2)"></i></div></div>
+   <div class="taxa" style="cursor:default"><div class="k">Leads na página</div><div class="v num" style="color:var(--c4)">${P.leads}</div><div class="s">deixaram contato na landing nesse período</div><div class="bar"><i style="width:100%;background:var(--c4)"></i></div></div>
+   <div class="taxa" style="cursor:default"><div class="k">Contas criadas</div><div class="v num" style="color:var(--c1)">${P.contas}</div><div class="s">${P.abriram} abriram (${pc(P.abriram,P.contas)}) · ${P.venderam} registraram venda (${pc(P.venderam,P.contas)})</div><div class="bar"><i style="width:${P.contas?P.abriram/P.contas*100:0}%;background:var(--c1)"></i></div></div>
+   <div class="taxa" style="cursor:default"><div class="k">Conversão da safra</div><div class="v num" style="color:var(--c2)">${pc(P.assinaram,P.contas)}</div><div class="s">${P.assinaram} assinaram de ${P.contas} que entraram no período</div><div class="bar"><i style="width:${P.contas?Math.min(100,P.assinaram/P.contas*100):0}%;background:var(--c2)"></i></div></div>
+   <div class="taxa" style="cursor:default"><div class="k">Taxa de resposta</div><div class="v num" style="color:var(--c2)">${pc(P.respondeu,P.desfechos)}</div><div class="s">${P.respondeu} responderam de ${P.desfechos} desfechos marcados</div><div class="bar"><i style="width:${P.desfechos?P.respondeu/P.desfechos*100:0}%;background:var(--c2)"></i></div></div>
+  </div>
+  ${P.por_dia.length?`<div class="barras" role="img" aria-label="Pessoas contatadas por dia" style="margin-top:12px">
+   ${P.por_dia.map(x=>`<div class="c2"><span class="bb" style="height:${Math.max(4,+x.contatos/maxC*100)}%" title="${dbr(x.d)}: ${x.contatos} pessoas"></span><span class="dt">${String(x.d).slice(8,10)}</span></div>`).join("")}</div>
+   <div class="legend"><span><span class="dot" style="background:var(--c1)"></span>pessoas contatadas por dia (só dias com contato)</span></div>`:""}
+  <p class="nota"><b>Como ler:</b> contatos, mensagens, vendas e leads são o que <b>aconteceu</b> nas datas escolhidas. Contas, abriram, venderam e assinaram são a <b>safra</b>: quem criou conta nessas datas e o que fez depois (até hoje). Um contato = uma pessoa que recebeu mensagem pelo CRM ou teve desfecho marcado no dia.</p>`}
+ </div>`;
+}
+function ligarPeriodo(){
+ document.querySelectorAll("[data-pre]").forEach(b=>b.onclick=()=>{PER_PRESET=b.dataset.pre; if(PER_PRESET!=="custom") carregarPeriodo(); else renderMetricas();});
+ const ok=document.getElementById("perOk");
+ if(ok) ok.onclick=()=>{const a=document.getElementById("perDe").value,b=document.getElementById("perAte").value;
+   if(!a||!b||b<a){toast("Escolha um período válido");return;} PER_DE=a;PER_ATE=b;PER_PRESET="custom";carregarPeriodo();};
+}
+/* metas do dia — só o dono muda */
+function ligarMetas(){
+ const ok=document.getElementById("metaOk"); if(!ok) return;
+ ok.onclick=async()=>{
+  const c=+document.getElementById("metaC").value, v=+document.getElementById("metaV").value;
+  if(!(c>=1&&c<=500)||!(v>=0&&v<=100)){toast("Contatos de 1 a 500; vendas de 0 a 100");return;}
+  const {data,error}=await sb.rpc("crm_metas_salvar",{p_contatos:c,p_vendas:v});
+  if(error){toast(error.message);return;}
+  AJUSTES.metas=data; aplicarAjustes(); toast("Meta salva: "+c+" contatos e "+v+" venda"+(v===1?"":"s")+" por dia"); render();
+ };
+}
+
 /* ===== TELA MÉTRICAS ===== */
 function renderMetricas(){
  const tc=temposDeConversa();
- const fe=fechados().map(e=>e.fechado);
+ const fe=fechados().map(e=>e.fechado).filter(x=>x!=="contato_errado");
  const resp=fe.filter(x=>x==="respondeu"||x==="ganhou").length;
  const taxaResp=fe.length?Math.round(resp/fe.length*100):null;
  const todas=FICHAS.filter(f=>!escondida(f));
@@ -1022,6 +1175,7 @@ function renderMetricas(){
  const maxF=funil[0][1],maxR=Math.max(...RITMO.map(r=>r[1]));
 
  document.getElementById("p-metricas").innerHTML=`
+ ${periodoHTML()}
  ${relatorioHTML()}
  <h2 class="sec">Os números do Yan · clique em qualquer um para ver quem são</h2>
  <div class="taxas">${cards.map((t,i)=>`<button class="taxa" data-card="${i}">
@@ -1111,6 +1265,9 @@ function renderMetricas(){
    Seria <b>2,4× o que você fecha hoje</b>, sem depender de mais tráfego.</span></div>
   <p class="nota">A meta conta só as assinaturas <b>que você fechou</b>. As 69,4% que entram sozinhas não somam
   no seu placar — elas já aconteceriam de qualquer jeito. Quem define os dois números é o admin.</p>
+  ${ehDono()?`<div class="meta-ed"><b>Meta por dia:</b> contatos <input type="number" id="metaC" min="1" max="500" value="${META.contatos}"> · vendas <input type="number" id="metaV" min="0" max="100" value="${META.vendas}">
+    <button class="btn go" id="metaOk" style="padding:6px 12px;font-size:12px">Salvar meta</button><span style="color:var(--dim)">vale pro Yan e pro Rick, fica no banco</span></div>`
+   :`<p class="nota" style="margin-top:8px">Meta atual: <b>${META.contatos} contatos</b> e <b>${META.vendas} venda${META.vendas===1?"":"s"}</b> por dia.</p>`}
  </div>
 
  <h2 class="sec">Onde as pessoas somem · clique em cada degrau</h2>
@@ -1138,9 +1295,8 @@ function renderMetricas(){
   É por isso que aqui a atividade só é marcada quando você <b>envia a mensagem</b>, e marcar sem enviar trava a pessoa em vez de limpar a lista.</p></div>
 
  <p class="nota" style="margin-top:18px">Números lidos do banco de produção a cada abertura. Faturamento e assinaturas vêm do webhook
- da Hotmart (histórico a partir de 24/08). <b>Nesta versão, o que você marca, move ou anota fica salvo
- só neste navegador</b> — ainda não volta pro banco, então o mesmo trabalho feito no celular e no
- computador não se enxerga. Gravar no banco é o próximo passo.</p>`;
+ da Hotmart (histórico a partir de 24/08). O que você marca, move, anota ou edita <b>fica no banco</b> — celular e computador veem a mesma coisa.</p>`;
+ ligarPeriodo(); ligarMetas();
 
  document.querySelectorAll("[data-card]").forEach(b=>b.onclick=()=>cards[+b.dataset.card].lista());
  const alvos=[
@@ -1154,10 +1310,10 @@ function renderMetricas(){
 
 /* ===== TELA PARCEIROS · gerar e medir os links ===== */
 const mesMais=(m,k)=>{const [a,n]=m.split("-").map(Number);const d=new Date(a,n-1+k,1);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");};
-async function recarregarAfiliados(){ AFIL=(await chamar("crm_afiliados",{p_mes:MES_AFIL}))||[]; renderParceiros(); }
+async function recarregarAfiliados(){ AFIL=(await chamar("crm_afiliados",{p_mes:MES_AFIL}))||[]; mostrarProblemas(); renderAfiliados(); }
 function afiliadosHTML(){
  const soma=k=>AFIL.reduce((a,p)=>a+(+p[k]||0),0);
- const mes=esc(mesNome(MES_AFIL)), saldoTot=soma("com_confirmada");
+ const mes=esc(mesNome(MES_AFIL)), saldoTot=soma("com_confirmada"), dono=ehDono();
  const linha=(p)=>{
   const saldo=+p.com_confirmada||0, bloq=p.status==="bloqueado";
   return `<div class="afil${bloq?" bloq":""}" data-afil="${esc(p.code)}">
@@ -1170,17 +1326,18 @@ function afiliadosHTML(){
     <div class="afil-n"><span>Cadastros · ${mes}</span><b class="num">${p.cadastros_mes}</b><i>${p.leads_mes} pessoas no mês · ${p.cadastros_total} no total</i></div>
     <div class="afil-n"><span>Assinaturas · ${mes}</span><b class="num">${p.assinaturas_mes}</b><i>${p.novos_mes} 1ª cobrança${p.novos_mes===1?"":"s"} · ${p.assinaturas_total} no total</i></div>
     <div class="afil-n"><span>Clientes ativos hoje</span><b class="num">${p.ativos}</b><i>${p.ativos_do_mes} assinaram em ${mes} e seguem</i></div>
-    <div class="afil-n"><span>Receita líquida · ${mes}</span><b class="num">${brl(+p.receita_mes||0)}</b><i>${p.novos_mes} nova${p.novos_mes===1?"":"s"} + ${p.renov_mes} renov. · total ${brl(+p.receita_total||0)}</i></div>
+    ${dono?`<div class="afil-n"><span>Receita líquida · ${mes}</span><b class="num">${brl(+p.receita_mes||0)}</b><i>${p.novos_mes} nova${p.novos_mes===1?"":"s"} + ${p.renov_mes} renov. · total ${brl(+p.receita_total||0)}</i></div>
     <div class="afil-n"><span>Comissão · ${mes}</span><b class="num">${brl(+p.com_mes||0)}</b><i>1ª ${brl(+p.com_novos_mes||0)} + renov. ${brl(+p.com_renov_mes||0)}${+p.com_pendente_mes?` · pendente ${brl(+p.com_pendente_mes)}`:""}${+p.com_cancelada_mes?` · cancelada ${brl(+p.com_cancelada_mes)}`:""} · acumulada ${brl(+p.com_acumulada||0)}</i></div>
-    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga · ${mes}</span><b class="num">${brl(+p.com_paga_mes||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo)+" (tudo)":"em dia"} · pago no total ${brl(+p.com_paga||0)}</i></div>
+    <div class="afil-n${saldo>0.009?" deve":""}"><span>Comissão paga · ${mes}</span><b class="num">${brl(+p.com_paga_mes||0)}</b><i>${saldo>0.009?"a pagar "+brl(saldo)+" (tudo)":"em dia"} · pago no total ${brl(+p.com_paga||0)}</i></div>`
+    :`<div class="afil-n"><span>Cobranças · ${mes}</span><b class="num">${(+p.novos_mes||0)+(+p.renov_mes||0)}</b><i>${p.novos_mes} nova${p.novos_mes===1?"":"s"} + ${p.renov_mes} renov.</i></div>`}
    </div>
    <div class="afil-f">
     <button class="btn ghost" data-copiar-link="${esc(p.link)}" style="padding:7px 11px">Copiar link de indicação</button>
-    <button class="btn ghost" data-copiar-link="${esc(p.painel)}" style="padding:7px 11px">Copiar link do painel</button>
+    ${dono?`<button class="btn ghost" data-copiar-link="${esc(p.painel)}" style="padding:7px 11px">Copiar link do painel</button>
     <a class="btn ghost" href="${esc(p.painel)}" target="_blank" rel="noopener" style="padding:7px 11px;text-decoration:none">Abrir painel ↗</a>
     ${(p.pagamentos||[]).slice(0,2).map(g=>`<span class="pill">${esc(g.em)} · ${brl(+g.valor)}${g.ref?" · "+esc(mesNome(g.ref)):""}</span>`).join("")}
     <button class="btn ghost" data-bloq="${esc(p.code)}" data-para="${bloq?"ativo":"bloqueado"}" style="margin-left:auto;padding:7px 11px;color:var(--${bloq?"c2":"bad"})">${bloq?"Desbloquear":"Bloquear"}</button>
-    <button class="btn ghost" data-pagar="${esc(p.code)}" style="padding:7px 11px">Registrar pagamento</button>
+    <button class="btn ghost" data-pagar="${esc(p.code)}" style="padding:7px 11px">Registrar pagamento</button>`:""}
    </div>
    <div class="afil-pg" hidden>
     <input class="txtarea" style="min-height:0" type="number" step="0.01" min="0.01" data-pg-valor value="${saldo>0?saldo.toFixed(2):""}" placeholder="Valor pago (R$)">
@@ -1196,11 +1353,11 @@ function afiliadosHTML(){
    <button class="btn ghost" id="afMesAnt" style="padding:6px 10px">‹</button>
    <b style="min-width:70px;text-align:center">${mes}</b>
    <button class="btn ghost" id="afMesProx" style="padding:6px 10px" ${MES_AFIL>=mesAtual()?"disabled":""}>›</button>
-   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} afiliados · no mês: ${soma("cadastros_mes")} cadastros · ${soma("assinaturas_mes")} assinaturas · ${soma("novos_mes")+soma("renov_mes")} cobranças ·
-    receita líquida <b>${brl(soma("receita_mes"))}</b> · comissão <b>${brl(soma("com_mes"))}</b> · paga <b>${brl(soma("com_paga_mes"))}</b> · <b style="color:var(--${saldoTot>0.009?"warn":"c2"})">${saldoTot>0.009?"a pagar (tudo) "+brl(saldoTot):"comissões em dia"}</b></span>
+   <span style="font-size:12px;color:var(--dim);margin-left:auto">${AFIL.length} afiliados · no mês: ${soma("cadastros_mes")} cadastros · ${soma("assinaturas_mes")} assinaturas · ${soma("novos_mes")+soma("renov_mes")} cobranças${dono?` ·
+    receita líquida <b>${brl(soma("receita_mes"))}</b> · comissão <b>${brl(soma("com_mes"))}</b> · paga <b>${brl(soma("com_paga_mes"))}</b> · <b style="color:var(--${saldoTot>0.009?"warn":"c2"})">${saldoTot>0.009?"a pagar (tudo) "+brl(saldoTot):"comissões em dia"}</b>`:""}</span>
   </div>
   ${AFIL.length?AFIL.map(linha).join(""):`<div class="vazio">Nenhum afiliado ainda.</div>`}
-  <p class="nota">Cada número é só do mês escolhido (use ‹ › pra trocar); o total desde o início aparece pequeno embaixo. "Clientes ativos hoje" é estado de agora, não tem mês.
+  <p class="nota">Cada número é só do mês escolhido (use ‹ › pra trocar); o total desde o início aparece pequeno embaixo. "Clientes ativos hoje" é estado de agora, não tem mês.${dono?"":" Valores em dinheiro, painel privado e pagamentos só aparecem pro dono."}
   Cada cobrança guarda a regra que valia no dia; reembolso, chargeback ou cancelamento cancelam a comissão sozinhos. Compras anteriores a 24/08 não estão na Hotmart ligada ao CRM.</p>
  </div>`;
 }
@@ -1349,7 +1506,7 @@ function ligarKit(el){
   if(cupomOk){ const r2=await sb.rpc("crm_parceiro_cupom_ok",{p_code:data.code,p_ok:true}); if(!r2.error) data.cupom_hotmart_ok=true; }
   KIT_NOVO=data; PKIT=[data].concat(PKIT.filter(p=>p.code!==data.code));
   toast("Links gerados"); renderParceiros();
-  if(ehDono()) recarregarAfiliados();
+  recarregarAfiliados();
   const nv=document.querySelector(".kit.novo"); if(nv) nv.scrollIntoView({behavior:"smooth",block:"center"});
  };
  el.querySelectorAll("[data-kit-abrir]").forEach(b=>b.onclick=()=>{KIT_ABERTO=KIT_ABERTO===b.dataset.kitAbrir?"":b.dataset.kitAbrir; renderParceiros();});
@@ -1371,13 +1528,16 @@ function ligarKit(el){
   PKIT=(await chamar("crm_parceiros_kit"))||PKIT; toast("WhatsApp salvo"); renderParceiros();
  });
 }
+const ligarCopiar=el=>el.querySelectorAll("[data-copiar-link]").forEach(b=>b.onclick=async()=>{
+   try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Copiado");}catch(e){toast("Copie da tela");}});
 function renderParceiros(){
  const el=document.getElementById("p-parceiros"); if(!el)return;
- el.innerHTML=kitHTML()+(ehDono()?afiliadosHTML():"");
- ligarKit(el);
- if(ehDono()) ligarAfiliados(el);
- el.querySelectorAll("[data-copiar-link]").forEach(b=>b.onclick=async()=>{
-   try{await navigator.clipboard.writeText(b.dataset.copiarLink);toast("Copiado");}catch(e){toast("Copie da tela");}});
+ el.innerHTML=kitHTML(); ligarKit(el); ligarCopiar(el);
+}
+/* aba Afiliados (09/10): antes ficava escondida no fim de Parceiros e só pro dono */
+function renderAfiliados(){
+ const el=document.getElementById("p-afiliados"); if(!el)return;
+ el.innerHTML=afiliadosHTML(); ligarAfiliados(el); ligarCopiar(el);
 }
 
 
@@ -1389,7 +1549,8 @@ function aplicarPapel(){
 }
 function aba(t){
  document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t));
- ["hoje","alertas","esteiras","metricas","parceiros"].forEach(k=>document.getElementById("p-"+k).hidden=k!==t);
+ ["hoje","alertas","esteiras","metricas","parceiros","afiliados"].forEach(k=>document.getElementById("p-"+k).hidden=k!==t);
+ if(t==="metricas"&&!PERIODO) carregarPeriodo();
 }
 document.querySelectorAll("[data-tab]").forEach(b=>{
  b.onclick=()=>{aba(b.dataset.tab);render();window.scrollTo({top:0});};});
@@ -1409,7 +1570,7 @@ async function depoisDoLogin(){
   document.getElementById("carregando").hidden=false;
   try{ await carregarTudo(); ULTIMA_CARGA=Date.now(); }
   catch(e){ PROBLEMAS.push("carregamento: "+(e.message||e)); mostrarProblemas(); }
-  try{ aplicarPapel(); render(); renderParceiros(); }
+  try{ aplicarPapel(); render(); renderParceiros(); renderAfiliados(); }
   catch(e){ PROBLEMAS.push("desenho da tela: "+(e.message||e)); mostrarProblemas(); }
   document.getElementById("carregando").hidden=true;
 }
@@ -1454,7 +1615,7 @@ async function atualizar(silencioso){
     await carregarTudo();
     // mantém a pessoa que estava na tela, mesmo que a ordem tenha mudado
     if(cartaoAtual){ const i=fila().findIndex(x=>x.cartaoId===cartaoAtual); if(i>=0){S.pos=i;salvar();} }
-    render(); renderParceiros();
+    render(); renderParceiros(); renderAfiliados();
     if(cartaoAberto){ const f=FICHAS.find(x=>x.cartaoId===cartaoAberto); if(f) abrir(f.id); }
     ULTIMA_CARGA=Date.now(); if(!silencioso) toast("Atualizado");
   }catch(e){ PROBLEMAS.push("atualizar: "+(e.message||e)); mostrarProblemas(); }
