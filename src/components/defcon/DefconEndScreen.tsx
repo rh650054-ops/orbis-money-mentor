@@ -551,8 +551,10 @@ export function DefconEndScreen({
   // 03/10 13:34 (Rick): volta a travar. Quem tem banco (Pro/teste do Open
   // Finance) vê só o que CAIU; o que ele lançou e ainda não caiu aparece como
   // "ainda não caiu", não como calote. Sem banco, segue digitando como sempre.
-  const travado = pixBanco.temBanco;
-  const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.total, totalSold, dinheiroNum, cartaoNum);
+  // 09/10: Rick e Mohamed veem o banco mas contam o lançado (trava=false).
+  const travado = pixBanco.temBanco && pixBanco.trava;
+  // a maquininha que caiu é venda no cartão: o Pix travado só usa o Pix
+  const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.pix, totalSold, dinheiroNum, cartaoNum);
   const pixNum = travado ? pixDoBancoNoDia.entra : (parseFloat(pix) || 0);
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
   // Meio centavo de margem: 10,70 + 5,60 dá 16,299999999999997 em ponto
@@ -1088,7 +1090,7 @@ export function DefconEndScreen({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">Pix</p>
                   <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
-                    <Lock className="w-3 h-3 shrink-0" /> pelo banco · {pixBanco.qtd} Pix
+                    <Lock className="w-3 h-3 shrink-0" /> pelo banco{pixBanco.maquininha > 0 ? ` · + ${formatCurrency(pixBanco.maquininha)} na maquininha` : ""}
                   </p>
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
                     {lendoBanco
@@ -1099,7 +1101,17 @@ export function DefconEndScreen({
                 <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixDoBancoNoDia.entra)}</span>
               </div>
             ) : (
-              <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
+              <>
+                <PaymentInput iconSrc={pixLogo} label="Pix" value={pix} onChange={(v) => { setMexeu(true); setPix(v); }} accent="text-muted-foreground" />
+                {/* banco ligado sem trava (sócios, 09/10): o banco só informa, o lançado vale */}
+                {pixBanco.temBanco && (
+                  <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
+                    No banco: <b className="text-success tabular-nums">{formatCurrency(pixBanco.total)}</b>
+                    {pixBanco.maquininha > 0 && <> ({formatCurrency(pixBanco.pix)} Pix + {formatCurrency(pixBanco.maquininha)} maquininha)</>}
+                    {pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}. Vale o que você lançou.
+                  </p>
+                )}
+              </>
             )}
             {travado && pixDoBancoNoDia.aMais > 0 && (
               <p className="text-[11px] text-muted-foreground px-1 leading-relaxed">
@@ -1200,11 +1212,11 @@ export function DefconEndScreen({
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-success">Vai pro ranking</p>
                 <p className="text-lg font-black text-success tabular-nums leading-tight">{formatCurrency(pixBanco.total)}</p>
               </div>
-              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">só Pix conferido</span>
+              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">{pixBanco.maquininha > 0 ? "Pix + maquininha" : "só Pix conferido"}</span>
             </div>
             <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-success shrink-0" />
-              Pix que cair até 23:59 entra sozinho, mesmo com o app fechado. Dinheiro e cartão não contam no ranking, mas contam no seu dia.
+              Pix e maquininha que caírem na conta entram sozinhos, mesmo com o app fechado. Dinheiro não conta no ranking, mas conta no seu dia.
             </p>
           </div>
         )}

@@ -45,6 +45,7 @@ import { CompetitionStatementUpload } from "./CompetitionStatementUpload";
 import { VizinhosCard } from "@/components/x1/VizinhosCard";
 import { ConciliacaoDia } from "@/components/financas/MercadoPagoConciliacao";
 import { CobradorCard } from "@/components/cobranca/CobradorCard";
+import { carregarPixDoBanco } from "@/components/conectar/banco-pix";
 
 type Passo = "custos" | "relatorio";
 interface CustoLinha { id: string; nome: string; sub: string; valor: number; texto?: string; auto?: boolean; origem: "cmv" | "manual" | "sugestao" | "novo"; categoria?: string; icone?: string }
@@ -108,7 +109,9 @@ export function DefconFechamento({
   // OPEN FINANCE (Rick, 10/09): quem tem banco ligado vê o Pix já preenchido com o
   // que caiu de verdade na conta. Cartão e dinheiro ele digita; o calote sai da
   // conta (vendido − recebido) e é ESSE valor que vai pro ranking.
-  const [banco, setBanco] = useState<{ tem: boolean; nome: string; total: number; qtd: number; ultima: string | null } | null>(null);
+  // 09/10: maquininha que caiu na conta também é venda (Rick) e entra no Cartão;
+  // trava=false (Rick e Mohamed) = o banco só sugere, nada vem preenchido sozinho.
+  const [banco, setBanco] = useState<{ tem: boolean; nome: string; pix: number; maquininha: number; qtd: number; ultima: string | null; trava: boolean } | null>(null);
   const [bancoBuscando, setBancoBuscando] = useState(false);
   // o vendedor mexeu no Pix com a própria mão? então o banco não sobrescreve mais
   const pixEditadoRef = useRef(false);
@@ -249,12 +252,10 @@ export function DefconFechamento({
     let vivo = true;
     const ler = async (): Promise<boolean> => {
       try {
-        const { data } = await (supabase as any).rpc("banco_pix_do_dia", { p_dia: hoje });
-        const r = ((data as any[]) || [])[0];
+        const r = await carregarPixDoBanco(hoje);
         if (!vivo) return false;
-        if (!r?.tem_banco) { setBanco({ tem: false, nome: "", total: 0, qtd: 0, ultima: null }); return false; }
-        setBanco({ tem: true, nome: String(r.banco || ""), total: Number(r.total) || 0, qtd: Number(r.qtd) || 0, ultima: r.ultima_sync ?? null });
-        return true;
+        setBanco({ tem: r.temBanco, nome: r.banco ?? "", pix: r.pix, maquininha: r.maquininha, qtd: r.qtd, ultima: r.ultimaSync, trava: r.trava });
+        return r.temBanco;
       } catch (e) { avisar.erro("DefconFechamento: ler Pix do banco", e); return false; }
     };
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -275,11 +276,11 @@ export function DefconFechamento({
   // Espera a carga do dia terminar (custosCarregados) pra não ser atropelado pelo
   // valor antigo do daily_sales.
   useEffect(() => {
-    if (!banco?.tem || !custosCarregados || pixEditadoRef.current) return;
+    if (!banco?.tem || !banco.trava || !custosCarregados || pixEditadoRef.current) return;
     // banco ainda sem nenhum Pix de hoje = provavelmente atrasado, não "zero":
     // não apaga o que o vendedor lançou. Só preenche quando o banco viu algo.
     if (banco.qtd <= 0) return;
-    const texto = banco.total.toFixed(2).replace(".", ",");
+    const texto = banco.pix.toFixed(2).replace(".", ",");
     setRec((r) => {
       if (r.pix === texto) return r;
       return { ...r, pix: texto };
@@ -587,8 +588,11 @@ export function DefconFechamento({
           {metodos.map(([nome, v, cor, ico], idx) => {
             const k = (nome === "Dinheiro" ? "dinheiro" : nome === "Pix" ? "pix" : "cartao") as keyof typeof rec;
             const ehPix = k === "pix";
-            const pixDoBanco = ehPix && !!banco?.tem;
-            const pixDivergente = pixDoBanco && Math.abs(recPix - (banco?.total ?? 0)) >= 0.005;
+            const ehCartao = k === "cartao";
+            const noBanco = ehPix ? (banco?.pix ?? 0) : ehCartao ? (banco?.maquininha ?? 0) : 0;
+            const recDoMetodo = ehPix ? recPix : ehCartao ? recCar : 0;
+            const pixDoBanco = !!banco?.tem && (ehPix || (ehCartao && noBanco > 0));
+            const pixDivergente = pixDoBanco && Math.abs(recDoMetodo - noBanco) >= 0.005;
             return (
               <div key={nome} style={idx ? { borderTop: "1px solid var(--orbis-line)" } : undefined}>
                 <div className="flex items-center gap-3 h-[62px]">
@@ -598,7 +602,8 @@ export function DefconFechamento({
                     {pixDoBanco && (
                       <span className="block text-[11px] font-bold mt-0.5 truncate" style={{ color: pixDivergente ? "var(--orbis-fg-3)" : "#00B1EA" }}>
                         {bancoBuscando ? "conferindo no banco…"
-                          : (banco?.qtd ?? 0) > 0 ? `${banco?.qtd} Pix ${banco?.qtd === 1 ? "caiu" : "caíram"} na conta · ${formatCurrency(banco?.total ?? 0)}`
+                          : ehCartao ? `caiu na maquininha · ${formatCurrency(noBanco)}`
+                          : noBanco > 0 ? `caiu na conta · ${formatCurrency(noBanco)}`
                           : "nada caiu na conta hoje ainda"}
                       </span>
                     )}
@@ -609,9 +614,9 @@ export function DefconFechamento({
                 </div>
                 {pixDivergente && !bancoBuscando && (
                   <button type="button"
-                    onClick={() => { pixEditadoRef.current = false; setRec({ ...rec, pix: (banco?.total ?? 0) > 0 ? (banco?.total ?? 0).toFixed(2).replace(".", ",") : "" }); setRecSujo(true); }}
+                    onClick={() => { if (ehPix) pixEditadoRef.current = false; setRec({ ...rec, [k]: noBanco > 0 ? noBanco.toFixed(2).replace(".", ",") : "" }); setRecSujo(true); }}
                     className="w-full -mt-2 pb-3 inline-flex items-center justify-center gap-1.5 text-[12px] font-extrabold" style={{ color: "#00B1EA" }}>
-                    <Landmark className="w-3.5 h-3.5" strokeWidth={2.4} /> usar o que caiu na conta ({formatCurrency(banco?.total ?? 0)})
+                    <Landmark className="w-3.5 h-3.5" strokeWidth={2.4} /> usar o que caiu na conta ({formatCurrency(noBanco)})
                   </button>
                 )}
               </div>
