@@ -743,7 +743,7 @@ export function DefconRunning({
         {pixBanco.temBanco && (
           <div className="w-full flex justify-center -mt-1">
             <span className="inline-flex items-center gap-2 text-[9.5px] font-mono uppercase tracking-[0.18em] text-success/60">
-              Pix na conta
+              Caiu na conta
               <b className="text-[11px] tracking-[0.05em] text-success/90 tabular-nums">{formatCurrency(pixBanco.total)}</b>
               {/* hora em que o BANCO foi lido (não a hora em que a Vant leu a Pluggy) e
                   quando vem a próxima: o banco só libera 1 leitura por hora (03/10) */}
