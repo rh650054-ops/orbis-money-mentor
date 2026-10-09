@@ -1,11 +1,10 @@
 /* ============================================================
    CLIMA DO VENDEDOR — centro de decisão (redesenho 08/10/2026).
-   situação atual → decisão → janelas → hora a hora → próximos dias →
-   alertas → plano do dia → aprendizado → radar/detalhes.
+   v2 (revisão visual, 08/10): agora+decisão → próximas horas → melhor janela →
+   opinião → plano → próximos dias → alertas → aprendizado → radar.
    Toda recomendação sai de decisao.ts (um lugar só, sem contradição);
    a IA fica com a "Opinião da Vant". Clima vem sozinho do GPS.
-   Alerta grave (oficial laranja/vermelho ou tempestade) sobe pra logo
-   depois do clima agora: segurança antes da venda.
+   Com alerta (oficial ou dos modelos), o card sobe pra logo depois do hero.
    ============================================================ */
 import { useMemo } from "react";
 import { Loader2, MapPin } from "lucide-react";
@@ -49,7 +48,7 @@ export default function Clima() {
       <div className="px-4 pt-2 pb-10 max-w-2xl mx-auto">
         {semPosicao ? (
           <section className="relative overflow-hidden rounded-[22px] border p-5 flex flex-col gap-2.5" style={{ borderColor: "rgba(245,184,0,.4)", background: "#0e0e10" }}>
-            <VantPersonagem estado="sol" altura={120} className="absolute right-1 bottom-16 pointer-events-none opacity-90" />
+            <VantPersonagem altura={150} className="absolute right-2 bottom-20 pointer-events-none" />
             <span className="inline-flex items-center gap-1.5 text-[12px] font-black tracking-[.14em] uppercase" style={{ color: "#F5B800" }}><MapPin className="w-4 h-4" strokeWidth={2.4} /> Onde você vende</span>
             <p className="text-[20px] font-extrabold leading-tight pr-[96px]">Me diz onde você tá que eu leio o céu por você.</p>
             <p className="text-[14px] leading-snug pr-[96px]" style={{ color: "#b3ada3" }}>
@@ -77,20 +76,22 @@ export default function Clima() {
 
   const cidade = tempo.cidade ? cidadeCurta(tempo.cidade, tempo.uf) : "";
   const sev = riscoSevero(tempo);
-  const grave = !!sev;
+  // qualquer alerta (oficial ou dos modelos) sobe pra perto do topo; sem alerta, vira uma linha lá embaixo
+  const temAlerta = !!tempo.alerta || (tempo.oficiais ?? []).length > 0;
   const alertas = <AlertasSeguranca t={tempo} cidade={cidade} />;
 
   return (
-    <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-6">
-      <HeroClima t={tempo} cidade={cidade} decisao={decisao!} rede={extras.rede} atualizadoEm={extras.atualizadoEm} carregando={carregando} onAtualizar={() => void recarregar()} />
-      {grave && alertas}
-      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} />
-      <JanelasVenda janelas={janelas} aprendendo={perfilHoras.length === 0} pausadoPor={sev?.titulo ?? null} />
+    <div className="px-4 pt-2 pb-12 max-w-2xl mx-auto flex flex-col gap-7">
+      <HeroClima t={tempo} cidade={cidade} decisao={decisao!} janela={sev ? null : janelas.find((j) => j.boa) ?? janelas[0] ?? null}
+        rede={extras.rede} atualizadoEm={extras.atualizadoEm} carregando={carregando} onAtualizar={() => void recarregar()} />
+      {temAlerta && alertas}
       <HoraAHora horas={tempo.horas} />
-      <ProximosDias dias={tempo.dias ?? []} />
-      {!grave && alertas}
+      <JanelasVenda janelas={janelas} aprendendo={perfilHoras.length === 0} pausadoPor={sev?.titulo ?? null} />
+      <OpiniaoVant falas={opiniao?.falas ?? []} fontes={tempo.fontesTotal} pensando={carregando} />
       <PlanoAcao passos={plano} />
-      <Aprendizado insights={insights} onResponder={responder} />
+      <ProximosDias dias={tempo.dias ?? []} />
+      {!temAlerta && alertas}
+      <Aprendizado insights={insights} dias={aprendizado?.dias ?? 0} onResponder={responder} />
       <RadarCard horas={tempo.horas} cell={extras.cell} modelos={extras.modelos} />
     </div>
   );

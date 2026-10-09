@@ -77,8 +77,8 @@ export function NovidadeClima({ userId }: { userId: string }) {
         {/* overflow-hidden: a foto é inteira (cabeça aos pés), aqui só cabe até o peito */}
         <div className="relative w-full shrink-0 overflow-hidden" style={{ height: 246 }}>
           <span className="absolute pointer-events-none" style={{ left: "50%", top: 4, width: 250, height: 250, marginLeft: -125, borderRadius: "50%", background: "radial-gradient(circle, rgba(255,208,92,.34), rgba(255,208,92,0) 68%)" }} />
-          {/* 08/10: personagem VANT em SVG (o boneco antigo tinha "Orbis" na roupa) */}
-          <span className="absolute left-1/2 top-4 -ml-[84px]"><VantPersonagem estado="sol" altura={224} /></span>
+          {/* 08/10: mascote 3D oficial da VANT, da cabeça ao peito */}
+          <span className="absolute left-1/2 top-3 -ml-[79px]"><VantPersonagem altura={360} /></span>
           {/* a foto some pra dentro do card */}
           <span className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: 92, background: "linear-gradient(180deg, rgba(20,19,18,0) 0%, rgba(20,19,18,.85) 55%, #141312 100%)" }} />
           <button

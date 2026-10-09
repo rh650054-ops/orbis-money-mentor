@@ -90,6 +90,7 @@ interface Hora {
   hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo: number | null;
   // v2 (08/10): chance ponderada pelo acerto de cada modelo NA REGIÃO, confiança em português e detalhe da hora
   chance?: number; conf?: Confianca; umid?: number | null; vento?: number | null; rajada?: number | null; sens?: number | null;
+  dir?: number | null;                  // de onde o vento sopra (graus) — o radar mostra pra onde a chuva vai
   modelos?: Record<string, number>;     // mm previsto por modelo (pra dar nota quando o vendedor responde)
 }
 type Confianca = "alta" | "media" | "baixa";
@@ -249,7 +250,7 @@ async function buscarTempo(lat: number, lon: number, pesos: Pesos = {}): Promise
   const uCons = `${base}&hourly=precipitation,temperature_2m&models=${MODELOS.join(",")}&forecast_days=2`;
   // 2) referência: "agora", código do tempo, detalhe da hora, 7 dias pra frente e 14 pra trás (padrão da região)
   const uRef = `${base}&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m,wind_gusts_10m,is_day,precipitation`
-    + `&hourly=weather_code,precipitation_probability,precipitation,temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m`
+    + `&hourly=weather_code,precipitation_probability,precipitation,temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,wind_direction_10m`
     + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum&forecast_days=7&past_days=14`;
   const [rc, rr, oficiais] = await Promise.all([
     fetch(uCons, { signal: AbortSignal.timeout(15000) }),
@@ -300,6 +301,7 @@ async function buscarTempo(lat: number, lon: number, pesos: Pesos = {}): Promise
       prob, codigo: rv("weather_code", iso),
       chance, conf: confDe(chance),
       umid: rv("relative_humidity_2m", iso), vento: rv("wind_speed_10m", iso), rajada: rv("wind_gusts_10m", iso), sens: rv("apparent_temperature", iso),
+      dir: rv("wind_direction_10m", iso),
       modelos,
     });
   }
@@ -391,7 +393,8 @@ async function buscarTempo(lat: number, lon: number, pesos: Pesos = {}): Promise
 
   return {
     estado, temp, sensacao,
-    max: ref.daily?.temperature_2m_max?.[0] ?? null, min: ref.daily?.temperature_2m_min?.[0] ?? null,
+    // past_days=14 empurra o diário: o "hoje" é dias[0], não o índice 0 do diário
+    max: dias[0]?.max ?? null, min: dias[0]?.min ?? null,
     vento, rajada, condicao: descreveCodigo(codigo, ehDia), codigo, ehDia,
     horas, fontesTotal: total, fontesOk: fontesOk.map((m) => NOMES[m] ?? m), concordancia,
     alerta, chuva, cidade, uf, fonteAgora,

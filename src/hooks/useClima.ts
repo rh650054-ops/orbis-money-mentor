@@ -16,6 +16,7 @@ export interface HoraClima {
   hora: number; iso: string; fontes: number; total: number; mm: number; temp: number | null; prob: number | null; codigo: number | null;
   /* v2 (08/10) — opcionais porque o cache antigo (até 30 min) ainda pode chegar sem eles */
   chance?: number; conf?: Confianca; umid?: number | null; vento?: number | null; rajada?: number | null; sens?: number | null;
+  dir?: number | null; // de onde o vento sopra (graus): o radar desenha pra onde a chuva vai
 }
 export interface DiaClima {
   data: string; codigo: number | null; max: number | null; min: number | null; prob: number | null; mm: number | null; conf: Confianca;
