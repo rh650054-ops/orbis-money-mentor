@@ -1150,6 +1150,12 @@ export function DefconEndScreen({
               <div className="rounded-xl bg-warning/10 border border-warning/30 px-3.5 py-2.5 text-xs leading-relaxed">
                 <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} não caíram na conta</span>
                 <span className="text-muted-foreground"> · conta como calote até cair. A Vant segue lendo o banco e tira do calote o que cair.</span>
+                {/* 10/10 (Rick): boa parte do que "não caiu" é dinheiro que ele não digitou */}
+                <button type="button" onClick={() => { setMexeu(true); setDinheiro(String(Math.round((dinheiroNum + aindaNaoCaiu) * 100) / 100)); }}
+                  className="mt-2 w-full h-10 rounded-lg font-extrabold text-[13px]" style={{ background: "var(--orbis-gold)", color: "#1A1200" }}>
+                  Foi em dinheiro: lançar {formatCurrency(aindaNaoCaiu)} no dinheiro
+                </button>
+                <p className="text-[11px] text-muted-foreground mt-1">Se foi só uma parte, digita o valor no campo Dinheiro acima.</p>
               </div>
             )}
 
