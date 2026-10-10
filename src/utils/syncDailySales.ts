@@ -93,10 +93,17 @@ export async function syncLeaderboardRevenue(userId: string) {
   // POSIÇÃO era calculada só com cartão+pix — o vendedor via um número e ganhava
   // medalha por outro, e quem recebe em dinheiro era punido sem saber. Agora as
   // duas pontas usam a MESMA conta: cartão + pix + dinheiro.
-  const totalFaturamento = (monthlySales || []).reduce(
+  const somaLancada = (monthlySales || []).reduce(
     (sum, s) => sum + (s.card_sales || 0) + (s.pix_sales || 0) + (s.cash_sales || 0),
     0
   );
+  // 10/10/2026 (Rick): quem tem Open Finance, nos dias JÁ PASSADOS, conta só o que
+  // caiu no banco. A conta mora no servidor (ranking_meu_total_mes), a mesma da
+  // tela do ranking. Sem resposta do servidor, fica a soma lançada.
+  const { data: doServidor, error: rkErr } = await (supabase as unknown as {
+    rpc: (f: string, a: object) => Promise<{ data: unknown; error: unknown }>;
+  }).rpc("ranking_meu_total_mes", { p_mes: currentMonth });
+  const totalFaturamento = !rkErr && doServidor !== null && doServidor !== undefined ? Number(doServidor) || 0 : somaLancada;
 
   // Get user profile for name/avatar
   const { data: profile } = await supabase

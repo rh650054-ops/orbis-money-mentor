@@ -89,7 +89,7 @@ export function FezCaiuDias({ travado = false, onDesbloquear }: { travado?: bool
       <p className="text-[11.5px] mt-2.5 leading-relaxed" style={{ color: MUTE }}>
         {travado
           ? "O Pro liga no seu banco e mostra, dia por dia, o que caiu do que você vendeu — e o seu número ganha o selo no ranking."
-          : "Caiu = Pix e maquininha que o banco viu + o dinheiro que você disse que recebeu. Durante o dia o ranking conta o que você lançou; à meia-noite vale o que caiu."}
+          : "Caiu = Pix e maquininha que o banco viu + o dinheiro que você disse que recebeu. No ranking: durante o dia conta o que você lançou; da meia-noite em diante conta só o que caiu no banco (dinheiro não entra)."}
       </p>
     </div>
   );

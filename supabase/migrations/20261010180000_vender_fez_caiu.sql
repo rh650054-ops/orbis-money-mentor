@@ -42,7 +42,8 @@ begin
          case when tem_banco then coalesce(b.caiu, 0) else null end as caiu,
          coalesce(v.d, b.d) < hoje as conferido
     from v full join b on b.d = v.d
-   where coalesce(v.fez, 0) > 0 or coalesce(b.caiu, 0) > 0
+   -- só dia em que ele vendeu: Pix de dia sem venda é dinheiro pessoal
+   where coalesce(v.fez, 0) > 0
    order by 1 desc;
 end $$;
 

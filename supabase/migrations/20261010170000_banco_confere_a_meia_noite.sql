@@ -13,6 +13,8 @@
 --   • Quem não tem banco: o lançado fica, como sempre.
 -- Também devolve ao lançado os dias de HOJE que o banco já tinha conferido
 -- (desde a migration de 09/10 o banco conferia no mesmo dia).
+-- Roda DEPOIS de 20261010165000 (usa ranking_atualizar). Ao fim, ranking_virada()
+-- acerta todo mundo que tem banco.
 -- Idempotente, sem comandos de apagar.
 -- ============================================================
 
@@ -92,13 +94,9 @@ begin
     if not (m = any(meses)) then meses := meses || m; end if;
   end loop;
 
+  -- ranking com a mesma conta da tela (ranking_valor_dias, 20261010165000)
   foreach m in array meses loop
-    update public.leaderboard_stats ls
-       set faturamento_total_mes = coalesce((
-             select sum(coalesce(ds.cash_sales, 0) + coalesce(ds.card_sales, 0) + coalesce(ds.pix_sales, 0))
-               from public.daily_sales ds
-              where ds.user_id = p_user and to_char(ds.date, 'YYYY-MM') = m), 0)
-     where ls.user_id = p_user and ls.mes_referencia = m;
+    perform public.ranking_atualizar(p_user, m);
     perform public.recalculate_ranking_positions(m);
   end loop;
 
@@ -138,13 +136,11 @@ begin
          where b.plan_id = v_plan and coalesce(b.valor_calote, 0) > 0;
       end if;
     end if;
-    update public.leaderboard_stats ls
-       set faturamento_total_mes = coalesce((
-             select sum(coalesce(d.cash_sales, 0) + coalesce(d.card_sales, 0) + coalesce(d.pix_sales, 0))
-               from public.daily_sales d
-              where d.user_id = r.user_id and to_char(d.date, 'YYYY-MM') = to_char(hoje, 'YYYY-MM')), 0)
-     where ls.user_id = r.user_id and ls.mes_referencia = to_char(hoje, 'YYYY-MM');
+    perform public.ranking_atualizar(r.user_id, to_char(hoje, 'YYYY-MM'));
     mudou := true;
   end loop;
   if mudou then perform public.recalculate_ranking_positions(to_char(hoje, 'YYYY-MM')); end if;
 end $$;
+
+-- 3) acerta o mês de todo mundo com banco pela regra nova
+select public.ranking_virada();
