@@ -9,8 +9,6 @@ import AntiProcrastination from "@/components/AntiProcrastination";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
-import { NaoCaiuNoBanco } from "@/components/dashboard/NaoCaiuNoBanco";
-import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -50,7 +48,6 @@ export default function Index() {
     const id = requestAnimationFrame(() => window.dispatchEvent(new Event("orbis:ready")));
     return () => cancelAnimationFrame(id);
   }, []);
-  const { pix: pixBanco } = usePixDoBanco(true, 10 * 60_000);
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({
@@ -430,8 +427,8 @@ export default function Index() {
       </div>
     );
   }
-  // 10/10 (Rick): "Hoje" e "Faturamento" mostram o que ele VENDEU (recebido +
-  // o que ainda não caiu / fiado). Lucro, patente e ranking seguem no recebido.
+  // 10/10 (Rick): "Hoje" e "Faturamento" mostram o que ele VENDEU. Durante o dia
+  // vale o lançado; à meia-noite, quem tem banco passa a valer o que caiu.
   const recebidoHoje = todaySales?.total_profit || 0;
   const naoCaiuHoje = todaySales?.total_debt || 0;
   const dailyProfit = recebidoHoje + naoCaiuHoje;
@@ -538,9 +535,7 @@ export default function Index() {
         onFoco={() => navigate("/daily-goals")}
       />
       </div>
-      {pixBanco.temBanco && naoCaiuHoje > 0 && (
-        <div><NaoCaiuNoBanco key={naoCaiuHoje} dia={getBrazilDate()} naoCaiu={naoCaiuHoje} onMudou={() => { void loadDashboardData(); }} /></div>
-      )}
+
 
       {/* X1 saiu do Dashboard (Rick, 09/09): a Home responde "como estou hoje",
           e convite de duelo vive na tela de Competições. */}
