@@ -27,6 +27,7 @@ import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import FirstTimeCard from "@/components/FirstTimeCard";
 import { comprimirImagem, fotoValida } from "@/shared/lib/avatar";
 import { ConviteRanking } from "@/components/ranking/ConviteRanking";
+import { ConviteProduto } from "@/features/produtos";
 import { OcultarResultado, useRankingOculto } from "@/components/ranking/OcultarResultado";
 
 const motivationalPhrases = [
@@ -318,6 +319,7 @@ export default function Ranking() {
     <div className="pb-8 space-y-5">
       {user && <X1InvitePopup userId={user.id} />}
       <FirstTimeCard tela="ranking" userId={user?.id} />
+      <ConviteProduto />
       {/* Header */}
       <div className="text-center space-y-1">
         <h1 className="text-3xl font-bold text-foreground tracking-tight">

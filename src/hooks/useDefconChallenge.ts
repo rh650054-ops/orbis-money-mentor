@@ -984,7 +984,14 @@ export function useDefconChallenge(userId: string | undefined) {
     celebrationSounds.playDefconActivation();
   };
 
-  const addSale = async (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
+  /** produto: o que saiu do estoque nessa venda (combo "3 por R$ 10" = qty 3).
+   *  O gatilho defcon_venda_estoque baixa estoque, carga, receita, custo e
+   *  histórico no banco — e desfaz tudo se a venda for apagada. */
+  const addSale = async (
+    amount: number,
+    method: "dinheiro" | "pix" | "cartao" = "dinheiro",
+    produto?: { id: string; qty: number } | null,
+  ) => {
     if (!userId || phase !== "running" || amount <= 0) return;
 
     const currentBlock = blocks[currentBlockIndex];
@@ -1055,6 +1062,7 @@ export function useDefconChallenge(userId: string | undefined) {
           amount,
           method,
           late: false,
+          ...(produto ? { product_id: produto.id, qty: Math.max(1, produto.qty) } : {}),
         });
         if (saleErr) throw saleErr;
       }

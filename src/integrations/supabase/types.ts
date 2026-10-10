@@ -1854,6 +1854,7 @@ export type Database = {
           unpaid_units: number
           updated_at: string
           user_id: string
+          pix_manual: boolean
         }
         Insert: {
           card_sales?: number | null
@@ -1875,6 +1876,7 @@ export type Database = {
           unpaid_units?: number
           updated_at?: string
           user_id: string
+          pix_manual?: boolean
         }
         Update: {
           card_sales?: number | null
@@ -1896,6 +1898,7 @@ export type Database = {
           unpaid_units?: number
           updated_at?: string
           user_id?: string
+          pix_manual?: boolean
         }
         Relationships: []
       }
@@ -3579,6 +3582,8 @@ export type Database = {
           quantity: number
           total_amount: number
           user_id: string
+          defcon_sale_id: string | null
+          unit_cost: number | null
         }
         Insert: {
           created_at?: string
@@ -3587,6 +3592,8 @@ export type Database = {
           quantity?: number
           total_amount?: number
           user_id: string
+          defcon_sale_id?: string | null
+          unit_cost?: number | null
         }
         Update: {
           created_at?: string
@@ -3595,6 +3602,8 @@ export type Database = {
           quantity?: number
           total_amount?: number
           user_id?: string
+          defcon_sale_id?: string | null
+          unit_cost?: number | null
         }
         Relationships: []
       }
@@ -3647,6 +3656,9 @@ export type Database = {
           stock_quantity: number
           updated_at: string
           user_id: string
+          controla_estoque: boolean
+          emoji: string | null
+          origem: string | null
         }
         Insert: {
           batch_yield?: number
@@ -3666,6 +3678,9 @@ export type Database = {
           stock_quantity?: number
           updated_at?: string
           user_id: string
+          controla_estoque?: boolean
+          emoji?: string | null
+          origem?: string | null
         }
         Update: {
           batch_yield?: number
@@ -3685,6 +3700,9 @@ export type Database = {
           stock_quantity?: number
           updated_at?: string
           user_id?: string
+          controla_estoque?: boolean
+          emoji?: string | null
+          origem?: string | null
         }
         Relationships: [
           {

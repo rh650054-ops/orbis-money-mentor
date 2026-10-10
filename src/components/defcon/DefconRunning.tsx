@@ -38,7 +38,7 @@ interface DefconRunningProps {
   totalApproaches: number;
   totalSalesCount: number;
   blockSalesCount: number;
-  onAddSale: (amount: number, method?: "dinheiro" | "pix" | "cartao") => void;
+  onAddSale: (amount: number, method?: "dinheiro" | "pix" | "cartao", produto?: { id: string; qty: number } | null) => void;
   onAddApproach: () => void;
   onAddOccurrence: (description: string) => void;
   onEnd: () => void;
@@ -148,7 +148,7 @@ export function DefconRunning({
   >(null);
   const [loadingReport, setLoadingReport] = useState(false);
 
-  const { loadout, products: loadoutProducts, incrementSold } = useDefconLoadout(userId);
+  const { loadout, products: loadoutProducts, reload: recarregarCarga } = useDefconLoadout(userId);
 
   /* ---- TABELA DE PREÇO POR QUANTIDADE (Etapa 2, Rick 05/09) ----
      Carrega as faixas (2 un R$ 30…) dos produtos da carga de hoje. A faixa de
@@ -198,6 +198,7 @@ export function DefconRunning({
   // Casou → produto e quantidade seguem a tabela
   useEffect(() => {
     if (casado) { setSelectedProductId(casado.product_id); setSaleQty(casado.qty); }
+    else setSaleQty(1); // deixou de casar com um combo: não leva a quantidade velha junto
   }, [casado]);
   const { theme, setTheme } = useTheme();
 
@@ -277,18 +278,16 @@ export function DefconRunning({
   };
 
   const registerSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro", qty = 1, productId?: string | null) => {
-    onAddSale(amount, method); // 1 venda, 1 abordagem — mesmo sendo combo de 2 unidades
+    // Baixa do estoque na QUANTIDADE da venda (vendeu 2, baixa 2): vai junto com a
+    // venda e o banco faz a baixa (e desfaz se a venda for apagada).
+    const pid = productId ?? selectedProductId;
+    const produto = !onboardingMode && pid ? { id: pid, qty: Math.max(1, qty) } : null;
+    onAddSale(amount, method, produto); // 1 venda, 1 abordagem — mesmo sendo combo de 2 unidades
+    if (produto) setTimeout(() => { void recarregarCarga(); }, 1500);
     metodoPorValorRef.current[String(amount)] = method;
     setSaleHistory((prev) => { const lista = [...prev, amount]; guardarVendaRapida(lista); return lista; });
     const tag = method === "pix" ? " 💸" : method === "cartao" ? " 💳" : "";
     pushFloater(`+${formatCurrency(amount)}${tag}`, "sale");
-    // Debita do loadout/estoque na QUANTIDADE da venda (vendeu 2, baixa 2)
-    const pid = productId ?? selectedProductId;
-    if (!onboardingMode && pid) {
-      incrementSold(pid, Math.max(1, qty)).catch((e) =>
-        avisar.usuario("A venda entrou, mas não consegui baixar do estoque.", e, "DefconRunning: baixar estoque"),
-      );
-    }
     // Onboarding: qualquer venda no DEFCON (rápida ou manual) avança a missão.
     emitMissionEvent("sale-registered");
     // Rajada: 4+ vendas em 6 segundos = provável toque repetido sem querer.
@@ -343,6 +342,7 @@ export function DefconRunning({
       .sort((a, b) => new Date(b?.created_at || 0).getTime() - new Date(a?.created_at || 0).getTime())
       .slice(0, n);
     for (const v of ultimas) { await onDeleteSale(v); }
+    setTimeout(() => { void recarregarCarga(); }, 1500); // o banco devolveu o estoque
     rajadaRef.current = [];
     setApagandoRajada(false);
     setRajada(null);
@@ -569,7 +569,11 @@ export function DefconRunning({
     const ok = window.confirm(
       `Excluir esta venda de ${formatCurrency(Number(sale?.amount) || 0)}? Isso ajusta o faturado do bloco.`
     );
-    if (ok) onDeleteSale(sale);
+    if (ok) {
+      onDeleteSale(sale);
+      // apagar a venda devolve o produto pro estoque (gatilho no banco)
+      setTimeout(() => { void recarregarCarga(); }, 1500);
+    }
   };
 
   // Frase de impacto inteligente — empurra ação concreta

@@ -121,8 +121,12 @@ export default function DefconChallenge() {
   // Registra uma venda E dispara a notificação "Venda realizada" com o valor EXATO
   // (no momento da venda, sem depender de recarregar a lista — senão pegava o valor
   // da venda anterior). Vale pra venda no app e pra venda rápida pela notificação.
-  const handleAddSale = (amount: number, method: "dinheiro" | "pix" | "cartao" = "dinheiro") => {
-    defcon.addSale(amount, method);
+  const handleAddSale = (
+    amount: number,
+    method: "dinheiro" | "pix" | "cartao" = "dinheiro",
+    produto?: { id: string; qty: number } | null,
+  ) => {
+    defcon.addSale(amount, method, produto);
     // Só avisa quando o app NÃO está na frente. Com a tela aberta o vendedor
     // já viu a venda entrar — a notificação por cima era barulho em cima do
     // que ele acabou de fazer. Fora do app, ela continua útil.
@@ -427,7 +431,7 @@ export default function DefconChallenge() {
           vendido={defcon.totalSold ?? 0}
           vendas={defcon.totalSalesCount ?? 0}
           custo={defcon.totalCost ?? 0}
-          onRanking={() => concluirTreino("/ranking")}
+          onRanking={() => concluirTreino("/ranking?depoisTreino=1")}
           onPainel={() => concluirTreino("/")}
         />
       )}

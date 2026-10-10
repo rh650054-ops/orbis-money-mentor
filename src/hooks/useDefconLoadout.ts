@@ -17,6 +17,20 @@ export interface ProductOption {
   sale_price: number;
   stock_quantity: number;
   cost: number;
+  /** false = "não controlo estoque desse produto": a carga não é limitada. */
+  controla_estoque?: boolean | null;
+}
+
+/** Carga pedida passou do estoque: a tela pergunta antes de salvar. */
+export interface AvisoEstoque {
+  productId: string;
+  nome: string;
+  /** quanto pode levar agora (estoque + o que já vendeu da carga de hoje) */
+  podeLevar: number;
+  quer: number;
+  /** estoque que fica se ele confirmar que tem mais */
+  precisa: number;
+  salvar: (qty: number) => Promise<void>;
 }
 
 export function useDefconLoadout(userId: string | undefined, date?: string) {
@@ -24,6 +38,7 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
   const [loadout, setLoadout] = useState<LoadoutItem[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [loading, setLoading] = useState(true);
+  const [aviso, setAviso] = useState<AvisoEstoque | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -37,7 +52,7 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
         .order("created_at", { ascending: true }),
       supabase
         .from("products")
-        .select("id, name, sale_price, stock_quantity, cost")
+        .select("id, name, sale_price, stock_quantity, cost, controla_estoque")
         .eq("user_id", userId)
         .eq("is_active", true)
         .order("name"),
@@ -51,7 +66,7 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
     load();
   }, [load]);
 
-  const addProduct = async (product: ProductOption, qty: number) => {
+  const salvarCarga = async (product: ProductOption, qty: number) => {
     if (!userId || qty <= 0) return;
     const { error } = await supabase.from("defcon_daily_loadout").upsert(
       {
@@ -67,98 +82,57 @@ export function useDefconLoadout(userId: string | undefined, date?: string) {
     await load();
   };
 
+  /** A carga não passa do estoque (Rick, 07/10): se passar, a tela pergunta. */
+  const cabeNoEstoque = (product: ProductOption, qty: number, salvar: (q: number) => Promise<void>): boolean => {
+    if (product.controla_estoque === false) return true;
+    const jaVendido = Number(loadout.find((l) => l.product_id === product.id)?.qty_sold || 0);
+    const podeLevar = Math.max(0, Number(product.stock_quantity || 0)) + jaVendido;
+    if (qty <= podeLevar) return true;
+    setAviso({ productId: product.id, nome: product.name, podeLevar, quer: qty, precisa: qty - jaVendido, salvar });
+    return false;
+  };
+
+  const addProduct = async (product: ProductOption, qty: number) => {
+    if (!userId || qty <= 0) return;
+    const salvar = (q: number) => salvarCarga(product, q);
+    if (!cabeNoEstoque(product, qty, salvar)) return;
+    await salvar(qty);
+  };
+
   const updateQty = async (id: string, qty: number) => {
-    const { error } = qty <= 0
-      ? await supabase.from("defcon_daily_loadout").delete().eq("id", id)
-      : await supabase.from("defcon_daily_loadout").update({ qty_initial: qty }).eq("id", id);
-    if (error) avisar.usuario("Não consegui salvar a quantidade da carga. Tenta de novo.", error, "useDefconLoadout: alterar quantidade");
-    await load();
+    const salvar = async (q: number) => {
+      const { error } = q <= 0
+        ? await supabase.from("defcon_daily_loadout").delete().eq("id", id)
+        : await supabase.from("defcon_daily_loadout").update({ qty_initial: q }).eq("id", id);
+      if (error) avisar.usuario("Não consegui salvar a quantidade da carga. Tenta de novo.", error, "useDefconLoadout: alterar quantidade");
+      await load();
+    };
+    const item = loadout.find((l) => l.id === id);
+    const product = item ? products.find((p) => p.id === item.product_id) : undefined;
+    // só pergunta quando AUMENTA a carga (baixar nunca abre o aviso)
+    if (item && qty > Number(item.qty_initial) && product && !cabeNoEstoque(product, qty, salvar)) return;
+    await salvar(qty);
   };
 
-  const incrementSold = async (productId: string, qty = 1) => {
-    if (!userId) return;
-    const item = loadout.find((l) => l.product_id === productId);
-    if (!item) return;
-    const { error: soldErr } = await supabase
-      .from("defcon_daily_loadout")
-      .update({ qty_sold: Number(item.qty_sold) + qty })
-      .eq("id", item.id);
-    if (soldErr) throw soldErr;
-
-    // debita estoque do produto
-    const prod = products.find((p) => p.id === productId);
-    if (prod) {
-      const newStock = Math.max(0, Number(prod.stock_quantity) - qty);
-      const { error: stockErr } = await supabase.from("products").update({ stock_quantity: newStock }).eq("id", productId);
-      if (stockErr) throw stockErr;
-    }
-
-    // se produto tem receita per_unit, debita ingredientes proporcionalmente
-    const { data: prodMeta } = await supabase
-      .from("products")
-      .select("recipe_mode")
-      .eq("id", productId)
-      .maybeSingle();
-
-    if (prodMeta?.recipe_mode === "per_unit") {
-      const { data: recipe } = await supabase
-        .from("product_recipes")
-        .select("ingredient_id, quantity")
-        .eq("product_id", productId);
-
-      if (recipe && recipe.length > 0) {
-        const ids = recipe.map((r: any) => r.ingredient_id);
-        const { data: ings } = await supabase
-          .from("ingredients")
-          .select("id, stock_quantity")
-          .in("id", ids);
-
-        for (const r of recipe as any[]) {
-          const ing = ings?.find((i: any) => i.id === r.ingredient_id);
-          if (!ing) continue;
-          const newQty = Math.max(0, Number(ing.stock_quantity) - Number(r.quantity) * qty);
-          const { error: ingErr } = await supabase.from("ingredients").update({ stock_quantity: newQty }).eq("id", ing.id);
-          if (ingErr) throw ingErr;
-        }
-      }
-    }
-
-    // log da venda do produto (alimenta histórico/análises)
-    const { error: logErr } = await supabase.from("product_sales_log").insert({
-      user_id: userId,
-      product_id: productId,
-      quantity: qty,
-      total_amount: prod ? Number(prod.sale_price || 0) * qty : 0,
-    });
-    if (logErr) throw logErr;
-
-    // Acumula o CUSTO DE MERCADORIA (CMV) do dia em daily_sales.cost.
-    // É esse campo que os relatórios e o Financeiro usam pra abater o custo
-    // de mercadoria do lucro líquido. (O syncBlocksToDailySales não mexe em
-    // "cost", então os dois convivem sem conflito.)
-    const unitCost = prod ? Number(prod.cost || 0) : 0;
-    if (unitCost > 0) {
-      const addCost = unitCost * qty;
-      const { data: dsRows } = await supabase
-        .from("daily_sales")
-        .select("id, cost")
-        .eq("user_id", userId)
-        .eq("date", day)
-        .order("created_at", { ascending: true })
-        .limit(1);
-      const { error: costErr } = dsRows && dsRows.length > 0 && dsRows[0]?.id
-        ? await supabase
-          .from("daily_sales")
-          .update({ cost: Number(dsRows[0].cost || 0) + addCost } as any)
-          .eq("id", dsRows[0].id)
-        : await supabase
-          .from("daily_sales")
-          .insert({ user_id: userId, date: day, cost: addCost } as any);
-      if (costErr) throw costErr;
-    }
-
-    await load();
+  /** Chegou mais do que o estoque dizia: acerta o estoque e leva. */
+  const confirmarAviso = async () => {
+    const a = aviso;
+    if (!a) return;
+    setAviso(null);
+    const { error } = await supabase.from("products").update({ stock_quantity: a.precisa }).eq("id", a.productId);
+    if (error) { avisar.usuario("Não consegui atualizar o estoque. Tenta de novo.", error, "useDefconLoadout: acertar estoque"); return; }
+    await a.salvar(a.quer);
+  };
+  /** Leva só o que tem no estoque. */
+  const levarSoOQueTem = async () => {
+    const a = aviso;
+    if (!a) return;
+    setAviso(null);
+    if (a.podeLevar > 0) await a.salvar(a.podeLevar);
   };
 
-  return { loadout, products, loading, reload: load, addProduct, updateQty, incrementSold };
+  return {
+    loadout, products, loading, reload: load, addProduct, updateQty,
+    aviso, confirmarAviso, levarSoOQueTem, fecharAviso: () => setAviso(null),
+  };
 }
