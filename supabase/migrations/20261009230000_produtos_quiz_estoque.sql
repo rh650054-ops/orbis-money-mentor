@@ -151,7 +151,13 @@ begin
   return null;
 end $$;
 
-drop trigger if exists defcon_venda_estoque on public.defcon_sales;
-create trigger defcon_venda_estoque
-  after insert or delete on public.defcon_sales
-  for each row execute function public.defcon_venda_baixa_estoque();
+-- O gatilho defcon_venda_estoque (AFTER INSERT OR DELETE em defcon_sales) já
+-- existe no banco e chama esta função; só cria se faltar (ambiente novo).
+do $$ begin
+  if not exists (select 1 from pg_trigger where tgname = 'defcon_venda_estoque'
+                 and tgrelid = 'public.defcon_sales'::regclass) then
+    create trigger defcon_venda_estoque
+      after insert or delete on public.defcon_sales
+      for each row execute function public.defcon_venda_baixa_estoque();
+  end if;
+end $$;
