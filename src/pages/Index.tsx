@@ -9,6 +9,8 @@ import AntiProcrastination from "@/components/AntiProcrastination";
 import QuickExpenseButton from "@/components/QuickExpenseButton";
 import { formatCurrency } from "@/shared/lib/utils";
 import { getBrazilDate, getBrazilMonthStart, getBrazilDateDaysAgo } from "@/shared/lib/date-utils";
+import { NaoCaiuNoBanco } from "@/components/dashboard/NaoCaiuNoBanco";
+import { usePixDoBanco } from "@/components/conectar/banco-pix";
 import { useRefetchOnFocus } from "@/shared/hooks/use-refetch-on-focus";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
 import { EditPlanningModal } from "@/components/EditPlanningModal";
@@ -48,6 +50,7 @@ export default function Index() {
     const id = requestAnimationFrame(() => window.dispatchEvent(new Event("orbis:ready")));
     return () => cancelAnimationFrame(id);
   }, []);
+  const { pix: pixBanco } = usePixDoBanco(true, 10 * 60_000);
   const [todaySales, setTodaySales] = useState<any>(null);
   const [weeklyData, setWeeklyData] = useState<any[]>([]);
   const [monthlyStats, setMonthlyStats] = useState({
@@ -427,8 +430,13 @@ export default function Index() {
       </div>
     );
   }
-  const dailyProfit = todaySales?.total_profit || 0;
-  const faturamentoMes = monthlyStats.totalIncome;
+  // 10/10 (Rick): "Hoje" e "Faturamento" mostram o que ele VENDEU (recebido +
+  // o que ainda não caiu / fiado). Lucro, patente e ranking seguem no recebido.
+  const recebidoHoje = todaySales?.total_profit || 0;
+  const naoCaiuHoje = todaySales?.total_debt || 0;
+  const dailyProfit = recebidoHoje + naoCaiuHoje;
+  const faturamentoMes = monthlyStats.totalIncome + (monthlyStats.totalExpenses || 0);
+  const recebidoMes = monthlyStats.totalIncome;
   const lucroLiquido = monthlyStats.totalIncome - monthlyStats.totalCost - monthlyStats.totalTransport - monthlyStats.totalFood - monthExpensesTotal;
   const progressoMeta = calculateGoalProgress();
 
@@ -443,13 +451,13 @@ export default function Index() {
   // dias restantes" — no dia 31 isso dava "R$ 20.348/dia", número que não ajuda.
   const ritmoDia = dailyGoal;
 
-  const nextIdx = REWARD_TIERS.findIndex((t) => faturamentoMes < t.threshold);
+  const nextIdx = REWARD_TIERS.findIndex((t) => recebidoMes < t.threshold);
   const nextTier = (nextIdx === -1 ? REWARD_TIERS[REWARD_TIERS.length - 1] : REWARD_TIERS[nextIdx])!;
   const prevThreshold = nextIdx <= 0 ? 0 : REWARD_TIERS[nextIdx - 1]!.threshold;
   const tierProgress = nextIdx === -1
     ? 100
-    : Math.min(((faturamentoMes - prevThreshold) / (nextTier.threshold - prevThreshold)) * 100, 100);
-  const tierRestante = Math.max(nextTier.threshold - faturamentoMes, 0);
+    : Math.min(((recebidoMes - prevThreshold) / (nextTier.threshold - prevThreshold)) * 100, 100);
+  const tierRestante = Math.max(nextTier.threshold - recebidoMes, 0);
 
   // Saudação dinâmica baseada no fuso horário (Brasília UTC-3)
   const getGreeting = () => {
@@ -530,6 +538,9 @@ export default function Index() {
         onFoco={() => navigate("/daily-goals")}
       />
       </div>
+      {pixBanco.temBanco && naoCaiuHoje > 0 && (
+        <div><NaoCaiuNoBanco key={naoCaiuHoje} dia={getBrazilDate()} naoCaiu={naoCaiuHoje} onMudou={() => { void loadDashboardData(); }} /></div>
+      )}
 
       {/* X1 saiu do Dashboard (Rick, 09/09): a Home responde "como estou hoje",
           e convite de duelo vive na tela de Competições. */}
