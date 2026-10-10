@@ -558,7 +558,11 @@ export function DefconEndScreen({
     ? Math.min(pixBanco.maquininha, Math.max(0, Math.round((totalSold - dinheiroNum) * 100) / 100))
     : (parseFloat(cartao) || 0);
   const pixDoBancoNoDia = pixQueEntraNoDia(pixBanco.pix, totalSold, dinheiroNum, cartaoNum);
-  const pixNum = travado ? pixDoBancoNoDia.entra : (parseFloat(pix) || 0);
+  // 10/10 15:55 (Rick): no dia, o ranking conta o que ele LANÇOU, pra todo mundo.
+  // O Pix travado é o resto do vendido (não se digita); o banco só informa quanto
+  // já caiu. À meia-noite banco_reconciliar troca pelo que caiu de verdade.
+  const pixLancado = Math.max(0, Math.round((totalSold - dinheiroNum - cartaoNum) * 100) / 100);
+  const pixNum = travado ? pixLancado : (parseFloat(pix) || 0);
   const totalRecebido = pixNum + cartaoNum + dinheiroNum;
   // Meio centavo de margem: 10,70 + 5,60 dá 16,299999999999997 em ponto
   // flutuante. Sem isso o app inventava um calote de R$ 0,000000000000004,
@@ -567,7 +571,8 @@ export function DefconEndScreen({
   // Com Pix travado, a diferença é Pix que ainda pode cair: não é calote e não
   // segura o "Finalizar".
   const hasCalote = !travado && calote > 0 && (totalRecebido > 0 || mexeu);
-  const aindaNaoCaiu = travado ? calote : 0;
+  // quanto do Pix lançado o banco ainda não mostrou (só informação no dia)
+  const aindaNaoCaiu = travado ? Math.max(0, Math.round((pixLancado - pixDoBancoNoDia.entra) * 100) / 100) : 0;
   const fullyReceived = totalSold > 0 && calote === 0;
 
   // Salva a CONTAGEM de kits não pagos na linha do dia (mesma data do sync do DEFCON).
@@ -1091,7 +1096,10 @@ export function DefconEndScreen({
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-foreground">Pix</p>
                   <p className="text-[11px] text-success font-semibold flex items-center gap-1 truncate">
-                    <Lock className="w-3 h-3 shrink-0" /> pelo banco · {pixBanco.qtd} {pixBanco.qtd === 1 ? "entrada" : "entradas"}
+                    <Lock className="w-3 h-3 shrink-0" /> o que você lançou no Foco
+                  </p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    no banco até agora: <b className="text-foreground tabular-nums">{formatCurrency(pixDoBancoNoDia.entra)}</b> · {pixBanco.qtd} {pixBanco.qtd === 1 ? "entrada" : "entradas"}
                   </p>
                   <p className="text-[10.5px] text-muted-foreground flex items-center gap-1 truncate">
                     {lendoBanco
@@ -1099,7 +1107,7 @@ export function DefconEndScreen({
                       : <><span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse shrink-0" /> ao vivo{pixBanco.ultimaSync ? ` · lido ${horaDaLeitura(pixBanco.ultimaSync)}` : ""}</>}
                   </p>
                 </div>
-                <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixDoBancoNoDia.entra)}</span>
+                <span className="text-base font-black text-success tabular-nums">{formatCurrency(pixNum)}</span>
               </div>
             ) : (
               <>
@@ -1148,14 +1156,8 @@ export function DefconEndScreen({
 
             {aindaNaoCaiu > 0 && (
               <div className="rounded-xl bg-warning/10 border border-warning/30 px-3.5 py-2.5 text-xs leading-relaxed">
-                <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} não caíram na conta</span>
-                <span className="text-muted-foreground"> · conta como calote até cair. A Vant segue lendo o banco e tira do calote o que cair.</span>
-                {/* 10/10 (Rick): boa parte do que "não caiu" é dinheiro que ele não digitou */}
-                <button type="button" onClick={() => { setMexeu(true); setDinheiro(String(Math.round((dinheiroNum + aindaNaoCaiu) * 100) / 100)); }}
-                  className="mt-2 w-full h-10 rounded-lg font-extrabold text-[13px]" style={{ background: "var(--orbis-gold)", color: "#1A1200" }}>
-                  Foi em dinheiro: lançar {formatCurrency(aindaNaoCaiu)} no dinheiro
-                </button>
-                <p className="text-[11px] text-muted-foreground mt-1">Se foi só uma parte, digita o valor no campo Dinheiro acima.</p>
+                <span className="font-semibold text-foreground">{formatCurrency(aindaNaoCaiu)} do Pix ainda não apareceram no banco</span>
+                <span className="text-muted-foreground"> · hoje o ranking conta o que você lançou. À meia-noite a Vant confere com o banco: o que não tiver caído sai do ranking e do lucro.</span>
               </div>
             )}
 
@@ -1232,7 +1234,7 @@ export function DefconEndScreen({
                 <p className="text-[10px] font-black uppercase tracking-[0.15em] text-success">Vai pro ranking</p>
                 <p className="text-lg font-black text-success tabular-nums leading-tight">{formatCurrency(totalRecebido)}</p>
               </div>
-              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">calote fora</span>
+              <span className="text-[9.5px] font-black uppercase tracking-wider rounded-full px-2 py-1 border border-success/40 bg-success/10 text-success shrink-0">banco confere 00h</span>
             </div>
           </div>
         )}
@@ -1281,7 +1283,7 @@ export function DefconEndScreen({
                 <Metrica rotulo="Ticket" valor={totalSalesCount > 0 ? formatCurrency(totalSold / totalSalesCount) : "—"} sub="por venda" />
                 <Metrica rotulo="Na rua" valor={horasLabel} sub={blocks.length > 0 ? `${blocks.length} ${blocks.length === 1 ? "bloco" : "blocos"}` : "trabalhadas"} />
                 <Metrica rotulo="Por hora" valor={workedMinutes && workedMinutes > 0 ? formatCurrency(totalSold / (workedMinutes / 60)) : "—"} sub="vendido" />
-                <Metrica rotulo="Calote" valor={formatCurrency(hasCalote || aindaNaoCaiu > 0 ? calote : 0)} sub={aindaNaoCaiu > 0 ? "não caiu no banco" : "fiado em aberto"} alerta={hasCalote || aindaNaoCaiu > 0} />
+                <Metrica rotulo="Calote" valor={formatCurrency(hasCalote ? calote : 0)} sub="fiado em aberto" alerta={hasCalote} />
               </div>
             )}
             {reportView === 0 && (

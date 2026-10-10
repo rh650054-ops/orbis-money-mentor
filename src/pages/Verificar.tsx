@@ -30,6 +30,7 @@ import { HeroVerificado, ComprovadoHoje, OndeRecebe, carregarProHoje, type ProHo
 import { GerenciarConexoes } from "@/components/conectar/GerenciarConexoes";
 import { BancoExtra, ContasDeVenda } from "@/components/conectar/PapelContas";
 import { ComprovanteRenda } from "@/components/conectar/ComprovanteRenda";
+import { FezCaiuDias } from "@/components/conectar/FezCaiuDias";
 import {
   ligarBanco, salvarBanco, carregarBancos, carregarPro,
   type BancoLigado, type StatusPro, carregarContasVenda, type ContaVenda } from "@/components/conectar/pluggy";
@@ -216,6 +217,7 @@ export default function Verificar() {
       <div className="px-4 pt-4 pb-28" style={{ background: "radial-gradient(100% 420px at 50% 0%,#1a1305,transparent 70%)" }}>
         {topo}
         <div className="mt-2" data-tour="conectar-banco"><ConviteBanco onConectar={() => navigate("/pro")} /></div>
+        <div className="mt-3"><FezCaiuDias travado onDesbloquear={() => navigate("/pro")} /></div>
       </div>
     );
   }
@@ -261,6 +263,7 @@ export default function Verificar() {
       {topo}
       <HeroVerificado nome={nome} verificado={pro.verificado} desde={desde} />
       <ComprovadoHoje h={proHoje} />
+      <FezCaiuDias />
       <ComprovanteRenda />
       <div className="flex items-center justify-between px-0.5 pt-1">
         <p className="text-[15px] font-black">Onde você recebe</p>
