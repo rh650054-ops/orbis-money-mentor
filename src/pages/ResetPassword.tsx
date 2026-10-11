@@ -1,182 +1,37 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/shared/ui/button";
-import { Input } from "@/shared/ui/input";
-import { Label } from "@/shared/ui/label";
 import { Card, CardContent } from "@/shared/ui/card";
-import { useToast } from "@/shared/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { avisar } from "@/shared/lib/avisar";
-import { traduzirErroAuth } from "@/shared/lib/erro-auth";
-import { KeyRound, CheckCircle2 } from "lucide-react";
 
+/**
+ * Links de recuperação antigos (até 11/10/2026) caíam aqui. Agora a recuperação é
+ * por código em /forgot-password. Se um link antigo ainda abrir uma sessão de
+ * recuperação, ela é encerrada neste aparelho: link não troca senha nem confirma e-mail.
+ */
 export default function ResetPassword() {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
 
   useEffect(() => {
-    // Supabase auto-cria sessão ao chegar com o token de recovery no hash.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || session) {
-        setHasSession(true);
-      }
-    });
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) setHasSession(true);
+    const sair = () => void supabase.auth.signOut({ scope: "local" });
+    if (/type=recovery/.test(window.location.hash)) sair();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") sair();
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (password.length < 8) {
-      toast({
-        title: "Senha muito curta",
-        description: "Use no mínimo 8 caracteres.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (password !== confirm) {
-      toast({
-        title: "Senhas diferentes",
-        description: "Confirme a mesma senha nos dois campos.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-
-    if (error) {
-      toast({
-        title: "Não foi possível atualizar",
-        description: traduzirErroAuth(error, "reset"),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Chegou aqui = abriu o link que foi pro e-mail cadastrado → o e-mail é da pessoa.
-    // Marca como confirmado (decisão do Rick, 08/10). Falha aqui não atrapalha o reset.
-    try {
-      await (supabase as unknown as { rpc: (fn: string) => Promise<unknown> }).rpc("email_confirmar_por_recuperacao");
-    } catch (e) {
-      avisar.silencioso("ResetPassword: confirmar e-mail por recuperação", e);
-    }
-
-    setDone(true);
-    setTimeout(() => navigate("/", { replace: true }), 1500);
-  };
-
   return (
-    <div
-      className="min-h-[100dvh] flex items-center justify-center p-5 bg-background animate-fade-in"
-      style={{
-        paddingTop: "max(1.25rem, env(safe-area-inset-top))",
-        paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
-      }}
-    >
-      <div className="w-full max-w-[420px] space-y-5">
-        <div className="flex flex-col items-center gap-3">
-          <img
-            src="/vant-logo.png"
-            alt="Vant"
-            className="w-14 h-14 object-contain animate-orbis-spin-in"
-          />
-          <div className="text-center">
-            <h1 className="text-xl font-bold text-foreground">Nova senha</h1>
-            <p className="text-xs text-muted-foreground mt-1">
-              Defina uma senha nova pra continuar
-            </p>
-          </div>
-        </div>
-
-        <Card className="bg-card border border-border rounded-2xl shadow-xl">
-          <CardContent className="p-5">
-            {done ? (
-              <div className="space-y-3 py-3 text-center">
-                <div className="mx-auto w-12 h-12 rounded-full bg-primary/15 flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-primary" />
-                </div>
-                <h2 className="text-base font-semibold text-foreground">
-                  Senha atualizada!
-                </h2>
-                <p className="text-xs text-muted-foreground">
-                  Redirecionando...
-                </p>
-              </div>
-            ) : !hasSession ? (
-              <div className="space-y-3 py-3 text-center">
-                <p className="text-sm text-foreground">
-                  Link inválido ou expirado.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Solicite um novo link de recuperação.
-                </p>
-                <Button
-                  onClick={() => navigate("/forgot-password")}
-                  className="h-10 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  Pedir novo link
-                </Button>
-              </div>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="password" className="flex items-center gap-1.5 text-xs">
-                    <KeyRound className="w-3.5 h-3.5 text-primary" />
-                    Nova senha
-                  </Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    minLength={8}
-                    required
-                    className="h-11 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirm" className="text-xs">
-                    Confirme a senha
-                  </Label>
-                  <Input
-                    id="confirm"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="••••••••"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    minLength={8}
-                    required
-                    className="h-11 rounded-lg border-border bg-input focus-visible:border-primary focus-visible:ring-primary/20"
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  className="w-full h-11 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-                  disabled={loading}
-                >
-                  {loading ? "Salvando..." : "Salvar nova senha"}
-                </Button>
-              </form>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+    <div className="min-h-[100dvh] flex items-center justify-center p-5 bg-background">
+      <Card className="w-full max-w-[420px] bg-card border border-border rounded-2xl shadow-xl">
+        <CardContent className="p-5 space-y-3 text-center">
+          <p className="text-sm text-foreground font-semibold">Esse link não vale mais.</p>
+          <p className="text-xs text-muted-foreground">Agora a senha é trocada com um código de 6 dígitos que chega no seu e-mail confirmado.</p>
+          <Button onClick={() => navigate("/forgot-password", { replace: true })} className="w-full h-11 rounded-lg font-semibold">
+            Recuperar com código
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
