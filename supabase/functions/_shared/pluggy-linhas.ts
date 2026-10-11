@@ -10,6 +10,9 @@ export interface LinhaEntrada {
   transacted_at: string | null;
   is_pix: boolean;
   own_transfer: boolean;
+  /** quem pagou, como a Pluggy informa (11/10/2026: pra barrar Pix da própria conta e do pagador repetido) */
+  pagador_nome?: string | null;
+  pagador_doc?: string | null;
 }
 
 const mesmoInstante = (a: string | null | undefined, b: string | null | undefined) =>
@@ -26,7 +29,9 @@ export function linhasMudadas<T extends LinhaEntrada>(linhas: T[], existentes: P
       String(e.transaction_date ?? "").slice(0, 10) !== l.transaction_date ||
       !mesmoInstante(e.transacted_at, l.transacted_at) ||
       !!e.is_pix !== l.is_pix ||
-      !!e.own_transfer !== l.own_transfer;
+      !!e.own_transfer !== l.own_transfer ||
+      (e.pagador_nome ?? null) !== (l.pagador_nome ?? null) ||
+      (e.pagador_doc ?? null) !== (l.pagador_doc ?? null);
   });
 }
 

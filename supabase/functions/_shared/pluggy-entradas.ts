@@ -72,6 +72,31 @@ export function ehPix(t: any): boolean {
   return /\bpix\b/i.test(String(t?.description ?? "")) || /\bpix\b/i.test(String(t?.descriptionRaw ?? ""));
 }
 
+/** Nome e documento de quem pagou (Pix traz em paymentData.payer). */
+// deno-lint-ignore no-explicit-any
+export function pagadorDe(t: any): { nome: string | null; doc: string | null } {
+  const p = t?.paymentData?.payer;
+  const doc = p?.documentNumber;
+  const valor = soDigitos(typeof doc === "object" && doc ? doc.value : doc);
+  const nome = String(p?.name ?? "").trim().slice(0, 120);
+  return { nome: nome || null, doc: valor.length >= 11 ? valor : null };
+}
+
+/** Dono da conta (owner / taxNumber da Pluggy) → bank_connections.dono_nome / dono_doc.
+ *  É o que barra Pix da própria conta no ranking (Rick, 11/10/2026). Falha não derruba a leitura. */
+// deno-lint-ignore no-explicit-any
+export async function gravarDono(admin: any, contas: any[], conexaoId: string) {
+  // deno-lint-ignore no-explicit-any
+  const c = contas.find((x: any) => x?.owner || x?.taxNumber);
+  if (!c) return;
+  const nome = String(c?.owner ?? "").trim().slice(0, 120) || null;
+  const doc = soDigitos(c?.taxNumber);
+  const { error } = await admin.from("bank_connections")
+    .update({ dono_nome: nome, dono_doc: doc.length >= 11 ? doc : null })
+    .eq("id", conexaoId);
+  if (error) console.error("pluggy dono:", error.message);
+}
+
 // deno-lint-ignore no-explicit-any
 export function mesmoDono(t: any, cpfDoVendedor: string): boolean {
   if (cpfDoVendedor.length !== 11) return false;
@@ -92,6 +117,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
 
   const { data: perfil } = await admin.from("profiles").select("cpf").eq("user_id", userId).maybeSingle();
   const cpf = soDigitos(perfil?.cpf);
+  try { await gravarDono(admin, contas, conexaoId); } catch (e) { console.error("pluggy dono", (e as Error)?.message); }
 
   // um dia a mais pra trás: o filtro da Pluggy é em UTC e o nosso dia é em Brasília
   const dataDe = diaBRT(new Date(Date.now() - (dias + 1) * 86_400_000));
@@ -112,6 +138,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
       const linhas = txs.filter((t: any) => t?.type === "CREDIT" && Number(t?.amount) > 0).map((t: any) => {
         const q = quandoFoi(t);
         const p = ehPix(t);
+        const quem = pagadorDe(t);
         if (p) pix++;
         return {
           user_id: userId,
@@ -123,6 +150,8 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
           transacted_at: q.instante,
           is_pix: p,
           own_transfer: mesmoDono(t, cpf),
+          pagador_nome: quem.nome,
+          pagador_doc: quem.doc,
         };
       }).filter((l) => l.transaction_date >= dataDe);
       if (linhas.length > 0) {
@@ -131,7 +160,7 @@ export async function importarEntradas(admin: any, apiKey: string, itemId: strin
         // to every open app — the biggest load on the database.
         const ids = linhas.map((l) => l.transaction_id);
         const { data: existentes, error: eLer } = await admin.from("auto_detected_sales")
-          .select("transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer")
+          .select("transaction_id, amount, description, transaction_date, transacted_at, is_pix, own_transfer, pagador_nome, pagador_doc")
           .in("transaction_id", ids);
         // reading failed → fall back to the old full upsert (never lose an entry)
         const aGravar = eLer ? linhas : linhasMudadas(linhas, existentes ?? []);
