@@ -89,15 +89,19 @@
   from { opacity: 0; transform: translateY(-10px); }
   to   { opacity: 1; transform: none; }
 }
-.orbis-page-enter { animation: orbis-page-in var(--dur-enter) var(--ease-orbis) both; }
-.orbis-page-back  { animation: orbis-page-back var(--dur-enter) var(--ease-orbis) both; }
+/* fill-mode "backwards" (e NÃO "both"): com "both" o fim da animação fica preso como
+   transform: translateY(0), que é um transform de verdade — e qualquer transform vira o
+   "pai" dos position:fixed lá dentro. Aí as telas cheias (fixed inset-0: intro de
+   Produtos, quiz, onboarding) encolhiam pra altura 0, ficavam pretas e sem toque. */
+.orbis-page-enter { animation: orbis-page-in var(--dur-enter) var(--ease-orbis) backwards; }
+.orbis-page-back  { animation: orbis-page-back var(--dur-enter) var(--ease-orbis) backwards; }
 
 /* entrada de card individual (usar com moderação — listas grandes não) */
 @keyframes orbis-card-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
-.orbis-card-in { animation: orbis-card-in var(--dur-enter) var(--ease-orbis) both; }
+.orbis-card-in { animation: orbis-card-in var(--dur-enter) var(--ease-orbis) backwards; }
 
 /* ---- barras que enchem: transição no width/stroke ---- */
 .orbis-fill { transition: width 600ms var(--ease-orbis); }
@@ -120,7 +124,7 @@
 
 /* CASCATA: os blocos de uma tela entram um atrás do outro (40ms entre eles).
    Uso: className="orbis-stagger" no container dos blocos. */
-.orbis-stagger > * { animation: orbis-card-in 320ms var(--ease-orbis) both; }
+.orbis-stagger > * { animation: orbis-card-in 320ms var(--ease-orbis) backwards; }
 .orbis-stagger > *:nth-child(1)  { animation-delay: 0ms; }
 .orbis-stagger > *:nth-child(2)  { animation-delay: 40ms; }
 .orbis-stagger > *:nth-child(3)  { animation-delay: 80ms; }
