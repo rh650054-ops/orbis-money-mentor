@@ -22,6 +22,12 @@ import { BRAND_COLORS, readThemeColor } from "@/shared/lib/theme-colors";
 import { ClimaChip } from "@/components/clima/ClimaChip";
 import { RetomarLugar, SinalDeHoje } from "@/components/defcon/FocoExtras";
 import { MissaoDoDia } from "@/components/jornada/MissaoDoDia";
+import { garantirPlanoDoDia } from "@/shared/lib/plano-do-dia";
+import { useMetaDoDia } from "@/hooks/useMetaDoDia";
+import { useQueryClient } from "@tanstack/react-query";
+import { MetaDoDiaCard } from "@/components/metas/MetaDoDiaCard";
+import { FaixasDaMeta } from "@/components/metas/FaixasDaMeta";
+import { ReplanejarMes } from "@/components/metas/ReplanejarMes";
 import { conferirLugar, gravarMelhor, lerMelhor } from "@/components/defcon/retomar-lugar";
 
 // "Pix que caiu depois" — pagamento que entrou tarde, lançado num dia anterior
@@ -591,6 +597,11 @@ export default function DefconHub() {
   const [payPix, setPayPix] = useState("");
   const [savingPay, setSavingPay] = useState(false);
   const today = getBrazilDate();
+  // meta viável (11/10): a meta do cérebro, as faixas e o replanejamento do mês
+  const qc = useQueryClient();
+  const { meta: metaViavel, replanejar } = useMetaDoDia(user?.id, today);
+  const [replanOpen, setReplanOpen] = useState(false);
+  const temFaixas = !!metaViavel && metaViavel.status !== "aprendendo" && metaViavel.meta > 0;
   /* ---- Foco v2 (Rick, 05/09): um card que muda com o momento do dia ---- */
   const [sessao, setSessao] = useState<{ id: string; status: string; current_block_index: number; total_blocks: number; started_at: string | null; ended_at: string | null; worked_minutes: number | null } | null>(null);
   const [blocoFimEm, setBlocoFimEm] = useState<number | null>(null); // ms: quando fecha a hora atual
@@ -674,39 +685,16 @@ export default function DefconHub() {
       setGps({ kmSemana: distSemana / 1000, minSemana, kmTotal: distTotal / 1000, diasSemana });
     }
 
-    if (!plan) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("base_daily_goal, goal_hours")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const dg = profile?.base_daily_goal || 200;
-      const wh = profile?.goal_hours || 8;
-      const { data: newPlan } = await supabase
-        .from("daily_goal_plans")
-        .insert({
-          user_id: user.id, date: today,
-          daily_goal: dg, work_hours: wh, mood: "normal", hourly_goal: dg / wh,
-        })
-        .select()
-        .single();
-      if (newPlan) {
-        const blocks = Array.from({ length: wh }, (_, i) => ({
-          plan_id: newPlan.id, user_id: user.id, hour_index: i,
-          hour_label: `H${i + 1}`, target_amount: dg / wh,
-          valor_dinheiro: 0, valor_cartao: 0, valor_pix: 0, valor_calote: 0,
-          timer_status: "idle",
-        }));
-        const { error: blocksErr } = await supabase.from("hourly_goal_blocks").insert(blocks);
-        if (blocksErr) avisar.usuario("Não consegui montar as horas do plano de hoje. Tenta de novo.", blocksErr, "DefconHub: criar blocos do plano");
-        setDailyGoal(dg);
-        setPlanId(newPlan.id);
-        setWorkHours(wh);
+    {
+      // meta viável (11/10): o plano de hoje nasce da meta do cérebro (metas_dia)
+      // e os blocos seguem a curva real de hora; plano velho é alinhado se o DEFCON não começou
+      const p = await garantirPlanoDoDia(user.id, today);
+      if (p) {
+        setDailyGoal(Number(p.daily_goal));
+        setPlanId(p.id);
+        setWorkHours(Number(p.work_hours) || 8);
       }
-    } else {
-      setDailyGoal(Number(plan.daily_goal));
-      setPlanId(plan.id);
-      setWorkHours(Number(plan.work_hours) || 8);
+      void qc.invalidateQueries({ queryKey: ["meta-do-dia"] });
     }
 
     setTotals({
@@ -1064,7 +1052,9 @@ export default function DefconHub() {
               </div>
             </div>
           );
-        })() : (
+        })() : estado === "antes" && temFaixas && metaViavel ? (
+          <MetaDoDiaCard m={metaViavel} vendidoHoje={totalVendido} blocos={workHours} onReplanejar={() => setReplanOpen(true)} />
+        ) : (
           <>
             <p className="orbis-mini mt-3.5">{estado === "encerrado" ? "Vendido hoje" : "Meta do dia"}</p>
             <p className="orbis-num text-[40px] font-extrabold leading-none mt-1.5 tracking-[-1px]" style={estado !== "antes" ? { color: "var(--orbis-ok)" } : undefined}>
@@ -1072,13 +1062,16 @@ export default function DefconHub() {
             </p>
           </>
         )}
-        <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>
+        {!(estado === "antes" && temFaixas) && <p className="text-[12.5px] mt-2" style={{ color: "var(--orbis-fg-2)" }}>
           {estado === "antes" && <><b className="text-foreground">{workHours} blocos</b> de 1h · ritmo de <b className="text-foreground">{brl0(dailyGoal / Math.max(1, workHours))}</b> por hora</>}
           {estado === "rodando" && <>Meta <b className="text-foreground">{brl0(dailyGoal)}</b>{projecao > 0 ? <> · nesse ritmo você fecha em <b className="text-foreground">{brl0(projecao)}</b></> : null}</>}
           {estado === "encerrado" && <><b className="text-foreground">{dailyGoal > 0 ? Math.round((totalVendido / dailyGoal) * 100) : 0}%</b> da meta{faltaCair > 0
             ? <> · caiu <b style={{ color: "var(--orbis-ok)" }}>{brl0(totalCaiu)}</b> · falta cair <b style={{ color: "var(--orbis-gold)" }}>{brl0(faltaCair)}</b></>
             : totals.profit > 0 ? <> · sobrou <b style={{ color: "var(--orbis-ok)" }}>{brl0(totals.profit)}</b> pra você</> : null}</>}
-        </p>
+        </p>}
+        {temFaixas && metaViavel && estado !== "antes" ? (
+          <div className="mt-3.5"><FaixasDaMeta m={metaViavel} vendido={totalVendido} compacta /></div>
+        ) : !(estado === "antes" && temFaixas) && (<>
         <div className="h-1.5 rounded-full mt-3.5 overflow-hidden" style={{ background: "rgba(255,255,255,.08)" }}>
           <div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${progresso}%`, background: goalReached || estado === "rodando" ? "linear-gradient(90deg,#3DD68C,#46E09A)" : "linear-gradient(90deg,#F5B800,#FFC63A)" }} />
         </div>
@@ -1087,6 +1080,7 @@ export default function DefconHub() {
             ? <><span>{goalReached ? `Meta ${brl0(dailyGoal)} batida` : `Meta ${brl0(dailyGoal)}`}</span><span>{goalReached ? `${brl0(totalVendido - dailyGoal)} acima` : `faltou ${brl0(falta)}`}</span></>
             : <><span>{estado === "rodando" ? `${Math.round(progresso)}% da meta` : <>Vendido hoje <b className="text-foreground">{brl0(totalVendido)}</b></>}</span><span>{goalReached ? "meta batida" : `falta ${brl0(falta)}`}</span></>}
         </div>
+        </>)}
 
         {estado === "rodando" ? (
           <button onClick={() => navigate("/defcon")} data-tour="defcon-banner" className="w-full h-[56px] rounded-[17px] mt-4 font-extrabold text-[16px] flex items-center justify-center gap-2 active:scale-[.98] transition" style={{ background: "linear-gradient(180deg,#46E09A,#3DD68C)", color: "#06170e", boxShadow: "0 12px 28px -12px rgba(61,214,140,.8)" }}>
@@ -1345,7 +1339,11 @@ export default function DefconHub() {
       <p className="text-center text-[11.5px] mt-4" style={{ color: "var(--orbis-fg-3)" }}>Relatórios completos e filtros ficam na aba <span style={{ color: "var(--orbis-gold)" }}>Relatório</span>.</p>
 
       {user && (
-        <EditPlanningModal userId={user.id} isOpen={showEdit} onClose={() => { setShowEdit(false); loadAll(); }} />
+        <EditPlanningModal userId={user.id} isOpen={showEdit} onClose={() => { setShowEdit(false); void qc.invalidateQueries({ queryKey: ["meta-do-dia"] }); loadAll(); }} />
+      )}
+      {metaViavel && (
+        <ReplanejarMes aberto={replanOpen} onFechar={() => setReplanOpen(false)} m={metaViavel} salvando={replanejar.isPending}
+          onEscolher={(tipo) => { replanejar.mutate(tipo, { onSuccess: () => { setReplanOpen(false); loadAll(); } }); }} />
       )}
       {user && (
         <DefconAjustarDiaModal open={ajustarDiaOpen} onOpenChange={setAjustarDiaOpen} userId={user.id} onSaved={loadAll} />
