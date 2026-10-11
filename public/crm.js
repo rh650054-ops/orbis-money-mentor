@@ -870,7 +870,7 @@ function renderAlertas(){
 /* ===== TELA ESTEIRAS ===== */
 function renderEsteiras(){
  let h=`<p class="nota" style="margin:0 0 12px">Clique em qualquer ficha para abrir o <b>painel completo da pessoa</b>.
- Uma ficha só avança de coluna quando as atividades daquela etapa são feitas — e você pode mover à mão, mas o CRM avisa se ainda falta atividade.
+ Para mudar de lugar, <b>pegue a ficha e solte em qualquer coluna</b>, até de outra esteira (no celular: segure a ficha meio segundo e arraste).
  No celular, arraste as colunas para o lado.</p>`;
  for(const [k,def] of Object.entries(E)){
   const total=def.cols.reduce((s,[c])=>s+(QTD[k+"/"+c]||0),0);
@@ -882,10 +882,10 @@ function renderEsteiras(){
    ${def.cols.map(([c,titulo])=>{
      const qtd=QTD[k+"/"+c]||0,morto=(c==="acabou");
      const am=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x)).slice(0,4);
-     return `<div class="col"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num">${qtd}</span></div>
+     return `<div class="col" data-drop="${k}/${c}"><div class="col-h"><span class="t"${morto?' style="color:var(--bad)"':''}>${esc(titulo)}</span><span class="q num">${qtd}</span></div>
       ${am.map(x=>{
         const semMotivo=etapaDe(x)==="acabou"&&!notaDe(x,0).trim();
-        return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}">
+        return `<button class="chip${morto?" morto":""}" style="border-left-color:var(--${morto?"bad":def.cor})" data-painel="${x.id}" data-arrasta="${x.id}">
          <div class="nm">${esc(x.n)}</div>
          <div class="sb${travaDe(x)||semMotivo?" bad":""}">${semMotivo?"sem motivo · conta como sem contato"
            :travaDe(x)?`travado ${travaDe(x)}d`:`${Math.round(x.d)}d nessa coluna`}</div></button>`;}).join("")}
@@ -904,12 +904,102 @@ function renderEsteiras(){
     :`<div class="mais">nenhuma — bom sinal</div>`}</div></div>`;
  document.getElementById("p-esteiras").innerHTML=h;
  document.querySelectorAll("#p-esteiras [data-zap-fix]").forEach(b=>b.onclick=()=>corrigirZap(byId(+b.dataset.zapFix)));
- document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>abrir(+b.dataset.painel));
+ document.querySelectorAll("#p-esteiras [data-painel]").forEach(b=>b.onclick=()=>{ if(ARRASTO.acabou) return; abrir(+b.dataset.painel); });
+ document.querySelectorAll("#p-esteiras [data-arrasta]").forEach(ligarArrasto);
  document.querySelectorAll("#p-esteiras [data-coluna]").forEach(b=>b.onclick=()=>{
    const [k,c]=b.dataset.coluna.split("/"); const titulo=(E[k].cols.find(x=>x[0]===c)||[c,c])[1];
    const lista=FICHAS.filter(x=>x.e===k&&etapaDe(x)===c&&!escondida(x));
    abrirLista(titulo, `${lista.length} pessoas nesta coluna · por prioridade`, lista, lista.length);
  });
+}
+
+/* ===== ARRASTAR FICHA (Rick, 11/10): pega a ficha e solta em qualquer coluna, de qualquer esteira =====
+   Mouse: começa a arrastar depois de 6px. Toque: segura 450ms (pra não brigar com a rolagem).
+   Perto da borda, a tela rola sozinha. Soltar fora de uma coluna = nada muda. */
+const ARRASTO={f:null,el:null,fantasma:null,alvo:null,acabou:false,t:null,x0:0,y0:0,pid:null,rolar:null};
+function moverArrastando(f,k,c){
+ const destino=E[k]?.cols.find(x=>x[0]===c); if(!destino) return;
+ if(f.e===k&&etapaDe(f)===c) return;
+ if(k==="trial"&&c==="assinou"){            // mesma regra do botão: Assinou entra sozinho em Pagantes
+   void gravarEstado(f,{esteira:"pagante",etapa:"novo",etapa_base:f.c}); f.e="pagante";
+   toast(f.n.split(" ")[0]+" assinou · foi para Já pagantes");
+ } else {
+   const patch={etapa:c,etapa_base:f.c}; if(k!==f.e) patch.esteira=k;
+   void gravarEstado(f,patch); f.e=k;
+   toast(f.n.split(" ")[0]+" → "+E[k].nome+" · "+destino[1]);
+ }
+ QTD={}; for(const x of FICHAS){ const q=x.e+"/"+etapaDe(x); QTD[q]=(QTD[q]||0)+1; }
+ render();
+}
+function alvoEm(x,y){
+ if(ARRASTO.fantasma) ARRASTO.fantasma.style.display="none";
+ const el=document.elementFromPoint(x,y);
+ if(ARRASTO.fantasma) ARRASTO.fantasma.style.display="";
+ return el?el.closest("#p-esteiras [data-drop]"):null;
+}
+function rolarPerto(x,y){
+ const m=60, vy=y<m?-12:(y>innerHeight-m?12:0);
+ if(vy) scrollBy(0,vy);
+ // a faixa de colunas na altura do dedo (mesmo com o dedo já fora dela, na borda da tela)
+ const cols=[...document.querySelectorAll("#p-esteiras .cols")].find(c=>{const r=c.getBoundingClientRect();return y>=r.top&&y<=r.bottom;});
+ if(cols){ const r=cols.getBoundingClientRect(); const vx=x<r.left+m?-14:(x>r.right-m?14:0); if(vx) cols.scrollLeft+=vx; }
+}
+function comecarArrasto(x,y){
+ const el=ARRASTO.el, r=el.getBoundingClientRect();
+ const g=el.cloneNode(true); g.removeAttribute("data-painel"); g.removeAttribute("data-arrasta");
+ Object.assign(g.style,{position:"fixed",left:r.left+"px",top:r.top+"px",width:r.width+"px",zIndex:9999,
+   pointerEvents:"none",opacity:".92",transform:"rotate(2deg) scale(1.03)",boxShadow:"0 10px 28px rgba(0,0,0,.45)",transition:"none"});
+ g.dataset.dx=String(x-r.left); g.dataset.dy=String(y-r.top);
+ document.body.appendChild(g); ARRASTO.fantasma=g;
+ el.classList.add("arrastando"); document.body.classList.add("arrastando-ficha");
+ if(navigator.vibrate) try{navigator.vibrate(15);}catch(e){}
+}
+function moverFantasma(x,y){
+ const g=ARRASTO.fantasma; if(!g) return;
+ g.style.left=(x-(+g.dataset.dx))+"px"; g.style.top=(y-(+g.dataset.dy))+"px";
+ const alvo=alvoEm(x,y);
+ if(alvo!==ARRASTO.alvo){ ARRASTO.alvo?.classList.remove("alvo"); alvo?.classList.add("alvo"); ARRASTO.alvo=alvo; }
+ clearInterval(ARRASTO.rolar); ARRASTO.rolar=setInterval(()=>rolarPerto(x,y),30);
+}
+function limparArrasto(){
+ clearTimeout(ARRASTO.t); clearInterval(ARRASTO.rolar);
+ ARRASTO.fantasma?.remove(); ARRASTO.alvo?.classList.remove("alvo"); ARRASTO.el?.classList.remove("arrastando");
+ document.body.classList.remove("arrastando-ficha");
+ Object.assign(ARRASTO,{f:null,el:null,fantasma:null,alvo:null,t:null,pid:null,rolar:null});
+}
+function ligarArrasto(el){
+ el.addEventListener("contextmenu",e=>{ if(ARRASTO.el) e.preventDefault(); });
+ el.addEventListener("pointerdown",e=>{
+  if(e.button!==0||ARRASTO.el) return;
+  const f=byId(+el.dataset.arrasta); if(!f) return;
+  Object.assign(ARRASTO,{f,el,x0:e.clientX,y0:e.clientY,pid:e.pointerId,acabou:false});
+  if(e.pointerType!=="mouse"){
+    ARRASTO.t=setTimeout(()=>{ if(ARRASTO.el===el){ try{el.setPointerCapture(e.pointerId);}catch(_){} comecarArrasto(ARRASTO.x0,ARRASTO.y0); } },450);
+  }
+ });
+ el.addEventListener("pointermove",e=>{
+  if(ARRASTO.el!==el||e.pointerId!==ARRASTO.pid) return;
+  const longe=Math.hypot(e.clientX-ARRASTO.x0,e.clientY-ARRASTO.y0);
+  if(!ARRASTO.fantasma){
+    if(e.pointerType!=="mouse"){ if(longe>10) limparArrasto(); else { ARRASTO.x0=e.clientX; ARRASTO.y0=e.clientY; } return; }  // rolou: não é arrasto
+    if(longe<6) return;
+    try{el.setPointerCapture(e.pointerId);}catch(_){}
+    comecarArrasto(ARRASTO.x0,ARRASTO.y0);
+  }
+  e.preventDefault(); moverFantasma(e.clientX,e.clientY);
+ });
+ el.addEventListener("touchmove",e=>{ if(ARRASTO.fantasma) e.preventDefault(); },{passive:false});
+ const soltar=e=>{
+  if(ARRASTO.el!==el) return;
+  const arrastou=!!ARRASTO.fantasma, f=ARRASTO.f;
+  const alvo=arrastou&&e.type==="pointerup"?alvoEm(e.clientX,e.clientY):null;
+  limparArrasto();
+  if(!arrastou) return;
+  ARRASTO.acabou=true; setTimeout(()=>{ARRASTO.acabou=false;},0);   // o click que vem depois não abre o painel
+  if(alvo){ const [k,c]=alvo.dataset.drop.split("/"); moverArrastando(f,k,c); }
+ };
+ el.addEventListener("pointerup",soltar);
+ el.addEventListener("pointercancel",soltar);
 }
 
 /* ===== CONTATO ERRADO: corrigir o WhatsApp (conta ou lead) ===== */
