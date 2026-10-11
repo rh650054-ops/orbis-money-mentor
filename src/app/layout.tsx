@@ -22,6 +22,7 @@ import MorningCommitModal from "@/components/MorningCommitModal";
 import AceiteTermosModal from "@/components/AceiteTermosModal";
 import BackButton from "@/shared/components/back-button";
 import { PageTransition } from "@/shared/motion";
+import { useIosViewportFix } from "@/shared/hooks/use-ios-viewport-fix";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,6 +46,8 @@ const navigation = [
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  // iPhone: a barra de baixo ficava no meio da tela depois do teclado (11/10)
+  useIosViewportFix();
   const navActiveIndex = navigation.findIndex((i) => i.href === location.pathname);
   const navigate = useNavigate();
   const { user, signOut, loading } = useAuth();
