@@ -225,6 +225,12 @@ h2.sec:first-child{margin-top:0}
 .chip{background:var(--panel2);border:1px solid var(--line);border-left-width:3px;border-radius:8px;
   padding:7px 8px;margin-bottom:5px;font-size:12px;cursor:pointer;width:100%;transition:transform .1s}
 .chip:hover{transform:translateX(2px)}
+.chip[data-arrasta]{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.chip.arrastando{opacity:.35}
+.col.alvo{background:var(--panel2);outline:2px dashed var(--c1);outline-offset:-4px}
+body.arrastando-ficha,body.arrastando-ficha *{cursor:grabbing!important}
+body.arrastando-ficha .cols{scroll-snap-type:none}  /* o snap desfaz a rolagem automática */
+@media(hover:hover){.chip[data-arrasta]{cursor:grab}}
 .chip.morto{border-color:var(--bad);background:var(--bad-s)}
 .chip .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip .sb{font-size:10px;color:var(--faint);margin-top:2px}
@@ -454,6 +460,6 @@ h2.sec:first-child{margin-top:0}
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Painel"></aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="/crm.js?v=13" defer></script>
+<script src="/crm.js?v=14" defer></script>
 </body>
 </html>
