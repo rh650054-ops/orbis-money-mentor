@@ -81,29 +81,41 @@ export async function syncLeaderboardRevenue(userId: string) {
   const today = getBrazilDate();
 
   // Sum all daily_sales for this month using total_profit (same as Dashboard "Entradas")
-  const { data: monthlySales } = await supabase
+  const { data: monthlySales, error: mesErr } = await supabase
     .from("daily_sales")
     .select("total_profit, cash_sales, pix_sales, card_sales, total_debt")
     .eq("user_id", userId)
     .gte("date", startOfMonth)
     .lte("date", today);
+  // "Não consegui ler" ≠ "não vendeu nada" (12/10/2026): sem as vendas do mês, o
+  // total daria 0 e iria pro placar público. Para aqui e mantém o ranking como está;
+  // a próxima venda (ou o recálculo do servidor) atualiza de novo.
+  if (mesErr || !monthlySales) {
+    avisar.erro("syncDailySales: ler vendas do mês (ranking mantido)", mesErr);
+    return;
+  }
 
   // A PARTIR DE 01/09/2026 (decisão do Rick): DINHEIRO CONTA no ranking.
   // Motivo: a tela do ranking já mostrava o valor cheio (total_profit) enquanto a
   // POSIÇÃO era calculada só com cartão+pix — o vendedor via um número e ganhava
   // medalha por outro, e quem recebe em dinheiro era punido sem saber. Agora as
   // duas pontas usam a MESMA conta: cartão + pix + dinheiro.
-  const totalFaturamento = (monthlySales || []).reduce(
+  const totalFaturamento = monthlySales.reduce(
     (sum, s) => sum + (s.card_sales || 0) + (s.pix_sales || 0) + (s.cash_sales || 0),
     0
   );
 
   // Get user profile for name/avatar
-  const { data: profile } = await supabase
+  const { data: profile, error: perfilErr } = await supabase
     .from("profiles")
     .select("nickname, email, avatar_url, ranking_hidden, ranking_oculto")
     .eq("user_id", userId)
     .maybeSingle();
+  // Sem o perfil não dá pra saber se a pessoa está oculta, e o nome viraria "Usuário".
+  if (perfilErr) {
+    avisar.erro("syncDailySales: ler perfil (ranking mantido)", perfilErr);
+    return;
+  }
 
   // Fora do ranking: por moderação (ranking_hidden) OU por escolha do próprio vendedor
   // (ranking_oculto = "ocultar meu resultado"). Remove a entrada do mês e não recria.
@@ -122,17 +134,22 @@ export async function syncLeaderboardRevenue(userId: string) {
 
   // Dias com venda que contam no ranking — mesma base do faturamento acima
   // (agora com dinheiro): quem só vendeu em dinheiro no dia também trabalhou.
-  const daysWithSales = (monthlySales || []).filter(
+  const daysWithSales = monthlySales.filter(
     s => ((s.card_sales || 0) + (s.pix_sales || 0) + (s.cash_sales || 0)) > 0
   ).length;
 
   // Get or create leaderboard entry
-  const { data: existingEntry } = await supabase
+  const { data: existingEntry, error: entradaErr } = await supabase
     .from("leaderboard_stats")
     .select("id, dias_trabalhados_mes, constancia_streak_atual, constancia_maior_streak")
     .eq("user_id", userId)
     .eq("mes_referencia", currentMonth)
     .maybeSingle();
+  // Sem saber se a entrada existe, criaria uma segunda pro mesmo mês.
+  if (entradaErr) {
+    avisar.erro("syncDailySales: ler entrada do ranking (ranking mantido)", entradaErr);
+    return;
+  }
 
   if (existingEntry) {
     const { error } = await supabase
