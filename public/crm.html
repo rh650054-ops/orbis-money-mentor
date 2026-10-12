@@ -16,6 +16,7 @@
   --ink:#13161A; --dim:#5B626D; --faint:#8A909C; --line:#E2E0DB; --line2:#CFCCC5;
   --c1:#3B6FE0; --c2:#0F9E78; --c3:#D9432A; --c4:#8B5CF0;
   --c1s:#E6EDFC; --c2s:#DFF3ED; --c3s:#FBE7E2; --c4s:#EFE9FD;
+  --c5:#B58300; --c5s:#FBF1D6;
   --ok:#0F9E78; --ok-s:#DFF3ED; --warn:#B5760D; --warn-s:#FBF0DC;
   --bad:#C4321A; --bad-s:#FBE3DD;
   --shadow:0 1px 2px rgba(16,18,20,.05),0 8px 24px -16px rgba(16,18,20,.26);
@@ -25,6 +26,7 @@
   --ink:#E8EAED; --dim:#949AA5; --faint:#6A707D; --line:#242930; --line2:#333942;
   --c1:#4E86EC; --c2:#0FAE86; --c3:#EC6244; --c4:#9370EE;
   --c1s:#141F33; --c2s:#0B2B24; --c3s:#301A15; --c4s:#201A38;
+  --c5:#F5B800; --c5s:#2C2306;
   --ok:#0FAE86; --ok-s:#0B2B24; --warn:#E0A43A; --warn-s:#2C2212;
   --bad:#EC6244; --bad-s:#301A15;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.85);}}
@@ -33,6 +35,7 @@
   --ink:#E8EAED; --dim:#949AA5; --faint:#6A707D; --line:#242930; --line2:#333942;
   --c1:#4E86EC; --c2:#0FAE86; --c3:#EC6244; --c4:#9370EE;
   --c1s:#141F33; --c2s:#0B2B24; --c3s:#301A15; --c4s:#201A38;
+  --c5:#F5B800; --c5s:#2C2306;
   --ok:#0FAE86; --ok-s:#0B2B24; --warn:#E0A43A; --warn-s:#2C2212;
   --bad:#EC6244; --bad-s:#301A15;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.85);}
@@ -114,6 +117,10 @@ h2.sec:first-child{margin-top:0}
 .pill.p2{color:var(--c2);border-color:var(--c2);background:var(--c2s)}
 .pill.p3{color:var(--c3);border-color:var(--c3);background:var(--c3s)}
 .pill.p4{color:var(--c4);border-color:var(--c4);background:var(--c4s)}
+.pill.p5{color:var(--c5);border-color:var(--c5);background:var(--c5s)}
+.est-resumo{display:flex;flex-wrap:wrap;gap:6px;width:100%;margin-top:8px}
+.est-resumo span{font-size:11px;font-weight:700;border:1px solid var(--line);border-radius:999px;padding:3px 9px;color:var(--dim)}
+.est-resumo b{color:var(--ink)}
 .pill.bad{color:var(--bad);border-color:var(--bad);background:var(--bad-s)}
 .porque{margin:0;padding:11px 15px;background:var(--panel2);border-bottom:1px solid var(--line);font-size:13px;display:flex;gap:8px;line-height:1.5}
 .blk{padding:13px 15px;border-bottom:1px solid var(--line)}
@@ -460,6 +467,6 @@ body.arrastando-ficha .cols{scroll-snap-type:none}  /* o snap desfaz a rolagem a
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Painel"></aside>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="/crm.js?v=14" defer></script>
+<script src="/crm.js?v=15" defer></script>
 </body>
 </html>
