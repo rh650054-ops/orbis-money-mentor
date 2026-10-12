@@ -1,4 +1,4 @@
-/* /simular-teste — só admin. Escolhe o dia do teste e o app inteiro passa a mostrar
+/* /simular-teste — admin ou conta de teste (contas_teste). Escolhe o dia do teste e o app inteiro passa a mostrar
    o que um vendedor em teste vê naquele dia. Nada vai pro banco. */
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -9,6 +9,7 @@ import { JORNADA, seloTeste } from "@/components/jornada/jornada-lib";
 import { OfertaDoDia } from "@/components/jornada/OfertaDoDia";
 import { useJornada } from "@/components/jornada/useJornada";
 import { simular, zerarSimulacao, useSimulacao, type DiaSimulado } from "@/components/jornada/simulador";
+import { useContaTeste, zerarSeContaTeste } from "@/components/jornada/conta-teste";
 
 const GOLD = "#F5B800";
 const MUTE = "#7b766e";
@@ -27,12 +28,13 @@ export default function SimularTeste() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { whitelisted, loading } = useAdminAccess(user?.id);
+  const contaTeste = useContaTeste(user?.id);
   const sim = useSimulacao(user?.id);
   const { feitos } = useJornada();
   const [oferta, setOferta] = useState(0);
 
   if (loading) return null;
-  if (!user || !whitelisted) {
+  if (!user || (!whitelisted && !contaTeste)) {
     return <div className="min-h-screen p-6 text-center text-sm" style={{ background: "#000", color: MUTE }}>Só a equipe da VANT abre o simulador.</div>;
   }
   const j = sim != null && sim <= 3 ? JORNADA[sim] : null;
@@ -101,6 +103,13 @@ export default function SimularTeste() {
           <button type="button" onClick={() => zerarSimulacao(user.id)} className={btn} style={{ background: "#121211", border: "1px solid #26241f" }}>Zerar missões</button>
           <button type="button" onClick={() => simular(user.id, null)} className={`${btn} col-span-2`} style={{ border: "1px solid rgba(255,122,107,.45)", color: "#ff9a8a" }}>Desligar a simulação</button>
         </div>
+      )}
+
+      {contaTeste && (
+        <button type="button" className={btn} style={{ border: "1px solid rgba(245,184,0,.45)", color: GOLD }}
+          onClick={async () => { if (await zerarSeContaTeste(user.id)) navigate("/onboarding-novo", { replace: true }); }}>
+          Zerar a conta e começar do onboarding
+        </button>
       )}
 
       {oferta > 0 && <OfertaDoDia key={oferta} agora />}

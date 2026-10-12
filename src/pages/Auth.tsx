@@ -15,6 +15,7 @@ import { getReferralCode } from "@/shared/lib/checkout";
 import { TERMOS_VERSAO } from "@/components/AceiteTermosModal";
 import { useBrazilCities } from "@/shared/hooks/use-brazil-cities";
 import { telefoneNormalizado, telefoneValido } from "@/shared/lib/telefone";
+import { zerarSeContaTeste } from "@/components/jornada/conta-teste";
 
 type LoginMethod = "cpf" | "email";
 
@@ -104,7 +105,8 @@ export default function Auth() {
 
       if (isLogin) {
         const internalEmail = await resolveLoginEmail();
-        const { error } = await supabase.auth.signInWithPassword({
+        cadastrando.current = true; // quem navega depois do login é aqui (conta de teste vai pro zero)
+        const { data: entrou, error } = await supabase.auth.signInWithPassword({
           email: internalEmail,
           password,
         });
@@ -114,6 +116,14 @@ export default function Auth() {
           }
           throw error;
         }
+        // Conta de teste da equipe: cada login começa do zero, no onboarding.
+        if (entrou?.user && await zerarSeContaTeste(entrou.user.id)) {
+          cadastrando.current = false;
+          toast({ title: "Conta de teste zerada", description: "Começando do zero: onboarding e Dia 0." });
+          navigate("/onboarding-novo", { replace: true });
+          return;
+        }
+        cadastrando.current = false;
         toast({ title: "Login realizado!", description: "Bem-vindo de volta à Vant." });
         navigate("/", { replace: true });
       } else {
