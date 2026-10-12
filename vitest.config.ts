@@ -7,6 +7,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // edge functions (Deno) importam do esm.sh; no teste usa o pacote do npm
+      "https://esm.sh/@supabase/supabase-js@2": "@supabase/supabase-js",
     },
   },
   test: {

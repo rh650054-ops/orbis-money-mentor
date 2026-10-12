@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { avisar } from "@/shared/lib/avisar";
 import { getUnsynced, markSynced, clearSynced, type OfflineRecord } from "./offline-db";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
+import { subirVendaPendente } from "./venda-offline";
 import { diasOfflinePendentes, marcarDiaSincronizado, type DiaOffline } from "./offline-day";
 
 let syncing = false;
@@ -14,7 +15,9 @@ export async function syncAllPendingData(): Promise<void> {
   syncing = true;
 
   try {
-    const salesSynced = await syncStore('pending_sales', syncSaleRecord);
+    const salesSynced =
+      (await syncStore('pending_sales', syncSaleRecord)) +
+      (await syncStore('pending_venda', subirVendaPendente));
     await syncStore('pending_checklist', syncChecklistRecord);
     await syncStore('pending_defcon', syncDefconRecord);
     await syncStore('pending_approaches', syncApproachRecord);
@@ -25,6 +28,7 @@ export async function syncAllPendingData(): Promise<void> {
 
     // Clean up synced records
     await clearSynced('pending_sales');
+    await clearSynced('pending_venda');
     await clearSynced('pending_checklist');
     await clearSynced('pending_defcon');
     await clearSynced('pending_approaches');
@@ -43,7 +47,7 @@ export async function syncAllPendingData(): Promise<void> {
   }
 }
 
-type StoreName = 'pending_sales' | 'pending_checklist' | 'pending_defcon' | 'pending_approaches';
+type StoreName = 'pending_sales' | 'pending_venda' | 'pending_checklist' | 'pending_defcon' | 'pending_approaches';
 
 async function syncStore(store: StoreName, handler: (record: OfflineRecord) => Promise<boolean>): Promise<number> {
   const records = await getUnsynced(store);

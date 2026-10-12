@@ -5,11 +5,35 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-hotmart-hottok",
 };
 
-Deno.serve(async (req) => {
+type Cliente = ReturnType<typeof createClient>;
+
+const criarClienteServidor = (): Cliente =>
+  createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+
+// RECEBIDO ≠ CONCLUÍDO (12/10/2026): o evento é marcado em processed_hotmart_events
+// logo no início (trava contra a Hotmart reenviar no meio). Se QUALQUER gravação que
+// libera ou tira acesso falhar depois, a marca é apagada e a resposta é 500 — assim a
+// Hotmart reenvia e o reenvio é processado de novo, em vez de cair em "duplicado".
+// Reprocessar é seguro: as gravações usam valores absolutos (upsert por user_id,
+// pro_conceder/banco_extra_registrar fazem upsert).
+class FalhaGravacao extends Error {
+  constructor(public etapa: string, causa: unknown) {
+    super(`${etapa}: ${(causa as { message?: string })?.message ?? String(causa)}`.slice(0, 300));
+  }
+}
+
+/** Lança FalhaGravacao se a chamada ao Supabase devolveu { error }. */
+function exigir(etapa: string, r: { error: unknown }) {
+  if (r.error) throw new FalhaGravacao(etapa, r.error);
+}
+
+export async function tratarHotmart(req: Request, criarCliente: () => Cliente = criarClienteServidor): Promise<Response> {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let supabase: Cliente | null = null;
+  let eventoMarcado: string | null = null;
   try {
     // Validate Hotmart hottok
     const hottok = req.headers.get("x-hotmart-hottok");
@@ -61,10 +85,7 @@ Deno.serve(async (req) => {
     // Clean CPF (remove non-digits)
     const buyerCpf = buyerDoc ? buyerDoc.replace(/\D/g, "") : null;
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    supabase = criarCliente();
 
     // IDEMPOTENCIA: a Hotmart reenvia o mesmo evento em timeout/erro. Registra o evento;
     // se ja foi processado, ignora (evita estender assinatura 2x ou ressuscitar cancelada).
@@ -82,6 +103,8 @@ Deno.serve(async (req) => {
         return new Response(JSON.stringify({ status: "duplicate" }), { headers: corsHeaders });
       }
       console.error("hotmart-webhook: dedup falhou (seguindo)", (dupErr as { message?: string }).message);
+    } else {
+      eventoMarcado = eventId;
     }
 
     // ===== CAIXA-PRETA DA VENDA =====
@@ -198,12 +221,7 @@ Deno.serve(async (req) => {
         const { error: bxErr } = await supabase.rpc("banco_extra_registrar", {
           p_user: dono, p_chave: assinanteCod || purchaseId, p_ativo: liga, p_ate: ate.toISOString(),
         });
-        if (bxErr) {
-          console.error("banco_extra_registrar:", bxErr.message);
-          // libera o evento pra Hotmart reenviar (senão a nova tentativa vira "duplicado")
-          await supabase.from("processed_hotmart_events").delete().eq("event_id", eventId);
-          return new Response(JSON.stringify({ error: "banco_extra_falhou" }), { status: 500, headers: corsHeaders });
-        }
+        exigir("banco_extra_registrar", { error: bxErr });
         console.log(`Banco extra ${liga ? "liberado" : "retirado"} para ${dono}`);
 
         // BUG-005 (08/10/2026): a compra caiu numa conta que NÃO consegue usar o banco
@@ -240,14 +258,14 @@ Deno.serve(async (req) => {
     // e-mail/CPF — ela já entra como pagante, sem ninguém precisar mexer.
     if (!userId) {
       console.log("Could not identify user, storing as unlinked purchase");
-      await supabase.from("unlinked_purchases").insert({
+      exigir("unlinked_purchases", await supabase.from("unlinked_purchases").insert({
         buyer_email: buyerEmail || null,
         buyer_cpf: buyerCpf || null,
         hotmart_purchase_id: purchaseId,
         hotmart_subscription_id: subscriptionId,
         event_type: event,
         payload,
-      });
+      }));
       return new Response(JSON.stringify({ status: "unlinked" }), {
         headers: corsHeaders,
       });
@@ -277,7 +295,7 @@ Deno.serve(async (req) => {
       eventNormalized.includes("SUBSCRIPTION_RENEWAL")
     ) {
       // Activate subscription
-      await supabase
+      exigir("subscriptions", await supabase
         .from("subscriptions")
         .upsert(
           {
@@ -291,13 +309,13 @@ Deno.serve(async (req) => {
             last_event_at: now.toISOString(),
           },
           { onConflict: "user_id" }
-        );
+        ));
 
       // Update profile plan_status
-      await supabase
+      exigir("profiles", await supabase
         .from("profiles")
         .update({ plan_status: "active", is_trial_active: false })
-        .eq("user_id", userId);
+        .eq("user_id", userId));
 
       if (proDays) {
         const { error: proErr } = await supabase.rpc("pro_conceder", {
@@ -305,8 +323,8 @@ Deno.serve(async (req) => {
           p_codigo: subscriptionId || null, p_produto: offerCode,
           p_ate: graceEnd.toISOString(),
         });
-        if (proErr) console.error("pro_conceder:", proErr.message);
-        else console.log(`Vant Pro (${offerCode}) on for user ${userId}`);
+        exigir("pro_conceder", { error: proErr });
+        console.log(`Vant Pro (${offerCode}) on for user ${userId}`);
       }
 
       console.log(`Subscription activated for user ${userId}`);
@@ -315,7 +333,7 @@ Deno.serve(async (req) => {
       eventNormalized.includes("PURCHASE_PROTEST")
     ) {
       // Past due
-      await supabase
+      exigir("subscriptions", await supabase
         .from("subscriptions")
         .upsert(
           {
@@ -327,7 +345,7 @@ Deno.serve(async (req) => {
             last_event_at: now.toISOString(),
           },
           { onConflict: "user_id" }
-        );
+        ));
 
       console.log(`Subscription past_due for user ${userId}`);
     } else if (
@@ -336,7 +354,7 @@ Deno.serve(async (req) => {
       eventNormalized.includes("PURCHASE_CHARGEBACK")
     ) {
       // Cancel immediately
-      await supabase
+      exigir("subscriptions", await supabase
         .from("subscriptions")
         .upsert(
           {
@@ -349,16 +367,16 @@ Deno.serve(async (req) => {
             last_event_at: now.toISOString(),
           },
           { onConflict: "user_id" }
-        );
+        ));
 
-      await supabase
+      exigir("profiles", await supabase
         .from("profiles")
         .update({ plan_status: "expired" })
-        .eq("user_id", userId);
+        .eq("user_id", userId));
 
       if (proDays) {
         const { error: proErr } = await supabase.rpc("pro_revogar", { p_user: userId });
-        if (proErr) console.error("pro_revogar:", proErr.message);
+        exigir("pro_revogar", { error: proErr });
       }
 
       console.log(`Subscription canceled for user ${userId}`);
@@ -368,10 +386,17 @@ Deno.serve(async (req) => {
       headers: corsHeaders,
     });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("Webhook error:", error instanceof Error ? error.message : String(error).slice(0, 300));
+    // Não concluiu: libera o evento pra Hotmart reenviar (senão o reenvio vira "duplicado").
+    if (supabase && eventoMarcado) {
+      const { error: libErr } = await supabase.from("processed_hotmart_events").delete().eq("event_id", eventoMarcado);
+      if (libErr) console.error(`hotmart-webhook: NÃO liberou o evento ${eventoMarcado} pra reenvio — reprocessar à mão`, libErr.message);
+    }
     return new Response(JSON.stringify({ error: "Internal error" }), {
       status: 500,
       headers: corsHeaders,
     });
   }
-});
+}
+
+Deno.serve((req) => tratarHotmart(req));
