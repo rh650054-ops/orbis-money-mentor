@@ -6,6 +6,9 @@ import { getBrazilDate, getBrazilDateDaysAgo, getBrazilTime } from "@/shared/lib
 import { celebrationSounds } from "@/shared/lib/celebration-sounds";
 import { syncBlocksToDailySales } from "@/utils/syncDailySales";
 import { addOfflineRecord } from "@/shared/lib/offline-db";
+import {
+  novaLinhaVenda, gravarLinhaVenda, guardarVendaOffline, esquecerTotalSessaoOffline, type LinhaVenda,
+} from "@/shared/lib/venda-offline";
 
 const BLOCK_DURATION = 60 * 60; // 60 minutes
 const BREAK_DURATION = 5 * 60;  // 5 minutes
@@ -75,6 +78,16 @@ async function queueBlockOffline(
   } catch (e) {
     // IndexedDB indisponivel (aba anonima / storage cheio): resta so o estado otimista da tela.
     avisar.usuario("Sem internet e sem espaço no aparelho: essa venda pode não ficar guardada.", e, "DEFCON: fila offline indisponível");
+  }
+}
+
+/** Fila offline da venda individual (defcon_sales) + total da sessão. Nunca derruba a venda. */
+async function queueVendaOffline(linha: LinhaVenda | null, totalSessao: number) {
+  if (!linha) return;
+  try {
+    await guardarVendaOffline(linha, totalSessao);
+  } catch (e) {
+    avisar.erro("DEFCON: fila offline da venda indisponível", e);
   }
 }
 
@@ -1031,8 +1044,16 @@ export function useDefconChallenge(userId: string | undefined) {
       valor_pix: newPix,
       valor_cartao: newCartao,
     };
+    // A venda nasce aqui, com id próprio: online ou na fila, é sempre a MESMA venda.
+    const linha = sessionId
+      ? novaLinhaVenda({
+          user_id: userId, session_id: sessionId, block_index: currentBlockIndex, amount, method, late: false,
+          ...(produto ? { product_id: produto.id, qty: Math.max(1, produto.qty) } : {}),
+        })
+      : null;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       await queueBlockOffline(blockState, userId, planIdRef.current);
+      await queueVendaOffline(linha, newTotal);
       return;
     }
     try {
@@ -1053,18 +1074,10 @@ export function useDefconChallenge(userId: string | undefined) {
           .update({ total_sold: newTotal })
           .eq("id", sessionId);
         if (sesErr) throw sesErr;
+        await esquecerTotalSessaoOffline(sessionId);
         await saveBlockApproaches(sessionId, currentBlockIndex, newApproaches, newBlockSales);
         // Registra a venda como LINHA em defcon_sales (pra listar/editar/excluir).
-        const { error: saleErr } = await supabase.from("defcon_sales").insert({
-          user_id: userId,
-          session_id: sessionId,
-          block_index: currentBlockIndex,
-          amount,
-          method,
-          late: false,
-          ...(produto ? { product_id: produto.id, qty: Math.max(1, produto.qty) } : {}),
-        });
-        if (saleErr) throw saleErr;
+        if (linha) await gravarLinhaVenda(linha);
       }
 
       await syncBlocksToDailySales(userId, planDateRef.current);
@@ -1073,6 +1086,7 @@ export function useDefconChallenge(userId: string | undefined) {
       // Rede caiu no meio (ou { error } retornado): enfileira pra subir ao reconectar.
       avisar.erro("DEFCON: venda não subiu agora, ficou na fila offline", e);
       await queueBlockOffline(blockState, userId, planIdRef.current);
+      await queueVendaOffline(linha, newTotal);
     }
   };
 
@@ -1198,8 +1212,12 @@ export function useDefconChallenge(userId: string | undefined) {
     setTotalSold(newTotal);
 
     const blockState = { ...currentBlock, achieved_amount: newAchieved, valor_pix: newPix };
+    const linha = sessionId
+      ? novaLinhaVenda({ user_id: userId, session_id: sessionId, block_index: blockIdx, amount, method: "pix", late: true })
+      : null;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       await queueBlockOffline(blockState, userId, planIdRef.current);
+      await queueVendaOffline(linha, newTotal);
       return;
     }
     try {
@@ -1215,15 +1233,8 @@ export function useDefconChallenge(userId: string | undefined) {
       if (sessionId) {
         const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
         if (sesErr) throw sesErr;
-        const { error: saleErr } = await supabase.from("defcon_sales").insert({
-          user_id: userId,
-          session_id: sessionId,
-          block_index: blockIdx,
-          amount,
-          method: "pix",
-          late: true,
-        });
-        if (saleErr) throw saleErr;
+        await esquecerTotalSessaoOffline(sessionId);
+        if (linha) await gravarLinhaVenda(linha);
       }
 
       await syncBlocksToDailySales(userId, planDateRef.current);
@@ -1232,6 +1243,7 @@ export function useDefconChallenge(userId: string | undefined) {
       // Offline / rede caiu: enfileira o estado do bloco pra sincronizar depois.
       avisar.erro("DEFCON: pix-depois não subiu agora, ficou na fila offline", e);
       await queueBlockOffline(blockState, userId, planIdRef.current);
+      await queueVendaOffline(linha, newTotal);
     }
   };
 
@@ -1256,8 +1268,12 @@ export function useDefconChallenge(userId: string | undefined) {
     setTotalSold(newTotal);
 
     const blockState = { ...currentBlock, achieved_amount: newAchieved, valor_dinheiro: newDinheiro, valor_gorjeta: newGorjeta };
+    const linha = sessionId
+      ? novaLinhaVenda({ user_id: userId, session_id: sessionId, block_index: currentBlockIndex, amount, method: "gorjeta", late: false })
+      : null;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       await queueBlockOffline(blockState, userId, planIdRef.current);
+      await queueVendaOffline(linha, newTotal);
       return;
     }
     try {
@@ -1274,17 +1290,10 @@ export function useDefconChallenge(userId: string | undefined) {
       if (sessionId) {
         const { error: sesErr } = await supabase.from("challenge_sessions").update({ total_sold: newTotal }).eq("id", sessionId);
         if (sesErr) throw sesErr;
+        await esquecerTotalSessaoOffline(sessionId);
         // Registra a gorjeta como LINHA em defcon_sales (method='gorjeta') pra aparecer
         // no histórico de vendas e poder ser cancelada. NÃO conta venda/abordagem.
-        const { error: tipErr } = await supabase.from("defcon_sales").insert({
-          user_id: userId,
-          session_id: sessionId,
-          block_index: currentBlockIndex,
-          amount,
-          method: "gorjeta",
-          late: false,
-        });
-        if (tipErr) throw tipErr;
+        if (linha) await gravarLinhaVenda(linha);
       }
 
       await syncBlocksToDailySales(userId, planDateRef.current);
@@ -1293,6 +1302,7 @@ export function useDefconChallenge(userId: string | undefined) {
       // Offline / rede caiu: enfileira o estado do bloco (com a gorjeta) pra sincronizar depois.
       avisar.erro("DEFCON: gorjeta não subiu agora, ficou na fila offline", e);
       await queueBlockOffline(blockState, userId, planIdRef.current);
+      await queueVendaOffline(linha, newTotal);
     }
   };
 

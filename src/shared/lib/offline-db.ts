@@ -5,7 +5,7 @@
  */
 
 const DB_NAME = 'orbis_offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // v2 (12/10/2026): pending_venda — cada venda com id próprio
 
 export interface OfflineRecord {
   id: string;
@@ -15,7 +15,7 @@ export interface OfflineRecord {
   synced: boolean;
 }
 
-type StoreName = 'pending_sales' | 'pending_approaches' | 'pending_checklist' | 'pending_defcon' | 'cached_data';
+export type StoreName = 'pending_sales' | 'pending_venda' | 'pending_approaches' | 'pending_checklist' | 'pending_defcon' | 'cached_data';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -28,6 +28,11 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('pending_sales')) {
         const store = db.createObjectStore('pending_sales', { keyPath: 'id' });
         store.createIndex('synced', 'synced', { unique: false });
+      }
+
+      // Vendas uma a uma (defcon_sales) + total da sessão — ver venda-offline.ts
+      if (!db.objectStoreNames.contains('pending_venda')) {
+        db.createObjectStore('pending_venda', { keyPath: 'id' });
       }
 
       // Pending approach counts
@@ -61,6 +66,16 @@ export async function addOfflineRecord(store: StoreName, record: OfflineRecord):
   return new Promise((resolve, reject) => {
     const tx = db.transaction(store, 'readwrite');
     tx.objectStore(store).put(record);
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+export async function removeOfflineRecord(store: StoreName, id: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, 'readwrite');
+    tx.objectStore(store).delete(id);
     tx.oncomplete = () => { db.close(); resolve(); };
     tx.onerror = () => { db.close(); reject(tx.error); };
   });
